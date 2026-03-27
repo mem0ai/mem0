@@ -38,6 +38,7 @@ device_codes = {}
 
 OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID", "claude")
 SERVER_PASSWORD = os.getenv("MCP_SERVER_AUTH_TOKEN", "default_password")
+OAUTH_AUTO_APPROVE = os.getenv("OAUTH_AUTO_APPROVE", "false").lower() == "true"
 
 def generate_token():
     return secrets.token_hex(32)
@@ -102,8 +103,7 @@ async def authorize(
     if code_challenge_method != "S256":
         raise HTTPException(status_code=400, detail="code_challenge_method must be S256")
     
-    req_id = generate_token()
-    auth_codes[req_id] = {
+    req_data = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "code_challenge": code_challenge,
@@ -111,7 +111,19 @@ async def authorize(
         "scope": scope,
         "expires": time.time() + 300
     }
-    
+
+    if OAUTH_AUTO_APPROVE:
+        auth_code = generate_token()
+        auth_codes[auth_code] = req_data
+        redirect_url = f"{redirect_uri}?code={auth_code}"
+        if state:
+            redirect_url += f"&state={state}"
+        logging.info(f"OAuth auto-approved for client_id={client_id}")
+        return RedirectResponse(redirect_url, status_code=302)
+
+    req_id = generate_token()
+    auth_codes[req_id] = req_data
+
     html = f"""
     <!DOCTYPE html>
     <html lang="en">
