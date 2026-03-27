@@ -1,6 +1,6 @@
 # mem0 CLI SDK Specification
 
-Complete reference for the mem0 CLI monorepo. This document is the authoritative guide for any developer or AI agent working on this SDK.
+Complete reference for the mem0 CLI. This document is the authoritative guide for any developer or AI agent working on this SDK.
 
 ---
 
@@ -31,9 +31,9 @@ mem0 CLI is the official command-line interface for [mem0](https://mem0.ai) -- t
 - AI agents that need persistent memory (the CLI is designed with `--output json` and `help --json` specifically for machine consumption)
 - DevOps/CI pipelines that need to manage memories programmatically
 
-### Monorepo Structure
+### Project Structure
 
-This is a polyglot monorepo providing the mem0 CLI in two languages with a shared specification for behavioral consistency.
+The `cli/` directory provides the mem0 CLI in two languages with a shared specification for behavioral consistency.
 
 | Language   | Directory  | Package Name  | Install Command            |
 |------------|------------|---------------|----------------------------|
@@ -54,12 +54,12 @@ Apache-2.0
 
 ## 2. Architecture
 
-### Monorepo Layout
+### Directory Layout
 
 ```
 .
 ├── cli-spec.json                    # Shared CLI specification (source of truth)
-├── README.md                        # Repo-level README
+├── README.md                        # CLI README
 ├── SDK_SPECIFICATION.md             # This file
 ├── python/
 │   ├── pyproject.toml               # Python package config (hatchling build)

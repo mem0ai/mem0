@@ -27,7 +27,7 @@ mem0 --help
 mem0 version
 ```
 
-> **After moving to the monorepo structure:** If you previously had the CLI installed from the old repo root, you need to re-run `pip install -e .` from inside the `python/` directory to pick up the new location.
+> **After moving to the new directory structure:** If you previously had the CLI installed from the old repo root, you need to re-run `pip install -e .` from inside the `python/` directory to pick up the new location.
 
 ## Run without installing globally
 

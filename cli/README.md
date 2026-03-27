@@ -2,9 +2,9 @@
 
 The official command-line interface for [mem0](https://mem0.ai) — the memory layer for AI agents.
 
-This is a polyglot monorepo providing the mem0 CLI in multiple languages with a shared specification for consistency.
+This directory provides the mem0 CLI in multiple languages with a shared specification for consistency.
 
-## Repository Structure
+## Directory Structure
 
 ```
 .
