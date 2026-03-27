@@ -133,6 +133,8 @@ class SearchRequest(BaseModel):
     limit: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
 
+class MemoryUpdate(BaseModel):
+    data: str = Field(..., description="New content to update the memory with.")
 
 @app.post("/configure", summary="Configure Mem0")
 def set_config(config: Dict[str, Any], _api_key: Optional[str] = Depends(verify_api_key)):
@@ -197,24 +199,20 @@ def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends
         logging.exception("Error in search_memories:")
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @app.put("/memories/{memory_id}", summary="Update a memory")
-def update_memory(memory_id: str, updated_memory: Dict[str, Any], _api_key: Optional[str] = Depends(verify_api_key)):
-    """Update an existing memory with new content.
-    
-    Args:
-        memory_id (str): ID of the memory to update
-        updated_memory (str): New content to update the memory with
-        
-    Returns:
-        dict: Success message indicating the memory was updated
+def update_memory(
+    memory_id: str, 
+    update_data: MemoryUpdate,  # 使用模型替代 Dict
+    _api_key: Optional[str] = Depends(verify_api_key)
+):
+    """
+    Update an existing memory with new content.
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
+        return MEMORY_INSTANCE.update(memory_id=memory_id, data=update_data.data)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
 def memory_history(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
