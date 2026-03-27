@@ -85,6 +85,9 @@ const memoryPlugin = {
     // read this as a best-effort fallback. Hooks should use ctx.sessionKey
     // directly and avoid relying on this variable.
     let currentSessionId: string | undefined;
+    // Track the last seen unique session UUID so we can detect when /new
+    // creates a fresh conversation (UUID changes even though sessionKey stays the same).
+    let lastSeenSessionUuid: string | undefined;
 
     // ========================================================================
     // Per-agent isolation helpers (thin wrappers around exported functions)
@@ -153,6 +156,8 @@ const memoryPlugin = {
 
     registerHooks(api, provider, cfg, _effectiveUserId, buildAddOptions, buildSearchOptions, {
       setCurrentSessionId: (id: string) => { currentSessionId = id; },
+      getLastSeenSessionUuid: () => lastSeenSessionUuid,
+      setLastSeenSessionUuid: (uuid: string) => { lastSeenSessionUuid = uuid; },
     });
 
     // ========================================================================
@@ -831,6 +836,8 @@ function registerHooks(
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
   session: {
     setCurrentSessionId: (id: string) => void;
+    getLastSeenSessionUuid: () => string | undefined;
+    setLastSeenSessionUuid: (uuid: string) => void;
   },
 ) {
   // Auto-recall: inject relevant memories before agent starts
@@ -849,14 +856,24 @@ function registerHooks(
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
-      // Detect new session for cold-start broadening
-      const isNewSession = true; // treat every hook invocation as potentially new
+      // ctx.sessionId is the unique UUID assigned per conversation (changes on /new).
+      // ctx.sessionKey is the stable channel key (e.g. agent:main:main) that never changes.
+      // We use the UUID as run_id so session memories are isolated per conversation,
+      // and we detect new sessions by checking whether the UUID has changed.
+      const sessionUuid = (ctx as any)?.sessionId ?? undefined;
+      const isNewSession =
+        sessionUuid !== undefined && sessionUuid !== session.getLastSeenSessionUuid();
+      if (sessionUuid) session.setLastSeenSessionUuid(sessionUuid);
 
       // Subagents have ephemeral UUIDs — their namespace is always empty.
       // Search the parent (main) user namespace instead so subagents get
       // the user's long-term context.
       const isSubagent = isSubagentSession(sessionId);
       const recallSessionKey = isSubagent ? undefined : sessionId;
+      // Use the unique session UUID as run_id for session-scoped memory searches
+      // so memories are truly isolated per conversation and don't bleed across /new.
+      // Fall back to sessionKey for gateways that don't yet emit ctx.sessionId.
+      const sessionRunId = sessionUuid ?? sessionId;
 
       try {
         // Use a larger candidate pool for recall, then filter down
@@ -909,12 +926,14 @@ function registerHooks(
         // Cap at configured topK after filtering
         longTermResults = longTermResults.slice(0, cfg.topK);
 
-        // Search session memories (session-scoped) if we have a session ID
+        // Search session memories scoped to the unique session UUID (sessionRunId).
+        // Using the UUID (not the channel sessionKey) ensures memories from a
+        // previous conversation are never injected after /new resets the session.
         let sessionResults: MemoryItem[] = [];
-        if (sessionId) {
+        if (sessionRunId) {
           sessionResults = await provider.search(
             event.prompt,
-            buildSearchOptions(undefined, undefined, sessionId, recallSessionKey),
+            buildSearchOptions(undefined, undefined, sessionRunId, recallSessionKey),
           );
           sessionResults = sessionResults.filter(
             (r) => (r.score ?? 0) >= cfg.searchThreshold,
@@ -991,8 +1010,12 @@ function registerHooks(
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
+      // Use the unique session UUID as run_id for captured memories, matching
+      // what we use during recall, so session memories stay isolated per conversation.
+      const sessionUuid = (ctx as any)?.sessionId ?? undefined;
+      const sessionRunId = sessionUuid ?? sessionId;
+
       try {
-        // Patterns indicating an assistant message contains a summary of
         // completed work — these are high-value for extraction and should
         // be included even if they fall outside the recent-message window.
         const SUMMARY_PATTERNS = [
@@ -1108,7 +1131,7 @@ function registerHooks(
           content: `Current date: ${timestamp}. The user is identified as "${cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
         });
 
-        const addOpts = buildAddOptions(undefined, sessionId, sessionId);
+        const addOpts = buildAddOptions(undefined, sessionRunId, sessionId);
         const result = await provider.add(
           formattedMessages,
           addOpts,
