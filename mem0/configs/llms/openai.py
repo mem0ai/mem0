@@ -31,6 +31,7 @@ class OpenAIConfig(BaseLlmConfig):
         store: bool = False,
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
+        reasoning_effort: Optional[str] = None,
     ):
         """
         Initialize OpenAI configuration.
@@ -52,6 +53,7 @@ class OpenAIConfig(BaseLlmConfig):
             site_url: Site URL for OpenRouter, defaults to None
             app_name: Application name for OpenRouter, defaults to None
             response_callback: Optional callback for monitoring LLM responses.
+            reasoning_effort: Reasoning effort for reasoning models (e.g. "low", "medium", "high"), defaults to None
         """
         # Initialize base parameters
         super().__init__(
@@ -77,3 +79,6 @@ class OpenAIConfig(BaseLlmConfig):
 
         # Response monitoring
         self.response_callback = response_callback
+
+        # Reasoning effort for reasoning models
+        self.reasoning_effort = reasoning_effort
