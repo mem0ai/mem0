@@ -1,31 +1,23 @@
 # mem0 CLI
 
-The official command-line interface for [mem0](https://mem0.ai) — the memory layer for AI agents.
+The official command-line interface for [mem0](https://mem0.ai) — the memory layer for AI agents. Works with the Mem0 Platform API. Available in Python and Node.js.
 
-This directory provides the mem0 CLI in multiple languages with a shared specification for consistency.
-
-## Directory Structure
-
-```
-.
-├── cli-spec.json       # Shared CLI specification (source of truth for commands, options, API)
-├── python/             # Python implementation (Typer + Rich + httpx)
-└── node/               # TypeScript implementation (Commander.js + chalk + native fetch)
-```
-
-## Implementations
-
-| Language | Directory | Install | Docs |
-|----------|-----------|---------|------|
-| Python | [`python/`](./python/) | `pip install mem0-cli` | [README](./python/README.md) |
-| TypeScript | [`node/`](./node/) | `npm install -g @mem0/cli` | [README](./node/README.md) |
-
-Both implementations provide identical CLI behavior — same commands, same options, same output formats.
-
-## Quick Start
+## Installation
 
 ```bash
-# Set up your configuration
+pip install mem0-cli
+```
+
+```bash
+npm install -g @mem0/cli
+```
+
+Both packages install a `mem0` binary with identical behavior.
+
+## Quick start
+
+```bash
+# Authenticate and save config
 mem0 init
 
 # Add a memory
@@ -34,13 +26,72 @@ mem0 add "I prefer dark mode and use vim keybindings" --user-id alice
 # Search memories
 mem0 search "What are Alice's preferences?" --user-id alice
 
-# List all memories
+# List all memories for a user
 mem0 list --user-id alice
+
+# Update a memory
+mem0 update <memory-id> "I switched to light mode"
+
+# Delete a memory
+mem0 delete <memory-id>
 ```
 
-## Shared Specification
+## Commands
 
-The `cli-spec.json` file defines the complete CLI surface — all commands, arguments, options, API endpoints, branding constants, and config schema. Both implementations use this as the source of truth for conformance testing.
+| Command | Description |
+|---------|-------------|
+| `mem0 init` | Interactive setup wizard — configures API key and default user ID |
+| `mem0 add` | Add a memory from text, JSON messages, a file, or stdin |
+| `mem0 search` | Search memories using natural language |
+| `mem0 list` | List memories with optional filters and pagination |
+| `mem0 get` | Retrieve a specific memory by ID |
+| `mem0 update` | Update the text or metadata of a memory |
+| `mem0 delete` | Delete a memory, all memories for a scope, or an entity |
+| `mem0 import` | Bulk import memories from a JSON file |
+| `mem0 config` | View or modify CLI configuration |
+| `mem0 entities` | List or delete entities (users, agents, apps) |
+| `mem0 status` | Verify API connection and display current project |
+| `mem0 version` | Print the CLI version |
+
+Run `mem0 <command> --help` for detailed usage on any command.
+
+## Output formats
+
+Control how results are displayed with `--output`:
+
+| Format | Description |
+|--------|-------------|
+| `text` | Human-readable with colors and formatting (default) |
+| `json` | Structured JSON for piping to `jq` or agent consumption |
+| `table` | Tabular format (default for `list`) |
+| `quiet` | Minimal — just IDs or status codes |
+
+```bash
+mem0 search "preferences" --user-id alice --output json | jq '.data.results[].memory'
+```
+
+## Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `MEM0_API_KEY` | API key (overrides config file) |
+| `MEM0_BASE_URL` | API base URL |
+| `MEM0_USER_ID` | Default user ID |
+| `MEM0_AGENT_ID` | Default agent ID |
+| `MEM0_APP_ID` | Default app ID |
+| `MEM0_RUN_ID` | Default run ID |
+| `MEM0_ENABLE_GRAPH` | Enable graph memory (`true` / `false`) |
+
+## Implementations
+
+| Language | Directory | Package | Docs |
+|----------|-----------|---------|------|
+| Python | [`python/`](./python/) | `mem0-cli` | [README](./python/README.md) |
+| TypeScript | [`node/`](./node/) | `@mem0/cli` | [README](./node/README.md) |
+
+## Documentation
+
+Full documentation is available at [docs.mem0.ai/platform/cli](https://docs.mem0.ai/platform/cli).
 
 ## License
 
