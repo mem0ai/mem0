@@ -37,8 +37,8 @@ The `cli/` directory provides the mem0 CLI in two languages with a shared specif
 
 | Language   | Directory  | Package Name  | Install Command            |
 |------------|------------|---------------|----------------------------|
-| Python     | `python/`  | `mem0cli`     | `pip install mem0cli`      |
-| TypeScript | `node/`    | `@mem0ai/cli` | `npm install -g mem0cli`   |
+| Python     | `python/`  | `mem0-cli`    | `pip install mem0-cli`     |
+| TypeScript | `node/`    | `@mem0/cli`   | `npm install -g @mem0/cli` |
 
 Both implementations produce a binary named `mem0` and provide **identical CLI behavior** -- same commands, same options, same output formats, same error messages.
 

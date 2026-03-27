@@ -17,8 +17,8 @@ This directory provides the mem0 CLI in multiple languages with a shared specifi
 
 | Language | Directory | Install | Docs |
 |----------|-----------|---------|------|
-| Python | [`python/`](./python/) | `pip install mem0cli` | [README](./python/README.md) |
-| TypeScript | [`node/`](./node/) | `npm install -g mem0cli` | [README](./node/README.md) |
+| Python | [`python/`](./python/) | `pip install mem0-cli` | [README](./python/README.md) |
+| TypeScript | [`node/`](./node/) | `npm install -g @mem0/cli` | [README](./node/README.md) |
 
 Both implementations provide identical CLI behavior — same commands, same options, same output formats.
 
