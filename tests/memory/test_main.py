@@ -581,6 +581,52 @@ class TestMetadataNotMutated:
         )
 
 
+def test_update_preserves_actor_id_when_different_actor_updates(mocker):
+    """actor_id must be preserved from the original memory even when the
+    updating caller passes a different actor_id in metadata (issue #4490)."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "I am player #1",
+            "user_id": "team",
+            "actor_id": "Alice",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    memory._update_memory(
+        "mem-id", "Player #1 is a good person",
+        {"Player #1 is a good person": [0.1, 0.2, 0.3]},
+        metadata={"user_id": "team", "actor_id": "Bob"},
+    )
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["actor_id"] == "Alice"
+
+
+@pytest.mark.asyncio
+async def test_async_update_preserves_actor_id_when_different_actor_updates(mocker):
+    """Async variant: actor_id must be preserved from the original memory (issue #4490)."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "I am player #1",
+            "user_id": "team",
+            "actor_id": "Alice",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    await memory._update_memory(
+        "mem-id", "Player #1 is a good person",
+        {"Player #1 is a good person": [0.1, 0.2, 0.3]},
+        metadata={"user_id": "team", "actor_id": "Bob"},
+    )
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["actor_id"] == "Alice"
+
+
 def test_normalize_iso_timestamp_to_utc_preserves_naive_values():
     assert _normalize_iso_timestamp_to_utc("2026-03-18T00:00:00") == "2026-03-18T00:00:00"
 
