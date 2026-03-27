@@ -12,14 +12,11 @@ The solution: Mem0. It extracts and stores what matters from conversations, then
 
 <Tabs>
   <Tab title="Platform">
-    Here we use **Mem0 Platform** (`MemoryClient`): managed infrastructure, zero setup.
-
-    <Note>**Setup:** `pip install mem0ai openai` · [Get your Mem0 API key](https://app.mem0.ai)</Note>
   </Tab>
   <Tab title="Open Source">
     Here we use **Mem0 open source** (`Memory`): all local, no API keys needed for memory. Vectors in **Qdrant**, LLM and embeddings via **Ollama**. The **OpenAI** Python SDK calls Ollama's **OpenAI-compatible** `/v1` endpoint for Ray's chat replies.
 
-    <Note>**Setup:** `pip install mem0ai qdrant-client openai` · Run Qdrant on `localhost:6333` (`docker run -p 6333:6333 qdrant/qdrant`) · Install [Ollama](https://ollama.com) and pull `llama3.1:latest` + `nomic-embed-text:latest` · use `embedding_model_dims` **768** for that embedder.</Note>
+    <Note>**Setup:** `pip install mem0ai qdrant-client openai ollama` · Run Qdrant on `localhost:6333` (`docker run -p 6333:6333 qdrant/qdrant`) · Install [Ollama](https://ollama.com) and pull `llama3.1:latest` + `nomic-embed-text:latest` · use `embedding_model_dims` **768** for that embedder.</Note>
   </Tab>
 </Tabs>
 
@@ -216,12 +213,9 @@ mem0_client.add(
 ```
   </Tab>
   <Tab title="Open Source">
-**Categories vs Metadata:**
+**Categories via Metadata:**
 
-- **Categories**: Model them with a stable field in **`metadata`** on every `add`—here we use **`memory_bucket`** (`goals`, `constraints`, `preferences`).
-- **Metadata**: Manually set by you for forced tagging.
-
-Define that vocabulary once in your code and pass the right `memory_bucket` on each memory:
+In open source, model categories with a stable field in `metadata`—here we use `memory_bucket`:
 
 ```python
 # Add goal
@@ -239,9 +233,9 @@ memory.add(
 )
 ```
 
-<Note>**Categories vs Metadata:** You assign category-like labels in `metadata` on each `add`. If you need guaranteed tags for filtering, set those keys yourself.</Note>
-
-**Important:** Filters only see what you put on `add`. Add `memory_bucket` and any extra keys you plan to filter on:
+<Note>
+**Categories vs Metadata:** In open source, categories are modeled as `metadata` fields you set on each `add`. Filters only see what you put on `add`.
+</Note>
 
 ```python
 # Force tag using metadata
@@ -344,9 +338,7 @@ Exclude:
 ```
   </Tab>
   <Tab title="Open Source">
-Tell Mem0 what matters. With `Memory`, put the extraction rules in **`custom_fact_extraction_prompt`** on the config dict (same object you pass to `Memory.from_config`). Ask for JSON with a top-level **`"facts"`** list at the end of the prompt.
-
-Start from the config you built in the basic loop, then add:
+Tell Mem0 what matters:
 
 ```python
 MEMORY_CONFIG["custom_fact_extraction_prompt"] = """
@@ -402,8 +394,6 @@ Only meaningful facts. Filler gets dropped automatically.
 
 ---
 
----
-
 ## Agent Memory for Personality
 
 ### Why Agents Need Memory Too
@@ -422,8 +412,6 @@ mem0_client.add(
 ```
   </Tab>
   <Tab title="Open Source">
-Store agent personality (`infer=False` stores the line verbatim):
-
 ```python
 memory.add(
     "Max wants direct, data-driven feedback. Skip motivational language.",
@@ -546,8 +534,6 @@ mem0_client.add(
 In 14 days, this memory disappears automatically. Ray stops asking about the ankle.
   </Tab>
   <Tab title="Open Source">
-Store **`expires_on`** in **`metadata`** and prune or hide the memory in your app after that date (same outcome as a time-bound fact).
-
 ```python
 from datetime import datetime, timedelta
 
@@ -560,7 +546,7 @@ memory.add(
 )
 ```
 
-Once you prune past `expires_on`, Ray stops asking about the ankle.
+Store `expires_on` in metadata and prune expired memories in your app. Ray stops asking about the ankle once it's removed.
   </Tab>
 </Tabs>
 
@@ -826,8 +812,8 @@ chat("leg day workout", user_id="max", agent_id="jordan")
   </Tab>
   <Tab title="Open Source">
 ```python
-memory.add([{"role": "user", "content": "easy run today"}], user_id="max", agent_id="ray")
-memory.add([{"role": "user", "content": "leg day workout"}], user_id="max", agent_id="jordan")
+chat("easy run today", user_id="max", agent_id="ray")
+chat("leg day workout", user_id="max", agent_id="jordan")
 ```
   </Tab>
 </Tabs>
@@ -850,10 +836,21 @@ recent = mem0_client.search(
   </Tab>
   <Tab title="Open Source">
 ```python
+# Qdrant range filters require numbers — store an epoch timestamp in metadata
+from datetime import datetime
+
+epoch = int(datetime(2025, 10, 15).timestamp())
+memory.add(
+    [{"role": "user", "content": "Completed 18-mile long run"}],
+    user_id="max",
+    metadata={"logged_epoch": epoch},
+)
+
+cutoff = int(datetime(2025, 10, 1).timestamp())
 recent = memory.search(
     "training progress",
     user_id="max",
-    filters={"created_at": {"gte": "2025-10-01"}},
+    filters={"logged_epoch": {"gte": cutoff}},
 )
 ```
   </Tab>
@@ -888,7 +885,7 @@ memory.add(
     metadata={"workout_type": "speed", "intensity": "high"},
 )
 
-# Later, find all speed workouts (filter keys match payload fields from metadata on add)
+# Later, find all speed workouts
 speed_sessions = memory.search(
     "speed work",
     user_id="max",
