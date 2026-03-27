@@ -58,3 +58,11 @@ def test_config_initialization(config):
     assert embedder.config.api_key == "dummy_api_key"
     assert embedder.config.model == "test_model"
     assert embedder.config.embedding_dims == 786
+
+
+def test_default_model_is_gemini_embedding_001(mock_genai):
+    default_config = BaseEmbedderConfig(api_key="dummy_api_key")
+    embedder = GoogleGenAIEmbedding(default_config)
+
+    assert embedder.config.model == "models/gemini-embedding-001"
+    assert embedder.config.embedding_dims == 768
