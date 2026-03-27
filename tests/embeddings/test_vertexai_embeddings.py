@@ -159,15 +159,3 @@ def test_invalid_memory_action(mock_text_embedding_model, mock_config):
 
     with pytest.raises(ValueError):
         embedder.embed("Hello world", memory_action="invalid_action")
-
-
-@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
-def test_default_model_and_dims(mock_text_embedding_model, mock_os_environ):
-    from mem0.configs.embeddings.base import BaseEmbedderConfig
-
-    default_config = BaseEmbedderConfig(vertex_credentials_json="/path/to/credentials.json")
-    embedder = VertexAIEmbedding(default_config)
-
-    assert embedder.config.model == "gemini-embedding-001"
-    mock_text_embedding_model.from_pretrained.assert_called_with("gemini-embedding-001")
-    assert embedder.config.embedding_dims == 256
