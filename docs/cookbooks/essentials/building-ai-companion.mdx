@@ -12,14 +12,14 @@ The solution: Mem0. It extracts and stores what matters from conversations, then
 
 <Tabs>
   <Tab title="Platform">
-    Here we use **Mem0 Platform** (`MemoryClient`): managed infrastructure, zero setup. You'll need an OpenAI API key for chat and a Mem0 API key for memory.
+    Here we use **Mem0 Platform** (`MemoryClient`): managed infrastructure, zero setup.
 
-    <Note>**Setup:** `pip install mem0ai openai` · [Get your Mem0 API key](https://app.mem0.ai) · [Get your OpenAI API key](https://platform.openai.com)</Note>
+    <Note>**Setup:** `pip install mem0ai openai` · [Get your Mem0 API key](https://app.mem0.ai)</Note>
   </Tab>
   <Tab title="Open Source">
-    Here we use **Mem0 open source** (`Memory`): vectors in **Qdrant**, chat and embeddings via **Ollama**. The optional **OpenAI** Python SDK calls Ollama's **OpenAI-compatible** `/v1` API for Ray's replies.
+    Here we use **Mem0 open source** (`Memory`): all local, no API keys needed for memory. Vectors in **Qdrant**, LLM and embeddings via **Ollama**. The **OpenAI** Python SDK calls Ollama's **OpenAI-compatible** `/v1` endpoint for Ray's chat replies.
 
-    <Note>**Setup:** `pip install mem0ai qdrant-client openai ollama` · Qdrant on `localhost:6333` · pull a chat model (e.g. `llama3.1:latest`) and `nomic-embed-text:latest` · use `embedding_model_dims` **768** for that embedder.</Note>
+    <Note>**Setup:** `pip install mem0ai qdrant-client openai` · Run Qdrant on `localhost:6333` (`docker run -p 6333:6333 qdrant/qdrant`) · Install [Ollama](https://ollama.com) and pull `llama3.1:latest` + `nomic-embed-text:latest` · use `embedding_model_dims` **768** for that embedder.</Note>
   </Tab>
 </Tabs>
 
