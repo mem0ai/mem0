@@ -15,6 +15,7 @@ from qdrant_client.models import (
     MatchValue,
     PointIdsList,
     PointStruct,
+    PointVectors,
     Range,
     VectorParams,
 )
@@ -231,6 +232,43 @@ class TestQdrant(unittest.TestCase):
         self.assertEqual(point.id, vector_id)
         self.assertEqual(point.vector, updated_vector)
         self.assertEqual(point.payload, updated_payload)
+
+    def test_update_with_none_vector_uses_set_payload(self):
+        """Test that update with vector=None uses set_payload instead of upsert (fixes #3708)."""
+        vector_id = str(uuid.uuid4())
+        updated_payload = {"key": "updated_value"}
+
+        self.qdrant.update(vector_id=vector_id, vector=None, payload=updated_payload)
+
+        self.client_mock.upsert.assert_not_called()
+        self.client_mock.set_payload.assert_called_once_with(
+            collection_name="test_collection",
+            payload=updated_payload,
+            points=[vector_id],
+        )
+
+    def test_update_with_none_payload_uses_update_vectors(self):
+        """Test that update with payload=None uses update_vectors instead of upsert."""
+        vector_id = str(uuid.uuid4())
+        updated_vector = [0.2, 0.3]
+
+        self.qdrant.update(vector_id=vector_id, vector=updated_vector, payload=None)
+
+        self.client_mock.upsert.assert_not_called()
+        self.client_mock.update_vectors.assert_called_once_with(
+            collection_name="test_collection",
+            points=[PointVectors(id=vector_id, vector=updated_vector)],
+        )
+
+    def test_update_with_both_none_is_noop(self):
+        """Test that update with both vector=None and payload=None is a no-op."""
+        vector_id = str(uuid.uuid4())
+
+        self.qdrant.update(vector_id=vector_id, vector=None, payload=None)
+
+        self.client_mock.upsert.assert_not_called()
+        self.client_mock.set_payload.assert_not_called()
+        self.client_mock.update_vectors.assert_not_called()
 
     def test_get(self):
         vector_id = str(uuid.uuid4())
