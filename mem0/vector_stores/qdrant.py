@@ -12,6 +12,7 @@ from qdrant_client.models import (
     MatchValue,
     PointIdsList,
     PointStruct,
+    PointVectors,
     Range,
     VectorParams,
 )
@@ -326,8 +327,21 @@ class Qdrant(VectorStoreBase):
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
-        point = PointStruct(id=vector_id, vector=vector, payload=payload)
-        self.client.upsert(collection_name=self.collection_name, points=[point])
+        if vector is not None and payload is not None:
+            point = PointStruct(id=vector_id, vector=vector, payload=payload)
+            self.client.upsert(collection_name=self.collection_name, points=[point])
+        else:
+            if payload is not None:
+                self.client.set_payload(
+                    collection_name=self.collection_name,
+                    payload=payload,
+                    points=[vector_id],
+                )
+            if vector is not None:
+                self.client.update_vectors(
+                    collection_name=self.collection_name,
+                    points=[PointVectors(id=vector_id, vector=vector)],
+                )
 
     def get(self, vector_id: int) -> dict:
         """
