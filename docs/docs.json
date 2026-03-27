@@ -1053,6 +1053,70 @@
     {
       "source": "/openmemory/integrations",
       "destination": "/introduction"
+    },
+    {
+      "source": "/platform/features/metadata",
+      "destination": "/open-source/features/metadata-filtering"
+    },
+    {
+      "source": "/platform/features/filters",
+      "destination": "/platform/features/v2-memory-filters"
+    },
+    {
+      "source": "/platform/features/memory-management",
+      "destination": "/core-concepts/memory-operations/add"
+    },
+    {
+      "source": "/open-source/quickstart",
+      "destination": "/open-source/python-quickstart"
+    },
+    {
+      "source": "/platform/features/search",
+      "destination": "/core-concepts/memory-operations/search"
+    },
+    {
+      "source": "/platform/features/memory",
+      "destination": "/core-concepts/memory-types"
+    },
+    {
+      "source": "/platform/features/api",
+      "destination": "/api-reference"
+    },
+    {
+      "source": "/platform/features/users",
+      "destination": "/platform/features/entity-scoped-memory"
+    },
+    {
+      "source": "/platform/features/categories",
+      "destination": "/platform/features/custom-categories"
+    },
+    {
+      "source": "/platform/features/export",
+      "destination": "/platform/features/memory-export"
+    },
+    {
+      "source": "/platform/features/import",
+      "destination": "/platform/features/direct-import"
+    },
+    {
+      "source": "/platform/features/graph",
+      "destination": "/platform/features/graph-memory"
+    },
+    {
+      "source": "/platform/features/webhooks-integration",
+      "destination": "/platform/features/webhooks"
+    },
+    {
+      "source": "/platform/features/async",
+      "destination": "/platform/features/async-client"
+    },
+    {
+      "source": "/open-source/features/reranking",
+      "destination": "/open-source/features/reranker-search"
+    },
+    {
+      "source": "/open-source/multimodal-support",
+      "destination": "/open-source/features/multimodal-support"
     }
   ]
 }
