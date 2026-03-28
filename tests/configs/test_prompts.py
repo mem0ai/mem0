@@ -49,3 +49,21 @@ def test_get_update_memory_messages_non_empty_memory():
     assert str(memory_data) in result
     # And that the non-empty memory message is present
     assert "current content of my memory" in result
+
+
+def test_default_update_memory_prompt_contradiction_includes_add():
+    """Verify the update memory prompt instructs the LLM to ADD the new
+    contradicting fact when DELETing the old one, preventing data loss."""
+    prompt = prompts.DEFAULT_UPDATE_MEMORY_PROMPT
+
+    # The DELETE section example should contain an ADD event for the
+    # replacement fact so contradicting memories are not silently lost.
+    assert '"event" : "ADD"' in prompt, (
+        "DEFAULT_UPDATE_MEMORY_PROMPT must instruct the LLM to ADD the new "
+        "fact when deleting a contradicting memory"
+    )
+
+    # The DELETE section should explicitly mention adding the new fact
+    assert "add the new fact" in prompt.lower(), (
+        "DELETE instructions should tell the LLM to add the new contradicting fact"
+    )
