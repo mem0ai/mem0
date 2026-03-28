@@ -8,6 +8,24 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-03-28" description="v1.0.9">
+
+**New Features & Updates:**
+- **LLMs:** Added `reasoning_effort` parameter support for reasoning models ([#4461](https://github.com/mem0ai/mem0/pull/4461))
+
+**Bug Fixes:**
+- **Core:** Preserved original `actor_id` during memory update ([#4570](https://github.com/mem0ai/mem0/pull/4570))
+- **Core:** Set `updated_at` on creation and preserve pre-existing `created_at` ([#4499](https://github.com/mem0ai/mem0/pull/4499))
+- **Core:** Centralized entity cleanup and skip malformed LLM relation dicts ([#4515](https://github.com/mem0ai/mem0/pull/4515))
+- **Core:** Removed `README.md` from wheel shared-data ([#4052](https://github.com/mem0ai/mem0/pull/4052))
+- **Vector Stores:** Handled `vector=None` in Milvus and Qdrant update methods ([#4568](https://github.com/mem0ai/mem0/pull/4568))
+- **Vector Stores:** Rebuilt FAISS index on vector deletion ([#4178](https://github.com/mem0ai/mem0/pull/4178))
+
+**Improvements:**
+- **Embeddings:** Updated default Gemini and Vertex AI embedder model to `gemini-embedding-001` ([#4571](https://github.com/mem0ai/mem0/pull/4571))
+
+</Update>
+
 <Update label="2026-03-26" description="v1.0.8">
 
 **New Features & Updates:**
@@ -798,6 +816,13 @@ mode: "wide"
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-03-28" description="v2.4.4">
+
+**Bug Fixes:**
+- **OSS:** Fixed Qdrant Cloud "Illegal host" error by defaulting to port 6333 when URL has no explicit port ([#4565](https://github.com/mem0ai/mem0/pull/4565))
+
+</Update>
 
 <Update label="2026-03-26" description="v2.4.3">
 
