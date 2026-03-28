@@ -310,16 +310,6 @@ class Memory(MemoryBase):
         """Shut down the shared thread pool executor."""
         self._executor.shutdown(wait=False)
 
-    def __del__(self):
-        self.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-        return False
-
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
