@@ -60,6 +60,21 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 ```
 </CodeGroup>
 
+## Local Model Optimizations
+
+Mem0 includes specific optimizations for running with local LLMs (like Llama 3.1 via Ollama):
+
+- **Robust JSON Parsing**: Mem0 automatically handles noisy model outputs, including preamble text and markdown code blocks, ensuring stable memory extraction even when local models don't strictly follow JSON-only formatting.
+- **Memory Granularity**: Use `entry_mode="chunk"` for large documents to extract semantic segments instead of atomic facts, which significantly improves context retention for smaller local models.
+
+```python
+config = {
+    "llm": {"provider": "ollama", "config": {"model": "llama3.1"}},
+    "entry_mode": "chunk" # Preserves larger semantic chunks
+}
+m = Memory.from_config(config)
+```
+
 ## Config
 
 All available parameters for the `ollama` config are present in [Master List of All Params in Config](../config).

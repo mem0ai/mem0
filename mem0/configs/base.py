@@ -64,6 +64,10 @@ class MemoryConfig(BaseModel):
         description="Custom prompt for the update memory",
         default=None,
     )
+    entry_mode: str = Field(
+        description="Threshold for the memory extraction (fact or chunk)",
+        default="fact",
+    )
 
 
 class AzureConfig(BaseModel):

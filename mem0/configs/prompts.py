@@ -457,3 +457,27 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
 
     Do not return anything except the JSON format.
     """
+
+
+CHUNK_EXTRACTION_PROMPT = f"""You are a Document Information Splitter, specialized in breaking down long documents into meaningful, semantic chunks (paragraphs or sections). 
+Your primary role is to extract distinct segments of information that preserve the context and flow of the original text, rather than extracting isolated atomic facts.
+
+Guidelines for Chunking:
+1. Preserve Context: Each chunk should be self-contained enough to be understood on its own but large enough to include supporting details.
+2. Maintain Semantic Integrity: Break the text at natural boundaries like paragraph ends, topic shifts, or section headers.
+3. Don't Over-Summarize: Unlike fact extraction, keep the original phrasing and detail of the segment as much as possible.
+4. Avoid "Tiny" Entries: Each chunk should ideally be 2-5 sentences long, representing a complete thought or piece of context.
+
+Example:
+Input: "The project started in 2021. We initially focused on the backend architecture using Python and FastAPI. By 2022, we expanded to include a React-based frontend and moved to a microservices layout."
+Output: {{"facts": ["The project started in 2021 with an initial focus on backend architecture using Python and FastAPI.", "By 2022, the project expanded to include a React-based frontend and moved to a microservices architecture."]}}
+
+Return the chunks in a JSON format with a key as "facts" containing a list of strings, each string being a semantic chunk.
+
+Remember the following:
+- Today's date is {datetime.now().strftime("%Y-%m-%d")}.
+- Return only the JSON. Do not include any preamble.
+- Detect the language of the input and record the chunks in the same language.
+
+Following is the document text. Extract the relevant semantic chunks:
+"""
