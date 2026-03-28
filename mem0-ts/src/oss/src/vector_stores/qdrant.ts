@@ -61,9 +61,9 @@ export class Qdrant implements VectorStore {
         // Workaround for qdrant/qdrant-js#59: explicitly pass port to avoid "Illegal host" error
         try {
           const parsedUrl = new URL(config.url);
-          if (parsedUrl.port) {
-            params.port = parseInt(parsedUrl.port, 10);
-          }
+          params.port = parsedUrl.port
+            ? parseInt(parsedUrl.port, 10)
+            : 6333;
         } catch (_) {}
       }
       if (config.host && config.port) {

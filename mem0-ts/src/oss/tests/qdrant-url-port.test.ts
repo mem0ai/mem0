@@ -70,7 +70,7 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
     expect(capturedParams!.port).toBe(6333);
   });
 
-  it("does not set port when URL uses default HTTPS port (443)", () => {
+  it("defaults to port 6333 when HTTPS URL has no explicit port", () => {
     new Qdrant({
       url: "https://my-cluster.cloud.qdrant.io",
       apiKey: "test-key",
@@ -81,10 +81,10 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
 
     expect(capturedParams).toBeDefined();
     expect(capturedParams!.url).toBe("https://my-cluster.cloud.qdrant.io");
-    expect(capturedParams!.port).toBeUndefined();
+    expect(capturedParams!.port).toBe(6333);
   });
 
-  it("does not set port when URL uses default HTTP port (80)", () => {
+  it("defaults to port 6333 when HTTP URL has no explicit port", () => {
     new Qdrant({
       url: "http://localhost",
       collectionName: "test",
@@ -93,7 +93,7 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
     });
 
     expect(capturedParams).toBeDefined();
-    expect(capturedParams!.port).toBeUndefined();
+    expect(capturedParams!.port).toBe(6333);
   });
 
   it("host+port config overrides URL-extracted port", () => {
@@ -153,7 +153,7 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("extracts non-standard port from HTTPS URL", () => {
+  it("defaults to 6333 when HTTPS URL uses default port 443", () => {
     new Qdrant({
       url: "https://my-cluster.cloud.qdrant.io:443",
       apiKey: "test-key",
@@ -162,8 +162,8 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
       dimension: 768,
     });
 
-    // 443 is default for HTTPS, so URL.port returns empty string
+    // 443 is default for HTTPS, so URL.port returns empty string — we default to 6333
     expect(capturedParams).toBeDefined();
-    expect(capturedParams!.port).toBeUndefined();
+    expect(capturedParams!.port).toBe(6333);
   });
 });
