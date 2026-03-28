@@ -5,11 +5,11 @@ The official command-line interface for [mem0](https://mem0.ai) — the memory l
 ## Installation
 
 ```bash
-pip install mem0-cli
+npm install -g @mem0/cli
 ```
 
 ```bash
-npm install -g @mem0/cli
+pip install mem0-cli
 ```
 
 Both packages install a `mem0` binary with identical behavior.
@@ -86,8 +86,8 @@ mem0 search "preferences" --user-id alice --output json | jq '.data.results[].me
 
 | Language | Directory | Package | Docs |
 |----------|-----------|---------|------|
-| Python | [`python/`](./python/) | `mem0-cli` | [README](./python/README.md) |
 | TypeScript | [`node/`](./node/) | `@mem0/cli` | [README](./node/README.md) |
+| Python | [`python/`](./python/) | `mem0-cli` | [README](./python/README.md) |
 
 ## Documentation
 
