@@ -16,7 +16,15 @@ from mem0_cli.commands.config_cmd import (
     cmd_config_show,
 )
 from mem0_cli.commands.entities import cmd_entities_delete, cmd_entities_list
-from mem0_cli.commands.memory import cmd_add, cmd_delete, cmd_delete_all, cmd_get, cmd_list, cmd_search, cmd_update
+from mem0_cli.commands.memory import (
+    cmd_add,
+    cmd_delete,
+    cmd_delete_all,
+    cmd_get,
+    cmd_list,
+    cmd_search,
+    cmd_update,
+)
 from mem0_cli.commands.utils import (
     cmd_import,
     cmd_status,
@@ -586,7 +594,7 @@ class TestDeleteAllCommand:
         mock_backend.delete.assert_not_called()
 
     def test_delete_all_project_wide(self, mock_backend):
-        console, buf = _make_console()
+        console, _buf = _make_console()
         err_console, _err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.memory.console", console),
