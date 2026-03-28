@@ -165,19 +165,29 @@ def test_search_with_filters(faiss_instance, mock_faiss_index):
                 assert results[0].payload == {"name": "vector1", "category": "A"}
 
 
-def test_delete(faiss_instance):
+def test_delete(faiss_instance, mock_faiss_index):
     # Setup the docstore and index_to_id mapping
     faiss_instance.docstore = {"id1": {"name": "vector1"}, "id2": {"name": "vector2"}}
     faiss_instance.index_to_id = {0: "id1", 1: "id2"}
 
+    # Mock reconstruct to return vectors for remaining entries
+    mock_faiss_index.reconstruct.side_effect = lambda idx: np.array(
+        [0.1, 0.2, 0.3] if idx == 0 else [0.4, 0.5, 0.6], dtype=np.float32
+    )
+
     # Call delete
     faiss_instance.delete(vector_id="id1")
 
-    # Verify the vector was removed from docstore and index_to_id
+    # Verify the vector was removed from docstore
     assert "id1" not in faiss_instance.docstore
-    assert 0 not in faiss_instance.index_to_id
     assert "id2" in faiss_instance.docstore
-    assert 1 in faiss_instance.index_to_id
+
+    # Verify the FAISS index was rebuilt
+    mock_faiss_index.reset.assert_called_once()
+    mock_faiss_index.add.assert_called_once()
+
+    # Verify index_to_id was remapped contiguously
+    assert faiss_instance.index_to_id == {0: "id2"}
 
 
 def test_update(faiss_instance, mock_faiss_index):
