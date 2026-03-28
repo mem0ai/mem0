@@ -304,7 +304,21 @@ class Memory(MemoryBase):
                 self.config.vector_store.provider, telemetry_config
             )
         capture_event("mem0.init", self, {"sync_type": "sync"})
-        self._executor = concurrent.futures.ThreadPoolExecutor()
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
+    def close(self):
+        """Shut down the shared thread pool executor."""
+        self._executor.shutdown(wait=False)
+
+    def __del__(self):
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
