@@ -6,7 +6,7 @@ from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 
 try:
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import SentenceTransformer, CrossEncoder
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
@@ -41,8 +41,26 @@ class SentenceTransformerReranker(BaseReranker):
             )
 
         self.config = config
-        self.model = SentenceTransformer(self.config.model, device=self.config.device)
+        self._is_cross_encoder = self._detect_cross_encoder(self.config.model)
+        if self._is_cross_encoder:
+            self.model = CrossEncoder(self.config.model, device=self.config.device)
+        else:
+            self.model = SentenceTransformer(self.config.model, device=self.config.device)
         
+    @staticmethod
+    def _detect_cross_encoder(model_name: str) -> bool:
+        """Detect if a model is a cross-encoder based on its name.
+
+        Cross-encoder models require the ``CrossEncoder`` class from
+        sentence-transformers.  Using ``SentenceTransformer`` with these
+        models silently falls back to mean pooling and produces all-zero
+        relevance scores.
+        """
+        if not model_name:
+            return False
+        name_lower = model_name.lower()
+        return "cross-encoder" in name_lower or "reranker" in name_lower
+
     def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = None) -> List[Dict[str, Any]]:
         """
         Rerank documents using sentence transformer cross-encoder.
