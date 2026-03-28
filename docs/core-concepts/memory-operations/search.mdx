@@ -75,6 +75,7 @@ m.search("What are Alice's hobbies?", user_id="alice")
 | Capability | Mem0 Platform | Mem0 OSS |
 | --- | --- | --- |
 | **user_id usage** | In `filters={"user_id": "alice"}` for search/get_all | As parameter `user_id="alice"` for all operations |
+| **org_id scoping** | Via `org_id` in client init or filters | As parameter `org_id="acme"` in `search()` for org-scoped multi-tenant queries |
 | **Filter syntax** | Logical operators (`AND`, `OR`, comparisons) with field-level access | Basic field filters, extend via Python hooks |
 | **Reranking** | Toggle `rerank=True` with managed reranker catalog | Requires configuring local or third-party rerankers |
 | **Thresholds** | Request-level configuration (`threshold`, `top_k`) | Controlled via SDK parameters |
@@ -134,6 +135,18 @@ memories = m.search(
     user_id="alice",
     filters={"categories": {"contains": "diet"}}
 )
+
+# Org-scoped search: personal + org-wide memories in one call
+memories = m.search(
+    "quarterly targets",
+    org_id="acme",
+    filters={
+        "OR": [
+            {"user_id": "alice"},
+            {"source": "company_knowledge"},
+        ],
+    },
+)
 ```
 
 ```javascript JavaScript
@@ -180,6 +193,20 @@ client.search("query", filters={
 m.search("query", user_id="alice", agent_id="chatbot", run_id="session-123")
 ```
 
+**Filter by Organization (OSS, multi-tenant):**
+```python
+# Search all memories within an org (no user_id constraint)
+m.search("company policies", org_id="acme")
+
+# Search personal + shared memories in one call
+m.search("project updates", org_id="acme", filters={
+    "OR": [
+        {"user_id": "alice"},
+        {"source": "company_knowledge"}
+    ]
+})
+```
+
 **Filter by Date Range:**
 ```python
 # Platform only - date filtering
@@ -208,6 +235,7 @@ client.search("preferences", filters={
 - **Scope with user ID**: Always provide `user_id` to scope search to relevant memories
   - **Platform API**: Use `filters={"user_id": "alice"}`
   - **OSS**: Use `user_id="alice"` as parameter
+- **Multi-tenant org search (OSS)**: Use `org_id="acme"` to search across multiple user namespaces within an organization. When `org_id` is provided, `user_id` is not injected as a hard filter — use explicit `OR` filters to control which user scopes to include
 - **Combine filters**: Use AND/OR logic to create precise queries (Platform)
 - **Consider wildcard filters**: Use wildcard filters (e.g., `run_id: "*"`) for broader matches
 - **Tune parameters**: Adjust `top_k` for result count, `threshold` for relevance cutoff

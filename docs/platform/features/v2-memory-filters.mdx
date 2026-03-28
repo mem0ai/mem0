@@ -39,6 +39,7 @@ Filters use a nested JSON structure with logical operators at the root:
 | Field | Operators | Example |
 |-------|-----------|---------|
 | `user_id` | `eq`, `ne`, `in`, `*` | `{"user_id": "user_123"}` |
+| `org_id` | `eq`, `ne`, `in`, `*` | `{"org_id": "acme"}` |
 | `agent_id` | `eq`, `ne`, `in`, `*` | `{"agent_id": "*"}` |
 | `app_id` | `eq`, `ne`, `in`, `*` | `{"app_id": {"in": ["app1", "app2"]}}` |
 | `run_id` | `eq`, `ne`, `in`, `*` | `{"run_id": "*"}` |
@@ -312,6 +313,20 @@ Level up foundational patterns with compound filters that coordinate entity scop
     ```
   </Accordion>
 
+  <Accordion title="Org-scoped multi-tenant search (OSS)">
+    ```python
+    # Search personal + org-wide memories in one call
+    # When org_id is provided, user_id is not injected as a hard filter
+    filters = {
+        "OR": [
+            {"user_id": "alice"},
+            {"source": "company_knowledge"},
+        ],
+    }
+    results = m.search("quarterly targets", org_id="acme", filters=filters)
+    ```
+  </Accordion>
+
   <Accordion title="Nested NOT/OR logic">
     ```python
     # User memories from 2024, excluding spam and test
@@ -433,5 +448,6 @@ Memories are stored per-entity (user, agent, app, run). Combining `user_id` **an
 ## Known limitations
 
 - Entity filters operate on a single scope per record. Use separate queries or `OR` logic to compare users vs agents.
+- In OSS, use `org_id` in `search()` to query across multiple `user_id` namespaces within an organization without multiple API calls.
 - Metadata supports only bare/`eq`, `contains`, and `ne` comparisons.
 - Wildcards (`"*"` ) match only records where the field is already non-null.

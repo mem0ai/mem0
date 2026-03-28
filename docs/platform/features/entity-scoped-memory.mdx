@@ -27,12 +27,13 @@ Call `client.project.get()` to verify your connection. It should return your pro
 
 ## Feature anatomy
 
-| Dimension   | Field      | When to use it                                   | Example value       |
-| ----------- | ---------- | ------------------------------------------------ | ------------------- |
-| User        | `user_id`  | Persistent persona or account                    | `"customer_6412"`   |
-| Agent       | `agent_id` | Distinct agent persona or tool                   | `"meal_planner"`    |
-| Application | `app_id`   | White-label app or product surface               | `"ios_retail_demo"` |
-| Session     | `run_id`   | Short-lived flow, ticket, or conversation thread | `"ticket-9241"`     |
+| Dimension    | Field      | When to use it                                   | Example value       |
+| ------------ | ---------- | ------------------------------------------------ | ------------------- |
+| User         | `user_id`  | Persistent persona or account                    | `"customer_6412"`   |
+| Organization | `org_id`   | Multi-tenant org scope (OSS `search()`)          | `"acme"`            |
+| Agent        | `agent_id` | Distinct agent persona or tool                   | `"meal_planner"`    |
+| Application  | `app_id`   | White-label app or product surface               | `"ios_retail_demo"` |
+| Session      | `run_id`   | Short-lived flow, ticket, or conversation thread | `"ticket-9241"`     |
 
 - **Writes** (`client.add`) accept any combination of these fields. Absent fields default to `null`.
 - **Reads** (`client.search`, `client.get_all`, exports, deletes) accept the same identifiers inside the `filters` JSON object.

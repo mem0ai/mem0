@@ -60,6 +60,35 @@ results = m.search(
   Expect only memories tagged with `category="preferences"` to return for the given `user_id`.
 </Info>
 
+### Org-scoped multi-tenant search
+
+Use `org_id` to search across multiple user namespaces within an organization. When `org_id` is provided, `user_id` is **not** injected as a hard filter — you control read-time scoping via explicit `OR` filters.
+
+```python
+# Search personal + org-wide memories in a single call
+results = m.search(
+    "quarterly targets",
+    org_id="acme",
+    filters={
+        "OR": [
+            {"user_id": "alice"},
+            {"source": "company_knowledge"},
+        ],
+    },
+)
+
+# Search all memories in an org (no user_id constraint)
+results = m.search("company policies", org_id="acme")
+```
+
+<Info icon="check">
+  The first example returns memories belonging to `alice` **or** tagged as company knowledge within the `acme` org. The second returns all memories in the org regardless of `user_id`.
+</Info>
+
+<Tip>
+  `org_id` is indexed in Qdrant by default. Combine it with `AND`/`OR` filters for efficient multi-tenant queries without multiple API calls.
+</Tip>
+
 ### Comparison operators
 
 Layer greater-than/less-than comparisons to rank results by score, confidence, or any numeric field. Equality helpers (`eq`, `ne`) keep string and boolean checks explicit.
