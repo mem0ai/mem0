@@ -457,7 +457,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+					{
+						"lang": "Python",
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/events/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "const options = {method: 'GET', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/events/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+					},
+					{
+						"lang": "cURL",
+						"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/events/ \\\n  --header 'Authorization: Token <api-key>'"
+					},
+					{
+						"lang": "Go",
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/events/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+					},
+					{
+						"lang": "PHP",
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/events/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+					},
+					{
+						"lang": "Java",
+						"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/events/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					}
+				]
 			}
 		},
 		"/v1/event/{event_id}/": {
@@ -563,7 +589,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+					{
+						"lang": "Python",
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/event/{event_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "const options = {method: 'GET', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/event/{event_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+					},
+					{
+						"lang": "cURL",
+						"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/event/{event_id}/ \\\n  --header 'Authorization: Token <api-key>'"
+					},
+					{
+						"lang": "Go",
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/event/{event_id}/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+					},
+					{
+						"lang": "PHP",
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/event/{event_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+					},
+					{
+						"lang": "Java",
+						"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/event/{event_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					}
+				]
 			}
 		},
 		"/v1/exports/": {
