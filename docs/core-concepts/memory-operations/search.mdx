@@ -181,13 +181,22 @@ m.search("query", user_id="alice", agent_id="chatbot", run_id="session-123")
 ```
 
 **Filter by Date Range:**
+
+*Platform API:*
 ```python
-# Platform only - date filtering
 client.search("recent memories", filters={
     "AND": [
         {"user_id": "alice"},
         {"created_at": {"gte": "2024-07-01"}}
     ]
+})
+```
+
+*OSS (Qdrant backend):*
+```python
+# ISO strings, Unix timestamps, and datetime objects all work
+m.search("recent memories", user_id="alice", filters={
+    "created_at": {"gte": "2024-07-01T00:00:00Z"}
 })
 ```
 

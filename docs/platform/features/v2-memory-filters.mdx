@@ -202,6 +202,20 @@ Retrieve memories within specific date ranges using time operators.
     }
     ```
   </Accordion>
+
+  <Accordion title="Accepted datetime formats (OSS / Qdrant)">
+    ```python
+    # ISO 8601 string (recommended)
+    {"created_at": {"gte": "2024-01-01T00:00:00Z"}}
+
+    # Unix timestamp (float)
+    {"created_at": {"gte": 1704067200.0}}
+
+    # Python datetime object
+    from datetime import datetime, timezone
+    {"created_at": {"gte": datetime(2024, 1, 1, tzinfo=timezone.utc)}}
+    ```
+  </Accordion>
 </AccordionGroup>
 
 ### Multiple criteria
