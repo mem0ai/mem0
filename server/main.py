@@ -124,6 +124,11 @@ class MemoryCreate(BaseModel):
     prompt: Optional[str] = Field(None, description="Custom prompt to use for fact extraction.")
 
 
+class MemoryUpdate(BaseModel):
+    text: str = Field(..., description="New content to update the memory with.")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata to update.")
+
+
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query.")
     user_id: Optional[str] = None
@@ -199,18 +204,18 @@ def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends
 
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
-def update_memory(memory_id: str, updated_memory: Dict[str, Any], _api_key: Optional[str] = Depends(verify_api_key)):
+def update_memory(memory_id: str, updated_memory: MemoryUpdate, _api_key: Optional[str] = Depends(verify_api_key)):
     """Update an existing memory with new content.
-    
+
     Args:
         memory_id (str): ID of the memory to update
-        updated_memory (str): New content to update the memory with
-        
+        updated_memory (MemoryUpdate): New content and optional metadata to update the memory with
+
     Returns:
         dict: Success message indicating the memory was updated
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
+        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
