@@ -4,6 +4,20 @@ import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import * as fs from "fs";
 
 interface QdrantConfig extends VectorStoreConfig {
+  /**
+   * Pre-configured QdrantClient instance. If using Qdrant Cloud, you must pass
+   * `port` explicitly when constructing the client to avoid "Illegal host" errors
+   * caused by a known upstream bug (qdrant/qdrant-js#59).
+   *
+   * @example
+   * ```typescript
+   * const client = new QdrantClient({
+   *   url: "https://xxx.cloud.qdrant.io:6333",
+   *   port: 6333,
+   *   apiKey: "xxx",
+   * });
+   * ```
+   */
   client?: QdrantClient;
   host?: string;
   port?: number;
@@ -44,6 +58,13 @@ export class Qdrant implements VectorStore {
       }
       if (config.url) {
         params.url = config.url;
+        // Workaround for qdrant/qdrant-js#59: explicitly pass port to avoid "Illegal host" error
+        try {
+          const parsedUrl = new URL(config.url);
+          params.port = parsedUrl.port ? parseInt(parsedUrl.port, 10) : 6333;
+        } catch (_) {
+          params.port = 6333;
+        }
       }
       if (config.host && config.port) {
         params.host = config.host;
