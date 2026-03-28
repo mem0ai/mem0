@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 def get_fact_retrieval_messages(message, is_agent_memory=False):
     """Get fact retrieval messages based on the memory type.
-    
+
     Args:
         message: The message content to extract facts from
         is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt
-        
+
     Returns:
         tuple: (system_prompt, user_prompt)
     """
@@ -51,8 +51,7 @@ def ensure_json_instruction(system_prompt, user_prompt):
     combined = (system_prompt + user_prompt).lower()
     if "json" not in combined:
         system_prompt += (
-            "\n\nYou must return your response in valid JSON format "
-            "with a 'facts' key containing an array of strings."
+            "\n\nYou must return your response in valid JSON format with a 'facts' key containing an array of strings."
         )
     return system_prompt, user_prompt
 
@@ -66,6 +65,8 @@ def parse_messages(messages):
             response += f"user: {msg['content']}\n"
         if msg["role"] == "assistant":
             response += f"assistant: {msg['content']}\n"
+        if msg["role"] == "tool":
+            response += f"tool: {msg['content']}\n"
     return response
 
 
@@ -116,9 +117,8 @@ def remove_code_blocks(content: str) -> str:
     """
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
-    match_res=match.group(1).strip() if match else content.strip()
+    match_res = match.group(1).strip() if match else content.strip()
     return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()
-
 
 
 def extract_json(text):
@@ -264,4 +264,3 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         sanitized = sanitized.replace(old, new)
 
     return re.sub(r"_+", "_", sanitized).strip("_")
-
