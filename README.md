@@ -98,7 +98,7 @@ npm install mem0ai
 Manage memories from your terminal:
 
 ```bash
-pip install mem0-cli   # or: npm install -g @mem0/cli
+npm install -g @mem0/cli   # or: pip install mem0-cli
 
 mem0 init
 mem0 add "Prefers dark mode and vim keybindings" --user-id alice

@@ -4,9 +4,19 @@ The official command-line interface for [mem0](https://mem0.ai) — the memory l
 
 ## Installation
 
+### Using pipx (recommended)
+
+```bash
+pipx install mem0-cli
+```
+
+### Using pip
+
 ```bash
 pip install mem0-cli
 ```
+
+> **Note:** On macOS with Homebrew Python, `pip install` outside a virtual environment will fail with an `externally-managed-environment` error ([PEP 668](https://peps.python.org/pep-0668/)). Use `pipx` instead, or install inside a virtual environment.
 
 ## Quick Start
 
