@@ -62,7 +62,9 @@ export class Qdrant implements VectorStore {
         try {
           const parsedUrl = new URL(config.url);
           params.port = parsedUrl.port ? parseInt(parsedUrl.port, 10) : 6333;
-        } catch (_) {}
+        } catch (_) {
+          params.port = 6333;
+        }
       }
       if (config.host && config.port) {
         params.host = config.host;

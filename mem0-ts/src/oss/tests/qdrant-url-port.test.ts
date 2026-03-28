@@ -124,6 +124,7 @@ describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
 
     expect(capturedParams).toBeDefined();
     expect(capturedParams!.url).toBe("not-a-valid-url");
+    expect(capturedParams!.port).toBe(6333);
   });
 
   it("does not pass port when using pre-configured client", () => {
