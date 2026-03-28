@@ -103,14 +103,13 @@ def run_init(*, api_key: str | None = None, user_id: str | None = None) -> None:
         return
 
     # Non-TTY without full flags -> error
-    if not sys.stdin.isatty():
-        if not api_key or not user_id:
-            print_error(
-                err_console,
-                "Non-interactive terminal detected and required flags missing.",
-                hint="Run: mem0 init --api-key <key> --user-id <id>",
-            )
-            raise typer.Exit(1)
+    if not sys.stdin.isatty() and (not api_key or not user_id):
+        print_error(
+            err_console,
+            "Non-interactive terminal detected and required flags missing.",
+            hint="Run: mem0 init --api-key <key> --user-id <id>",
+        )
+        raise typer.Exit(1)
 
     print_banner(console)
     console.print()

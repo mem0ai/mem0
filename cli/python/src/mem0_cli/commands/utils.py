@@ -22,7 +22,6 @@ from mem0_cli.branding import (
     print_success,
     timed_status,
 )
-from mem0_cli.config import load_config
 
 console = Console()
 err_console = Console(stderr=True)
