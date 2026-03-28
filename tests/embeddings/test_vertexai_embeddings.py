@@ -48,7 +48,7 @@ def mock_text_embedding_input():
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_default_model(mock_text_embedding_model, mock_os_environ, mock_config, mock_text_embedding_input):
-    mock_config.return_value.model = "text-embedding-004"
+    mock_config.return_value.model = "gemini-embedding-001"
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
@@ -59,7 +59,7 @@ def test_embed_default_model(mock_text_embedding_model, mock_os_environ, mock_co
 
     embedder.embed("Hello world")
     mock_text_embedding_input.assert_called_once_with(text="Hello world", task_type="SEMANTIC_SIMILARITY")
-    mock_text_embedding_model.from_pretrained.assert_called_once_with("text-embedding-004")
+    mock_text_embedding_model.from_pretrained.assert_called_once_with("gemini-embedding-001")
 
     mock_text_embedding_model.from_pretrained.return_value.get_embeddings.assert_called_once_with(
         texts=[mock_text_embedding_input("Hello world")], output_dimensionality=256
@@ -92,7 +92,7 @@ def test_embed_custom_model(mock_text_embedding_model, mock_os_environ, mock_con
 def test_embed_with_memory_action(
     mock_text_embedding_model, mock_os_environ, mock_config, mock_embedding_types, mock_text_embedding_input
 ):
-    mock_config.return_value.model = "text-embedding-004"
+    mock_config.return_value.model = "gemini-embedding-001"
     mock_config.return_value.embedding_dims = 256
 
     for embedding_type in mock_embedding_types:
@@ -103,7 +103,7 @@ def test_embed_with_memory_action(
         config = mock_config()
         embedder = VertexAIEmbedding(config)
 
-        mock_text_embedding_model.from_pretrained.assert_called_with("text-embedding-004")
+        mock_text_embedding_model.from_pretrained.assert_called_with("gemini-embedding-001")
 
         for memory_action in ["add", "update", "search"]:
             embedder.embed("Hello world", memory_action=memory_action)
@@ -151,7 +151,7 @@ def test_embed_with_different_dimensions(mock_text_embedding_model, mock_os_envi
 
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_invalid_memory_action(mock_text_embedding_model, mock_config):
-    mock_config.return_value.model = "text-embedding-004"
+    mock_config.return_value.model = "gemini-embedding-001"
     mock_config.return_value.embedding_dims = 256
 
     config = mock_config()
