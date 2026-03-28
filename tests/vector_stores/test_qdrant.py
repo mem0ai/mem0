@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
+    DatetimeRange,
     Distance,
     FieldCondition,
     Filter,
@@ -814,3 +815,47 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertIsNotNone(result.must_not)
         # Deduplicated: NOT wins, $not is skipped — exactly 1 entry
         self.assertEqual(len(result.must_not), 1)
+
+    # ------------------------------------------------------------------ #
+    # DatetimeRange for datetime fields (issue #4591)                      #
+    # ------------------------------------------------------------------ #
+
+    def test_datetime_iso_string_uses_datetime_range(self):
+        """ISO datetime strings should produce DatetimeRange, not Range."""
+        result = self.qdrant._create_filter({"created_at": {"gte": "2024-01-01T00:00:00Z"}})
+        self.assertIsInstance(result, Filter)
+        cond = result.must[0]
+        self.assertIsInstance(cond.range, DatetimeRange)
+        # DatetimeRange parses ISO strings into datetime objects
+        from datetime import datetime, timezone
+        self.assertEqual(cond.range.gte, datetime(2024, 1, 1, tzinfo=timezone.utc))
+
+    def test_datetime_range_gte_lt(self):
+        """Date range with gte + lt should use DatetimeRange."""
+        result = self.qdrant._create_filter({
+            "created_at": {"gte": "2024-01-01T00:00:00Z", "lt": "2024-02-01T00:00:00Z"}
+        })
+        self.assertIsInstance(result, Filter)
+        cond = result.must[0]
+        self.assertIsInstance(cond.range, DatetimeRange)
+        from datetime import datetime, timezone
+        self.assertEqual(cond.range.gte, datetime(2024, 1, 1, tzinfo=timezone.utc))
+        self.assertEqual(cond.range.lt, datetime(2024, 2, 1, tzinfo=timezone.utc))
+
+    def test_numeric_range_still_uses_range(self):
+        """Numeric values should still use Range (not DatetimeRange)."""
+        result = self.qdrant._create_filter({"priority": {"gte": 5, "lte": 9}})
+        self.assertIsInstance(result, Filter)
+        cond = result.must[0]
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.gte, 5)
+        self.assertEqual(cond.range.lte, 9)
+
+    def test_datetime_object_uses_datetime_range(self):
+        """Python datetime objects should produce DatetimeRange."""
+        from datetime import datetime, timezone
+        dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        result = self.qdrant._create_filter({"created_at": {"gte": dt}})
+        self.assertIsInstance(result, Filter)
+        cond = result.must[0]
+        self.assertIsInstance(cond.range, DatetimeRange)
