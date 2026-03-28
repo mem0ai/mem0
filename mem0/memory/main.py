@@ -159,6 +159,7 @@ def _safe_deepcopy_config(config):
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
     user_id: Optional[str] = None,
+    org_id: Optional[str] = None,
     agent_id: Optional[str] = None,
     run_id: Optional[str] = None,
     actor_id: Optional[str] = None,  # For query-time filtering
@@ -183,6 +184,10 @@ def _build_filters_and_metadata(
 
     Args:
         user_id (Optional[str]): User identifier, for session scoping.
+        org_id (Optional[str]): Organization identifier, for org-scoped search.
+            When provided, enables searching across multiple user_id namespaces
+            within the same organization. Only used for query filters, not stored
+            in base_metadata_template.
         agent_id (Optional[str]): Agent identifier, for session scoping.
         run_id (Optional[str]): Run identifier, for session scoping.
         actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
@@ -206,7 +211,17 @@ def _build_filters_and_metadata(
     # ---------- add all provided session ids ----------
     session_ids_provided = []
 
-    if user_id:
+    if org_id:
+        effective_query_filters["org_id"] = org_id
+        session_ids_provided.append("org_id")
+        # When org_id is present, user_id goes into metadata template (for writes)
+        # but NOT into effective_query_filters — the caller controls read-time
+        # scoping via explicit filters (e.g. OR clauses).
+        if user_id:
+            base_metadata_template["user_id"] = user_id
+            session_ids_provided.append("user_id")
+    elif user_id:
+        # Original behavior — user_id in both metadata and filters
         base_metadata_template["user_id"] = user_id
         effective_query_filters["user_id"] = user_id
         session_ids_provided.append("user_id")
@@ -223,9 +238,9 @@ def _build_filters_and_metadata(
 
     if not session_ids_provided:
         raise Mem0ValidationError(
-            message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
+            message="At least one of 'user_id', 'agent_id', 'run_id', or 'org_id' must be provided.",
             error_code="VALIDATION_001",
-            details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
+            details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id, "org_id": org_id}},
             suggestion="Please provide at least one identifier to scope the memory operation."
         )
 
@@ -869,6 +884,7 @@ class Memory(MemoryBase):
         query: str,
         *,
         user_id: Optional[str] = None,
+        org_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         limit: int = 100,
@@ -881,6 +897,9 @@ class Memory(MemoryBase):
         Args:
             query (str): Query to search for.
             user_id (str, optional): ID of the user to search for. Defaults to None.
+            org_id (str, optional): Organization ID for org-scoped search. When provided
+                with user_id, searches both personal and org-wide memories in a single call.
+                When provided alone, searches all memories in the org. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
@@ -909,11 +928,11 @@ class Memory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id, org_id=org_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
 
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id", "org_id")):
+            raise ValueError("At least one of 'user_id', 'agent_id', 'run_id', or 'org_id' must be specified.")
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if filters and self._has_advanced_operators(filters):
@@ -2005,6 +2024,7 @@ class AsyncMemory(MemoryBase):
         query: str,
         *,
         user_id: Optional[str] = None,
+        org_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         limit: int = 100,
@@ -2018,6 +2038,9 @@ class AsyncMemory(MemoryBase):
         Args:
             query (str): Query to search for.
             user_id (str, optional): ID of the user to search for. Defaults to None.
+            org_id (str, optional): Organization ID for org-scoped search. When provided
+                with user_id, searches both personal and org-wide memories in a single call.
+                When provided alone, searches all memories in the org. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
@@ -2047,11 +2070,11 @@ class AsyncMemory(MemoryBase):
         """
 
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id, org_id=org_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
 
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("at least one of 'user_id', 'agent_id', or 'run_id' must be specified ")
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id", "org_id")):
+            raise ValueError("At least one of 'user_id', 'agent_id', 'run_id', or 'org_id' must be specified.")
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if filters and self._has_advanced_operators(filters):

@@ -816,6 +816,55 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         # Deduplicated: NOT wins, $not is skipped — exactly 1 entry
         self.assertEqual(len(result.must_not), 1)
 
+    # ------------------------------------------------------------------ #
+    # org-scoped multi-tenant search (issue #4589)                         #
+    # ------------------------------------------------------------------ #
+
+    def test_org_scoped_search_filter_shape(self):
+        """Simulate the filter shape produced by org-scoped search.
+
+        When org_id is provided with OR filters, the effective_filters dict
+        contains org_id as a flat must key and OR with user-controlled scoping.
+        This is the expected usage pattern for multi-tenant search.
+        """
+        filters = {
+            "org_id": "acme-corp",
+            "OR": [
+                {"user_id": "alice"},
+                {"source": "company_knowledge"},
+            ],
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        # org_id goes into must as a FieldCondition
+        self.assertIsNotNone(result.must)
+        org_conditions = [c for c in result.must if isinstance(c, FieldCondition) and c.key == "org_id"]
+        self.assertEqual(len(org_conditions), 1)
+        self.assertEqual(org_conditions[0].match.value, "acme-corp")
+        # OR items go into should
+        self.assertIsNotNone(result.should)
+        self.assertEqual(len(result.should), 2)
+
+    def test_org_scoped_with_and_or_nesting(self):
+        """AND containing org_id + OR for user scoping."""
+        filters = {
+            "AND": [
+                {"org_id": "acme-corp"},
+                {"OR": [
+                    {"user_id": "alice"},
+                    {"source": "company_knowledge"},
+                ]},
+            ],
+        }
+        result = self.qdrant._create_filter(filters)
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 2)
+        # Second must item should be a Filter with should (the OR)
+        or_filter = result.must[1]
+        self.assertIsInstance(or_filter, Filter)
+        self.assertIsNotNone(or_filter.should)
+        self.assertEqual(len(or_filter.should), 2)
+
 
 class TestQdrantDatetimeRangeFilters(unittest.TestCase):
     """Tests for datetime range filter support (issue #4591)."""
