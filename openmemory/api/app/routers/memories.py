@@ -1,4 +1,6 @@
 import logging
+import os
+import tempfile
 from datetime import UTC, datetime
 from typing import List, Optional, Set
 from uuid import UUID
@@ -17,7 +19,7 @@ from app.models import (
 from app.schemas import MemoryResponse
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
 from pydantic import BaseModel
@@ -326,6 +328,114 @@ async def create_memory(
         }
 
 
+
+
+# Upload a file and create memories from its contents
+@router.post("/upload")
+async def upload_memory_file(
+    user_id: str = Form(...),
+    file: UploadFile = File(...),
+    app: str = Form("openmemory"),
+    infer: bool = Form(True),
+    db: Session = Depends(get_db),
+):
+    from mem0.memory.file_utils import (
+        SUPPORTED_EXTENSIONS,
+        chunk_text,
+        extract_text_from_file,
+    )
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{ext}'. Supported: {', '.join(SUPPORTED_EXTENSIONS)}",
+        )
+
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    app_obj = db.query(App).filter(App.name == app, App.owner_id == user.id).first()
+    if not app_obj:
+        app_obj = App(name=app, owner_id=user.id)
+        db.add(app_obj)
+        db.commit()
+        db.refresh(app_obj)
+
+    if not app_obj.is_active:
+        raise HTTPException(status_code=403, detail=f"App {app} is currently paused on OpenMemory.")
+
+    try:
+        memory_client = get_memory_client()
+        if not memory_client:
+            raise Exception("Memory client is not available")
+    except Exception as client_error:
+        raise HTTPException(status_code=503, detail=f"Memory service unavailable: {client_error}")
+
+    # Save upload to a temp file so file_utils can read it
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        text = extract_text_from_file(tmp_path)
+        chunks = chunk_text(text)
+    finally:
+        os.unlink(tmp_path)
+
+    created_memories = []
+    for chunk in chunks:
+        try:
+            qdrant_response = memory_client.add(
+                chunk,
+                user_id=user_id,
+                metadata={"source_app": "openmemory", "mcp_client": app, "source_file": file.filename},
+                infer=infer,
+            )
+        except Exception as e:
+            logging.warning(f"Skipping chunk due to error: {e}")
+            continue
+
+        if not isinstance(qdrant_response, dict) or "results" not in qdrant_response:
+            continue
+
+        for result in qdrant_response["results"]:
+            if result["event"] != "ADD":
+                continue
+            memory_id = UUID(result["id"])
+            existing = db.query(Memory).filter(Memory.id == memory_id).first()
+            if existing:
+                existing.state = MemoryState.active
+                existing.content = result["memory"]
+                memory = existing
+            else:
+                memory = Memory(
+                    id=memory_id,
+                    user_id=user.id,
+                    app_id=app_obj.id,
+                    content=result["memory"],
+                    metadata_={"source_file": file.filename},
+                    state=MemoryState.active,
+                )
+                db.add(memory)
+            db.add(MemoryStatusHistory(
+                memory_id=memory_id,
+                changed_by=user.id,
+                old_state=MemoryState.deleted,
+                new_state=MemoryState.active,
+            ))
+            created_memories.append(memory)
+
+    if created_memories:
+        db.commit()
+        for m in created_memories:
+            db.refresh(m)
+
+    return {
+        "message": f"Processed '{file.filename}': {len(chunks)} chunk(s), {len(created_memories)} memory(s) created.",
+        "memories_created": len(created_memories),
+    }
 
 
 # Get memory by ID
