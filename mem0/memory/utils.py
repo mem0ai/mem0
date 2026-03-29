@@ -61,11 +61,12 @@ def ensure_json_instruction(system_prompt, user_prompt):
 def parse_messages(messages):
     response = ""
     for msg in messages:
-        if msg["role"] == "system":
-            response += f"system: {msg['content']}\n"
+        # Skip system messages — they contain framework/infrastructure text
+        # (e.g., prompt wrappers, "Untrusted context" markers) that should
+        # never be fed into fact extraction or graph entity extraction.
         if msg["role"] == "user":
             response += f"user: {msg['content']}\n"
-        if msg["role"] == "assistant":
+        elif msg["role"] == "assistant":
             response += f"assistant: {msg['content']}\n"
     return response
 

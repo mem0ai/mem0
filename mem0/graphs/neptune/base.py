@@ -111,22 +111,17 @@ class NeptuneBase(ABC):
         """
         Establish relations among the extracted nodes.
         """
+        system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"])
         if self.config.graph_store.custom_prompt:
+            system_content = system_content.replace("CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}")
             messages = [
-                {
-                    "role": "system",
-                    "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]).replace(
-                        "CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}"
-                    ),
-                },
+                {"role": "system", "content": system_content},
                 {"role": "user", "content": data},
             ]
         else:
+            system_content = system_content.replace("CUSTOM_PROMPT", "")
             messages = [
-                {
-                    "role": "system",
-                    "content": EXTRACT_RELATIONS_PROMPT.replace("USER_ID", filters["user_id"]),
-                },
+                {"role": "system", "content": system_content},
                 {
                     "role": "user",
                     "content": f"List of entities: {list(entity_type_map.keys())}. \n\nText: {data}",

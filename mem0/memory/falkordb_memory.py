@@ -490,6 +490,7 @@ class MemoryGraph:
                 {"role": "user", "content": data},
             ]
         else:
+            system_content = system_content.replace("CUSTOM_PROMPT", "")
             messages = [
                 {"role": "system", "content": system_content},
                 {

@@ -375,15 +375,15 @@ class MemoryGraph:
         if filters.get("run_id"):
             user_identity += f", run_id: {filters['run_id']}"
 
+        system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
         if self.config.graph_store.custom_prompt:
-            system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
             system_content = system_content.replace("CUSTOM_PROMPT", f"4. {self.config.graph_store.custom_prompt}")
             messages = [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": data},
             ]
         else:
-            system_content = EXTRACT_RELATIONS_PROMPT.replace("USER_ID", user_identity)
+            system_content = system_content.replace("CUSTOM_PROMPT", "")
             messages = [
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": f"List of entities: {list(entity_type_map.keys())}. \n\nText: {data}"},

@@ -52,6 +52,8 @@ Entity Consistency:
 
 Strive to construct a coherent and easily understandable knowledge graph by establishing all the relationships among the entities and adherence to the user’s context.
 
+IMPORTANT: Do NOT extract entities from system messages, metadata tags, prompt framework text, or infrastructure markers (e.g., "Untrusted context", "system-reminder", tool call metadata). Only extract entities from actual user and assistant conversation content.
+
 Adhere strictly to these guidelines to ensure high-quality knowledge graph extraction."""
 
 DELETE_RELATIONS_SYSTEM_PROMPT = """
