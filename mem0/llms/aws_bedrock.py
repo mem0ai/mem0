@@ -17,8 +17,9 @@ from mem0.memory.utils import extract_json
 logger = logging.getLogger(__name__)
 
 PROVIDERS = [
-    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer", 
-    "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama"
+    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer",
+    "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama",
+    "minimax",
 ]
 
 
@@ -567,6 +568,28 @@ class AWSBedrockLLM(LLMBase):
                 return response['output']['message']['content'][0]['text']
             else:
                 return str(response)
+
+        elif self.provider == "minimax":
+            # MiniMax models (e.g. minimax.minimax-m2.5) use the Bedrock Converse API.
+            # M2.5 is a reasoning model whose response content array may include a
+            # `reasoningContent` block before the actual `text` block, so we iterate
+            # to find the first block that contains a "text" key.
+            last_content = messages[-1]["content"]
+            if not isinstance(last_content, str):
+                last_content = str(last_content)
+            formatted_messages = [{"role": "user", "content": [{"text": last_content}]}]
+            response = self.client.converse(
+                modelId=self.config.model,
+                messages=formatted_messages,
+                inferenceConfig={
+                    "maxTokens": self.model_config.get("max_tokens", 2000),
+                    "temperature": self.model_config.get("temperature", 0.1),
+                },
+            )
+            for block in response["output"]["message"]["content"]:
+                if "text" in block:
+                    return block["text"]
+            return ""
 
         elif self.provider == "amazon" and "nova" in self.config.model.lower():
             # Nova models use the Converse API even without tools

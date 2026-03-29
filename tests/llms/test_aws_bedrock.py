@@ -328,3 +328,60 @@ class TestGenerateResponseConverse:
 
         _, kwargs = mock_boto3.converse.call_args
         assert "topP" not in kwargs["inferenceConfig"]
+
+
+# ---------------------------------------------------------------------------
+# MiniMax provider
+# ---------------------------------------------------------------------------
+
+class TestMiniMaxProvider:
+    """Tests for MiniMax models via Bedrock Converse API."""
+
+    def test_extract_provider(self):
+        assert extract_provider("minimax.minimax-m2.5") == "minimax"
+        assert extract_provider("minimax.minimax-m2") == "minimax"
+
+    def test_generate_response_text_only(self, mock_boto3):
+        """Standard response: single text block."""
+        mock_boto3.converse.return_value = _converse_response("Hello!")
+        llm = _make_llm("minimax.minimax-m2.5", mock_boto3)
+
+        result = llm.generate_response([{"role": "user", "content": "say hi"}])
+
+        assert result == "Hello!"
+        _, kwargs = mock_boto3.converse.call_args
+        assert kwargs["modelId"] == "minimax.minimax-m2.5"
+        assert kwargs["messages"][0]["role"] == "user"
+        assert kwargs["messages"][0]["content"][0]["text"] == "say hi"
+
+    def test_generate_response_reasoning_model(self, mock_boto3):
+        """MiniMax M2.5 is a reasoning model: reasoningContent block comes before text."""
+        reasoning_response = {
+            "output": {
+                "message": {
+                    "content": [
+                        {"reasoningContent": {"reasoningText": {"text": "Let me think..."}}},
+                        {"text": "Hello!"},
+                    ]
+                }
+            }
+        }
+        mock_boto3.converse.return_value = reasoning_response
+        llm = _make_llm("minimax.minimax-m2.5", mock_boto3)
+
+        result = llm.generate_response([{"role": "user", "content": "say hi"}])
+
+        # Must skip reasoningContent and return the actual text block
+        assert result == "Hello!"
+
+    def test_inference_config(self, mock_boto3):
+        """inferenceConfig should include maxTokens and temperature; no topP."""
+        mock_boto3.converse.return_value = _converse_response()
+        llm = _make_llm("minimax.minimax-m2.5", mock_boto3, temperature=0.2, max_tokens=512)
+
+        llm.generate_response([{"role": "user", "content": "hi"}])
+
+        _, kwargs = mock_boto3.converse.call_args
+        assert kwargs["inferenceConfig"]["maxTokens"] == 512
+        assert kwargs["inferenceConfig"]["temperature"] == 0.2
+        assert "topP" not in kwargs["inferenceConfig"]
