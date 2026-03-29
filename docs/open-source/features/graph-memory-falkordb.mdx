@@ -1,0 +1,210 @@
+---
+title: FalkorDB Graph Memory
+description: "Use FalkorDB as a lightweight, high-performance graph backend for Mem0's Graph Memory."
+icon: "bolt"
+---
+
+FalkorDB is a Redis-compatible graph database optimized for low-latency queries. This guide shows how to use it as Mem0's graph store backend.
+
+<Info icon="sparkles">
+**Choose FalkorDB when…**
+- You want a lightweight graph backend without the overhead of Neo4j
+- You need Redis-compatible deployment (Docker one-liner)
+- You prefer native vector index support without external plugins
+</Info>
+
+## Prerequisites
+
+- Python 3.10+
+- FalkorDB instance (Docker or native)
+- OpenAI API key (or any supported LLM/embedder provider)
+
+## Quickstart
+
+<Steps>
+<Step title="Start FalkorDB">
+```bash
+docker run -p 6379:6379 -it --rm falkordb/falkordb:latest
+```
+</Step>
+<Step title="Install Mem0 with graph extras">
+```bash
+pip install "mem0ai[graph]"
+```
+</Step>
+<Step title="Add and recall a relationship">
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-..."
+
+config = {
+    "graph_store": {
+        "provider": "falkordb",
+        "config": {
+            "host": "localhost",
+            "port": 6379,
+            "database": "mem0",
+        },
+    },
+}
+
+memory = Memory.from_config(config)
+
+conversation = [
+    {"role": "user", "content": "Alice met Bob at GraphConf 2025 in San Francisco."},
+    {"role": "assistant", "content": "Great! Logging that connection."},
+]
+
+memory.add(conversation, user_id="demo-user")
+
+results = memory.search(
+    "Who did Alice meet at GraphConf?",
+    user_id="demo-user",
+    limit=3,
+)
+
+for hit in results["results"]:
+    print(hit["memory"])
+```
+</Step>
+</Steps>
+
+## Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `host` | string | `"localhost"` | FalkorDB server hostname |
+| `port` | int | `6379` | FalkorDB server port |
+| `username` | string | `None` | Username for authentication (optional) |
+| `password` | string | `None` | Password for authentication (optional) |
+| `database` | string | `"mem0"` | Graph name prefix in FalkorDB (each user gets `{database}_{user_id}`) |
+
+<Note>
+When using authentication, both `username` and `password` must be provided together.
+</Note>
+
+### Graph Store Options
+
+These options are set at the `graph_store` level (not inside `config`):
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `threshold` | float | `0.7` | Embedding similarity threshold for node matching during ingestion (0.0–1.0). Higher = stricter matching. |
+| `custom_prompt` | string | `None` | Custom prompt for entity/relation extraction. Replaces the default extraction instructions. |
+| `fallback_llm` | LlmConfig | `None` | Backup LLM for when primary returns empty/malformed results. See [With Fallback LLM](#with-fallback-llm). |
+| `llm` | LlmConfig | `None` | Override the root LLM for graph operations specifically. Falls back to the root `llm` config if not set. |
+
+### Full Configuration Example
+
+```python
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4.1-nano",
+            "temperature": 0,
+        },
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-large",
+            "embedding_dims": 3072,
+        },
+    },
+    "graph_store": {
+        "provider": "falkordb",
+        "config": {
+            "host": "localhost",
+            "port": 6379,
+            "database": "my_app",
+        },
+        "llm": {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4.1-nano",
+            },
+        },
+    },
+}
+```
+
+### With Fallback LLM
+
+If your primary LLM occasionally returns incomplete results (common with smaller or self-hosted models), configure a fallback:
+
+```python
+config = {
+    "graph_store": {
+        "provider": "falkordb",
+        "config": {
+            "host": "localhost",
+            "port": 6379,
+        },
+        "fallback_llm": {
+            "provider": "openai",
+            "config": {
+                "model": "gpt-4.1-nano",
+            },
+        },
+    },
+}
+```
+
+The fallback LLM activates automatically when entity or relation extraction returns empty or malformed results.
+
+## FalkorDB Setup
+
+### Docker (recommended)
+
+```bash
+docker run -p 6379:6379 -it --rm falkordb/falkordb:latest
+```
+
+### Docker Compose
+
+```yaml
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - falkordb_data:/data
+
+volumes:
+  falkordb_data:
+```
+
+### With Authentication
+
+```bash
+docker run -p 6379:6379 -it --rm \
+  falkordb/falkordb:latest \
+  --requirepass your_password
+```
+
+## Features
+
+### Soft-Delete Relationships
+
+When Mem0 updates a memory that invalidates an existing relationship, the relationship is soft-deleted (`valid = false`) rather than permanently removed. This preserves historical graph state for temporal reasoning.
+
+### Batch Embedding
+
+Entity embeddings are batched into a single API call when using OpenAI, reducing latency and cost for memories with many entities.
+
+### Defensive Entity Validation
+
+Incomplete LLM tool call outputs (missing `source`, `relationship`, or `destination` fields) are filtered out with warning logs rather than causing errors.
+
+## Comparison with Other Graph Backends
+
+| Feature | FalkorDB | Neo4j | Memgraph |
+|---------|----------|-------|----------|
+| Deployment | Docker one-liner | Docker or Aura (cloud) | Docker |
+| Protocol | Redis-compatible | Bolt | Bolt |
+| Vector Index | Native | Native (5.x+) | Via plugin |
+| License | Source-available | Community / Enterprise | Community / Enterprise |
