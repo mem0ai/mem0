@@ -12,8 +12,7 @@ import { MemoryTableSkeleton } from "@/skeleton/MemoryTableSkeleton";
 export function MemoriesSection() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { fetchMemories } = useMemoriesApi();
-  const [memories, setMemories] = useState<any[]>([]);
+  const { fetchMemories, memories } = useMemoriesApi();
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +34,6 @@ export function MemoriesSection() {
           currentPage,
           itemsPerPage
         );
-        setMemories(result.memories);
         setTotalItems(result.total);
         setTotalPages(result.pages);
       } catch (error) {
