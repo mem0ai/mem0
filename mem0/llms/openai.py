@@ -128,7 +128,7 @@ class OpenAILLM(LLMBase):
         else:
             openai_specific_generation_params = ["store"]
             for param in openai_specific_generation_params:
-                if hasattr(self.config, param):
+                if hasattr(self.config, param) and getattr(self.config, param):
                     params[param] = getattr(self.config, param)
             
         if response_format:
