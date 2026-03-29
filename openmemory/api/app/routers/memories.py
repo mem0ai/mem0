@@ -339,11 +339,7 @@ async def upload_memory_file(
     infer: bool = Form(True),
     db: Session = Depends(get_db),
 ):
-    from mem0.memory.file_utils import (
-        SUPPORTED_EXTENSIONS,
-        chunk_text,
-        extract_text_from_file,
-    )
+    from mem0.memory.file_utils import SUPPORTED_EXTENSIONS
 
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in SUPPORTED_EXTENSIONS:
@@ -373,33 +369,26 @@ async def upload_memory_file(
     except Exception as client_error:
         raise HTTPException(status_code=503, detail=f"Memory service unavailable: {client_error}")
 
-    # Save upload to a temp file so file_utils can read it
+    # Save upload to a temp file — main.py's add() detects the path and handles
+    # extraction + chunking internally via file_utils, keeping that logic in one place.
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
 
     try:
-        text = extract_text_from_file(tmp_path)
-        chunks = chunk_text(text)
+        qdrant_response = memory_client.add(
+            tmp_path,
+            user_id=user_id,
+            metadata={"source_app": "openmemory", "mcp_client": app, "source_file": file.filename},
+            infer=infer,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {e}")
     finally:
         os.unlink(tmp_path)
 
     created_memories = []
-    for chunk in chunks:
-        try:
-            qdrant_response = memory_client.add(
-                chunk,
-                user_id=user_id,
-                metadata={"source_app": "openmemory", "mcp_client": app, "source_file": file.filename},
-                infer=infer,
-            )
-        except Exception as e:
-            logging.warning(f"Skipping chunk due to error: {e}")
-            continue
-
-        if not isinstance(qdrant_response, dict) or "results" not in qdrant_response:
-            continue
-
+    if isinstance(qdrant_response, dict) and "results" in qdrant_response:
         for result in qdrant_response["results"]:
             if result["event"] != "ADD":
                 continue
@@ -433,7 +422,7 @@ async def upload_memory_file(
             db.refresh(m)
 
     return {
-        "message": f"Processed '{file.filename}': {len(chunks)} chunk(s), {len(created_memories)} memory(s) created.",
+        "message": f"Processed '{file.filename}': {len(created_memories)} memory(s) created.",
         "memories_created": len(created_memories),
     }
 
