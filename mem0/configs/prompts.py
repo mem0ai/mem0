@@ -262,7 +262,7 @@ Please note to return the IDs in the output from the input IDs only and do not g
 
 3. **Delete**: If the retrieved facts contain information that contradicts the information present in the memory, then you have to delete the old memory AND add the new fact. This ensures that the new information replaces the old contradicting information rather than both being lost.
 Or if the direction is to delete the memory without any replacement, then you have to delete it.
-Please note to return the IDs in the output from the input IDs only for DELETE and NONE events. For the new ADD entry, generate a new ID.
+Please note to return the IDs in the output from the input IDs only for DELETE and NONE events.
 - **Example**:
     - Old Memory:
         [
@@ -290,7 +290,6 @@ Please note to return the IDs in the output from the input IDs only for DELETE a
                     "event" : "DELETE"
                 },
                 {
-                    "id" : "2",
                     "text" : "Dislikes cheese pizza",
                     "event" : "ADD"
                 }
