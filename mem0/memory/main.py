@@ -507,17 +507,23 @@ class Memory(MemoryBase):
         # Ensure 'json' appears in prompts for json_object response format compatibility
         system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
-        response = self.llm.generate_response(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format={"type": "json_object"},
-        )
+        try:
+            response = self.llm.generate_response(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                response_format={"type": "json_object"},
+            )
+        except Exception as e:
+            logger.error(f"Error in fact extraction response: {e}")
+            response = ""
 
         try:
-            cleaned_response = remove_code_blocks(response)
-            if not cleaned_response.strip():
+            if not response or not response.strip():
+                logger.warning("Empty response from LLM for fact extraction")
+                new_retrieved_facts = []
+            elif not (cleaned_response := remove_code_blocks(response)).strip():
                 new_retrieved_facts = []
             else:
                 try:
@@ -1601,14 +1607,21 @@ class AsyncMemory(MemoryBase):
         # Ensure 'json' appears in prompts for json_object response format compatibility
         system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
-        response = await asyncio.to_thread(
-            self.llm.generate_response,
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
-            response_format={"type": "json_object"},
-        )
         try:
-            cleaned_response = remove_code_blocks(response)
-            if not cleaned_response.strip():
+            response = await asyncio.to_thread(
+                self.llm.generate_response,
+                messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+                response_format={"type": "json_object"},
+            )
+        except Exception as e:
+            logger.error(f"Error in fact extraction response: {e}")
+            response = ""
+
+        try:
+            if not response or not response.strip():
+                logger.warning("Empty response from LLM for fact extraction")
+                new_retrieved_facts = []
+            elif not (cleaned_response := remove_code_blocks(response)).strip():
                 new_retrieved_facts = []
             else:
                 try:
