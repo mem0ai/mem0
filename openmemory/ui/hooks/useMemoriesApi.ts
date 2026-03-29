@@ -139,7 +139,8 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
           sort_column: filters?.sortColumn?.toLowerCase(),
           sort_direction: filters?.sortDirection,
           show_archived: filters?.showArchived
-        }
+        },
+        { timeout: 15000 }
       );
 
       const adaptedMemories: Memory[] = response.data.items.map((item: ApiMemoryItem) => ({
