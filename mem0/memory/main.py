@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import uuid
 import warnings
 from copy import deepcopy
@@ -256,15 +257,20 @@ class Memory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
+        self._fallback_llm = None
+        if self.config.fallback_llm:
+            self._fallback_llm = LlmFactory.create(
+                self.config.fallback_llm.provider, self.config.fallback_llm.config
+            )
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
-        
+
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
             self.reranker = RerankerFactory.create(
-                config.reranker.provider, 
+                config.reranker.provider,
                 config.reranker.config
             )
 
@@ -507,30 +513,40 @@ class Memory(MemoryBase):
         # Ensure 'json' appears in prompts for json_object response format compatibility
         system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
-        response = self.llm.generate_response(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format={"type": "json_object"},
-        )
+        new_retrieved_facts = []
+        _fact_messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        for _attempt in range(3):
+            try:
+                # Switch to fallback LLM on 3rd attempt if configured
+                if _attempt == 2 and self._fallback_llm:
+                    logger.warning("Fact extraction: switching to fallback LLM on 3rd retry")
+                    _llm = self._fallback_llm
+                else:
+                    _llm = self.llm
 
-        try:
-            cleaned_response = remove_code_blocks(response)
-            if not cleaned_response.strip():
-                new_retrieved_facts = []
-            else:
+                response = _llm.generate_response(
+                    messages=_fact_messages,
+                    response_format={"type": "json_object"},
+                )
+                cleaned_response = remove_code_blocks(response)
+                # Clean invalid surrogate pair escapes (common with Qwen3 and other non-OpenAI LLMs)
+                cleaned_response = re.sub(r'\\u[dD][89a-fA-F][0-9a-fA-F]{2}', '', cleaned_response)
+                if not cleaned_response.strip():
+                    new_retrieved_facts = []
+                    break
                 try:
-                    # First try direct JSON parsing
                     new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
                 except json.JSONDecodeError:
                     # Try extracting JSON from response (handles chatty LLM output)
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
-        except Exception as e:
-            logger.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+                break  # Success
+            except Exception as e:
+                logger.warning(f"Fact extraction attempt {_attempt + 1}/3 failed: {e}")
+                if _attempt == 2:
+                    logger.error("Fact extraction failed after 3 attempts, skipping")
+                    new_retrieved_facts = []
 
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
@@ -1388,15 +1404,20 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
+        self._fallback_llm = None
+        if self.config.fallback_llm:
+            self._fallback_llm = LlmFactory.create(
+                self.config.fallback_llm.provider, self.config.fallback_llm.config
+            )
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
-        
+
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
             self.reranker = RerankerFactory.create(
-                config.reranker.provider, 
+                config.reranker.provider,
                 config.reranker.config
             )
 
@@ -1601,27 +1622,41 @@ class AsyncMemory(MemoryBase):
         # Ensure 'json' appears in prompts for json_object response format compatibility
         system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
-        response = await asyncio.to_thread(
-            self.llm.generate_response,
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
-            response_format={"type": "json_object"},
-        )
-        try:
-            cleaned_response = remove_code_blocks(response)
-            if not cleaned_response.strip():
-                new_retrieved_facts = []
-            else:
+        new_retrieved_facts = []
+        _fact_messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+        for _attempt in range(3):
+            try:
+                # Switch to fallback LLM on 3rd attempt if configured
+                if _attempt == 2 and self._fallback_llm:
+                    logger.warning("Fact extraction: switching to fallback LLM on 3rd retry")
+                    _llm = self._fallback_llm
+                else:
+                    _llm = self.llm
+
+                response = await asyncio.to_thread(
+                    _llm.generate_response,
+                    messages=_fact_messages,
+                    response_format={"type": "json_object"},
+                )
+                cleaned_response = remove_code_blocks(response)
+                # Clean invalid surrogate pair escapes (common with Qwen3 and other non-OpenAI LLMs)
+                cleaned_response = re.sub(r'\\u[dD][89a-fA-F][0-9a-fA-F]{2}', '', cleaned_response)
+                if not cleaned_response.strip():
+                    new_retrieved_facts = []
+                    break
                 try:
-                    # First try direct JSON parsing
                     new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
                 except json.JSONDecodeError:
                     # Try extracting JSON from response (handles chatty LLM output)
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
-        except Exception as e:
-            logger.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+                break  # Success
+            except Exception as e:
+                logger.warning(f"Fact extraction attempt {_attempt + 1}/3 failed: {e}")
+                if _attempt == 2:
+                    logger.error("Fact extraction failed after 3 attempts, skipping")
+                    new_retrieved_facts = []
 
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")

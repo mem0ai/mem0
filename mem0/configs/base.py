@@ -64,6 +64,10 @@ class MemoryConfig(BaseModel):
         description="Custom prompt for the update memory",
         default=None,
     )
+    fallback_llm: Optional[LlmConfig] = Field(
+        description="Fallback LLM config for fact extraction retries (e.g., when primary LLM produces invalid output)",
+        default=None,
+    )
 
 
 class AzureConfig(BaseModel):
