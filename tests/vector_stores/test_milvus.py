@@ -319,6 +319,50 @@ class TestMilvusDB:
         mock_milvus_client.create_collection.assert_not_called()
 
 
+    # ===========================================================================
+    # _create_filter: operator dict support (fix for #3914)
+    # ===========================================================================
+
+    def test_create_filter_range(self, milvus_db):
+        """Range filter with gte + lte should produce both >= and <= conditions."""
+        filter_str = milvus_db._create_filter({"score": {"gte": 1, "lte": 10}})
+        assert 'metadata["score"] >= 1' in filter_str
+        assert 'metadata["score"] <= 10' in filter_str
+        assert " and " in filter_str
+
+    def test_create_filter_single_gt(self, milvus_db):
+        """Single gt operator should produce > condition."""
+        filter_str = milvus_db._create_filter({"age": {"gt": 25}})
+        assert filter_str == '(metadata["age"] > 25)'
+
+    def test_create_filter_ne(self, milvus_db):
+        """ne operator should produce != condition."""
+        filter_str = milvus_db._create_filter({"status": {"ne": "done"}})
+        assert filter_str == '(metadata["status"] != "done")'
+
+    def test_create_filter_in(self, milvus_db):
+        """in operator should produce in condition."""
+        filter_str = milvus_db._create_filter({"cat": {"in": [1, 2]}})
+        assert filter_str == '(metadata["cat"] in [1, 2])'
+
+    def test_create_filter_nin(self, milvus_db):
+        """nin operator should produce not in condition."""
+        filter_str = milvus_db._create_filter({"cat": {"nin": [1, 2]}})
+        assert filter_str == '(metadata["cat"] not in [1, 2])'
+
+    def test_create_filter_mixed_equality_and_range(self, milvus_db):
+        """Equality and operator dict filters should coexist."""
+        filter_str = milvus_db._create_filter({"user_id": "alice", "score": {"gte": 1, "lte": 10}})
+        assert 'metadata["user_id"] == "alice"' in filter_str
+        assert 'metadata["score"] >= 1' in filter_str
+        assert 'metadata["score"] <= 10' in filter_str
+
+    def test_create_filter_equality_unchanged(self, milvus_db):
+        """Existing equality filters should continue to work."""
+        filter_str = milvus_db._create_filter({"user_id": "alice"})
+        assert filter_str == '(metadata["user_id"] == "alice")'
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

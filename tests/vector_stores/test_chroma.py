@@ -252,6 +252,57 @@ def test_generate_where_clause_non_string_values():
     assert result == expected
 
 
+# ===========================================================================
+# _generate_where_clause: operator dict support (fix for #3914)
+# ===========================================================================
+
+
+def test_generate_where_clause_range_filter():
+    """Range filter with gte + lte should wrap in $and with separate conditions."""
+    filters = {"score": {"gte": 1, "lte": 10}}
+    result = ChromaDB._generate_where_clause(filters)
+    expected = {"$and": [{"score": {"$gte": 1}}, {"score": {"$lte": 10}}]}
+    assert result == expected
+
+
+def test_generate_where_clause_single_operator():
+    """Single operator should produce a single condition without $and."""
+    filters = {"age": {"gt": 25}}
+    result = ChromaDB._generate_where_clause(filters)
+    expected = {"age": {"$gt": 25}}
+    assert result == expected
+
+
+def test_generate_where_clause_mixed_equality_and_range():
+    """Equality and range filters should coexist in $and."""
+    filters = {"user_id": "alice", "score": {"gte": 1, "lte": 10}}
+    result = ChromaDB._generate_where_clause(filters)
+    # Should have $and with equality + nested $and for range
+    assert "$and" in result
+    conditions = result["$and"]
+    # Find the equality and range conditions
+    eq_found = any(c.get("user_id") == {"$eq": "alice"} for c in conditions)
+    range_found = any("$and" in c for c in conditions)
+    assert eq_found
+    assert range_found
+
+
+def test_generate_where_clause_ne_operator():
+    """ne operator should produce $ne."""
+    filters = {"status": {"ne": "archived"}}
+    result = ChromaDB._generate_where_clause(filters)
+    expected = {"status": {"$ne": "archived"}}
+    assert result == expected
+
+
+def test_generate_where_clause_in_operator():
+    """in operator should produce $in."""
+    filters = {"cat": {"in": ["a", "b"]}}
+    result = ChromaDB._generate_where_clause(filters)
+    expected = {"cat": {"$in": ["a", "b"]}}
+    assert result == expected
+
+
 def test_chroma_config_accepts_default_tmp_path():
     """Test that ChromaDbConfig accepts the default /tmp/chroma path."""
     config = ChromaDbConfig(path="/tmp/chroma")

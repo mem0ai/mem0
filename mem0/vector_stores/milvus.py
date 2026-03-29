@@ -106,9 +106,26 @@ class MilvusDB(VectorStoreBase):
         Returns:
             str: formated filter.
         """
+        op_map = {
+            "eq": "==", "ne": "!=",
+            "gt": ">", "gte": ">=",
+            "lt": "<", "lte": "<=",
+        }
+
         operands = []
         for key, value in filters.items():
-            if isinstance(value, str):
+            if isinstance(value, dict):
+                for op, val in value.items():
+                    if op in op_map:
+                        if isinstance(val, str):
+                            operands.append(f'(metadata["{key}"] {op_map[op]} "{val}")')
+                        else:
+                            operands.append(f'(metadata["{key}"] {op_map[op]} {val})')
+                    elif op == "in":
+                        operands.append(f'(metadata["{key}"] in {val})')
+                    elif op == "nin":
+                        operands.append(f'(metadata["{key}"] not in {val})')
+            elif isinstance(value, str):
                 operands.append(f'(metadata["{key}"] == "{value}")')
             else:
                 operands.append(f'(metadata["{key}"] == {value})')

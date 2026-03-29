@@ -2228,3 +2228,92 @@ class TestPGVector(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test."""
         pass
+
+
+# ===========================================================================
+# _build_filter_conditions: operator dict support (fix for #3914)
+# ===========================================================================
+
+
+class TestBuildFilterConditions(unittest.TestCase):
+    """Tests for the _build_filter_conditions helper method."""
+
+    def _make_pgvector(self):
+        with patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3):
+            with patch('mem0.vector_stores.pgvector.ConnectionPool'):
+                return PGVector(
+                    dbname="test_db",
+                    collection_name="test_collection",
+                    embedding_model_dims=3,
+                    user="test_user",
+                    password="test_pass",
+                    host="localhost",
+                    port=5432,
+                    diskann=False,
+                    hnsw=False,
+                    minconn=1,
+                    maxconn=4,
+                )
+
+    def test_range_filter(self):
+        """Range filter with gte + lte should produce two SQL conditions with ::numeric cast."""
+        pgvector = self._make_pgvector()
+        conditions, params = pgvector._build_filter_conditions({"score": {"gte": 1, "lte": 10}})
+        self.assertEqual(len(conditions), 2)
+        self.assertTrue(any("::numeric >=" in c for c in conditions))
+        self.assertTrue(any("::numeric <=" in c for c in conditions))
+        self.assertIn("score", params)
+        self.assertIn(1, params)
+        self.assertIn(10, params)
+
+    def test_single_gt_operator(self):
+        """Single gt operator should produce one SQL condition."""
+        pgvector = self._make_pgvector()
+        conditions, params = pgvector._build_filter_conditions({"age": {"gt": 25}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("::numeric >", conditions[0])
+        self.assertEqual(params, ["age", 25])
+
+    def test_ne_operator(self):
+        """ne operator should produce != SQL condition."""
+        pgvector = self._make_pgvector()
+        conditions, params = pgvector._build_filter_conditions({"status": {"ne": "archived"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("!=", conditions[0])
+        self.assertNotIn("::numeric", conditions[0])
+        self.assertEqual(params, ["status", "archived"])
+
+    def test_in_operator(self):
+        """in operator should produce ANY() SQL condition."""
+        pgvector = self._make_pgvector()
+        conditions, params = pgvector._build_filter_conditions({"cat": {"in": ["a", "b"]}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("ANY", conditions[0])
+        self.assertEqual(params, ["cat", ["a", "b"]])
+
+    def test_nin_operator(self):
+        """nin operator should produce NOT ... ANY() SQL condition."""
+        pgvector = self._make_pgvector()
+        conditions, params = pgvector._build_filter_conditions({"cat": {"nin": ["a", "b"]}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("NOT", conditions[0])
+        self.assertIn("ANY", conditions[0])
+
+    def test_equality_unchanged(self):
+        """Simple equality should produce the same output as before."""
+        pgvector = self._make_pgvector()
+        conditions, params = pgvector._build_filter_conditions({"user_id": "alice"})
+        self.assertEqual(len(conditions), 1)
+        self.assertEqual(conditions[0], "payload->>%s = %s")
+        self.assertEqual(params, ["user_id", "alice"])
+
+    def test_mixed_equality_and_range(self):
+        """Equality and range filters should coexist."""
+        pgvector = self._make_pgvector()
+        conditions, params = pgvector._build_filter_conditions(
+            {"user_id": "alice", "score": {"gte": 1, "lte": 10}}
+        )
+        self.assertEqual(len(conditions), 3)  # 1 equality + 2 range
+        # Equality condition
+        self.assertIn("payload->>%s = %s", conditions)
+        self.assertIn("alice", params)

@@ -188,3 +188,44 @@ def test_count_with_none_vector_count(pinecone_db):
     count = pinecone_db.count()
     assert count == 0
     pinecone_db.index.describe_index_stats.assert_called_once()
+
+
+# ===========================================================================
+# _create_filter: operator dict support (fix for #3914)
+# ===========================================================================
+
+
+def test_create_filter_range(pinecone_db):
+    """Range filter with gte + lte should map to $gte + $lte."""
+    result = pinecone_db._create_filter({"score": {"gte": 1, "lte": 10}})
+    assert result == {"score": {"$gte": 1, "$lte": 10}}
+
+
+def test_create_filter_single_gt(pinecone_db):
+    """Single gt operator should map to $gt."""
+    result = pinecone_db._create_filter({"age": {"gt": 25}})
+    assert result == {"age": {"$gt": 25}}
+
+
+def test_create_filter_ne(pinecone_db):
+    """ne operator should map to $ne."""
+    result = pinecone_db._create_filter({"status": {"ne": "done"}})
+    assert result == {"status": {"$ne": "done"}}
+
+
+def test_create_filter_in(pinecone_db):
+    """in operator should map to $in."""
+    result = pinecone_db._create_filter({"cat": {"in": ["a", "b"]}})
+    assert result == {"cat": {"$in": ["a", "b"]}}
+
+
+def test_create_filter_mixed(pinecone_db):
+    """Equality and operator dict filters should coexist."""
+    result = pinecone_db._create_filter({"user_id": "alice", "score": {"gte": 1, "lte": 10}})
+    assert result == {"user_id": {"$eq": "alice"}, "score": {"$gte": 1, "$lte": 10}}
+
+
+def test_create_filter_equality_unchanged(pinecone_db):
+    """Simple equality should still produce $eq."""
+    result = pinecone_db._create_filter({"user_id": "alice"})
+    assert result == {"user_id": {"$eq": "alice"}}
