@@ -778,7 +778,6 @@ class Memory(MemoryBase):
         self,
         *,
         user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
@@ -789,9 +788,6 @@ class Memory(MemoryBase):
 
         Args:
             user_id (str, optional): user id
-            org_id (str, optional): Organization ID for org-scoped listing. When provided
-                with user_id, lists both personal and org-wide memories. When provided
-                alone, lists all memories in the org. Defaults to None.
             agent_id (str, optional): agent id
             run_id (str, optional): run id
             filters (dict, optional): Additional custom key-value filters to apply to the search.
@@ -807,11 +803,11 @@ class Memory(MemoryBase):
         """
 
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, org_id=org_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
 
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id", "org_id")):
-            raise ValueError("At least one of 'user_id', 'agent_id', 'run_id', or 'org_id' must be specified.")
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -1917,7 +1913,6 @@ class AsyncMemory(MemoryBase):
         self,
         *,
         user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
@@ -1928,9 +1923,6 @@ class AsyncMemory(MemoryBase):
 
          Args:
              user_id (str, optional): user id
-             org_id (str, optional): Organization ID for org-scoped listing. When provided
-                 with user_id, lists both personal and org-wide memories. When provided
-                 alone, lists all memories in the org. Defaults to None.
              agent_id (str, optional): agent id
              run_id (str, optional): run id
              filters (dict, optional): Additional custom key-value filters to apply to the search.
@@ -1946,12 +1938,13 @@ class AsyncMemory(MemoryBase):
         """
 
         _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, org_id=org_id, agent_id=agent_id, run_id=run_id, input_filters=filters
+            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
 
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id", "org_id")):
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "At least one of 'user_id', 'agent_id', 'run_id', or 'org_id' must be specified for get_all."
+                "When 'conversation_id' is not provided (classic mode), "
+                "at least one of 'user_id', 'agent_id', or 'run_id' must be specified for get_all."
             )
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
