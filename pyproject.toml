@@ -76,6 +76,10 @@ extras = [
     "opensearch-py>=2.0.0",
     "fastembed>=0.3.1",
 ]
+files = [
+    "pypdf>=3.0.0",
+    "python-docx>=1.0.0",
+]
 test = [
     "pytest>=8.2.2",
     "pytest-mock>=3.14.0",
