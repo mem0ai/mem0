@@ -110,16 +110,14 @@ class GoogleMatchingEngine(VectorStoreBase):
             List[OutputData]: Parsed output data.
         """
         results = data.get("nearestNeighbors", {}).get("neighbors", [])
-        output_data = []
-        for result in results:
-            output_data.append(
-                OutputData(
-                    id=result.get("datapoint").get("datapointId"),
-                    score=result.get("distance"),
-                    payload=result.get("datapoint").get("metadata"),
-                )
+        return [
+            OutputData(
+                id=result.get("datapoint").get("datapointId"),
+                score=result.get("distance"),
+                payload=result.get("datapoint").get("metadata"),
             )
-        return output_data
+            for result in results
+        ]
 
     def _create_restriction(self, key: str, value: Any) -> aiplatform_v1.types.index.IndexDatapoint.Restriction:
         """Create a restriction object for the Matching Engine index.

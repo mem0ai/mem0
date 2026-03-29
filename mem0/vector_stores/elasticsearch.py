@@ -150,13 +150,10 @@ class ElasticsearchDB(VectorStoreBase):
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
-        results = []
-        for hit in response["hits"]["hits"]:
-            results.append(
-                OutputData(id=hit["_id"], score=hit["_score"], payload=hit.get("_source", {}).get("metadata", {}))
-            )
-
-        return results
+        return [
+            OutputData(id=hit["_id"], score=hit["_score"], payload=hit.get("_source", {}).get("metadata", {}))
+            for hit in response["hits"]["hits"]
+        ]
 
     def delete(self, vector_id: str) -> None:
         """Delete a vector by ID."""
@@ -218,15 +215,14 @@ class ElasticsearchDB(VectorStoreBase):
 
         response = self.client.search(index=self.collection_name, body=query)
 
-        results = []
-        for hit in response["hits"]["hits"]:
-            results.append(
-                OutputData(
-                    id=hit["_id"],
-                    score=1.0,  # Default score for list operation
-                    payload=hit.get("_source", {}).get("metadata", {}),
-                )
+        results = [
+            OutputData(
+                id=hit["_id"],
+                score=1.0,  # Default score for list operation
+                payload=hit.get("_source", {}).get("metadata", {}),
             )
+            for hit in response["hits"]["hits"]
+        ]
 
         return [results]
 
