@@ -415,6 +415,31 @@ class Memory(MemoryBase):
                 suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
             )
 
+        if isinstance(messages, str) and os.path.isfile(messages):
+            from mem0.memory.file_utils import (
+                SUPPORTED_EXTENSIONS,
+                chunk_text,
+                extract_text_from_file,
+            )
+
+            if os.path.splitext(messages)[1].lower() in SUPPORTED_EXTENSIONS:
+                text = extract_text_from_file(messages)
+                chunks = chunk_text(text)
+                all_results = []
+                for chunk in chunks:
+                    result = self.add(
+                        chunk,
+                        user_id=user_id,
+                        agent_id=agent_id,
+                        run_id=run_id,
+                        metadata=metadata,
+                        infer=infer,
+                        memory_type=memory_type,
+                        prompt=prompt,
+                    )
+                    all_results.extend(result.get("results", []))
+                return {"results": all_results}
+
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
 
@@ -1503,6 +1528,32 @@ class AsyncMemory(MemoryBase):
             raise ValueError(
                 f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
             )
+
+        if isinstance(messages, str) and os.path.isfile(messages):
+            from mem0.memory.file_utils import (
+                SUPPORTED_EXTENSIONS,
+                chunk_text,
+                extract_text_from_file,
+            )
+
+            if os.path.splitext(messages)[1].lower() in SUPPORTED_EXTENSIONS:
+                text = extract_text_from_file(messages)
+                chunks = chunk_text(text)
+                all_results = []
+                for chunk in chunks:
+                    result = await self.add(
+                        chunk,
+                        user_id=user_id,
+                        agent_id=agent_id,
+                        run_id=run_id,
+                        metadata=metadata,
+                        infer=infer,
+                        memory_type=memory_type,
+                        prompt=prompt,
+                        llm=llm,
+                    )
+                    all_results.extend(result.get("results", []))
+                return {"results": all_results}
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
