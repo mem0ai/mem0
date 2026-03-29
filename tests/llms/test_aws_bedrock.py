@@ -385,3 +385,23 @@ class TestMiniMaxProvider:
         assert kwargs["inferenceConfig"]["maxTokens"] == 512
         assert kwargs["inferenceConfig"]["temperature"] == 0.2
         assert "topP" not in kwargs["inferenceConfig"]
+
+    def test_system_prompt_passed_correctly(self, mock_boto3):
+        """System messages must be sent via top-level `system` param, not as a message role."""
+        mock_boto3.converse.return_value = _converse_response('{"facts": ["test"]}')
+        llm = _make_llm("minimax.minimax-m2.5", mock_boto3)
+
+        llm.generate_response([
+            {"role": "system", "content": "Return JSON only."},
+            {"role": "user", "content": "Extract facts from: test"},
+        ])
+
+        _, kwargs = mock_boto3.converse.call_args
+        # system prompt must be in top-level "system" key
+        assert "system" in kwargs
+        assert kwargs["system"][0]["text"] == "Return JSON only."
+        # messages list must NOT contain a system role entry
+        for msg in kwargs["messages"]:
+            assert msg["role"] != "system"
+        # user message must be present
+        assert kwargs["messages"][0]["role"] == "user"
