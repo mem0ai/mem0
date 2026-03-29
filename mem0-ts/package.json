@@ -118,7 +118,8 @@
     "neo4j-driver": "^5.28.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
-    "redis": "^4.6.13"
+    "redis": "^4.6.13",
+    "@zilliz/milvus2-sdk-node": "^2.6.0"
   },
   "engines": {
     "node": ">=18"
