@@ -387,6 +387,8 @@ async def upload_memory_file(
     finally:
         os.unlink(tmp_path)
 
+    from app.utils.categorization import get_categories_for_memories
+
     created_memories = []
     if isinstance(qdrant_response, dict) and "results" in qdrant_response:
         for result in qdrant_response["results"]:
@@ -407,6 +409,8 @@ async def upload_memory_file(
                     metadata_={"source_file": file.filename},
                     state=MemoryState.active,
                 )
+                # Skip per-insert categorization — we'll batch it below
+                memory.skip_categorization = True
                 db.add(memory)
             db.add(MemoryStatusHistory(
                 memory_id=memory_id,
@@ -420,6 +424,35 @@ async def upload_memory_file(
         db.commit()
         for m in created_memories:
             db.refresh(m)
+
+        # Single batch categorization call instead of N individual LLM calls
+        from app.models import memory_categories
+        contents = [m.content for m in created_memories]
+        categories_map = get_categories_for_memories(contents)
+        for memory in created_memories:
+            for cat_name in categories_map.get(memory.content, []):
+                category = db.query(Category).filter(Category.name == cat_name).first()
+                if not category:
+                    category = Category(
+                        name=cat_name,
+                        description=f"Automatically created category for {cat_name}"
+                    )
+                    db.add(category)
+                    db.flush()
+                existing_assoc = db.execute(
+                    memory_categories.select().where(
+                        (memory_categories.c.memory_id == memory.id) &
+                        (memory_categories.c.category_id == category.id)
+                    )
+                ).first()
+                if not existing_assoc:
+                    db.execute(
+                        memory_categories.insert().values(
+                            memory_id=memory.id,
+                            category_id=category.id,
+                        )
+                    )
+        db.commit()
 
     return {
         "message": f"Processed '{file.filename}': {len(created_memories)} memory(s) created.",

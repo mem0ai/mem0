@@ -229,7 +229,13 @@ def categorize_memory(memory: Memory, db: Session) -> None:
 
 @event.listens_for(Memory, 'after_insert')
 def after_memory_insert(mapper, connection, target):
-    """Trigger categorization after a memory is inserted."""
+    """Trigger categorization after a memory is inserted.
+
+    Skipped when target.skip_categorization is True — used by the file upload
+    endpoint which runs a single batch categorization call after all inserts.
+    """
+    if getattr(target, 'skip_categorization', False):
+        return
     db = Session(bind=connection)
     categorize_memory(target, db)
     db.close()
@@ -238,6 +244,8 @@ def after_memory_insert(mapper, connection, target):
 @event.listens_for(Memory, 'after_update')
 def after_memory_update(mapper, connection, target):
     """Trigger categorization after a memory is updated."""
+    if getattr(target, 'skip_categorization', False):
+        return
     db = Session(bind=connection)
     categorize_memory(target, db)
     db.close()

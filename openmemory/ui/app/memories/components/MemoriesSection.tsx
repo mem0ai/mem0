@@ -4,6 +4,7 @@ import { Category, Client } from "../../../components/types";
 import { MemoryTable } from "./MemoryTable";
 import { MemoryPagination } from "./MemoryPagination";
 import { CreateMemoryDialog } from "./CreateMemoryDialog";
+import { UploadFileDialog } from "./UploadFileDialog";
 import { PageSizeSelector } from "./PageSizeSelector";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -135,7 +136,10 @@ export function MemoriesSection() {
                 Clear Filters
               </Button>
             ) : (
-              <CreateMemoryDialog />
+              <div className="flex items-center gap-2">
+                <UploadFileDialog />
+                <CreateMemoryDialog />
+              </div>
             )}
           </div>
         )}

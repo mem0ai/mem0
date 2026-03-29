@@ -7,6 +7,7 @@ import { FiRefreshCcw } from "react-icons/fi";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CreateMemoryDialog } from "@/app/memories/components/CreateMemoryDialog";
+import { UploadFileDialog } from "@/app/memories/components/UploadFileDialog";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import Image from "next/image";
 import { useStats } from "@/hooks/useStats";
@@ -157,6 +158,7 @@ export function Navbar() {
             <FiRefreshCcw className="transition-transform duration-300 group-hover:rotate-180" />
             Refresh
           </Button>
+          <UploadFileDialog />
           <CreateMemoryDialog />
         </div>
       </div>
