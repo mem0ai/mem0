@@ -35,6 +35,7 @@ import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
+import { DeepSeekLLM } from "../llms/deepseek";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -82,6 +83,8 @@ export class LLMFactory {
         return new MistralLLM(config);
       case "langchain":
         return new LangchainLLM(config);
+      case "deepseek":
+        return new DeepSeekLLM(config)
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
