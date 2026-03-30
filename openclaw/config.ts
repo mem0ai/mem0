@@ -171,6 +171,7 @@ const ALLOWED_KEYS = [
   "searchThreshold",
   "topK",
   "oss",
+  "skills",
 ];
 
 function assertAllowedKeys(
@@ -241,6 +242,10 @@ export const mem0ConfigSchema = {
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
       oss: ossConfig,
+      skills:
+        cfg.skills && typeof cfg.skills === "object" && !Array.isArray(cfg.skills)
+          ? (cfg.skills as Mem0Config["skills"])
+          : undefined,
     };
   },
 };

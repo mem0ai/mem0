@@ -28,6 +28,8 @@ export type Mem0Config = {
   autoRecall: boolean;
   searchThreshold: number;
   topK: number;
+  // Agentic harness skills
+  skills?: SkillsConfig;
 };
 
 export interface AddOptions {
@@ -38,6 +40,12 @@ export interface AddOptions {
   enable_graph?: boolean;
   output_format?: string;
   source?: string;
+  // Agentic harness additions
+  infer?: boolean;
+  deduced_memories?: string[];
+  metadata?: Record<string, unknown>;
+  expiration_date?: string;
+  immutable?: boolean;
 }
 
 export interface SearchOptions {
@@ -48,7 +56,56 @@ export interface SearchOptions {
   limit?: number;
   keyword_search?: boolean;
   reranking?: boolean;
+  filter_memories?: boolean;
+  categories?: string[];
   source?: string;
+}
+
+// ============================================================================
+// Skills Configuration Types
+// ============================================================================
+
+export interface CategoryConfig {
+  importance: number;
+  ttl: string | null; // e.g. "7d", "90d", null = permanent
+  immutable?: boolean;
+}
+
+export interface SkillsConfig {
+  triage?: {
+    enabled?: boolean;
+    maxFactsPerTurn?: number;
+    importanceThreshold?: number;
+    enableGraph?: boolean;
+    credentialPatterns?: string[];
+  };
+  recall?: {
+    enabled?: boolean;
+    strategy?: "always" | "smart" | "manual";
+    tokenBudget?: number;
+    maxMemories?: number;
+    rerank?: boolean;
+    keywordSearch?: boolean;
+    filterMemories?: boolean;
+    threshold?: number;
+    identityAlwaysInclude?: boolean;
+    categoryOrder?: string[];
+  };
+  dream?: {
+    enabled?: boolean;
+    schedule?: string;
+    mergeThreshold?: number;
+    maxMemoriesPerUser?: number;
+    preserveImmutable?: boolean;
+    credentialScan?: boolean;
+    expireStaleAfterDays?: number;
+  };
+  domain?: string;
+  customRules?: {
+    include?: string[];
+    exclude?: string[];
+  };
+  categories?: Record<string, CategoryConfig>;
 }
 
 export interface ListOptions {

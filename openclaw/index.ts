@@ -38,6 +38,14 @@ import {
   isNonInteractiveTrigger,
   isSubagentSession,
 } from "./isolation.ts";
+import {
+  loadTriagePrompt,
+  loadDreamPrompt,
+  resolveCategories,
+  ttlToExpirationDate,
+  isSkillsMode,
+} from "./skill-loader.ts";
+import { recall as skillRecall } from "./recall.ts";
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
@@ -95,8 +103,9 @@ const memoryPlugin = {
     const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
       resolveUserId(cfg.userId, opts, currentSessionId);
 
+    const skillsActive = isSkillsMode(cfg.skills);
     api.logger.info(
-      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
+      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
     );
 
     // Helper: build add options
@@ -115,22 +124,24 @@ const memoryPlugin = {
       return opts;
     }
 
-    // Helper: build search options
+    // Helper: build search options (skills config overrides legacy defaults)
     function buildSearchOptions(
       userIdOverride?: string,
       limit?: number,
       runId?: string,
       sessionKey?: string,
     ): SearchOptions {
+      const recallCfg = cfg.skills?.recall;
       const opts: SearchOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
         top_k: limit ?? cfg.topK,
         limit: limit ?? cfg.topK,
-        threshold: cfg.searchThreshold,
-        keyword_search: true,
-        reranking: true,
+        threshold: recallCfg?.threshold ?? cfg.searchThreshold,
+        keyword_search: recallCfg?.keywordSearch !== false,
+        reranking: recallCfg?.rerank !== false,
         source: "OPENCLAW",
       };
+      if (recallCfg?.filterMemories) opts.filter_memories = true;
       if (runId) opts.run_id = runId;
       return opts;
     }
@@ -139,7 +150,7 @@ const memoryPlugin = {
     // Tools
     // ========================================================================
 
-    registerTools(api, provider, cfg, _resolveUserId, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId);
+    registerTools(api, provider, cfg, _resolveUserId, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId, skillsActive);
 
     // ========================================================================
     // CLI Commands
@@ -153,7 +164,7 @@ const memoryPlugin = {
 
     registerHooks(api, provider, cfg, _effectiveUserId, buildAddOptions, buildSearchOptions, {
       setCurrentSessionId: (id: string) => { currentSessionId = id; },
-    });
+    }, skillsActive);
 
     // ========================================================================
     // Service
@@ -187,6 +198,7 @@ function registerTools(
   buildAddOptions: (userIdOverride?: string, runId?: string, sessionKey?: string) => AddOptions,
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
   getCurrentSessionId: () => string | undefined,
+  skillsActive: boolean = false,
 ) {
   api.registerTool(
     {
@@ -223,14 +235,21 @@ function registerTools(
               'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
           }),
         ),
+        categories: Type.Optional(
+          Type.Array(Type.String(), {
+            description:
+              'Filter results by category (e.g. ["identity", "preference"]). Only returns memories tagged with these categories.',
+          }),
+        ),
       }),
       async execute(_toolCallId, params) {
-        const { query, limit, userId, agentId, scope = "all" } = params as {
+        const { query, limit, userId, agentId, scope = "all", categories: filterCategories } = params as {
           query: string;
           limit?: number;
           userId?: string;
           agentId?: string;
           scope?: "session" | "long-term" | "all";
+          categories?: string[];
         };
 
         try {
@@ -238,29 +257,35 @@ function registerTools(
           const uid = _resolveUserId({ agentId, userId });
           const currentSessionId = getCurrentSessionId();
 
+          // Apply categories filter to search options
+          const applyCategories = (opts: SearchOptions): SearchOptions => {
+            if (filterCategories?.length) opts.categories = filterCategories;
+            return opts;
+          };
+
           if (scope === "session") {
             if (currentSessionId) {
               results = await provider.search(
                 query,
-                buildSearchOptions(uid, limit, currentSessionId),
+                applyCategories(buildSearchOptions(uid, limit, currentSessionId)),
               );
             }
           } else if (scope === "long-term") {
             results = await provider.search(
               query,
-              buildSearchOptions(uid, limit),
+              applyCategories(buildSearchOptions(uid, limit)),
             );
           } else {
             // "all" — search both scopes and combine
             const longTermResults = await provider.search(
               query,
-              buildSearchOptions(uid, limit),
+              applyCategories(buildSearchOptions(uid, limit)),
             );
             let sessionResults: MemoryItem[] = [];
             if (currentSessionId) {
               sessionResults = await provider.search(
                 query,
-                buildSearchOptions(uid, limit, currentSessionId),
+                applyCategories(buildSearchOptions(uid, limit, currentSessionId)),
               );
             }
             // Deduplicate by ID, preferring long-term
@@ -328,6 +353,17 @@ function registerTools(
         "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
       parameters: Type.Object({
         text: Type.String({ description: "Information to remember" }),
+        category: Type.Optional(
+          Type.String({
+            description:
+              'Memory category: "identity", "preference", "decision", "rule", "project", "configuration", "technical", or "relationship"',
+          }),
+        ),
+        importance: Type.Optional(
+          Type.Number({
+            description: "Importance score from 0.0 to 1.0. Identity/config: 0.95, rules: 0.90, preferences: 0.85, decisions: 0.80, projects: 0.75, operational: 0.60",
+          }),
+        ),
         userId: Type.Optional(
           Type.String({
             description: "User ID to scope this memory",
@@ -341,7 +377,7 @@ function registerTools(
         ),
         metadata: Type.Optional(
           Type.Record(Type.String(), Type.Unknown(), {
-            description: "Optional metadata to attach to this memory",
+            description: "Additional metadata to attach to this memory",
           }),
         ),
         longTerm: Type.Optional(
@@ -354,6 +390,8 @@ function registerTools(
       async execute(_toolCallId, params) {
         const { text, userId, agentId, longTerm = true } = params as {
           text: string;
+          category?: string;
+          importance?: number;
           userId?: string;
           agentId?: string;
           metadata?: Record<string, unknown>;
@@ -365,6 +403,99 @@ function registerTools(
           const currentSessionId = getCurrentSessionId();
           const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
 
+          // Skills mode: bypass extraction LLM, store directly via infer=false
+          if (skillsActive) {
+            // Resolve metadata: prefer explicit params, fall back to metadata record
+            const rawMetadata = (params as any).metadata as Record<string, unknown> | undefined;
+            const category = (params as any).category as string | undefined ?? rawMetadata?.category as string | undefined;
+            const importance = (params as any).importance as number | undefined ?? rawMetadata?.importance as number | undefined;
+            const parsedMetadata: Record<string, unknown> = {
+              ...(rawMetadata ?? {}),
+              ...(category && { category }),
+              ...(importance !== undefined && { importance }),
+            };
+            const categories = resolveCategories(cfg.skills);
+            const catConfig = category ? categories[category] : undefined;
+            const expirationDate = catConfig ? ttlToExpirationDate(catConfig.ttl) : undefined;
+            const isImmutable = catConfig?.immutable ?? false;
+
+            // Scope-aware dedup: search the SAME scope we're writing to
+            const dedupOpts = buildSearchOptions(uid, 3, runId);
+            dedupOpts.threshold = 0.85;
+            const existing = await provider.search(text.slice(0, 200), dedupOpts);
+            const dupMatch = existing.length > 0 && (existing[0].score ?? 0) > 0.90
+              ? existing[0] : null;
+
+            if (dupMatch) {
+              api.logger.info(
+                `openclaw-mem0: near-duplicate found (score: ${((dupMatch.score ?? 0) * 100).toFixed(0)}%, id: ${dupMatch.id})`,
+              );
+            }
+
+            const addOpts: AddOptions = {
+              user_id: uid,
+              source: "OPENCLAW",
+              infer: false,
+              deduced_memories: [text],
+              metadata: parsedMetadata ?? {},
+              ...(expirationDate && { expiration_date: expirationDate }),
+              ...(isImmutable && { immutable: true }),
+            };
+            if (runId) addOpts.run_id = runId;
+            if (cfg.mode === "platform") {
+              addOpts.output_format = "v1.1";
+              if (cfg.enableGraph || cfg.skills?.triage?.enableGraph) {
+                addOpts.enable_graph = true;
+              }
+            }
+
+            // Store first, THEN delete the old duplicate (non-destructive upsert)
+            const result = await provider.add(
+              [{ role: "user", content: text }],
+              addOpts,
+            );
+
+            const addedSuccessfully = (result.results?.length ?? 0) > 0;
+
+            // Only clean up the duplicate AFTER the new memory is confirmed stored
+            if (dupMatch && addedSuccessfully) {
+              try {
+                await provider.delete(dupMatch.id);
+                api.logger.info(
+                  `openclaw-mem0: cleaned up superseded duplicate ${dupMatch.id}`,
+                );
+              } catch (delErr) {
+                // Non-fatal: duplicate remains but new memory is safely stored
+                api.logger.warn(
+                  `openclaw-mem0: failed to clean up duplicate ${dupMatch.id}: ${String(delErr)}`,
+                );
+              }
+            }
+
+            const count = result.results?.length ?? 0;
+            api.logger.info(
+              `openclaw-mem0: skills-mode stored ${count} memory (infer=false, category=${category ?? "none"})`,
+            );
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Stored: "${text.slice(0, 80)}${text.length > 80 ? "..." : ""}" [${category ?? "uncategorized"}]${dupMatch && addedSuccessfully ? " (replaced duplicate)" : ""}`,
+                },
+              ],
+              details: {
+                action: "stored",
+                mode: "skills",
+                infer: false,
+                category,
+                replacedDuplicate: dupMatch && addedSuccessfully ? dupMatch.id : undefined,
+                results: result.results,
+              },
+            };
+          }
+
+          // Legacy mode: let mem0 extraction LLM handle it
           // Pre-check for near-duplicates so the extraction model has
           // context about existing memories and can UPDATE rather than ADD
           const preview = text.slice(0, 200);
@@ -813,6 +944,72 @@ function registerCli(
             console.error(`Stats failed: ${String(err)}`);
           }
         });
+      mem0
+        .command("dream")
+        .description("Run memory consolidation (review, merge, prune stored memories)")
+        .option("--dry-run", "Show memory inventory without running consolidation")
+        .action(async (opts: { dryRun?: boolean }) => {
+          try {
+            const uid = cfg.userId;
+            const memories = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
+            const count = Array.isArray(memories) ? memories.length : 0;
+
+            if (count === 0) {
+              console.log("No memories to consolidate.");
+              return;
+            }
+
+            // Show current state summary on stderr (keeps stdout clean for piping)
+            const catCounts = new Map<string, number>();
+            for (const mem of memories) {
+              const cat = (mem.metadata as any)?.category ?? mem.categories?.[0] ?? "uncategorized";
+              catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1);
+            }
+            process.stderr.write(`\nMemory inventory for "${uid}":\n`);
+            for (const [cat, num] of [...catCounts.entries()].sort((a, b) => b[1] - a[1])) {
+              process.stderr.write(`  ${cat}: ${num}\n`);
+            }
+            process.stderr.write(`  TOTAL: ${count}\n\n`);
+
+            if (opts.dryRun) {
+              process.stderr.write("Dry run — no changes made.\n");
+              return;
+            }
+
+            // Load dream prompt and format it with the full memory inventory
+            const dreamPrompt = loadDreamPrompt(cfg.skills ?? {});
+            if (!dreamPrompt) {
+              process.stderr.write("Dream skill file not found at skills/memory-dream/SKILL.md\n");
+              return;
+            }
+
+            // Build the full dream context: protocol + memory dump
+            const memoryDump = (memories as MemoryItem[]).map((m, i) => {
+              const cat = (m.metadata as any)?.category ?? m.categories?.[0] ?? "uncategorized";
+              const imp = (m.metadata as any)?.importance ?? "?";
+              const created = m.created_at ?? "unknown";
+              return `${i + 1}. [${m.id}] (${cat}, importance: ${imp}, created: ${created}) ${m.memory}`;
+            }).join("\n");
+
+            const fullPrompt = [
+              "<dream-protocol>",
+              dreamPrompt,
+              "</dream-protocol>",
+              "",
+              `<all-memories count="${count}" user="${uid}">`,
+              memoryDump,
+              "</all-memories>",
+              "",
+              "Begin consolidation. Review all memories above and execute merge, delete, and rewrite operations using the available tools.",
+            ].join("\n");
+
+            // Only the prompt goes to stdout — safe to pipe directly
+            process.stdout.write(fullPrompt + "\n");
+            process.stderr.write(`Dream prompt written to stdout (${fullPrompt.length} chars). Pipe with: openclaw mem0 dream | openclaw run --stdin\n`);
+          } catch (err) {
+            console.error(`Dream failed: ${String(err)}`);
+          }
+        });
     },
     { commands: ["mem0"] },
   );
@@ -832,7 +1029,99 @@ function registerHooks(
   session: {
     setCurrentSessionId: (id: string) => void;
   },
+  skillsActive: boolean = false,
 ) {
+  // ========================================================================
+  // SKILLS MODE: Agentic recall — skill protocol + token-budgeted memories
+  // ========================================================================
+  if (skillsActive) {
+    api.on("before_agent_start", async (event, ctx) => {
+      if (!event.prompt || event.prompt.length < 5) return;
+
+      const trigger = (ctx as any)?.trigger ?? undefined;
+      const sessionId = (ctx as any)?.sessionKey ?? undefined;
+      if (isNonInteractiveTrigger(trigger, sessionId)) {
+        api.logger.info("openclaw-mem0: skills-mode skipping non-interactive trigger");
+        return;
+      }
+
+      if (sessionId) session.setCurrentSessionId(sessionId);
+
+      const isSubagent = isSubagentSession(sessionId);
+      const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
+
+      try {
+        // Load skill protocol (triage + recall, respects recall.enabled)
+        const skillPrompt = loadTriagePrompt(cfg.skills ?? {});
+
+        const parts: string[] = [];
+
+        // Skill protocol first (agent needs rules before seeing memories)
+        if (skillPrompt) {
+          parts.push(skillPrompt);
+        }
+
+        // Token-budgeted, category-ranked recall (only if recall enabled)
+        const recallEnabled = cfg.skills?.recall?.enabled !== false;
+        if (recallEnabled) {
+          const recallResult = await skillRecall(
+            provider,
+            event.prompt,
+            userId,
+            cfg.skills ?? {},
+            isSubagent ? undefined : sessionId,
+          );
+
+          api.logger.info(
+            `openclaw-mem0: skills-mode injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens) + skill protocol`,
+          );
+
+          // Recalled memories for novelty checking
+          parts.push("");
+          parts.push(recallResult.context);
+        } else {
+          api.logger.info("openclaw-mem0: skills-mode recall disabled, injecting protocol only");
+        }
+
+        const preamble = isSubagent
+          ? "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories."
+          : "";
+
+        if (preamble) {
+          parts.unshift(preamble);
+        }
+
+        return {
+          prependContext: parts.join("\n"),
+        };
+      } catch (err) {
+        api.logger.warn(`openclaw-mem0: skills-mode recall failed: ${String(err)}`);
+        // Fallback: at least inject the skill protocol without memories
+        try {
+          const skillPrompt = loadTriagePrompt(cfg.skills ?? {});
+          if (skillPrompt) {
+            return { prependContext: skillPrompt };
+          }
+        } catch { /* best effort */ }
+      }
+    });
+
+    // Skills mode: NO auto-capture. The agent handles extraction via memory_store.
+    // We only log turn stats in agent_end.
+    api.on("agent_end", async (event, ctx) => {
+      if (!event.success) return;
+      const sessionId = (ctx as any)?.sessionKey ?? undefined;
+      if (sessionId) session.setCurrentSessionId(sessionId);
+      api.logger.info("openclaw-mem0: skills-mode agent_end (no auto-capture — agent controls extraction)");
+    });
+
+    return; // Skip legacy hook registration
+  }
+
+  // ========================================================================
+  // LEGACY MODE: Original auto-recall + auto-capture behavior
+  // ========================================================================
+
   // Auto-recall: inject relevant memories before agent starts
   if (cfg.autoRecall) {
     api.on("before_agent_start", async (event, ctx) => {
