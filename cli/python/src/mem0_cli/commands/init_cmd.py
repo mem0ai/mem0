@@ -224,7 +224,41 @@ def run_init(
     console.print()
     print_info(console, "Welcome! Let's set up your mem0 CLI.\n")
 
-    # Use provided flags or prompt
+    # If no flags at all, ask user how they want to authenticate
+    if not api_key:
+        console.print(f"  [{BRAND_COLOR}]How would you like to authenticate?[/]")
+        console.print(f"  [{DIM_COLOR}]1.[/] Login with email [{DIM_COLOR}](recommended)[/]")
+        console.print(f"  [{DIM_COLOR}]2.[/] Enter API key manually")
+        console.print()
+        choice = Prompt.ask(f"  [{BRAND_COLOR}]Choose[/]", choices=["1", "2"], default="1")
+
+        if choice == "1":
+            console.print()
+            email_addr = Prompt.ask(f"  [{BRAND_COLOR}]Email[/]")
+            if not email_addr:
+                print_error(err_console, "Email is required.")
+                raise typer.Exit(1)
+
+            print_info(console, f"Logging in as {email_addr}...\n")
+
+            result = _email_login(email_addr.strip().lower(), None, base_url)
+
+            config.platform.api_key = result["api_key"]
+            config.platform.base_url = base_url
+            config.defaults.user_id = user_id or "mem0-cli"
+
+            save_config(config)
+
+            console.print()
+            print_success(console, "Authenticated! Configuration saved to ~/.mem0/config.json")
+            console.print()
+            console.print(f"  [{DIM_COLOR}]Get started:[/]")
+            console.print(f'  [{DIM_COLOR}]  mem0 add "I prefer dark mode"[/]')
+            console.print(f'  [{DIM_COLOR}]  mem0 search "preferences"[/]')
+            console.print()
+            return
+
+    # API key flow
     if api_key:
         config.platform.api_key = api_key
     else:
