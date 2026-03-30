@@ -29,7 +29,7 @@ def _get_llm():
 def get_categories_for_memories(memories: List[str]) -> List[List[str]]:
     """Categorize multiple memories in a single LLM call.
 
-    Returns a list of category lists, one per memory in the same order.
+    Returns a list of category lists in this data type: MemoryCategories, one per memory in the same order.
     Falls back to empty categories on failure so callers are never blocked.
     """
     if not memories:
