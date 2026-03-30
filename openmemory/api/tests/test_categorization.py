@@ -8,8 +8,10 @@ import pytest
 from tenacity import RetryError
 
 from app.utils.categorization import (
+    BatchMemoryCategories,
     MemoryCategories,
     _get_llm,
+    get_categories_for_memories,
     get_categories_for_memory,
 )
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
@@ -154,7 +156,90 @@ class TestGetCategoriesForMemory:
 
 
 # ---------------------------------------------------------------------------
-# MemoryCategories model
+# get_categories_for_memories (batch)
+# ---------------------------------------------------------------------------
+
+class TestGetCategoriesForMemories:
+
+    @patch("app.utils.categorization._get_llm")
+    def test_returns_list_of_lists(self, mock_get_llm_fn, mock_llm):
+        mock_llm.generate_response.return_value = json.dumps({
+            "results": [
+                {"categories": ["Work", "Projects"]},
+                {"categories": ["Travel"]},
+            ]
+        })
+        mock_get_llm_fn.return_value = mock_llm
+
+        result = get_categories_for_memories(["meeting tomorrow", "trip to Paris"])
+        assert result == [["work", "projects"], ["travel"]]
+
+    @patch("app.utils.categorization._get_llm")
+    def test_empty_input_returns_empty(self, mock_get_llm_fn, mock_llm):
+        mock_get_llm_fn.return_value = mock_llm
+        result = get_categories_for_memories([])
+        assert result == []
+        mock_llm.generate_response.assert_not_called()
+
+    @patch("app.utils.categorization._get_llm")
+    def test_truncates_extra_results(self, mock_get_llm_fn, mock_llm):
+        """If the LLM returns more results than memories, only take len(memories)."""
+        mock_llm.generate_response.return_value = json.dumps({
+            "results": [
+                {"categories": ["work"]},
+                {"categories": ["travel"]},
+                {"categories": ["health"]},
+            ]
+        })
+        mock_get_llm_fn.return_value = mock_llm
+
+        result = get_categories_for_memories(["just one memory"])
+        assert len(result) == 1
+        assert result == [["work"]]
+
+    @patch("app.utils.categorization._get_llm")
+    def test_falls_back_to_empty_on_failure(self, mock_get_llm_fn, mock_llm):
+        """On LLM error, returns empty lists instead of raising."""
+        mock_llm.generate_response.side_effect = ConnectionError("unreachable")
+        mock_get_llm_fn.return_value = mock_llm
+
+        result = get_categories_for_memories(["mem1", "mem2"])
+        assert result == [[], []]
+
+    @patch("app.utils.categorization._get_llm")
+    def test_falls_back_on_invalid_json(self, mock_get_llm_fn, mock_llm):
+        mock_llm.generate_response.return_value = "not json"
+        mock_get_llm_fn.return_value = mock_llm
+
+        result = get_categories_for_memories(["mem1"])
+        assert result == [[]]
+
+    @patch("app.utils.categorization._get_llm")
+    def test_passes_json_object_format(self, mock_get_llm_fn, mock_llm):
+        mock_llm.generate_response.return_value = json.dumps({
+            "results": [{"categories": ["work"]}]
+        })
+        mock_get_llm_fn.return_value = mock_llm
+
+        get_categories_for_memories(["test"])
+
+        call_kwargs = mock_llm.generate_response.call_args
+        response_format = call_kwargs.kwargs.get("response_format") or call_kwargs[1].get("response_format")
+        assert response_format == {"type": "json_object"}
+
+    @patch("app.utils.categorization._get_llm")
+    def test_single_memory_batch(self, mock_get_llm_fn, mock_llm):
+        mock_llm.generate_response.return_value = json.dumps({
+            "results": [{"categories": ["Finance", "Shopping"]}]
+        })
+        mock_get_llm_fn.return_value = mock_llm
+
+        result = get_categories_for_memories(["bought groceries for $50"])
+        assert result == [["finance", "shopping"]]
+
+
+# ---------------------------------------------------------------------------
+# Pydantic models
 # ---------------------------------------------------------------------------
 
 class TestMemoryCategoriesModel:
@@ -170,3 +255,22 @@ class TestMemoryCategoriesModel:
     def test_rejects_missing_field(self):
         with pytest.raises(Exception):
             MemoryCategories()
+
+
+class TestBatchMemoryCategoriesModel:
+
+    def test_valid_batch(self):
+        bmc = BatchMemoryCategories(results=[
+            MemoryCategories(categories=["work"]),
+            MemoryCategories(categories=["travel", "health"]),
+        ])
+        assert len(bmc.results) == 2
+        assert bmc.results[0].categories == ["work"]
+
+    def test_empty_results(self):
+        bmc = BatchMemoryCategories(results=[])
+        assert bmc.results == []
+
+    def test_rejects_missing_results(self):
+        with pytest.raises(Exception):
+            BatchMemoryCategories()
