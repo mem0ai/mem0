@@ -194,7 +194,7 @@ class TestQdrant(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_create_filter_with_range_values(self):
-        """Test _create_filter with range values."""
+        """Test _create_filter with numeric range values."""
         filters = {"user_id": "alice", "count": {"gte": 5, "lte": 10}}
         result = self.qdrant._create_filter(filters)
         
@@ -210,6 +210,56 @@ class TestQdrant(unittest.TestCase):
         string_conditions = [cond for cond in result.must if hasattr(cond, 'match') and cond.match is not None]
         self.assertEqual(len(string_conditions), 1)
         self.assertEqual(string_conditions[0].key, "user_id")
+
+    def test_create_filter_with_datetime_range(self):
+        """Test _create_filter with ISO datetime string range values uses DatetimeRange."""
+        from qdrant_client.models import DatetimeRange
+
+        filters = {
+            "user_id": "user_123",
+            "created_at": {"gte": "2024-01-01T00:00:00Z", "lt": "2024-02-01T00:00:00Z"},
+        }
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 2)
+
+        # Find the datetime range condition
+        dt_conditions = [
+            cond for cond in result.must
+            if hasattr(cond, 'range') and cond.range is not None and isinstance(cond.range, DatetimeRange)
+        ]
+        self.assertEqual(len(dt_conditions), 1)
+        self.assertEqual(dt_conditions[0].key, "created_at")
+
+    def test_create_filter_with_partial_range(self):
+        """Test _create_filter with only gte (no lte) still creates a range filter."""
+        filters = {"created_at": {"gte": "2024-01-01T00:00:00Z"}}
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 1)
+        self.assertEqual(result.must[0].key, "created_at")
+
+    def test_create_filter_with_gt_lt_operators(self):
+        """Test _create_filter with gt and lt operators."""
+        filters = {"score": {"gt": 0.5, "lt": 0.9}}
+        result = self.qdrant._create_filter(filters)
+
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 1)
+        self.assertEqual(result.must[0].key, "score")
+
+    def test_is_datetime_string(self):
+        """Test _is_datetime_string helper."""
+        # Valid datetime strings
+        self.assertTrue(Qdrant._is_datetime_string("2024-01-01T00:00:00Z"))
+        self.assertTrue(Qdrant._is_datetime_string("2024-01-01T00:00:00+00:00"))
+        self.assertTrue(Qdrant._is_datetime_string("2024-01-01"))
+
+        # Not datetime strings
+        self.assertFalse(Qdrant._is_datetime_string("hello"))
+        self.assertFalse(Qdrant._is_datetime_string("12345"))
 
     def test_delete(self):
         vector_id = str(uuid.uuid4())

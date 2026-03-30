@@ -2,7 +2,10 @@ import logging
 from typing import Optional
 
 from qdrant_client import QdrantClient
+from datetime import datetime
+
 from qdrant_client.models import (
+    DatetimeRange,
     Distance,
     FieldCondition,
     Filter,
@@ -177,6 +180,10 @@ class Qdrant(VectorStoreBase):
                     f"Use AND to combine them as separate conditions."
                 )
             range_kwargs = {op: value[op] for op in range_ops if op in value}
+            # Use DatetimeRange when any bound is a datetime object or ISO 8601 string
+            sample = next(iter(range_kwargs.values()))
+            if isinstance(sample, datetime) or (isinstance(sample, str) and self._is_datetime_string(sample)):
+                return FieldCondition(key=key, range=DatetimeRange(**range_kwargs))
             return FieldCondition(key=key, range=Range(**range_kwargs))
         elif "eq" in value:
             return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
@@ -281,6 +288,15 @@ class Qdrant(VectorStoreBase):
             should=should or None,
             must_not=must_not or None,
         )
+
+    @staticmethod
+    def _is_datetime_string(value: str) -> bool:
+        """Check if a string looks like an ISO 8601 datetime."""
+        try:
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return True
+        except (ValueError, AttributeError):
+            return False
 
     def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
         """
