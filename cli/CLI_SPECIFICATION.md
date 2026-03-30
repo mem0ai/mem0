@@ -153,8 +153,19 @@ Interactive setup wizard for mem0 CLI.
 |-----------------|--------|----------|---------|------|
 | `--api-key`     | string | No       | -       | API key (skip prompt). |
 | `-u, --user-id` | string | No       | -       | Default user ID (skip prompt). |
+| `--email`       | string | No       | -       | Login via email verification code. |
+| `--code`        | string | No       | -       | Verification code (use with --email for non-interactive login). |
 
 **Behavior:**
+
+*Email login flow (when `--email` is provided):*
+- Sends a 6-digit verification code to the email via `POST /api/v1/auth/email_code/`.
+- If `--code` is also provided, verifies immediately (fully non-interactive).
+- If `--code` is not provided, prompts for the code interactively.
+- On success: receives API key, org_id, project_id. Saves to config. Creates account if email is new.
+- Cannot be combined with `--api-key`.
+
+*API key flow (existing behavior):*
 - If both `--api-key` and `--user-id` are provided, runs non-interactively (no prompts).
 - If running in a non-TTY without both flags, prints an error with usage hint and exits.
 - Interactive mode: prints banner, prompts for API key (masked with `*`), prompts for default user ID (default: `mem0-cli`), validates connection, saves config.
@@ -164,6 +175,8 @@ Interactive setup wizard for mem0 CLI.
 ```bash
 mem0 init
 mem0 init --api-key m0-xxx --user-id alice
+mem0 init --email alice@company.com
+mem0 init --email alice@company.com --code 482901
 ```
 
 ---

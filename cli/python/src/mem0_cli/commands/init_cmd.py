@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 
+import httpx
 import typer
 from rich.console import Console
 from rich.prompt import Prompt
@@ -16,7 +17,7 @@ from mem0_cli.branding import (
     print_info,
     print_success,
 )
-from mem0_cli.config import Mem0Config, save_config
+from mem0_cli.config import DEFAULT_BASE_URL, Mem0Config, save_config
 
 console = Console()
 err_console = Console(stderr=True)
@@ -84,7 +85,72 @@ def _prompt_secret(label: str) -> str:
     return "".join(chars)
 
 
-def run_init(*, api_key: str | None = None, user_id: str | None = None) -> None:
+def _email_login(
+    email: str,
+    code: str | None,
+    base_url: str,
+) -> dict:
+    """Run the email verification code login flow.
+
+    Returns dict with api_key, org_id, project_id, is_new_user.
+    """
+    url = base_url.rstrip("/")
+
+    with httpx.Client(timeout=30.0) as client:
+        # If code is already provided, skip sending — user already has a code
+        if not code:
+            # Step 1: Request verification code
+            resp = client.post(
+                f"{url}/api/v1/auth/email_code/",
+                json={"email": email},
+            )
+            if resp.status_code == 429:
+                print_error(err_console, "Too many attempts. Try again in a few minutes.")
+                raise typer.Exit(1)
+            if resp.status_code != 200:
+                detail = resp.json().get("error", resp.text)
+                print_error(err_console, f"Failed to send code: {detail}")
+                raise typer.Exit(1)
+
+            print_success(console, "Verification code sent! Check your email.")
+
+            # Step 2: Get code from user
+            if not sys.stdin.isatty():
+                print_error(
+                    err_console,
+                    "No --code provided and terminal is non-interactive.",
+                    hint="Run: mem0 init --email <email> --code <code>",
+                )
+                raise typer.Exit(1)
+            console.print()
+            code = Prompt.ask(f"  [{BRAND_COLOR}]Verification Code[/]")
+            if not code:
+                print_error(err_console, "Code is required.")
+                raise typer.Exit(1)
+
+        # Step 3: Verify code
+        resp = client.post(
+            f"{url}/api/v1/auth/email_code/verify/",
+            json={"email": email, "code": code.strip()},
+        )
+        if resp.status_code == 429:
+            print_error(err_console, "Too many attempts. Try again in a few minutes.")
+            raise typer.Exit(1)
+        if resp.status_code != 200:
+            detail = resp.json().get("error", resp.text)
+            print_error(err_console, f"Verification failed: {detail}")
+            raise typer.Exit(1)
+
+        return resp.json()
+
+
+def run_init(
+    *,
+    api_key: str | None = None,
+    user_id: str | None = None,
+    email: str | None = None,
+    code: str | None = None,
+) -> None:
     """Interactive setup wizard for mem0 CLI.
 
     When both *api_key* and *user_id* are supplied, all prompts are skipped
@@ -92,6 +158,38 @@ def run_init(*, api_key: str | None = None, user_id: str | None = None) -> None:
     flags, an error message is printed.
     """
     config = Mem0Config()
+    import os
+
+    base_url = os.environ.get("MEM0_BASE_URL", config.platform.base_url or DEFAULT_BASE_URL)
+
+    # ── Email login flow ──────────────────────────────────────────────
+    if email:
+        if api_key:
+            print_error(err_console, "Cannot use both --api-key and --email.")
+            raise typer.Exit(1)
+
+        print_banner(console)
+        console.print()
+        print_info(console, f"Logging in as {email}...\n")
+
+        result = _email_login(email, code, base_url)
+
+        config.platform.api_key = result["api_key"]
+        config.platform.base_url = base_url
+        config.defaults.user_id = user_id or "mem0-cli"
+
+        save_config(config)
+
+        console.print()
+        print_success(console, "Authenticated! Configuration saved to ~/.mem0/config.json")
+        console.print()
+        console.print(f"  [{DIM_COLOR}]Get started:[/]")
+        console.print(f'  [{DIM_COLOR}]  mem0 add "I prefer dark mode"[/]')
+        console.print(f'  [{DIM_COLOR}]  mem0 search "preferences"[/]')
+        console.print()
+        return
+
+    # ── API key flow (existing) ───────────────────────────────────────
 
     # Fully non-interactive when both flags provided
     if api_key and user_id:
