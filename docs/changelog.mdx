@@ -8,20 +8,74 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-03-28" description="v1.0.9">
+
+**New Features & Updates:**
+- **LLMs:** Added `reasoning_effort` parameter support for reasoning models ([#4461](https://github.com/mem0ai/mem0/pull/4461))
+
+**Bug Fixes:**
+- **Core:** Preserved original `actor_id` during memory update ([#4570](https://github.com/mem0ai/mem0/pull/4570))
+- **Core:** Set `updated_at` on creation and preserve pre-existing `created_at` ([#4499](https://github.com/mem0ai/mem0/pull/4499))
+- **Core:** Centralized entity cleanup and skip malformed LLM relation dicts ([#4515](https://github.com/mem0ai/mem0/pull/4515))
+- **Core:** Removed `README.md` from wheel shared-data ([#4052](https://github.com/mem0ai/mem0/pull/4052))
+- **Vector Stores:** Handled `vector=None` in Milvus and Qdrant update methods ([#4568](https://github.com/mem0ai/mem0/pull/4568))
+- **Vector Stores:** Rebuilt FAISS index on vector deletion ([#4178](https://github.com/mem0ai/mem0/pull/4178))
+
+**Improvements:**
+- **Embeddings:** Updated default Gemini and Vertex AI embedder model to `gemini-embedding-001` ([#4571](https://github.com/mem0ai/mem0/pull/4571))
+
+</Update>
+
+<Update label="2026-03-26" description="v1.0.8">
+
+**New Features & Updates:**
+- **Vector Stores:** Integrated Turbopuffer as a vector database provider ([#4428](https://github.com/mem0ai/mem0/pull/4428))
+- **LLMs:** Added MiniMax LLM provider ([#4431](https://github.com/mem0ai/mem0/pull/4431))
+
+**Bug Fixes:**
+- **Core:** Fixed merging of multiple filter operators for the same key ([#4559](https://github.com/mem0ai/mem0/pull/4559))
+- **Core:** Prevented in-place mutation of metadata in `_create_memory` ([#4529](https://github.com/mem0ai/mem0/pull/4529))
+- **Core:** Preserved custom metadata when updating memory ([#4495](https://github.com/mem0ai/mem0/pull/4495))
+- **Core:** Handled chatty LLM responses in JSON parsing ([#4525](https://github.com/mem0ai/mem0/pull/4525))
+- **Core:** Prevented double embedding in `mem0.add` ([#3996](https://github.com/mem0ai/mem0/pull/3996))
+- **Core:** Raised `ValueError` when deleting nonexistent memory ([#4455](https://github.com/mem0ai/mem0/pull/4455))
+- **Core:** Cleaned up graph store data on `Memory.delete()` ([#4505](https://github.com/mem0ai/mem0/pull/4505))
+- **Vector Stores:** Prevented SQL injection in Databricks vector store ([#4558](https://github.com/mem0ai/mem0/pull/4558))
+- **Vector Stores:** Upgraded MongoDB vector store from deprecated `knnVector` to GA `vectorSearch` ([#3995](https://github.com/mem0ai/mem0/pull/3995))
+- **Vector Stores:** Prevented embedding corruption in Valkey and Redis when vector is `None` ([#4362](https://github.com/mem0ai/mem0/pull/4362))
+- **Vector Stores:** Accepted default `/tmp/chroma` path in `ChromaDbConfig` validator ([#4179](https://github.com/mem0ai/mem0/pull/4179))
+- **Vector Stores:** Wrapped vector and payload in lists for `Langchain.update` ([#4446](https://github.com/mem0ai/mem0/pull/4446))
+- **Graph:** Soft-delete graph relationships instead of hard `DELETE` ([#4188](https://github.com/mem0ai/mem0/pull/4188))
+- **Graph:** Sanitized hyphens in Neo4j Cypher relationship names ([#4154](https://github.com/mem0ai/mem0/pull/4154))
+- **Graph:** Used root LLM config as fallback for graph store instead of hardcoded OpenAI default ([#4466](https://github.com/mem0ai/mem0/pull/4466))
+- **Qdrant:** Fixed `do not remove local path on init` ([#4475](https://github.com/mem0ai/mem0/pull/4475))
+- **Qdrant:** Implemented enhanced metadata filtering operators ([#4127](https://github.com/mem0ai/mem0/pull/4127))
+- **Embeddings:** Fixed OpenAI embedding dimensions ([#4481](https://github.com/mem0ai/mem0/pull/4481))
+- **LLMs:** Omitted `topP` for Anthropic Converse in Bedrock; used `AWSBedrockConfig` in `LlmFactory` ([#4469](https://github.com/mem0ai/mem0/pull/4469))
+- **LLMs:** Avoided sending both `temperature` and `top_p` to Anthropic API ([#4471](https://github.com/mem0ai/mem0/pull/4471))
+- **LLMs:** Handled `None` content and empty candidates in `GeminiLLM` parsing ([#4462](https://github.com/mem0ai/mem0/pull/4462))
+- **LLMs:** Added missing `_parse_response` to `AzureOpenAIStructuredLLM` ([#4434](https://github.com/mem0ai/mem0/pull/4434))
+- **History:** Added timestamps for `DELETE` operations in history ([#4492](https://github.com/mem0ai/mem0/pull/4492))
+
+**Improvements:**
+- **Vector Stores:** Added vector validation to OpenSearchDB to ensure non-null, non-empty, and correct-dimension vectors ([#4472](https://github.com/mem0ai/mem0/pull/4472))
+
+</Update>
+
 <Update label="2026-03-19" description="v1.0.7">
 
 **Bug Fixes:**
-- **Core:** Fixed control characters in LLM JSON responses causing parse failures (#4420)
-- **Core:** Replaced hardcoded US/Pacific timezone references with `timezone.utc` (#4404)
-- **Core:** Preserved `http_auth` in `_safe_deepcopy_config` for OpenSearch (#4418)
-- **Core:** Normalized malformed LLM fact output before embedding (#4224)
-- **Embeddings:** Pass `encoding_format='float'` in OpenAI embeddings for proxy compatibility (#4058)
-- **LLMs:** Fixed Ollama to pass tools to `client.chat` and parse `tool_calls` from response (#4176)
-- **Reranker:** Support nested LLM config in `LLMReranker` for non-OpenAI providers (#4405)
-- **Vector Stores:** Cast `vector_distance` to float in Redis search (#4377)
+- **Core:** Fixed control characters in LLM JSON responses causing parse failures ([#4420](https://github.com/mem0ai/mem0/pull/4420))
+- **Core:** Replaced hardcoded US/Pacific timezone references with `timezone.utc` ([#4404](https://github.com/mem0ai/mem0/pull/4404))
+- **Core:** Preserved `http_auth` in `_safe_deepcopy_config` for OpenSearch ([#4418](https://github.com/mem0ai/mem0/pull/4418))
+- **Core:** Normalized malformed LLM fact output before embedding ([#4224](https://github.com/mem0ai/mem0/pull/4224))
+- **Embeddings:** Pass `encoding_format='float'` in OpenAI embeddings for proxy compatibility ([#4058](https://github.com/mem0ai/mem0/pull/4058))
+- **LLMs:** Fixed Ollama to pass tools to `client.chat` and parse `tool_calls` from response ([#4176](https://github.com/mem0ai/mem0/pull/4176))
+- **Reranker:** Support nested LLM config in `LLMReranker` for non-OpenAI providers ([#4405](https://github.com/mem0ai/mem0/pull/4405))
+- **Vector Stores:** Cast `vector_distance` to float in Redis search ([#4377](https://github.com/mem0ai/mem0/pull/4377))
 
 **Improvements:**
-- **Embeddings:** Improved Ollama embedder with model name normalization and error handling (#4403)
+- **Embeddings:** Improved Ollama embedder with model name normalization and error handling ([#4403](https://github.com/mem0ai/mem0/pull/4403))
 
 </Update>
 
@@ -762,6 +816,27 @@ mode: "wide"
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-03-28" description="v2.4.4">
+
+**Bug Fixes:**
+- **OSS:** Fixed Qdrant Cloud "Illegal host" error by defaulting to port 6333 when URL has no explicit port ([#4565](https://github.com/mem0ai/mem0/pull/4565))
+
+</Update>
+
+<Update label="2026-03-26" description="v2.4.3">
+
+**New Features & Updates:**
+- **OSS:** Added pgvector support to NodeJS OSS `VectorStoreFactory` ([#3997](https://github.com/mem0ai/mem0/pull/3997))
+
+**Bug Fixes:**
+- **OSS:** Made pgvector `pg` import compatible with ESM ([#4544](https://github.com/mem0ai/mem0/pull/4544))
+- **OSS:** Registered pgvector in `VectorStoreFactory` ([#4502](https://github.com/mem0ai/mem0/pull/4502))
+- **OSS:** Used root LLM config as fallback for graph store instead of hardcoded OpenAI default ([#4466](https://github.com/mem0ai/mem0/pull/4466))
+- **OSS:** Fixed `toCamelCase` in Redis `get` method for the payload ([#3172](https://github.com/mem0ai/mem0/pull/3172))
+- **Client:** Fixed Zod Schema incompatibility with OpenAI Structured Outputs API ([#3462](https://github.com/mem0ai/mem0/pull/3462))
+
+</Update>
 
 <Update label="2026-03-19" description="v2.4.2">
 

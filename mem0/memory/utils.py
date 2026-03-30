@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+from typing import Any, Dict, List
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -124,14 +125,20 @@ def remove_code_blocks(content: str) -> str:
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, returns the text as-is.
+    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
+    If that also fails, returns the text as-is.
     """
     text = text.strip()
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
     else:
-        json_str = text  # assume it's raw JSON
+        start_idx = text.find("{")
+        end_idx = text.rfind("}")
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            json_str = text[start_idx : end_idx + 1]
+        else:
+            json_str = text
     return json_str
 
 
@@ -258,4 +265,31 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         sanitized = sanitized.replace(old, new)
 
     return re.sub(r"_+", "_", sanitized).strip("_")
+
+
+def remove_spaces_from_entities(
+    entity_list: List[Any],
+    *,
+    sanitize_relationship: bool = True,
+) -> List[Dict[str, Any]]:
+    """
+    Normalize entity relation dicts from LLM/tool output: lowercase, spaces to underscores.
+
+    Skips entries that are not non-empty dicts or that lack any of
+    ``source``, ``relationship``, or ``destination`` (avoids KeyError on ``[{}]``
+    or partial dicts).
+    """
+    required = ("source", "relationship", "destination")
+    cleaned: List[Dict[str, Any]] = []
+    for item in entity_list:
+        if not isinstance(item, dict) or not item:
+            continue
+        if not all(key in item for key in required):
+            continue
+        item["source"] = item["source"].lower().replace(" ", "_")
+        rel = item["relationship"].lower().replace(" ", "_")
+        item["relationship"] = sanitize_relationship_for_cypher(rel) if sanitize_relationship else rel
+        item["destination"] = item["destination"].lower().replace(" ", "_")
+        cleaned.append(item)
+    return cleaned
 

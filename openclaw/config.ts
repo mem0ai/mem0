@@ -111,12 +111,15 @@ LANGUAGE:
 - If the user speaks Spanish, store the memory in Spanish; do not translate
 
 Exclude (NEVER store):
-- Passwords, API keys, tokens, secrets, or any credentials — even if shared in conversation. Instead store: "Tavily API key was configured and saved to .env (as of 2026-02-20)"
+- Passwords, API keys, tokens, secrets, or any credentials — even when embedded in configuration blocks, setup logs, or tool output. This includes strings starting with sk-, m0-, ak_, ghp_, bot tokens (digits followed by colon and alphanumeric string), bearer tokens, webhook URLs containing tokens, pairing codes, and any long alphanumeric strings that appear in config/env contexts. Never include the actual secret value in a memory. Instead, record that the credential was configured:
+  WRONG: "User's API key is sk-abc123..." or "Bot token is 12345:AABcd..."
+  RIGHT: "API key was configured for the service (as of YYYY-MM-DD)" or "Telegram bot token was set up"
 - One-time commands or instructions ("stop the script", "continue where you left off")
 - Acknowledgments or emotional reactions ("ok", "sounds good", "you're right", "sir")
 - Transient UI/navigation states ("user is in the admin panel", "relay is attached")
 - Ephemeral process status ("download at 50%", "daemon not running", "still syncing")
 - Cron heartbeat outputs, NO_REPLY responses, compaction flush directives
+- The current date/time as a standalone fact — timestamps are conversation context, not durable knowledge. "User indicates current time is 3:25 PM" is NEVER worth storing. However, DO use timestamps to anchor other facts: "User installed Ollama on 2026-03-21" is correct.
 - System routing metadata (message IDs, sender IDs, channel routing info)
 - Generic small talk with no informational content
 - Raw code snippets (capture the intent/decision, not the code itself)

@@ -175,10 +175,39 @@ def test_update(memory_instance):
     result = memory_instance.update("test_id", "Updated memory")
 
     memory_instance._update_memory.assert_called_once_with(
-        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}
+        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, None
     )
 
     assert result["message"] == "Memory updated successfully!"
+
+
+def test_update_with_metadata(memory_instance):
+    memory_instance.embedding_model = Mock()
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    memory_instance._update_memory = Mock()
+    metadata = {"category": "sports", "priority": "high"}
+
+    result = memory_instance.update("test_id", "Updated memory", metadata=metadata)
+
+    memory_instance._update_memory.assert_called_once_with(
+        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, metadata
+    )
+
+    assert result["message"] == "Memory updated successfully!"
+
+
+def test_update_with_empty_metadata(memory_instance):
+    memory_instance.embedding_model = Mock()
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    memory_instance._update_memory = Mock()
+
+    memory_instance.update("test_id", "Updated memory", metadata={})
+
+    memory_instance._update_memory.assert_called_once_with(
+        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
+    )
 
 
 def test_delete(memory_instance):

@@ -281,5 +281,48 @@ export function parseMessages(messages: string[]): string {
 export function removeCodeBlocks(text: string): string {
   // Extract content inside code fences, handling both complete and
   // truncated blocks (where the closing ``` never arrives).
-  return text.replace(/```(?:\w+)?\n?([\s\S]*?)(?:```|$)/g, "$1").trim();
+  const stripped = text
+    .replace(/```(?:\w+)?\n?([\s\S]*?)(?:```|$)/g, "$1")
+    .trim();
+  // Strip <think>...</think> blocks emitted by reasoning models (e.g. DeepSeek)
+  return stripped.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+}
+
+/**
+ * Extracts a JSON object from text that may be wrapped in explanation text.
+ *
+ * Some LLMs (especially local models like Ollama/LM Studio) return JSON
+ * wrapped in conversational text without code fences, e.g.:
+ *
+ *   "Here are the facts I extracted:\n{\"facts\": [\"fact1\"]}\nI hope this helps!"
+ *
+ * This function first tries `removeCodeBlocks` for code-fence-wrapped JSON,
+ * then falls back to locating the first `{` and last `}` to extract the
+ * outermost JSON object.
+ *
+ * @param text - The raw LLM response text
+ * @returns The extracted JSON string, or the original text if no JSON object
+ *          boundaries are found
+ */
+export function extractJson(text: string): string {
+  // Step 1: Strip code fences if present
+  const cleaned = removeCodeBlocks(text);
+  const trimmed = cleaned.trim();
+
+  // Step 2: Try to locate a JSON object by first `{` and last `}` boundaries
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    return trimmed.substring(firstBrace, lastBrace + 1);
+  }
+
+  // Step 3: Try to locate a JSON array by first `[` and last `]` boundaries
+  const firstBracket = trimmed.indexOf("[");
+  const lastBracket = trimmed.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    return trimmed.substring(firstBracket, lastBracket + 1);
+  }
+
+  // No JSON boundaries found — return as-is and let the caller handle the error
+  return trimmed;
 }

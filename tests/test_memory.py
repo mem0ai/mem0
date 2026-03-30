@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,7 +11,7 @@ from mem0.memory.utils import normalize_facts
 
 class MockVectorMemory:
     """Mock memory object for testing incomplete payloads."""
-    
+
     def __init__(self, memory_id: str, payload: dict, score: float = 0.8):
         self.id = memory_id
         self.payload = payload
@@ -104,7 +105,7 @@ def test_collection_name_preserved_after_reset(mock_sqlite, mock_llm_factory, mo
 
     reset_calls = [call for call in mock_vector_factory.call_args_list if len(mock_vector_factory.call_args_list) > 2]
     if reset_calls:
-        reset_config = reset_calls[-1][0][1]  
+        reset_config = reset_calls[-1][0][1]
         assert reset_config.collection_name == test_collection_name, f"Reset used wrong collection name: {reset_config.collection_name}"
 
 
@@ -129,13 +130,13 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     complete_memory = MockVectorMemory("mem_2", {"data": "content", "hash": "def456"})
 
     mock_vector_store.search.return_value = [incomplete_memory, complete_memory]
-    
+
     mock_embedder = MagicMock()
     mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
     memory.embedding_model = mock_embedder
 
     result = memory._search_vector_store("test", {"user_id": "test"}, 10)
-    
+
     assert len(result) == 2
     memories_by_id = {mem["id"]: mem for mem in result}
 
@@ -572,3 +573,264 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
     # It should NOT be called a 3rd time inside _update_memory
     assert embedder.embed.call_count == 2
     mock_vector_store.update.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that deleting a memory records created_at and updated_at in history.
+
+    Ensures DELETE operations preserve the original creation timestamp
+    and record the deletion time for proper audit trails.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "created_at": "2024-01-01T00:00:00+00:00",
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
+    assert call_kwargs["updated_at"] is not None
+    datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_memory_normalizes_non_utc_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that non-UTC created_at timestamps are normalized to UTC on delete."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "created_at": "2024-01-01T05:00:00+05:00",  # UTC+5
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"  # normalized to UTC
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+def test_delete_memory_missing_created_at(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that delete works when created_at is absent from the payload (pre-existing memories)."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] is None
+    assert call_kwargs["updated_at"] is not None
+    datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Test that async deleting a memory records created_at and updated_at in history.
+
+    Ensures async DELETE operations preserve the original creation timestamp
+    and record the deletion time for proper audit trails.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    existing_memory = MagicMock()
+    existing_memory.payload = {
+        "data": "I like Python.",
+        "created_at": "2024-01-01T00:00:00+00:00",
+        "actor_id": None,
+        "role": None,
+    }
+    mock_vector_store.get.return_value = existing_memory
+
+    await memory.delete("mem-123")
+
+    call_kwargs = memory.db.add_history.call_args.kwargs
+    assert call_kwargs["created_at"] == "2024-01-01T00:00:00+00:00"
+    assert call_kwargs["updated_at"] is not None
+    datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+class TestProcessMetadataFiltersMerge:
+    """Regression tests for issue #3952: multiple operators on the same key must be merged."""
+
+    def _make_memory(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+        from mem0.memory.main import Memory as MemoryClass
+        return MemoryClass(MemoryConfig())
+
+    def test_multiple_operators_same_key_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Filters like created_at: {gte: X, lte: Y} must preserve both operators."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000, "lte": 2000}
+        })
+        assert result == {"created_at": {"gte": 1000, "lte": 2000}}
+
+    def test_single_operator_still_works(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Single operator filters must continue to work."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000}
+        })
+        assert result == {"created_at": {"gte": 1000}}
+
+    def test_multiple_keys_with_multiple_operators(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Multiple keys each with multiple operators."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "created_at": {"gte": 1000, "lte": 2000},
+            "score": {"gt": 0.5, "lt": 0.9},
+        })
+        assert result == {
+            "created_at": {"gte": 1000, "lte": 2000},
+            "score": {"gt": 0.5, "lt": 0.9},
+        }
+
+
+# --- Issue #3040: reset() should clean up graph database ---
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_reset_calls_graph_reset_when_graph_enabled(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that reset() calls graph.reset() when graph is enabled (issue #3040)."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    # Simulate graph being enabled
+    memory.enable_graph = True
+    mock_graph = MagicMock()
+    memory.graph = mock_graph
+
+    memory.reset()
+
+    mock_graph.reset.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_reset_skips_graph_when_graph_disabled(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that reset() does NOT call graph.reset() when graph is disabled."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    # Graph is disabled by default
+    memory.enable_graph = False
+
+    memory.reset()
+
+    # graph attribute may not even exist, but reset should not fail
+    assert not hasattr(memory, 'graph') or not memory.enable_graph
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_reset_continues_if_graph_reset_fails(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that reset() doesn't crash if graph.reset() raises an exception (issue #3040)."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    memory.enable_graph = True
+    mock_graph = MagicMock()
+    mock_graph.reset.side_effect = Exception("Neo4j connection failed")
+    memory.graph = mock_graph
+
+    # Should NOT raise — graph failure is logged but reset continues
+    memory.reset()
+
+    mock_graph.reset.assert_called_once()

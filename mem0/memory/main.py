@@ -516,15 +516,15 @@ class Memory(MemoryBase):
         )
 
         try:
-            response = remove_code_blocks(response)
-            if not response.strip():
+            cleaned_response = remove_code_blocks(response)
+            if not cleaned_response.strip():
                 new_retrieved_facts = []
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
+                    new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
+                    # Try extracting JSON from response (handles chatty LLM output)
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
@@ -589,8 +589,11 @@ class Memory(MemoryBase):
                     logger.warning("Empty response from LLM, no memories to extract")
                     new_memories_with_actions = {}
                 else:
-                    response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response, strict=False)
+                    try:
+                        new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
+                    except json.JSONDecodeError:
+                        extracted_json = extract_json(response)
+                        new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -974,11 +977,11 @@ class Memory(MemoryBase):
                 }
                 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    result.setdefault(key, {})[operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
-        
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
@@ -1078,13 +1081,15 @@ class Memory(MemoryBase):
 
         return original_memories
 
-    def update(self, memory_id, data):
+    def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
         """
         Update a memory by ID.
 
         Args:
             memory_id (str): ID of the memory to update.
             data (str): New content to update the memory with.
+            metadata (dict, optional): Additional metadata to update. Existing metadata fields
+                not specified here will be preserved. Defaults to None.
 
         Returns:
             dict: Success message indicating the memory was updated.
@@ -1092,12 +1097,14 @@ class Memory(MemoryBase):
         Example:
             >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
+            >>> m.update(memory_id="mem_123", data="Likes tennis", metadata={"category": "sports"})
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
-        self._update_memory(memory_id, data, existing_embeddings)
+        self._update_memory(memory_id, data, existing_embeddings, metadata)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -1193,7 +1200,9 @@ class Memory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        if "created_at" not in new_metadata:
+            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["updated_at"] = new_metadata["created_at"]
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -1206,6 +1215,7 @@ class Memory(MemoryBase):
             data,
             "ADD",
             created_at=new_metadata.get("created_at"),
+            updated_at=new_metadata.get("updated_at"),
             actor_id=new_metadata.get("actor_id"),
             role=new_metadata.get("role"),
         )
@@ -1279,7 +1289,7 @@ class Memory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
@@ -1317,12 +1327,19 @@ class Memory(MemoryBase):
             if existing_memory is None:
                 raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
+
+        # Preserve original created_at and record deletion time
+        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        updated_at = datetime.now(timezone.utc).isoformat()
+
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
             memory_id,
             prev_value,
             None,
             "DELETE",
+            created_at=created_at,
+            updated_at=updated_at,
             actor_id=existing_memory.payload.get("actor_id"),
             role=existing_memory.payload.get("role"),
             is_deleted=1,
@@ -1353,6 +1370,12 @@ class Memory(MemoryBase):
                 self.config.vector_store.provider, self.config.vector_store.config
             )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
+
+        if self.enable_graph:
+            try:
+                self.graph.reset()
+            except Exception:
+                logger.warning("Failed to reset graph store, continuing with reset")
 
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
@@ -1403,7 +1426,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @classmethod
-    async def from_config(cls, config_dict: Dict[str, Any]):
+    def from_config(cls, config_dict: Dict[str, Any]):
         try:
             config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
@@ -1590,15 +1613,15 @@ class AsyncMemory(MemoryBase):
             response_format={"type": "json_object"},
         )
         try:
-            response = remove_code_blocks(response)
-            if not response.strip():
+            cleaned_response = remove_code_blocks(response)
+            if not cleaned_response.strip():
                 new_retrieved_facts = []
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response, strict=False)["facts"]
+                    new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
+                    # Try extracting JSON from response (handles chatty LLM output)
                     extracted_json = extract_json(response)
                     new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
                 new_retrieved_facts = normalize_facts(new_retrieved_facts)
@@ -1666,8 +1689,11 @@ class AsyncMemory(MemoryBase):
                     logger.warning("Empty response from LLM, no memories to extract")
                     new_memories_with_actions = {}
                 else:
-                    response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response, strict=False)
+                    try:
+                        new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
+                    except json.JSONDecodeError:
+                        extracted_json = extract_json(response)
+                        new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -2082,7 +2108,7 @@ class AsyncMemory(MemoryBase):
                 }
 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    result.setdefault(key, {})[operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
@@ -2188,13 +2214,15 @@ class AsyncMemory(MemoryBase):
 
         return original_memories
 
-    async def update(self, memory_id, data):
+    async def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
         """
         Update a memory by ID asynchronously.
 
         Args:
             memory_id (str): ID of the memory to update.
             data (str): New content to update the memory with.
+            metadata (dict, optional): Additional metadata to update. Existing metadata fields
+                not specified here will be preserved. Defaults to None.
 
         Returns:
             dict: Success message indicating the memory was updated.
@@ -2202,13 +2230,15 @@ class AsyncMemory(MemoryBase):
         Example:
             >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
+            >>> await m.update(memory_id="mem_123", data="Likes tennis", metadata={"category": "sports"})
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
         embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
         existing_embeddings = {data: embeddings}
 
-        await self._update_memory(memory_id, data, existing_embeddings)
+        await self._update_memory(memory_id, data, existing_embeddings, metadata)
         return {"message": "Memory updated successfully!"}
 
     async def delete(self, memory_id):
@@ -2308,7 +2338,9 @@ class AsyncMemory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        if "created_at" not in new_metadata:
+            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["updated_at"] = new_metadata["created_at"]
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -2324,6 +2356,7 @@ class AsyncMemory(MemoryBase):
             data,
             "ADD",
             created_at=new_metadata.get("created_at"),
+            updated_at=new_metadata.get("updated_at"),
             actor_id=new_metadata.get("actor_id"),
             role=new_metadata.get("role"),
         )
@@ -2413,7 +2446,7 @@ class AsyncMemory(MemoryBase):
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
 
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
@@ -2454,6 +2487,10 @@ class AsyncMemory(MemoryBase):
                 raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
 
+        # Preserve original created_at and record deletion time
+        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        updated_at = datetime.now(timezone.utc).isoformat()
+
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(
             self.db.add_history,
@@ -2461,6 +2498,8 @@ class AsyncMemory(MemoryBase):
             prev_value,
             None,
             "DELETE",
+            created_at=created_at,
+            updated_at=updated_at,
             actor_id=existing_memory.payload.get("actor_id"),
             role=existing_memory.payload.get("role"),
             is_deleted=1,
@@ -2493,6 +2532,12 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         capture_event("mem0.reset", self, {"sync_type": "async"})
+
+        if self.enable_graph:
+            try:
+                await asyncio.to_thread(self.graph.reset)
+            except Exception:
+                logger.warning("Failed to reset graph store, continuing with reset")
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")

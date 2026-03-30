@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "1.0.7"
+version = "1.0.9"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "support@mem0.ai" }
@@ -103,9 +103,6 @@ exclude = [
 packages = ["mem0"]
 only-include = ["mem0"]
 
-[tool.hatch.build.targets.wheel.shared-data]
-"README.md" = "README.md"
-
 [tool.hatch.envs.dev_py_3_9]
 python = "3.9"
 features = [
@@ -166,3 +163,10 @@ test = [
 [tool.ruff]
 line-length = 120
 exclude = ["embedchain/", "openmemory/"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mem0", "mem0_cli"]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["mem0", "mem0_cli"]
