@@ -19,7 +19,7 @@ import {
   getFactRetrievalMessages,
   getUpdateMemoryMessages,
   parseMessages,
-  removeCodeBlocks,
+  extractJson,
 } from "../prompts";
 import { DummyHistoryManager } from "../storage/DummyHistoryManager";
 import { Embedder } from "../embeddings/base";
@@ -310,7 +310,7 @@ export class Memory {
       { type: "json_object" },
     );
 
-    const cleanResponse = removeCodeBlocks(response as string);
+    const cleanResponse = extractJson(response as string);
     let facts: string[] = [];
     try {
       const parsed = FactRetrievalSchema.parse(JSON.parse(cleanResponse));
@@ -364,7 +364,7 @@ export class Memory {
       { type: "json_object" },
     );
 
-    const cleanUpdateResponse = removeCodeBlocks(updateResponse as string);
+    const cleanUpdateResponse = extractJson(updateResponse as string);
     let memoryActions: any[] = [];
     try {
       memoryActions = JSON.parse(cleanUpdateResponse).memory || [];
