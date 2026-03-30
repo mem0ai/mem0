@@ -85,7 +85,9 @@ That's all I found.`;
 
   it("returns original text when no JSON boundaries found", () => {
     const input = "No JSON here, just some plain text response.";
-    expect(extractJson(input)).toBe("No JSON here, just some plain text response.");
+    expect(extractJson(input)).toBe(
+      "No JSON here, just some plain text response.",
+    );
   });
 
   it("handles JSON array responses", () => {
