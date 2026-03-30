@@ -131,4 +131,21 @@ That's all I found.`;
       facts: ["Has a dog named Max"],
     });
   });
+
+  it("strips <think> blocks from reasoning models before extracting JSON", () => {
+    const input =
+      "<think>\nLet me analyze the conversation carefully.\n</think>\n" +
+      '{"facts": ["User lives in Tokyo"]}';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({
+      facts: ["User lives in Tokyo"],
+    });
+  });
+
+  it("handles <think> blocks inside code fences", () => {
+    const input =
+      '```json\n<think>reasoning here</think>\n{"facts": ["test"]}\n```';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({ facts: ["test"] });
+  });
 });

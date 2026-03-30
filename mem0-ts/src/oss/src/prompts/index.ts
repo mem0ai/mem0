@@ -281,7 +281,11 @@ export function parseMessages(messages: string[]): string {
 export function removeCodeBlocks(text: string): string {
   // Extract content inside code fences, handling both complete and
   // truncated blocks (where the closing ``` never arrives).
-  return text.replace(/```(?:\w+)?\n?([\s\S]*?)(?:```|$)/g, "$1").trim();
+  const stripped = text
+    .replace(/```(?:\w+)?\n?([\s\S]*?)(?:```|$)/g, "$1")
+    .trim();
+  // Strip <think>...</think> blocks emitted by reasoning models (e.g. DeepSeek)
+  return stripped.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 }
 
 /**
