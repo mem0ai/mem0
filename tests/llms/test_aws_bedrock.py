@@ -220,6 +220,25 @@ class TestBuildInferenceConfig:
         cfg = llm._build_inference_config()
         assert cfg["maxTokens"] == 2000
 
+    def test_minimax_omits_top_p_when_explicitly_set(self, mock_boto3):
+        # MiniMax M2.x (reasoning model) rejects both temperature and topP simultaneously.
+        # Even when the user explicitly configures top_p, it must be omitted.
+        llm = _make_llm(
+            "minimax.minimax-m2.5",
+            mock_boto3,
+            temperature=0.1,
+            top_p=0.9,
+        )
+        cfg = llm._build_inference_config()
+        assert "temperature" in cfg
+        assert "topP" not in cfg, "topP must be absent for MiniMax reasoning models"
+
+    def test_minimax_only_temperature_by_default(self, mock_boto3):
+        llm = _make_llm("minimax.minimax-m2.5", mock_boto3, temperature=0.1)
+        cfg = llm._build_inference_config()
+        assert cfg["temperature"] == 0.1
+        assert "topP" not in cfg
+
 
 # ---------------------------------------------------------------------------
 # generate_response — Converse API call assertions

@@ -121,6 +121,10 @@ class AWSBedrockLLM(LLMBase):
         """Initialize provider-specific settings and capabilities."""
         # Determine capabilities based on provider and model
         self.supports_tools = self.provider in ["anthropic", "cohere", "amazon"]
+        # MiniMax M2.x is intentionally excluded from supports_tools: tool use for MiniMax
+        # on Amazon Bedrock is only available via the bedrock-mantle (OpenAI-compatible)
+        # endpoint, not via the bedrock-runtime Converse API used by this class.
+        # See: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-minimax-minimax-m2-5.html
         self.supports_vision = self.provider in ["anthropic", "amazon", "meta", "mistral"]
         self.supports_streaming = self.provider in ["anthropic", "cohere", "mistral", "amazon", "meta"]
 
@@ -488,7 +492,12 @@ class AWSBedrockLLM(LLMBase):
         return 2000
 
     def _build_inference_config(self) -> Dict[str, Any]:
-        """Build Converse ``inferenceConfig``. Anthropic allows only one of temperature or topP; we keep temperature and omit topP."""
+        """Build Converse ``inferenceConfig``.
+
+        Anthropic and MiniMax reasoning models reject requests that include both
+        ``temperature`` and ``topP`` simultaneously, so ``topP`` is omitted for
+        those providers even when the user has configured it.
+        """
         inference_config: Dict[str, Any] = {
             "maxTokens": self.model_config.get("max_tokens", self._default_max_tokens_for_converse()),
             "temperature": self.model_config.get("temperature", 0.1),
@@ -496,8 +505,11 @@ class AWSBedrockLLM(LLMBase):
 
         top_p = self.model_config.get("top_p")
         if top_p is not None:
-            if self.provider == "anthropic":
-                logger.debug("Omitting topP for Anthropic Converse (using temperature); top_p=%s", top_p)
+            if self.provider in ("anthropic", "minimax"):
+                # Both Anthropic and MiniMax M2.x (reasoning models) raise a
+                # ValidationException when temperature and topP are both present
+                # in inferenceConfig.  Omit topP and rely on temperature only.
+                logger.debug("Omitting topP for %s Converse (using temperature); top_p=%s", self.provider, top_p)
             else:
                 inference_config["topP"] = top_p
 
@@ -592,10 +604,7 @@ class AWSBedrockLLM(LLMBase):
             converse_params = {
                 "modelId": self.config.model,
                 "messages": converse_messages,
-                "inferenceConfig": {
-                    "maxTokens": self.model_config.get("max_tokens", 2000),
-                    "temperature": self.model_config.get("temperature", 0.1),
-                },
+                "inferenceConfig": self._build_inference_config(),
             }
             if system_parts:
                 converse_params["system"] = [{"text": "\n".join(system_parts)}]
