@@ -4,9 +4,9 @@
   "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
   "theme": "aspen",
   "colors": {
-    "primary": "#9C58FA",
-    "light": "#9C58FA",
-    "dark": "#9C58FA"
+    "primary": "#8F74E0",
+    "light": "#8F74E0",
+    "dark": "#8F74E0"
   },
   "favicon": "/logo/favicon.png",
   "logo": {
