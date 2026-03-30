@@ -37,8 +37,8 @@ from mem0.utils.factory import (
     EmbedderFactory,
     GraphStoreFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
 )
 
 # Suppress SWIG deprecation warnings globally
@@ -1235,7 +1235,10 @@ class Memory(MemoryBase):
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
         if self.enable_graph:
-            self.graph.reset()
+            try:
+                self.graph.reset()
+            except Exception:
+                logger.warning("Failed to reset graph store, continuing with reset")
 
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
@@ -2325,7 +2328,10 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.reset", self, {"sync_type": "async"})
 
         if self.enable_graph:
-            await asyncio.to_thread(self.graph.reset)
+            try:
+                await asyncio.to_thread(self.graph.reset)
+            except Exception:
+                logger.warning("Failed to reset graph store, continuing with reset")
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
