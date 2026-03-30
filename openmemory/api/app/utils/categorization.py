@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import List
 
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 from dotenv import load_dotenv
@@ -20,14 +20,14 @@ class BatchMemoryCategories(BaseModel):
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
-def get_categories_for_memories(memories: List[str]) -> Dict[str, List[str]]:
+def get_categories_for_memories(memories: List[str]) -> List[List[str]]:
     """Categorize multiple memories in a single LLM call.
 
-    Returns a dict mapping each memory string to its list of categories.
+    Returns a list of category lists, one per memory in the same order.
     Falls back to empty categories on failure so callers are never blocked.
     """
     if not memories:
-        return {}
+        return []
 
     numbered = "\n".join(f"{i + 1}. {m}" for i, m in enumerate(memories))
     prompt = (
@@ -46,14 +46,13 @@ def get_categories_for_memories(memories: List[str]) -> Dict[str, List[str]]:
             temperature=0,
         )
         parsed: BatchMemoryCategories = completion.choices[0].message.parsed
-        return {
-            memories[i]: [cat.strip().lower() for cat in item.categories]
-            for i, item in enumerate(parsed.results)
-            if i < len(memories)
-        }
+        return [
+            [cat.strip().lower() for cat in item.categories]
+            for item in parsed.results[:len(memories)]
+        ]
     except Exception as e:
         logging.error(f"[ERROR] Batch categorization failed: {e}")
-        return {m: [] for m in memories}
+        return [[] for _ in memories]
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))

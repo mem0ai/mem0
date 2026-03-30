@@ -1,9 +1,14 @@
 import os
 import tempfile
+from unittest.mock import patch
 
 import pytest
 
-from mem0.memory.file_utils import chunk_text, extract_text_from_file
+from mem0.memory.file_utils import (
+    MAX_FILE_SIZE_BYTES,
+    chunk_text,
+    extract_text_from_file,
+)
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,6 +45,15 @@ class TestExtractTextFromFile:
         try:
             with pytest.raises(ValueError, match="Unsupported file type"):
                 extract_text_from_file(path)
+        finally:
+            os.unlink(path)
+
+    def test_file_exceeding_size_limit_raises(self):
+        path = _write_tmp(".txt", "some content")
+        try:
+            with patch("mem0.memory.file_utils.os.path.getsize", return_value=MAX_FILE_SIZE_BYTES + 1):
+                with pytest.raises(ValueError, match="exceeds the maximum allowed"):
+                    extract_text_from_file(path)
         finally:
             os.unlink(path)
 
@@ -131,3 +145,11 @@ class TestChunkText:
         assert len(chunks) >= 1
         for chunk in chunks:
             assert len(chunk) <= 130  # sentence-level tolerance
+
+    def test_single_oversized_sentence_is_not_lost(self):
+        # One paragraph containing a single sentence larger than chunk_size
+        big_sentence = "x" * 5000
+        chunks = chunk_text(big_sentence, chunk_size=4000)
+        # The sentence must appear in some chunk (not silently dropped)
+        combined = " ".join(chunks)
+        assert "x" * 5000 in combined

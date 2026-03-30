@@ -150,6 +150,22 @@ class TestMemoryAddFileDetectionSync:
         assert mock_vs.call_count == 1
         assert "results" in result
 
+    def test_path_outside_tmp_dir_is_not_treated_as_file(self):
+        """A path outside the system temp directory is treated as plain text."""
+        mem = _make_memory()
+        tmp = _write_tmp(".txt", "safe content")
+        try:
+            # Pretend the temp dir is somewhere else so our file appears outside it,
+            # simulating a path traversal attempt.
+            with patch("mem0.memory.main.tempfile.gettempdir", return_value="/nonexistent/safedir"):
+                with ExitStack() as stack:
+                    mock_vs = _stack_internals(stack, mem)
+                    mem.add(tmp, user_id="u1")
+
+            assert mock_vs.call_count == 1
+        finally:
+            os.unlink(tmp)
+
     def test_results_merged_across_chunks(self):
         """Return value is a flat dict with all chunk results merged under 'results'."""
         chunks = ["Chunk one.", "Chunk two.", "Chunk three."]

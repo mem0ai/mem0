@@ -2,6 +2,7 @@ import os
 from typing import List
 
 SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".docx"}
+MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 def extract_text_from_file(file_path: str) -> str:
@@ -10,6 +11,12 @@ def extract_text_from_file(file_path: str) -> str:
     if ext not in SUPPORTED_EXTENSIONS:
         raise ValueError(
             f"Unsupported file type '{ext}'. Supported types: {', '.join(SUPPORTED_EXTENSIONS)}"
+        )
+
+    file_size = os.path.getsize(file_path)
+    if file_size > MAX_FILE_SIZE_BYTES:
+        raise ValueError(
+            f"File size {file_size} bytes exceeds the maximum allowed {MAX_FILE_SIZE_BYTES} bytes (50 MB)."
         )
 
     if ext == ".pdf":
@@ -86,6 +93,11 @@ def chunk_text(text: str, chunk_size: int = 4000) -> List[str]:
                     sentence_size = 0
                 sentence_chunk.append(sentence)
                 sentence_size += len(sentence)
+                # Flush immediately if a single sentence already exceeds the limit
+                if sentence_size > chunk_size:
+                    chunks.append(" ".join(sentence_chunk))
+                    sentence_chunk = []
+                    sentence_size = 0
 
             if sentence_chunk:
                 chunks.append(" ".join(sentence_chunk))

@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 import uuid
 import warnings
 from copy import deepcopy
@@ -48,6 +49,13 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
+
+
+def _is_safe_path(path: str) -> bool:
+    """Return True only if path resolves to a file inside the system temp directory."""
+    abs_path = os.path.realpath(path)
+    tmp_dir = os.path.realpath(tempfile.gettempdir())
+    return abs_path.startswith(tmp_dir + os.sep)
 
 
 def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
@@ -415,7 +423,7 @@ class Memory(MemoryBase):
                 suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
             )
 
-        if isinstance(messages, str) and os.path.isfile(messages):
+        if isinstance(messages, str) and os.path.isfile(messages) and _is_safe_path(messages):
             from mem0.memory.file_utils import (
                 SUPPORTED_EXTENSIONS,
                 chunk_text,
@@ -1529,7 +1537,7 @@ class AsyncMemory(MemoryBase):
                 f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
             )
 
-        if isinstance(messages, str) and os.path.isfile(messages):
+        if isinstance(messages, str) and os.path.isfile(messages) and _is_safe_path(messages):
             from mem0.memory.file_utils import (
                 SUPPORTED_EXTENSIONS,
                 chunk_text,

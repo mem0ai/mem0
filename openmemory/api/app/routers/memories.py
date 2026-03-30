@@ -385,7 +385,17 @@ async def upload_memory_file(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to process file: {e}")
     finally:
-        os.unlink(tmp_path)
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError as e:
+            logging.warning(f"Failed to clean up temp file {tmp_path}: {e}")
+
+    if not qdrant_response or not isinstance(qdrant_response, dict) or "results" not in qdrant_response:
+        raise HTTPException(
+            status_code=500,
+            detail="Memory service returned an invalid or empty response."
+        )
 
     from app.utils.categorization import get_categories_for_memories
 
@@ -426,33 +436,36 @@ async def upload_memory_file(
             db.refresh(m)
 
         # Single batch categorization call instead of N individual LLM calls
-        from app.models import memory_categories
-        contents = [m.content for m in created_memories]
-        categories_map = get_categories_for_memories(contents)
-        for memory in created_memories:
-            for cat_name in categories_map.get(memory.content, []):
-                category = db.query(Category).filter(Category.name == cat_name).first()
-                if not category:
-                    category = Category(
-                        name=cat_name,
-                        description=f"Automatically created category for {cat_name}"
-                    )
-                    db.add(category)
-                    db.flush()
-                existing_assoc = db.execute(
-                    memory_categories.select().where(
-                        (memory_categories.c.memory_id == memory.id) &
-                        (memory_categories.c.category_id == category.id)
-                    )
-                ).first()
-                if not existing_assoc:
-                    db.execute(
-                        memory_categories.insert().values(
-                            memory_id=memory.id,
-                            category_id=category.id,
+        try:
+            from app.models import memory_categories
+            contents = [m.content for m in created_memories]
+            categories_list = get_categories_for_memories(contents)
+            for memory, cats in zip(created_memories, categories_list):
+                for cat_name in cats:
+                    category = db.query(Category).filter(Category.name == cat_name).first()
+                    if not category:
+                        category = Category(
+                            name=cat_name,
+                            description=f"Automatically created category for {cat_name}"
                         )
-                    )
-        db.commit()
+                        db.add(category)
+                        db.flush()
+                    existing_assoc = db.execute(
+                        memory_categories.select().where(
+                            (memory_categories.c.memory_id == memory.id) &
+                            (memory_categories.c.category_id == category.id)
+                        )
+                    ).first()
+                    if not existing_assoc:
+                        db.execute(
+                            memory_categories.insert().values(
+                                memory_id=memory.id,
+                                category_id=category.id,
+                            )
+                        )
+            db.commit()
+        except Exception as e:
+            logging.error(f"Batch categorization failed for upload, memories saved without categories: {e}")
 
     return {
         "message": f"Processed '{file.filename}': {len(created_memories)} memory(s) created.",

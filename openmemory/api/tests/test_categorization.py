@@ -13,12 +13,12 @@ from unittest.mock import MagicMock, patch
 
 
 class TestBatchCategorization:
-    def test_empty_input_returns_empty_dict(self):
+    def test_empty_input_returns_empty_list(self):
         from app.utils.categorization import get_categories_for_memories
 
-        assert get_categories_for_memories([]) == {}
+        assert get_categories_for_memories([]) == []
 
-    def test_returns_correct_memory_to_category_mapping(self):
+    def test_returns_correct_category_list(self):
         from app.utils.categorization import (
             BatchMemoryCategories,
             MemoryCategories,
@@ -38,20 +38,17 @@ class TestBatchCategorization:
             mock_client.beta.chat.completions.parse.return_value = mock_completion
             result = get_categories_for_memories(["I eat apples", "I code Python"])
 
-        assert result == {
-            "I eat apples": ["health", "food"],
-            "I code Python": ["tech"],
-        }
+        assert result == [["health", "food"], ["tech"]]
 
     def test_falls_back_to_empty_categories_on_openai_failure(self):
-        """When OpenAI raises, the function returns {memory: []} for each memory."""
+        """When OpenAI raises, the function returns [[], []] for each memory."""
         from app.utils.categorization import get_categories_for_memories
 
         with patch("app.utils.categorization.openai_client") as mock_client:
             mock_client.beta.chat.completions.parse.side_effect = Exception("API down")
             result = get_categories_for_memories(["mem1", "mem2"])
 
-        assert result == {"mem1": [], "mem2": []}
+        assert result == [[], []]
 
     def test_response_count_mismatch_handled_gracefully(self):
         """If the response has fewer items than memories, extras are silently omitted."""
@@ -72,9 +69,33 @@ class TestBatchCategorization:
             mock_client.beta.chat.completions.parse.return_value = mock_completion
             result = get_categories_for_memories(["mem1", "mem2", "mem3"])
 
-        assert result.get("mem1") == ["health"]
-        assert "mem2" not in result
-        assert "mem3" not in result
+        assert result == [["health"]]
+
+    def test_duplicate_content_memories_get_independent_categories(self):
+        """Two memories with identical content each get their own category list."""
+        from app.utils.categorization import (
+            BatchMemoryCategories,
+            MemoryCategories,
+            get_categories_for_memories,
+        )
+
+        mock_parsed = BatchMemoryCategories(
+            results=[
+                MemoryCategories(categories=["health"]),
+                MemoryCategories(categories=["fitness"]),
+            ]
+        )
+        mock_completion = MagicMock()
+        mock_completion.choices[0].message.parsed = mock_parsed
+
+        with patch("app.utils.categorization.openai_client") as mock_client:
+            mock_client.beta.chat.completions.parse.return_value = mock_completion
+            result = get_categories_for_memories(["same content", "same content"])
+
+        # Both entries are preserved independently via index-based list
+        assert len(result) == 2
+        assert result[0] == ["health"]
+        assert result[1] == ["fitness"]
 
 
 # ---------------------------------------------------------------------------

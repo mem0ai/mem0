@@ -1,12 +1,11 @@
 """Tests for POST /api/v1/memories/upload in app.routers.memories."""
 
 import os
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 # Set dummy keys before any imports that initialize the OpenAI client.
 os.environ.setdefault("OPENAI_API_KEY", "dummy")
-
-from unittest.mock import MagicMock, patch
 
 import pytest
 import pytest_asyncio
@@ -107,7 +106,7 @@ class TestUploadEndpoint:
             "app.routers.memories.get_memory_client", return_value=mock_memory_client
         ):
             with patch(
-                "app.utils.categorization.get_categories_for_memories", return_value={}
+                "app.utils.categorization.get_categories_for_memories", return_value=[]
             ):
                 response = await client.post(
                     "/api/v1/memories/upload",
@@ -155,7 +154,7 @@ class TestUploadEndpoint:
             "app.routers.memories.get_memory_client", return_value=mock_memory_client
         ):
             with patch(
-                "app.utils.categorization.get_categories_for_memories", return_value={}
+                "app.utils.categorization.get_categories_for_memories", return_value=[]
             ):
                 response = await client.post(
                     "/api/v1/memories/upload",
@@ -167,6 +166,39 @@ class TestUploadEndpoint:
         assert response.json()["memories_created"] == 0
 
     @pytest.mark.asyncio
+    async def test_memory_client_returns_none_gives_500(self, client, test_user):
+        """When memory_client.add() returns None, the endpoint returns HTTP 500."""
+        none_client = MagicMock()
+        none_client.add.return_value = None
+
+        with patch("app.routers.memories.get_memory_client", return_value=none_client):
+            response = await client.post(
+                "/api/v1/memories/upload",
+                data={"user_id": "upload_test_user"},
+                files={"file": ("notes.txt", b"Some content.", "text/plain")},
+            )
+
+        assert response.status_code == 500
+        assert "invalid or empty response" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_unlink_failure_does_not_mask_success_response(
+        self, client, test_user, mock_memory_client
+    ):
+        """If os.unlink raises OSError, the endpoint still returns the normal response."""
+        with patch("app.routers.memories.get_memory_client", return_value=mock_memory_client):
+            with patch("app.utils.categorization.get_categories_for_memories", return_value=[]):
+                with patch("app.routers.memories.os.unlink", side_effect=OSError("unlink failed")):
+                    response = await client.post(
+                        "/api/v1/memories/upload",
+                        data={"user_id": "upload_test_user"},
+                        files={"file": ("notes.txt", b"My test note.", "text/plain")},
+                    )
+
+        assert response.status_code == 200
+        assert response.json()["memories_created"] > 0
+
+    @pytest.mark.asyncio
     async def test_skip_categorization_prevents_per_insert_calls(
         self, client, test_user, mock_memory_client
     ):
@@ -175,7 +207,7 @@ class TestUploadEndpoint:
             "app.routers.memories.get_memory_client", return_value=mock_memory_client
         ):
             with patch(
-                "app.utils.categorization.get_categories_for_memories", return_value={}
+                "app.utils.categorization.get_categories_for_memories", return_value=[]
             ) as mock_batch:
                 with patch("app.models.categorize_memory") as mock_per_insert:
                     response = await client.post(
