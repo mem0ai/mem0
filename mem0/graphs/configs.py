@@ -97,12 +97,28 @@ class ApacheAgeConfig(BaseModel):
         return values
 
 
+class ArcadeDBConfig(BaseModel):
+    url: str = Field("http://localhost:2480", description="ArcadeDB HTTP API URL")
+    username: str = Field("root", description="ArcadeDB username")
+    password: str = Field("arcadedb", description="ArcadeDB password")
+    database: str = Field(description="ArcadeDB database name")
+    enable_gav: bool = Field(False, description="Enable Graph Analytics View for in-memory OLAP (PageRank, centrality)")
+    gav_vertex_type: str = Field("Entity", description="Vertex type to project into the GAV")
+    gav_edge_type: Optional[str] = Field(None, description="Edge type filter for GAV (None = all edges)")
+
+    @model_validator(mode="before")
+    def check_required_fields(cls, values):
+        if not values.get("database"):
+            raise ValueError("Please provide 'database'.")
+        return values
+
+
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'apache_age')",
+        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'apache_age', 'arcadedb')",
         default="neo4j",
     )
-    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, ApacheAgeConfig] = Field(
+    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, ApacheAgeConfig, ArcadeDBConfig] = Field(
         description="Configuration for the specific data store", default=None
     )
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
@@ -132,5 +148,7 @@ class GraphStoreConfig(BaseModel):
             return KuzuConfig(**v.model_dump())
         elif provider == "apache_age":
             return ApacheAgeConfig(**v.model_dump())
+        elif provider == "arcadedb":
+            return ArcadeDBConfig(**v.model_dump())
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")

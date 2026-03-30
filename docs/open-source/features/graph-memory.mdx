@@ -417,6 +417,56 @@ Apache AGE does not have a built-in vector index, so similarity search is comput
 
 Reference: [Apache AGE documentation](https://age.apache.org/age-manual/master/index.html).
   </Accordion>
+  <Accordion title="ArcadeDB (multi-model with native vector search)">
+    [ArcadeDB](https://arcadedb.com) is a multi-model database with built-in HNSW vector indexes, OpenCypher support, and an Apache 2.0 license. Unlike other graph backends, ArcadeDB performs similarity search server-side using native vector indexes — no client-side cosine computation needed.
+
+    Start ArcadeDB via Docker:
+
+```bash
+docker run -d -p 2480:2480 \
+  -e JAVA_OPTS="-Darcadedb.server.rootPassword=arcadedb" \
+  arcdata/arcadedb:latest
+```
+
+    Then configure Mem0:
+
+```python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "arcadedb",
+        "config": {
+            "url": "http://localhost:2480",
+            "database": "mem0graph",
+            "username": "root",
+            "password": "arcadedb",
+        },
+    },
+}
+
+m = Memory.from_config(config_dict=config)
+```
+
+    **Optional: Graph Analytics View (GAV)** — Enable in-memory OLAP for PageRank and centrality scoring on the memory graph:
+
+```python
+config = {
+    "graph_store": {
+        "provider": "arcadedb",
+        "config": {
+            "url": "http://localhost:2480",
+            "database": "mem0graph",
+            "enable_gav": True,  # opt-in, trades RAM for OLAP analytics
+        },
+    },
+}
+```
+
+    When GAV is active, search results include `pagerank` scores for matched entities, enabling centrality-aware ranking.
+
+    Reference: [ArcadeDB documentation](https://docs.arcadedb.com).
+  </Accordion>
 </AccordionGroup>
 
 <CardGroup cols={2}>
