@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
 import httpx
@@ -92,7 +93,8 @@ def _email_login(
 ) -> dict:
     """Run the email verification code login flow.
 
-    Returns dict with api_key, org_id, project_id, is_new_user.
+    Returns the parsed JSON response from the verify endpoint.
+    The caller expects at minimum an ``api_key`` field.
     """
     url = base_url.rstrip("/")
 
@@ -108,7 +110,10 @@ def _email_login(
                 print_error(err_console, "Too many attempts. Try again in a few minutes.")
                 raise typer.Exit(1)
             if resp.status_code != 200:
-                detail = resp.json().get("error", resp.text)
+                try:
+                    detail = resp.json().get("error", resp.text)
+                except Exception:
+                    detail = resp.text
                 print_error(err_console, f"Failed to send code: {detail}")
                 raise typer.Exit(1)
 
@@ -137,7 +142,10 @@ def _email_login(
             print_error(err_console, "Too many attempts. Try again in a few minutes.")
             raise typer.Exit(1)
         if resp.status_code != 200:
-            detail = resp.json().get("error", resp.text)
+            try:
+                detail = resp.json().get("error", resp.text)
+            except Exception:
+                detail = resp.text
             print_error(err_console, f"Verification failed: {detail}")
             raise typer.Exit(1)
 
@@ -158,9 +166,12 @@ def run_init(
     flags, an error message is printed.
     """
     config = Mem0Config()
-    import os
 
     base_url = os.environ.get("MEM0_BASE_URL", config.platform.base_url or DEFAULT_BASE_URL)
+
+    if code and not email:
+        print_error(err_console, "--code requires --email.")
+        raise typer.Exit(1)
 
     # ── Email login flow ──────────────────────────────────────────────
     if email:
