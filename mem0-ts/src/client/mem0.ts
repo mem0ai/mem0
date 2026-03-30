@@ -10,13 +10,15 @@ import {
   PromptUpdatePayload,
   SearchOptions,
   Webhook,
-  WebhookPayload,
+  WebhookCreatePayload,
+  WebhookUpdatePayload,
   Message,
   FeedbackPayload,
   CreateMemoryExportPayload,
   GetMemoryExportPayload,
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
+import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
 
 class APIError extends Error {
   constructor(message: string) {
@@ -155,7 +157,7 @@ export default class MemoryClient {
     });
     if (!response.ok) {
       const errorData = await response.text();
-      throw new APIError(`API request failed: ${errorData}`);
+      throw createExceptionFromResponse(response.status, errorData);
     }
     const jsonResponse = await response.json();
     return jsonResponse;
@@ -200,8 +202,8 @@ export default class MemoryClient {
       if (project_id && !this.projectId) this.projectId = project_id;
       if (user_email) this.telemetryId = user_email;
     } catch (error: any) {
-      // Convert generic errors to APIError with meaningful messages
-      if (error instanceof APIError) {
+      // Pass through structured exceptions and APIError
+      if (error instanceof MemoryError || error instanceof APIError) {
         throw error;
       } else {
         throw new APIError(
@@ -310,7 +312,7 @@ export default class MemoryClient {
     this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { api_version, page, page_size, ...otherOptions } = options!;
+    const { api_version, page, page_size, ...otherOptions } = options ?? {};
     if (this.organizationName != null && this.projectName != null) {
       otherOptions.org_name = this.organizationName;
       otherOptions.project_name = this.projectName;
@@ -361,7 +363,7 @@ export default class MemoryClient {
     this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
-    const { api_version, ...otherOptions } = options!;
+    const { api_version, ...otherOptions } = options ?? {};
     const payload = { query, ...otherOptions };
     if (this.organizationName != null && this.projectName != null) {
       payload.org_name = this.organizationName;
@@ -670,33 +672,40 @@ export default class MemoryClient {
     return response;
   }
 
-  async createWebhook(webhook: WebhookPayload): Promise<Webhook> {
+  async createWebhook(webhook: WebhookCreatePayload): Promise<Webhook> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_webhook", []);
+    const body = {
+      name: webhook.name,
+      url: webhook.url,
+      event_types: webhook.eventTypes,
+    };
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${this.projectId}/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(webhook),
+        body: JSON.stringify(body),
       },
     );
     return response;
   }
 
-  async updateWebhook(webhook: WebhookPayload): Promise<{ message: string }> {
+  async updateWebhook(
+    webhook: WebhookUpdatePayload,
+  ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("update_webhook", []);
-    const project_id = webhook.projectId || this.projectId;
+    const body: Record<string, any> = {};
+    if (webhook.name != null) body.name = webhook.name;
+    if (webhook.url != null) body.url = webhook.url;
+    if (webhook.eventTypes != null) body.event_types = webhook.eventTypes;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/${webhook.webhookId}/`,
       {
         method: "PUT",
         headers: this.headers,
-        body: JSON.stringify({
-          ...webhook,
-          projectId: project_id,
-        }),
+        body: JSON.stringify(body),
       },
     );
     return response;

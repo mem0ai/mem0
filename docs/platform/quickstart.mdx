@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: "Get started with Mem0 Platform in minutes"
+description: "Set up your Mem0 Platform account, install the SDK, and store your first memory in under five minutes."
 icon: "bolt"
 iconType: "solid"
 ---
@@ -46,6 +46,10 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 export MEM0_API_KEY="your-api-key"
 ```
 
+```bash CLI
+mem0 init --api-key "your-api-key"
+```
+
 </CodeGroup>
 </Step>
 
@@ -80,6 +84,10 @@ curl -X POST https://api.mem0.ai/v1/memories/add \
   }'
 ```
 
+```bash CLI
+mem0 add "I'm a vegetarian and allergic to nuts." --user-id user123
+```
+
 </CodeGroup>
 </Step>
 
@@ -103,6 +111,10 @@ curl -X POST https://api.mem0.ai/v1/memories/search \
     "query": "What are my dietary restrictions?",
     "filters": {"user_id": "user123"}
   }'
+```
+
+```bash CLI
+mem0 search "What are my dietary restrictions?" --user-id user123
 ```
 
 </CodeGroup>

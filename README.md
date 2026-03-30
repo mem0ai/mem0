@@ -15,8 +15,6 @@
   <a href="https://mem0.dev/DiG">Join Discord</a>
   ·
   <a href="https://mem0.dev/demo">Demo</a>
-  ·
-  <a href="https://mem0.dev/openmemory">OpenMemory</a>
 </p>
 
 <p align="center">
@@ -94,6 +92,20 @@ Install sdk via npm:
 ```bash
 npm install mem0ai
 ```
+
+### CLI
+
+Manage memories from your terminal:
+
+```bash
+npm install -g @mem0/cli   # or: pip install mem0-cli
+
+mem0 init
+mem0 add "Prefers dark mode and vim keybindings" --user-id alice
+mem0 search "What does Alice prefer?" --user-id alice
+```
+
+See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
 
 ### Basic Usage
 

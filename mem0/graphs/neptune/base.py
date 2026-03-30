@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 
-from mem0.memory.utils import format_entities
+from mem0.memory.utils import format_entities, remove_spaces_from_entities
 
 try:
     from rank_bm25 import BM25Okapi
@@ -97,7 +97,7 @@ class NeptuneBase(ABC):
             for tool_call in search_results["tool_calls"]:
                 if tool_call["name"] != "extract_entities":
                     continue
-                for item in tool_call["arguments"]["entities"]:
+                for item in tool_call.get("arguments", {}).get("entities", []):
                     entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
             logger.exception(
@@ -144,18 +144,14 @@ class NeptuneBase(ABC):
 
         entities = []
         if extracted_entities["tool_calls"]:
-            entities = extracted_entities["tool_calls"][0]["arguments"]["entities"]
+            entities = extracted_entities["tool_calls"][0].get("arguments", {}).get("entities", [])
 
         entities = self._remove_spaces_from_entities(entities)
         logger.debug(f"Extracted entities: {entities}")
         return entities
 
     def _remove_spaces_from_entities(self, entity_list):
-        for item in entity_list:
-            item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
-            item["destination"] = item["destination"].lower().replace(" ", "_")
-        return entity_list
+        return remove_spaces_from_entities(entity_list, sanitize_relationship=False)
 
     def _get_delete_entities_from_search_output(self, search_output, data, filters):
         """
@@ -408,6 +404,28 @@ class NeptuneBase(ABC):
         Returns the OpenCypher query and parameters to search for destination nodes
         """
         pass
+
+    def delete(self, data, filters):
+        """
+        Delete graph entities associated with the given memory text.
+
+        Extracts entities and relationships from the memory text using the same
+        pipeline as add(), then deletes the matching relationships in the graph.
+
+        Args:
+            data (str): The memory text whose graph entities should be removed.
+            filters (dict): Scope filters (user_id, agent_id, run_id).
+        """
+        try:
+            entity_type_map = self._retrieve_nodes_from_data(data, filters)
+            if not entity_type_map:
+                logger.debug("No entities found in memory text, skipping graph cleanup")
+                return
+            to_be_deleted = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+            if to_be_deleted:
+                self._delete_entities(to_be_deleted, filters["user_id"])
+        except Exception as e:
+            logger.error(f"Error during graph cleanup for memory delete: {e}")
 
     def delete_all(self, filters):
         cypher, params = self._delete_all_cypher(filters)

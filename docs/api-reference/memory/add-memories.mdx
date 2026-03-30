@@ -1,5 +1,6 @@
 ---
 title: 'Add Memories'
+description: "Add facts, messages, or metadata to a user memory store with support for async processing and event tracking."
 openapi: post /v1/memories/
 ---
 
@@ -50,6 +51,10 @@ Provide at least one message or direct memory string. Most callers supply `messa
 | `output_format` | string (default `v1.1`) | Optional | Response format. `v1.1` wraps results in a `results` array. |
 
 > \* Provide at least one `messages` entry to describe what you are storing. For scoped memories, include `user_id`. You can also attach `agent_id`, `app_id`, `run_id`, `project_id`, or `org_id` to refine ownership.
+
+<Tip>
+  Need more details? See [all request parameters](#body-messages) below for complete field descriptions, types, and constraints.
+</Tip>
 
 ## Response
 

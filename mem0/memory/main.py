@@ -8,10 +8,9 @@ import os
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Union
 
-import pytz
 from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
@@ -24,10 +23,12 @@ from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
-from mem0.memory.telemetry import capture_event
+from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
+    ensure_json_instruction,
     extract_json,
     get_fact_retrieval_messages,
+    normalize_facts,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -49,18 +50,90 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 logger = logging.getLogger(__name__)
 
 
+def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
+    """Normalize timezone-aware ISO timestamps to UTC without rewriting naive values."""
+    if not timestamp:
+        return timestamp
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError:
+        return timestamp
+    if parsed.tzinfo is None:
+        return timestamp
+    return parsed.astimezone(timezone.utc).isoformat()
+
+
+# Fields that hold runtime auth/connection objects and must be preserved.
+# These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
+# needed by clients like OpenSearch — not sensitive strings to redact.
+_RUNTIME_FIELDS = frozenset({
+    "http_auth",
+    "auth",
+    "connection_class",
+    "ssl_context",
+    "use_azure_credential",
+})
+
+# Fields that are known to contain sensitive secrets and must be redacted.
+_SENSITIVE_FIELDS_EXACT = frozenset({
+    "api_key",
+    "secret_key",
+    "private_key",
+    "access_key",
+    "password",
+    "credentials",
+    "credential",
+    "secret",
+    "token",
+    "access_token",
+    "refresh_token",
+    "auth_token",
+    "session_token",
+    "client_secret",
+    "auth_client_secret",
+    "azure_client_secret",
+    "service_account_json",
+    "aws_session_token",
+})
+
+# Suffixes that indicate a field likely holds a secret value.
+_SENSITIVE_SUFFIXES = (
+    "_password",
+    "_secret",
+    "_token",
+    "_credential",
+    "_credentials",
+)
+
+
+def _is_sensitive_field(field_name: str) -> bool:
+    """Check if a field should be redacted for telemetry safety.
+
+    Uses a layered approach:
+    1. Runtime fields (allowlist) — always preserved, highest priority.
+    2. Exact deny list — known secret field names.
+    3. Suffix deny list — catches patterns like db_password, auth_secret, etc.
+    """
+    name = field_name.lower().strip()
+    if name in _RUNTIME_FIELDS:
+        return False
+    if name in _SENSITIVE_FIELDS_EXACT:
+        return True
+    return any(name.endswith(suffix) for suffix in _SENSITIVE_SUFFIXES)
+
+
 def _safe_deepcopy_config(config):
-    """Safely deepcopy config, falling back to JSON serialization for non-serializable objects."""
+    """Safely deepcopy config, falling back to dict-based cloning for non-serializable objects."""
     try:
         return deepcopy(config)
     except Exception as e:
-        logger.debug(f"Deepcopy failed, using JSON serialization: {e}")
-        
+        logger.debug(f"Deepcopy failed, using dict-based cloning: {e}")
+
         config_class = type(config)
-        
+
         if hasattr(config, "model_dump"):
             try:
-                clone_dict = config.model_dump(mode="json")
+                clone_dict = config.model_dump()
             except Exception:
                 clone_dict = {k: v for k, v in config.__dict__.items()}
         elif hasattr(config, "__dataclass_fields__"):
@@ -68,12 +141,11 @@ def _safe_deepcopy_config(config):
             clone_dict = asdict(config)
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
-        
-        sensitive_tokens = ("auth", "credential", "password", "token", "secret", "key", "connection_class")
+
         for field_name in list(clone_dict.keys()):
-            if any(token in field_name.lower() for token in sensitive_tokens):
+            if _is_sensitive_field(field_name):
                 clone_dict[field_name] = None
-        
+
         try:
             return config_class(**clone_dict)
         except Exception as reconstruction_error:
@@ -204,32 +276,32 @@ class Memory(MemoryBase):
             self.enable_graph = True
         else:
             self.graph = None
-        # Create telemetry config manually to avoid deepcopy issues with thread locks
-        telemetry_config_dict = {}
-        if hasattr(self.config.vector_store.config, 'model_dump'):
-            # For pydantic models
-            telemetry_config_dict = self.config.vector_store.config.model_dump()
-        else:
-            # For other objects, manually copy common attributes
-            for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
-                if hasattr(self.config.vector_store.config, attr):
-                    telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
+        if MEM0_TELEMETRY:
+            # Create telemetry config manually to avoid deepcopy issues with thread locks
+            telemetry_config_dict = {}
+            if hasattr(self.config.vector_store.config, 'model_dump'):
+                # For pydantic models
+                telemetry_config_dict = self.config.vector_store.config.model_dump()
+            else:
+                # For other objects, manually copy common attributes
+                for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
+                    if hasattr(self.config.vector_store.config, attr):
+                        telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
 
-        # Override collection name for telemetry
-        telemetry_config_dict['collection_name'] = "mem0migrations"
+            # Override collection name for telemetry
+            telemetry_config_dict['collection_name'] = "mem0migrations"
 
-        # Set path for file-based vector stores
-        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-        if self.config.vector_store.provider in ["faiss", "qdrant"]:
-            provider_path = f"migrations_{self.config.vector_store.provider}"
-            telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-            os.makedirs(telemetry_config_dict['path'], exist_ok=True)
+            # Set path for file-based vector stores
+            if self.config.vector_store.provider in ["faiss", "qdrant"]:
+                provider_path = f"migrations_{self.config.vector_store.provider}"
+                telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
 
-        # Create the config object using the same class as the original
-        telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
-        self._telemetry_vector_store = VectorStoreFactory.create(
-            self.config.vector_store.provider, telemetry_config
-        )
+            # Create the config object using the same class as the original
+            telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
+            self._telemetry_vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, telemetry_config
+            )
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @classmethod
@@ -407,7 +479,8 @@ class Memory(MemoryBase):
 
                 msg_content = message_dict["content"]
                 msg_embeddings = self.embedding_model.embed(msg_content, "add")
-                mem_id = self._create_memory(msg_content, msg_embeddings, per_msg_meta)
+                # Pass embeddings as a dict so _create_memory can reuse the cached embedding
+                mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
                 returned_memories.append(
                     {
@@ -431,6 +504,9 @@ class Memory(MemoryBase):
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
 
+        # Ensure 'json' appears in prompts for json_object response format compatibility
+        system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
+
         response = self.llm.generate_response(
             messages=[
                 {"role": "system", "content": system_prompt},
@@ -440,17 +516,18 @@ class Memory(MemoryBase):
         )
 
         try:
-            response = remove_code_blocks(response)
-            if not response.strip():
+            cleaned_response = remove_code_blocks(response)
+            if not cleaned_response.strip():
                 new_retrieved_facts = []
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response)["facts"]
+                    new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
+                    # Try extracting JSON from response (handles chatty LLM output)
                     extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json)["facts"]
+                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -512,8 +589,11 @@ class Memory(MemoryBase):
                     logger.warning("Empty response from LLM, no memories to extract")
                     new_memories_with_actions = {}
                 else:
-                    response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response)
+                    try:
+                        new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
+                    except json.JSONDecodeError:
+                        extracted_json = extract_json(response)
+                        new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -532,6 +612,9 @@ class Memory(MemoryBase):
 
                     event_type = resp.get("event")
                     if event_type == "ADD":
+                        # Ensure action_text has an embedding cached to avoid redundant API calls
+                        if action_text not in new_message_embeddings:
+                            new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "add")
                         memory_id = self._create_memory(
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
@@ -539,6 +622,9 @@ class Memory(MemoryBase):
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
+                        # Ensure action_text has an embedding cached to avoid redundant API calls
+                        if action_text not in new_message_embeddings:
+                            new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "update")
                         self._update_memory(
                             memory_id=temp_uuid_mapping[resp.get("id")],
                             data=action_text,
@@ -568,12 +654,18 @@ class Memory(MemoryBase):
                         if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
                             # Update only the session identifiers, keep content the same
                             existing_memory = self.vector_store.get(vector_id=memory_id)
+                            if existing_memory is None:
+                                logger.warning(f"Memory {memory_id} not found for session ID update, skipping")
+                                continue
                             updated_metadata = deepcopy(existing_memory.payload)
                             if metadata.get("agent_id"):
                                 updated_metadata["agent_id"] = metadata["agent_id"]
                             if metadata.get("run_id"):
                                 updated_metadata["run_id"] = metadata["run_id"]
-                            updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                            updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
+                                updated_metadata.get("created_at")
+                            )
+                            updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                             self.vector_store.update(
                                 vector_id=memory_id,
@@ -636,8 +728,8 @@ class Memory(MemoryBase):
             id=memory.id,
             memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
-            created_at=memory.payload.get("created_at"),
-            updated_at=memory.payload.get("updated_at"),
+            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
+            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -739,8 +831,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -885,11 +977,11 @@ class Memory(MemoryBase):
                 }
                 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    result.setdefault(key, {})[operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
-        
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
@@ -971,8 +1063,8 @@ class Memory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -989,13 +1081,15 @@ class Memory(MemoryBase):
 
         return original_memories
 
-    def update(self, memory_id, data):
+    def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
         """
         Update a memory by ID.
 
         Args:
             memory_id (str): ID of the memory to update.
             data (str): New content to update the memory with.
+            metadata (dict, optional): Additional metadata to update. Existing metadata fields
+                not specified here will be preserved. Defaults to None.
 
         Returns:
             dict: Success message indicating the memory was updated.
@@ -1003,12 +1097,14 @@ class Memory(MemoryBase):
         Example:
             >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
+            >>> m.update(memory_id="mem_123", data="Likes tennis", metadata={"category": "sports"})
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
-        self._update_memory(memory_id, data, existing_embeddings)
+        self._update_memory(memory_id, data, existing_embeddings, metadata)
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -1019,7 +1115,27 @@ class Memory(MemoryBase):
             memory_id (str): ID of the memory to delete.
         """
         capture_event("mem0.delete", self, {"memory_id": memory_id, "sync_type": "sync"})
-        self._delete_memory(memory_id)
+
+        existing_memory = self.vector_store.get(vector_id=memory_id)
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found")
+
+        # Clean up graph entities before deleting from vector store
+        if self.enable_graph:
+            try:
+                memory_text = existing_memory.payload.get("data", "")
+                if memory_text:
+                    filters = {}
+                    for key in ("user_id", "agent_id", "run_id"):
+                        val = existing_memory.payload.get(key)
+                        if val:
+                            filters[key] = val
+                    if filters.get("user_id"):
+                        self.graph.delete(memory_text, filters)
+            except Exception as e:
+                logger.error(f"Error cleaning up graph for memory {memory_id}: {e}")
+
+        self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
     def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
@@ -1046,11 +1162,10 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
+        # delete matching vector memories individually (do NOT reset the collection)
         memories = self.vector_store.list(filters=filters)[0]
         for memory in memories:
             self._delete_memory(memory.id)
-        self.vector_store.reset()
 
         logger.info(f"Deleted {len(memories)} memories")
 
@@ -1072,31 +1187,37 @@ class Memory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         return self.db.get_history(memory_id)
 
-    def _create_memory(self, data, existing_embeddings, metadata=None):
+    def _create_memory(self, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
         logger.debug(f"Creating memory with {data=}")
-        if data in existing_embeddings:
+        # existing_embeddings may be a dict (preferred) or a precomputed vector
+        if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif not isinstance(existing_embeddings, dict):
+            embeddings = existing_embeddings
         else:
             embeddings = self.embedding_model.embed(data, memory_action="add")
         memory_id = str(uuid.uuid4())
-        metadata = metadata or {}
-        metadata["data"] = data
-        metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        new_metadata["data"] = data
+        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        if "created_at" not in new_metadata:
+            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["updated_at"] = new_metadata["created_at"]
 
         self.vector_store.insert(
             vectors=[embeddings],
             ids=[memory_id],
-            payloads=[metadata],
+            payloads=[new_metadata],
         )
         self.db.add_history(
             memory_id,
             None,
             data,
             "ADD",
-            created_at=metadata.get("created_at"),
-            actor_id=metadata.get("actor_id"),
-            role=metadata.get("role"),
+            created_at=new_metadata.get("created_at"),
+            updated_at=new_metadata.get("updated_at"),
+            actor_id=new_metadata.get("actor_id"),
+            role=new_metadata.get("role"),
         )
         return memory_id
 
@@ -1130,16 +1251,17 @@ class Memory(MemoryBase):
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
-        metadata["memory_type"] = MemoryType.PROCEDURAL.value
+        new_metadata = deepcopy(metadata)
+        new_metadata["memory_type"] = MemoryType.PROCEDURAL.value
         embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
-        memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
+        memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=new_metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
 
         return result
 
-    def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    def _update_memory(self, memory_id, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -1148,14 +1270,17 @@ class Memory(MemoryBase):
             logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
+
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -1164,13 +1289,15 @@ class Memory(MemoryBase):
             new_metadata["agent_id"] = existing_memory.payload["agent_id"]
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
-        if data in existing_embeddings:
+        if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif not isinstance(existing_embeddings, dict):
+            embeddings = existing_embeddings
         else:
             embeddings = self.embedding_model.embed(data, "update")
 
@@ -1193,16 +1320,26 @@ class Memory(MemoryBase):
         )
         return memory_id
 
-    def _delete_memory(self, memory_id):
+    def _delete_memory(self, memory_id, existing_memory=None):
         logger.info(f"Deleting memory with {memory_id=}")
-        existing_memory = self.vector_store.get(vector_id=memory_id)
+        if existing_memory is None:
+            existing_memory = self.vector_store.get(vector_id=memory_id)
+            if existing_memory is None:
+                raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
+
+        # Preserve original created_at and record deletion time
+        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        updated_at = datetime.now(timezone.utc).isoformat()
+
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
             memory_id,
             prev_value,
             None,
             "DELETE",
+            created_at=created_at,
+            updated_at=updated_at,
             actor_id=existing_memory.payload.get("actor_id"),
             role=existing_memory.payload.get("role"),
             is_deleted=1,
@@ -1278,18 +1415,18 @@ class AsyncMemory(MemoryBase):
         else:
             self.graph = None
 
-        telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
-        telemetry_config.collection_name = "mem0migrations"
-        if self.config.vector_store.provider in ["faiss", "qdrant"]:
-            provider_path = f"migrations_{self.config.vector_store.provider}"
-            telemetry_config.path = os.path.join(mem0_dir, provider_path)
-            os.makedirs(telemetry_config.path, exist_ok=True)
-        self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
-
+        if MEM0_TELEMETRY:
+            telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
+            telemetry_config.collection_name = "mem0migrations"
+            if self.config.vector_store.provider in ["faiss", "qdrant"]:
+                provider_path = f"migrations_{self.config.vector_store.provider}"
+                telemetry_config.path = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config.path, exist_ok=True)
+            self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @classmethod
-    async def from_config(cls, config_dict: Dict[str, Any]):
+    def from_config(cls, config_dict: Dict[str, Any]):
         try:
             config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
@@ -1443,7 +1580,8 @@ class AsyncMemory(MemoryBase):
 
                 msg_content = message_dict["content"]
                 msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
-                mem_id = await self._create_memory(msg_content, msg_embeddings, per_msg_meta)
+                # Pass embeddings as a dict so _create_memory can reuse the cached embedding
+                mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
                 returned_memories.append(
                     {
@@ -1466,23 +1604,27 @@ class AsyncMemory(MemoryBase):
             is_agent_memory = self._should_use_agent_memory_extraction(messages, metadata)
             system_prompt, user_prompt = get_fact_retrieval_messages(parsed_messages, is_agent_memory)
 
+        # Ensure 'json' appears in prompts for json_object response format compatibility
+        system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
+
         response = await asyncio.to_thread(
             self.llm.generate_response,
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             response_format={"type": "json_object"},
         )
         try:
-            response = remove_code_blocks(response)
-            if not response.strip():
+            cleaned_response = remove_code_blocks(response)
+            if not cleaned_response.strip():
                 new_retrieved_facts = []
             else:
                 try:
                     # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(response)["facts"]
+                    new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
                 except json.JSONDecodeError:
-                    # Try extracting JSON from response using built-in function
+                    # Try extracting JSON from response (handles chatty LLM output)
                     extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json)["facts"]
+                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
+                new_retrieved_facts = normalize_facts(new_retrieved_facts)
         except Exception as e:
             logger.error(f"Error in new_retrieved_facts: {e}")
             new_retrieved_facts = []
@@ -1547,8 +1689,11 @@ class AsyncMemory(MemoryBase):
                     logger.warning("Empty response from LLM, no memories to extract")
                     new_memories_with_actions = {}
                 else:
-                    response = remove_code_blocks(response)
-                    new_memories_with_actions = json.loads(response)
+                    try:
+                        new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
+                    except json.JSONDecodeError:
+                        extracted_json = extract_json(response)
+                        new_memories_with_actions = json.loads(extracted_json, strict=False)
             except Exception as e:
                 logger.error(f"Invalid JSON response: {e}")
                 new_memories_with_actions = {}
@@ -1567,6 +1712,11 @@ class AsyncMemory(MemoryBase):
                     event_type = resp.get("event")
 
                     if event_type == "ADD":
+                        # Ensure action_text has an embedding cached to avoid redundant API calls
+                        if action_text not in new_message_embeddings:
+                            new_message_embeddings[action_text] = await asyncio.to_thread(
+                                self.embedding_model.embed, action_text, "add"
+                            )
                         task = asyncio.create_task(
                             self._create_memory(
                                 data=action_text,
@@ -1576,6 +1726,11 @@ class AsyncMemory(MemoryBase):
                         )
                         memory_tasks.append((task, resp, "ADD", None))
                     elif event_type == "UPDATE":
+                        # Ensure action_text has an embedding cached to avoid redundant API calls
+                        if action_text not in new_message_embeddings:
+                            new_message_embeddings[action_text] = await asyncio.to_thread(
+                                self.embedding_model.embed, action_text, "update"
+                            )
                         task = asyncio.create_task(
                             self._update_memory(
                                 memory_id=temp_uuid_mapping[resp["id"]],
@@ -1595,12 +1750,18 @@ class AsyncMemory(MemoryBase):
                             # Create async task to update only the session identifiers
                             async def update_session_ids(mem_id, meta):
                                 existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=mem_id)
+                                if existing_memory is None:
+                                    logger.warning(f"Memory {mem_id} not found for session ID update, skipping")
+                                    return
                                 updated_metadata = deepcopy(existing_memory.payload)
                                 if meta.get("agent_id"):
                                     updated_metadata["agent_id"] = meta["agent_id"]
                                 if meta.get("run_id"):
                                     updated_metadata["run_id"] = meta["run_id"]
-                                updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+                                updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
+                                    updated_metadata.get("created_at")
+                                )
+                                updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
                                 await asyncio.to_thread(
                                     self.vector_store.update,
@@ -1686,8 +1847,8 @@ class AsyncMemory(MemoryBase):
             id=memory.id,
             memory=memory.payload.get("data", ""),
             hash=memory.payload.get("hash"),
-            created_at=memory.payload.get("created_at"),
-            updated_at=memory.payload.get("updated_at"),
+            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
+            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -1794,8 +1955,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -1947,7 +2108,7 @@ class AsyncMemory(MemoryBase):
                 }
 
                 if operator in operator_map:
-                    result[key] = {operator_map[operator]: value}
+                    result.setdefault(key, {})[operator_map[operator]] = value
                 else:
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
@@ -2035,8 +2196,8 @@ class AsyncMemory(MemoryBase):
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
                 hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
                 score=mem.score,
             ).model_dump()
 
@@ -2053,13 +2214,15 @@ class AsyncMemory(MemoryBase):
 
         return original_memories
 
-    async def update(self, memory_id, data):
+    async def update(self, memory_id, data, metadata: Optional[Dict[str, Any]] = None):
         """
         Update a memory by ID asynchronously.
 
         Args:
             memory_id (str): ID of the memory to update.
             data (str): New content to update the memory with.
+            metadata (dict, optional): Additional metadata to update. Existing metadata fields
+                not specified here will be preserved. Defaults to None.
 
         Returns:
             dict: Success message indicating the memory was updated.
@@ -2067,13 +2230,15 @@ class AsyncMemory(MemoryBase):
         Example:
             >>> await m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
+            >>> await m.update(memory_id="mem_123", data="Likes tennis", metadata={"category": "sports"})
+            {'message': 'Memory updated successfully!'}
         """
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "async"})
 
         embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
         existing_embeddings = {data: embeddings}
 
-        await self._update_memory(memory_id, data, existing_embeddings)
+        await self._update_memory(memory_id, data, existing_embeddings, metadata)
         return {"message": "Memory updated successfully!"}
 
     async def delete(self, memory_id):
@@ -2084,7 +2249,27 @@ class AsyncMemory(MemoryBase):
             memory_id (str): ID of the memory to delete.
         """
         capture_event("mem0.delete", self, {"memory_id": memory_id, "sync_type": "async"})
-        await self._delete_memory(memory_id)
+
+        existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found")
+
+        # Clean up graph entities before deleting from vector store
+        if self.enable_graph:
+            try:
+                memory_text = existing_memory.payload.get("data", "")
+                if memory_text:
+                    filters = {}
+                    for key in ("user_id", "agent_id", "run_id"):
+                        val = existing_memory.payload.get(key)
+                        if val:
+                            filters[key] = val
+                    if filters.get("user_id"):
+                        await asyncio.to_thread(self.graph.delete, memory_text, filters)
+            except Exception as e:
+                logger.error(f"Error cleaning up graph for memory {memory_id}: {e}")
+
+        await self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
     async def delete_all(self, user_id=None, agent_id=None, run_id=None):
@@ -2139,24 +2324,29 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return await asyncio.to_thread(self.db.get_history, memory_id)
 
-    async def _create_memory(self, data, existing_embeddings, metadata=None):
+    async def _create_memory(self, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
         logger.debug(f"Creating memory with {data=}")
-        if data in existing_embeddings:
+        # existing_embeddings may be a dict (preferred) or a precomputed vector
+        if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif not isinstance(existing_embeddings, dict):
+            embeddings = existing_embeddings
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, memory_action="add")
 
         memory_id = str(uuid.uuid4())
-        metadata = metadata or {}
-        metadata["data"] = data
-        metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        new_metadata["data"] = data
+        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        if "created_at" not in new_metadata:
+            new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["updated_at"] = new_metadata["created_at"]
 
         await asyncio.to_thread(
             self.vector_store.insert,
             vectors=[embeddings],
             ids=[memory_id],
-            payloads=[metadata],
+            payloads=[new_metadata],
         )
 
         await asyncio.to_thread(
@@ -2165,9 +2355,10 @@ class AsyncMemory(MemoryBase):
             None,
             data,
             "ADD",
-            created_at=metadata.get("created_at"),
-            actor_id=metadata.get("actor_id"),
-            role=metadata.get("role"),
+            created_at=new_metadata.get("created_at"),
+            updated_at=new_metadata.get("updated_at"),
+            actor_id=new_metadata.get("actor_id"),
+            role=new_metadata.get("role"),
         )
 
         return memory_id
@@ -2216,16 +2407,17 @@ class AsyncMemory(MemoryBase):
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
-        metadata["memory_type"] = MemoryType.PROCEDURAL.value
+        new_metadata = deepcopy(metadata)
+        new_metadata["memory_type"] = MemoryType.PROCEDURAL.value
         embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
-        memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
+        memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=new_metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})
 
         result = {"results": [{"id": memory_id, "memory": procedural_memory, "event": "ADD"}]}
 
         return result
 
-    async def _update_memory(self, memory_id, data, existing_embeddings, metadata=None):
+    async def _update_memory(self, memory_id, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -2234,14 +2426,17 @@ class AsyncMemory(MemoryBase):
             logger.error(f"Error getting memory with ID {memory_id} during update.")
             raise ValueError(f"Error getting memory with ID {memory_id}. Please provide a valid 'memory_id'")
 
+        if existing_memory is None:
+            raise ValueError(f"Memory with id {memory_id} not found. Please provide a valid 'memory_id'")
+
         prev_value = existing_memory.payload.get("data")
 
         new_metadata = deepcopy(metadata) if metadata is not None else {}
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
-        new_metadata["created_at"] = existing_memory.payload.get("created_at")
-        new_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+        new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -2251,13 +2446,15 @@ class AsyncMemory(MemoryBase):
         if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
             new_metadata["run_id"] = existing_memory.payload["run_id"]
 
-        if "actor_id" not in new_metadata and "actor_id" in existing_memory.payload:
+        if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
         if "role" not in new_metadata and "role" in existing_memory.payload:
             new_metadata["role"] = existing_memory.payload["role"]
 
-        if data in existing_embeddings:
+        if isinstance(existing_embeddings, dict) and data in existing_embeddings:
             embeddings = existing_embeddings[data]
+        elif not isinstance(existing_embeddings, dict):
+            embeddings = existing_embeddings
         else:
             embeddings = await asyncio.to_thread(self.embedding_model.embed, data, "update")
 
@@ -2282,10 +2479,17 @@ class AsyncMemory(MemoryBase):
         )
         return memory_id
 
-    async def _delete_memory(self, memory_id):
+    async def _delete_memory(self, memory_id, existing_memory=None):
         logger.info(f"Deleting memory with {memory_id=}")
-        existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+        if existing_memory is None:
+            existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+            if existing_memory is None:
+                raise ValueError(f"Memory with id {memory_id} not found")
         prev_value = existing_memory.payload.get("data", "")
+
+        # Preserve original created_at and record deletion time
+        created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
+        updated_at = datetime.now(timezone.utc).isoformat()
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(
@@ -2294,6 +2498,8 @@ class AsyncMemory(MemoryBase):
             prev_value,
             None,
             "DELETE",
+            created_at=created_at,
+            updated_at=updated_at,
             actor_id=existing_memory.payload.get("actor_id"),
             role=existing_memory.payload.get("role"),
             is_deleted=1,

@@ -26,7 +26,7 @@ class OutputData(BaseModel):
 
 
 class MongoDB(VectorStoreBase):
-    VECTOR_TYPE = "knnVector"
+    VECTOR_TYPE = "vector"
     SIMILARITY_METRIC = "cosine"
 
     def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
@@ -69,17 +69,16 @@ class MongoDB(VectorStoreBase):
             else:
                 search_index_model = SearchIndexModel(
                     name=self.index_name,
+                    type="vectorSearch",
                     definition={
-                        "mappings": {
-                            "dynamic": False,
-                            "fields": {
-                                "embedding": {
-                                    "type": self.VECTOR_TYPE,
-                                    "dimensions": self.embedding_model_dims,
-                                    "similarity": self.SIMILARITY_METRIC,
-                                }
-                            },
-                        }
+                        "fields": [
+                            {
+                                "type": self.VECTOR_TYPE,
+                                "path": "embedding",
+                                "numDimensions": self.embedding_model_dims,
+                                "similarity": self.SIMILARITY_METRIC,
+                            }
+                        ]
                     },
                 )
                 collection.create_search_index(search_index_model)
@@ -141,7 +140,7 @@ class MongoDB(VectorStoreBase):
                     "$vectorSearch": {
                         "index": self.index_name,
                         "limit": limit,
-                        "numCandidates": limit,
+                        "numCandidates": min(limit * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
                     }
@@ -198,7 +197,8 @@ class MongoDB(VectorStoreBase):
         if vector is not None:
             update_fields["embedding"] = vector
         if payload is not None:
-            update_fields["payload"] = payload
+            for key, value in payload.items():
+                update_fields[f"payload.{key}"] = value
 
         if update_fields:
             try:
