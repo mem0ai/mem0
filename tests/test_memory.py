@@ -757,3 +757,80 @@ class TestProcessMetadataFiltersMerge:
             "created_at": {"gte": 1000, "lte": 2000},
             "score": {"gt": 0.5, "lt": 0.9},
         }
+
+
+# --- Issue #3040: reset() should clean up graph database ---
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_reset_calls_graph_reset_when_graph_enabled(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that reset() calls graph.reset() when graph is enabled (issue #3040)."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    # Simulate graph being enabled
+    memory.enable_graph = True
+    mock_graph = MagicMock()
+    memory.graph = mock_graph
+
+    memory.reset()
+
+    mock_graph.reset.assert_called_once()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_reset_skips_graph_when_graph_disabled(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that reset() does NOT call graph.reset() when graph is disabled."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    # Graph is disabled by default
+    memory.enable_graph = False
+
+    memory.reset()
+
+    # graph attribute may not even exist, but reset should not fail
+    assert not hasattr(memory, 'graph') or not memory.enable_graph
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_reset_continues_if_graph_reset_fails(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that reset() doesn't crash if graph.reset() raises an exception (issue #3040)."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    memory.enable_graph = True
+    mock_graph = MagicMock()
+    mock_graph.reset.side_effect = Exception("Neo4j connection failed")
+    memory.graph = mock_graph
+
+    # Should NOT raise — graph failure is logged but reset continues
+    memory.reset()
+
+    mock_graph.reset.assert_called_once()
