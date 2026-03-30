@@ -352,7 +352,14 @@ function registerTools(
       description:
         "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
       parameters: Type.Object({
-        text: Type.String({ description: "Information to remember" }),
+        text: Type.Optional(
+          Type.String({ description: "Single fact to remember. Use 'facts' array instead when storing multiple facts from one conversation turn." }),
+        ),
+        facts: Type.Optional(
+          Type.Array(Type.String(), {
+            description: "Array of facts to store in one call. Preferred over 'text' when extracting multiple facts from a single turn — all facts are stored in one API call.",
+          }),
+        ),
         category: Type.Optional(
           Type.String({
             description:
@@ -388,8 +395,9 @@ function registerTools(
         ),
       }),
       async execute(_toolCallId, params) {
-        const { text, userId, agentId, longTerm = true } = params as {
-          text: string;
+        const p = params as {
+          text?: string;
+          facts?: string[];
           category?: string;
           importance?: number;
           userId?: string;
@@ -397,6 +405,16 @@ function registerTools(
           metadata?: Record<string, unknown>;
           longTerm?: boolean;
         };
+        const { userId, agentId, longTerm = true } = p;
+
+        // Resolve facts: prefer 'facts' array, fall back to single 'text'
+        const allFacts: string[] = p.facts?.length ? p.facts : (p.text ? [p.text] : []);
+        if (allFacts.length === 0) {
+          return {
+            content: [{ type: "text", text: "No facts provided. Pass 'text' or 'facts' array." }],
+            details: { error: "missing_facts" },
+          };
+        }
 
         try {
           const uid = _resolveUserId({ agentId, userId });
@@ -406,9 +424,9 @@ function registerTools(
           // Skills mode: bypass extraction LLM, store directly via infer=false
           if (skillsActive) {
             // Resolve metadata: prefer explicit params, fall back to metadata record
-            const rawMetadata = (params as any).metadata as Record<string, unknown> | undefined;
-            const category = (params as any).category as string | undefined ?? rawMetadata?.category as string | undefined;
-            const importance = (params as any).importance as number | undefined ?? rawMetadata?.importance as number | undefined;
+            const rawMetadata = p.metadata;
+            const category = p.category ?? rawMetadata?.category as string | undefined;
+            const importance = p.importance ?? rawMetadata?.importance as number | undefined;
             const parsedMetadata: Record<string, unknown> = {
               ...(rawMetadata ?? {}),
               ...(category && { category }),
@@ -419,24 +437,12 @@ function registerTools(
             const expirationDate = catConfig ? ttlToExpirationDate(catConfig.ttl) : undefined;
             const isImmutable = catConfig?.immutable ?? false;
 
-            // Scope-aware dedup: search the SAME scope we're writing to
-            const dedupOpts = buildSearchOptions(uid, 3, runId);
-            dedupOpts.threshold = 0.85;
-            const existing = await provider.search(text.slice(0, 200), dedupOpts);
-            const dupMatch = existing.length > 0 && (existing[0].score ?? 0) > 0.90
-              ? existing[0] : null;
-
-            if (dupMatch) {
-              api.logger.info(
-                `openclaw-mem0: near-duplicate found (score: ${((dupMatch.score ?? 0) * 100).toFixed(0)}%, id: ${dupMatch.id})`,
-              );
-            }
-
+            // Single API call: all facts go as deduced_memories array
             const addOpts: AddOptions = {
               user_id: uid,
               source: "OPENCLAW",
               infer: false,
-              deduced_memories: [text],
+              deduced_memories: allFacts,
               metadata: parsedMetadata ?? {},
               ...(expirationDate && { expiration_date: expirationDate }),
               ...(isImmutable && { immutable: true }),
@@ -449,39 +455,21 @@ function registerTools(
               }
             }
 
-            // Store first, THEN delete the old duplicate (non-destructive upsert)
             const result = await provider.add(
-              [{ role: "user", content: text }],
+              [{ role: "user", content: allFacts.join("\n") }],
               addOpts,
             );
 
-            const addedSuccessfully = (result.results?.length ?? 0) > 0;
-
-            // Only clean up the duplicate AFTER the new memory is confirmed stored
-            if (dupMatch && addedSuccessfully) {
-              try {
-                await provider.delete(dupMatch.id);
-                api.logger.info(
-                  `openclaw-mem0: cleaned up superseded duplicate ${dupMatch.id}`,
-                );
-              } catch (delErr) {
-                // Non-fatal: duplicate remains but new memory is safely stored
-                api.logger.warn(
-                  `openclaw-mem0: failed to clean up duplicate ${dupMatch.id}: ${String(delErr)}`,
-                );
-              }
-            }
-
             const count = result.results?.length ?? 0;
             api.logger.info(
-              `openclaw-mem0: skills-mode stored ${count} memory (infer=false, category=${category ?? "none"})`,
+              `openclaw-mem0: skills-mode stored ${count} memor${count === 1 ? "y" : "ies"} from ${allFacts.length} fact(s) in 1 API call (infer=false, category=${category ?? "none"})`,
             );
 
             return {
               content: [
                 {
                   type: "text",
-                  text: `Stored: "${text.slice(0, 80)}${text.length > 80 ? "..." : ""}" [${category ?? "uncategorized"}]${dupMatch && addedSuccessfully ? " (replaced duplicate)" : ""}`,
+                  text: `Stored ${allFacts.length} fact(s) [${category ?? "uncategorized"}]: ${allFacts.map(f => `"${f.slice(0, 60)}${f.length > 60 ? "..." : ""}"`).join(", ")}`,
                 },
               ],
               details: {
@@ -489,16 +477,18 @@ function registerTools(
                 mode: "skills",
                 infer: false,
                 category,
-                replacedDuplicate: dupMatch && addedSuccessfully ? dupMatch.id : undefined,
+                factCount: allFacts.length,
                 results: result.results,
               },
             };
           }
 
           // Legacy mode: let mem0 extraction LLM handle it
+          const combinedText = allFacts.join("\n");
+
           // Pre-check for near-duplicates so the extraction model has
           // context about existing memories and can UPDATE rather than ADD
-          const preview = text.slice(0, 200);
+          const preview = combinedText.slice(0, 200);
           const dedupOpts = buildSearchOptions(uid, 3);
           dedupOpts.threshold = 0.85;
           const existing = await provider.search(preview, dedupOpts);
@@ -509,7 +499,7 @@ function registerTools(
           }
 
           const result = await provider.add(
-            [{ role: "user", content: text }],
+            [{ role: "user", content: combinedText }],
             buildAddOptions(uid, runId, currentSessionId),
           );
 

@@ -163,9 +163,6 @@ function renderTriageKnobs(config: SkillsConfig): string {
 
   const lines: string[] = [];
 
-  if (triage.maxFactsPerTurn !== undefined) {
-    lines.push(`- Maximum ${triage.maxFactsPerTurn} store operations per turn (overrides default of 3)`);
-  }
   if (triage.importanceThreshold !== undefined) {
     lines.push(`- Only store facts with importance >= ${triage.importanceThreshold}`);
   }
@@ -281,12 +278,14 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
   parts.push("- Most turns produce ZERO memory operations. That is correct.");
   parts.push("- Only store facts a new agent would need days later: identity, preferences, decisions, rules, projects, configs.");
   parts.push("- Skip: tool outputs, status checks, small talk, acknowledgments, credentials, facts already recalled.");
-  parts.push("- 15-50 words per memory. Third person. Temporal anchor time-sensitive facts with 'As of YYYY-MM-DD'.");
-  parts.push("- Group related facts about same entity into ONE memory_store call.");
+  parts.push("- 15-50 words per fact. Third person. Temporal anchor time-sensitive facts with 'As of YYYY-MM-DD'.");
   parts.push("- Preserve the user's exact words for opinions and preferences.");
+  parts.push("- Call memory_store ONCE per turn. Use the `facts` array to pass multiple facts in a single call. This sends one API request regardless of how many facts you extract.");
   parts.push("");
-  parts.push("FORMAT:");
-  parts.push('  memory_store(text: "the fact", category: "identity|preference|decision|rule|project|configuration|technical|relationship", importance: 0.6-0.95)');
+  parts.push("FORMAT (single fact):");
+  parts.push('  memory_store(facts: ["User is Alex, backend engineer at Stripe, based in SF, PST timezone"], category: "identity", importance: 0.95)');
+  parts.push("FORMAT (multiple facts from one turn):");
+  parts.push('  memory_store(facts: ["User is Alex, backend engineer at Stripe, PST timezone", "User prefers concise responses with no fluff"], category: "identity", importance: 0.90)');
   parts.push("");
   parts.push("CREDENTIALS: NEVER store sk-, m0-, ghp_, AKIA, Bearer tokens, passwords. Store that it was configured, not the value.");
   parts.push("For the full protocol with examples, read the memory-triage skill.");

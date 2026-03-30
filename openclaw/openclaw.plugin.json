@@ -175,7 +175,6 @@
             "type": "object",
             "properties": {
               "enabled": { "type": "boolean" },
-              "maxFactsPerTurn": { "type": "number" },
               "importanceThreshold": { "type": "number" },
               "enableGraph": { "type": "boolean" },
               "credentialPatterns": { "type": "array", "items": { "type": "string" } }

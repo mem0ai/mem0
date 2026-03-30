@@ -74,7 +74,6 @@ export interface CategoryConfig {
 export interface SkillsConfig {
   triage?: {
     enabled?: boolean;
-    maxFactsPerTurn?: number;
     importanceThreshold?: number;
     enableGraph?: boolean;
     credentialPatterns?: string[];
