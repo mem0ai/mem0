@@ -18,150 +18,158 @@ export const DEFAULT_BASE_URL = "https://api.mem0.ai";
 export const CONFIG_VERSION = 1;
 
 export interface PlatformConfig {
-  apiKey: string;
-  baseUrl: string;
+	apiKey: string;
+	baseUrl: string;
 }
 
 export interface DefaultsConfig {
-  userId: string;
-  agentId: string;
-  appId: string;
-  runId: string;
-  enableGraph: boolean;
+	userId: string;
+	agentId: string;
+	appId: string;
+	runId: string;
+	enableGraph: boolean;
 }
 
 export interface Mem0Config {
-  version: number;
-  defaults: DefaultsConfig;
-  platform: PlatformConfig;
+	version: number;
+	defaults: DefaultsConfig;
+	platform: PlatformConfig;
 }
 
 export function createDefaultConfig(): Mem0Config {
-  return {
-    version: CONFIG_VERSION,
-    defaults: {
-      userId: "",
-      agentId: "",
-      appId: "",
-      runId: "",
-      enableGraph: false,
-    },
-    platform: {
-      apiKey: "",
-      baseUrl: DEFAULT_BASE_URL,
-    },
-  };
+	return {
+		version: CONFIG_VERSION,
+		defaults: {
+			userId: "",
+			agentId: "",
+			appId: "",
+			runId: "",
+			enableGraph: false,
+		},
+		platform: {
+			apiKey: "",
+			baseUrl: DEFAULT_BASE_URL,
+		},
+	};
 }
 
 export function ensureConfigDir(): string {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
-  return CONFIG_DIR;
+	fs.mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
+	return CONFIG_DIR;
 }
 
 export function loadConfig(): Mem0Config {
-  const config = createDefaultConfig();
+	const config = createDefaultConfig();
 
-  if (fs.existsSync(CONFIG_FILE)) {
-    const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
-    const data = JSON.parse(raw);
+	if (fs.existsSync(CONFIG_FILE)) {
+		const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
+		const data = JSON.parse(raw);
 
-    config.version = data.version ?? CONFIG_VERSION;
+		config.version = data.version ?? CONFIG_VERSION;
 
-    const plat = data.platform ?? {};
-    config.platform.apiKey = plat.api_key ?? "";
-    config.platform.baseUrl = plat.base_url ?? DEFAULT_BASE_URL;
+		const plat = data.platform ?? {};
+		config.platform.apiKey = plat.api_key ?? "";
+		config.platform.baseUrl = plat.base_url ?? DEFAULT_BASE_URL;
 
-    const defaults = data.defaults ?? {};
-    config.defaults.userId = defaults.user_id ?? "";
-    config.defaults.agentId = defaults.agent_id ?? "";
-    config.defaults.appId = defaults.app_id ?? "";
-    config.defaults.runId = defaults.run_id ?? "";
-    config.defaults.enableGraph = defaults.enable_graph ?? false;
-  }
+		const defaults = data.defaults ?? {};
+		config.defaults.userId = defaults.user_id ?? "";
+		config.defaults.agentId = defaults.agent_id ?? "";
+		config.defaults.appId = defaults.app_id ?? "";
+		config.defaults.runId = defaults.run_id ?? "";
+		config.defaults.enableGraph = defaults.enable_graph ?? false;
+	}
 
-  // Environment variable overrides
-  if (process.env.MEM0_API_KEY) config.platform.apiKey = process.env.MEM0_API_KEY;
-  if (process.env.MEM0_BASE_URL) config.platform.baseUrl = process.env.MEM0_BASE_URL;
-  if (process.env.MEM0_USER_ID) config.defaults.userId = process.env.MEM0_USER_ID;
-  if (process.env.MEM0_AGENT_ID) config.defaults.agentId = process.env.MEM0_AGENT_ID;
-  if (process.env.MEM0_APP_ID) config.defaults.appId = process.env.MEM0_APP_ID;
-  if (process.env.MEM0_RUN_ID) config.defaults.runId = process.env.MEM0_RUN_ID;
-  if (process.env.MEM0_ENABLE_GRAPH) {
-    config.defaults.enableGraph = ["true", "1", "yes"].includes(
-      process.env.MEM0_ENABLE_GRAPH.toLowerCase(),
-    );
-  }
+	// Environment variable overrides
+	if (process.env.MEM0_API_KEY)
+		config.platform.apiKey = process.env.MEM0_API_KEY;
+	if (process.env.MEM0_BASE_URL)
+		config.platform.baseUrl = process.env.MEM0_BASE_URL;
+	if (process.env.MEM0_USER_ID)
+		config.defaults.userId = process.env.MEM0_USER_ID;
+	if (process.env.MEM0_AGENT_ID)
+		config.defaults.agentId = process.env.MEM0_AGENT_ID;
+	if (process.env.MEM0_APP_ID) config.defaults.appId = process.env.MEM0_APP_ID;
+	if (process.env.MEM0_RUN_ID) config.defaults.runId = process.env.MEM0_RUN_ID;
+	if (process.env.MEM0_ENABLE_GRAPH) {
+		config.defaults.enableGraph = ["true", "1", "yes"].includes(
+			process.env.MEM0_ENABLE_GRAPH.toLowerCase(),
+		);
+	}
 
-  return config;
+	return config;
 }
 
 export function saveConfig(config: Mem0Config): void {
-  ensureConfigDir();
+	ensureConfigDir();
 
-  const data = {
-    version: config.version,
-    defaults: {
-      user_id: config.defaults.userId,
-      agent_id: config.defaults.agentId,
-      app_id: config.defaults.appId,
-      run_id: config.defaults.runId,
-      enable_graph: config.defaults.enableGraph,
-    },
-    platform: {
-      api_key: config.platform.apiKey,
-      base_url: config.platform.baseUrl,
-    },
-  };
+	const data = {
+		version: config.version,
+		defaults: {
+			user_id: config.defaults.userId,
+			agent_id: config.defaults.agentId,
+			app_id: config.defaults.appId,
+			run_id: config.defaults.runId,
+			enable_graph: config.defaults.enableGraph,
+		},
+		platform: {
+			api_key: config.platform.apiKey,
+			base_url: config.platform.baseUrl,
+		},
+	};
 
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));
-  fs.chmodSync(CONFIG_FILE, 0o600);
+	fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));
+	fs.chmodSync(CONFIG_FILE, 0o600);
 }
 
 export function redactKey(key: string): string {
-  if (!key) return "(not set)";
-  if (key.length <= 8) return key.slice(0, 2) + "***";
-  return key.slice(0, 4) + "..." + key.slice(-4);
+	if (!key) return "(not set)";
+	if (key.length <= 8) return `${key.slice(0, 2)}***`;
+	return `${key.slice(0, 4)}...${key.slice(-4)}`;
 }
 
 /** Key map from dotted config path to the config object fields. */
 const KEY_MAP: Record<string, [keyof Mem0Config, string]> = {
-  "platform.api_key": ["platform", "apiKey"],
-  "platform.base_url": ["platform", "baseUrl"],
-  "defaults.user_id": ["defaults", "userId"],
-  "defaults.agent_id": ["defaults", "agentId"],
-  "defaults.app_id": ["defaults", "appId"],
-  "defaults.run_id": ["defaults", "runId"],
-  "defaults.enable_graph": ["defaults", "enableGraph"],
-  // Short-form aliases
-  "api_key": ["platform", "apiKey"],
-  "base_url": ["platform", "baseUrl"],
-  "user_id": ["defaults", "userId"],
-  "agent_id": ["defaults", "agentId"],
-  "app_id": ["defaults", "appId"],
-  "run_id": ["defaults", "runId"],
-  "enable_graph": ["defaults", "enableGraph"],
+	"platform.api_key": ["platform", "apiKey"],
+	"platform.base_url": ["platform", "baseUrl"],
+	"defaults.user_id": ["defaults", "userId"],
+	"defaults.agent_id": ["defaults", "agentId"],
+	"defaults.app_id": ["defaults", "appId"],
+	"defaults.run_id": ["defaults", "runId"],
+	"defaults.enable_graph": ["defaults", "enableGraph"],
+	// Short-form aliases
+	api_key: ["platform", "apiKey"],
+	base_url: ["platform", "baseUrl"],
+	user_id: ["defaults", "userId"],
+	agent_id: ["defaults", "agentId"],
+	app_id: ["defaults", "appId"],
+	run_id: ["defaults", "runId"],
+	enable_graph: ["defaults", "enableGraph"],
 };
 
 export function getNestedValue(config: Mem0Config, dottedKey: string): unknown {
-  const mapping = KEY_MAP[dottedKey];
-  if (!mapping) return undefined;
-  const [section, field] = mapping;
-  return (config[section] as unknown as Record<string, unknown>)[field];
+	const mapping = KEY_MAP[dottedKey];
+	if (!mapping) return undefined;
+	const [section, field] = mapping;
+	return (config[section] as unknown as Record<string, unknown>)[field];
 }
 
-export function setNestedValue(config: Mem0Config, dottedKey: string, value: string): boolean {
-  const mapping = KEY_MAP[dottedKey];
-  if (!mapping) return false;
-  const [section, field] = mapping;
-  const obj = config[section] as unknown as Record<string, unknown>;
+export function setNestedValue(
+	config: Mem0Config,
+	dottedKey: string,
+	value: string,
+): boolean {
+	const mapping = KEY_MAP[dottedKey];
+	if (!mapping) return false;
+	const [section, field] = mapping;
+	const obj = config[section] as unknown as Record<string, unknown>;
 
-  const current = obj[field];
-  if (typeof current === "boolean") {
-    obj[field] = ["true", "1", "yes"].includes(value.toLowerCase());
-  } else if (typeof current === "number") {
-    obj[field] = parseInt(value, 10);
-  } else {
-    obj[field] = value;
-  }
-  return true;
+	const current = obj[field];
+	if (typeof current === "boolean") {
+		obj[field] = ["true", "1", "yes"].includes(value.toLowerCase());
+	} else if (typeof current === "number") {
+		obj[field] = Number.parseInt(value, 10);
+	} else {
+		obj[field] = value;
+	}
+	return true;
 }

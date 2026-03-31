@@ -312,7 +312,6 @@ class PlatformBackend(Backend):
         return items
 
 
-
 class AuthError(Exception):
     pass
 

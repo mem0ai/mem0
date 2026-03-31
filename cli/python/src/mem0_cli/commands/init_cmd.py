@@ -265,7 +265,9 @@ def run_init(
 
             api_key_val = result.get("api_key")
             if not api_key_val:
-                print_error(err_console, "Auth succeeded but no API key was returned. Contact support.")
+                print_error(
+                    err_console, "Auth succeeded but no API key was returned. Contact support."
+                )
                 raise typer.Exit(1)
             config.platform.api_key = api_key_val
             config.platform.base_url = base_url

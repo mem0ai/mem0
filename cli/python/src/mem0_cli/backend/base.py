@@ -105,7 +105,6 @@ class Backend(ABC):
     def entities(self, entity_type: str) -> list[dict]: ...
 
 
-
 def get_backend(config: Mem0Config) -> Backend:
     """Return the Platform backend."""
     from mem0_cli.backend.platform import PlatformBackend
