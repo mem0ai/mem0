@@ -10,10 +10,10 @@ import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { type Backend, getBackend } from "./backend/index.js";
 import { colors, printError } from "./branding.js";
-import { CLI_VERSION } from "./version.js";
 import type { Mem0Config } from "./config.js";
 import { loadConfig } from "./config.js";
 import { richFormatHelp } from "./help.js";
+import { CLI_VERSION } from "./version.js";
 
 const program = new Command();
 

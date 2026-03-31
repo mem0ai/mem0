@@ -6,8 +6,8 @@ import fs from "node:fs";
 import boxen from "boxen";
 import type { Backend } from "../backend/base.js";
 import { colors, printError, printSuccess, timedStatus } from "../branding.js";
-import { CLI_VERSION } from "../version.js";
 import { formatJsonEnvelope } from "../output.js";
+import { CLI_VERSION } from "../version.js";
 
 const { brand, dim, success, error: errorColor } = colors;
 

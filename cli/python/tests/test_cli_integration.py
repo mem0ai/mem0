@@ -34,6 +34,8 @@ def _run(
     for key in list(env.keys()):
         if key.startswith("MEM0_"):
             del env[key]
+    # Fix terminal width so Rich renders help consistently in non-TTY subprocesses
+    env["COLUMNS"] = "120"
     if home_dir:
         env["HOME"] = home_dir
     if env_override:
