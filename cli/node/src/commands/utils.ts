@@ -3,16 +3,12 @@
  */
 
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import { printError, printSuccess, timedStatus, colors } from "../branding.js";
 import type { Backend } from "../backend/base.js";
 import { formatJsonEnvelope } from "../output.js";
 import boxen from "boxen";
 
 const { brand, dim, success, error: errorColor } = colors;
-
-const _require = createRequire(import.meta.url);
-const VERSION: string = _require("../../package.json").version;
 
 export async function cmdStatus(
   backend: Backend,
@@ -73,7 +69,7 @@ export async function cmdStatus(
 }
 
 export function cmdVersion(): void {
-  console.log(`  ${brand("◆ Mem0")} CLI v${VERSION}`);
+  console.log(`  ${brand("◆ Mem0")} CLI v${__CLI_VERSION__}`);
 }
 
 export async function cmdImport(

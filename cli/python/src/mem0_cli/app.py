@@ -281,8 +281,8 @@ def search(
     # STEP 7: stdin fallback for query
     if query is None:
         query = _read_stdin()
-    if query is None:
-        print_error(err_console, "No query provided. Pass a query argument or pipe via stdin.")
+    if not query or not query.strip():
+        print_error(err_console, "Search query cannot be empty.")
         raise typer.Exit(1)
 
     backend, config = _get_backend_and_config(api_key, base_url)
@@ -1012,6 +1012,13 @@ def help(
         console.print("  mem0 <command> --help    Get help for a command")
         console.print("  mem0 help --json         Machine-readable help (for LLM agents)")
         console.print()
+
+
+@app.command(rich_help_panel="Utility")
+def version() -> None:
+    """Show version and exit."""
+    from mem0_cli.commands.utils import cmd_version
+    cmd_version()
 
 
 # Register config subgroup here so it appears after help in Management panel

@@ -95,6 +95,17 @@ def cmd_add(
         except json.JSONDecodeError:
             cats = [c.strip() for c in categories.split(",")]
 
+    # Validate --expires
+    if expires:
+        import re
+        if not re.match(r'^\d{4}-\d{2}-\d{2}$', expires):
+            print_error(err_console, "Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31).")
+            raise typer.Exit(1)
+        from datetime import date
+        if date.fromisoformat(expires) <= date.today():
+            print_error(err_console, "--expires date must be in the future.")
+            raise typer.Exit(1)
+
     with timed_status(err_console, "Adding memory...") as ts:
         try:
             result = backend.add(
@@ -113,7 +124,6 @@ def cmd_add(
             )
         except Exception as e:
             ts.error_msg = str(e)
-            print_error(err_console, str(e))
             raise typer.Exit(1) from None
 
     if output == "quiet":
@@ -164,6 +174,13 @@ def cmd_search(
     if fields:
         field_list = [f.strip() for f in fields.split(",")]
 
+    if top_k < 1:
+        print_error(err_console, "--top-k must be >= 1.")
+        raise typer.Exit(1)
+    if not (0.0 <= threshold <= 1.0):
+        print_error(err_console, "--threshold must be between 0.0 and 1.0.")
+        raise typer.Exit(1)
+
     _start = _time.perf_counter()
     with timed_status(err_console, "Searching memories...") as _ts:
         try:
@@ -186,11 +203,14 @@ def cmd_search(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
+    if output == "quiet":
+        return
+
     if output == "json":
         format_json(console, results)
     elif output == "table":
         if results:
-            format_memories_table(console, results)
+            format_memories_table(console, results, show_score=True)
             print_result_summary(
                 console, len(results), duration_secs=_elapsed, user_id=user_id, agent_id=agent_id
             )
@@ -238,6 +258,13 @@ def cmd_list(
     output: str = "table",
 ) -> None:
     """List memories."""
+    if page_size < 1:
+        print_error(err_console, "--page-size must be >= 1.")
+        raise typer.Exit(1)
+    if page < 1:
+        print_error(err_console, "--page must be >= 1.")
+        raise typer.Exit(1)
+
     _start = _time.perf_counter()
     with timed_status(err_console, "Listing memories...") as _ts:
         try:
@@ -258,8 +285,18 @@ def cmd_list(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
+    if output == "quiet":
+        return
+
     if output == "json":
-        format_json(console, results)
+        from mem0_cli.output import format_json_envelope
+        format_json_envelope(
+            console,
+            command="list",
+            data=results,
+            count=len(results),
+            scope={k: v for k, v in {"user_id": user_id, "agent_id": agent_id}.items() if v},
+        )
     elif output == "table":
         if results:
             format_memories_table(console, results)
@@ -376,6 +413,7 @@ def cmd_delete_all(
         # Project-wide wipe using wildcard entity IDs
         if dry_run:
             print_info(console, "Would delete ALL memories project-wide.")
+            print_info(console, "Run without --dry-run to see the actual count.")
             print_info(console, "No changes made (dry run).")
             return
 

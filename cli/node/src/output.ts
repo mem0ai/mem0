@@ -52,16 +52,22 @@ export function formatMemoriesText(
   }
 }
 
-export function formatMemoriesTable(memories: Record<string, unknown>[]): void {
+export function formatMemoriesTable(memories: Record<string, unknown>[], opts: { showScore?: boolean } = {}): void {
+  const head = opts.showScore
+    ? [accent("ID"), accent("Score"), accent("Memory"), accent("Category"), accent("Created")]
+    : [accent("ID"), accent("Memory"), accent("Category"), accent("Created")];
+  const colWidths = opts.showScore
+    ? [38, 8, 40, 16, 14]
+    : [38, 40, 16, 14];
   const table = new Table({
-    head: [accent("ID"), accent("Memory"), accent("Category"), accent("Created")],
-    colWidths: [12, 52, 16, 14],
+    head,
+    colWidths,
     wordWrap: true,
     style: { head: [], border: [] },
   });
 
   for (const mem of memories) {
-    const memId = ((mem.id as string) ?? "").slice(0, 8);
+    const memId = ((mem.id as string) ?? "");
     let memoryText = (mem.memory ?? mem.text ?? "") as string;
     if (memoryText.length > 60) {
       memoryText = memoryText.slice(0, 57) + "...";
@@ -69,10 +75,18 @@ export function formatMemoriesTable(memories: Record<string, unknown>[]): void {
     const categories = mem.categories;
     const cat =
       Array.isArray(categories) && categories.length > 0
-        ? (categories[0] as string)
+        ? categories.length > 1
+          ? `${categories[0]} (+${categories.length - 1})`
+          : (categories[0] as string)
         : "—";
     const created = formatDate(mem.created_at as string | undefined) ?? "—";
-    table.push([dim(memId), memoryText, cat, created]);
+    if (opts.showScore) {
+      const score = mem.score as number | undefined;
+      const scoreStr = score !== undefined ? score.toFixed(2) : "—";
+      table.push([dim(memId), scoreStr, memoryText, cat, created]);
+    } else {
+      table.push([dim(memId), memoryText, cat, created]);
+    }
   }
 
   console.log();

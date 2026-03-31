@@ -8,6 +8,7 @@ import type { Backend } from "../backend/base.js";
 import {
   formatAddResult,
   formatJson,
+  formatJsonEnvelope,
   formatMemoriesTable,
   formatMemoriesText,
   formatSingleMemory,
@@ -60,9 +61,25 @@ export async function cmdAdd(
     content = fs.readFileSync(0, "utf-8").trim();
   }
 
+  if (content !== undefined && content.trim() === "") {
+    printError("Content cannot be empty.");
+    process.exit(1);
+  }
   if (!content && !msgs) {
     printError("No content provided. Pass text, --messages, --file, or pipe via stdin.");
     process.exit(1);
+  }
+
+  // Validate --expires
+  if (opts.expires) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.expires)) {
+      printError("Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31).");
+      process.exit(1);
+    }
+    if (new Date(opts.expires) <= new Date()) {
+      printError("--expires date must be in the future.");
+      process.exit(1);
+    }
   }
 
   let meta: Record<string, unknown> | undefined;
@@ -155,6 +172,15 @@ export async function cmdSearch(
 
   const fieldList = opts.fields ? opts.fields.split(",").map((f) => f.trim()) : undefined;
 
+  if (opts.topK < 1) {
+    printError("--top-k must be >= 1.");
+    process.exit(1);
+  }
+  if (opts.threshold < 0 || opts.threshold > 1) {
+    printError("--threshold must be between 0.0 and 1.0.");
+    process.exit(1);
+  }
+
   const start = performance.now();
   let results: Record<string, unknown>[];
   try {
@@ -179,11 +205,13 @@ export async function cmdSearch(
   }
   const elapsed = (performance.now() - start) / 1000;
 
+  if (opts.output === "quiet") return;
+
   if (opts.output === "json") {
     formatJson(results);
   } else if (opts.output === "table") {
     if (results.length > 0) {
-      formatMemoriesTable(results);
+      formatMemoriesTable(results, { showScore: true });
       printResultSummary({ count: results.length, durationSecs: elapsed, scopeIds: { user_id: opts.userId, agent_id: opts.agentId } });
     } else {
       console.log();
@@ -236,6 +264,15 @@ export async function cmdList(
     output: string;
   },
 ): Promise<void> {
+  if (opts.pageSize < 1) {
+    printError("--page-size must be >= 1.");
+    process.exit(1);
+  }
+  if (opts.page < 1) {
+    printError("--page must be >= 1.");
+    process.exit(1);
+  }
+
   const start = performance.now();
   let results: Record<string, unknown>[];
   try {
@@ -259,8 +296,15 @@ export async function cmdList(
   }
   const elapsed = (performance.now() - start) / 1000;
 
+  if (opts.output === "quiet") return;
+
   if (opts.output === "json") {
-    formatJson(results);
+    formatJsonEnvelope({
+      command: "list",
+      data: results,
+      count: results.length,
+      scope: { user_id: opts.userId, agent_id: opts.agentId },
+    });
   } else if (opts.output === "table") {
     if (results.length > 0) {
       formatMemoriesTable(results);
@@ -372,6 +416,7 @@ export async function cmdDeleteAll(
     // Project-wide wipe using wildcard entity IDs
     if (opts.dryRun) {
       printInfo("Would delete ALL memories project-wide.");
+      printInfo("Run without --dry-run to see the actual count of deleted memories.");
       printInfo("No changes made.");
       return;
     }

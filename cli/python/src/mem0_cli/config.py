@@ -45,6 +45,17 @@ class Mem0Config:
     platform: PlatformConfig = field(default_factory=PlatformConfig)
 
 
+SHORT_KEY_ALIASES: dict[str, str] = {
+    "api_key": "platform.api_key",
+    "base_url": "platform.base_url",
+    "user_id": "defaults.user_id",
+    "agent_id": "defaults.agent_id",
+    "app_id": "defaults.app_id",
+    "run_id": "defaults.run_id",
+    "enable_graph": "defaults.enable_graph",
+}
+
+
 def ensure_config_dir() -> Path:
     """Create ~/.mem0 directory with secure permissions if it doesn't exist."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -140,7 +151,8 @@ def redact_key(key: str) -> str:
 
 
 def get_nested_value(config: Mem0Config, dotted_key: str) -> Any:
-    """Get a config value by dotted path, e.g. 'platform.api_key'."""
+    """Get a config value by dotted path, e.g. 'platform.api_key' or short form 'api_key'."""
+    dotted_key = SHORT_KEY_ALIASES.get(dotted_key, dotted_key)
     parts = dotted_key.split(".")
     obj: Any = config
     for part in parts:
@@ -153,6 +165,7 @@ def get_nested_value(config: Mem0Config, dotted_key: str) -> Any:
 
 def set_nested_value(config: Mem0Config, dotted_key: str, value: str) -> bool:
     """Set a config value by dotted path. Returns True on success."""
+    dotted_key = SHORT_KEY_ALIASES.get(dotted_key, dotted_key)
     parts = dotted_key.split(".")
     obj: Any = config
     for part in parts[:-1]:
