@@ -110,13 +110,18 @@ program
 
 program
   .command("init")
-  .description("Interactive setup wizard for mem0 CLI.")
+  .description("Setup wizard for mem0 CLI. Supports email login (--email) or manual API key (--api-key).")
   .option("--api-key <key>", "API key (skip prompt).")
   .option("-u, --user-id <id>", "Default user ID (skip prompt).")
-  .addHelpText("after", "\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice")
+  .option("--email <email>", "Login via email verification code.")
+  .option("--code <code>", "Verification code (use with --email for non-interactive login).")
+  .addHelpText(
+    "after",
+    "\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456",
+  )
   .action(async (opts) => {
     const { runInit } = await import("./commands/init.js");
-    await runInit({ apiKey: opts.apiKey, userId: opts.userId });
+    await runInit({ apiKey: opts.apiKey, userId: opts.userId, email: opts.email, code: opts.code });
   });
 
 // ── Memory: add ───────────────────────────────────────────────────────────

@@ -10,10 +10,93 @@ import {
   printSuccess,
   colors,
 } from "../branding.js";
-import { type Mem0Config, createDefaultConfig, saveConfig } from "../config.js";
+import { type Mem0Config, createDefaultConfig, loadConfig, saveConfig, DEFAULT_BASE_URL } from "../config.js";
 import { PlatformBackend } from "../backend/platform.js";
 
 const { brand, dim } = colors;
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+function validateEmail(email: string): void {
+  if (!EMAIL_RE.test(email)) {
+    printError(`Invalid email address: ${JSON.stringify(email)}`);
+    process.exit(1);
+  }
+}
+
+async function emailLogin(
+  email: string,
+  code: string | undefined,
+  baseUrl: string,
+): Promise<Record<string, unknown>> {
+  const url = baseUrl.replace(/\/+$/, "");
+
+  if (!code) {
+    const resp = await fetch(`${url}/api/v1/auth/email_code/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (resp.status === 429) {
+      printError("Too many attempts. Try again in a few minutes.");
+      process.exit(1);
+    }
+    if (!resp.ok) {
+      let detail: string;
+      try {
+        const body = (await resp.json()) as Record<string, unknown>;
+        detail = (body["error"] ?? body["detail"] ?? resp.statusText) as string;
+      } catch {
+        detail = resp.statusText;
+      }
+      printError(`Failed to send code: ${detail}`);
+      process.exit(1);
+    }
+
+    printSuccess("Verification code sent! Check your email.");
+
+    if (!process.stdin.isTTY) {
+      printError(
+        "No --code provided and terminal is non-interactive.",
+        "Run: mem0 init --email <email> --code <code>",
+      );
+      process.exit(1);
+    }
+
+    console.log();
+    const entered = await promptLine(`  ${brand("Verification Code")}`);
+    if (!entered) {
+      printError("Code is required.");
+      process.exit(1);
+    }
+    code = entered;
+  }
+
+  const verifyResp = await fetch(`${url}/api/v1/auth/email_code/verify/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code: code.trim() }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (verifyResp.status === 429) {
+    printError("Too many attempts. Try again in a few minutes.");
+    process.exit(1);
+  }
+  if (!verifyResp.ok) {
+    let detail: string;
+    try {
+      const body = (await verifyResp.json()) as Record<string, unknown>;
+      detail = (body["error"] ?? body["detail"] ?? verifyResp.statusText) as string;
+    } catch {
+      detail = verifyResp.statusText;
+    }
+    printError(`Verification failed: ${detail}`);
+    process.exit(1);
+  }
+
+  return verifyResp.json() as Promise<Record<string, unknown>>;
+}
 
 function promptSecret(label: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -124,8 +207,57 @@ async function validatePlatform(config: Mem0Config): Promise<void> {
   }
 }
 
-export async function runInit(opts: { apiKey?: string; userId?: string } = {}): Promise<void> {
+export async function runInit(
+  opts: { apiKey?: string; userId?: string; email?: string; code?: string } = {},
+): Promise<void> {
   const config = createDefaultConfig();
+  const savedConfig = loadConfig();
+  const baseUrl =
+    process.env["MEM0_BASE_URL"] || savedConfig.platform.baseUrl || DEFAULT_BASE_URL;
+
+  // Guards
+  if (opts.code && !opts.email) {
+    printError("--code requires --email.");
+    process.exit(1);
+  }
+  if (opts.email && opts.apiKey) {
+    printError("Cannot use both --api-key and --email.");
+    process.exit(1);
+  }
+
+  // ── Email login flow ──────────────────────────────────────────────────────
+  if (opts.email) {
+    const email = opts.email.trim().toLowerCase();
+    validateEmail(email);
+
+    printBanner();
+    console.log();
+    printInfo(`Logging in as ${email}...\n`);
+
+    const result = await emailLogin(email, opts.code, baseUrl);
+
+    const apiKeyVal = result["api_key"] as string | undefined;
+    if (!apiKeyVal) {
+      printError("Auth succeeded but no API key was returned. Contact support.");
+      process.exit(1);
+    }
+
+    config.platform.apiKey = apiKeyVal;
+    config.platform.baseUrl = baseUrl;
+    config.defaults.userId = opts.userId || "mem0-cli";
+
+    saveConfig(config);
+    console.log();
+    printSuccess("Authenticated! Configuration saved to ~/.mem0/config.json");
+    console.log();
+    console.log(`  ${dim("Get started:")}`);
+    console.log(`  ${dim('  mem0 add "I prefer dark mode"')}`);
+    console.log(`  ${dim('  mem0 search "preferences"')}`);
+    console.log();
+    return;
+  }
+
+  // ── API key flow ──────────────────────────────────────────────────────────
 
   // Non-interactive: both flags provided
   if (opts.apiKey && opts.userId) {
@@ -154,6 +286,49 @@ export async function runInit(opts: { apiKey?: string; userId?: string } = {}): 
   if (opts.apiKey) {
     config.platform.apiKey = opts.apiKey;
   } else {
+    console.log(`  ${brand("How would you like to authenticate?")}`);
+    console.log(`  ${dim("1.")} Login with email ${dim("(recommended)")}`);
+    console.log(`  ${dim("2.")} Enter API key manually`);
+    console.log();
+
+    const choice = await promptLine(`  ${brand("Choose")} [1/2]`, "1");
+
+    if (choice === "1") {
+      console.log();
+      const emailAddr = await promptLine(`  ${brand("Email")}`);
+      if (!emailAddr) {
+        printError("Email is required.");
+        process.exit(1);
+      }
+
+      const email = emailAddr.trim().toLowerCase();
+      validateEmail(email);
+      printInfo(`Logging in as ${email}...\n`);
+
+      const result = await emailLogin(email, undefined, baseUrl);
+
+      const apiKeyVal = result["api_key"] as string | undefined;
+      if (!apiKeyVal) {
+        printError("Auth succeeded but no API key was returned. Contact support.");
+        process.exit(1);
+      }
+
+      config.platform.apiKey = apiKeyVal;
+      config.platform.baseUrl = baseUrl;
+      config.defaults.userId = opts.userId || "mem0-cli";
+
+      saveConfig(config);
+      console.log();
+      printSuccess("Authenticated! Configuration saved to ~/.mem0/config.json");
+      console.log();
+      console.log(`  ${dim("Get started:")}`);
+      console.log(`  ${dim('  mem0 add "I prefer dark mode"')}`);
+      console.log(`  ${dim('  mem0 search "preferences"')}`);
+      console.log();
+      return;
+    }
+
+    // choice === "2": fall through to API key prompt
     await setupPlatform(config);
   }
 

@@ -17,8 +17,14 @@ Both packages install a `mem0` binary with identical behavior.
 ## Quick start
 
 ```bash
-# Authenticate and save config
+# Interactive setup wizard
 mem0 init
+
+# Or login via email (get a new API key)
+mem0 init --email alice@company.com
+
+# Or authenticate with an existing API key
+mem0 init --api-key m0-xxx
 
 # Add a memory
 mem0 add "I prefer dark mode and use vim keybindings" --user-id alice
@@ -40,7 +46,7 @@ mem0 delete <memory-id>
 
 | Command | Description |
 |---------|-------------|
-| `mem0 init` | Interactive setup wizard — configures API key and default user ID |
+| `mem0 init` | Setup wizard — login via email or configure API key manually |
 | `mem0 add` | Add a memory from text, JSON messages, a file, or stdin |
 | `mem0 search` | Search memories using natural language |
 | `mem0 list` | List memories with optional filters and pagination |

@@ -695,16 +695,20 @@ app.add_typer(entity_app, name="entity", rich_help_panel="Management")
 def init(
     api_key: str | None = typer.Option(None, "--api-key", help="API key (skip prompt)."),
     user_id: str | None = typer.Option(None, "--user-id", "-u", help="Default user ID (skip prompt)."),
+    email: str | None = typer.Option(None, "--email", help="Login via email verification code."),
+    code: str | None = typer.Option(None, "--code", help="Verification code (use with --email for non-interactive login)."),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
     Examples:
       mem0 init
       mem0 init --api-key m0-xxx --user-id alice
+      mem0 init --email alice@company.com
+      mem0 init --email alice@company.com --code 482901
     """
     from mem0_cli.commands.init_cmd import run_init
 
-    run_init(api_key=api_key, user_id=user_id)
+    run_init(api_key=api_key, user_id=user_id, email=email, code=code)
 
 
 # (entity_app registered at module level, below sub-group definitions)
