@@ -1,4 +1,5 @@
 import { MilvusClient, DataType } from "@zilliz/milvus2-sdk-node";
+import { v4 as uuidv4 } from "uuid";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
@@ -82,7 +83,7 @@ export class MilvusDB implements VectorStore {
       collection_name: this.collectionName,
       data: [query],
       limit,
-      filter: queryFilter || "",
+      filter: queryFilter,
       output_fields: ["*"],
     });
 
@@ -163,17 +164,6 @@ export class MilvusDB implements VectorStore {
     return [results, results.length];
   }
 
-  private generateUUID(): string {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-      /[xy]/g,
-      function (c) {
-        const r = (Math.random() * 16) | 0;
-        const v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      },
-    );
-  }
-
   async getUserId(): Promise<string> {
     try {
       await this.ensureCollection(MIGRATION_COLLECTION, 1);
@@ -197,7 +187,7 @@ export class MilvusDB implements VectorStore {
         collection_name: MIGRATION_COLLECTION,
         data: [
           {
-            id: this.generateUUID(),
+            id: uuidv4(),
             vectors: [0],
             metadata: { user_id: randomUserId },
           },
@@ -225,7 +215,7 @@ export class MilvusDB implements VectorStore {
       const pointId =
         response.data && response.data.length > 0
           ? response.data[0].id
-          : this.generateUUID();
+          : uuidv4();
 
       await this.client.upsert({
         collection_name: MIGRATION_COLLECTION,

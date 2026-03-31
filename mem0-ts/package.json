@@ -132,6 +132,9 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "better-sqlite3"
-    ]
+    ],
+    "overrides": {
+      "ws": "^8.18.0"
+    }
   }
 }
