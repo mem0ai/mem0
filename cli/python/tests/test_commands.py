@@ -62,7 +62,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -88,7 +88,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -113,7 +113,7 @@ class TestAddCommand:
                 metadata='{"source": "test"}',
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -139,7 +139,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="json",
             )
@@ -165,7 +165,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="quiet",
             )
@@ -196,7 +196,7 @@ class TestAddCommand:
                     metadata=None,
                     immutable=False,
                     no_infer=False,
-                                expires=None,
+                    expires=None,
                     categories=None,
                     output="text",
                 )
@@ -221,7 +221,7 @@ class TestAddCommand:
                 metadata="not-json",
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -247,7 +247,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories=None,
                 output="text",
             )
@@ -272,7 +272,7 @@ class TestAddCommand:
                 metadata=None,
                 immutable=False,
                 no_infer=False,
-                        expires=None,
+                expires=None,
                 categories="health,prefs",
                 output="text",
             )

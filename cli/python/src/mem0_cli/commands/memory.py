@@ -98,10 +98,14 @@ def cmd_add(
     # Validate --expires
     if expires:
         import re
-        if not re.match(r'^\d{4}-\d{2}-\d{2}$', expires):
-            print_error(err_console, "Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31).")
+
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", expires):
+            print_error(
+                err_console, "Invalid date format for --expires. Use YYYY-MM-DD (e.g. 2025-12-31)."
+            )
             raise typer.Exit(1)
         from datetime import date
+
         if date.fromisoformat(expires) <= date.today():
             print_error(err_console, "--expires date must be in the future.")
             raise typer.Exit(1)
@@ -290,6 +294,7 @@ def cmd_list(
 
     if output == "json":
         from mem0_cli.output import format_json_envelope
+
         format_json_envelope(
             console,
             command="list",

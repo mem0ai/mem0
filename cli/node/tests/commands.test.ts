@@ -125,7 +125,7 @@ describe("cmdSearch", () => {
       enableGraph: false,
       output: "text",
     });
-    expect(output).toContain("No memories found");
+    expect(errOutput).toContain("No memories found");
   });
 });
 
@@ -166,7 +166,7 @@ describe("cmdList", () => {
       enableGraph: false,
       output: "text",
     });
-    expect(output).toContain("No memories found");
+    expect(errOutput).toContain("No memories found");
   });
 });
 

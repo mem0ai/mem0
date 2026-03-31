@@ -253,8 +253,12 @@ def search(
         help="Specific fields to return (comma-separated).",
         rich_help_panel="Search",
     ),
-    graph: bool = typer.Option(False, "--graph", help="Enable graph in search.", rich_help_panel="Search"),
-    no_graph: bool = typer.Option(False, "--no-graph", help="Disable graph in search.", rich_help_panel="Search"),
+    graph: bool = typer.Option(
+        False, "--graph", help="Enable graph in search.", rich_help_panel="Search"
+    ),
+    no_graph: bool = typer.Option(
+        False, "--no-graph", help="Disable graph in search.", rich_help_panel="Search"
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -372,8 +376,12 @@ def list_cmd(
     before: str | None = typer.Option(
         None, "--before", help="Created before (YYYY-MM-DD).", rich_help_panel="Filters"
     ),
-    graph: bool = typer.Option(False, "--graph", help="Enable graph in listing.", rich_help_panel="Filters"),
-    no_graph: bool = typer.Option(False, "--no-graph", help="Disable graph in listing.", rich_help_panel="Filters"),
+    graph: bool = typer.Option(
+        False, "--graph", help="Enable graph in listing.", rich_help_panel="Filters"
+    ),
+    no_graph: bool = typer.Option(
+        False, "--no-graph", help="Disable graph in listing.", rich_help_panel="Filters"
+    ),
     output: str = typer.Option(
         "table", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -463,11 +471,19 @@ def update(
 
 @app.command(rich_help_panel="Memory")
 def delete(
-    memory_id: str | None = typer.Argument(None, help="Memory ID to delete (omit when using --all or --entity)."),
+    memory_id: str | None = typer.Argument(
+        None, help="Memory ID to delete (omit when using --all or --entity)."
+    ),
     all_: bool = typer.Option(False, "--all", help="Delete all memories matching scope filters."),
-    entity: bool = typer.Option(False, "--entity", help="Delete the entity itself and all its memories (cascade)."),
-    project: bool = typer.Option(False, "--project", help="With --all: delete ALL memories project-wide."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted without deleting."),
+    entity: bool = typer.Option(
+        False, "--entity", help="Delete the entity itself and all its memories (cascade)."
+    ),
+    project: bool = typer.Option(
+        False, "--project", help="With --all: delete ALL memories project-wide."
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be deleted without deleting."
+    ),
     force: bool = typer.Option(False, "--force", help="Skip confirmation."),
     user_id: str | None = typer.Option(
         None, "--user-id", "-u", help="Scope to user.", rich_help_panel="Scope"
@@ -641,14 +657,12 @@ def entity_delete(
     agent_id: str | None = typer.Option(
         None, "--agent-id", help="Agent ID.", rich_help_panel="Scope"
     ),
-    app_id: str | None = typer.Option(
-        None, "--app-id", help="App ID.", rich_help_panel="Scope"
-    ),
-    run_id: str | None = typer.Option(
-        None, "--run-id", help="Run ID.", rich_help_panel="Scope"
-    ),
+    app_id: str | None = typer.Option(None, "--app-id", help="App ID.", rich_help_panel="Scope"),
+    run_id: str | None = typer.Option(None, "--run-id", help="Run ID.", rich_help_panel="Scope"),
     force: bool = typer.Option(False, "--force", help="Skip confirmation."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted without deleting."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be deleted without deleting."
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, quiet.", rich_help_panel="Output"
     ),
@@ -694,9 +708,13 @@ app.add_typer(entity_app, name="entity", rich_help_panel="Management")
 @app.command(rich_help_panel="Management")
 def init(
     api_key: str | None = typer.Option(None, "--api-key", help="API key (skip prompt)."),
-    user_id: str | None = typer.Option(None, "--user-id", "-u", help="Default user ID (skip prompt)."),
+    user_id: str | None = typer.Option(
+        None, "--user-id", "-u", help="Default user ID (skip prompt)."
+    ),
     email: str | None = typer.Option(None, "--email", help="Login via email verification code."),
-    code: str | None = typer.Option(None, "--code", help="Verification code (use with --email for non-interactive login)."),
+    code: str | None = typer.Option(
+        None, "--code", help="Verification code (use with --email for non-interactive login)."
+    ),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
@@ -745,7 +763,6 @@ def status(
         agent_id=config.defaults.agent_id or None,
         output=output,
     )
-
 
 
 @app.command("import", rich_help_panel="Management")
@@ -1018,6 +1035,7 @@ def help(
 def version() -> None:
     """Show version and exit."""
     from mem0_cli.commands.utils import cmd_version
+
     cmd_version()
 
 

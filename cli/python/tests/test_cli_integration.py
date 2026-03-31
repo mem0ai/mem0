@@ -8,10 +8,18 @@ boundaries).
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 
 import pytest
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mKJHABCDfsu]")
+
+
+def _strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes so substring checks work regardless of color mode."""
+    return _ANSI_RE.sub("", text)
 
 
 def _run(
@@ -28,21 +36,34 @@ def _run(
             reads config from ``<home_dir>/.mem0/config.json`` instead
             of the user's real config.  This is critical for tests that
             depend on a clean (no API key) or custom config state.
+
+    Returns a CompletedProcess whose stdout/stderr have ANSI escape codes
+    stripped.  GitHub Actions sets FORCE_COLOR=1 which causes Rich/Typer to
+    fragment option names like --user-id into separately-styled ANSI segments,
+    making plain ``in`` checks fail.  Stripping here is version-agnostic and
+    ensures all assertions see the same plain text regardless of terminal env.
     """
     env = os.environ.copy()
     # Strip all MEM0_ env vars so tests start clean
     for key in list(env.keys()):
         if key.startswith("MEM0_"):
             del env[key]
+    env.pop("FORCE_COLOR", None)
     if home_dir:
         env["HOME"] = home_dir
     if env_override:
         env.update(env_override)
-    return subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-m", "mem0_cli", *args],
         capture_output=True,
         text=True,
         env=env,
+    )
+    return subprocess.CompletedProcess(
+        args=result.args,
+        returncode=result.returncode,
+        stdout=_strip_ansi(result.stdout),
+        stderr=_strip_ansi(result.stderr),
     )
 
 
@@ -66,7 +87,6 @@ class TestCLIIntegration:
         result = _run(["--version"])
         assert result.returncode == 0
         assert "0.1.0" in result.stdout
-
 
     def test_add_help(self):
         result = _run(["add", "--help"])
@@ -161,7 +181,12 @@ class TestCLIIsolated:
         )
         assert result.returncode != 0
         combined = result.stderr + result.stdout
-        assert "memory ID" in combined.lower() or "--all" in combined or "--entity" in combined or "Error" in combined
+        assert (
+            "memory ID" in combined.lower()
+            or "--all" in combined
+            or "--entity" in combined
+            or "Error" in combined
+        )
 
     def test_config_show_clean(self, clean_home):
         """config show with no config should still work."""

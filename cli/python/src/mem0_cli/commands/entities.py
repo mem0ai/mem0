@@ -28,7 +28,9 @@ def cmd_entities_list(backend: Backend, entity_type: str, *, output: str) -> Non
     """List entities of a given type."""
     valid_types = {"users", "agents", "apps", "runs"}
     if entity_type not in valid_types:
-        print_error(err_console, f"Invalid entity type: {entity_type}. Use: {', '.join(valid_types)}")
+        print_error(
+            err_console, f"Invalid entity type: {entity_type}. Use: {', '.join(valid_types)}"
+        )
         raise typer.Exit(1)
 
     _start = _time.perf_counter()
@@ -76,7 +78,9 @@ def cmd_entities_delete(
 ) -> None:
     """Delete an entity and all its memories (cascade delete)."""
     if not any([user_id, agent_id, app_id, run_id]):
-        print_error(err_console, "Provide at least one of --user-id, --agent-id, --app-id, --run-id.")
+        print_error(
+            err_console, "Provide at least one of --user-id, --agent-id, --app-id, --run-id."
+        )
         raise typer.Exit(1)
 
     if dry_run:

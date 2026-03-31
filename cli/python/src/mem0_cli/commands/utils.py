@@ -110,7 +110,9 @@ def cmd_import(
     added = 0
     failed = 0
     _start = _time.perf_counter()
-    for item in track(data, description=f"[{DIM_COLOR}]Importing memories...[/]", console=err_console):
+    for item in track(
+        data, description=f"[{DIM_COLOR}]Importing memories...[/]", console=err_console
+    ):
         content = item.get("memory", item.get("text", item.get("content", "")))
         if not content:
             failed += 1
