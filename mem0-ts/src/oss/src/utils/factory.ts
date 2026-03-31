@@ -84,7 +84,7 @@ export class LLMFactory {
       case "langchain":
         return new LangchainLLM(config);
       case "deepseek":
-        return new DeepSeekLLM(config)
+        return new DeepSeekLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
