@@ -72,6 +72,21 @@ Lifecycle hooks (`before_agent_start`, `agent_end`) use `ctx.sessionKey` directl
 
 Tools still read from a best-effort `currentSessionId` variable (since tools don't receive `ctx`), but hooks — where the critical recall and capture logic runs — are fully concurrency-safe.
 
+### Recall diversification
+
+As memory stores grow (1K+ records), vector search can return clusters of highly similar memories from the same topic or conversation, crowding out relevant results from other domains. This is sometimes called "topic monopoly."
+
+The plugin addresses this with **Maximal Marginal Relevance (MMR)** re-ranking during auto-recall. When `diversifyRecall` is enabled (the default), results are re-ranked to maximize both relevance to the query AND dissimilarity to already-selected results. This ensures recall slots are filled with diverse, useful context rather than redundant variations of the same fact.
+
+The `diversityLambda` parameter controls the trade-off:
+- `1.0` = pure relevance (no diversification, same as `diversifyRecall: false`)
+- `0.6` = recommended default — relevance-first with meaningful diversity penalty
+- `0.0` = pure diversity (not recommended — may surface irrelevant but novel memories)
+
+The implementation uses Jaccard word-overlap similarity as a lightweight proxy for embedding distance, adding zero API calls or latency to the recall pipeline.
+
+To disable: set `diversifyRecall: false` in your plugin config.
+
 ### Non-interactive trigger filtering
 
 The plugin automatically skips recall and capture for non-interactive triggers: `cron`, `heartbeat`, `automation`, and `schedule`. Detection works via both `ctx.trigger` and session key patterns (`:cron:`, `:heartbeat:`). This prevents system-generated noise from polluting long-term memory.
@@ -187,6 +202,8 @@ openclaw mem0 stats --agent researcher
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
 | `topK` | `number` | `5` | Max memories per recall |
 | `searchThreshold` | `number` | `0.5` | Min similarity (0–1) |
+| `diversifyRecall` | `boolean` | `true` | Re-rank recall results using [MMR](#recall-diversification) to reduce redundancy |
+| `diversityLambda` | `number` | `0.6` | Balance between relevance (1.0) and diversity (0.0) for MMR re-ranking |
 
 ### Platform mode
 
