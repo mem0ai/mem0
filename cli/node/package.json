@@ -7,7 +7,7 @@
     "mem0": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "tsup",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
