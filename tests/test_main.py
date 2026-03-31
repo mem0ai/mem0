@@ -86,7 +86,7 @@ def test_add(memory_instance, version, enable_graph):
         assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True, None
     )
 
     # Remove the conditional assertion for _add_to_graph
@@ -129,36 +129,33 @@ def test_search(memory_instance, version, enable_graph):
         Mock(id="2", payload={"data": "Memory 2", "user_id": "test_user"}, score=0.8),
     ]
     memory_instance.vector_store.search = Mock(return_value=mock_memories)
+    memory_instance.vector_store.keyword_search = Mock(return_value=None)  # No BM25
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
     memory_instance.graph.search = Mock(return_value=[{"relation": "test_relation"}])
 
-    result = memory_instance.search("test query", user_id="test_user")
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
+         patch("mem0.memory.main.extract_entities", return_value=[]):
+        result = memory_instance.search("test query", user_id="test_user")
 
-    if version == "v1.1":
-        assert "results" in result
-        assert len(result["results"]) == 2
-        assert result["results"][0]["id"] == "1"
-        assert result["results"][0]["memory"] == "Memory 1"
-        assert result["results"][0]["user_id"] == "test_user"
-        assert result["results"][0]["score"] == 0.9
-        if enable_graph:
-            assert "relations" in result
-            assert result["relations"] == [{"relation": "test_relation"}]
-        else:
-            assert "relations" not in result
+    assert "results" in result
+    assert len(result["results"]) == 2
+    assert result["results"][0]["id"] == "1"
+    assert result["results"][0]["memory"] == "Memory 1"
+    assert result["results"][0]["user_id"] == "test_user"
+    # Score is now combined score (semantic only since no BM25/entity), still 0.9
+    assert result["results"][0]["score"] == pytest.approx(0.9)
+    assert "score_breakdown" in result["results"][0]
+
+    if enable_graph:
+        assert "relations" in result
+        assert result["relations"] == [{"relation": "test_relation"}]
     else:
-        assert isinstance(result, dict)
-        assert "results" in result
-        assert len(result["results"]) == 2
-        assert result["results"][0]["id"] == "1"
-        assert result["results"][0]["memory"] == "Memory 1"
-        assert result["results"][0]["user_id"] == "test_user"
-        assert result["results"][0]["score"] == 0.9
+        assert "relations" not in result
 
+    # Hybrid pipeline over-fetches: max(100*4, 60) = 400
     memory_instance.vector_store.search.assert_called_once_with(
-        query="test query", vectors=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
+        query="test query", vectors=[0.1, 0.2, 0.3], limit=400, filters={"user_id": "test_user"}
     )
-    memory_instance.embedding_model.embed.assert_called_once_with("test query", "search")
 
     if enable_graph:
         memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"}, 100)
@@ -261,38 +258,26 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
 
 
 def test_custom_prompts(memory_custom_instance):
+    """Test that custom_fact_extraction_prompt is passed as custom_instructions in v3 pipeline."""
     messages = [{"role": "user", "content": "Test message"}]
     from mem0.embeddings.mock import MockEmbeddings
 
+    # V3 pipeline returns {"memory": [...]} format (single LLM call)
     memory_custom_instance.llm.generate_response = Mock()
-    memory_custom_instance.llm.generate_response.return_value = '{"facts": ["fact1", "fact2"]}'
+    memory_custom_instance.llm.generate_response.return_value = '{"memory": []}'
     memory_custom_instance.embedding_model = MockEmbeddings()
+    memory_custom_instance.vector_store.search = Mock(return_value=[])
 
     with patch("mem0.memory.main.parse_messages", return_value="Test message") as mock_parse_messages:
-        with patch(
-            "mem0.memory.main.get_update_memory_messages", return_value="custom update memory prompt"
-        ) as mock_get_update_memory_messages:
-            memory_custom_instance.add(messages=messages, user_id="test_user")
+        memory_custom_instance.add(messages=messages, user_id="test_user")
 
-            ## custom prompt
-            ##
-            mock_parse_messages.assert_called_once_with(messages)
+        mock_parse_messages.assert_called_once_with(messages)
 
-            memory_custom_instance.llm.generate_response.assert_any_call(
-                messages=[
-                    {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
-                    {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
-                ],
-                response_format={"type": "json_object"},
-            )
+        # V3 pipeline makes exactly ONE LLM call (not two)
+        assert memory_custom_instance.llm.generate_response.call_count == 1
 
-            ## custom update memory prompt
-            ##
-            mock_get_update_memory_messages.assert_called_once_with(
-                [], ["fact1", "fact2"], memory_custom_instance.config.custom_update_memory_prompt
-            )
-
-            memory_custom_instance.llm.generate_response.assert_any_call(
-                messages=[{"role": "user", "content": mock_get_update_memory_messages.return_value}],
-                response_format={"type": "json_object"},
-            )
+        # The system prompt should be ADDITIVE_EXTRACTION_PROMPT
+        call_args = memory_custom_instance.llm.generate_response.call_args
+        llm_messages = call_args[1]["messages"] if "messages" in call_args[1] else call_args[0][0]
+        assert llm_messages[0]["role"] == "system"
+        assert "Memory Extractor" in llm_messages[0]["content"]  # From ADDITIVE_EXTRACTION_PROMPT

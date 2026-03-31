@@ -274,6 +274,11 @@ class GoogleMatchingEngine(VectorStoreBase):
             logger.error("Stack trace: %s", traceback.format_exc())
             raise
 
+    def keyword_search(self, query, limit=5, filters=None):
+        # Vertex AI hybrid search requires sparse embeddings configuration.
+        # Not yet supported - requires HybridQuery with sparse encoder setup.
+        return None
+
     def delete(self, vector_id: Optional[str] = None, ids: Optional[List[str]] = None) -> bool:
         """
         Delete vectors from the Matching Engine index.

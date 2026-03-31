@@ -61,7 +61,11 @@ class MemoryConfig(BaseModel):
         default=None,
     )
     custom_update_memory_prompt: Optional[str] = Field(
-        description="Custom prompt for the update memory",
+        description="Custom prompt for the update memory (deprecated: use custom_instructions)",
+        default=None,
+    )
+    custom_instructions: Optional[str] = Field(
+        description="Custom instructions injected into the extraction prompt",
         default=None,
     )
 

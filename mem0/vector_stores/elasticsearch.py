@@ -158,6 +158,49 @@ class ElasticsearchDB(VectorStoreBase):
 
         return results
 
+    def keyword_search(self, query, limit=5, filters=None):
+        """Search for memories using BM25 keyword matching.
+
+        Args:
+            query (str): The text query to search for.
+            limit (int): Maximum number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results with id, score, and payload.
+        """
+        # Build a multi_match query across text fields in metadata
+        should_clauses = [
+            {"match": {"metadata.data": query}},
+            {"match": {"metadata.text_lemmatized": query}},
+        ]
+
+        bool_query = {
+            "should": should_clauses,
+            "minimum_should_match": 1,
+        }
+
+        if filters:
+            filter_conditions = []
+            for key, value in filters.items():
+                filter_conditions.append({"term": {f"metadata.{key}": value}})
+            bool_query["filter"] = filter_conditions
+
+        search_query = {
+            "size": limit,
+            "query": {"bool": bool_query},
+        }
+
+        response = self.client.search(index=self.collection_name, body=search_query)
+
+        results = []
+        for hit in response["hits"]["hits"]:
+            results.append(
+                OutputData(id=hit["_id"], score=hit["_score"], payload=hit.get("_source", {}).get("metadata", {}))
+            )
+
+        return results
+
     def delete(self, vector_id: str) -> None:
         """Delete a vector by ID."""
         self.client.delete(index=self.collection_name, id=vector_id)

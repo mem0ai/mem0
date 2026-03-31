@@ -169,6 +169,58 @@ class MongoDB(VectorStoreBase):
         output = [OutputData(id=str(doc["_id"]), score=doc.get("score"), payload=doc.get("payload")) for doc in results]
         return output
 
+    def keyword_search(self, query, limit=5, filters=None):
+        """
+        Perform keyword-based search using MongoDB Atlas Search.
+
+        Args:
+            query (str): The text query to search for.
+            limit (int, optional): Number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results, or None if Atlas Search index is not available.
+        """
+        try:
+            collection = self.client[self.db_name][self.collection_name]
+            search_index_name = f"{self.collection_name}_text_search_index"
+
+            pipeline = [
+                {
+                    "$search": {
+                        "index": search_index_name,
+                        "text": {
+                            "query": query,
+                            "path": ["payload.data", "payload.text_lemmatized"],
+                        },
+                    }
+                },
+                {"$set": {"score": {"$meta": "searchScore"}}},
+                {"$project": {"embedding": 0}},
+            ]
+
+            # Add filter stage if filters are provided
+            if filters:
+                filter_conditions = []
+                for key, value in filters.items():
+                    filter_conditions.append({"payload." + key: value})
+                if filter_conditions:
+                    pipeline.insert(1, {"$match": {"$and": filter_conditions}})
+
+            pipeline.append({"$limit": limit})
+
+            results = list(collection.aggregate(pipeline))
+            logger.info(f"Keyword search completed. Found {len(results)} documents.")
+
+            output = [
+                OutputData(id=str(doc["_id"]), score=doc.get("score"), payload=doc.get("payload"))
+                for doc in results
+            ]
+            return output
+        except Exception as e:
+            logger.error(f"Error during keyword search for query '{query}': {e}")
+            return None
+
     def delete(self, vector_id: str) -> None:
         """
         Delete a vector by ID.

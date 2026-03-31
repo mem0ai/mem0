@@ -14,13 +14,14 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.9,<4.0"
 dependencies = [
-    "qdrant-client>=1.9.1",
+    "qdrant-client>=1.12.0",
     "pydantic>=2.7.3",
     "openai>=1.90.0",
     "posthog>=3.5.0",
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
     "protobuf>=5.29.0,<6.0.0",
+    "spacy>=3.7.0",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +41,7 @@ vector_stores = [
     "pinecone<=7.3.0",
     "pinecone-text>=0.10.0",
     "faiss-cpu>=1.7.4",
-    "upstash-vector>=0.1.0",
+    "upstash-vector>=0.6.0",
     "azure-search-documents>=11.4.0b8",
     "psycopg>=3.2.8",
     "psycopg-pool>=3.2.6,<4.0.0",

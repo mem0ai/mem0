@@ -27,6 +27,7 @@ try:
         VectorIndex,
     )
     from pymochow.model.table import (
+        BM25SearchRequest,
         FloatVector,
         Partition,
         Row,
@@ -226,6 +227,48 @@ class BaiduDB(VectorStoreBase):
             output.append(output_data)
 
         return output
+
+    def keyword_search(self, query, limit=5, filters=None):
+        """
+        Perform keyword-based search using Baidu Mochow's BM25 search.
+
+        Args:
+            query (str): The text query to search for.
+            limit (int, optional): Number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            list: Search results, or None if the table lacks an inverted index.
+        """
+        try:
+            search_filter = None
+            if filters:
+                search_filter = self._create_filter(filters)
+
+            request = BM25SearchRequest(
+                index_name="data_bm25_idx",
+                search_text=query,
+                limit=limit,
+                filter=search_filter,
+            )
+
+            projections = ["id", "metadata"]
+            res = self._table.bm25_search(request=request, projections=projections)
+
+            output = []
+            for row in res.rows:
+                row_data = row.get("row", {})
+                output_data = OutputData(
+                    id=row_data.get("id"),
+                    score=row.get("score", 0.0),
+                    payload=row_data.get("metadata", {}),
+                )
+                output.append(output_data)
+
+            return output
+        except Exception as e:
+            logger.error(f"Error during keyword search for query '{query}': {e}")
+            return None
 
     def delete(self, vector_id):
         """

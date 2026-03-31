@@ -56,3 +56,20 @@ class VectorStoreBase(ABC):
     def reset(self):
         """Reset by delete the collection and recreate it."""
         pass
+
+    def keyword_search(self, query: str, limit: int = 5, filters: dict = None):
+        """Keyword/BM25 full-text search. Returns None if not supported by this store.
+
+        Override in subclasses that support native keyword/BM25 search.
+        Returns results in the same format as search() -- list of objects with
+        id, score, and payload attributes.
+
+        Args:
+            query: The search query text (should be lemmatized for best results).
+            limit: Maximum number of results to return.
+            filters: Optional metadata filters (same format as search filters).
+
+        Returns:
+            List of search results with id, score, payload, or None if not supported.
+        """
+        return None

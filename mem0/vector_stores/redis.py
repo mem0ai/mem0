@@ -8,7 +8,7 @@ import pytz
 import redis
 from redis.commands.search.query import Query
 from redisvl.index import SearchIndex
-from redisvl.query import VectorQuery
+from redisvl.query import TextQuery, VectorQuery
 from redisvl.query.filter import Tag
 
 from mem0.memory.utils import extract_json
@@ -160,6 +160,60 @@ class RedisDB(VectorStoreBase):
             MemoryResult(
                 id=result["memory_id"],
                 score=result["vector_distance"],
+                payload={
+                    "hash": result["hash"],
+                    "data": result["memory"],
+                    "created_at": datetime.fromtimestamp(
+                        int(result["created_at"]), tz=pytz.timezone("US/Pacific")
+                    ).isoformat(timespec="microseconds"),
+                    **(
+                        {
+                            "updated_at": datetime.fromtimestamp(
+                                int(result["updated_at"]), tz=pytz.timezone("US/Pacific")
+                            ).isoformat(timespec="microseconds")
+                        }
+                        if "updated_at" in result
+                        else {}
+                    ),
+                    **{field: result[field] for field in ["agent_id", "run_id", "user_id"] if field in result},
+                    **{k: v for k, v in json.loads(extract_json(result["metadata"])).items()},
+                },
+            )
+            for result in results
+        ]
+
+    def keyword_search(self, query, limit=5, filters=None):
+        """
+        Search for memories using BM25 keyword search on the memory field.
+
+        Args:
+            query (str): Search query text.
+            limit (int): Maximum number of results. Defaults to 5.
+            filters (dict, optional): Filters to apply (user_id, agent_id, run_id).
+
+        Returns:
+            List[MemoryResult]: Search results.
+        """
+        filter_expression = None
+        if filters:
+            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
+            if conditions:
+                filter_expression = reduce(lambda x, y: x & y, conditions)
+
+        t = TextQuery(
+            text=query,
+            text_field_name="memory",
+            return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
+            filter_expression=filter_expression,
+            num_results=limit,
+        )
+
+        results = self.index.query(t)
+
+        return [
+            MemoryResult(
+                id=result["memory_id"],
+                score=result.get("text_score", 1.0),
                 payload={
                     "hash": result["hash"],
                     "data": result["memory"],

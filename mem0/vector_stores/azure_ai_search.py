@@ -246,6 +246,34 @@ class AzureAISearch(VectorStoreBase):
             results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
         return results
 
+    def keyword_search(self, query, limit=5, filters=None):
+        """Search for memories using keyword/BM25 text matching (no vector queries).
+
+        Args:
+            query (str): The text query to search for.
+            limit (int): Maximum number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results with id, score, and payload.
+        """
+        filter_expression = None
+        if filters:
+            filter_expression = self._build_filter_expression(filters)
+
+        search_results = self.search_client.search(
+            search_text=query,
+            filter=filter_expression,
+            top=limit,
+            search_fields=["payload"],
+        )
+
+        results = []
+        for result in search_results:
+            payload = json.loads(extract_json(result["payload"]))
+            results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
+        return results
+
     def delete(self, vector_id):
         """
         Delete a vector by ID.

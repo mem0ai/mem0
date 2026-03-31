@@ -300,6 +300,61 @@ class AzureMySQL(VectorStoreBase):
             for r in scored_results
         ]
 
+    def keyword_search(self, query, limit=5, filters=None):
+        """
+        Search for memories using MySQL FULLTEXT search via MATCH() AGAINST().
+
+        This method attempts to use a FULLTEXT index on the text_lemmatized column.
+        If the column or index does not exist, it returns None gracefully.
+
+        Args:
+            query (str): The text query for keyword-based search.
+            limit (int, optional): Number of results to return. Defaults to 5.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            list: Search results in the same format as search(), or None if FULLTEXT
+                  search is not supported on this collection.
+        """
+        try:
+            filter_conditions = []
+            filter_params = []
+
+            if filters:
+                for k, v in filters.items():
+                    filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
+                    filter_params.extend([f"$.{k}", json.dumps(v)])
+
+            filter_clause = ""
+            if filter_conditions:
+                filter_clause = " AND " + " AND ".join(filter_conditions)
+
+            with self._get_cursor() as cur:
+                query_sql = f"""
+                    SELECT id, payload,
+                           MATCH(text_lemmatized) AGAINST(%s IN NATURAL LANGUAGE MODE) AS score
+                    FROM `{self.collection_name}`
+                    WHERE MATCH(text_lemmatized) AGAINST(%s IN NATURAL LANGUAGE MODE)
+                    {filter_clause}
+                    ORDER BY score DESC
+                    LIMIT %s
+                """
+                params = [query, query] + filter_params + [limit]
+                cur.execute(query_sql, params)
+                results = cur.fetchall()
+
+            return [
+                OutputData(
+                    id=r['id'],
+                    score=float(r['score']),
+                    payload=json.loads(r['payload']) if isinstance(r['payload'], str) else r['payload'],
+                )
+                for r in results
+            ]
+        except Exception as e:
+            logger.debug(f"Keyword search not available for collection {self.collection_name}: {e}")
+            return None
+
     def delete(self, vector_id: str):
         """
         Delete a vector by ID.

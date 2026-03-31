@@ -181,6 +181,34 @@ class Qdrant(VectorStoreBase):
         )
         return hits.points
 
+    def keyword_search(self, query, limit=5, filters=None):
+        """
+        Search using BM25 sparse vectors for keyword-based retrieval.
+
+        Args:
+            query (str): The search query text.
+            limit (int, optional): Number of results to return. Defaults to 5.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            list: Search results, or None if the collection does not support sparse vectors.
+        """
+        try:
+            from qdrant_client import models
+
+            query_filter = self._create_filter(filters) if filters else None
+            hits = self.client.query_points(
+                collection_name=self.collection_name,
+                query=models.Document(text=query, model="Qdrant/bm25"),
+                using="bm25",
+                query_filter=query_filter,
+                limit=limit,
+            )
+            return hits.points
+        except Exception as e:
+            logger.debug(f"BM25 keyword search failed (collection may lack sparse vector config): {e}")
+            return None
+
     def delete(self, vector_id: int):
         """
         Delete a vector by ID.

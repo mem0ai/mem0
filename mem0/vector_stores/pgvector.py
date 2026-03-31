@@ -243,6 +243,49 @@ class PGVector(VectorStoreBase):
             results = cur.fetchall()
         return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
 
+    def keyword_search(self, query, limit=5, filters=None):
+        """
+        Search using PostgreSQL full-text search on lemmatized text.
+
+        Args:
+            query (str): The search query text.
+            limit (int, optional): Number of results to return. Defaults to 5.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            List[OutputData]: Search results ranked by text relevance.
+        """
+        filter_conditions = []
+        filter_params = []
+
+        if filters:
+            for k, v in filters.items():
+                filter_conditions.append("payload->>%s = %s")
+                filter_params.extend([k, str(v)])
+
+        filter_clause = ""
+        if filter_conditions:
+            filter_clause = "AND " + " AND ".join(filter_conditions)
+
+        try:
+            with self._get_cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'text_lemmatized'), plainto_tsquery('simple', %s)) AS score, payload
+                    FROM {self.collection_name}
+                    WHERE to_tsvector('simple', payload->>'text_lemmatized') @@ plainto_tsquery('simple', %s)
+                    {filter_clause}
+                    ORDER BY score DESC
+                    LIMIT %s
+                    """,
+                    (query, query, *filter_params, limit),
+                )
+
+                results = cur.fetchall()
+            return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+        except Exception:
+            return None
+
     def delete(self, vector_id: str) -> None:
         """
         Delete a vector by ID.

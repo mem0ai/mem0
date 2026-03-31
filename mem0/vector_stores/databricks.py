@@ -484,6 +484,55 @@ class Databricks(VectorStoreBase):
             logger.error(f"Search failed: {e}")
             raise
 
+    def keyword_search(self, query, limit=5, filters=None):
+        """
+        Search for memories using full-text keyword search.
+
+        Only supported for DELTA_SYNC index type. Returns None for DIRECT_ACCESS indexes.
+
+        Args:
+            query (str): Search query text.
+            limit (int): Maximum number of results. Defaults to 5.
+            filters (dict, optional): Filters to apply.
+
+        Returns:
+            List[MemoryResult] or None: Search results, or None if index type is DIRECT_ACCESS.
+        """
+        if self.index_type == VectorIndexType.DIRECT_ACCESS:
+            logger.warning("keyword_search is not supported for DIRECT_ACCESS index type.")
+            return None
+
+        try:
+            filters_json = json.dumps(filters) if filters else None
+
+            sdk_results = self.client.vector_search_indexes.query_index(
+                index_name=self.fully_qualified_index_name,
+                columns=self.column_names,
+                query_text=query,
+                num_results=limit,
+                query_type="FULL_TEXT",
+                filters_json=filters_json,
+            )
+
+            result_data = sdk_results.result if hasattr(sdk_results, "result") else sdk_results
+            data_array = result_data.data_array if getattr(result_data, "data_array", None) else []
+
+            memory_results = []
+            for row in data_array:
+                row_dict = dict(zip(self.column_names, row)) if isinstance(row, (list, tuple)) else row
+                score = row_dict.get("score") or (
+                    row[-1] if isinstance(row, (list, tuple)) and len(row) > len(self.column_names) else None
+                )
+                payload = {k: row_dict.get(k) for k in self.column_names}
+                payload["data"] = payload.get("memory", "")
+                memory_id = row_dict.get("memory_id") or row_dict.get("id")
+                memory_results.append(MemoryResult(id=memory_id, score=score, payload=payload))
+            return memory_results
+
+        except Exception as e:
+            logger.error(f"Keyword search failed: {e}")
+            raise
+
     def delete(self, vector_id):
         """
         Delete a vector by ID from the Delta table.

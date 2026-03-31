@@ -163,6 +163,39 @@ class MilvusDB(VectorStoreBase):
         result = self._parse_output(data=hits[0])
         return result
 
+    def keyword_search(self, query, limit=5, filters=None):
+        """
+        Search for memories using BM25-based full-text search via Milvus sparse vector support.
+
+        Milvus 2.5+ supports native BM25 via full-text search with a SPARSE_FLOAT_VECTOR field.
+        This method attempts to use that capability. If the collection does not have a sparse
+        field configured, it returns None gracefully.
+
+        Args:
+            query (str): The text query for keyword-based search.
+            limit (int, optional): Number of results to return. Defaults to 5.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            list: Search results in the same format as search(), or None if sparse search
+                  is not supported on this collection.
+        """
+        try:
+            query_filter = self._create_filter(filters) if filters else None
+            hits = self.client.search(
+                collection_name=self.collection_name,
+                data=[query],
+                anns_field="sparse",
+                limit=limit,
+                filter=query_filter,
+                output_fields=["*"],
+            )
+            result = self._parse_output(data=hits[0])
+            return result
+        except Exception as e:
+            logger.debug(f"Keyword search not available for collection {self.collection_name}: {e}")
+            return None
+
     def delete(self, vector_id):
         """
         Delete a vector by ID.
