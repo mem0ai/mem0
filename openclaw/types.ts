@@ -28,6 +28,8 @@ export type Mem0Config = {
   autoRecall: boolean;
   searchThreshold: number;
   topK: number;
+  diversifyRecall: boolean;
+  diversityLambda: number;
 };
 
 export interface AddOptions {

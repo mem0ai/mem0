@@ -64,6 +64,16 @@
       "placeholder": "5",
       "help": "Maximum number of memories to retrieve"
     },
+    "diversifyRecall": {
+      "label": "Diversify Recall Results",
+      "help": "Re-rank auto-recall results using MMR (Maximal Marginal Relevance) to reduce topic monopoly and improve diversity. Default: true"
+    },
+    "diversityLambda": {
+      "label": "Diversity Lambda",
+      "placeholder": "0.6",
+      "advanced": true,
+      "help": "Balance between relevance (1.0) and diversity (0.0) for recall diversification. Default: 0.6"
+    },
     "oss": {
       "label": "Open-Source Configuration",
       "advanced": true,
@@ -119,6 +129,12 @@
         "type": "number"
       },
       "topK": {
+        "type": "number"
+      },
+      "diversifyRecall": {
+        "type": "boolean"
+      },
+      "diversityLambda": {
         "type": "number"
       },
       "oss": {

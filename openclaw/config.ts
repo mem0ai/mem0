@@ -170,6 +170,8 @@ const ALLOWED_KEYS = [
   "enableGraph",
   "searchThreshold",
   "topK",
+  "diversifyRecall",
+  "diversityLambda",
   "oss",
 ];
 
@@ -240,6 +242,9 @@ export const mem0ConfigSchema = {
       searchThreshold:
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
+      diversifyRecall: cfg.diversifyRecall !== false,
+      diversityLambda:
+        typeof cfg.diversityLambda === "number" ? cfg.diversityLambda : 0.6,
       oss: ossConfig,
     };
   },

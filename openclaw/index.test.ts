@@ -14,6 +14,7 @@ import {
   isGenericAssistantMessage,
   stripNoiseFromContent,
   filterMessagesForExtraction,
+  diversifyResults,
 } from "./index.ts";
 
 // ---------------------------------------------------------------------------
@@ -484,6 +485,77 @@ What is the deployment plan?`,
     ];
     const result = filterMessagesForExtraction(messages);
     expect(result).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// diversifyResults (MMR)
+// ---------------------------------------------------------------------------
+describe("diversifyResults", () => {
+  const makeMemory = (id: string, memory: string, score: number) => ({
+    id,
+    memory,
+    score,
+  });
+
+  it("returns all results when count <= targetK", () => {
+    const results = [
+      makeMemory("1", "The sidecar runs on port 8443", 0.9),
+      makeMemory("2", "OAP uses Ed25519 signing", 0.8),
+    ];
+    expect(diversifyResults(results, 5)).toEqual(results);
+  });
+
+  it("returns empty array for empty input", () => {
+    expect(diversifyResults([], 5)).toEqual([]);
+  });
+
+  it("always includes the top-scored result first", () => {
+    const results = [
+      makeMemory("1", "top result about sidecar deployment", 0.95),
+      makeMemory("2", "similar result about sidecar deployment status", 0.90),
+      makeMemory("3", "different topic about calendar events", 0.85),
+    ];
+    const diversified = diversifyResults(results, 2, 0.6);
+    expect(diversified[0].id).toBe("1");
+  });
+
+  it("penalizes highly similar results (topic monopoly)", () => {
+    const results = [
+      makeMemory("1", "daily cost tracking script runs at midnight", 0.90),
+      makeMemory("2", "daily cost tracking outputs JSON files", 0.88),
+      makeMemory("3", "daily cost tracking uses Python script", 0.86),
+      makeMemory("4", "daily cost tracking is recommended for agents", 0.84),
+      makeMemory("5", "sidecar runs on port 8443 in shadow mode", 0.82),
+      makeMemory("6", "channel segregation policy blocks non-Leverage content", 0.80),
+    ];
+    const diversified = diversifyResults(results, 3, 0.6);
+    // Should keep #1 (top), then prefer #5 and #6 (different topics) over #2-#4 (same topic)
+    const ids = diversified.map((r) => r.id);
+    expect(ids).toContain("1"); // top result always included
+    expect(ids).toContain("5"); // different topic should be preferred
+    expect(ids).toContain("6"); // different topic should be preferred
+  });
+
+  it("respects lambda parameter — high lambda favors relevance", () => {
+    const results = [
+      makeMemory("1", "topic A first result", 0.95),
+      makeMemory("2", "topic A second result very similar", 0.93),
+      makeMemory("3", "topic B completely different", 0.50),
+    ];
+    // lambda=1.0 means pure relevance, no diversity penalty
+    const pureRelevance = diversifyResults(results, 2, 1.0);
+    expect(pureRelevance.map((r) => r.id)).toEqual(["1", "2"]);
+
+    // lambda=0.0 means pure diversity, no relevance
+    const pureDiversity = diversifyResults(results, 2, 0.0);
+    expect(pureDiversity[0].id).toBe("1"); // top is always first
+    expect(pureDiversity[1].id).toBe("3"); // most different from #1
+  });
+
+  it("handles single result", () => {
+    const results = [makeMemory("1", "only result", 0.9)];
+    expect(diversifyResults(results, 5)).toEqual(results);
   });
 });
 

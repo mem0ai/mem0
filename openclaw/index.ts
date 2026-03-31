@@ -40,9 +40,90 @@ import {
 } from "./isolation.ts";
 
 // ============================================================================
+// MMR Diversification
+// ============================================================================
+
+/**
+ * Re-rank memory search results using a text-based approximation of
+ * Maximal Marginal Relevance (MMR). This reduces "topic monopoly" where
+ * a cluster of similar memories (e.g. from one deep conversation) dominates
+ * all recall slots, crowding out relevant memories from other topics.
+ *
+ * Uses Jaccard word-overlap similarity as a lightweight proxy for embedding
+ * distance — no additional API calls required.
+ *
+ * @param results  - Pre-sorted search results from the vector store
+ * @param targetK  - Number of results to return
+ * @param lambda   - Balance between relevance (1.0) and diversity (0.0).
+ *                   Default 0.6 = relevance-first with meaningful diversity penalty.
+ * @returns Re-ranked results maximizing both relevance and diversity
+ */
+function diversifyResults(
+  results: MemoryItem[],
+  targetK: number,
+  lambda: number = 0.6,
+): MemoryItem[] {
+  if (!results || results.length <= targetK) return results;
+
+  // Build word sets for Jaccard similarity
+  function wordSet(text: string): Set<string> {
+    return new Set(
+      (text || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .split(/\s+/)
+        .filter(Boolean),
+    );
+  }
+
+  function jaccard(a: Set<string>, b: Set<string>): number {
+    if (a.size === 0 && b.size === 0) return 1;
+    let intersection = 0;
+    for (const w of a) {
+      if (b.has(w)) intersection++;
+    }
+    return intersection / (a.size + b.size - intersection);
+  }
+
+  const wordSets = results.map((r) => wordSet(r.memory));
+  const selected: number[] = [0]; // Always keep the top result
+  const candidates = new Set(results.map((_, i) => i));
+  candidates.delete(0);
+
+  while (selected.length < targetK && candidates.size > 0) {
+    let bestIdx = -1;
+    let bestScore = -Infinity;
+
+    for (const idx of candidates) {
+      const relevance = results[idx].score ?? 0;
+
+      // Max similarity to any already-selected result
+      let maxSim = 0;
+      for (const selIdx of selected) {
+        const sim = jaccard(wordSets[idx], wordSets[selIdx]);
+        if (sim > maxSim) maxSim = sim;
+      }
+
+      const mmrScore = lambda * relevance - (1 - lambda) * maxSim;
+      if (mmrScore > bestScore) {
+        bestScore = mmrScore;
+        bestIdx = idx;
+      }
+    }
+
+    if (bestIdx === -1) break;
+    selected.push(bestIdx);
+    candidates.delete(bestIdx);
+  }
+
+  return selected.map((i) => results[i]);
+}
+
+// ============================================================================
 // Re-exports (for tests and external consumers)
 // ============================================================================
 
+export { diversifyResults };
 export { extractAgentId, effectiveUserId, agentUserId, resolveUserId, isNonInteractiveTrigger, isSubagentSession } from "./isolation.ts";
 export {
   isNoiseMessage,
@@ -906,8 +987,13 @@ function registerHooks(
           }
         }
 
-        // Cap at configured topK after filtering
-        longTermResults = longTermResults.slice(0, cfg.topK);
+        // Cap at configured topK after filtering, with optional MMR diversification
+        // to reduce topic monopoly in recall results
+        if (cfg.diversifyRecall && longTermResults.length > cfg.topK) {
+          longTermResults = diversifyResults(longTermResults, cfg.topK, cfg.diversityLambda);
+        } else {
+          longTermResults = longTermResults.slice(0, cfg.topK);
+        }
 
         // Search session memories (session-scoped) if we have a session ID
         let sessionResults: MemoryItem[] = [];
