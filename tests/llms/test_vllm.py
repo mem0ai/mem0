@@ -88,6 +88,50 @@ def test_generate_response_with_tools(mock_vllm_client):
 
 
 
+def test_generate_response_with_response_format(mock_vllm_client):
+    config = BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = VllmLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a memory extraction assistant."},
+        {"role": "user", "content": "I like hiking on weekends."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content='{"facts": ["User likes hiking on weekends"]}'))]
+    mock_vllm_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages, response_format={"type": "json_object"})
+
+    mock_vllm_client.chat.completions.create.assert_called_once_with(
+        model="Qwen/Qwen2.5-32B-Instruct",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        response_format={"type": "json_object"},
+    )
+    assert response == '{"facts": ["User likes hiking on weekends"]}'
+
+
+def test_generate_response_without_response_format(mock_vllm_client):
+    config = BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = VllmLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Tell me a joke."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Why did the chicken cross the road?"))]
+    mock_vllm_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_vllm_client.chat.completions.create.call_args[1]
+    assert "response_format" not in call_kwargs
+    assert response == "Why did the chicken cross the road?"
+
+
 def create_mocked_memory():
     """Create a fully mocked Memory instance for testing."""
     with patch('mem0.utils.factory.LlmFactory.create') as mock_llm_factory, \
