@@ -20,6 +20,7 @@ export class OpenAIEmbedder implements Embedder {
     const response = await this.openai.embeddings.create({
       model: this.model,
       input: text,
+      dimensions: this.embeddingDims,
     });
     return response.data[0].embedding;
   }
@@ -28,7 +29,7 @@ export class OpenAIEmbedder implements Embedder {
     const response = await this.openai.embeddings.create({
       model: this.model,
       input: texts,
+      dimensions: this.embeddingDims,
     });
     return response.data.map((item) => item.embedding);
   }
-}
