@@ -65,13 +65,15 @@ build: ## Build the plugin from source
 # Install
 # ============================================================================
 
-install: check-deps build configure ## Full install — build, link, configure, restart
+install: check-deps build ## Full install — build, link, configure, restart
 	@# Remove existing plugin (suppress errors if not installed)
 	@echo "Removing existing openclaw-mem0 plugin (if any)..."
 	@echo "y" | openclaw plugins uninstall openclaw-mem0 >/dev/null 2>&1 || true
 	@# Link local build
 	@echo "Linking local plugin build..."
 	@openclaw plugins install "$(PLUGIN_DIR)" --link 2>&1 | grep -v "plugins.allow"
+	@# Configure AFTER link (link may overwrite config)
+	@$(MAKE) --no-print-directory configure
 	@# Restart gateway
 	@echo "Restarting gateway..."
 	@kill -9 $$(lsof -ti:18789) 2>/dev/null || true
@@ -96,56 +98,16 @@ install: check-deps build configure ## Full install — build, link, configure, 
 # ============================================================================
 
 configure:
-	@# Prompt for API key if not provided
 	@if [ -z "$(MEM0_API_KEY)" ]; then \
 		echo ""; \
 		echo "  Enter your Mem0 API key (from https://app.mem0.ai/dashboard/api-keys):"; \
 		echo -n "  > "; \
 		read -r key; \
 		if [ -z "$$key" ]; then echo "Error: API key is required."; exit 1; fi; \
-		export MEM0_API_KEY_VAL="$$key"; \
+		MEM0_API_KEY="$$key" MEM0_USER_ID="$(MEM0_USER_ID)" python3 scripts/configure.py; \
 	else \
-		export MEM0_API_KEY_VAL="$(MEM0_API_KEY)"; \
-	fi; \
-	echo "Configuring OpenClaw..."; \
-	if [ ! -f "$(OPENCLAW_CONFIG)" ]; then \
-		echo "Error: $(OPENCLAW_CONFIG) not found. Run 'openclaw configure' first."; \
-		exit 1; \
-	fi; \
-	python3 -c " \
-import json, sys, os, shutil; \
-config_path = os.path.expanduser('$(OPENCLAW_CONFIG)'); \
-backup_path = config_path + '.pre-skills-backup'; \
-shutil.copy2(config_path, backup_path); \
-print(f'  Backed up config to {backup_path}'); \
-with open(config_path) as f: \
-    cfg = json.load(f); \
-cfg['tools'] = {'profile': 'full'}; \
-cfg.setdefault('hooks', {}).setdefault('internal', {}).setdefault('entries', {})['session-memory'] = {'enabled': False}; \
-entries = cfg.setdefault('plugins', {}).setdefault('entries', {}); \
-entries['openclaw-mem0'] = { \
-    'enabled': True, \
-    'config': { \
-        'apiKey': os.environ.get('MEM0_API_KEY_VAL', '$$MEM0_API_KEY_VAL'), \
-        'userId': '$(MEM0_USER_ID)', \
-        'skills': { \
-            'triage': {'enabled': True}, \
-            'recall': { \
-                'enabled': True, \
-                'tokenBudget': 1500, \
-                'rerank': True, \
-                'keywordSearch': True, \
-                'identityAlwaysInclude': True \
-            }, \
-            'dream': {'enabled': True}, \
-            'domain': 'companion' \
-        } \
-    } \
-}; \
-with open(config_path, 'w') as f: \
-    json.dump(cfg, f, indent=2); \
-print('  Config updated: tools.profile=full, session-memory=disabled, skills=enabled'); \
-"
+		MEM0_API_KEY="$(MEM0_API_KEY)" MEM0_USER_ID="$(MEM0_USER_ID)" python3 scripts/configure.py; \
+	fi
 
 # ============================================================================
 # Status & Logs
