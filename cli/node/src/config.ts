@@ -132,6 +132,14 @@ const KEY_MAP: Record<string, [keyof Mem0Config, string]> = {
   "defaults.app_id": ["defaults", "appId"],
   "defaults.run_id": ["defaults", "runId"],
   "defaults.enable_graph": ["defaults", "enableGraph"],
+  // Short-form aliases
+  "api_key": ["platform", "apiKey"],
+  "base_url": ["platform", "baseUrl"],
+  "user_id": ["defaults", "userId"],
+  "agent_id": ["defaults", "agentId"],
+  "app_id": ["defaults", "appId"],
+  "run_id": ["defaults", "runId"],
+  "enable_graph": ["defaults", "enableGraph"],
 };
 
 export function getNestedValue(config: Mem0Config, dottedKey: string): unknown {

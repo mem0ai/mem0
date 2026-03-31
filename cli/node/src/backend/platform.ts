@@ -58,15 +58,20 @@ export class PlatformBackend implements Backend {
     if (resp.status === 400) {
       let detail: string;
       try {
-        const body = await resp.json();
-        detail = (body as Record<string, string>).detail ?? resp.statusText;
+        const body = await resp.json() as Record<string, unknown>;
+        detail = (body.detail ?? body.message ?? JSON.stringify(body)) as string ?? resp.statusText;
       } catch {
         detail = resp.statusText;
       }
       throw new APIError(path, detail);
     }
     if (!resp.ok) {
-      throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+      let detail: string = resp.statusText;
+      try {
+        const body = await resp.json() as Record<string, unknown>;
+        detail = (body.detail ?? body.message ?? resp.statusText) as string;
+      } catch { /* ignore */ }
+      throw new Error(`HTTP ${resp.status}: ${detail}`);
     }
     if (resp.status === 204) {
       return {};

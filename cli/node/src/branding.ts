@@ -4,10 +4,6 @@
 
 import chalk from "chalk";
 import ora, { type Ora } from "ora";
-import { createRequire } from "node:module";
-
-const _require = createRequire(import.meta.url);
-const PKG_VERSION: string = _require("../package.json").version;
 
 export const LOGO = `
 ███╗   ███╗███████╗███╗   ███╗ ██████╗      ██████╗██╗     ██╗
@@ -48,7 +44,7 @@ export function printBanner(): void {
   const pad = 3; // horizontal padding each side (matches Rich's padding=(0, 2))
   const logoLines = LOGO.trimEnd().split("\n");
   const tagline = `  ${TAGLINE}`;
-  const subtitle = `Node.js SDK · v${PKG_VERSION}`;
+  const subtitle = `Node.js SDK · v${__CLI_VERSION__}`;
   const contentLines = ["", ...logoLines, "", tagline, ""];
 
   // Compute inner width from longest content line + padding both sides
@@ -90,7 +86,7 @@ export function printWarning(message: string): void {
 }
 
 export function printInfo(message: string): void {
-  console.log(`${brand(sym("◆", "*"))} ${message}`);
+  console.error(`${brand(sym("◆", "*"))} ${message}`);
 }
 
 export function printScope(ids: Record<string, string | undefined>): void {
@@ -102,7 +98,7 @@ export function printScope(ids: Record<string, string | undefined>): void {
     }
   }
   if (parts.length > 0) {
-    console.log(`  ${dim(`Scope: ${parts.join(", ")}`)}`);
+    console.error(`  ${dim(`Scope: ${parts.join(", ")}`)}`);
   }
 }
 

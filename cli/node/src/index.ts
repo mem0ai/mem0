@@ -7,16 +7,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
 import { Command } from "commander";
 import type { Mem0Config } from "./config.js";
 import { loadConfig } from "./config.js";
 import { getBackend, type Backend } from "./backend/index.js";
 import { printError, colors } from "./branding.js";
 import { richFormatHelp } from "./help.js";
-
-const _require = createRequire(import.meta.url);
-const VERSION: string = _require("../package.json").version;
 
 const program = new Command();
 
@@ -95,10 +91,10 @@ function resolveGraph(
 
 program
   .name("mem0")
-  .description(`◆ Mem0 CLI v${VERSION} · Node.js SDK\n\nThe Memory Layer for AI Agents`)
+  .description(`◆ Mem0 CLI v${__CLI_VERSION__} · Node.js SDK\n\nThe Memory Layer for AI Agents`)
   .option("--version", "Show version and exit.")
   .on("option:version", () => {
-    console.log(`  ${colors.brand("◆ Mem0")} CLI v${VERSION}`);
+    console.log(`  ${colors.brand("◆ Mem0")} CLI v${__CLI_VERSION__}`);
     process.exit(0);
   })
   .usage("<command> [options]")
@@ -476,11 +472,11 @@ program
         const spec = JSON.parse(fs.readFileSync(specPath, "utf-8"));
         console.log(JSON.stringify(spec, null, 2));
       } else {
-        console.log(JSON.stringify({ name: "mem0", version: VERSION, description: "The Memory Layer for AI Agents" }, null, 2));
+        console.log(JSON.stringify({ name: "mem0", version: __CLI_VERSION__, description: "The Memory Layer for AI Agents" }, null, 2));
       }
     } else {
       const { brand: b } = colors;
-      console.log(`${b("◆ Mem0 CLI")} v${VERSION} · Node.js SDK\n  The Memory Layer for AI Agents\n`);
+      console.log(`${b("◆ Mem0 CLI")} v${__CLI_VERSION__} · Node.js SDK\n  The Memory Layer for AI Agents\n`);
       console.log("Usage: mem0 <command> [OPTIONS]\n");
       console.log("Commands:");
       console.log("  add              Add a memory from text, messages, file, or stdin");
@@ -499,6 +495,16 @@ program
       console.log("  mem0 help --json         Machine-readable help (for LLM agents)");
       console.log();
     }
+  });
+
+// ── Version ───────────────────────────────────────────────────────────────
+
+program
+  .command("version")
+  .description("Show version.")
+  .action(async () => {
+    const { cmdVersion } = await import("./commands/utils.js");
+    cmdVersion();
   });
 
 // ── Entrypoint ────────────────────────────────────────────────────────────
