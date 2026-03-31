@@ -130,7 +130,7 @@ describe("MilvusDB", () => {
       mockSearch.mockResolvedValueOnce({
         results: [
           { id: "id-1", metadata: { data: "likes tea" }, score: 0.95 },
-          { id: "id-2", metadata: { data: "likes coffee" }, score: 0.80 },
+          { id: "id-2", metadata: { data: "likes coffee" }, score: 0.8 },
         ],
       });
 
@@ -138,7 +138,7 @@ describe("MilvusDB", () => {
 
       expect(results).toEqual([
         { id: "id-1", payload: { data: "likes tea" }, score: 0.95 },
-        { id: "id-2", payload: { data: "likes coffee" }, score: 0.80 },
+        { id: "id-2", payload: { data: "likes coffee" }, score: 0.8 },
       ]);
     });
 
@@ -179,9 +179,7 @@ describe("MilvusDB", () => {
 
     it("should use distance as fallback score", async () => {
       mockSearch.mockResolvedValueOnce({
-        results: [
-          { id: "id-1", metadata: { data: "test" }, distance: 0.12 },
-        ],
+        results: [{ id: "id-1", metadata: { data: "test" }, distance: 0.12 }],
       });
 
       const results = await db.search([0.1], 5);

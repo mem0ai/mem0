@@ -275,7 +275,8 @@ export class MilvusDB implements VectorStore {
       index_params: [
         {
           field_name: "vectors",
-          metric_type: name === this.collectionName ? this.metricType : "COSINE",
+          metric_type:
+            name === this.collectionName ? this.metricType : "COSINE",
           index_type: "AUTOINDEX",
           index_name: "vector_index",
         },
