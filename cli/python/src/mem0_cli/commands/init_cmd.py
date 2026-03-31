@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 import httpx
@@ -84,6 +85,16 @@ def _prompt_secret(label: str) -> str:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
 
     return "".join(chars)
+
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _validate_email(email: str) -> None:
+    """Exit with an error if *email* doesn't look like a valid address."""
+    if not _EMAIL_RE.match(email):
+        print_error(err_console, f"Invalid email address: {email!r}")
+        raise typer.Exit(1)
 
 
 def _email_login(
@@ -179,13 +190,20 @@ def run_init(
             print_error(err_console, "Cannot use both --api-key and --email.")
             raise typer.Exit(1)
 
+        email = email.strip().lower()
+        _validate_email(email)
+
         print_banner(console)
         console.print()
         print_info(console, f"Logging in as {email}...\n")
 
         result = _email_login(email, code, base_url)
 
-        config.platform.api_key = result["api_key"]
+        api_key_val = result.get("api_key")
+        if not api_key_val:
+            print_error(err_console, "Auth succeeded but no API key was returned. Contact support.")
+            raise typer.Exit(1)
+        config.platform.api_key = api_key_val
         config.platform.base_url = base_url
         config.defaults.user_id = user_id or "mem0-cli"
 
@@ -239,11 +257,17 @@ def run_init(
                 print_error(err_console, "Email is required.")
                 raise typer.Exit(1)
 
+            email_addr = email_addr.strip().lower()
+            _validate_email(email_addr)
             print_info(console, f"Logging in as {email_addr}...\n")
 
-            result = _email_login(email_addr.strip().lower(), None, base_url)
+            result = _email_login(email_addr, None, base_url)
 
-            config.platform.api_key = result["api_key"]
+            api_key_val = result.get("api_key")
+            if not api_key_val:
+                print_error(err_console, "Auth succeeded but no API key was returned. Contact support.")
+                raise typer.Exit(1)
+            config.platform.api_key = api_key_val
             config.platform.base_url = base_url
             config.defaults.user_id = user_id or "mem0-cli"
 
