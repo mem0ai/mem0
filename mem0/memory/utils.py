@@ -1,7 +1,8 @@
 import hashlib
+import json
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -104,6 +105,116 @@ def normalize_facts(raw_facts):
         if fact:
             normalized.append(fact)
     return normalized
+
+
+def sanitize_json_string(text: str) -> str:
+    """Remove invalid UTF-16 surrogate pair escapes from a JSON string.
+
+    Non-OpenAI LLMs (e.g. Qwen3 via Cerebras, Ollama models) occasionally
+    produce lone surrogate escapes (\\uD800-\\uDFFF) in their JSON output.
+    These are invalid in JSON per RFC 8259 and cause ``json.JSONDecodeError``
+    even with ``strict=False``.
+
+    This function replaces:
+    - Valid surrogate *pairs* (high + low) with the Unicode replacement char
+    - Lone high/low surrogates with the Unicode replacement char
+    """
+    # Replace surrogate pairs first (high followed by low surrogate)
+    text = re.sub(
+        r"\\u[dD][89aAbB][0-9a-fA-F]{2}\\u[dD][c-fC-F][0-9a-fA-F]{2}",
+        "\ufffd",
+        text,
+    )
+    # Replace any remaining lone surrogates
+    text = re.sub(
+        r"\\u[dD][89a-fA-F][0-9a-fA-F]{2}",
+        "\ufffd",
+        text,
+    )
+    return text
+
+
+def parse_facts_from_response(
+    response: str,
+    *,
+    max_retries: int = 0,
+    llm=None,
+    system_prompt: str = "",
+    user_prompt: str = "",
+    response_format: Optional[Dict] = None,
+) -> list:
+    """Parse fact-extraction JSON from an LLM response with sanitization and retry.
+
+    Handles common failure modes from non-OpenAI LLMs:
+    1. Invalid UTF-16 surrogate escapes — cleaned before parsing
+    2. Chatty output wrapping JSON in markdown or prose — extracted via ``extract_json``
+    3. Transient malformed JSON — retried by re-calling the LLM up to ``max_retries`` times
+
+    Args:
+        response: The raw LLM response string.
+        max_retries: Number of times to retry the LLM call on parse failure (default 0).
+        llm: The LLM instance to call for retries. Required if ``max_retries > 0``.
+        system_prompt: System prompt for retry calls.
+        user_prompt: User prompt for retry calls.
+        response_format: Response format dict for retry calls.
+
+    Returns:
+        A list of normalized fact strings. Empty list if all attempts fail.
+    """
+    attempts = 1 + max_retries
+    last_error = None
+
+    for attempt in range(attempts):
+        if attempt > 0:
+            if llm is None:
+                logger.warning("Cannot retry fact extraction: no LLM provided")
+                break
+            logger.warning(
+                "Retrying fact extraction (attempt %d/%d) after error: %s",
+                attempt + 1, attempts, last_error,
+            )
+            try:
+                response = llm.generate_response(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format=response_format or {"type": "json_object"},
+                )
+            except Exception as e:
+                logger.warning("LLM retry call failed: %s", e)
+                last_error = e
+                continue
+
+        try:
+            cleaned = remove_code_blocks(response)
+            if not cleaned.strip():
+                return []
+
+            # Sanitize invalid surrogate escapes before JSON parsing
+            cleaned = sanitize_json_string(cleaned)
+
+            try:
+                facts = json.loads(cleaned, strict=False)["facts"]
+            except (json.JSONDecodeError, KeyError):
+                # Try extracting JSON from chatty output
+                extracted = extract_json(response)
+                extracted = sanitize_json_string(extracted)
+                facts = json.loads(extracted, strict=False)["facts"]
+
+            return normalize_facts(facts)
+
+        except Exception as e:
+            last_error = e
+            if attempt < attempts - 1:
+                logger.warning(
+                    "Fact extraction parse failed (attempt %d/%d): %s",
+                    attempt + 1, attempts, e,
+                )
+            else:
+                logger.error("Fact extraction failed after %d attempt(s): %s", attempts, e)
+
+    return []
 
 
 def remove_code_blocks(content: str) -> str:

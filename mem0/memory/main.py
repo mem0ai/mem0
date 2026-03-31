@@ -29,6 +29,7 @@ from mem0.memory.utils import (
     extract_json,
     get_fact_retrieval_messages,
     normalize_facts,
+    parse_facts_from_response,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
@@ -515,22 +516,14 @@ class Memory(MemoryBase):
             response_format={"type": "json_object"},
         )
 
-        try:
-            cleaned_response = remove_code_blocks(response)
-            if not cleaned_response.strip():
-                new_retrieved_facts = []
-            else:
-                try:
-                    # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
-                except json.JSONDecodeError:
-                    # Try extracting JSON from response (handles chatty LLM output)
-                    extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
-                new_retrieved_facts = normalize_facts(new_retrieved_facts)
-        except Exception as e:
-            logger.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+        new_retrieved_facts = parse_facts_from_response(
+            response,
+            max_retries=2,
+            llm=self.llm,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format={"type": "json_object"},
+        )
 
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
@@ -1612,22 +1605,14 @@ class AsyncMemory(MemoryBase):
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             response_format={"type": "json_object"},
         )
-        try:
-            cleaned_response = remove_code_blocks(response)
-            if not cleaned_response.strip():
-                new_retrieved_facts = []
-            else:
-                try:
-                    # First try direct JSON parsing
-                    new_retrieved_facts = json.loads(cleaned_response, strict=False)["facts"]
-                except json.JSONDecodeError:
-                    # Try extracting JSON from response (handles chatty LLM output)
-                    extracted_json = extract_json(response)
-                    new_retrieved_facts = json.loads(extracted_json, strict=False)["facts"]
-                new_retrieved_facts = normalize_facts(new_retrieved_facts)
-        except Exception as e:
-            logger.error(f"Error in new_retrieved_facts: {e}")
-            new_retrieved_facts = []
+        new_retrieved_facts = parse_facts_from_response(
+            response,
+            max_retries=2,
+            llm=self.llm,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            response_format={"type": "json_object"},
+        )
 
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
