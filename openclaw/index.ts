@@ -1022,14 +1022,28 @@ function registerHooks(
   skillsActive: boolean = false,
 ) {
   // ========================================================================
-  // SKILLS MODE: Agentic recall — skill protocol + token-budgeted memories
+  // SKILLS MODE: Agentic memory via before_prompt_build
   // ========================================================================
   if (skillsActive) {
-    api.on("before_agent_start", async (event, ctx) => {
+    // Track the clean user message from message_received for recall queries.
+    // message_received gives us the raw user content WITHOUT OpenClaw's sender
+    // metadata prefix, solving the search query pollution problem at the source.
+    let lastCleanUserMessage: string | undefined;
+
+    api.on("message_received", async (event: any) => {
+      if (event.content && typeof event.content === "string") {
+        lastCleanUserMessage = event.content;
+      }
+    });
+
+    // Use before_prompt_build instead of before_agent_start:
+    // - prependSystemContext: static memory protocol (provider-cacheable, no per-turn cost)
+    // - prependContext: dynamic recalled memories (changes every turn)
+    api.on("before_prompt_build", async (event: any, ctx: any) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
-      const trigger = (ctx as any)?.trigger ?? undefined;
-      const sessionId = (ctx as any)?.sessionKey ?? undefined;
+      const trigger = ctx?.trigger ?? undefined;
+      const sessionId = ctx?.sessionKey ?? undefined;
       if (isNonInteractiveTrigger(trigger, sessionId)) {
         api.logger.info("openclaw-mem0: skills-mode skipping non-interactive trigger");
         return;
@@ -1040,23 +1054,24 @@ function registerHooks(
       const isSubagent = isSubagentSession(sessionId);
       const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
 
-      try {
-        // Load skill protocol (triage + recall, respects recall.enabled)
-        const skillPrompt = loadTriagePrompt(cfg.skills ?? {});
+      // Static protocol goes in prependSystemContext (cacheable across turns)
+      let systemContext = loadTriagePrompt(cfg.skills ?? {});
+      if (isSubagent) {
+        systemContext = "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories.\n\n" + systemContext;
+      }
 
-        const parts: string[] = [];
+      // Dynamic recall goes in prependContext (changes every turn)
+      let recallContext = "";
+      const recallEnabled = cfg.skills?.recall?.enabled !== false;
+      if (recallEnabled) {
+        try {
+          // Use clean user message from message_received (no metadata prefix)
+          // Fall back to event.prompt if message_received hasn't fired yet
+          const query = lastCleanUserMessage || event.prompt;
 
-        // Skill protocol first (agent needs rules before seeing memories)
-        if (skillPrompt) {
-          parts.push(skillPrompt);
-        }
-
-        // Token-budgeted, category-ranked recall (only if recall enabled)
-        const recallEnabled = cfg.skills?.recall?.enabled !== false;
-        if (recallEnabled) {
           const recallResult = await skillRecall(
             provider,
-            event.prompt,
+            query,
             userId,
             cfg.skills ?? {},
             isSubagent ? undefined : sessionId,
@@ -1066,41 +1081,25 @@ function registerHooks(
             `openclaw-mem0: skills-mode injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens) + skill protocol`,
           );
 
-          // Recalled memories for novelty checking
-          parts.push("");
-          parts.push(recallResult.context);
-        } else {
-          api.logger.info("openclaw-mem0: skills-mode recall disabled, injecting protocol only");
+          recallContext = recallResult.context;
+        } catch (err) {
+          api.logger.warn(`openclaw-mem0: skills-mode recall failed: ${String(err)}`);
         }
-
-        const preamble = isSubagent
-          ? "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories."
-          : "";
-
-        if (preamble) {
-          parts.unshift(preamble);
-        }
-
-        return {
-          prependContext: parts.join("\n"),
-        };
-      } catch (err) {
-        api.logger.warn(`openclaw-mem0: skills-mode recall failed: ${String(err)}`);
-        // Fallback: at least inject the skill protocol without memories
-        try {
-          const skillPrompt = loadTriagePrompt(cfg.skills ?? {});
-          if (skillPrompt) {
-            return { prependContext: skillPrompt };
-          }
-        } catch { /* best effort */ }
       }
+
+      // Clear the clean message after use (one-shot per turn)
+      lastCleanUserMessage = undefined;
+
+      return {
+        prependSystemContext: systemContext,  // cached by provider
+        prependContext: recallContext,         // per-turn dynamic memories
+      };
     });
 
     // Skills mode: NO auto-capture. The agent handles extraction via memory_store.
-    // We only log turn stats in agent_end.
-    api.on("agent_end", async (event, ctx) => {
+    api.on("agent_end", async (event: any, ctx: any) => {
       if (!event.success) return;
-      const sessionId = (ctx as any)?.sessionKey ?? undefined;
+      const sessionId = ctx?.sessionKey ?? undefined;
       if (sessionId) session.setCurrentSessionId(sessionId);
       api.logger.info("openclaw-mem0: skills-mode agent_end (no auto-capture — agent controls extraction)");
     });
