@@ -8,10 +8,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
+import { type Backend, getBackend } from "./backend/index.js";
+import { colors, printError } from "./branding.js";
+import { CLI_VERSION } from "./version.js";
 import type { Mem0Config } from "./config.js";
 import { loadConfig } from "./config.js";
-import { getBackend, type Backend } from "./backend/index.js";
-import { printError, colors } from "./branding.js";
 import { richFormatHelp } from "./help.js";
 
 const program = new Command();
@@ -19,27 +20,27 @@ const program = new Command();
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 function getBackendAndConfig(
-  apiKey?: string,
-  baseUrl?: string,
+	apiKey?: string,
+	baseUrl?: string,
 ): { backend: Backend; config: Mem0Config } {
-  const config = loadConfig();
+	const config = loadConfig();
 
-  if (apiKey) config.platform.apiKey = apiKey;
-  if (baseUrl) config.platform.baseUrl = baseUrl;
+	if (apiKey) config.platform.apiKey = apiKey;
+	if (baseUrl) config.platform.baseUrl = baseUrl;
 
-  if (!config.platform.apiKey) {
-    printError(
-      "No API key configured.",
-      "Run 'mem0 init' or set MEM0_API_KEY environment variable.",
-    );
-    process.exit(1);
-  }
+	if (!config.platform.apiKey) {
+		printError(
+			"No API key configured.",
+			"Run 'mem0 init' or set MEM0_API_KEY environment variable.",
+		);
+		process.exit(1);
+	}
 
-  return { backend: getBackend(config), config };
+	return { backend: getBackend(config), config };
 }
 
 function getBackendOnly(apiKey?: string, baseUrl?: string): Backend {
-  return getBackendAndConfig(apiKey, baseUrl).backend;
+	return getBackendAndConfig(apiKey, baseUrl).backend;
 }
 
 /**
@@ -50,462 +51,580 @@ function getBackendOnly(apiKey?: string, baseUrl?: string): Backend {
  * If no explicit IDs, fall back to all configured defaults.
  */
 function resolveIds(
-  config: Mem0Config,
-  opts: {
-    userId?: string;
-    agentId?: string;
-    appId?: string;
-    runId?: string;
-  },
+	config: Mem0Config,
+	opts: {
+		userId?: string;
+		agentId?: string;
+		appId?: string;
+		runId?: string;
+	},
 ): { userId?: string; agentId?: string; appId?: string; runId?: string } {
-  const hasExplicit = !!(opts.userId || opts.agentId || opts.appId || opts.runId);
-  if (hasExplicit) {
-    return {
-      userId: opts.userId || undefined,
-      agentId: opts.agentId || undefined,
-      appId: opts.appId || undefined,
-      runId: opts.runId || undefined,
-    };
-  }
-  return {
-    userId: config.defaults.userId || undefined,
-    agentId: config.defaults.agentId || undefined,
-    appId: config.defaults.appId || undefined,
-    runId: config.defaults.runId || undefined,
-  };
+	const hasExplicit = !!(
+		opts.userId ||
+		opts.agentId ||
+		opts.appId ||
+		opts.runId
+	);
+	if (hasExplicit) {
+		return {
+			userId: opts.userId || undefined,
+			agentId: opts.agentId || undefined,
+			appId: opts.appId || undefined,
+			runId: opts.runId || undefined,
+		};
+	}
+	return {
+		userId: config.defaults.userId || undefined,
+		agentId: config.defaults.agentId || undefined,
+		appId: config.defaults.appId || undefined,
+		runId: config.defaults.runId || undefined,
+	};
 }
 
 /**
  * Resolve graph tri-state: --no-graph > --graph > config default.
  */
 function resolveGraph(
-  config: Mem0Config,
-  opts: { graph?: boolean; noGraph?: boolean },
+	config: Mem0Config,
+	opts: { graph?: boolean; noGraph?: boolean },
 ): boolean {
-  if (opts.noGraph) return false;
-  if (opts.graph) return true;
-  return config.defaults.enableGraph;
+	if (opts.noGraph) return false;
+	if (opts.graph) return true;
+	return config.defaults.enableGraph;
 }
 
 // ── Main program ──────────────────────────────────────────────────────────
 
 program
-  .name("mem0")
-  .description(`◆ Mem0 CLI v${__CLI_VERSION__} · Node.js SDK\n\nThe Memory Layer for AI Agents`)
-  .option("--version", "Show version and exit.")
-  .on("option:version", () => {
-    console.log(`  ${colors.brand("◆ Mem0")} CLI v${__CLI_VERSION__}`);
-    process.exit(0);
-  })
-  .usage("<command> [options]")
-  .helpOption("--help", "Show this message and exit.")
-  .addHelpCommand(false)
-  .configureHelp({ formatHelp: richFormatHelp });
+	.name("mem0")
+	.description(
+		`◆ Mem0 CLI v${CLI_VERSION} · Node.js SDK\n\nThe Memory Layer for AI Agents`,
+	)
+	.option("--version", "Show version and exit.")
+	.on("option:version", () => {
+		console.log(`  ${colors.brand("◆ Mem0")} CLI v${CLI_VERSION}`);
+		process.exit(0);
+	})
+	.usage("<command> [options]")
+	.helpOption("--help", "Show this message and exit.")
+	.addHelpCommand(false)
+	.configureHelp({ formatHelp: richFormatHelp });
 
 // ── Init ──────────────────────────────────────────────────────────────────
 
 program
-  .command("init")
-  .description("Setup wizard for mem0 CLI. Supports email login (--email) or manual API key (--api-key).")
-  .option("--api-key <key>", "API key (skip prompt).")
-  .option("-u, --user-id <id>", "Default user ID (skip prompt).")
-  .option("--email <email>", "Login via email verification code.")
-  .option("--code <code>", "Verification code (use with --email for non-interactive login).")
-  .addHelpText(
-    "after",
-    "\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456",
-  )
-  .action(async (opts) => {
-    const { runInit } = await import("./commands/init.js");
-    await runInit({ apiKey: opts.apiKey, userId: opts.userId, email: opts.email, code: opts.code });
-  });
+	.command("init")
+	.description(
+		"Setup wizard for mem0 CLI. Supports email login (--email) or manual API key (--api-key).",
+	)
+	.option("--api-key <key>", "API key (skip prompt).")
+	.option("-u, --user-id <id>", "Default user ID (skip prompt).")
+	.option("--email <email>", "Login via email verification code.")
+	.option(
+		"--code <code>",
+		"Verification code (use with --email for non-interactive login).",
+	)
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456",
+	)
+	.action(async (opts) => {
+		const { runInit } = await import("./commands/init.js");
+		await runInit({
+			apiKey: opts.apiKey,
+			userId: opts.userId,
+			email: opts.email,
+			code: opts.code,
+		});
+	});
 
 // ── Memory: add ───────────────────────────────────────────────────────────
 
 program
-  .command("add [text]")
-  .description("Add a memory from text, messages, file, or stdin.")
-  .option("-u, --user-id <id>", "Scope to user.")
-  .option("--agent-id <id>", "Scope to agent.")
-  .option("--app-id <id>", "Scope to app.")
-  .option("--run-id <id>", "Scope to run.")
-  .option("--messages <json>", "Conversation messages as JSON.")
-  .option("-f, --file <path>", "Read messages from JSON file.")
-  .option("-m, --metadata <json>", "Custom metadata as JSON.")
-  .option("--immutable", "Prevent future updates.", false)
-  .option("--no-infer", "Skip inference, store raw.")
-  .option("--expires <date>", "Expiration date (YYYY-MM-DD).")
-  .option("--categories <value>", "Categories (JSON array or comma-separated).")
-  .option("--graph", "Enable graph memory extraction.", false)
-  .option("--no-graph", "Disable graph memory extraction.")
-  .option("-o, --output <format>", "Output format: text, json, quiet.", "text")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", '\nExamples:\n  $ mem0 add "I prefer dark mode" --user-id alice\n  $ echo "text" | mem0 add -u alice\n  $ mem0 add --file msgs.json -u alice -o json')
-  .action(async (text, opts) => {
-    const { cmdAdd } = await import("./commands/memory.js");
-    const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
-    const ids = resolveIds(config, opts);
-    const enableGraph = resolveGraph(config, opts);
-    await cmdAdd(backend, text, { ...ids, ...opts, enableGraph });
-  });
+	.command("add [text]")
+	.description("Add a memory from text, messages, file, or stdin.")
+	.option("-u, --user-id <id>", "Scope to user.")
+	.option("--agent-id <id>", "Scope to agent.")
+	.option("--app-id <id>", "Scope to app.")
+	.option("--run-id <id>", "Scope to run.")
+	.option("--messages <json>", "Conversation messages as JSON.")
+	.option("-f, --file <path>", "Read messages from JSON file.")
+	.option("-m, --metadata <json>", "Custom metadata as JSON.")
+	.option("--immutable", "Prevent future updates.", false)
+	.option("--no-infer", "Skip inference, store raw.")
+	.option("--expires <date>", "Expiration date (YYYY-MM-DD).")
+	.option("--categories <value>", "Categories (JSON array or comma-separated).")
+	.option("--graph", "Enable graph memory extraction.", false)
+	.option("--no-graph", "Disable graph memory extraction.")
+	.option("-o, --output <format>", "Output format: text, json, quiet.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		'\nExamples:\n  $ mem0 add "I prefer dark mode" --user-id alice\n  $ echo "text" | mem0 add -u alice\n  $ mem0 add --file msgs.json -u alice -o json',
+	)
+	.action(async (text, opts) => {
+		const { cmdAdd } = await import("./commands/memory.js");
+		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const ids = resolveIds(config, opts);
+		const enableGraph = resolveGraph(config, opts);
+		await cmdAdd(backend, text, { ...ids, ...opts, enableGraph });
+	});
 
 // ── Memory: search ────────────────────────────────────────────────────────
 
 program
-  .command("search [query]")
-  .description("Search memories by semantic query.")
-  .option("-u, --user-id <id>", "Filter by user.")
-  .option("--agent-id <id>", "Filter by agent.")
-  .option("--app-id <id>", "Filter by app.")
-  .option("--run-id <id>", "Filter by run.")
-  .option("-k, --top-k <n>", "Number of results.", (v) => parseInt(v), 10)
-  .option("--threshold <n>", "Minimum similarity score.", (v) => parseFloat(v), 0.3)
-  .option("--rerank", "Enable reranking (Platform only).", false)
-  .option("--keyword", "Use keyword search.", false)
-  .option("--filter <json>", "Advanced filter expression (JSON).")
-  .option("--fields <list>", "Specific fields to return (comma-separated).")
-  .option("--graph", "Enable graph in search.", false)
-  .option("--no-graph", "Disable graph in search.")
-  .option("-o, --output <format>", "Output: text, json, table.", "text")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", '\nExamples:\n  $ mem0 search "preferences" --user-id alice\n  $ mem0 search "tools" -u alice -o json -k 5\n  $ echo "preferences" | mem0 search -u alice')
-  .action(async (query, opts) => {
-    let resolvedQuery = query;
-    if (!resolvedQuery && !process.stdin.isTTY) {
-      resolvedQuery = fs.readFileSync(0, "utf-8").trim();
-    }
-    if (!resolvedQuery) {
-      printError("No query provided. Pass a query argument or pipe via stdin.");
-      process.exit(1);
-    }
-    const { cmdSearch } = await import("./commands/memory.js");
-    const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
-    const ids = resolveIds(config, opts);
-    const enableGraph = resolveGraph(config, opts);
-    await cmdSearch(backend, resolvedQuery, {
-      ...ids,
-      topK: opts.topK,
-      threshold: opts.threshold,
-      rerank: opts.rerank,
-      keyword: opts.keyword,
-      filterJson: opts.filter,
-      fields: opts.fields,
-      enableGraph,
-      output: opts.output,
-    });
-  });
+	.command("search [query]")
+	.description("Search memories by semantic query.")
+	.option("-u, --user-id <id>", "Filter by user.")
+	.option("--agent-id <id>", "Filter by agent.")
+	.option("--app-id <id>", "Filter by app.")
+	.option("--run-id <id>", "Filter by run.")
+	.option(
+		"-k, --top-k <n>",
+		"Number of results.",
+		(v) => Number.parseInt(v),
+		10,
+	)
+	.option(
+		"--threshold <n>",
+		"Minimum similarity score.",
+		(v) => Number.parseFloat(v),
+		0.3,
+	)
+	.option("--rerank", "Enable reranking (Platform only).", false)
+	.option("--keyword", "Use keyword search.", false)
+	.option("--filter <json>", "Advanced filter expression (JSON).")
+	.option("--fields <list>", "Specific fields to return (comma-separated).")
+	.option("--graph", "Enable graph in search.", false)
+	.option("--no-graph", "Disable graph in search.")
+	.option("-o, --output <format>", "Output: text, json, table.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		'\nExamples:\n  $ mem0 search "preferences" --user-id alice\n  $ mem0 search "tools" -u alice -o json -k 5\n  $ echo "preferences" | mem0 search -u alice',
+	)
+	.action(async (query, opts) => {
+		let resolvedQuery = query;
+		if (!resolvedQuery && !process.stdin.isTTY) {
+			resolvedQuery = fs.readFileSync(0, "utf-8").trim();
+		}
+		if (!resolvedQuery) {
+			printError("No query provided. Pass a query argument or pipe via stdin.");
+			process.exit(1);
+		}
+		const { cmdSearch } = await import("./commands/memory.js");
+		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const ids = resolveIds(config, opts);
+		const enableGraph = resolveGraph(config, opts);
+		await cmdSearch(backend, resolvedQuery, {
+			...ids,
+			topK: opts.topK,
+			threshold: opts.threshold,
+			rerank: opts.rerank,
+			keyword: opts.keyword,
+			filterJson: opts.filter,
+			fields: opts.fields,
+			enableGraph,
+			output: opts.output,
+		});
+	});
 
 // ── Memory: get ───────────────────────────────────────────────────────────
 
 program
-  .command("get <memoryId>")
-  .description("Get a specific memory by ID.")
-  .option("-o, --output <format>", "Output: text, json.", "text")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", "\nExamples:\n  $ mem0 get abc-123-def-456\n  $ mem0 get abc-123-def-456 -o json")
-  .action(async (memoryId, opts) => {
-    const { cmdGet } = await import("./commands/memory.js");
-    const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
-    await cmdGet(backend, memoryId, { output: opts.output });
-  });
+	.command("get <memoryId>")
+	.description("Get a specific memory by ID.")
+	.option("-o, --output <format>", "Output: text, json.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 get abc-123-def-456\n  $ mem0 get abc-123-def-456 -o json",
+	)
+	.action(async (memoryId, opts) => {
+		const { cmdGet } = await import("./commands/memory.js");
+		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		await cmdGet(backend, memoryId, { output: opts.output });
+	});
 
 // ── Memory: list ──────────────────────────────────────────────────────────
 
 program
-  .command("list")
-  .description("List memories with optional filters.")
-  .option("-u, --user-id <id>", "Filter by user.")
-  .option("--agent-id <id>", "Filter by agent.")
-  .option("--app-id <id>", "Filter by app.")
-  .option("--run-id <id>", "Filter by run.")
-  .option("--page <n>", "Page number.", (v) => parseInt(v), 1)
-  .option("--page-size <n>", "Results per page.", (v) => parseInt(v), 100)
-  .option("--category <name>", "Filter by category.")
-  .option("--after <date>", "Created after (YYYY-MM-DD).")
-  .option("--before <date>", "Created before (YYYY-MM-DD).")
-  .option("--graph", "Enable graph in listing.", false)
-  .option("--no-graph", "Disable graph in listing.")
-  .option("-o, --output <format>", "Output: text, json, table.", "table")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", "\nExamples:\n  $ mem0 list -u alice\n  $ mem0 list --category prefs --after 2024-01-01 -o json")
-  .action(async (opts) => {
-    const { cmdList } = await import("./commands/memory.js");
-    const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
-    const ids = resolveIds(config, opts);
-    const enableGraph = resolveGraph(config, opts);
-    await cmdList(backend, {
-      ...ids,
-      page: opts.page,
-      pageSize: opts.pageSize,
-      category: opts.category,
-      after: opts.after,
-      before: opts.before,
-      enableGraph,
-      output: opts.output,
-    });
-  });
+	.command("list")
+	.description("List memories with optional filters.")
+	.option("-u, --user-id <id>", "Filter by user.")
+	.option("--agent-id <id>", "Filter by agent.")
+	.option("--app-id <id>", "Filter by app.")
+	.option("--run-id <id>", "Filter by run.")
+	.option("--page <n>", "Page number.", (v) => Number.parseInt(v), 1)
+	.option(
+		"--page-size <n>",
+		"Results per page.",
+		(v) => Number.parseInt(v),
+		100,
+	)
+	.option("--category <name>", "Filter by category.")
+	.option("--after <date>", "Created after (YYYY-MM-DD).")
+	.option("--before <date>", "Created before (YYYY-MM-DD).")
+	.option("--graph", "Enable graph in listing.", false)
+	.option("--no-graph", "Disable graph in listing.")
+	.option("-o, --output <format>", "Output: text, json, table.", "table")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 list -u alice\n  $ mem0 list --category prefs --after 2024-01-01 -o json",
+	)
+	.action(async (opts) => {
+		const { cmdList } = await import("./commands/memory.js");
+		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const ids = resolveIds(config, opts);
+		const enableGraph = resolveGraph(config, opts);
+		await cmdList(backend, {
+			...ids,
+			page: opts.page,
+			pageSize: opts.pageSize,
+			category: opts.category,
+			after: opts.after,
+			before: opts.before,
+			enableGraph,
+			output: opts.output,
+		});
+	});
 
 // ── Memory: update ────────────────────────────────────────────────────────
 
 program
-  .command("update <memoryId> [text]")
-  .description("Update a memory's text or metadata.")
-  .option("-m, --metadata <json>", "Update metadata (JSON).")
-  .option("-o, --output <format>", "Output: text, json, quiet.", "text")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", `\nExamples:\n  $ mem0 update abc-123 "new text"\n  $ mem0 update abc-123 --metadata '{"key":"val"}'\n  $ echo "new text" | mem0 update abc-123`)
-  .action(async (memoryId, text, opts) => {
-    let resolvedText = text;
-    if (!resolvedText && !opts.metadata && !process.stdin.isTTY) {
-      resolvedText = fs.readFileSync(0, "utf-8").trim();
-    }
-    const { cmdUpdate } = await import("./commands/memory.js");
-    const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
-    await cmdUpdate(backend, memoryId, resolvedText, { metadata: opts.metadata, output: opts.output });
-  });
+	.command("update <memoryId> [text]")
+	.description("Update a memory's text or metadata.")
+	.option("-m, --metadata <json>", "Update metadata (JSON).")
+	.option("-o, --output <format>", "Output: text, json, quiet.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		`\nExamples:\n  $ mem0 update abc-123 "new text"\n  $ mem0 update abc-123 --metadata '{"key":"val"}'\n  $ echo "new text" | mem0 update abc-123`,
+	)
+	.action(async (memoryId, text, opts) => {
+		let resolvedText = text;
+		if (!resolvedText && !opts.metadata && !process.stdin.isTTY) {
+			resolvedText = fs.readFileSync(0, "utf-8").trim();
+		}
+		const { cmdUpdate } = await import("./commands/memory.js");
+		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		await cmdUpdate(backend, memoryId, resolvedText, {
+			metadata: opts.metadata,
+			output: opts.output,
+		});
+	});
 
 // ── Memory: delete (consolidated) ─────────────────────────────────────────
 
 program
-  .command("delete [memoryId]")
-  .description("Delete a memory, all memories matching a scope, or an entity.")
-  .option("--all", "Delete all memories matching scope filters.", false)
-  .option("--entity", "Delete the entity itself and all its memories (cascade).", false)
-  .option("--project", "With --all: delete ALL memories project-wide.", false)
-  .option("--dry-run", "Show what would be deleted without deleting.", false)
-  .option("--force", "Skip confirmation.", false)
-  .option("-u, --user-id <id>", "Scope to user.")
-  .option("--agent-id <id>", "Scope to agent.")
-  .option("--app-id <id>", "Scope to app.")
-  .option("--run-id <id>", "Scope to run.")
-  .option("-o, --output <format>", "Output: text, json, quiet.", "text")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", [
-    "\nExamples:",
-    "  $ mem0 delete abc-123-def-456              # single memory",
-    "  $ mem0 delete --all -u alice --force        # all memories for user",
-    "  $ mem0 delete --all --project --force       # project-wide wipe",
-    "  $ mem0 delete --entity -u alice --force     # entity + all its memories",
-  ].join("\n"))
-  .action(async (memoryId, opts) => {
-    // ── Mutual-exclusion checks ──
-    if (memoryId && opts.all) {
-      printError("Cannot combine <memoryId> with --all. Use one or the other.");
-      process.exit(1);
-    }
-    if (memoryId && opts.entity) {
-      printError("Cannot combine <memoryId> with --entity. Use one or the other.");
-      process.exit(1);
-    }
-    if (opts.all && opts.entity) {
-      printError("Cannot combine --all with --entity. Use one or the other.");
-      process.exit(1);
-    }
-    if (!memoryId && !opts.all && !opts.entity) {
-      printError(
-        "Specify a memory ID, --all, or --entity.\n" +
-        "  mem0 delete <id>              Delete a single memory\n" +
-        "  mem0 delete --all [scope]     Delete all memories matching scope\n" +
-        "  mem0 delete --entity [scope]  Delete an entity and all its memories",
-      );
-      process.exit(1);
-    }
+	.command("delete [memoryId]")
+	.description("Delete a memory, all memories matching a scope, or an entity.")
+	.option("--all", "Delete all memories matching scope filters.", false)
+	.option(
+		"--entity",
+		"Delete the entity itself and all its memories (cascade).",
+		false,
+	)
+	.option("--project", "With --all: delete ALL memories project-wide.", false)
+	.option("--dry-run", "Show what would be deleted without deleting.", false)
+	.option("--force", "Skip confirmation.", false)
+	.option("-u, --user-id <id>", "Scope to user.")
+	.option("--agent-id <id>", "Scope to agent.")
+	.option("--app-id <id>", "Scope to app.")
+	.option("--run-id <id>", "Scope to run.")
+	.option("-o, --output <format>", "Output: text, json, quiet.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		[
+			"\nExamples:",
+			"  $ mem0 delete abc-123-def-456              # single memory",
+			"  $ mem0 delete --all -u alice --force        # all memories for user",
+			"  $ mem0 delete --all --project --force       # project-wide wipe",
+			"  $ mem0 delete --entity -u alice --force     # entity + all its memories",
+		].join("\n"),
+	)
+	.action(async (memoryId, opts) => {
+		// ── Mutual-exclusion checks ──
+		if (memoryId && opts.all) {
+			printError("Cannot combine <memoryId> with --all. Use one or the other.");
+			process.exit(1);
+		}
+		if (memoryId && opts.entity) {
+			printError(
+				"Cannot combine <memoryId> with --entity. Use one or the other.",
+			);
+			process.exit(1);
+		}
+		if (opts.all && opts.entity) {
+			printError("Cannot combine --all with --entity. Use one or the other.");
+			process.exit(1);
+		}
+		if (!memoryId && !opts.all && !opts.entity) {
+			printError(
+				"Specify a memory ID, --all, or --entity.\n" +
+					"  mem0 delete <id>              Delete a single memory\n" +
+					"  mem0 delete --all [scope]     Delete all memories matching scope\n" +
+					"  mem0 delete --entity [scope]  Delete an entity and all its memories",
+			);
+			process.exit(1);
+		}
 
-    // ── Dispatch: single memory ──
-    if (memoryId) {
-      const { cmdDelete } = await import("./commands/memory.js");
-      const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
-      await cmdDelete(backend, memoryId, { output: opts.output, dryRun: opts.dryRun, force: opts.force });
-      return;
-    }
+		// ── Dispatch: single memory ──
+		if (memoryId) {
+			const { cmdDelete } = await import("./commands/memory.js");
+			const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+			await cmdDelete(backend, memoryId, {
+				output: opts.output,
+				dryRun: opts.dryRun,
+				force: opts.force,
+			});
+			return;
+		}
 
-    // ── Dispatch: --all ──
-    if (opts.all) {
-      const { cmdDeleteAll } = await import("./commands/memory.js");
-      const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
-      const ids = opts.project
-        ? { userId: undefined, agentId: undefined, appId: undefined, runId: undefined }
-        : resolveIds(config, opts);
-      await cmdDeleteAll(backend, { force: opts.force, dryRun: opts.dryRun, all: opts.project, ...ids, output: opts.output });
-      return;
-    }
+		// ── Dispatch: --all ──
+		if (opts.all) {
+			const { cmdDeleteAll } = await import("./commands/memory.js");
+			const { backend, config } = getBackendAndConfig(
+				opts.apiKey,
+				opts.baseUrl,
+			);
+			const ids = opts.project
+				? {
+						userId: undefined,
+						agentId: undefined,
+						appId: undefined,
+						runId: undefined,
+					}
+				: resolveIds(config, opts);
+			await cmdDeleteAll(backend, {
+				force: opts.force,
+				dryRun: opts.dryRun,
+				all: opts.project,
+				...ids,
+				output: opts.output,
+			});
+			return;
+		}
 
-    // ── Dispatch: --entity ──
-    if (opts.entity) {
-      const { cmdEntitiesDelete } = await import("./commands/entities.js");
-      const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
-      await cmdEntitiesDelete(backend, opts);
-      return;
-    }
-  });
+		// ── Dispatch: --entity ──
+		if (opts.entity) {
+			const { cmdEntitiesDelete } = await import("./commands/entities.js");
+			const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+			await cmdEntitiesDelete(backend, opts);
+			return;
+		}
+	});
 
 // ── Config subcommands ────────────────────────────────────────────────────
 
 const configCmd = program
-  .command("config")
-  .description("Manage mem0 configuration.")
-  .addHelpCommand(false);
+	.command("config")
+	.description("Manage mem0 configuration.")
+	.addHelpCommand(false);
 
 configCmd
-  .command("show")
-  .description("Display current configuration (secrets redacted).")
-  .option("-o, --output <format>", "Output: text, json.", "text")
-  .addHelpText("after", "\nExamples:\n  $ mem0 config show\n  $ mem0 config show -o json")
-  .action(async (opts) => {
-    const { cmdConfigShow } = await import("./commands/config.js");
-    cmdConfigShow({ output: opts.output });
-  });
+	.command("show")
+	.description("Display current configuration (secrets redacted).")
+	.option("-o, --output <format>", "Output: text, json.", "text")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 config show\n  $ mem0 config show -o json",
+	)
+	.action(async (opts) => {
+		const { cmdConfigShow } = await import("./commands/config.js");
+		cmdConfigShow({ output: opts.output });
+	});
 
 configCmd
-  .command("get <key>")
-  .description("Get a configuration value.")
-  .addHelpText("after", "\nExamples:\n  $ mem0 config get platform.api_key\n  $ mem0 config get defaults.user_id")
-  .action(async (key) => {
-    const { cmdConfigGet } = await import("./commands/config.js");
-    cmdConfigGet(key);
-  });
+	.command("get <key>")
+	.description("Get a configuration value.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 config get platform.api_key\n  $ mem0 config get defaults.user_id",
+	)
+	.action(async (key) => {
+		const { cmdConfigGet } = await import("./commands/config.js");
+		cmdConfigGet(key);
+	});
 
 configCmd
-  .command("set <key> <value>")
-  .description("Set a configuration value.")
-  .addHelpText("after", "\nExamples:\n  $ mem0 config set defaults.user_id alice\n  $ mem0 config set platform.base_url https://api.mem0.ai")
-  .action(async (key, value) => {
-    const { cmdConfigSet } = await import("./commands/config.js");
-    cmdConfigSet(key, value);
-  });
+	.command("set <key> <value>")
+	.description("Set a configuration value.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 config set defaults.user_id alice\n  $ mem0 config set platform.base_url https://api.mem0.ai",
+	)
+	.action(async (key, value) => {
+		const { cmdConfigSet } = await import("./commands/config.js");
+		cmdConfigSet(key, value);
+	});
 
 // ── Entity subcommand group ───────────────────────────────────────────────
 
 const entityCmd = program
-  .command("entity")
-  .description("Manage entities.")
-  .addHelpCommand(false)
-  .configureHelp({ formatHelp: richFormatHelp });
+	.command("entity")
+	.description("Manage entities.")
+	.addHelpCommand(false)
+	.configureHelp({ formatHelp: richFormatHelp });
 
 entityCmd
-  .command("list <entityType>")
-  .description("List all entities of a given type.")
-  .option("-o, --output <format>", "Output: table, json.", "table")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", "\nExamples:\n  $ mem0 entity list users\n  $ mem0 entity list agents -o json")
-  .action(async (entityType, opts) => {
-    const { cmdEntitiesList } = await import("./commands/entities.js");
-    const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
-    await cmdEntitiesList(backend, entityType, { output: opts.output });
-  });
+	.command("list <entityType>")
+	.description("List all entities of a given type.")
+	.option("-o, --output <format>", "Output: table, json.", "table")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 entity list users\n  $ mem0 entity list agents -o json",
+	)
+	.action(async (entityType, opts) => {
+		const { cmdEntitiesList } = await import("./commands/entities.js");
+		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		await cmdEntitiesList(backend, entityType, { output: opts.output });
+	});
 
 entityCmd
-  .command("delete")
-  .description("Delete an entity and ALL its memories (cascade).")
-  .option("--dry-run", "Show what would be deleted without deleting.", false)
-  .option("-u, --user-id <id>", "Scope to user.")
-  .option("--agent-id <id>", "Scope to agent.")
-  .option("--app-id <id>", "Scope to app.")
-  .option("--run-id <id>", "Scope to run.")
-  .option("--force", "Skip confirmation.", false)
-  .option("-o, --output <format>", "Output: text, json, quiet.", "text")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", "\nExamples:\n  $ mem0 entity delete --user-id alice --force\n  $ mem0 entity delete --user-id alice --dry-run")
-  .action(async (opts) => {
-    const { cmdEntitiesDelete } = await import("./commands/entities.js");
-    const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
-    await cmdEntitiesDelete(backend, opts);
-  });
+	.command("delete")
+	.description("Delete an entity and ALL its memories (cascade).")
+	.option("--dry-run", "Show what would be deleted without deleting.", false)
+	.option("-u, --user-id <id>", "Scope to user.")
+	.option("--agent-id <id>", "Scope to agent.")
+	.option("--app-id <id>", "Scope to app.")
+	.option("--run-id <id>", "Scope to run.")
+	.option("--force", "Skip confirmation.", false)
+	.option("-o, --output <format>", "Output: text, json, quiet.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 entity delete --user-id alice --force\n  $ mem0 entity delete --user-id alice --dry-run",
+	)
+	.action(async (opts) => {
+		const { cmdEntitiesDelete } = await import("./commands/entities.js");
+		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		await cmdEntitiesDelete(backend, opts);
+	});
 
 // ── Utility commands ──────────────────────────────────────────────────────
 
 program
-  .command("status")
-  .description("Check connectivity and authentication.")
-  .option("-o, --output <format>", "Output: text, json.", "text")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", "\nExamples:\n  $ mem0 status\n  $ mem0 status -o json")
-  .action(async (opts) => {
-    const { cmdStatus } = await import("./commands/utils.js");
-    const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
-    await cmdStatus(backend, {
-      userId: config.defaults.userId || undefined,
-      agentId: config.defaults.agentId || undefined,
-      output: opts.output,
-    });
-  });
-
+	.command("status")
+	.description("Check connectivity and authentication.")
+	.option("-o, --output <format>", "Output: text, json.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText("after", "\nExamples:\n  $ mem0 status\n  $ mem0 status -o json")
+	.action(async (opts) => {
+		const { cmdStatus } = await import("./commands/utils.js");
+		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		await cmdStatus(backend, {
+			userId: config.defaults.userId || undefined,
+			agentId: config.defaults.agentId || undefined,
+			output: opts.output,
+		});
+	});
 
 program
-  .command("import <filePath>")
-  .description("Import memories from a JSON file.")
-  .option("-u, --user-id <id>", "Override user ID.")
-  .option("--agent-id <id>", "Override agent ID.")
-  .option("-o, --output <format>", "Output: text, json.", "text")
-  .option("--api-key <key>", "Override API key.")
-  .option("--base-url <url>", "Override API base URL.")
-  .addHelpText("after", "\nExamples:\n  $ mem0 import data.json --user-id alice\n  $ mem0 import data.json -u alice -o json")
-  .action(async (filePath, opts) => {
-    const { cmdImport } = await import("./commands/utils.js");
-    const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
-    const ids = resolveIds(config, opts);
-    await cmdImport(backend, filePath, { userId: ids.userId, agentId: ids.agentId, output: opts.output });
-  });
+	.command("import <filePath>")
+	.description("Import memories from a JSON file.")
+	.option("-u, --user-id <id>", "Override user ID.")
+	.option("--agent-id <id>", "Override agent ID.")
+	.option("-o, --output <format>", "Output: text, json.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 import data.json --user-id alice\n  $ mem0 import data.json -u alice -o json",
+	)
+	.action(async (filePath, opts) => {
+		const { cmdImport } = await import("./commands/utils.js");
+		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const ids = resolveIds(config, opts);
+		await cmdImport(backend, filePath, {
+			userId: ids.userId,
+			agentId: ids.agentId,
+			output: opts.output,
+		});
+	});
 
 // ── Help (machine-readable) ──────────────────────────────────────────────
 
 program
-  .command("help")
-  .description("Show help. Use --json for machine-readable output (for LLM agents).")
-  .option("--json", "Output machine-readable JSON for LLM agents.", false)
-  .addHelpText("after", "\nExamples:\n  $ mem0 help\n  $ mem0 help --json")
-  .action((opts) => {
-    if (opts.json) {
-      // Load spec from parent directory
-      const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const specPath = path.join(__dirname, "..", "..", "cli-spec.json");
-      if (fs.existsSync(specPath)) {
-        const spec = JSON.parse(fs.readFileSync(specPath, "utf-8"));
-        console.log(JSON.stringify(spec, null, 2));
-      } else {
-        console.log(JSON.stringify({ name: "mem0", version: __CLI_VERSION__, description: "The Memory Layer for AI Agents" }, null, 2));
-      }
-    } else {
-      const { brand: b } = colors;
-      console.log(`${b("◆ Mem0 CLI")} v${__CLI_VERSION__} · Node.js SDK\n  The Memory Layer for AI Agents\n`);
-      console.log("Usage: mem0 <command> [OPTIONS]\n");
-      console.log("Commands:");
-      console.log("  add              Add a memory from text, messages, file, or stdin");
-      console.log("  search           Search memories by semantic query");
-      console.log("  get              Get a specific memory by ID");
-      console.log("  list             List memories with optional filters");
-      console.log("  update           Update a memory's text or metadata");
-      console.log("  delete           Delete a memory, all memories, or an entity");
-      console.log("  import           Import memories from a JSON file");
-      console.log("  config           Manage configuration (show, get, set)");
-      console.log("  entity           Manage entities (list, delete)");
-      console.log("  init             Interactive setup wizard");
-      console.log("  status           Check connectivity and authentication");
-      console.log();
-      console.log("  mem0 <command> --help    Get help for a command");
-      console.log("  mem0 help --json         Machine-readable help (for LLM agents)");
-      console.log();
-    }
-  });
+	.command("help")
+	.description(
+		"Show help. Use --json for machine-readable output (for LLM agents).",
+	)
+	.option("--json", "Output machine-readable JSON for LLM agents.", false)
+	.addHelpText("after", "\nExamples:\n  $ mem0 help\n  $ mem0 help --json")
+	.action((opts) => {
+		if (opts.json) {
+			// Load spec from parent directory
+			const __dirname = path.dirname(fileURLToPath(import.meta.url));
+			const specPath = path.join(__dirname, "..", "..", "cli-spec.json");
+			if (fs.existsSync(specPath)) {
+				const spec = JSON.parse(fs.readFileSync(specPath, "utf-8"));
+				console.log(JSON.stringify(spec, null, 2));
+			} else {
+				console.log(
+					JSON.stringify(
+						{
+							name: "mem0",
+							version: CLI_VERSION,
+							description: "The Memory Layer for AI Agents",
+						},
+						null,
+						2,
+					),
+				);
+			}
+		} else {
+			const { brand: b } = colors;
+			console.log(
+				`${b("◆ Mem0 CLI")} v${CLI_VERSION} · Node.js SDK\n  The Memory Layer for AI Agents\n`,
+			);
+			console.log("Usage: mem0 <command> [OPTIONS]\n");
+			console.log("Commands:");
+			console.log(
+				"  add              Add a memory from text, messages, file, or stdin",
+			);
+			console.log("  search           Search memories by semantic query");
+			console.log("  get              Get a specific memory by ID");
+			console.log("  list             List memories with optional filters");
+			console.log("  update           Update a memory's text or metadata");
+			console.log(
+				"  delete           Delete a memory, all memories, or an entity",
+			);
+			console.log("  import           Import memories from a JSON file");
+			console.log("  config           Manage configuration (show, get, set)");
+			console.log("  entity           Manage entities (list, delete)");
+			console.log("  init             Interactive setup wizard");
+			console.log("  status           Check connectivity and authentication");
+			console.log();
+			console.log("  mem0 <command> --help    Get help for a command");
+			console.log(
+				"  mem0 help --json         Machine-readable help (for LLM agents)",
+			);
+			console.log();
+		}
+	});
 
 // ── Version ───────────────────────────────────────────────────────────────
 
 program
-  .command("version")
-  .description("Show version.")
-  .action(async () => {
-    const { cmdVersion } = await import("./commands/utils.js");
-    cmdVersion();
-  });
+	.command("version")
+	.description("Show version.")
+	.action(async () => {
+		const { cmdVersion } = await import("./commands/utils.js");
+		cmdVersion();
+	});
 
 // ── Entrypoint ────────────────────────────────────────────────────────────
 
