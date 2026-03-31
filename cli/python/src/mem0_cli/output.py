@@ -49,7 +49,7 @@ def format_memories_text(console: Console, memories: list[dict], title: str = "m
         console.print()
 
 
-def format_memories_table(console: Console, memories: list[dict]) -> None:
+def format_memories_table(console: Console, memories: list[dict], *, show_score: bool = False) -> None:
     """Render memories in a rich table."""
     table = Table(
         border_style=BRAND_COLOR,
@@ -57,20 +57,30 @@ def format_memories_table(console: Console, memories: list[dict]) -> None:
         row_styles=["", "dim"],
         padding=(0, 1),
     )
-    table.add_column("ID", style="dim", max_width=10)
+    table.add_column("ID", style="dim", max_width=38, no_wrap=True)
+    if show_score:
+        table.add_column("Score", max_width=7, justify="right")
     table.add_column("Memory", max_width=50, no_wrap=False)
     table.add_column("Category", max_width=14)
     table.add_column("Created", max_width=12)
 
     for mem in memories:
-        mem_id = mem.get("id", "")[:8]
+        mem_id = mem.get("id", "")
         memory_text = mem.get("memory", mem.get("text", ""))
         if len(memory_text) > 60:
             memory_text = memory_text[:57] + "..."
         categories = mem.get("categories", [])
-        cat = categories[0] if isinstance(categories, list) and categories else "—"
+        if isinstance(categories, list) and categories:
+            cat = categories[0] if len(categories) == 1 else f"{categories[0]} (+{len(categories) - 1})"
+        else:
+            cat = "—"
         created = _format_date(mem.get("created_at")) or "—"
-        table.add_row(mem_id, memory_text, cat, created)
+        if show_score:
+            score = mem.get("score")
+            score_str = f"{score:.2f}" if score is not None else "—"
+            table.add_row(mem_id, score_str, memory_text, cat, created)
+        else:
+            table.add_row(mem_id, memory_text, cat, created)
 
     console.print()
     console.print(table)
