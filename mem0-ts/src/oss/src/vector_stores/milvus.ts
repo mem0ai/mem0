@@ -166,7 +166,7 @@ export class MilvusDB implements VectorStore {
 
   async getUserId(): Promise<string> {
     try {
-      await this.ensureCollection(MIGRATION_COLLECTION, 1);
+      await this.ensureCollection(MIGRATION_COLLECTION, 2);
 
       const response = await this.client.query({
         collection_name: MIGRATION_COLLECTION,
@@ -188,7 +188,7 @@ export class MilvusDB implements VectorStore {
         data: [
           {
             id: uuidv4(),
-            vectors: [0],
+            vectors: [0, 0],
             metadata: { user_id: randomUserId },
           },
         ],
@@ -203,7 +203,7 @@ export class MilvusDB implements VectorStore {
 
   async setUserId(userId: string): Promise<void> {
     try {
-      await this.ensureCollection(MIGRATION_COLLECTION, 1);
+      await this.ensureCollection(MIGRATION_COLLECTION, 2);
 
       const response = await this.client.query({
         collection_name: MIGRATION_COLLECTION,
@@ -222,7 +222,7 @@ export class MilvusDB implements VectorStore {
         data: [
           {
             id: pointId,
-            vectors: [0],
+            vectors: [0, 0],
             metadata: { user_id: userId },
           },
         ],
@@ -285,7 +285,7 @@ export class MilvusDB implements VectorStore {
   private async _doInitialize(): Promise<void> {
     try {
       await this.ensureCollection(this.collectionName, this.dimension);
-      await this.ensureCollection(MIGRATION_COLLECTION, 1);
+      await this.ensureCollection(MIGRATION_COLLECTION, 2);
     } catch (error) {
       console.error("Error initializing MilvusDB:", error);
       throw error;
