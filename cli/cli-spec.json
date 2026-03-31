@@ -503,15 +503,20 @@
     },
     {
       "name": "init",
-      "description": "Interactive setup wizard for mem0 CLI.",
-      "usage": "mem0 init",
+      "description": "Setup wizard for mem0 CLI. Supports email login (--email) or manual API key (--api-key).",
+      "usage": "mem0 init [OPTIONS]",
       "needsBackend": false,
       "needsConfig": false,
       "resolveIds": false,
       "resolveGraph": false,
       "confirmDangerous": false,
       "arguments": [],
-      "options": []
+      "options": [
+        { "name": "api-key", "flags": ["--api-key"], "type": "string", "default": null, "help": "API key (skip prompt)." },
+        { "name": "user-id", "flags": ["-u", "--user-id"], "type": "string", "default": null, "help": "Default user ID (skip prompt)." },
+        { "name": "email", "flags": ["--email"], "type": "string", "default": null, "help": "Login via email verification code." },
+        { "name": "code", "flags": ["--code"], "type": "string", "default": null, "help": "Verification code (use with --email for non-interactive login)." }
+      ]
     },
     {
       "name": "status",

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
+import re
 import sys
 
+import httpx
 import typer
 from rich.console import Console
 from rich.prompt import Prompt
@@ -16,7 +19,7 @@ from mem0_cli.branding import (
     print_info,
     print_success,
 )
-from mem0_cli.config import Mem0Config, save_config
+from mem0_cli.config import DEFAULT_BASE_URL, Mem0Config, save_config
 
 console = Console()
 err_console = Console(stderr=True)
@@ -84,7 +87,89 @@ def _prompt_secret(label: str) -> str:
     return "".join(chars)
 
 
-def run_init(*, api_key: str | None = None, user_id: str | None = None) -> None:
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _validate_email(email: str) -> None:
+    """Exit with an error if *email* doesn't look like a valid address."""
+    if not _EMAIL_RE.match(email):
+        print_error(err_console, f"Invalid email address: {email!r}")
+        raise typer.Exit(1)
+
+
+def _email_login(
+    email: str,
+    code: str | None,
+    base_url: str,
+) -> dict:
+    """Run the email verification code login flow.
+
+    Returns the parsed JSON response from the verify endpoint.
+    The caller expects at minimum an ``api_key`` field.
+    """
+    url = base_url.rstrip("/")
+
+    with httpx.Client(timeout=30.0) as client:
+        # If code is already provided, skip sending — user already has a code
+        if not code:
+            # Step 1: Request verification code
+            resp = client.post(
+                f"{url}/api/v1/auth/email_code/",
+                json={"email": email},
+            )
+            if resp.status_code == 429:
+                print_error(err_console, "Too many attempts. Try again in a few minutes.")
+                raise typer.Exit(1)
+            if resp.status_code != 200:
+                try:
+                    detail = resp.json().get("error", resp.text)
+                except Exception:
+                    detail = resp.text
+                print_error(err_console, f"Failed to send code: {detail}")
+                raise typer.Exit(1)
+
+            print_success(console, "Verification code sent! Check your email.")
+
+            # Step 2: Get code from user
+            if not sys.stdin.isatty():
+                print_error(
+                    err_console,
+                    "No --code provided and terminal is non-interactive.",
+                    hint="Run: mem0 init --email <email> --code <code>",
+                )
+                raise typer.Exit(1)
+            console.print()
+            code = Prompt.ask(f"  [{BRAND_COLOR}]Verification Code[/]")
+            if not code:
+                print_error(err_console, "Code is required.")
+                raise typer.Exit(1)
+
+        # Step 3: Verify code
+        resp = client.post(
+            f"{url}/api/v1/auth/email_code/verify/",
+            json={"email": email, "code": code.strip()},
+        )
+        if resp.status_code == 429:
+            print_error(err_console, "Too many attempts. Try again in a few minutes.")
+            raise typer.Exit(1)
+        if resp.status_code != 200:
+            try:
+                detail = resp.json().get("error", resp.text)
+            except Exception:
+                detail = resp.text
+            print_error(err_console, f"Verification failed: {detail}")
+            raise typer.Exit(1)
+
+        return resp.json()
+
+
+def run_init(
+    *,
+    api_key: str | None = None,
+    user_id: str | None = None,
+    email: str | None = None,
+    code: str | None = None,
+) -> None:
     """Interactive setup wizard for mem0 CLI.
 
     When both *api_key* and *user_id* are supplied, all prompts are skipped
@@ -92,6 +177,48 @@ def run_init(*, api_key: str | None = None, user_id: str | None = None) -> None:
     flags, an error message is printed.
     """
     config = Mem0Config()
+
+    base_url = os.environ.get("MEM0_BASE_URL", config.platform.base_url or DEFAULT_BASE_URL)
+
+    if code and not email:
+        print_error(err_console, "--code requires --email.")
+        raise typer.Exit(1)
+
+    # ── Email login flow ──────────────────────────────────────────────
+    if email:
+        if api_key:
+            print_error(err_console, "Cannot use both --api-key and --email.")
+            raise typer.Exit(1)
+
+        email = email.strip().lower()
+        _validate_email(email)
+
+        print_banner(console)
+        console.print()
+        print_info(console, f"Logging in as {email}...\n")
+
+        result = _email_login(email, code, base_url)
+
+        api_key_val = result.get("api_key")
+        if not api_key_val:
+            print_error(err_console, "Auth succeeded but no API key was returned. Contact support.")
+            raise typer.Exit(1)
+        config.platform.api_key = api_key_val
+        config.platform.base_url = base_url
+        config.defaults.user_id = user_id or "mem0-cli"
+
+        save_config(config)
+
+        console.print()
+        print_success(console, "Authenticated! Configuration saved to ~/.mem0/config.json")
+        console.print()
+        console.print(f"  [{DIM_COLOR}]Get started:[/]")
+        console.print(f'  [{DIM_COLOR}]  mem0 add "I prefer dark mode"[/]')
+        console.print(f'  [{DIM_COLOR}]  mem0 search "preferences"[/]')
+        console.print()
+        return
+
+    # ── API key flow (existing) ───────────────────────────────────────
 
     # Fully non-interactive when both flags provided
     if api_key and user_id:
@@ -115,7 +242,47 @@ def run_init(*, api_key: str | None = None, user_id: str | None = None) -> None:
     console.print()
     print_info(console, "Welcome! Let's set up your mem0 CLI.\n")
 
-    # Use provided flags or prompt
+    # If no flags at all, ask user how they want to authenticate
+    if not api_key:
+        console.print(f"  [{BRAND_COLOR}]How would you like to authenticate?[/]")
+        console.print(f"  [{DIM_COLOR}]1.[/] Login with email [{DIM_COLOR}](recommended)[/]")
+        console.print(f"  [{DIM_COLOR}]2.[/] Enter API key manually")
+        console.print()
+        choice = Prompt.ask(f"  [{BRAND_COLOR}]Choose[/]", choices=["1", "2"], default="1")
+
+        if choice == "1":
+            console.print()
+            email_addr = Prompt.ask(f"  [{BRAND_COLOR}]Email[/]")
+            if not email_addr:
+                print_error(err_console, "Email is required.")
+                raise typer.Exit(1)
+
+            email_addr = email_addr.strip().lower()
+            _validate_email(email_addr)
+            print_info(console, f"Logging in as {email_addr}...\n")
+
+            result = _email_login(email_addr, None, base_url)
+
+            api_key_val = result.get("api_key")
+            if not api_key_val:
+                print_error(err_console, "Auth succeeded but no API key was returned. Contact support.")
+                raise typer.Exit(1)
+            config.platform.api_key = api_key_val
+            config.platform.base_url = base_url
+            config.defaults.user_id = user_id or "mem0-cli"
+
+            save_config(config)
+
+            console.print()
+            print_success(console, "Authenticated! Configuration saved to ~/.mem0/config.json")
+            console.print()
+            console.print(f"  [{DIM_COLOR}]Get started:[/]")
+            console.print(f'  [{DIM_COLOR}]  mem0 add "I prefer dark mode"[/]')
+            console.print(f'  [{DIM_COLOR}]  mem0 search "preferences"[/]')
+            console.print()
+            return
+
+    # API key flow
     if api_key:
         config.platform.api_key = api_key
     else:
