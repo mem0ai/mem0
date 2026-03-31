@@ -67,7 +67,6 @@ class TestCLIIntegration:
         assert result.returncode == 0
         assert "0.1.0" in result.stdout
 
-
     def test_add_help(self):
         result = _run(["add", "--help"])
         assert result.returncode == 0
@@ -161,7 +160,12 @@ class TestCLIIsolated:
         )
         assert result.returncode != 0
         combined = result.stderr + result.stdout
-        assert "memory ID" in combined.lower() or "--all" in combined or "--entity" in combined or "Error" in combined
+        assert (
+            "memory ID" in combined.lower()
+            or "--all" in combined
+            or "--entity" in combined
+            or "Error" in combined
+        )
 
     def test_config_show_clean(self, clean_home):
         """config show with no config should still work."""

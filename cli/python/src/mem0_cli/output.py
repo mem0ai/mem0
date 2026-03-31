@@ -49,7 +49,9 @@ def format_memories_text(console: Console, memories: list[dict], title: str = "m
         console.print()
 
 
-def format_memories_table(console: Console, memories: list[dict], *, show_score: bool = False) -> None:
+def format_memories_table(
+    console: Console, memories: list[dict], *, show_score: bool = False
+) -> None:
     """Render memories in a rich table."""
     table = Table(
         border_style=BRAND_COLOR,
@@ -71,7 +73,11 @@ def format_memories_table(console: Console, memories: list[dict], *, show_score:
             memory_text = memory_text[:57] + "..."
         categories = mem.get("categories", [])
         if isinstance(categories, list) and categories:
-            cat = categories[0] if len(categories) == 1 else f"{categories[0]} (+{len(categories) - 1})"
+            cat = (
+                categories[0]
+                if len(categories) == 1
+                else f"{categories[0]} (+{len(categories) - 1})"
+            )
         else:
             cat = "—"
         created = _format_date(mem.get("created_at")) or "—"
