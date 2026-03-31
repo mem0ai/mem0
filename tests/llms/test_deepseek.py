@@ -113,3 +113,47 @@ def test_generate_response_with_tools(mock_deepseek_client):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_generate_response_with_response_format(mock_deepseek_client):
+    config = BaseLlmConfig(model="deepseek-chat", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = DeepSeekLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a memory extraction assistant."},
+        {"role": "user", "content": "I like hiking on weekends."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content='{"facts": ["User likes hiking on weekends"]}'))]
+    mock_deepseek_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages, response_format={"type": "json_object"})
+
+    mock_deepseek_client.chat.completions.create.assert_called_once_with(
+        model="deepseek-chat",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        response_format={"type": "json_object"},
+    )
+    assert response == '{"facts": ["User likes hiking on weekends"]}'
+
+
+def test_generate_response_without_response_format(mock_deepseek_client):
+    config = BaseLlmConfig(model="deepseek-chat", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = DeepSeekLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Tell me a joke."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Why did the chicken cross the road?"))]
+    mock_deepseek_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_deepseek_client.chat.completions.create.call_args[1]
+    assert "response_format" not in call_kwargs
+    assert response == "Why did the chicken cross the road?"
