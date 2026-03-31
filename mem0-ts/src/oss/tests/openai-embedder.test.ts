@@ -76,10 +76,7 @@ describe("OpenAIEmbedder (unit)", () => {
 
     it("does NOT pass dimensions in embedBatch when embeddingDims is not set", async () => {
       mockEmbeddingsCreate.mockResolvedValue({
-        data: [
-          { embedding: mockEmbedding },
-          { embedding: mockEmbedding },
-        ],
+        data: [{ embedding: mockEmbedding }, { embedding: mockEmbedding }],
       });
 
       const embedder = new OpenAIEmbedder({
@@ -94,10 +91,7 @@ describe("OpenAIEmbedder (unit)", () => {
 
     it("passes dimensions in embedBatch when embeddingDims is explicitly set", async () => {
       mockEmbeddingsCreate.mockResolvedValue({
-        data: [
-          { embedding: mockEmbedding },
-          { embedding: mockEmbedding },
-        ],
+        data: [{ embedding: mockEmbedding }, { embedding: mockEmbedding }],
       });
 
       const embedder = new OpenAIEmbedder({
