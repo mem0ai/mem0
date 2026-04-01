@@ -285,6 +285,19 @@ export async function runInit(
 
 	// ── API key flow ──────────────────────────────────────────────────────────
 
+	// Non-TTY: resolve defaults so partial flags work in pipelines / CI
+	if (!process.stdin.isTTY) {
+		if (!opts.apiKey) {
+			printError(
+				"Non-interactive terminal detected and --api-key is required.",
+				"Usage: mem0 init --api-key <key> [--user-id <id>]",
+			);
+			process.exit(1);
+		}
+		opts.userId =
+			opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
+	}
+
 	// Non-interactive: both flags provided
 	if (opts.apiKey && opts.userId) {
 		config.platform.apiKey = opts.apiKey;
@@ -293,15 +306,6 @@ export async function runInit(
 		saveConfig(config);
 		printSuccess("Configuration saved to ~/.mem0/config.json");
 		return;
-	}
-
-	// Non-TTY without full flags: error with usage hint
-	if (!process.stdin.isTTY && (!opts.apiKey || !opts.userId)) {
-		printError(
-			"Non-interactive terminal detected and missing required flags.",
-			"Usage: mem0 init --api-key <key> --user-id <id>",
-		);
-		process.exit(1);
 	}
 
 	printBanner();
