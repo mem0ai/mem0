@@ -281,24 +281,7 @@ export class PlatformBackend implements Backend {
 		opts: { userId?: string; agentId?: string } = {},
 	): Promise<Record<string, unknown>> {
 		try {
-			if (opts.userId || opts.agentId) {
-				const payload: Record<string, unknown> = {};
-				const statusParams: Record<string, string> = {
-					page: "1",
-					page_size: "1",
-				};
-				const apiFilters = this._buildFilters({
-					userId: opts.userId,
-					agentId: opts.agentId,
-				});
-				if (apiFilters) payload.filters = apiFilters;
-				await this._request("POST", "/v2/memories/", {
-					json: payload,
-					params: statusParams,
-				});
-			} else {
-				await this._request("GET", "/v1/entities/");
-			}
+			await this._request("GET", "/v1/ping/");
 			return { connected: true, backend: "platform", base_url: this.baseUrl };
 		} catch (e) {
 			return {

@@ -500,7 +500,7 @@ export async function cmdDelete(
 	if (opts.output === "agent") {
 		formatAgentEnvelope({
 			command: "delete",
-			data: result,
+			data: { id: memoryId, deleted: true },
 			durationMs: Math.round(elapsed * 1000),
 		});
 	} else if (opts.output === "json") {

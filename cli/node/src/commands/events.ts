@@ -118,7 +118,6 @@ export async function cmdEventStatus(
 
   const status = String(ev.status ?? "—");
   const evType = String(ev.event_type ?? "—");
-  const graphStatus = String(ev.graph_status ?? "—");
   const latency = ev.latency as number | undefined;
   const latencyStr = latency !== undefined ? `${Math.round(latency)}ms` : "—";
   const created = String(ev.created_at ?? "—").slice(0, 19).replace("T", " ");
@@ -129,7 +128,6 @@ export async function cmdEventStatus(
   lines.push(`  ${dim("Event ID:")}     ${eventId}`);
   lines.push(`  ${dim("Type:")}         ${evType}`);
   lines.push(`  ${dim("Status:")}       ${statusStyled(status)}`);
-  lines.push(`  ${dim("Graph:")}        ${graphStatus}`);
   lines.push(`  ${dim("Latency:")}      ${latencyStr}`);
   lines.push(`  ${dim("Created:")}      ${created}`);
   lines.push(`  ${dim("Updated:")}      ${updated}`);

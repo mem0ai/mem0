@@ -243,6 +243,77 @@ export function formatJsonEnvelope(opts: {
 	console.log(JSON.stringify(envelope, null, 2));
 }
 
+function pick(obj: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+	const result: Record<string, unknown> = {};
+	for (const key of keys) {
+		if (key in obj) result[key] = obj[key];
+	}
+	return result;
+}
+
+export function sanitizeAgentData(command: string, data: unknown): unknown {
+	if (data === null || data === undefined) return data;
+
+	switch (command) {
+		case "add": {
+			const items = Array.isArray(data) ? data : [data];
+			return items.map((item) => {
+				const r = item as Record<string, unknown>;
+				if (r.status === "PENDING") return pick(r, ["status", "event_id"]);
+				return pick(r, ["id", "memory", "event"]);
+			});
+		}
+		case "search":
+			return (data as Record<string, unknown>[]).map((r) =>
+				pick(r, ["id", "memory", "score", "created_at", "categories"]),
+			);
+		case "list":
+			return (data as Record<string, unknown>[]).map((r) =>
+				pick(r, ["id", "memory", "created_at", "categories"]),
+			);
+		case "get": {
+			const r = data as Record<string, unknown>;
+			return pick(r, ["id", "memory", "created_at", "updated_at", "categories", "metadata"]);
+		}
+		case "update": {
+			const r = data as Record<string, unknown>;
+			return pick(r, ["id", "memory"]);
+		}
+		case "delete":
+		case "delete-all":
+		case "entity delete":
+			return data;
+		case "entity list":
+			return (data as Record<string, unknown>[]).map((r) => ({
+				name: (r.name ?? r.id) as string,
+				...pick(r, ["type", "count"]),
+			}));
+		case "event list":
+			return (data as Record<string, unknown>[]).map((r) =>
+				pick(r, ["id", "event_type", "status", "latency", "created_at"]),
+			);
+		case "event status": {
+			const ev = data as Record<string, unknown>;
+			const rawResults = (ev.results as Record<string, unknown>[] | undefined) ?? [];
+			const sanitizedResults = rawResults.map((r) => {
+				const nested = r.data as Record<string, unknown> | undefined;
+				return {
+					id: r.id,
+					event: r.event,
+					user_id: r.user_id,
+					memory: nested?.memory ?? null,
+				};
+			});
+			return {
+				...pick(ev, ["id", "event_type", "status", "latency", "created_at", "updated_at"]),
+				results: sanitizedResults,
+			};
+		}
+		default:
+			return data;
+	}
+}
+
 export function formatAgentEnvelope(opts: {
 	command: string;
 	data: unknown;
@@ -262,7 +333,7 @@ export function formatAgentEnvelope(opts: {
 		if (Object.keys(filtered).length > 0) envelope.scope = filtered;
 	}
 	if (opts.count !== undefined) envelope.count = opts.count;
-	envelope.data = opts.data;
+	envelope.data = sanitizeAgentData(opts.command, opts.data);
 	console.log(JSON.stringify(envelope, null, 2));
 }
 

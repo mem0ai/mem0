@@ -10,6 +10,7 @@ import {
   formatSingleMemory,
   formatAddResult,
   printResultSummary,
+  sanitizeAgentData,
 } from "../src/output.js";
 
 let output: string;
@@ -111,5 +112,75 @@ describe("printResultSummary", () => {
     printResultSummary({ count: 1 });
     expect(output).toContain("1 result");
     expect(output).not.toContain("results");
+  });
+});
+
+describe("sanitizeAgentData", () => {
+  it("projects add results", () => {
+    const raw = [{ id: "abc", memory: "test", event: "ADD", metadata: { x: 1 }, categories: ["a"] }];
+    const result = sanitizeAgentData("add", raw) as Record<string, unknown>[];
+    expect(result).toEqual([{ id: "abc", memory: "test", event: "ADD" }]);
+  });
+
+  it("passes through PENDING add items", () => {
+    const raw = [{ status: "PENDING", event_id: "evt-123", noise: "x" }];
+    const result = sanitizeAgentData("add", raw) as Record<string, unknown>[];
+    expect(result).toEqual([{ status: "PENDING", event_id: "evt-123" }]);
+  });
+
+  it("projects search results", () => {
+    const raw = [{ id: "abc", memory: "test", score: 0.9, created_at: "2026-01-01", categories: ["a"], user_id: "u1" }];
+    const result = sanitizeAgentData("search", raw) as Record<string, unknown>[];
+    expect(result[0]).not.toHaveProperty("user_id");
+    expect(result[0]).toHaveProperty("score");
+  });
+
+  it("projects list results", () => {
+    const raw = [{ id: "abc", memory: "test", created_at: "2026-01-01", categories: ["a"], user_id: "u1" }];
+    const result = sanitizeAgentData("list", raw) as Record<string, unknown>[];
+    expect(Object.keys(result[0]).sort()).toEqual(["categories", "created_at", "id", "memory"]);
+  });
+
+  it("projects get result", () => {
+    const raw = { id: "abc", memory: "test", created_at: "2026-01-01", updated_at: "2026-01-02", categories: ["a"], metadata: { k: "v" }, user_id: "u1" };
+    const result = sanitizeAgentData("get", raw) as Record<string, unknown>;
+    expect(result).not.toHaveProperty("user_id");
+    expect(result).toHaveProperty("metadata");
+  });
+
+  it("projects update result", () => {
+    const raw = { id: "abc", memory: "updated", extra: "noise" };
+    const result = sanitizeAgentData("update", raw);
+    expect(result).toEqual({ id: "abc", memory: "updated" });
+  });
+
+  it("projects event list results", () => {
+    const raw = [{ id: "evt-1", event_type: "ADD", status: "SUCCEEDED", graph_status: null, latency: 100, created_at: "2026-01-01", updated_at: "2026-01-02" }];
+    const result = sanitizeAgentData("event list", raw) as Record<string, unknown>[];
+    expect(result[0]).not.toHaveProperty("updated_at");
+    expect(result[0]).not.toHaveProperty("graph_status");
+  });
+
+  it("flattens event status results", () => {
+    const raw = {
+      id: "evt-1", event_type: "ADD", status: "SUCCEEDED",
+      latency: 100, created_at: "2026-01-01", updated_at: "2026-01-02",
+      results: [{ id: "mem-1", event: "ADD", user_id: "alice", data: { memory: "dark mode" } }],
+    };
+    const result = sanitizeAgentData("event status", raw) as Record<string, unknown>;
+    const firstResult = (result.results as Record<string, unknown>[])[0];
+    expect(firstResult).toHaveProperty("memory", "dark mode");
+    expect(firstResult).not.toHaveProperty("data");
+  });
+
+  it("passes through status/config/import commands unchanged", () => {
+    const data = { key: "value", other: "stuff" };
+    for (const cmd of ["status", "import", "config show", "config get", "config set"]) {
+      expect(sanitizeAgentData(cmd, data)).toEqual(data);
+    }
+  });
+
+  it("handles null data", () => {
+    expect(sanitizeAgentData("add", null)).toBeNull();
   });
 });

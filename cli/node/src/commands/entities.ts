@@ -164,7 +164,7 @@ export async function cmdEntitiesDelete(
 	if (opts.output === "agent") {
 		formatAgentEnvelope({
 			command: "entity delete",
-			data: result,
+			data: { deleted: true },
 			durationMs: Math.round(elapsed * 1000),
 		});
 	} else if (opts.output === "json") {

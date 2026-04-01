@@ -278,6 +278,7 @@ describe("agent mode", () => {
     expect(parsed.command).toBe("add");
     expect(parsed.data).toBeDefined();
     expect(parsed.scope).toMatchObject({ user_id: "alice" });
+    expect(Object.keys(parsed.data[0]).sort()).toEqual(["event", "id", "memory"].sort());
   });
 
   it("cmdSearch outputs JSON envelope", async () => {
@@ -297,6 +298,14 @@ describe("agent mode", () => {
     expect(parsed.command).toBe("search");
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.count).toBe(2);
+    const keys = Object.keys(parsed.data[0]);
+    expect(keys).toContain("id");
+    expect(keys).toContain("memory");
+    expect(keys).toContain("score");
+    expect(keys).toContain("created_at");
+    expect(keys).toContain("categories");
+    expect(keys).not.toContain("user_id");
+    expect(keys).not.toContain("agent_id");
   });
 
   it("cmdList outputs JSON envelope", async () => {
@@ -314,6 +323,7 @@ describe("agent mode", () => {
     expect(parsed.command).toBe("list");
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.count).toBe(2);
+    expect(Object.keys(parsed.data[0]).sort()).toEqual(["categories", "created_at", "id", "memory"]);
   });
 
   it("cmdGet outputs JSON envelope", async () => {
@@ -325,6 +335,7 @@ describe("agent mode", () => {
     expect(parsed.command).toBe("get");
     expect(parsed.data).toBeDefined();
     expect(parsed.data).toMatchObject({ id: "abc-123-def-456" });
+    expect(Object.keys(parsed.data)).not.toContain("user_id");
   });
 
   it("cmdUpdate outputs JSON envelope", async () => {
@@ -356,6 +367,10 @@ describe("agent mode", () => {
     expect(parsed.command).toBe("event list");
     expect(Array.isArray(parsed.data)).toBe(true);
     expect(parsed.count).toBe(2);
+    expect(Object.keys(parsed.data[0]).sort()).toEqual(
+      ["created_at", "event_type", "id", "latency", "status"],
+    );
+    expect(Object.keys(parsed.data[0])).not.toContain("updated_at");
   });
 
   it("cmdEventStatus outputs JSON envelope", async () => {
@@ -367,5 +382,7 @@ describe("agent mode", () => {
     expect(parsed.command).toBe("event status");
     expect(parsed.data).toBeDefined();
     expect(parsed.data).toMatchObject({ id: "evt-abc-123-def-456" });
+    expect(parsed.data.results[0]).toHaveProperty("memory");
+    expect(parsed.data.results[0]).not.toHaveProperty("data");
   });
 });

@@ -38,7 +38,6 @@ export async function cmdStatus(
 				connected: result.connected,
 				backend: result.backend ?? null,
 				base_url: result.base_url ?? null,
-				latency_ms: Math.round(elapsed * 1000),
 			},
 			durationMs: Math.round(elapsed * 1000),
 		});
@@ -134,7 +133,6 @@ export async function cmdImport(
 			data: {
 				added,
 				failed,
-				duration_s: Number.parseFloat(elapsed.toFixed(2)),
 			},
 			durationMs: Math.round(elapsed * 1000),
 		});
