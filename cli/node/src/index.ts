@@ -114,7 +114,10 @@ program
 		process.exit(0);
 	})
 	.option("--json", "Output as JSON for agent/programmatic use.")
-	.option("--agent", "Output as JSON for agent/programmatic use. (alias: --json)")
+	.option(
+		"--agent",
+		"Output as JSON for agent/programmatic use. (alias: --json)",
+	)
 	.usage("<command> [options]")
 	.helpOption("--help", "Show this message and exit.")
 	.addHelpCommand(false)
@@ -185,7 +188,9 @@ program
 
 program
 	.command("search [query]")
-	.description("Query your memory store — semantic, keyword, or hybrid retrieval.")
+	.description(
+		"Query your memory store — semantic, keyword, or hybrid retrieval.",
+	)
 	.option("-u, --user-id <id>", "Filter by user.")
 	.option("--agent-id <id>", "Filter by agent.")
 	.option("--app-id <id>", "Filter by app.")
@@ -685,7 +690,9 @@ program
 			console.log("  import           Import memories from a JSON file");
 			console.log("  config           Manage configuration (show, get, set)");
 			console.log("  entity           Manage entities (list, delete)");
-			console.log("  event            Inspect background events (list, status)");
+			console.log(
+				"  event            Inspect background events (list, status)",
+			);
 			console.log("  init             Interactive setup wizard");
 			console.log("  status           Check connectivity and authentication");
 			console.log();

@@ -16,6 +16,7 @@ from mem0_cli.commands.config_cmd import (
     cmd_config_show,
 )
 from mem0_cli.commands.entities import cmd_entities_delete, cmd_entities_list
+from mem0_cli.commands.events_cmd import cmd_event_list, cmd_event_status
 from mem0_cli.commands.memory import (
     cmd_add,
     cmd_delete,
@@ -25,7 +26,6 @@ from mem0_cli.commands.memory import (
     cmd_search,
     cmd_update,
 )
-from mem0_cli.commands.events_cmd import cmd_event_list, cmd_event_status
 from mem0_cli.commands.utils import (
     cmd_import,
     cmd_status,
@@ -1319,7 +1319,6 @@ class TestAgentMode:
 
     def test_error_in_agent_mode_produces_json_to_stdout(self, mock_backend):
         """Errors in agent mode must emit a JSON envelope to stdout, not stderr."""
-        import sys
         from io import StringIO
 
         mock_backend.get.side_effect = Exception("Memory not found")

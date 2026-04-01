@@ -193,8 +193,7 @@ async function setupDefaults(config: Mem0Config): Promise<void> {
 	console.log();
 	printInfo("Set default entity IDs (press Enter to skip).\n");
 
-	const _systemUser =
-		process.env.USER || process.env.USERNAME || "mem0-cli";
+	const _systemUser = process.env.USER || process.env.USERNAME || "mem0-cli";
 	const userId = await promptLine(
 		`  ${brand("Default User ID")} ${dim("(recommended)")}`,
 		_systemUser,
@@ -271,10 +270,7 @@ export async function runInit(
 		config.platform.apiKey = apiKeyVal;
 		config.platform.baseUrl = baseUrl;
 		config.defaults.userId =
-			opts.userId ||
-			process.env.USER ||
-			process.env.USERNAME ||
-			"mem0-cli";
+			opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 
 		saveConfig(config);
 		console.log();
@@ -348,10 +344,7 @@ export async function runInit(
 			config.platform.apiKey = apiKeyVal;
 			config.platform.baseUrl = baseUrl;
 			config.defaults.userId =
-			opts.userId ||
-			process.env.USER ||
-			process.env.USERNAME ||
-			"mem0-cli";
+				opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 
 			saveConfig(config);
 			console.log();
