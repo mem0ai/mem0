@@ -135,7 +135,14 @@ class Supabase(VectorStoreBase):
             data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
         )
 
-        return [OutputData(id=str(result[0]), score=float(result[1]), payload=result[2]) for result in results]
+        return [
+            OutputData(
+                id=str(result[0]),
+                score=max(0.0, 1.0 - float(result[1])),  # cosine distance → similarity
+                payload=result[2],
+            )
+            for result in results
+        ]
 
     def delete(self, vector_id: str):
         """

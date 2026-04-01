@@ -14,7 +14,22 @@ class VectorStoreBase(ABC):
 
     @abstractmethod
     def search(self, query, vectors, limit=5, filters=None):
-        """Search for similar vectors."""
+        """Search for similar vectors.
+
+        All implementations MUST return OutputData with ``score`` as a
+        **similarity** value where **higher = more similar**.  The
+        recommended range is [0, 1].
+
+        If the underlying engine returns a *distance* (lower = more
+        similar), the implementation must convert before returning:
+
+        * Cosine distance  → ``max(0.0, 1.0 - distance)``
+        * L2 / Euclidean   → ``1.0 / (1.0 + distance)``
+        * Inner-product / similarity → use as-is
+
+        This contract ensures ``Memory.search(threshold=…)`` works
+        consistently across all backends.
+        """
         pass
 
     @abstractmethod

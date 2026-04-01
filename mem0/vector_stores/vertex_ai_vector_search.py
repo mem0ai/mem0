@@ -115,7 +115,7 @@ class GoogleMatchingEngine(VectorStoreBase):
             output_data.append(
                 OutputData(
                     id=result.get("datapoint").get("datapointId"),
-                    score=result.get("distance"),
+                    score=max(0.0, 1.0 - result.get("distance", 0.0)),  # cosine distance → similarity
                     payload=result.get("datapoint").get("metadata"),
                 )
             )
@@ -262,7 +262,7 @@ class GoogleMatchingEngine(VectorStoreBase):
                             logger.debug("Adding %s: %s", restrict.name, restrict.allow_tokens[0])
                             payload[restrict.name] = restrict.allow_tokens[0]
 
-                output_data = OutputData(id=neighbor.id, score=neighbor.distance, payload=payload)
+                output_data = OutputData(id=neighbor.id, score=max(0.0, 1.0 - neighbor.distance), payload=payload)  # cosine distance → similarity
                 results.append(output_data)
 
             logger.debug("Returning %d results", len(results))
@@ -406,7 +406,7 @@ class GoogleMatchingEngine(VectorStoreBase):
                                 if restrict.allow_list:
                                     payload[restrict.namespace] = restrict.allow_list[0]
 
-                        return OutputData(id=neighbor.datapoint.datapoint_id, score=neighbor.distance, payload=payload)
+                        return OutputData(id=neighbor.datapoint.datapoint_id, score=max(0.0, 1.0 - neighbor.distance), payload=payload)  # cosine distance → similarity
 
                 logger.debug("No results found")
                 return None
