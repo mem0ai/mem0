@@ -145,6 +145,7 @@ def main_callback(
 ) -> None:
     if json_agent:
         from mem0_cli.state import set_agent_mode
+
         set_agent_mode(True)
     if version:
         from mem0_cli.commands.utils import cmd_version
@@ -1146,6 +1147,7 @@ def main() -> None:
     _json_flags = {"--json", "--agent"}
     if any(a in _json_flags for a in sys.argv[1:]):
         from mem0_cli.state import set_agent_mode
+
         set_agent_mode(True)
         sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in _json_flags]
 

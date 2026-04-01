@@ -37,6 +37,7 @@ def cmd_status(
     """Check connectivity and auth."""
     from mem0_cli.output import format_agent_envelope
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("status")
     if is_agent_mode():
         output = "agent"
@@ -101,6 +102,7 @@ def cmd_import(
     """Import memories from a JSON file."""
     from mem0_cli.output import format_agent_envelope
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("import")
     if is_agent_mode():
         output = "agent"

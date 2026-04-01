@@ -52,6 +52,7 @@ def cmd_add(
 ) -> None:
     """Add a memory."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("add")
     if is_agent_mode():
         output = "agent"
@@ -140,7 +141,16 @@ def cmd_add(
 
     if output == "agent":
         results_list = result if isinstance(result, list) else result.get("results", [result])
-        scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+        scope = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "agent_id": agent_id,
+                "app_id": app_id,
+                "run_id": run_id,
+            }.items()
+            if v
+        }
         format_agent_envelope(
             console,
             command="add",
@@ -184,6 +194,7 @@ def cmd_search(
 ) -> None:
     """Search memories."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("search")
     if is_agent_mode():
         output = "agent"
@@ -232,7 +243,16 @@ def cmd_search(
         return
 
     if output == "agent":
-        scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+        scope = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "agent_id": agent_id,
+                "app_id": app_id,
+                "run_id": run_id,
+            }.items()
+            if v
+        }
         format_agent_envelope(
             console,
             command="search",
@@ -270,6 +290,7 @@ def cmd_search(
 def cmd_get(backend: Backend, memory_id: str, *, output: str) -> None:
     """Get a specific memory by ID."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("get")
     if is_agent_mode():
         output = "agent"
@@ -303,6 +324,7 @@ def cmd_list(
 ) -> None:
     """List memories."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("list")
     if is_agent_mode():
         output = "agent"
@@ -337,7 +359,16 @@ def cmd_list(
         return
 
     if output in ("json", "agent"):
-        scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+        scope = {
+            k: v
+            for k, v in {
+                "user_id": user_id,
+                "agent_id": agent_id,
+                "app_id": app_id,
+                "run_id": run_id,
+            }.items()
+            if v
+        }
         format_agent_envelope(
             console,
             command="list",
@@ -388,6 +419,7 @@ def cmd_update(
 ) -> None:
     """Update a memory."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("update")
     if is_agent_mode():
         output = "agent"
@@ -431,6 +463,7 @@ def cmd_delete(
 ) -> None:
     """Delete a single memory by ID."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("delete")
     if is_agent_mode():
         output = "agent"
@@ -481,6 +514,7 @@ def cmd_delete_all(
 ) -> None:
     """Delete all memories matching a scope."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("delete-all")
     if is_agent_mode():
         output = "agent"
@@ -583,7 +617,16 @@ def cmd_delete_all(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
-    scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+    scope = {
+        k: v
+        for k, v in {
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "app_id": app_id,
+            "run_id": run_id,
+        }.items()
+        if v
+    }
     if output == "agent":
         format_agent_envelope(
             console,

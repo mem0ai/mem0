@@ -269,10 +269,7 @@ def sanitize_agent_data(command: str, data: Any) -> Any:
         return result
 
     if command == "event list":
-        return [
-            pick(r, ["id", "event_type", "status", "latency", "created_at"])
-            for r in data
-        ]
+        return [pick(r, ["id", "event_type", "status", "latency", "created_at"]) for r in data]
 
     if command == "event status":
         ev = data
@@ -281,12 +278,14 @@ def sanitize_agent_data(command: str, data: Any) -> Any:
         for r in raw_results:
             nested = r.get("data") or {}
             memory = nested.get("memory") if isinstance(nested, dict) else None
-            sanitized_results.append({
-                "id": r.get("id"),
-                "event": r.get("event"),
-                "user_id": r.get("user_id"),
-                "memory": memory,
-            })
+            sanitized_results.append(
+                {
+                    "id": r.get("id"),
+                    "event": r.get("event"),
+                    "user_id": r.get("user_id"),
+                    "memory": memory,
+                }
+            )
         result = pick(ev, ["id", "event_type", "status", "latency", "created_at", "updated_at"])
         result["results"] = sanitized_results
         return result

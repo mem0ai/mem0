@@ -27,6 +27,7 @@ err_console = Console(stderr=True)
 def cmd_entities_list(backend: Backend, entity_type: str, *, output: str) -> None:
     """List entities of a given type."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("entity list")
     if is_agent_mode():
         output = "agent"
@@ -92,6 +93,7 @@ def cmd_entities_delete(
 ) -> None:
     """Delete an entity and all its memories (cascade delete)."""
     from mem0_cli.state import is_agent_mode, set_current_command
+
     set_current_command("entity delete")
     if is_agent_mode():
         output = "agent"
@@ -152,7 +154,16 @@ def cmd_entities_delete(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
-    scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+    scope = {
+        k: v
+        for k, v in {
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "app_id": app_id,
+            "run_id": run_id,
+        }.items()
+        if v
+    }
     if output == "agent":
         format_agent_envelope(
             console,

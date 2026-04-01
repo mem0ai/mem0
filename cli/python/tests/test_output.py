@@ -139,7 +139,15 @@ class TestAddResult:
 
 class TestSanitizeAgentData:
     def test_add_projects_fields(self):
-        raw = [{"id": "abc", "memory": "test", "event": "ADD", "metadata": {"x": 1}, "categories": ["a"]}]
+        raw = [
+            {
+                "id": "abc",
+                "memory": "test",
+                "event": "ADD",
+                "metadata": {"x": 1},
+                "categories": ["a"],
+            }
+        ]
         result = sanitize_agent_data("add", raw)
         assert result == [{"id": "abc", "memory": "test", "event": "ADD"}]
 
@@ -149,17 +157,53 @@ class TestSanitizeAgentData:
         assert result == [{"status": "PENDING", "event_id": "evt-123"}]
 
     def test_search_projects_fields(self):
-        raw = [{"id": "abc", "memory": "test", "score": 0.9, "created_at": "2026-01-01", "categories": ["a"], "user_id": "u1", "agent_id": None}]
+        raw = [
+            {
+                "id": "abc",
+                "memory": "test",
+                "score": 0.9,
+                "created_at": "2026-01-01",
+                "categories": ["a"],
+                "user_id": "u1",
+                "agent_id": None,
+            }
+        ]
         result = sanitize_agent_data("search", raw)
-        assert result == [{"id": "abc", "memory": "test", "score": 0.9, "created_at": "2026-01-01", "categories": ["a"]}]
+        assert result == [
+            {
+                "id": "abc",
+                "memory": "test",
+                "score": 0.9,
+                "created_at": "2026-01-01",
+                "categories": ["a"],
+            }
+        ]
 
     def test_list_projects_fields(self):
-        raw = [{"id": "abc", "memory": "test", "created_at": "2026-01-01", "categories": ["a"], "user_id": "u1"}]
+        raw = [
+            {
+                "id": "abc",
+                "memory": "test",
+                "created_at": "2026-01-01",
+                "categories": ["a"],
+                "user_id": "u1",
+            }
+        ]
         result = sanitize_agent_data("list", raw)
-        assert result == [{"id": "abc", "memory": "test", "created_at": "2026-01-01", "categories": ["a"]}]
+        assert result == [
+            {"id": "abc", "memory": "test", "created_at": "2026-01-01", "categories": ["a"]}
+        ]
 
     def test_get_projects_fields(self):
-        raw = {"id": "abc", "memory": "test", "created_at": "2026-01-01", "updated_at": "2026-01-02", "categories": ["a"], "metadata": {"k": "v"}, "user_id": "u1"}
+        raw = {
+            "id": "abc",
+            "memory": "test",
+            "created_at": "2026-01-01",
+            "updated_at": "2026-01-02",
+            "categories": ["a"],
+            "metadata": {"k": "v"},
+            "user_id": "u1",
+        }
         result = sanitize_agent_data("get", raw)
         assert "user_id" not in result
         assert "id" in result and "memory" in result
@@ -170,21 +214,49 @@ class TestSanitizeAgentData:
         assert result == {"id": "abc", "memory": "updated"}
 
     def test_event_list_projects_fields(self):
-        raw = [{"id": "evt-1", "event_type": "ADD", "status": "SUCCEEDED", "graph_status": None, "latency": 100.0, "created_at": "2026-01-01", "updated_at": "2026-01-02"}]
+        raw = [
+            {
+                "id": "evt-1",
+                "event_type": "ADD",
+                "status": "SUCCEEDED",
+                "graph_status": None,
+                "latency": 100.0,
+                "created_at": "2026-01-01",
+                "updated_at": "2026-01-02",
+            }
+        ]
         result = sanitize_agent_data("event list", raw)
-        assert result == [{"id": "evt-1", "event_type": "ADD", "status": "SUCCEEDED", "latency": 100.0, "created_at": "2026-01-01"}]
+        assert result == [
+            {
+                "id": "evt-1",
+                "event_type": "ADD",
+                "status": "SUCCEEDED",
+                "latency": 100.0,
+                "created_at": "2026-01-01",
+            }
+        ]
         assert "updated_at" not in result[0]
         assert "graph_status" not in result[0]
 
     def test_event_status_flattens_results(self):
         raw = {
-            "id": "evt-1", "event_type": "ADD", "status": "SUCCEEDED",
+            "id": "evt-1",
+            "event_type": "ADD",
+            "status": "SUCCEEDED",
             "latency": 100.0,
-            "created_at": "2026-01-01", "updated_at": "2026-01-02",
-            "results": [{"id": "mem-1", "event": "ADD", "user_id": "alice", "data": {"memory": "dark mode"}}]
+            "created_at": "2026-01-01",
+            "updated_at": "2026-01-02",
+            "results": [
+                {"id": "mem-1", "event": "ADD", "user_id": "alice", "data": {"memory": "dark mode"}}
+            ],
         }
         result = sanitize_agent_data("event status", raw)
-        assert result["results"][0] == {"id": "mem-1", "event": "ADD", "user_id": "alice", "memory": "dark mode"}
+        assert result["results"][0] == {
+            "id": "mem-1",
+            "event": "ADD",
+            "user_id": "alice",
+            "memory": "dark mode",
+        }
         assert "data" not in result["results"][0]
 
     def test_passthrough_commands(self):

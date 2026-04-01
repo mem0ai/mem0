@@ -44,6 +44,7 @@ def _sym(fancy: str, plain: str) -> str:
 def print_banner(console: Console) -> None:
     """Print the mem0 welcome banner."""
     from mem0_cli.state import is_agent_mode
+
     if is_agent_mode():
         return
     logo_text = Text(LOGO, style=f"bold {BRAND_COLOR}")
@@ -65,6 +66,7 @@ def print_banner(console: Console) -> None:
 
 def print_success(console: Console, message: str) -> None:
     from mem0_cli.state import is_agent_mode
+
     if is_agent_mode():
         return
     sym = _sym("✓", "[ok]")
@@ -73,8 +75,10 @@ def print_success(console: Console, message: str) -> None:
 
 def print_error(console: Console, message: str, hint: str | None = None) -> None:
     from mem0_cli.state import get_current_command, is_agent_mode
+
     if is_agent_mode():
         import json as _json
+
         envelope = {
             "status": "error",
             "command": get_current_command(),
@@ -91,6 +95,7 @@ def print_error(console: Console, message: str, hint: str | None = None) -> None
 
 def print_warning(console: Console, message: str) -> None:
     from mem0_cli.state import is_agent_mode
+
     if is_agent_mode():
         return
     sym = _sym("⚠", "[warn]")
@@ -99,6 +104,7 @@ def print_warning(console: Console, message: str) -> None:
 
 def print_info(console: Console, message: str) -> None:
     from mem0_cli.state import is_agent_mode
+
     if is_agent_mode():
         return
     sym = _sym("◆", "*")
@@ -147,6 +153,7 @@ def timed_status(console: Console, message: str):
 def print_scope(console: Console, **ids: str | None) -> None:
     """Show active entity scope if any IDs are set."""
     from mem0_cli.state import is_agent_mode
+
     if is_agent_mode():
         return
     parts = []

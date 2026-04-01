@@ -1096,11 +1096,13 @@ class TestAgentMode:
     def setup_method(self):
         """Enable agent mode before each test."""
         from mem0_cli.state import set_agent_mode
+
         set_agent_mode(True)
 
     def teardown_method(self):
         """Reset agent mode after each test."""
         from mem0_cli.state import set_agent_mode
+
         set_agent_mode(False)
 
     # ── add ──────────────────────────────────────────────────────────────────
@@ -1294,7 +1296,13 @@ class TestAgentMode:
         assert isinstance(data["data"], list)
         assert data["count"] == 2
         assert "duration_ms" in data
-        assert set(data["data"][0].keys()) == {"id", "event_type", "status", "latency", "created_at"}
+        assert set(data["data"][0].keys()) == {
+            "id",
+            "event_type",
+            "status",
+            "latency",
+            "created_at",
+        }
 
     # ── event status ─────────────────────────────────────────────────────────
 

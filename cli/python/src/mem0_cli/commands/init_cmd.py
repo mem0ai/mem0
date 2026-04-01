@@ -205,7 +205,9 @@ def run_init(
             raise typer.Exit(1)
         config.platform.api_key = api_key_val
         config.platform.base_url = base_url
-        config.defaults.user_id = user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
+        config.defaults.user_id = (
+            user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
+        )
 
         save_config(config)
 
@@ -271,7 +273,9 @@ def run_init(
                 raise typer.Exit(1)
             config.platform.api_key = api_key_val
             config.platform.base_url = base_url
-            config.defaults.user_id = user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
+            config.defaults.user_id = (
+                user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
+            )
 
             save_config(config)
 
