@@ -158,6 +158,11 @@ export async function timedStatus<T>(
 		spinner.stop();
 		if (ctx.errorMsg) {
 			console.error(`${error("✗ Error:")} ${ctx.errorMsg} (${elapsed}s)`);
+			if (ctx.errorMsg.includes("Authentication failed")) {
+				console.error(
+					`  ${dim("Run")} ${brand("mem0 init")} ${dim("to reconfigure your API key · https://app.mem0.ai/dashboard/api-keys")}`,
+				);
+			}
 		}
 		throw err;
 	}

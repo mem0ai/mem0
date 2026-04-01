@@ -215,7 +215,7 @@ async function validatePlatform(config: Mem0Config): Promise<void> {
 		} else {
 			printError(
 				`Could not connect: ${status.error ?? "Unknown error"}`,
-				"Check your API key and try again.",
+				"Visit https://app.mem0.ai/dashboard/api-keys to get a new key, or run mem0 init again.",
 			);
 		}
 	} catch (e) {

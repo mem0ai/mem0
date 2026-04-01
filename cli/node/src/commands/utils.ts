@@ -57,6 +57,15 @@ export async function cmdStatus(
 	}
 	if (result.error) {
 		lines.push(`  ${errorColor("Error:")}    ${result.error}`);
+		if (String(result.error).includes("Authentication failed")) {
+			lines.push("");
+			lines.push(
+				`  ${dim("Run")} ${brand("mem0 init")} ${dim("to reconfigure your API key")}`,
+			);
+			lines.push(
+				`  ${dim("Get a key at")} ${brand("https://app.mem0.ai/dashboard/api-keys")}`,
+			);
+		}
 	}
 	lines.push(`  ${dim("Latency:")}  ${elapsed.toFixed(2)}s`);
 
