@@ -2,6 +2,19 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [1.0.0] - 2026-04-01
+
+### Added
+- **Skills-based memory architecture**: New skill-loader and skill-based extraction pipeline with batched extraction for higher quality memory capture ([#4624](https://github.com/mem0ai/mem0/pull/4624))
+- **Dream gate**: Added `dream-gate.ts` for memory consolidation and dream-cycle processing
+- **Enhanced recall**: New `recall.ts` module with improved recall logic and skill-aware retrieval
+- **Memory triage skill**: Domain-aware memory triage with companion domain support and recall protocol
+- **Memory dream skill**: Skill for memory consolidation during idle periods
+- **Plugin configuration**: Added `openclaw.plugin.json` manifest and `scripts/configure.py` setup helper
+
+### Changed
+- Extraction pipeline refactored to use skills-based architecture for more contextual and higher quality memory capture
+
 ## [0.4.1] - 2026-03-26
 
 ### Added
