@@ -78,7 +78,22 @@ Interactive setup wizard. Prompts for your API key and default user ID.
 ```bash
 mem0 init
 mem0 init --api-key m0-xxx --user-id alice
+mem0 init --email alice@company.com
 ```
+
+If an existing configuration is detected, the CLI will ask for confirmation before overwriting. Use `--force` to skip the prompt (useful in CI/CD pipelines).
+
+```bash
+mem0 init --api-key m0-xxx --user-id alice --force
+```
+
+| Flag | Description |
+|------|-------------|
+| `--api-key` | API key (skip prompt) |
+| `-u, --user-id` | Default user ID (skip prompt) |
+| `--email` | Login via email verification code |
+| `--code` | Verification code (use with `--email` for non-interactive login) |
+| `--force` | Overwrite existing config without confirmation |
 
 ### `mem0 add`
 
@@ -315,7 +330,7 @@ Two other agent-friendly features:
 - **`--output json`** returns structured data without sanitization — useful when you want the full raw API response
 - **`mem0 help --json`** returns the complete command tree as JSON, so agents can self-discover available commands and options
 
-For non-interactive environments (CI, agent runtimes), set credentials via `mem0 init --api-key m0-xxx --user-id alice` or the `MEM0_API_KEY` environment variable.
+For non-interactive environments (CI, agent runtimes), set credentials via `mem0 init --api-key m0-xxx --user-id alice --force` or the `MEM0_API_KEY` environment variable.
 
 ## Environment variables
 

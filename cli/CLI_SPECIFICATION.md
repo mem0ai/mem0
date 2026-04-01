@@ -158,8 +158,14 @@ Interactive setup wizard for mem0 CLI.
 | `-u, --user-id` | string | No       | -       | Default user ID (skip prompt). |
 | `--email`       | string | No       | -       | Login via email verification code. |
 | `--code`        | string | No       | -       | Verification code (use with --email for non-interactive login). |
+| `--force`       | bool   | No       | false   | Overwrite existing config without confirmation. |
 
 **Behavior:**
+
+*Existing config protection:*
+- If `~/.mem0/config.json` exists with an API key, the CLI warns and asks for confirmation before overwriting.
+- In non-TTY mode, this is a hard error unless `--force` is passed.
+- `--force` skips the confirmation in both TTY and non-TTY modes.
 
 *Email login flow (when `--email` is provided):*
 - Sends a 6-digit verification code to the email via `POST /api/v1/auth/email_code/`.
@@ -178,6 +184,7 @@ Interactive setup wizard for mem0 CLI.
 ```bash
 mem0 init
 mem0 init --api-key m0-xxx --user-id alice
+mem0 init --api-key m0-xxx --user-id alice --force
 mem0 init --email alice@company.com
 mem0 init --email alice@company.com --code 482901
 ```
