@@ -171,6 +171,7 @@ const ALLOWED_KEYS = [
   "searchThreshold",
   "topK",
   "oss",
+  "recallTimeoutMs",
 ];
 
 function assertAllowedKeys(
@@ -240,6 +241,7 @@ export const mem0ConfigSchema = {
       searchThreshold:
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
+      recallTimeoutMs: typeof cfg.recallTimeoutMs === "number" ? cfg.recallTimeoutMs : 5000,
       oss: ossConfig,
     };
   },

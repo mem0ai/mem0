@@ -822,6 +822,37 @@ function registerCli(
 // Lifecycle Hook Registration
 // ============================================================================
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+  logger: { warn: (msg: string) => void },
+): Promise<T | undefined> {
+  let settled = false;
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => {
+      settled = true;
+      logger.warn(`openclaw-mem0: ${label} timed out after ${ms}ms, skipping`);
+      resolve(undefined);
+    }, ms);
+  });
+  return Promise.race([
+    promise.then(
+      (v) => { clearTimeout(timer); settled = true; return v; },
+      (err) => { clearTimeout(timer); settled = true; throw err; },
+    ),
+    timeout,
+  ]).then((result) => {
+    // If the timeout won the race, swallow any late resolution/rejection
+    // from the original promise to avoid unhandled rejections.
+    if (settled && result === undefined) {
+      promise.catch(() => {});
+    }
+    return result;
+  });
+}
+
 function registerHooks(
   api: OpenClawPluginApi,
   provider: Mem0Provider,
@@ -863,10 +894,18 @@ function registerHooks(
         const recallTopK = Math.max((cfg.topK ?? 5) * 2, 10);
 
         // Search long-term memories (user-scoped; subagents read from parent namespace)
-        let longTermResults = await provider.search(
-          event.prompt,
-          buildSearchOptions(undefined, recallTopK, undefined, recallSessionKey),
+        const recallTimeoutMs = cfg.recallTimeoutMs ?? 5000;
+        const rawResults = await withTimeout(
+          provider.search(
+            event.prompt,
+            buildSearchOptions(undefined, recallTopK, undefined, recallSessionKey),
+          ),
+          recallTimeoutMs,
+          "recall search",
+          api.logger,
         );
+        if (!rawResults) return; // timed out
+        let longTermResults = rawResults;
 
         // Client-side threshold filter for auto-recall — use a stricter
         // threshold (0.6) than explicit tool searches (0.5) to avoid
@@ -894,10 +933,15 @@ function registerHooks(
         if (event.prompt.length < 100 || isNewSession) {
           const broadOpts = buildSearchOptions(undefined, 5, undefined, recallSessionKey);
           broadOpts.threshold = 0.5;
-          const broadResults = await provider.search(
-            "recent decisions, preferences, active projects, and configuration",
-            broadOpts,
-          );
+          const broadResults = await withTimeout(
+            provider.search(
+              "recent decisions, preferences, active projects, and configuration",
+              broadOpts,
+            ),
+            recallTimeoutMs,
+            "broad recall search",
+            api.logger,
+          ) ?? [];
           const existingIds = new Set(longTermResults.map((r) => r.id));
           for (const r of broadResults) {
             if (!existingIds.has(r.id)) {
@@ -912,10 +956,15 @@ function registerHooks(
         // Search session memories (session-scoped) if we have a session ID
         let sessionResults: MemoryItem[] = [];
         if (sessionId) {
-          sessionResults = await provider.search(
-            event.prompt,
-            buildSearchOptions(undefined, undefined, sessionId, recallSessionKey),
-          );
+          sessionResults = await withTimeout(
+            provider.search(
+              event.prompt,
+              buildSearchOptions(undefined, undefined, sessionId, recallSessionKey),
+            ),
+            recallTimeoutMs,
+            "session recall search",
+            api.logger,
+          ) ?? [];
           sessionResults = sessionResults.filter(
             (r) => (r.score ?? 0) >= cfg.searchThreshold,
           );
@@ -991,6 +1040,10 @@ function registerHooks(
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
+      // Fire-and-forget: capture does not produce a return value that the
+      // host framework needs, so run the heavy LLM work in a detached
+      // promise to avoid blocking the event loop.
+      void (async () => {
       try {
         // Patterns indicating an assistant message contains a summary of
         // completed work — these are high-value for extraction and should
@@ -1123,6 +1176,7 @@ function registerHooks(
       } catch (err) {
         api.logger.warn(`openclaw-mem0: capture failed: ${String(err)}`);
       }
+      })();
     });
   }
 }

@@ -28,6 +28,7 @@ export type Mem0Config = {
   autoRecall: boolean;
   searchThreshold: number;
   topK: number;
+  recallTimeoutMs: number;
 };
 
 export interface AddOptions {
