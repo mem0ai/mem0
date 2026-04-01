@@ -261,57 +261,70 @@ export function loadSkill(
 }
 
 /**
- * Load and assemble the full triage + recall skill prompt for injection
- * into before_agent_start. Respects skills.recall.enabled.
+ * Build the memory system prompt for injection via prependSystemContext.
+ *
+ * Primary path: load the full SKILL.md via loadSkill(), which merges
+ * domain overlays, category overrides, custom rules, and triage knobs.
+ * This ensures the config surface (skills.domain, customRules, categories)
+ * is what the live before_prompt_build path actually sends.
+ *
+ * Fallback: if SKILL.md cannot be read (missing file, broken path), use
+ * a minimal inline protocol so memory still functions.
  */
 export function loadTriagePrompt(config: SkillsConfig = {}): string {
-  const parts: string[] = [];
+  // Try to load the full skill with all config-driven overlays
+  const triage = loadSkill("memory-triage", config);
 
-  // Inline protocol — must be present every turn since lazy skill loading
-  // means the model may skip reading the SKILL.md file.
-  // This is the minimal viable protocol; full details in SKILL.md.
+  if (triage) {
+    // Full SKILL.md loaded with domain overlays, categories, custom rules, knobs merged.
+    // Wrap in <memory-system> and append the operational instructions that
+    // are not part of the SKILL.md (tool format, batching, search protocol).
+    const parts: string[] = [];
+    parts.push("<memory-system>");
+    parts.push("IMPORTANT: Use `memory_store` tool for ALL user facts. NEVER write user info to workspace files (USER.md, memory/).");
+    parts.push("");
+    parts.push(triage.prompt);
+    parts.push("");
+    parts.push("## Tool Usage");
+    parts.push("");
+    parts.push("Batch facts by CATEGORY. All facts in one memory_store call must share the same category because category determines retention policy (TTL, immutability). If a turn has facts in different categories, make one call per category.");
+    parts.push("");
+    parts.push("FORMAT (single category):");
+    parts.push('  memory_store(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")');
+    parts.push("FORMAT (mixed categories in one turn, separate calls):");
+    parts.push('  memory_store(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")');
+    parts.push('  memory_store(facts: ["As of 2026-04-01, migrating from Postgres to CockroachDB"], category: "decision")');
+    parts.push("");
+    parts.push("## Searching Memory");
+    parts.push("");
+    parts.push("When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.");
+    parts.push("Stored memories are third-person factual statements. Write a query that matches storage language, not conversation language.");
+    parts.push("Process: (1) Name your target. (2) Extract signal: proper nouns, technical terms, domain concepts. (3) Bridge to storage language: add terms the stored memory contains (user, decided, prefers, rule, configured, based in). (4) Compose 3-6 keywords.");
+    parts.push('WRONG: memory_search("Who was that nutritionist my wife recommended?")');
+    parts.push('RIGHT: memory_search("nutritionist wife recommended relationship")');
+    parts.push('WRONG: memory_search("What timezone am I in?")');
+    parts.push('RIGHT: memory_search("user timezone location based")');
+    parts.push("");
+    parts.push("SEARCH FILTERS: When the user's intent implies a time range or category constraint, pass a `filters` object alongside your rewritten query.");
+    parts.push('- Time: "last week" -> filters: {"created_at": {"gte": "2026-03-24"}}');
+    parts.push('- Category: "my preferences" -> categories: ["preference"]');
+    parts.push("- Available operators: eq, ne, gt, gte, lt, lte, in, contains. Logical: AND, OR, NOT.");
+    parts.push("</memory-system>");
+    return parts.join("\n");
+  }
+
+  // Fallback: SKILL.md not found. Minimal inline protocol.
+  const parts: string[] = [];
   parts.push("<memory-system>");
   parts.push("You have persistent long-term memory via mem0. After EVERY response, evaluate the turn for facts worth storing.");
-  parts.push("");
-  parts.push("RULES:");
-  parts.push("- Use `memory_store` tool for ALL user facts. NEVER write user info to workspace files (USER.md, memory/).");
-  parts.push("- Most turns produce ZERO memory operations. That is correct.");
-  parts.push("- Only store facts a new agent would need days later: identity, preferences, decisions, rules, projects, configs.");
-  parts.push("- Skip: tool outputs, status checks, small talk, acknowledgments, credentials, facts already recalled.");
-  parts.push("- 15-50 words per fact. Third person. Temporal anchor time-sensitive facts with 'As of YYYY-MM-DD'.");
-  parts.push("- Preserve the user's exact words for opinions and preferences.");
-  parts.push("- Batch facts by CATEGORY. All facts in one memory_store call must share the same category because category determines retention policy (TTL, immutability). If a turn has facts in different categories, make one call per category.");
-  parts.push("- Each category call sends one API request. Two categories = two calls. This is correct and expected.");
-  parts.push("");
-  parts.push("FORMAT (single category):");
-  parts.push('  memory_store(facts: ["User is Alex, backend engineer at Stripe, based in SF, PST timezone"], category: "identity")');
-  parts.push("FORMAT (mixed categories in one turn, two calls):");
-  parts.push('  memory_store(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")');
-  parts.push('  memory_store(facts: ["As of 2026-04-01, user is migrating from Postgres to CockroachDB for multi-region writes"], category: "decision")');
-  parts.push("");
-  parts.push("CREDENTIALS: NEVER store sk-, m0-, ghp_, AKIA, Bearer tokens, passwords. Store that it was configured, not the value.");
-  parts.push("");
-  parts.push("SEARCHING MEMORY: When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.");
-  parts.push("Stored memories are third-person factual statements. The user's message is conversational. Write a query that matches storage language, not conversation language.");
-  parts.push("Process: (1) Name your target: what category of memory are you looking for? (2) Extract signal: proper nouns, technical terms, domain concepts only. (3) Bridge to storage language: add terms the stored memory contains (user, decided, prefers, rule, configured, based in). (4) Compose 3-6 keywords. No questions, no pronouns, no filler.");
-  parts.push('WRONG: memory_search("Who was that nutritionist my wife recommended?")');
-  parts.push('RIGHT: memory_search("nutritionist wife recommended relationship")');
-  parts.push('WRONG: memory_search("How do I like my reports formatted?")');
-  parts.push('RIGHT: memory_search("report format preference style")');
-  parts.push('WRONG: memory_search("What timezone am I in?")');
-  parts.push('RIGHT: memory_search("user timezone location based")');
-  parts.push("");
-  parts.push("SEARCH FILTERS: When the user's intent implies a time range, category, or metadata constraint, pass a `filters` object alongside your rewritten query.");
-  parts.push("- Time references ('last week', 'recently', 'in March'): add created_at filter with gte/lte dates in YYYY-MM-DD format.");
-  parts.push("- Category-specific requests ('my preferences', 'any rules about', 'decisions we made'): add categories filter.");
-  parts.push("- Combine query rewriting WITH filters. The query finds semantically relevant memories. The filters narrow by time, category, or metadata.");
-  parts.push('- Example: "What did we decide last week?" → memory_search("decision chose rationale", filters: {"created_at": {"gte": "2026-03-24"}})');
-  parts.push('- Example: "What are my standing rules?" → memory_search("user rule always never", categories: ["rule"])');
-  parts.push('- Example: "Recent project updates" → memory_search("project status milestone", categories: ["project"], filters: {"created_at": {"gte": "2026-03-01"}})');
-  parts.push("- Available operators: eq, ne, gt, gte, lt, lte, in, contains. Logical: AND, OR, NOT.");
-  parts.push("For the complete query rewriting protocol with worked examples and failure patterns, read the recall-protocol reference in the memory-triage skill.");
+  parts.push("Use `memory_store` tool for ALL user facts. NEVER write user info to workspace files (USER.md, memory/).");
+  parts.push("Most turns produce ZERO memory operations. That is correct.");
+  parts.push("Only store facts a new agent would need days later: identity, preferences, decisions, rules, projects, configs.");
+  parts.push("Batch facts by CATEGORY. All facts in one call must share the same category.");
+  parts.push('Format: memory_store(facts: ["fact text"], category: "identity")');
+  parts.push("NEVER store credentials (sk-, m0-, ghp_, AKIA, Bearer tokens, passwords).");
+  parts.push("When searching, rewrite queries for retrieval. Do not pass raw user messages.");
   parts.push("</memory-system>");
-
   return parts.join("\n");
 }
 
