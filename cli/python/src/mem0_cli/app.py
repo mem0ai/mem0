@@ -812,7 +812,9 @@ def init(
     code: str | None = typer.Option(
         None, "--code", help="Verification code (use with --email for non-interactive login)."
     ),
-    force: bool = typer.Option(False, "--force", help="Overwrite existing config without confirmation."),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite existing config without confirmation."
+    ),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 

@@ -196,9 +196,7 @@ def run_init(
                 f"[{DIM_COLOR}](API key: {redact_key(existing.platform.api_key)})[/]"
             )
             if sys.stdin.isatty():
-                confirm = typer.confirm(
-                    "  Overwrite existing config? This cannot be undone."
-                )
+                confirm = typer.confirm("  Overwrite existing config? This cannot be undone.")
                 if not confirm:
                     print_info(console, "Cancelled. Use --force to skip this check.")
                     raise typer.Exit(0)
