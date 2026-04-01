@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json as _json
+import os
+import stat as _stat_mod
 import sys
 from pathlib import Path
 
@@ -121,9 +123,22 @@ def _resolve_ids(
     }
 
 
+def _stdin_is_piped() -> bool:
+    """Return True only when stdin is an actual pipe or file redirect — not a bare open fd."""
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return False
+    try:
+        mode = os.fstat(sys.stdin.fileno()).st_mode
+        return _stat_mod.S_ISFIFO(mode) or _stat_mod.S_ISREG(mode)
+    except Exception:
+        return False
+
+
 def _read_stdin() -> str | None:
-    """Read from stdin if it is piped (not a TTY)."""
-    if not sys.stdin.isatty():
+    """Read from stdin if it is an actual pipe or file redirect (not a TTY, not agent mode)."""
+    if _stdin_is_piped():
         return sys.stdin.read().strip() or None
     return None
 

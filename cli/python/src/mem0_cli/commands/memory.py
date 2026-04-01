@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import stat as _stat_mod
 import sys
 import time as _time
 from pathlib import Path
@@ -30,6 +32,19 @@ from mem0_cli.output import (
 
 console = Console()
 err_console = Console(stderr=True)
+
+
+def _stdin_is_piped() -> bool:
+    """Return True only when stdin is an actual pipe or file redirect."""
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return False
+    try:
+        mode = os.fstat(sys.stdin.fileno()).st_mode
+        return _stat_mod.S_ISFIFO(mode) or _stat_mod.S_ISREG(mode)
+    except Exception:
+        return False
 
 
 def cmd_add(
@@ -76,8 +91,8 @@ def cmd_add(
             print_error(err_console, f"Invalid JSON in --messages: {e}")
             raise typer.Exit(1) from None
 
-    # Read from stdin if no text and stdin is piped
-    elif not content and not sys.stdin.isatty():
+    # Read from stdin only if stdin is an actual pipe or file redirect
+    elif not content and _stdin_is_piped():
         content = sys.stdin.read().strip()
 
     if not content and not msgs:
