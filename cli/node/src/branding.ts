@@ -19,8 +19,8 @@ export const LOGO = `
 export const LOGO_MINI = "◆ mem0";
 export const TAGLINE = "The Memory Layer for AI Agents";
 
-export const BRAND_COLOR = "#8b5cf6";
-export const ACCENT_COLOR = "#a78bfa";
+export const BRAND_COLOR = "#F1C96C";
+export const ACCENT_COLOR = "#F5D78E";
 export const SUCCESS_COLOR = "#22c55e";
 export const ERROR_COLOR = "#ef4444";
 export const WARNING_COLOR = "#f59e0b";
@@ -145,7 +145,7 @@ export async function timedStatus<T>(
 	const ctx: TimedStatusContext = { successMsg: "", errorMsg: "" };
 	const spinner = ora({
 		text: dim(message),
-		color: "magenta",
+		color: "yellow",
 		stream: process.stderr,
 	}).start();
 	const start = performance.now();
