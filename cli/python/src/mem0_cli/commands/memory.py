@@ -20,6 +20,7 @@ from mem0_cli.branding import (
 )
 from mem0_cli.output import (
     format_add_result,
+    format_agent_envelope,
     format_json,
     format_memories_table,
     format_memories_text,
@@ -50,6 +51,10 @@ def cmd_add(
     output: str = "text",
 ) -> None:
     """Add a memory."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("add")
+    if is_agent_mode():
+        output = "agent"
     msgs = None
     content = text
 
@@ -133,6 +138,18 @@ def cmd_add(
     if output == "quiet":
         return
 
+    if output == "agent":
+        results_list = result if isinstance(result, list) else result.get("results", [result])
+        scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+        format_agent_envelope(
+            console,
+            command="add",
+            data=results_list,
+            scope=scope or None,
+            count=len(results_list),
+        )
+        return
+
     if output == "json":
         format_add_result(console, result, output)
         return
@@ -166,6 +183,10 @@ def cmd_search(
     output: str = "text",
 ) -> None:
     """Search memories."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("search")
+    if is_agent_mode():
+        output = "agent"
     filters = None
     if filter_json:
         try:
@@ -210,6 +231,18 @@ def cmd_search(
     if output == "quiet":
         return
 
+    if output == "agent":
+        scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+        format_agent_envelope(
+            console,
+            command="search",
+            data=results,
+            scope=scope or None,
+            count=len(results),
+            duration_ms=int(_elapsed * 1000),
+        )
+        return
+
     if output == "json":
         format_json(console, results)
     elif output == "table":
@@ -236,6 +269,10 @@ def cmd_search(
 
 def cmd_get(backend: Backend, memory_id: str, *, output: str) -> None:
     """Get a specific memory by ID."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("get")
+    if is_agent_mode():
+        output = "agent"
     with timed_status(err_console, "Fetching memory...") as _ts:
         try:
             result = backend.get(memory_id)
@@ -243,7 +280,10 @@ def cmd_get(backend: Backend, memory_id: str, *, output: str) -> None:
             print_error(err_console, str(e))
             raise typer.Exit(1) from None
 
-    format_single_memory(console, result, output)
+    if output == "agent":
+        format_agent_envelope(console, command="get", data=result)
+    else:
+        format_single_memory(console, result, output)
 
 
 def cmd_list(
@@ -262,6 +302,10 @@ def cmd_list(
     output: str = "table",
 ) -> None:
     """List memories."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("list")
+    if is_agent_mode():
+        output = "agent"
     if page_size < 1:
         print_error(err_console, "--page-size must be >= 1.")
         raise typer.Exit(1)
@@ -292,15 +336,15 @@ def cmd_list(
     if output == "quiet":
         return
 
-    if output == "json":
-        from mem0_cli.output import format_json_envelope
-
-        format_json_envelope(
+    if output in ("json", "agent"):
+        scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+        format_agent_envelope(
             console,
             command="list",
             data=results,
+            scope=scope or None,
             count=len(results),
-            scope={k: v for k, v in {"user_id": user_id, "agent_id": agent_id}.items() if v},
+            duration_ms=int(_elapsed * 1000),
         )
     elif output == "table":
         if results:
@@ -343,6 +387,10 @@ def cmd_update(
     output: str,
 ) -> None:
     """Update a memory."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("update")
+    if is_agent_mode():
+        output = "agent"
     meta = None
     if metadata:
         try:
@@ -360,7 +408,14 @@ def cmd_update(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
-    if output == "json":
+    if output == "agent":
+        format_agent_envelope(
+            console,
+            command="update",
+            data=result,
+            duration_ms=int(_elapsed * 1000),
+        )
+    elif output == "json":
         format_json(console, result)
     elif output != "quiet":
         print_success(console, f"Memory {memory_id[:8]} updated ({_elapsed:.2f}s)")
@@ -375,6 +430,10 @@ def cmd_delete(
     output: str,
 ) -> None:
     """Delete a single memory by ID."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("delete")
+    if is_agent_mode():
+        output = "agent"
     if dry_run:
         # Fetch and display what would be deleted
         try:
@@ -395,7 +454,14 @@ def cmd_delete(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
-    if output == "json":
+    if output == "agent":
+        format_agent_envelope(
+            console,
+            command="delete",
+            data={"id": memory_id, "deleted": True},
+            duration_ms=int(_elapsed * 1000),
+        )
+    elif output == "json":
         format_json(console, result)
     elif output != "quiet":
         print_success(console, f"Memory {memory_id[:8]} deleted ({_elapsed:.2f}s)")
@@ -414,6 +480,13 @@ def cmd_delete_all(
     output: str,
 ) -> None:
     """Delete all memories matching a scope."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("delete-all")
+    if is_agent_mode():
+        output = "agent"
+        if not force:
+            print_error(err_console, "Destructive operation requires --force in agent mode.")
+            raise typer.Exit(1)
     if all_:
         # Project-wide wipe using wildcard entity IDs
         if dry_run:
@@ -445,7 +518,14 @@ def cmd_delete_all(
                 raise typer.Exit(1) from None
         _elapsed = _time.perf_counter() - _start
 
-        if output == "json":
+        if output == "agent":
+            format_agent_envelope(
+                console,
+                command="delete-all",
+                data={"deleted": True, "scope": "project"},
+                duration_ms=int(_elapsed * 1000),
+            )
+        elif output == "json":
             format_json(console, result)
         elif output != "quiet":
             if isinstance(result, dict) and "message" in result:
@@ -503,7 +583,16 @@ def cmd_delete_all(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
-    if output == "json":
+    scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id, "app_id": app_id, "run_id": run_id}.items() if v}
+    if output == "agent":
+        format_agent_envelope(
+            console,
+            command="delete-all",
+            data={"deleted": True},
+            scope=scope or None,
+            duration_ms=int(_elapsed * 1000),
+        )
+    elif output == "json":
         format_json(console, result)
     elif output != "quiet":
         if isinstance(result, dict) and "message" in result:

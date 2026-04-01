@@ -135,7 +135,17 @@ def _read_stdin() -> str | None:
 def main_callback(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", help="Show version and exit."),
+    json_agent: bool = typer.Option(
+        False,
+        "--json",
+        "--agent",
+        help="Output as JSON for agent/programmatic use.",
+        is_eager=False,
+    ),
 ) -> None:
+    if json_agent:
+        from mem0_cli.state import set_agent_mode
+        set_agent_mode(True)
     if version:
         from mem0_cli.commands.utils import cmd_version
 
@@ -1075,6 +1085,7 @@ def _build_help_json() -> dict:
         "global_options": {
             "--api-key": "Override API key (env: MEM0_API_KEY).",
             "--base-url": "Override API base URL.",
+            "--json / --agent": "Output as JSON for agent/programmatic use.",
             "--help": "Show help for a command.",
             "--version": "Show version and exit.",
         },

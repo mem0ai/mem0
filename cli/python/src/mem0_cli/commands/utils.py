@@ -35,15 +35,19 @@ def cmd_status(
     output: str = "text",
 ) -> None:
     """Check connectivity and auth."""
-    from mem0_cli.output import format_json_envelope
+    from mem0_cli.output import format_agent_envelope
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("status")
+    if is_agent_mode():
+        output = "agent"
 
     _start = _time.perf_counter()
     with timed_status(err_console, "Checking connection...") as _ts:
         result = backend.status(user_id=user_id, agent_id=agent_id)
     _elapsed = _time.perf_counter() - _start
 
-    if output == "json":
-        format_json_envelope(
+    if output in ("json", "agent"):
+        format_agent_envelope(
             console,
             command="status",
             data={
@@ -96,7 +100,11 @@ def cmd_import(
     output: str = "text",
 ) -> None:
     """Import memories from a JSON file."""
-    from mem0_cli.output import format_json_envelope
+    from mem0_cli.output import format_agent_envelope
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("import")
+    if is_agent_mode():
+        output = "agent"
 
     try:
         data = json.loads(Path(file_path).read_text())
@@ -129,11 +137,13 @@ def cmd_import(
             failed += 1
     _elapsed = _time.perf_counter() - _start
 
-    if output == "json":
-        format_json_envelope(
+    if output in ("json", "agent"):
+        scope = {k: v for k, v in {"user_id": user_id, "agent_id": agent_id}.items() if v}
+        format_agent_envelope(
             console,
             command="import",
-            data={"added": added, "failed": failed, "duration_s": round(_elapsed, 2)},
+            data={"added": added, "failed": failed},
+            scope=scope or None,
             duration_ms=int(_elapsed * 1000),
         )
         return

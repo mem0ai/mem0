@@ -21,7 +21,7 @@ from mem0_cli.branding import (
     print_info,
     timed_status,
 )
-from mem0_cli.output import format_json
+from mem0_cli.output import format_agent_envelope, format_json
 
 console = Console()
 err_console = Console(stderr=True)
@@ -40,12 +40,30 @@ def _status_styled(status: str) -> str:
 
 def cmd_event_list(backend: Backend, *, output: str = "table") -> None:
     """List recent background events."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("event list")
+    if is_agent_mode():
+        output = "agent"
+    import time as _time
+    _start = _time.perf_counter()
     with timed_status(err_console, "Fetching events...") as _ts:
         try:
             results = backend.list_events()
         except Exception as e:
             _ts.error_msg = str(e)
             raise typer.Exit(1) from None
+
+    _elapsed = _time.perf_counter() - _start
+
+    if output == "agent":
+        format_agent_envelope(
+            console,
+            command="event list",
+            data=results,
+            count=len(results),
+            duration_ms=int(_elapsed * 1000),
+        )
+        return
 
     if output == "json":
         format_json(console, results)
@@ -86,12 +104,29 @@ def cmd_event_list(backend: Backend, *, output: str = "table") -> None:
 
 def cmd_event_status(backend: Backend, event_id: str, *, output: str = "text") -> None:
     """Get the status of a specific background event."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("event status")
+    if is_agent_mode():
+        output = "agent"
+    import time as _time
+    _start = _time.perf_counter()
     with timed_status(err_console, "Fetching event...") as _ts:
         try:
             ev = backend.get_event(event_id)
         except Exception as e:
             _ts.error_msg = str(e)
             raise typer.Exit(1) from None
+
+    _elapsed = _time.perf_counter() - _start
+
+    if output == "agent":
+        format_agent_envelope(
+            console,
+            command="event status",
+            data=ev,
+            duration_ms=int(_elapsed * 1000),
+        )
+        return
 
     if output == "json":
         format_json(console, ev)

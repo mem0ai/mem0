@@ -1088,3 +1088,311 @@ class TestEventCommands:
         out = buf.getvalue()
         assert "evt-abc-123-def-456" in out
         assert "ADD" in out
+
+
+class TestAgentMode:
+    """Tests for --json/--agent mode: structured JSON envelope output."""
+
+    def setup_method(self):
+        """Enable agent mode before each test."""
+        from mem0_cli.state import set_agent_mode
+        set_agent_mode(True)
+
+    def teardown_method(self):
+        """Reset agent mode after each test."""
+        from mem0_cli.state import set_agent_mode
+        set_agent_mode(False)
+
+    # ── add ──────────────────────────────────────────────────────────────────
+
+    def test_add_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_add(
+                mock_backend,
+                "I prefer dark mode",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                output="text",  # will be overridden to "agent"
+            )
+        raw = buf.getvalue()
+        data = json.loads(raw)
+        assert data["status"] == "success"
+        assert data["command"] == "add"
+        assert "data" in data
+        assert isinstance(data["data"], list)
+        assert data["count"] == 1
+
+    def test_add_agent_mode_scope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="bob",
+                agent_id="agent1",
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                output="text",
+            )
+        data = json.loads(buf.getvalue())
+        assert data["scope"]["user_id"] == "bob"
+        assert data["scope"]["agent_id"] == "agent1"
+
+    # ── search ───────────────────────────────────────────────────────────────
+
+    def test_search_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_search(
+                mock_backend,
+                "dark mode",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                top_k=10,
+                threshold=0.3,
+                rerank=False,
+                keyword=False,
+                filter_json=None,
+                fields=None,
+                output="text",
+            )
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "search"
+        assert isinstance(data["data"], list)
+        assert data["count"] == 2
+        assert "duration_ms" in data
+
+    # ── list ─────────────────────────────────────────────────────────────────
+
+    def test_list_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_list(
+                mock_backend,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                page=1,
+                page_size=100,
+                category=None,
+                after=None,
+                before=None,
+                output="table",  # will be overridden to "agent"
+            )
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "list"
+        assert isinstance(data["data"], list)
+        assert data["count"] == 2
+        assert data["scope"]["user_id"] == "alice"
+
+    # ── get ──────────────────────────────────────────────────────────────────
+
+    def test_get_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_get(mock_backend, "abc-123-def-456", output="text")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "get"
+        assert isinstance(data["data"], dict)
+        assert data["data"]["id"] == "abc-123-def-456"
+        assert "memory" in data["data"]
+
+    # ── update ───────────────────────────────────────────────────────────────
+
+    def test_update_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_update(mock_backend, "abc-123", "Updated content", metadata=None, output="text")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "update"
+        assert isinstance(data["data"], dict)
+        assert "memory" in data["data"]
+        assert "duration_ms" in data
+
+    # ── delete ───────────────────────────────────────────────────────────────
+
+    def test_delete_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_delete(mock_backend, "abc-123-def-456", output="text")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "delete"
+        assert data["data"]["id"] == "abc-123-def-456"
+        assert data["data"]["deleted"] is True
+        assert "duration_ms" in data
+
+    # ── event list ───────────────────────────────────────────────────────────
+
+    def test_event_list_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_list(mock_backend, output="table")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "event list"
+        assert isinstance(data["data"], list)
+        assert data["count"] == 2
+        assert "duration_ms" in data
+
+    # ── event status ─────────────────────────────────────────────────────────
+
+    def test_event_status_agent_mode_envelope(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_status(mock_backend, "evt-abc-123-def-456", output="text")
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "event status"
+        assert isinstance(data["data"], dict)
+        assert data["data"]["id"] == "evt-abc-123-def-456"
+        assert "duration_ms" in data
+
+    # ── error handling ───────────────────────────────────────────────────────
+
+    def test_error_in_agent_mode_produces_json_to_stdout(self, mock_backend):
+        """Errors in agent mode must emit a JSON envelope to stdout, not stderr."""
+        import sys
+        from io import StringIO
+
+        mock_backend.get.side_effect = Exception("Memory not found")
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+
+        captured_stdout = StringIO()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+            patch("sys.stdout", captured_stdout),
+            pytest.raises((SystemExit, ClickExit)),
+        ):
+            cmd_get(mock_backend, "bad-id", output="text")
+
+        stdout_output = captured_stdout.getvalue()
+        # The error JSON envelope must be on stdout
+        error_data = json.loads(stdout_output)
+        assert error_data["status"] == "error"
+        assert "error" in error_data
+        assert error_data["data"] is None
+
+    def test_branding_suppressed_in_agent_mode(self, mock_backend):
+        """Scope line and success message must be absent in agent mode output."""
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_add(
+                mock_backend,
+                "branding test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                output="text",
+            )
+        output = buf.getvalue()
+        # Must be valid JSON only — no human-readable branding
+        data = json.loads(output)
+        assert data["status"] == "success"
+        # "Scope:" and "Memory processed" must NOT appear in the raw output
+        assert "Scope:" not in output
+        assert "Memory processed" not in output
+        assert "spinner" not in output.lower()
+
+    def test_no_spinner_in_agent_mode(self, mock_backend):
+        """timed_status must not emit spinner output in agent mode."""
+        err_buf = StringIO()
+        err_console_buf = Console(file=err_buf, force_terminal=False, no_color=True, width=120)
+        console, _buf = _make_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console_buf),
+        ):
+            cmd_search(
+                mock_backend,
+                "query",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                top_k=5,
+                threshold=0.3,
+                rerank=False,
+                keyword=False,
+                filter_json=None,
+                fields=None,
+                output="text",
+            )
+        # The err_buf captures what would have been spinner/timing noise
+        # In agent mode it should be empty (no status lines printed)
+        err_output = err_buf.getvalue()
+        assert "Searching" not in err_output

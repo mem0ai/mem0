@@ -20,12 +20,16 @@ err_console = Console(stderr=True)
 
 def cmd_config_show(*, output: str = "text") -> None:
     """Display current configuration (secrets redacted)."""
-    from mem0_cli.output import format_json_envelope
+    from mem0_cli.output import format_agent_envelope, format_json_envelope
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("config show")
+    if is_agent_mode():
+        output = "agent"
 
     config = load_config()
 
-    if output == "json":
-        format_json_envelope(
+    if output in ("json", "agent"):
+        format_agent_envelope(
             console,
             command="config show",
             data={
@@ -84,25 +88,36 @@ def cmd_config_show(*, output: str = "text") -> None:
 
 def cmd_config_get(key: str) -> None:
     """Get a config value."""
+    from mem0_cli.output import format_agent_envelope
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("config get")
     config = load_config()
     value = get_nested_value(config, key)
 
     if value is None:
         print_error(err_console, f"Unknown config key: {key}")
+        return
+
+    display_value = redact_key(str(value)) if ("api_key" in key or "key" in key.split(".")[-1:]) else str(value)
+
+    if is_agent_mode():
+        format_agent_envelope(console, command="config get", data={"key": key, "value": display_value})
     else:
-        # Redact secrets
-        if "api_key" in key or "key" in key.split(".")[-1:]:
-            console.print(redact_key(str(value)))
-        else:
-            console.print(str(value))
+        console.print(display_value)
 
 
 def cmd_config_set(key: str, value: str) -> None:
     """Set a config value."""
+    from mem0_cli.output import format_agent_envelope
+    from mem0_cli.state import is_agent_mode, set_current_command
+    set_current_command("config set")
     config = load_config()
     if set_nested_value(config, key, value):
         save_config(config)
         display = redact_key(value) if "key" in key else value
-        print_success(console, f"{key} = {display}")
+        if is_agent_mode():
+            format_agent_envelope(console, command="config set", data={"key": key, "value": display})
+        else:
+            print_success(console, f"{key} = {display}")
     else:
         print_error(err_console, f"Unknown config key: {key}")

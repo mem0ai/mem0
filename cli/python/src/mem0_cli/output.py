@@ -226,6 +226,32 @@ def format_json_envelope(
     console.print_json(json.dumps(envelope, default=str))
 
 
+def format_agent_envelope(
+    console: Console,
+    *,
+    command: str,
+    data: Any,
+    duration_ms: int | None = None,
+    scope: dict | None = None,
+    count: int | None = None,
+) -> None:
+    """Output structured JSON envelope for agent/programmatic use (--json/--agent mode)."""
+    envelope: dict[str, Any] = {
+        "status": "success",
+        "command": command,
+    }
+    if duration_ms is not None:
+        envelope["duration_ms"] = duration_ms
+    if scope:
+        filtered = {k: v for k, v in scope.items() if v}
+        if filtered:
+            envelope["scope"] = filtered
+    if count is not None:
+        envelope["count"] = count
+    envelope["data"] = data
+    console.print_json(json.dumps(envelope, default=str))
+
+
 def print_result_summary(
     console: Console,
     count: int,
