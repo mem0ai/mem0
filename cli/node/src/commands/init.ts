@@ -2,6 +2,7 @@
  * mem0 init — interactive setup wizard.
  */
 
+import fs from "node:fs";
 import readline from "node:readline";
 import { PlatformBackend } from "../backend/platform.js";
 import {
@@ -12,10 +13,12 @@ import {
 	printSuccess,
 } from "../branding.js";
 import {
+	CONFIG_FILE,
 	DEFAULT_BASE_URL,
 	type Mem0Config,
 	createDefaultConfig,
 	loadConfig,
+	redactKey,
 	saveConfig,
 } from "../config.js";
 
@@ -193,9 +196,10 @@ async function setupDefaults(config: Mem0Config): Promise<void> {
 	console.log();
 	printInfo("Set default entity IDs (press Enter to skip).\n");
 
+	const _systemUser = process.env.USER || process.env.USERNAME || "mem0-cli";
 	const userId = await promptLine(
 		`  ${brand("Default User ID")} ${dim("(recommended)")}`,
-		"mem0-cli",
+		_systemUser,
 	);
 	if (userId) config.defaults.userId = userId;
 }
@@ -214,7 +218,7 @@ async function validatePlatform(config: Mem0Config): Promise<void> {
 		} else {
 			printError(
 				`Could not connect: ${status.error ?? "Unknown error"}`,
-				"Check your API key and try again.",
+				"Visit https://app.mem0.ai/dashboard/api-keys to get a new key, or run mem0 init again.",
 			);
 		}
 	} catch (e) {
@@ -228,6 +232,7 @@ export async function runInit(
 		userId?: string;
 		email?: string;
 		code?: string;
+		force?: boolean;
 	} = {},
 ): Promise<void> {
 	const config = createDefaultConfig();
@@ -245,6 +250,40 @@ export async function runInit(
 	if (opts.email && opts.apiKey) {
 		printError("Cannot use both --api-key and --email.");
 		process.exit(1);
+	}
+
+	// Warn if an existing config with an API key would be overwritten
+	if (
+		!opts.force &&
+		fs.existsSync(CONFIG_FILE) &&
+		savedConfig.platform.apiKey
+	) {
+		console.log(
+			`\n  ${brand("Existing configuration found")} ${dim(`(API key: ${redactKey(savedConfig.platform.apiKey)})`)}`,
+		);
+		if (process.stdin.isTTY) {
+			const rl = readline.createInterface({
+				input: process.stdin,
+				output: process.stdout,
+			});
+			const answer = await new Promise<string>((resolve) => {
+				rl.question(
+					"  Overwrite existing config? This cannot be undone. [y/N] ",
+					resolve,
+				);
+			});
+			rl.close();
+			if (answer.toLowerCase() !== "y") {
+				printInfo("Cancelled. Use --force to skip this check.");
+				process.exit(0);
+			}
+		} else {
+			printError(
+				"Existing config would be overwritten.",
+				"Use --force to overwrite.",
+			);
+			process.exit(1);
+		}
 	}
 
 	// ── Email login flow ──────────────────────────────────────────────────────
@@ -268,7 +307,8 @@ export async function runInit(
 
 		config.platform.apiKey = apiKeyVal;
 		config.platform.baseUrl = baseUrl;
-		config.defaults.userId = opts.userId || "mem0-cli";
+		config.defaults.userId =
+			opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 
 		saveConfig(config);
 		console.log();
@@ -283,6 +323,19 @@ export async function runInit(
 
 	// ── API key flow ──────────────────────────────────────────────────────────
 
+	// Non-TTY: resolve defaults so partial flags work in pipelines / CI
+	if (!process.stdin.isTTY) {
+		if (!opts.apiKey) {
+			printError(
+				"Non-interactive terminal detected and --api-key is required.",
+				"Usage: mem0 init --api-key <key> [--user-id <id>]",
+			);
+			process.exit(1);
+		}
+		opts.userId =
+			opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
+	}
+
 	// Non-interactive: both flags provided
 	if (opts.apiKey && opts.userId) {
 		config.platform.apiKey = opts.apiKey;
@@ -291,15 +344,6 @@ export async function runInit(
 		saveConfig(config);
 		printSuccess("Configuration saved to ~/.mem0/config.json");
 		return;
-	}
-
-	// Non-TTY without full flags: error with usage hint
-	if (!process.stdin.isTTY && (!opts.apiKey || !opts.userId)) {
-		printError(
-			"Non-interactive terminal detected and missing required flags.",
-			"Usage: mem0 init --api-key <key> --user-id <id>",
-		);
-		process.exit(1);
 	}
 
 	printBanner();
@@ -341,7 +385,8 @@ export async function runInit(
 
 			config.platform.apiKey = apiKeyVal;
 			config.platform.baseUrl = baseUrl;
-			config.defaults.userId = opts.userId || "mem0-cli";
+			config.defaults.userId =
+				opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 
 			saveConfig(config);
 			console.log();

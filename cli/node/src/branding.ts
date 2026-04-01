@@ -4,6 +4,7 @@
 
 import chalk from "chalk";
 import ora, { type Ora } from "ora";
+import { getCurrentCommand, isAgentMode } from "./state.js";
 import { CLI_VERSION } from "./version.js";
 
 export const LOGO = `
@@ -42,6 +43,7 @@ export function sym(fancy: string, plain: string): string {
 }
 
 export function printBanner(): void {
+	if (isAgentMode()) return;
 	const pad = 3; // horizontal padding each side (matches Rich's padding=(0, 2))
 	const logoLines = LOGO.trimEnd().split("\n");
 	const tagline = `  ${TAGLINE}`;
@@ -75,13 +77,29 @@ export function printBanner(): void {
 }
 
 export function printSuccess(message: string): void {
+	if (isAgentMode()) return;
 	console.log(`${success(sym("✓", "[ok]"))} ${message}`);
 }
 
 export function printError(message: string, hint?: string): void {
+	if (isAgentMode()) {
+		const envelope = {
+			status: "error",
+			command: getCurrentCommand(),
+			error: message,
+			data: null,
+		};
+		console.log(JSON.stringify(envelope));
+		return;
+	}
 	console.error(`${error(`${sym("✗", "[error]")} Error:`)} ${message}`);
-	if (hint) {
-		console.error(`  ${dim(hint)}`);
+	const resolvedHint =
+		hint ??
+		(message.includes("Authentication failed")
+			? `Run ${brand("mem0 init")} to reconfigure your API key · https://app.mem0.ai/dashboard/api-keys`
+			: undefined);
+	if (resolvedHint) {
+		console.error(`  ${dim(resolvedHint)}`);
 	}
 }
 
@@ -90,15 +108,16 @@ export function printWarning(message: string): void {
 }
 
 export function printInfo(message: string): void {
+	if (isAgentMode()) return;
 	console.error(`${brand(sym("◆", "*"))} ${message}`);
 }
 
 export function printScope(ids: Record<string, string | undefined>): void {
+	if (isAgentMode()) return;
 	const parts: string[] = [];
 	for (const [key, val] of Object.entries(ids)) {
 		if (val) {
-			const label = key.replace(/_/g, " ").replace("id", "ID").trim();
-			parts.push(`${label}=${val}`);
+			parts.push(`${key}=${val}`);
 		}
 	}
 	if (parts.length > 0) {
@@ -119,6 +138,10 @@ export async function timedStatus<T>(
 	message: string,
 	fn: (ctx: TimedStatusContext) => Promise<T>,
 ): Promise<T> {
+	if (isAgentMode()) {
+		const ctx: TimedStatusContext = { successMsg: "", errorMsg: "" };
+		return fn(ctx);
+	}
 	const ctx: TimedStatusContext = { successMsg: "", errorMsg: "" };
 	const spinner = ora({
 		text: dim(message),
@@ -139,7 +162,7 @@ export async function timedStatus<T>(
 		const elapsed = ((performance.now() - start) / 1000).toFixed(2);
 		spinner.stop();
 		if (ctx.errorMsg) {
-			console.error(`${error("✗ Error:")} ${ctx.errorMsg} (${elapsed}s)`);
+			printError(`${ctx.errorMsg} (${elapsed}s)`);
 		}
 		throw err;
 	}

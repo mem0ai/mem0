@@ -155,16 +155,23 @@ def format_add_result(console: Console, result: dict | list, output: str = "text
         return
 
     console.print()
+    seen_pending_events: set[str] = set()
     for r in results:
         # Detect async PENDING response from Platform API
         if r.get("status") == "PENDING":
-            event_id = r.get("event_id", "")[:8]
+            event_id = r.get("event_id", "")
+            # Deduplicate PENDING entries with the same event_id
+            if event_id and event_id in seen_pending_events:
+                continue
+            if event_id:
+                seen_pending_events.add(event_id)
             icon = f"[{ACCENT_COLOR}]{_sym('⧗', '...')}[/]"
             parts = [f"  {icon} [{DIM_COLOR}]{'Queued':<10}[/]"]
             parts.append("[white]Processing in background[/]")
-            if event_id:
-                parts.append(f"[{DIM_COLOR}](event {event_id})[/]")
             console.print("  ".join(parts))
+            if event_id:
+                console.print(f"  [{DIM_COLOR}]  event_id: {event_id}[/]")
+                console.print(f"  [{DIM_COLOR}]  → Check status: mem0 event status {event_id}[/]")
             continue
 
         event = r.get("event", "ADD")
@@ -225,6 +232,100 @@ def format_json_envelope(
     console.print_json(json.dumps(envelope, default=str))
 
 
+def sanitize_agent_data(command: str, data: Any) -> Any:
+    """Project API response data to minimal relevant fields for agent consumption."""
+
+    def pick(obj: dict, keys: list) -> dict:
+        return {k: obj[k] for k in keys if k in obj}
+
+    if data is None:
+        return data
+
+    if command == "add":
+        items = data if isinstance(data, list) else [data]
+        result = []
+        for item in items:
+            if item.get("status") == "PENDING":
+                result.append(pick(item, ["status", "event_id"]))
+            else:
+                result.append(pick(item, ["id", "memory", "event"]))
+        return result
+
+    if command == "search":
+        return [pick(r, ["id", "memory", "score", "created_at", "categories"]) for r in data]
+
+    if command == "list":
+        return [pick(r, ["id", "memory", "created_at", "categories"]) for r in data]
+
+    if command == "get":
+        return pick(data, ["id", "memory", "created_at", "updated_at", "categories", "metadata"])
+
+    if command == "update":
+        return pick(data, ["id", "memory"])
+
+    if command in ("delete", "delete-all", "entity delete"):
+        return data
+
+    if command == "entity list":
+        result = []
+        for r in data:
+            item = pick(r, ["type", "count"])
+            item["name"] = r.get("name") or r.get("id", "")
+            result.append(item)
+        return result
+
+    if command == "event list":
+        return [pick(r, ["id", "event_type", "status", "latency", "created_at"]) for r in data]
+
+    if command == "event status":
+        ev = data
+        raw_results = ev.get("results") or []
+        sanitized_results = []
+        for r in raw_results:
+            nested = r.get("data") or {}
+            memory = nested.get("memory") if isinstance(nested, dict) else None
+            sanitized_results.append(
+                {
+                    "id": r.get("id"),
+                    "event": r.get("event"),
+                    "user_id": r.get("user_id"),
+                    "memory": memory,
+                }
+            )
+        result = pick(ev, ["id", "event_type", "status", "latency", "created_at", "updated_at"])
+        result["results"] = sanitized_results
+        return result
+
+    # Pass-through: status, import, config show/get/set
+    return data
+
+
+def format_agent_envelope(
+    console: Console,
+    *,
+    command: str,
+    data: Any,
+    duration_ms: int | None = None,
+    scope: dict | None = None,
+    count: int | None = None,
+) -> None:
+    """Output structured JSON envelope for agent/programmatic use (--json/--agent mode)."""
+    envelope: dict[str, Any] = {
+        "status": "success",
+        "command": command,
+    }
+    if duration_ms is not None:
+        envelope["duration_ms"] = duration_ms
+    if scope:
+        filtered = {k: v for k, v in scope.items() if v}
+        if filtered:
+            envelope["scope"] = filtered
+    if count is not None:
+        envelope["count"] = count
+    envelope["data"] = sanitize_agent_data(command, data)
+    console.print_json(json.dumps(envelope, default=str))
+
+
 def print_result_summary(
     console: Console,
     count: int,
@@ -237,7 +338,7 @@ def print_result_summary(
     parts = [f"{count} result{'s' if count != 1 else ''}"]
     if page is not None:
         parts.append(f"page {page}")
-    scope_parts = [f"{k.replace('_', ' ')}={v}" for k, v in scope_ids.items() if v]
+    scope_parts = [f"{k}={v}" for k, v in scope_ids.items() if v]
     if scope_parts:
         parts.append(", ".join(scope_parts))
     if duration_secs is not None:

@@ -19,7 +19,7 @@ from mem0_cli.branding import (
     print_info,
     print_success,
 )
-from mem0_cli.config import DEFAULT_BASE_URL, Mem0Config, save_config
+from mem0_cli.config import CONFIG_FILE, DEFAULT_BASE_URL, Mem0Config, load_config, save_config
 
 console = Console()
 err_console = Console(stderr=True)
@@ -169,6 +169,7 @@ def run_init(
     user_id: str | None = None,
     email: str | None = None,
     code: str | None = None,
+    force: bool = False,
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
@@ -183,6 +184,29 @@ def run_init(
     if code and not email:
         print_error(err_console, "--code requires --email.")
         raise typer.Exit(1)
+
+    # Warn if an existing config with an API key would be overwritten
+    if not force and CONFIG_FILE.exists():
+        existing = load_config()
+        if existing.platform.api_key:
+            from mem0_cli.config import redact_key
+
+            console.print(
+                f"\n  [{BRAND_COLOR}]Existing configuration found[/] "
+                f"[{DIM_COLOR}](API key: {redact_key(existing.platform.api_key)})[/]"
+            )
+            if sys.stdin.isatty():
+                confirm = typer.confirm("  Overwrite existing config? This cannot be undone.")
+                if not confirm:
+                    print_info(console, "Cancelled. Use --force to skip this check.")
+                    raise typer.Exit(0)
+            else:
+                print_error(
+                    err_console,
+                    "Existing config would be overwritten.",
+                    hint="Use --force to overwrite.",
+                )
+                raise typer.Exit(1)
 
     # ── Email login flow ──────────────────────────────────────────────
     if email:
@@ -205,7 +229,9 @@ def run_init(
             raise typer.Exit(1)
         config.platform.api_key = api_key_val
         config.platform.base_url = base_url
-        config.defaults.user_id = user_id or "mem0-cli"
+        config.defaults.user_id = (
+            user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
+        )
 
         save_config(config)
 
@@ -220,6 +246,17 @@ def run_init(
 
     # ── API key flow (existing) ───────────────────────────────────────
 
+    # Non-TTY: resolve defaults so partial flags work in pipelines / CI
+    if not sys.stdin.isatty():
+        if not api_key:
+            print_error(
+                err_console,
+                "Non-interactive terminal detected and --api-key is required.",
+                hint="Run: mem0 init --api-key <key> [--user-id <id>]",
+            )
+            raise typer.Exit(1)
+        user_id = user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
+
     # Fully non-interactive when both flags provided
     if api_key and user_id:
         config.platform.api_key = api_key
@@ -228,15 +265,6 @@ def run_init(
         save_config(config)
         print_success(console, "Configuration saved to ~/.mem0/config.json")
         return
-
-    # Non-TTY without full flags -> error
-    if not sys.stdin.isatty() and (not api_key or not user_id):
-        print_error(
-            err_console,
-            "Non-interactive terminal detected and required flags missing.",
-            hint="Run: mem0 init --api-key <key> --user-id <id>",
-        )
-        raise typer.Exit(1)
 
     print_banner(console)
     console.print()
@@ -271,7 +299,9 @@ def run_init(
                 raise typer.Exit(1)
             config.platform.api_key = api_key_val
             config.platform.base_url = base_url
-            config.defaults.user_id = user_id or "mem0-cli"
+            config.defaults.user_id = (
+                user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
+            )
 
             save_config(config)
 
@@ -331,9 +361,10 @@ def _setup_defaults(config: Mem0Config) -> None:
     console.print()
     print_info(console, "Set default entity IDs (press Enter to skip).\n")
 
+    _default_user = os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
     user_id = Prompt.ask(
         f"  [{BRAND_COLOR}]Default User ID[/] [{DIM_COLOR}](recommended)[/]",
-        default="mem0-cli",
+        default=_default_user,
     )
     if user_id:
         config.defaults.user_id = user_id
@@ -357,7 +388,7 @@ def _validate_platform(config: Mem0Config) -> None:
             print_error(
                 err_console,
                 f"Could not connect: {status.get('error', 'Unknown error')}",
-                hint="Check your API key and try again.",
+                hint="Visit https://app.mem0.ai/dashboard/api-keys to get a new key, then run mem0 init again.",
             )
     except Exception as e:
         print_error(err_console, f"Connection test failed: {e}")

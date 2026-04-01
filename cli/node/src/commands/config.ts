@@ -11,15 +11,17 @@ import {
 	saveConfig,
 	setNestedValue,
 } from "../config.js";
-import { formatJsonEnvelope } from "../output.js";
+import { formatAgentEnvelope, formatJsonEnvelope } from "../output.js";
+import { isAgentMode, setCurrentCommand } from "../state.js";
 
 const { brand, accent, dim } = colors;
 
 export function cmdConfigShow(opts: { output?: string } = {}): void {
+	setCurrentCommand("config show");
 	const config = loadConfig();
 
-	if (opts.output === "json") {
-		formatJsonEnvelope({
+	if (opts.output === "agent" || opts.output === "json") {
+		formatAgentEnvelope({
 			command: "config show",
 			data: {
 				defaults: {
@@ -66,6 +68,7 @@ export function cmdConfigShow(opts: { output?: string } = {}): void {
 }
 
 export function cmdConfigGet(key: string): void {
+	setCurrentCommand("config get");
 	const config = loadConfig();
 	const value = getNestedValue(config, key);
 
@@ -73,20 +76,35 @@ export function cmdConfigGet(key: string): void {
 		printError(`Unknown config key: ${key}`);
 	} else {
 		// Redact secrets
-		if (key.includes("api_key") || key.split(".").pop() === "key") {
-			console.log(redactKey(String(value)));
+		const displayValue =
+			key.includes("api_key") || key.split(".").pop() === "key"
+				? redactKey(String(value))
+				: String(value);
+		if (isAgentMode()) {
+			formatAgentEnvelope({
+				command: "config get",
+				data: { key, value: displayValue },
+			});
 		} else {
-			console.log(String(value));
+			console.log(displayValue);
 		}
 	}
 }
 
 export function cmdConfigSet(key: string, value: string): void {
+	setCurrentCommand("config set");
 	const config = loadConfig();
 	if (setNestedValue(config, key, value)) {
 		saveConfig(config);
 		const display = key.includes("key") ? redactKey(value) : value;
-		printSuccess(`${key} = ${display}`);
+		if (isAgentMode()) {
+			formatAgentEnvelope({
+				command: "config set",
+				data: { key, value: display },
+			});
+		} else {
+			printSuccess(`${key} = ${display}`);
+		}
 	} else {
 		printError(`Unknown config key: ${key}`);
 	}

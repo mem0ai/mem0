@@ -264,41 +264,33 @@ export class PlatformBackend implements Backend {
 	}
 
 	async deleteEntities(opts: EntityIds): Promise<Record<string, unknown>> {
-		const params: Record<string, string> = {};
-		if (opts.userId) params.user_id = opts.userId;
-		if (opts.agentId) params.agent_id = opts.agentId;
-		if (opts.appId) params.app_id = opts.appId;
-		if (opts.runId) params.run_id = opts.runId;
-		if (Object.keys(params).length === 0) {
+		// v2 endpoint: DELETE /v2/entities/{entity_type}/{entity_id}/
+		const typeMap: [string, string | undefined][] = [
+			["user", opts.userId],
+			["agent", opts.agentId],
+			["app", opts.appId],
+			["run", opts.runId],
+		];
+		const entities = typeMap.filter(([, v]) => v) as [string, string][];
+		if (entities.length === 0) {
 			throw new Error("At least one entity ID is required for deleteEntities.");
 		}
-		return (await this._request("DELETE", "/v1/entities/", {
-			params,
-		})) as Record<string, unknown>;
+		// Delete each provided entity via the v2 path-based endpoint
+		let result: Record<string, unknown> = {};
+		for (const [entityType, entityId] of entities) {
+			result = (await this._request(
+				"DELETE",
+				`/v2/entities/${entityType}/${entityId}/`,
+			)) as Record<string, unknown>;
+		}
+		return result;
 	}
 
 	async status(
 		opts: { userId?: string; agentId?: string } = {},
 	): Promise<Record<string, unknown>> {
 		try {
-			if (opts.userId || opts.agentId) {
-				const payload: Record<string, unknown> = {};
-				const statusParams: Record<string, string> = {
-					page: "1",
-					page_size: "1",
-				};
-				const apiFilters = this._buildFilters({
-					userId: opts.userId,
-					agentId: opts.agentId,
-				});
-				if (apiFilters) payload.filters = apiFilters;
-				await this._request("POST", "/v2/memories/", {
-					json: payload,
-					params: statusParams,
-				});
-			} else {
-				await this._request("GET", "/v1/entities/");
-			}
+			await this._request("GET", "/v1/ping/");
 			return { connected: true, backend: "platform", base_url: this.baseUrl };
 		} catch (e) {
 			return {
@@ -334,5 +326,21 @@ export class PlatformBackend implements Backend {
 			);
 		}
 		return items;
+	}
+
+	async listEvents(): Promise<Record<string, unknown>[]> {
+		const result = (await this._request("GET", "/v1/events/")) as unknown;
+		if (Array.isArray(result)) return result;
+		return ((result as Record<string, unknown>).results ?? []) as Record<
+			string,
+			unknown
+		>[];
+	}
+
+	async getEvent(eventId: string): Promise<Record<string, unknown>> {
+		return (await this._request("GET", `/v1/event/${eventId}/`)) as Record<
+			string,
+			unknown
+		>;
 	}
 }
