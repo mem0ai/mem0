@@ -43,6 +43,14 @@ class LLMRerankerConfig(BaseRerankerConfig):
         default=100,
         description="Maximum tokens for LLM response"
     )
+    max_workers: int = Field(
+        default=1,
+        description=(
+            "Number of parallel workers for concurrent LLM scoring. "
+            "Set > 1 to score multiple documents simultaneously and reduce "
+            "latency proportionally. Defaults to 1 (sequential)."
+        ),
+    )
     scoring_prompt: Optional[str] = Field(
         default=None,
         description="Custom prompt template for scoring documents"
