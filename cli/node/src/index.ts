@@ -135,6 +135,7 @@ program
 		"--code <code>",
 		"Verification code (use with --email for non-interactive login).",
 	)
+	.option("--force", "Overwrite existing config without confirmation.", false)
 	.addHelpText(
 		"after",
 		"\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456",
@@ -146,6 +147,7 @@ program
 			userId: opts.userId,
 			email: opts.email,
 			code: opts.code,
+			force: opts.force,
 		});
 	});
 

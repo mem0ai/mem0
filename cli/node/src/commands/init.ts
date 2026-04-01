@@ -2,6 +2,7 @@
  * mem0 init — interactive setup wizard.
  */
 
+import fs from "node:fs";
 import readline from "node:readline";
 import { PlatformBackend } from "../backend/platform.js";
 import {
@@ -12,10 +13,12 @@ import {
 	printSuccess,
 } from "../branding.js";
 import {
+	CONFIG_FILE,
 	DEFAULT_BASE_URL,
 	type Mem0Config,
 	createDefaultConfig,
 	loadConfig,
+	redactKey,
 	saveConfig,
 } from "../config.js";
 
@@ -229,6 +232,7 @@ export async function runInit(
 		userId?: string;
 		email?: string;
 		code?: string;
+		force?: boolean;
 	} = {},
 ): Promise<void> {
 	const config = createDefaultConfig();
@@ -246,6 +250,40 @@ export async function runInit(
 	if (opts.email && opts.apiKey) {
 		printError("Cannot use both --api-key and --email.");
 		process.exit(1);
+	}
+
+	// Warn if an existing config with an API key would be overwritten
+	if (
+		!opts.force &&
+		fs.existsSync(CONFIG_FILE) &&
+		savedConfig.platform.apiKey
+	) {
+		console.log(
+			`\n  ${brand("Existing configuration found")} ${dim(`(API key: ${redactKey(savedConfig.platform.apiKey)})`)}`,
+		);
+		if (process.stdin.isTTY) {
+			const rl = readline.createInterface({
+				input: process.stdin,
+				output: process.stdout,
+			});
+			const answer = await new Promise<string>((resolve) => {
+				rl.question(
+					"  Overwrite existing config? This cannot be undone. [y/N] ",
+					resolve,
+				);
+			});
+			rl.close();
+			if (answer.toLowerCase() !== "y") {
+				printInfo("Cancelled. Use --force to skip this check.");
+				process.exit(0);
+			}
+		} else {
+			printError(
+				"Existing config would be overwritten.",
+				"Use --force to overwrite.",
+			);
+			process.exit(1);
+		}
 	}
 
 	// ── Email login flow ──────────────────────────────────────────────────────
