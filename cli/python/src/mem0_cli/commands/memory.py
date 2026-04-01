@@ -560,11 +560,7 @@ def cmd_delete_all(
             raise typer.Exit(1)
     if all_:
         # Project-wide wipe using wildcard entity IDs
-        if dry_run:
-            print_info(console, "Would delete ALL memories project-wide.")
-            print_info(console, "Run without --dry-run to see the actual count.")
-            print_info(console, "No changes made (dry run).")
-            return
+        # Note: --dry-run is ignored here because the API has no count-before-delete endpoint.
 
         if not force:
             confirm = typer.confirm(

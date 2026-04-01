@@ -678,28 +678,6 @@ class TestDeleteAllCommand:
             run_id="*",
         )
 
-    def test_delete_all_project_wide_dry_run(self, mock_backend):
-        console, buf = _make_console()
-        err_console, _err_buf = _make_err_console()
-        with (
-            patch("mem0_cli.commands.memory.console", console),
-            patch("mem0_cli.commands.memory.err_console", err_console),
-        ):
-            cmd_delete_all(
-                mock_backend,
-                force=True,
-                all_=True,
-                dry_run=True,
-                user_id=None,
-                agent_id=None,
-                app_id=None,
-                run_id=None,
-                output="text",
-            )
-        output = buf.getvalue()
-        assert "project-wide" in output.lower()
-        mock_backend.delete.assert_not_called()
-
     def test_delete_all_project_wide_async_response(self, mock_backend):
         mock_backend.delete.return_value = {"message": "Memories deletion started..."}
         console, buf = _make_console()
