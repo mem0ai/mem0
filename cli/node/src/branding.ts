@@ -93,8 +93,13 @@ export function printError(message: string, hint?: string): void {
 		return;
 	}
 	console.error(`${error(`${sym("✗", "[error]")} Error:`)} ${message}`);
-	if (hint) {
-		console.error(`  ${dim(hint)}`);
+	const resolvedHint =
+		hint ??
+		(message.includes("Authentication failed")
+			? `Run ${brand("mem0 init")} to reconfigure your API key · https://app.mem0.ai/dashboard/api-keys`
+			: undefined);
+	if (resolvedHint) {
+		console.error(`  ${dim(resolvedHint)}`);
 	}
 }
 
@@ -157,12 +162,7 @@ export async function timedStatus<T>(
 		const elapsed = ((performance.now() - start) / 1000).toFixed(2);
 		spinner.stop();
 		if (ctx.errorMsg) {
-			console.error(`${error("✗ Error:")} ${ctx.errorMsg} (${elapsed}s)`);
-			if (ctx.errorMsg.includes("Authentication failed")) {
-				console.error(
-					`  ${dim("Run")} ${brand("mem0 init")} ${dim("to reconfigure your API key · https://app.mem0.ai/dashboard/api-keys")}`,
-				);
-			}
+			printError(`${ctx.errorMsg} (${elapsed}s)`);
 		}
 		throw err;
 	}
