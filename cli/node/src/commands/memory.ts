@@ -198,9 +198,7 @@ export async function cmdAdd(
 		run_id: opts.runId,
 	});
 	const count = deduped.length;
-	const allPending =
-		count > 0 &&
-		deduped.every((r) => r.status === "PENDING");
+	const allPending = count > 0 && deduped.every((r) => r.status === "PENDING");
 	if (allPending) {
 		printSuccess(
 			`Memory queued — ${count} event${count !== 1 ? "s" : ""} pending`,
