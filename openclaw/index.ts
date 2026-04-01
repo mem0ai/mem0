@@ -365,18 +365,18 @@ function registerTools(
         ),
         facts: Type.Optional(
           Type.Array(Type.String(), {
-            description: "Array of facts to store in one call. Preferred over 'text' when extracting multiple facts from a single turn — all facts are stored in one API call.",
+            description: "Array of facts to store in one call. ALL facts MUST share the same category. If a turn has facts in different categories, make one call per category. Category determines retention policy (TTL, immutability).",
           }),
         ),
         category: Type.Optional(
           Type.String({
             description:
-              'Memory category: "identity", "preference", "decision", "rule", "project", "configuration", "technical", or "relationship"',
+              'Memory category. Determines retention policy (TTL, immutability). All facts in this call inherit this category. Options: "identity", "preference", "decision", "rule", "project", "configuration", "technical", "relationship"',
           }),
         ),
         importance: Type.Optional(
           Type.Number({
-            description: "Importance score from 0.0 to 1.0. Identity/config: 0.95, rules: 0.90, preferences: 0.85, decisions: 0.80, projects: 0.75, operational: 0.60",
+            description: "Importance override (0.0-1.0). Omit to use category default. Applies to all facts in this call. Defaults: identity/config 0.95, rules 0.90, preferences 0.85, decisions 0.80, projects 0.75, operational 0.60",
           }),
         ),
         userId: Type.Optional(
