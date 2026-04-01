@@ -222,6 +222,17 @@ def run_init(
 
     # ── API key flow (existing) ───────────────────────────────────────
 
+    # Non-TTY: resolve defaults so partial flags work in pipelines / CI
+    if not sys.stdin.isatty():
+        if not api_key:
+            print_error(
+                err_console,
+                "Non-interactive terminal detected and --api-key is required.",
+                hint="Run: mem0 init --api-key <key> [--user-id <id>]",
+            )
+            raise typer.Exit(1)
+        user_id = user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
+
     # Fully non-interactive when both flags provided
     if api_key and user_id:
         config.platform.api_key = api_key
@@ -230,15 +241,6 @@ def run_init(
         save_config(config)
         print_success(console, "Configuration saved to ~/.mem0/config.json")
         return
-
-    # Non-TTY without full flags -> error
-    if not sys.stdin.isatty() and (not api_key or not user_id):
-        print_error(
-            err_console,
-            "Non-interactive terminal detected and required flags missing.",
-            hint="Run: mem0 init --api-key <key> --user-id <id>",
-        )
-        raise typer.Exit(1)
 
     print_banner(console)
     console.print()
