@@ -296,9 +296,21 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
     parts.push('  memory_store(facts: ["As of 2026-04-01, migrating from Postgres to CockroachDB"], category: "decision")');
     // Only include search instructions if recall is enabled
     if (config.recall?.enabled !== false) {
+      const strategy = config.recall?.strategy ?? "smart";
       parts.push("");
       parts.push("## Searching Memory");
       parts.push("");
+
+      // In manual mode, the agent is fully responsible for all search
+      if (strategy === "manual") {
+        parts.push("You control all memory search. No automatic recall happens. Use memory_search proactively:");
+        parts.push("- At the start of a new conversation, search for user identity and context.");
+        parts.push("- When the user references something you do not have context for.");
+        parts.push("- When the conversation topic shifts to a new domain.");
+        parts.push("- Before updating a memory, search to find the existing version.");
+        parts.push("");
+      }
+
       parts.push("When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.");
       parts.push("Stored memories are third-person factual statements. Write a query that matches storage language, not conversation language.");
       parts.push("Process: (1) Name your target. (2) Extract signal: proper nouns, technical terms, domain concepts. (3) Bridge to storage language: add terms the stored memory contains (user, decided, prefers, rule, configured, based in). (4) Compose 3-6 keywords.");

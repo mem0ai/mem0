@@ -1255,31 +1255,42 @@ function registerHooks(
         systemContext = "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories.\n\n" + systemContext;
       }
 
-      // Dynamic recall goes in prependContext (changes every turn)
+      // Dynamic recall goes in prependContext (changes every turn).
+      // Strategy controls how much the plugin searches automatically:
+      //   "always" — long-term + session search every turn (2 searches)
+      //   "smart"  — long-term search only, no session search (1 search) [default]
+      //   "manual" — no auto-recall; agent controls all search via memory_search (0 searches)
       let recallContext = "";
       const recallEnabled = cfg.skills?.recall?.enabled !== false;
-      if (recallEnabled) {
+      const recallStrategy = cfg.skills?.recall?.strategy ?? "smart";
+
+      if (recallEnabled && recallStrategy !== "manual") {
         try {
-          // Sanitize event.prompt inline (strip OpenClaw metadata prefix).
-          // No shared state needed. This runs within the session-scoped hook.
           const query = sanitizeQuery(event.prompt);
+
+          // Smart mode: skip session search (saves 1 API call per turn)
+          const sessionIdForRecall = recallStrategy === "always"
+            ? (isSubagent ? undefined : sessionId)
+            : undefined; // smart: long-term only
 
           const recallResult = await skillRecall(
             provider,
             query,
             userId,
             cfg.skills ?? {},
-            isSubagent ? undefined : sessionId,
+            sessionIdForRecall,
           );
 
           api.logger.info(
-            `openclaw-mem0: skills-mode injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens) + skill protocol`,
+            `openclaw-mem0: skills-mode recall (strategy=${recallStrategy}) injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens)`,
           );
 
           recallContext = recallResult.context;
         } catch (err) {
           api.logger.warn(`openclaw-mem0: skills-mode recall failed: ${String(err)}`);
         }
+      } else if (recallEnabled && recallStrategy === "manual") {
+        api.logger.info("openclaw-mem0: skills-mode recall strategy=manual, agent controls search");
       }
 
       return {
