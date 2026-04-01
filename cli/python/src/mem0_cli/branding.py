@@ -26,8 +26,8 @@ LOGO_MINI = "◆ mem0"
 
 TAGLINE = "The Memory Layer for AI Agents"
 
-BRAND_COLOR = "#8b5cf6"  # Purple
-ACCENT_COLOR = "#a78bfa"
+BRAND_COLOR = "#F1C96C"  # Golden
+ACCENT_COLOR = "#F5D78E"
 SUCCESS_COLOR = "#22c55e"
 ERROR_COLOR = "#ef4444"
 WARNING_COLOR = "#f59e0b"
