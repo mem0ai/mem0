@@ -812,6 +812,7 @@ def init(
     code: str | None = typer.Option(
         None, "--code", help="Verification code (use with --email for non-interactive login)."
     ),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing config without confirmation."),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
@@ -823,7 +824,7 @@ def init(
     """
     from mem0_cli.commands.init_cmd import run_init
 
-    run_init(api_key=api_key, user_id=user_id, email=email, code=code)
+    run_init(api_key=api_key, user_id=user_id, email=email, code=code, force=force)
 
 
 # (entity_app registered at module level, below sub-group definitions)

@@ -19,7 +19,7 @@ from mem0_cli.branding import (
     print_info,
     print_success,
 )
-from mem0_cli.config import DEFAULT_BASE_URL, Mem0Config, save_config
+from mem0_cli.config import CONFIG_FILE, DEFAULT_BASE_URL, Mem0Config, load_config, save_config
 
 console = Console()
 err_console = Console(stderr=True)
@@ -169,6 +169,7 @@ def run_init(
     user_id: str | None = None,
     email: str | None = None,
     code: str | None = None,
+    force: bool = False,
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
@@ -183,6 +184,31 @@ def run_init(
     if code and not email:
         print_error(err_console, "--code requires --email.")
         raise typer.Exit(1)
+
+    # Warn if an existing config with an API key would be overwritten
+    if not force and CONFIG_FILE.exists():
+        existing = load_config()
+        if existing.platform.api_key:
+            from mem0_cli.config import redact_key
+
+            console.print(
+                f"\n  [{BRAND_COLOR}]Existing configuration found[/] "
+                f"[{DIM_COLOR}](API key: {redact_key(existing.platform.api_key)})[/]"
+            )
+            if sys.stdin.isatty():
+                confirm = typer.confirm(
+                    "  Overwrite existing config? This cannot be undone."
+                )
+                if not confirm:
+                    print_info(console, "Cancelled. Use --force to skip this check.")
+                    raise typer.Exit(0)
+            else:
+                print_error(
+                    err_console,
+                    "Existing config would be overwritten.",
+                    hint="Use --force to overwrite.",
+                )
+                raise typer.Exit(1)
 
     # ── Email login flow ──────────────────────────────────────────────
     if email:
