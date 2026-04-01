@@ -564,14 +564,7 @@ export async function cmdDeleteAll(
 	}
 	if (opts.all) {
 		// Project-wide wipe using wildcard entity IDs
-		if (opts.dryRun) {
-			printInfo("Would delete ALL memories project-wide.");
-			printInfo(
-				"Run without --dry-run to see the actual count of deleted memories.",
-			);
-			printInfo("No changes made.");
-			return;
-		}
+		// Note: --dry-run is ignored here because the API has no count-before-delete endpoint.
 
 		if (!opts.force) {
 			const readline = await import("node:readline");
