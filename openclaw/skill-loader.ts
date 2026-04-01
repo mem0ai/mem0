@@ -319,6 +319,13 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
       parts.push('WRONG: memory_search("What timezone am I in?")');
       parts.push('RIGHT: memory_search("user timezone location based")');
       parts.push("");
+      parts.push("ENTITY SCOPING: Memories are scoped by user_id, agent_id, and run_id. You do not need to pass these in most cases. The plugin handles scoping automatically based on the current session.");
+      parts.push("- Default behavior: all memory operations use the configured userId and current session. You do not need to pass userId or agentId.");
+      parts.push("- Use agentId only when you need to read or write memories for a DIFFERENT agent (e.g., querying what the 'researcher' agent knows). This accesses a separate namespace.");
+      parts.push("- Use userId only when explicitly instructed to operate on a different user's memories.");
+      parts.push("- Do not pass run_id directly. The plugin manages session scoping through the scope parameter.");
+      parts.push("- In multi-agent setups, each agent has isolated memory. The main agent's memories are separate from subagent memories.");
+      parts.push("");
       parts.push("SEARCH SCOPE: Choose the right scope for each search:");
       parts.push('- scope: "long-term" for user context, identity, preferences, decisions (default, most common)');
       parts.push('- scope: "session" for facts from this conversation only');
