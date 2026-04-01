@@ -144,5 +144,8 @@ export interface Mem0Provider {
   search(query: string, options: SearchOptions): Promise<MemoryItem[]>;
   get(memoryId: string): Promise<MemoryItem>;
   getAll(options: ListOptions): Promise<MemoryItem[]>;
+  update(memoryId: string, text: string): Promise<void>;
   delete(memoryId: string): Promise<void>;
+  deleteAll(userId: string): Promise<void>;
+  history(memoryId: string): Promise<Array<{ id: string; old_memory: string; new_memory: string; event: string; created_at: string }>>;
 }

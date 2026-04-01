@@ -858,6 +858,150 @@ function registerTools(
     },
     { name: "memory_forget" },
   );
+
+  api.registerTool(
+    {
+      name: "memory_update",
+      label: "Memory Update",
+      description:
+        "Update an existing memory's text in place. Use when a fact has changed and you have the memory ID. This is atomic and preserves the memory's history. Preferred over delete-then-store for corrections.",
+      parameters: Type.Object({
+        memoryId: Type.String({ description: "The memory ID to update" }),
+        text: Type.String({ description: "The new text for this memory (replaces the old text)" }),
+      }),
+      async execute(_toolCallId, params) {
+        const { memoryId, text } = params as { memoryId: string; text: string };
+
+        try {
+          const currentSessionId = getCurrentSessionId();
+          if (isSubagentSession(currentSessionId)) {
+            api.logger.warn("openclaw-mem0: blocked memory_update from subagent session");
+            return {
+              content: [{ type: "text", text: "Memory update is not available in subagent sessions." }],
+              details: { error: "subagent_blocked" },
+            };
+          }
+
+          await provider.update(memoryId, text);
+          return {
+            content: [
+              { type: "text", text: `Updated memory ${memoryId}: "${text.slice(0, 80)}${text.length > 80 ? "..." : ""}"` },
+            ],
+            details: { action: "updated", id: memoryId },
+          };
+        } catch (err) {
+          return {
+            content: [
+              { type: "text", text: `Memory update failed: ${String(err)}` },
+            ],
+            details: { error: String(err) },
+          };
+        }
+      },
+    },
+    { name: "memory_update" },
+  );
+
+  api.registerTool(
+    {
+      name: "memory_delete_all",
+      label: "Memory Delete All",
+      description:
+        "Delete ALL memories for a user. Use with extreme caution. This is irreversible. Only use when the user explicitly asks to forget everything or reset their memory.",
+      parameters: Type.Object({
+        confirm: Type.Boolean({
+          description: "Must be true to proceed. Safety gate to prevent accidental bulk deletion.",
+        }),
+        userId: Type.Optional(
+          Type.String({ description: "User ID to delete all memories for (default: configured userId)" }),
+        ),
+      }),
+      async execute(_toolCallId, params) {
+        const { confirm, userId } = params as { confirm: boolean; userId?: string };
+
+        try {
+          const currentSessionId = getCurrentSessionId();
+          if (isSubagentSession(currentSessionId)) {
+            api.logger.warn("openclaw-mem0: blocked memory_delete_all from subagent session");
+            return {
+              content: [{ type: "text", text: "Bulk memory deletion is not available in subagent sessions." }],
+              details: { error: "subagent_blocked" },
+            };
+          }
+
+          if (!confirm) {
+            return {
+              content: [{ type: "text", text: "Bulk deletion requires confirm: true. Ask the user to confirm before proceeding." }],
+              details: { error: "confirmation_required" },
+            };
+          }
+
+          const uid = _resolveUserId({ userId });
+          await provider.deleteAll(uid);
+          api.logger.info(`openclaw-mem0: deleted all memories for user ${uid}`);
+          return {
+            content: [
+              { type: "text", text: `All memories deleted for user "${uid}".` },
+            ],
+            details: { action: "deleted_all", user_id: uid },
+          };
+        } catch (err) {
+          return {
+            content: [
+              { type: "text", text: `Bulk memory deletion failed: ${String(err)}` },
+            ],
+            details: { error: String(err) },
+          };
+        }
+      },
+    },
+    { name: "memory_delete_all" },
+  );
+
+  api.registerTool(
+    {
+      name: "memory_history",
+      label: "Memory History",
+      description:
+        "View the edit history of a specific memory. Shows all changes over time including previous values, new values, and timestamps. Useful for understanding how a memory evolved.",
+      parameters: Type.Object({
+        memoryId: Type.String({ description: "The memory ID to view history for" }),
+      }),
+      async execute(_toolCallId, params) {
+        const { memoryId } = params as { memoryId: string };
+
+        try {
+          const history = await provider.history(memoryId);
+
+          if (!history || history.length === 0) {
+            return {
+              content: [{ type: "text", text: `No history found for memory ${memoryId}.` }],
+              details: { count: 0 },
+            };
+          }
+
+          const text = history
+            .map((h, i) => `${i + 1}. [${h.event}] ${h.created_at}\n   Old: ${h.old_memory || "(none)"}\n   New: ${h.new_memory || "(none)"}`)
+            .join("\n\n");
+
+          return {
+            content: [
+              { type: "text", text: `History for memory ${memoryId} (${history.length} entries):\n\n${text}` },
+            ],
+            details: { count: history.length, history },
+          };
+        } catch (err) {
+          return {
+            content: [
+              { type: "text", text: `Memory history failed: ${String(err)}` },
+            ],
+            details: { error: String(err) },
+          };
+        }
+      },
+    },
+    { name: "memory_history" },
+  );
 }
 
 // ============================================================================

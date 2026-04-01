@@ -170,9 +170,25 @@ class PlatformProvider implements Mem0Provider {
     return [];
   }
 
+  async update(memoryId: string, text: string): Promise<void> {
+    await this.ensureClient();
+    await this.client.update(memoryId, { text });
+  }
+
   async delete(memoryId: string): Promise<void> {
     await this.ensureClient();
     await this.client.delete(memoryId);
+  }
+
+  async deleteAll(userId: string): Promise<void> {
+    await this.ensureClient();
+    await this.client.deleteAll({ user_id: userId });
+  }
+
+  async history(memoryId: string): Promise<Array<{ id: string; old_memory: string; new_memory: string; event: string; created_at: string }>> {
+    await this.ensureClient();
+    const result = await this.client.history(memoryId);
+    return Array.isArray(result) ? result : [];
   }
 }
 
@@ -315,9 +331,30 @@ class OSSProvider implements Mem0Provider {
     return [];
   }
 
+  async update(memoryId: string, text: string): Promise<void> {
+    await this.ensureMemory();
+    await this.memory.update(memoryId, { data: text });
+  }
+
   async delete(memoryId: string): Promise<void> {
     await this.ensureMemory();
     await this.memory.delete(memoryId);
+  }
+
+  async deleteAll(userId: string): Promise<void> {
+    await this.ensureMemory();
+    await this.memory.deleteAll({ userId });
+  }
+
+  async history(memoryId: string): Promise<Array<{ id: string; old_memory: string; new_memory: string; event: string; created_at: string }>> {
+    await this.ensureMemory();
+    try {
+      const result = await this.memory.history(memoryId);
+      return Array.isArray(result) ? result : [];
+    } catch {
+      // OSS may not support history depending on config
+      return [];
+    }
   }
 }
 
