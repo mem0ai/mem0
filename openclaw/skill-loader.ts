@@ -294,21 +294,24 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
     parts.push("FORMAT (mixed categories in one turn, separate calls):");
     parts.push('  memory_store(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")');
     parts.push('  memory_store(facts: ["As of 2026-04-01, migrating from Postgres to CockroachDB"], category: "decision")');
-    parts.push("");
-    parts.push("## Searching Memory");
-    parts.push("");
-    parts.push("When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.");
-    parts.push("Stored memories are third-person factual statements. Write a query that matches storage language, not conversation language.");
-    parts.push("Process: (1) Name your target. (2) Extract signal: proper nouns, technical terms, domain concepts. (3) Bridge to storage language: add terms the stored memory contains (user, decided, prefers, rule, configured, based in). (4) Compose 3-6 keywords.");
-    parts.push('WRONG: memory_search("Who was that nutritionist my wife recommended?")');
-    parts.push('RIGHT: memory_search("nutritionist wife recommended relationship")');
-    parts.push('WRONG: memory_search("What timezone am I in?")');
-    parts.push('RIGHT: memory_search("user timezone location based")');
-    parts.push("");
-    parts.push("SEARCH FILTERS: When the user's intent implies a time range or category constraint, pass a `filters` object alongside your rewritten query.");
-    parts.push('- Time: "last week" -> filters: {"created_at": {"gte": "2026-03-24"}}');
-    parts.push('- Category: "my preferences" -> categories: ["preference"]');
-    parts.push("- Available operators: eq, ne, gt, gte, lt, lte, in, contains. Logical: AND, OR, NOT.");
+    // Only include search instructions if recall is enabled
+    if (config.recall?.enabled !== false) {
+      parts.push("");
+      parts.push("## Searching Memory");
+      parts.push("");
+      parts.push("When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.");
+      parts.push("Stored memories are third-person factual statements. Write a query that matches storage language, not conversation language.");
+      parts.push("Process: (1) Name your target. (2) Extract signal: proper nouns, technical terms, domain concepts. (3) Bridge to storage language: add terms the stored memory contains (user, decided, prefers, rule, configured, based in). (4) Compose 3-6 keywords.");
+      parts.push('WRONG: memory_search("Who was that nutritionist my wife recommended?")');
+      parts.push('RIGHT: memory_search("nutritionist wife recommended relationship")');
+      parts.push('WRONG: memory_search("What timezone am I in?")');
+      parts.push('RIGHT: memory_search("user timezone location based")');
+      parts.push("");
+      parts.push("SEARCH FILTERS: When the user's intent implies a time range or category constraint, pass a `filters` object alongside your rewritten query.");
+      parts.push('- Time: "last week" -> filters: {"created_at": {"gte": "2026-03-24"}}');
+      parts.push('- Category: "my preferences" -> categories: ["preference"]');
+      parts.push("- Available operators: eq, ne, gt, gte, lt, lte, in, contains. Logical: AND, OR, NOT.");
+    }
     parts.push("</memory-system>");
     return parts.join("\n");
   }
@@ -323,7 +326,9 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
   parts.push("Batch facts by CATEGORY. All facts in one call must share the same category.");
   parts.push('Format: memory_store(facts: ["fact text"], category: "identity")');
   parts.push("NEVER store credentials (sk-, m0-, ghp_, AKIA, Bearer tokens, passwords).");
-  parts.push("When searching, rewrite queries for retrieval. Do not pass raw user messages.");
+  if (config.recall?.enabled !== false) {
+    parts.push("When searching, rewrite queries for retrieval. Do not pass raw user messages.");
+  }
   parts.push("</memory-system>");
   return parts.join("\n");
 }

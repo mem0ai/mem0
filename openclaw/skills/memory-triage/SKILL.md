@@ -155,21 +155,27 @@ Do not store characterizations from assistant messages (e.g., "user seems excite
 
 ## How to Store
 
-Call `memory_store` for each fact worth persisting:
+Use `memory_store` with the `facts` array. All facts in one call MUST share the same category because category determines retention policy (TTL, immutability).
 
 ```
 memory_store(
-  text: "the fact — third person, temporally anchored, 15-50 words, self-contained",
-  metadata: {
-    "category": "configuration|rule|identity|preference|project|technical|relationship|decision",
-    "importance": 0.60-0.95
-  }
+  facts: ["fact one in third person", "fact two in third person"],
+  category: "identity"
 )
 ```
 
+If a turn produces facts in different categories, make one call per category:
+
+```
+memory_store(facts: ["User is Alex, senior engineer at Stripe, PST timezone"], category: "identity")
+memory_store(facts: ["As of 2026-04-01, user decided to migrate from Postgres to CockroachDB"], category: "decision")
+```
+
+Categories: `identity`, `configuration`, `rule`, `preference`, `decision`, `technical`, `relationship`, `project`
+
 ### Storage Principles
 
-**15-50 WORDS**: Each memory should be 1-2 sentences. If combining would exceed this, consolidate into key facts rather than creating a paragraph. Distill rather than append.
+**15-50 WORDS per fact**: Each fact should be 1-2 sentences. If combining would exceed this, consolidate into key facts rather than creating a paragraph. Distill rather than append.
 
 **OUTCOMES OVER INTENT**: Extract what WAS DONE, not what was requested.
   - GOOD: "Call scripts sheet (ID: 146Qbb...) was updated with truth-based templates"
@@ -189,7 +195,7 @@ memory_store(
 
 **PRESERVE LANGUAGE**: If the user speaks Spanish, store in Spanish. Do not translate.
 
-**MAXIMUM 3 operations per turn.** If you find more, pick the top 3 by importance.
+**BATCH BY CATEGORY**: Group all same-category facts into one call. Different categories require separate calls. Most turns need zero or one call.
 
 ### Updating Existing Memories
 
@@ -238,7 +244,7 @@ When a recalled memory needs updating (fact changed, status changed, new detail 
 ```
 User: "I set up the research agent on Claude Sonnet with a 30-min cron. It checks HackerNews and sends summaries to #research-feed in Slack."
 Agent: [responds helpfully]
-→ memory_store("User's research agent runs on Claude Sonnet, cron every 30 minutes, monitors HackerNews and posts summaries to Slack #research-feed", {category: "configuration", importance: 0.95})
+→ memory_store(facts: ["User's research agent runs on Claude Sonnet, cron every 30 minutes, monitors HackerNews and posts summaries to Slack #research-feed"], category: "configuration")
 ```
 
 ### Example 2: NOOP — tool output
@@ -257,53 +263,68 @@ User: "Hey Chris here again"
 
 ### Example 4: Rule with rationale (preserving user's words)
 ```
-User: "Never use Docker for local dev — it ate 40GB of disk last time and my Mac mini only has 256GB"
-→ memory_store("User rule: avoid Docker for local dev. Reason: ate 40GB of disk on 256GB Mac mini", {category: "rule", importance: 0.90})
+User: "Never use Docker for local dev, it ate 40GB of disk last time and my Mac mini only has 256GB"
+→ memory_store(facts: ["User rule: avoid Docker for local dev. Reason: ate 40GB of disk on 256GB Mac mini"], category: "rule")
 ```
 
 ### Example 5: UPDATE — combining contexts from both versions
 ```
 Recalled: ["As of 2026-03-15, user is planning trip to Paris in September with friend Jack"]
-User: "Can't wait for the Paris trip — definitely want to hit the Eiffel Tower and try authentic French pastries"
-→ memory_search("Paris trip")
+User: "Can't wait for the Paris trip, definitely want to hit the Eiffel Tower and try authentic French pastries"
+→ memory_search("Paris trip planning")
 → memory_forget("mem-id-of-old")
-→ memory_store("As of 2026-03-30, user is planning trip to Paris in September 2025 with friend Jack, says they can't wait to visit the Eiffel Tower and try authentic French pastries", {category: "project", importance: 0.75})
+→ memory_store(facts: ["As of 2026-03-30, user is planning trip to Paris in September 2025 with friend Jack, says they can't wait to visit the Eiffel Tower and try authentic French pastries"], category: "project")
 ```
 
 ### Example 6: Outcome over intent
 ```
 User: "Update the call scripts sheet with the new truth-based templates"
 Agent: [updates the sheet successfully]
-→ memory_store("Call scripts sheet (ID: 146Qbb...) was updated with truth-based templates (as of 2026-03-30)", {category: "configuration", importance: 0.80})
+→ memory_store(facts: ["Call scripts sheet (ID: 146Qbb...) was updated with truth-based templates (as of 2026-03-30)"], category: "configuration")
 ```
 
 ### Example 7: Credential — store the fact, not the value
 ```
 User: "Use this API key for the new service: sk-proj-abc123def456"
 Agent: [configures the service]
-→ memory_store("API key was configured for the new service (as of 2026-03-30)", {category: "configuration", importance: 0.85})
+→ memory_store(facts: ["API key was configured for the new service (as of 2026-03-30)"], category: "configuration")
 ```
 
 ### Example 8: NOOP — cosmetic difference, not material
 ```
 Recalled: ["User has a dog named Poppy and enjoys their daily walks together"]
 User: "Yeah me and Poppy love our daily walks"
-→ No memory operations. Semantically equivalent — "enjoys their daily walks" ≈ "love our daily walks". No new context.
+→ No memory operations. Semantically equivalent. No new context.
 ```
 
-### Example 9: Entity grouping — DON'T fragment
+### Example 9: Entity grouping — single call, not fragmented
 ```
 User: "The budget for the offsite is $200 per head. We need a venue with WiFi, parking for 50 cars, and a projector."
-→ memory_store("Team offsite budget is $200 per person. Venue requirements: WiFi, parking for 50 vehicles, and projector setup.", {category: "project", importance: 0.75})
-NOT three separate memory_store calls.
+→ memory_store(facts: ["Team offsite budget is $200 per person. Venue requirements: WiFi, parking for 50 vehicles, and projector setup."], category: "project")
+All details about the same entity (offsite) go in one fact, one call.
 ```
 
 ### Example 10: Temporary constraint — don't delete the preference
 ```
 Recalled: ["User enjoys hiking on weekends and finds it therapeutic"]
 User: "I hurt my knee last week, can't hike for a while"
-→ memory_store("As of 2026-03-30, user has temporarily paused hiking due to knee injury", {category: "operational", importance: 0.60})
-DO NOT delete the hiking preference — it's temporarily paused, not contradicted.
+→ memory_store(facts: ["As of 2026-03-30, user has temporarily paused hiking due to knee injury"], category: "project")
+DO NOT delete the hiking preference. It is temporarily paused, not contradicted.
+```
+
+### Example 11: Mixed categories in one turn — separate calls
+```
+User: "I'm Sarah, I work at Cloudflare. I just decided to switch our monitoring from Datadog to Grafana because of cost."
+→ memory_store(facts: ["User is Sarah, works at Cloudflare"], category: "identity")
+→ memory_store(facts: ["As of 2026-03-30, user decided to switch monitoring from Datadog to Grafana due to cost"], category: "decision")
+Two calls because identity and decision have different retention policies.
+```
+
+### Example 12: NOOP — generic greeting
+```
+User: "Hi"
+Agent: "Hello! How can I help?"
+→ No memory operations. No extractable facts.
 ```
 
 ### Example 11: Consolidation — rich memory absorbs atomic ones
