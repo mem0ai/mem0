@@ -288,7 +288,6 @@ class AzureMySQL(VectorStoreBase):
             vec = np.array(json.loads(row['vector']))
             # Cosine similarity
             similarity = np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec))
-            distance = 1 - similarity
             scored_results.append((row['id'], similarity, row['payload']))
 
         # Sort by similarity (higher = better) and limit

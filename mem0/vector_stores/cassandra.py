@@ -249,8 +249,6 @@ class CassandraDB(VectorStoreBase):
                 
                 # Cosine similarity
                 similarity = np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec))
-                distance = 1 - similarity
-
                 # Apply filters if provided
                 if filters:
                     try:
