@@ -46,6 +46,13 @@ import {
   isSkillsMode,
 } from "./skill-loader.ts";
 import { recall as skillRecall, sanitizeQuery } from "./recall.ts";
+import {
+  incrementSessionCount,
+  shouldDream,
+  acquireDreamLock,
+  releaseDreamLock,
+  recordDreamCompletion,
+} from "./dream-gate.ts";
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
@@ -164,17 +171,22 @@ const memoryPlugin = {
 
     registerHooks(api, provider, cfg, _effectiveUserId, buildAddOptions, buildSearchOptions, {
       setCurrentSessionId: (id: string) => { currentSessionId = id; },
+      getStateDir: () => pluginStateDir,
     }, skillsActive);
 
     // ========================================================================
     // Service
     // ========================================================================
 
+    // State directory for persistent gate tracking (dream consolidation)
+    let pluginStateDir: string | undefined;
+
     api.registerService({
       id: "openclaw-mem0",
-      start: () => {
+      start: (...args: any[]) => {
+        pluginStateDir = args[0]?.stateDir;
         api.logger.info(
-          `openclaw-mem0: initialized (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
+          `openclaw-mem0: initialized (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, stateDir: ${pluginStateDir ?? "none"})`,
         );
       },
       stop: () => {
@@ -1201,6 +1213,7 @@ function registerHooks(
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
   session: {
     setCurrentSessionId: (id: string) => void;
+    getStateDir: () => string | undefined;
   },
   skillsActive: boolean = false,
 ) {
@@ -1293,18 +1306,61 @@ function registerHooks(
         api.logger.info("openclaw-mem0: skills-mode recall strategy=manual, agent controls search");
       }
 
+      // Auto-dream: check gates and inject consolidation protocol if due
+      const stateDir = session.getStateDir();
+      const dreamEnabled = cfg.skills?.dream?.enabled !== false && cfg.skills?.dream?.auto !== false;
+      let dreamContext = "";
+      if (dreamEnabled && stateDir && !isSubagent) {
+        try {
+          const memories = await provider.getAll({ user_id: userId, source: "OPENCLAW" });
+          const memCount = Array.isArray(memories) ? memories.length : 0;
+          const gateResult = await shouldDream(stateDir, cfg.skills?.dream ?? {}, memCount);
+          if (gateResult.pass && acquireDreamLock(stateDir)) {
+            const dreamPrompt = loadDreamPrompt(cfg.skills ?? {});
+            if (dreamPrompt) {
+              dreamContext = "\n\n<auto-dream>\nIMPORTANT: Before responding to the user, run a memory consolidation pass. Follow the protocol below, then respond normally.\n\n" + dreamPrompt + "\n</auto-dream>";
+              dreamJustRan = true;
+              api.logger.info(`openclaw-mem0: auto-dream triggered (${memCount} memories, gate passed)`);
+            } else {
+              releaseDreamLock(stateDir);
+            }
+          }
+        } catch (err) {
+          api.logger.warn(`openclaw-mem0: auto-dream gate check failed: ${String(err)}`);
+        }
+      }
+
       return {
         prependSystemContext: systemContext,  // cached by provider
-        prependContext: recallContext,         // per-turn dynamic memories
+        prependContext: recallContext + dreamContext,  // per-turn dynamic
       };
     });
 
-    // Skills mode: NO auto-capture. The agent handles extraction via memory_store.
+    // Skills mode: NO auto-capture. Track sessions for dream gating.
+    let dreamJustRan = false;
+
     api.on("agent_end", async (event: any, ctx: any) => {
       if (!event.success) return;
       const sessionId = ctx?.sessionKey ?? undefined;
+      const trigger = ctx?.trigger ?? undefined;
       if (sessionId) session.setCurrentSessionId(sessionId);
-      api.logger.info("openclaw-mem0: skills-mode agent_end (no auto-capture — agent controls extraction)");
+
+      // If dream just ran, release lock and record completion
+      const stateDir = session.getStateDir();
+      if (dreamJustRan && stateDir) {
+        releaseDreamLock(stateDir);
+        recordDreamCompletion(stateDir);
+        api.logger.info("openclaw-mem0: auto-dream completed, lock released");
+        dreamJustRan = false;
+        return;
+      }
+
+      // Track session for dream gating (interactive turns only)
+      if (stateDir && sessionId && !isNonInteractiveTrigger(trigger, sessionId)) {
+        incrementSessionCount(stateDir, sessionId);
+      }
+
+      api.logger.info("openclaw-mem0: skills-mode agent_end (no auto-capture)");
     });
 
     return; // Skip legacy hook registration

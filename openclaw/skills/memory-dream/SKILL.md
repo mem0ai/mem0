@@ -4,129 +4,107 @@ description: >
   Memory consolidation protocol. Reviews all stored memories, merges duplicates,
   removes noise and credentials, rewrites unclear entries, and enforces TTL expiration.
   Use when the user asks to clean up, consolidate, or review their memories.
-  Like sleep consolidation — compress episodic noise into clean semantic knowledge.
+  Also triggers automatically after sufficient activity (configurable).
 user-invocable: true
 metadata:
   {"openclaw": {"emoji": "💤"}}
 ---
 
-# Memory Consolidation Protocol
+# Memory Consolidation
 
-You are running a memory consolidation session. Your goal is to review all stored memories for this user and improve their quality — merge duplicates, delete noise, rewrite unclear entries, and enforce expiration policies.
+You are performing a memory consolidation pass. Your goal is to review all stored memories for this user and improve their overall quality. Think of this as compressing raw observations into clean, durable knowledge.
 
-This is like sleep consolidation in the human brain: compress episodic noise into clean semantic knowledge.
+Follow these four phases in order. Do not skip phases.
 
-## Process
+## Phase 1: Orient
 
-1. **Load all memories** using `memory_list`
-2. **Group by category** — review each category separately
-3. **Apply operations** in this priority order:
-   a. DELETE dangerous entries (credentials, secrets)
-   b. DELETE expired operational memories (older than TTL)
-   c. MERGE duplicate/near-duplicate entries
-   d. REWRITE unclear or poorly-formatted entries
-   e. VERIFY category assignments are correct
+Survey the current memory landscape before making any changes.
 
-## Operations
+1. Call `memory_list` to load all stored memories.
+2. Count memories by category. Note the total.
+3. Identify the oldest and newest memories by their timestamps.
+4. Note any obvious problems visible in the list: duplicates, very short entries, entries without temporal anchors.
 
-### DELETE — Remove bad or stale memories
+Do not modify anything in this phase. The goal is to understand what you are working with.
 
-**Delete immediately if:**
-- Contains credentials, API keys, tokens, passwords, secrets
-  Patterns: sk-, m0-, ghp_, AKIA, Bearer, password=, token=, secret=
-- Pure timestamps with no context ("Current time is 3:42 PM")
-- Raw tool output stored as memory (bash output, file contents, API responses)
-- Heartbeat/cron execution records ("Healthcheck returned OK at 14:32")
-- Generic acknowledgments stored as memory ("ok", "got it", "sure")
-- Operational memories older than their TTL (default: 7 days for operational, 90 days for project)
+## Phase 2: Gather Targets
 
-**Use `memory_forget` with the memory ID.**
+Identify which memories need action. Use the tools to investigate.
 
-### MERGE — Combine duplicate or overlapping memories
+**Search for recent additions:**
+Call `memory_search` with a `created_at` filter to find memories added since the last consolidation. These are the most likely to need merging or cleanup.
 
-**Merge when:**
-- Two or more memories express the same fact in different words
-- A series of memories track incremental changes to the same thing
-- Multiple operational memories describe the same recurring pattern
+**Check edit history on suspicious entries:**
+If a memory looks like it was updated multiple times or has contradictory content, call `memory_history` on it to understand how it evolved.
 
-**Merge process:**
-1. Pick the best version (most complete, most recent timestamp)
-2. Call `memory_store` with the merged, clean version
-3. Call `memory_forget` on all the old duplicates
+**Classify each target into one of these actions:**
+- DELETE: contains credentials, expired by TTL, pure noise, raw tool output, standalone timestamps
+- MERGE: two or more memories express the same fact in different words, or a series tracks incremental changes to the same entity
+- REWRITE: vague, missing temporal anchor, uses first person instead of third, wrong category, overly verbose
 
-**Examples:**
+## Phase 3: Consolidate
+
+Execute the actions identified in Phase 2. Work in this priority order:
+
+### 3a. Delete dangerous and expired entries
+
+Delete immediately using `memory_forget`:
+- Credentials, API keys, tokens, passwords, secrets (patterns: sk-, m0-, ghp_, AKIA, Bearer, password=, token=, secret=)
+- Pure timestamps with no context
+- Raw tool output stored as memory
+- Heartbeat or cron execution records
+- Generic acknowledgments stored as memory ("ok", "got it")
+- Operational memories older than 7 days
+- Project memories older than 90 days
+
+### 3b. Merge duplicates
+
+When two or more memories express the same fact:
+1. Pick the most complete version as the base
+2. Call `memory_update` on the best version to incorporate missing details from the others
+3. Call `memory_forget` on the redundant entries
+
+`memory_update` is preferred over forget-then-store because it is atomic and preserves edit history.
+
+When merging, follow these rules:
+- Keep the user's original words for opinions and preferences
+- Preserve temporal anchors from both versions
+- Do not exceed 50 words in the merged result
+- The merged memory must be self-contained (understandable without the deleted ones)
+
+### 3c. Rewrite unclear entries
+
+When a memory needs improvement but is not a duplicate:
+1. Call `memory_update` with the improved text
+
+Rewrite when:
+- Memory uses first person ("I prefer") instead of third ("User prefers")
+- Memory lacks a temporal anchor for time-sensitive information
+- Memory is vague ("likes python") and can be made specific ("User prefers Python for backend development")
+- Memory has the wrong category assignment
+- Memory is over 50 words and can be compressed without losing information
+
+## Phase 4: Report
+
+After completing all operations, summarize what you did:
+
 ```
-BEFORE (3 memories):
-  - "User runs healthcheck every 10 minutes"
-  - "User has a cron for healthcheck at */10 interval"
-  - "User's heartbeat runs every 10 min on Mac mini"
-AFTER (1 memory):
-  - "User runs a healthcheck cron every 10 minutes on Mac mini"
-
-BEFORE (2 memories):
-  - "User's name is Chris"
-  - "User is Chris, a senior platform engineer"
-AFTER (1 memory):
-  - "User's name is Chris, senior platform engineer"
+Consolidation complete.
+- Reviewed: [total count]
+- Deleted (credentials/secrets): [count]
+- Deleted (expired/stale): [count]
+- Merged: [count] groups into [count] memories
+- Rewritten: [count]
+- Final count: [total remaining]
+- Issues found: [any notable problems or observations]
 ```
 
-### REWRITE — Improve clarity without changing meaning
+## Quality Targets
 
-**Rewrite when:**
-- Memory is vague or ambiguous
-- Memory lacks temporal anchoring for time-sensitive facts
-- Memory uses first person instead of third person
-- Memory is overly verbose and can be compressed
-- Memory has wrong category assignment
-
-**Rewrite process:**
-1. Call `memory_forget` on the old version
-2. Call `memory_store` with the improved version and correct metadata
-
-**Examples:**
-```
-BEFORE: "likes python"
-AFTER: "User prefers Python as primary programming language"
-
-BEFORE: "switched to new database"
-AFTER: "As of 2026-03-15, user migrated from MongoDB to PostgreSQL"
-```
-
-## Quality Criteria
-
-A good memory is:
-- **Atomic**: One fact per memory. No compound sentences with unrelated facts.
-- **Self-contained**: Understandable without context from other memories.
-- **Third person**: "User prefers..." not "I prefer..."
-- **Temporally anchored**: Time-sensitive facts start with "As of YYYY-MM-DD, ..."
-- **Actionable**: Contains enough detail to inform future behavior.
-- **Categorized correctly**: Category matches the content type.
-
-A bad memory is:
-- Vague ("user likes stuff")
-- Compound ("User is Chris who works at Acme and likes Python and uses Mac")
-- Stale without timestamps ("user is working on a project")
-- Redundant with other memories
-- Contains secrets or credentials
-- Raw tool output or logs
-
-## Consolidation Targets
-
-After consolidation, aim for:
-- **Zero** memories containing credentials or secrets
-- **Zero** duplicate memories (similarity > 0.85)
-- **All** project/operational memories have temporal anchors
-- **All** memories use third person voice
-- **All** memories are correctly categorized
-- **Total memory count** reduced by 30-70% (typical for first consolidation)
-
-## Report
-
-After completing consolidation, summarize what you did:
-- Memories reviewed: N
-- Deleted (credentials): N
-- Deleted (expired/stale): N
-- Merged: N groups → N memories
-- Rewritten: N
-- Final count: N
-- Issues found: [any notable problems]
+After consolidation, the memory store should have:
+- Zero memories containing credentials or secrets
+- Zero duplicate memories (same fact in different words)
+- All project and operational memories have temporal anchors ("As of YYYY-MM-DD")
+- All memories use third person voice
+- All memories are correctly categorized
+- Each memory is 15-50 words, self-contained, and atomic (one fact per memory)

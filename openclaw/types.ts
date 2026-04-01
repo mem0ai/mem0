@@ -98,12 +98,14 @@ export interface SkillsConfig {
   };
   dream?: {
     enabled?: boolean;
-    schedule?: string;
-    mergeThreshold?: number;
-    maxMemoriesPerUser?: number;
-    preserveImmutable?: boolean;
-    credentialScan?: boolean;
-    expireStaleAfterDays?: number;
+    /** Enable automatic triggering based on activity gates. Default: true when dream enabled. */
+    auto?: boolean;
+    /** Minimum hours between consolidations. Default: 24. */
+    minHours?: number;
+    /** Minimum interactive sessions before triggering. Default: 5. */
+    minSessions?: number;
+    /** Minimum total memories to justify consolidation. Default: 20. */
+    minMemories?: number;
   };
   domain?: string;
   customRules?: {
