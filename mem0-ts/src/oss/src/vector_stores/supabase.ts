@@ -267,7 +267,7 @@ See the SQL migration instructions in the code comments.`,
         .from(this.tableName)
         .select("*")
         .eq("id", vectorId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) return null;
