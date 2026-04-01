@@ -1,6 +1,6 @@
 ---
 title: CLI
-description: "Manage memories from your terminal. Available for Node.js and Python."
+description: "Manage memories from your terminal — built for both humans and AI agents."
 icon: "terminal"
 iconType: "solid"
 ---
@@ -8,6 +8,10 @@ iconType: "solid"
 The mem0 CLI lets you add, search, list, update, and delete memories directly from the terminal. It works with the Mem0 Platform API and is available as both an npm package and a Python package.
 
 Both implementations provide identical behavior — same commands, same options, same output formats.
+
+<Tip>
+**Built for AI agents.** Pass `--agent` (or `--json`) as a global flag on any command to get structured JSON output optimized for programmatic consumption — sanitized fields, no colors or spinners, and errors as JSON too. Drop it into any agent tool loop with zero extra parsing.
+</Tip>
 
 ## Installation
 
@@ -202,15 +206,31 @@ mem0 config get api_key       # Get a specific value
 mem0 config set user_id bob   # Set a value
 ```
 
-### `mem0 entities`
+### `mem0 entity`
 
-List or delete entities (users, agents, apps).
+List or delete entities (users, agents, apps, runs).
 
 ```bash
-mem0 entities list
-mem0 entities list --type agent --output json
-mem0 entities delete --user-id alice --force
+mem0 entity list users
+mem0 entity list agents --output json
+mem0 entity delete --user-id alice --force
 ```
+
+### `mem0 event`
+
+Inspect background processing events created by async operations (e.g. bulk deletes, large add jobs).
+
+```bash
+# List recent events
+mem0 event list
+
+# Check the status of a specific event
+mem0 event status <event-id>
+```
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output` | Output format: `text`, `json` |
 
 ### `mem0 status`
 
@@ -238,6 +258,7 @@ All commands support the `--output` flag to control how results are displayed:
 | `json` | Structured JSON, suitable for piping to `jq` or consumption by AI agents |
 | `table` | Tabular format (default for `list`) |
 | `quiet` | Minimal output — just IDs or status codes |
+| `agent` | Structured JSON envelope with sanitized fields — set automatically by `--json`/`--agent` |
 
 Example with JSON output:
 
@@ -247,20 +268,54 @@ mem0 search "user preferences" --user-id alice --output json | jq '.data.results
 
 ## Use with AI agents
 
-The CLI is designed to be used by AI agents and automation tools. Two features make this straightforward:
+The CLI is purpose-built for use inside AI agent tool loops. Pass `--agent` or `--json` as a global flag on **any** command to activate agent mode:
 
-- **`--output json`** returns structured data that agents can parse directly
-- **`mem0 help --json`** returns the full command tree as JSON, so agents can discover available commands programmatically
+- Every command outputs a consistent JSON envelope: `{"status", "command", "duration_ms", "scope", "count", "data"}`
+- The `data` field contains only the fields that matter — IDs, memory text, scores, categories. Noisy API fields are stripped.
+- All human-readable output is suppressed: no spinners, no colors, no banners.
+- Errors are returned as JSON to stdout with a non-zero exit code, so your agent can catch them the same way as successes.
 
 ```bash
-# Agent adds a memory
-mem0 add "User prefers concise responses" --user-id user-42 --output quiet
-
-# Agent searches memories and parses results
-mem0 search "response preferences" --user-id user-42 --output json
+# Drop --agent on any command and get clean, parseable JSON
+mem0 --agent search "response preferences" --user-id user-42
+mem0 --agent add "User prefers concise responses" --user-id user-42
+mem0 --agent list --user-id user-42
+mem0 --agent delete --all --user-id user-42 --force
 ```
 
-For non-interactive environments (CI, agent runtimes), use `mem0 init --api-key --user-id` or set the `MEM0_API_KEY` environment variable to skip interactive prompts.
+<CodeGroup>
+```json Output: mem0 --agent search "dark mode" --user-id alice
+{
+  "status": "success",
+  "command": "search",
+  "duration_ms": 134,
+  "scope": { "user_id": "alice" },
+  "count": 2,
+  "data": [
+    { "id": "abc-123", "memory": "User prefers dark mode", "score": 0.97, "created_at": "2026-01-15", "categories": ["preferences"] },
+    { "id": "def-456", "memory": "User uses vim keybindings", "score": 0.81, "created_at": "2026-01-10", "categories": ["tools"] }
+  ]
+}
+```
+
+```json Output: mem0 --agent add "Likes concise answers" --user-id alice
+{
+  "status": "success",
+  "command": "add",
+  "duration_ms": 210,
+  "data": [
+    { "id": "ghi-789", "memory": "Likes concise answers", "event": "ADD" }
+  ]
+}
+```
+</CodeGroup>
+
+Two other agent-friendly features:
+
+- **`--output json`** returns structured data without sanitization — useful when you want the full raw API response
+- **`mem0 help --json`** returns the complete command tree as JSON, so agents can self-discover available commands and options
+
+For non-interactive environments (CI, agent runtimes), set credentials via `mem0 init --api-key m0-xxx --user-id alice` or the `MEM0_API_KEY` environment variable.
 
 ## Environment variables
 
@@ -278,10 +333,12 @@ Environment variables take precedence over values in the config file, which take
 
 ## Global flags
 
-These flags are available on all commands that interact with the API:
+These flags are available on all commands:
 
 | Flag | Description |
 |------|-------------|
+| `--json` | Enable agent mode: structured JSON envelope output, no colors or spinners |
+| `--agent` | Alias for `--json` |
 | `--api-key` | Override the configured API key for this request |
 | `--base-url` | Override the configured API base URL for this request |
 | `-o, --output` | Set the output format |
