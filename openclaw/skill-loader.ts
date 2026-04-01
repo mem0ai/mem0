@@ -289,14 +289,15 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
   parts.push("");
   parts.push("CREDENTIALS: NEVER store sk-, m0-, ghp_, AKIA, Bearer tokens, passwords. Store that it was configured, not the value.");
   parts.push("");
-  parts.push("SEARCH QUERIES: When calling memory_search, REWRITE the query for retrieval — do NOT pass the user's raw message.");
-  parts.push("- Extract key concepts: names, topics, entities, technical terms.");
-  parts.push("- Remove conversational framing: 'can you help me', 'I was wondering', 'do you remember'.");
-  parts.push("- Think: what words would the STORED memory contain? Write a query that matches those words.");
-  parts.push('- Example: User says "Can you help me set up the Grafana Terraform provider?" → memory_search("Grafana Terraform infrastructure monitoring setup")');
-  parts.push('- Example: User says "What was that database we decided on?" → memory_search("database decision migration")');
-  parts.push('- Example: User says "Do you remember my timezone?" → memory_search("user timezone location identity")');
-  parts.push("For the full protocol with examples, read the memory-triage skill.");
+  parts.push("SEARCH QUERIES: When calling memory_search, ALWAYS rewrite the query for retrieval. NEVER pass the user's raw message.");
+  parts.push("Process: (1) Identify what stored memory you are looking for. (2) Extract entities and technical terms from the user's message. (3) Add terms the stored memory would contain (category words like 'identity', 'decision', 'rule', 'preference'). (4) Compose as 3-6 keyword string. No question words, no pronouns, no filler.");
+  parts.push('WRONG: memory_search("Can you help me set up the Grafana Terraform provider?")');
+  parts.push('RIGHT: memory_search("Grafana Terraform monitoring infrastructure migration")');
+  parts.push('WRONG: memory_search("Do you remember my timezone?")');
+  parts.push('RIGHT: memory_search("user timezone location identity")');
+  parts.push('WRONG: memory_search("What did I say about Docker?")');
+  parts.push('RIGHT: memory_search("Docker rule preference avoid")');
+  parts.push("For the full query rewriting protocol with detailed reasoning, read the memory-triage skill's recall-protocol.");
   parts.push("</memory-system>");
 
   return parts.join("\n");
