@@ -124,12 +124,19 @@ class PlatformProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    const filters: Record<string, unknown> = { user_id: options.user_id };
-    if (options.run_id) filters.run_id = options.run_id;
+    // Base filters: always scope by user_id, optionally by run_id
+    const baseFilters: Record<string, unknown> = { user_id: options.user_id };
+    if (options.run_id) baseFilters.run_id = options.run_id;
+
+    // Merge agent-provided filters (created_at ranges, metadata, etc.)
+    // with base filters. Agent filters extend, never override user scoping.
+    const mergedFilters = options.filters
+      ? { AND: [baseFilters, options.filters] }
+      : baseFilters;
 
     const opts: Record<string, unknown> = {
       api_version: "v2",
-      filters,
+      filters: mergedFilters,
     };
     if (options.top_k != null) opts.top_k = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;

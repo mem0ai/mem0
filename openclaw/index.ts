@@ -241,15 +241,22 @@ function registerTools(
               'Filter results by category (e.g. ["identity", "preference"]). Only returns memories tagged with these categories.',
           }),
         ),
+        filters: Type.Optional(
+          Type.Record(Type.String(), Type.Unknown(), {
+            description:
+              'Advanced filters object. Supports date ranges and metadata filtering. Examples: {"created_at": {"gte": "2026-03-01"}} for recent memories, {"AND": [{"categories": {"contains": "decision"}}, {"created_at": {"gte": "2026-01-01"}}]} for decisions this year. Operators: eq, ne, gt, gte, lt, lte, in, contains, icontains. Logical: AND, OR, NOT.',
+          }),
+        ),
       }),
       async execute(_toolCallId, params) {
-        const { query, limit, userId, agentId, scope = "all", categories: filterCategories } = params as {
+        const { query, limit, userId, agentId, scope = "all", categories: filterCategories, filters: agentFilters } = params as {
           query: string;
           limit?: number;
           userId?: string;
           agentId?: string;
           scope?: "session" | "long-term" | "all";
           categories?: string[];
+          filters?: Record<string, unknown>;
         };
 
         try {
@@ -257,9 +264,10 @@ function registerTools(
           const uid = _resolveUserId({ agentId, userId });
           const currentSessionId = getCurrentSessionId();
 
-          // Apply categories filter to search options
-          const applyCategories = (opts: SearchOptions): SearchOptions => {
+          // Apply agent-provided filters to search options
+          const applyFilters = (opts: SearchOptions): SearchOptions => {
             if (filterCategories?.length) opts.categories = filterCategories;
+            if (agentFilters) opts.filters = agentFilters;
             return opts;
           };
 
@@ -267,25 +275,25 @@ function registerTools(
             if (currentSessionId) {
               results = await provider.search(
                 query,
-                applyCategories(buildSearchOptions(uid, limit, currentSessionId)),
+                applyFilters(buildSearchOptions(uid, limit, currentSessionId)),
               );
             }
           } else if (scope === "long-term") {
             results = await provider.search(
               query,
-              applyCategories(buildSearchOptions(uid, limit)),
+              applyFilters(buildSearchOptions(uid, limit)),
             );
           } else {
             // "all" — search both scopes and combine
             const longTermResults = await provider.search(
               query,
-              applyCategories(buildSearchOptions(uid, limit)),
+              applyFilters(buildSearchOptions(uid, limit)),
             );
             let sessionResults: MemoryItem[] = [];
             if (currentSessionId) {
               sessionResults = await provider.search(
                 query,
-                applyCategories(buildSearchOptions(uid, limit, currentSessionId)),
+                applyFilters(buildSearchOptions(uid, limit, currentSessionId)),
               );
             }
             // Deduplicate by ID, preferring long-term

@@ -298,7 +298,16 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
   parts.push('RIGHT: memory_search("report format preference style")');
   parts.push('WRONG: memory_search("What timezone am I in?")');
   parts.push('RIGHT: memory_search("user timezone location based")');
-  parts.push("For the complete query rewriting protocol with 7 worked examples and failure patterns, read the recall-protocol reference in the memory-triage skill.");
+  parts.push("");
+  parts.push("SEARCH FILTERS: When the user's intent implies a time range, category, or metadata constraint, pass a `filters` object alongside your rewritten query.");
+  parts.push("- Time references ('last week', 'recently', 'in March'): add created_at filter with gte/lte dates in YYYY-MM-DD format.");
+  parts.push("- Category-specific requests ('my preferences', 'any rules about', 'decisions we made'): add categories filter.");
+  parts.push("- Combine query rewriting WITH filters. The query finds semantically relevant memories. The filters narrow by time, category, or metadata.");
+  parts.push('- Example: "What did we decide last week?" → memory_search("decision chose rationale", filters: {"created_at": {"gte": "2026-03-24"}})');
+  parts.push('- Example: "What are my standing rules?" → memory_search("user rule always never", categories: ["rule"])');
+  parts.push('- Example: "Recent project updates" → memory_search("project status milestone", categories: ["project"], filters: {"created_at": {"gte": "2026-03-01"}})');
+  parts.push("- Available operators: eq, ne, gt, gte, lt, lte, in, contains. Logical: AND, OR, NOT.");
+  parts.push("For the complete query rewriting protocol with worked examples and failure patterns, read the recall-protocol reference in the memory-triage skill.");
   parts.push("</memory-system>");
 
   return parts.join("\n");

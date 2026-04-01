@@ -146,3 +146,78 @@ These query patterns produce poor results. Recognize and avoid them.
 | More than 8 keywords | Too broad, ranks everything equally | Trim to strongest 4-5 terms |
 | Vague category words only | "user information stuff" matches everything | Include at least one specific entity or concept |
 | Repeating the same search | If a search returned nothing, a rephrased version of the same query will likely also return nothing | Try a different angle or accept the memory does not exist |
+
+## Constructing Filters
+
+The `filters` parameter narrows search results by time, category, or metadata. Use it alongside your rewritten query. The query handles semantic relevance. Filters handle structural constraints.
+
+### When to Add Filters
+
+Add filters when the user's intent implies a structural constraint beyond semantic similarity:
+
+- Time references ("last week", "recently", "in January", "yesterday"): add `created_at` filter with gte/lte dates
+- Category requests ("my preferences", "any rules", "what decisions"): add `categories` filter
+- Recency bias ("latest", "most recent", "current"): add `created_at` with recent date
+- No time or category signal in the user's message: do not add filters. Let the query handle it alone.
+
+### Filter Syntax
+
+Operators: `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `contains`, `icontains`
+Logical: `AND`, `OR`, `NOT` (wrap conditions in arrays)
+Date format: YYYY-MM-DD
+
+### Worked Examples with Filters
+
+```
+User: "What did we decide last week about the migration?"
+Query: "decision migration chose rationale"
+Filter: created_at >= 7 days ago
+Call: memory_search("decision migration chose rationale", filters: {"created_at": {"gte": "2026-03-25"}})
+```
+
+```
+User: "What are all my standing rules?"
+Query: "user rule always never"
+Filter: category = rule
+Call: memory_search("user rule always never", categories: ["rule"])
+```
+
+```
+User: "Show me recent project updates"
+Query: "project status milestone update"
+Filter: category + time
+Call: memory_search("project status milestone", categories: ["project"], filters: {"created_at": {"gte": "2026-03-01"}})
+```
+
+```
+User: "What preferences have I shared?"
+Query: "user prefers preference"
+Filter: category = preference
+Call: memory_search("user prefers preference", categories: ["preference"])
+```
+
+```
+User: "What do you know about me?"
+Query: "user identity name role location timezone"
+Filter: category = identity
+Call: memory_search("user identity name role location", categories: ["identity"])
+```
+
+```
+User: "Anything from our conversation yesterday?"
+Query: "user context discussed"
+Filter: date range = yesterday
+Call: memory_search("user context discussed", filters: {"created_at": {"gte": "2026-03-31", "lte": "2026-04-01"}})
+```
+
+### When NOT to Add Filters
+
+- The user's message has no time signal and no category signal. Just use the rewritten query.
+- You are unsure of the exact date. Do not guess dates. Omit the filter and let vector search handle it.
+- The query is already narrow enough. Adding filters to a very specific query risks filtering out the answer.
+
+## When NOT to Search
+
+- Recalled memories already cover the topic. Do not re-search for what is in front of you.
+- The turn has no memory-relevant content. Most turns do not need a search.
+- The query would be too generic to return useful results.

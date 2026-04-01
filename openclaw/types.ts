@@ -58,6 +58,7 @@ export interface SearchOptions {
   reranking?: boolean;
   filter_memories?: boolean;
   categories?: string[];
+  filters?: Record<string, unknown>;
   source?: string;
 }
 
