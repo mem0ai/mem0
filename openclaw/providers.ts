@@ -111,6 +111,12 @@ class PlatformProvider implements Mem0Provider {
     if (options.enable_graph) opts.enable_graph = options.enable_graph;
     if (options.output_format) opts.output_format = options.output_format;
     if (options.source) opts.source = options.source;
+    // Agentic harness: direct storage bypass
+    if (options.infer !== undefined) opts.infer = options.infer;
+    if (options.deduced_memories) opts.deduced_memories = options.deduced_memories;
+    if (options.metadata) opts.metadata = options.metadata;
+    if (options.expiration_date) opts.expiration_date = options.expiration_date;
+    if (options.immutable) opts.immutable = options.immutable;
 
     const result = await this.client.add(messages, opts);
     return normalizeAddResult(result);
@@ -118,17 +124,26 @@ class PlatformProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    const filters: Record<string, unknown> = { user_id: options.user_id };
-    if (options.run_id) filters.run_id = options.run_id;
+    // Base filters: always scope by user_id, optionally by run_id
+    const baseFilters: Record<string, unknown> = { user_id: options.user_id };
+    if (options.run_id) baseFilters.run_id = options.run_id;
+
+    // Merge agent-provided filters (created_at ranges, metadata, etc.)
+    // with base filters. Agent filters extend, never override user scoping.
+    const mergedFilters = options.filters
+      ? { AND: [baseFilters, options.filters] }
+      : baseFilters;
 
     const opts: Record<string, unknown> = {
       api_version: "v2",
-      filters,
+      filters: mergedFilters,
     };
     if (options.top_k != null) opts.top_k = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
     if (options.keyword_search != null) opts.keyword_search = options.keyword_search;
     if (options.reranking != null) opts.rerank = options.reranking;
+    if (options.filter_memories != null) opts.filter_memories = options.filter_memories;
+    if (options.categories != null) opts.categories = options.categories;
 
     const results = await this.client.search(query, opts);
     return normalizeSearchResults(results);
@@ -155,9 +170,25 @@ class PlatformProvider implements Mem0Provider {
     return [];
   }
 
+  async update(memoryId: string, text: string): Promise<void> {
+    await this.ensureClient();
+    await this.client.update(memoryId, { text });
+  }
+
   async delete(memoryId: string): Promise<void> {
     await this.ensureClient();
     await this.client.delete(memoryId);
+  }
+
+  async deleteAll(userId: string): Promise<void> {
+    await this.ensureClient();
+    await this.client.deleteAll({ user_id: userId });
+  }
+
+  async history(memoryId: string): Promise<Array<{ id: string; old_memory: string; new_memory: string; event: string; created_at: string }>> {
+    await this.ensureClient();
+    const result = await this.client.history(memoryId);
+    return Array.isArray(result) ? result : [];
   }
 }
 
@@ -237,7 +268,24 @@ class OSSProvider implements Mem0Provider {
     const addOpts: Record<string, unknown> = { userId: options.user_id };
     if (options.run_id) addOpts.runId = options.run_id;
     if (options.source) addOpts.source = options.source;
-    const result = await this.memory.add(messages, addOpts);
+    // Agentic harness: direct storage bypass
+    if (options.infer !== undefined) addOpts.infer = options.infer;
+    if (options.metadata) addOpts.metadata = options.metadata;
+    if (options.expiration_date) addOpts.expirationDate = options.expiration_date;
+    if (options.immutable) addOpts.immutable = options.immutable;
+
+    // OSS SDK doesn't support deduced_memories — when infer=false, it stores
+    // raw message content directly. Rewrite messages to contain the facts so
+    // OSS stores the right text.
+    let effectiveMessages = messages;
+    if (options.infer === false && options.deduced_memories?.length) {
+      effectiveMessages = options.deduced_memories.map((fact) => ({
+        role: "user",
+        content: fact,
+      }));
+    }
+
+    const result = await this.memory.add(effectiveMessages, addOpts);
     return normalizeAddResult(result);
   }
 
@@ -283,9 +331,30 @@ class OSSProvider implements Mem0Provider {
     return [];
   }
 
+  async update(memoryId: string, text: string): Promise<void> {
+    await this.ensureMemory();
+    await this.memory.update(memoryId, { data: text });
+  }
+
   async delete(memoryId: string): Promise<void> {
     await this.ensureMemory();
     await this.memory.delete(memoryId);
+  }
+
+  async deleteAll(userId: string): Promise<void> {
+    await this.ensureMemory();
+    await this.memory.deleteAll({ userId });
+  }
+
+  async history(memoryId: string): Promise<Array<{ id: string; old_memory: string; new_memory: string; event: string; created_at: string }>> {
+    await this.ensureMemory();
+    try {
+      const result = await this.memory.history(memoryId);
+      return Array.isArray(result) ? result : [];
+    } catch {
+      // OSS may not support history depending on config
+      return [];
+    }
   }
 }
 
