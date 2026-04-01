@@ -100,25 +100,31 @@ def cmd_entities_delete(
         if not force:
             print_error(err_console, "Destructive operation requires --force in agent mode.")
             raise typer.Exit(1)
-    if not user_id:
-        if any([agent_id, app_id, run_id]):
-            print_error(
-                err_console,
-                "Entity deletion is only supported for --user-id.",
-                hint="The API does not support deleting agent, app, or run entities directly.",
-            )
-        else:
-            print_error(err_console, "Provide --user-id to delete an entity.")
+    if not any([user_id, agent_id, app_id, run_id]):
+        print_error(
+            err_console, "Provide at least one of --user-id, --agent-id, --app-id, --run-id."
+        )
         raise typer.Exit(1)
 
+    scope_parts = []
+    if user_id:
+        scope_parts.append(f"user={user_id}")
+    if agent_id:
+        scope_parts.append(f"agent={agent_id}")
+    if app_id:
+        scope_parts.append(f"app={app_id}")
+    if run_id:
+        scope_parts.append(f"run={run_id}")
+    scope_str = ", ".join(scope_parts)
+
     if dry_run:
-        print_info(console, f"Would delete entity user={user_id} and all its memories.")
+        print_info(console, f"Would delete entity {scope_str} and all its memories.")
         print_info(console, "No changes made (dry run).")
         return
 
     if not force:
         confirm = typer.confirm(
-            f"\n  \u26a0  Delete entity user={user_id} AND all its memories? This cannot be undone."
+            f"\n  \u26a0  Delete entity {scope_str} AND all its memories? This cannot be undone."
         )
         if not confirm:
             print_info(console, "Cancelled.")
@@ -127,13 +133,27 @@ def cmd_entities_delete(
     _start = _time.perf_counter()
     with timed_status(err_console, "Deleting entity...") as _ts:
         try:
-            result = backend.delete_entities(user_id=user_id)
+            result = backend.delete_entities(
+                user_id=user_id,
+                agent_id=agent_id,
+                app_id=app_id,
+                run_id=run_id,
+            )
         except Exception as e:
             print_error(err_console, str(e))
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
-    scope = {"user_id": user_id}
+    scope = {
+        k: v
+        for k, v in {
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "app_id": app_id,
+            "run_id": run_id,
+        }.items()
+        if v
+    }
     if output == "agent":
         format_agent_envelope(
             console,

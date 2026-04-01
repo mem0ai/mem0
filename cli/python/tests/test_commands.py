@@ -920,17 +920,18 @@ class TestEntitiesDeleteCommand:
                 force=True,
                 output="text",
             )
-        mock_backend.delete_entities.assert_called_once_with(user_id="alice")
+        mock_backend.delete_entities.assert_called_once_with(
+            user_id="alice", agent_id=None, app_id=None, run_id=None
+        )
         output = buf.getvalue()
         assert "deleted" in output.lower()
 
-    def test_delete_entity_rejects_non_user_ids(self, mock_backend):
-        console, _buf = _make_console()
-        err_console, err_buf = _make_err_console()
+    def test_delete_entity_agent_id(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
         with (
             patch("mem0_cli.commands.entities.console", console),
             patch("mem0_cli.commands.entities.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
         ):
             cmd_entities_delete(
                 mock_backend,
@@ -941,9 +942,11 @@ class TestEntitiesDeleteCommand:
                 force=True,
                 output="text",
             )
-        err_output = err_buf.getvalue()
-        assert "only supported for --user-id" in err_output.lower()
-        mock_backend.delete_entities.assert_not_called()
+        mock_backend.delete_entities.assert_called_once_with(
+            user_id=None, agent_id="bot1", app_id=None, run_id=None
+        )
+        output = buf.getvalue()
+        assert "deleted" in output.lower()
 
     def test_delete_entity_no_id_exits(self, mock_backend):
         console, _buf = _make_console()

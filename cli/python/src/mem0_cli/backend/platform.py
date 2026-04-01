@@ -265,18 +265,21 @@ class PlatformBackend(Backend):
         app_id: str | None = None,
         run_id: str | None = None,
     ) -> dict:
-        params: dict[str, str] = {}
-        if user_id:
-            params["user_id"] = user_id
-        if agent_id:
-            params["agent_id"] = agent_id
-        if app_id:
-            params["app_id"] = app_id
-        if run_id:
-            params["run_id"] = run_id
-        if not params:
+        # v2 endpoint: DELETE /v2/entities/{entity_type}/{entity_id}/
+        type_map = {
+            "user": user_id,
+            "agent": agent_id,
+            "app": app_id,
+            "run": run_id,
+        }
+        entities = {t: v for t, v in type_map.items() if v}
+        if not entities:
             raise ValueError("At least one entity ID is required for delete_entities.")
-        return self._request("DELETE", "/v1/entities/", params=params)
+        # Delete each provided entity via the v2 path-based endpoint
+        result: dict = {}
+        for entity_type, entity_id in entities.items():
+            result = self._request("DELETE", f"/v2/entities/{entity_type}/{entity_id}/")
+        return result
 
     def status(
         self,
