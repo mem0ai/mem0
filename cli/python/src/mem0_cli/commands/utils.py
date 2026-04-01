@@ -71,6 +71,14 @@ def cmd_status(
         lines.append(f"  [{DIM_COLOR}]API URL:[/]  {result['base_url']}")
     if result.get("error"):
         lines.append(f"  [{ERROR_COLOR}]Error:[/]    {result['error']}")
+        if "Authentication failed" in str(result["error"]):
+            lines.append("")
+            lines.append(
+                f"  [{DIM_COLOR}]Run [bold]mem0 init[/bold] to reconfigure your API key[/]"
+            )
+            lines.append(
+                f"  [{DIM_COLOR}]Get a key at [bold]https://app.mem0.ai/dashboard/api-keys[/bold][/]"
+            )
     lines.append(f"  [{DIM_COLOR}]Latency:[/]  {_elapsed:.2f}s")
 
     content = "\n".join(lines)

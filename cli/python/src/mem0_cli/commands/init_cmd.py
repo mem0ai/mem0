@@ -362,7 +362,7 @@ def _validate_platform(config: Mem0Config) -> None:
             print_error(
                 err_console,
                 f"Could not connect: {status.get('error', 'Unknown error')}",
-                hint="Check your API key and try again.",
+                hint="Visit https://app.mem0.ai/dashboard/api-keys to get a new key, then run mem0 init again.",
             )
     except Exception as e:
         print_error(err_console, f"Connection test failed: {e}")

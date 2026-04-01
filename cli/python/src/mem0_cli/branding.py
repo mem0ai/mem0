@@ -143,6 +143,11 @@ def timed_status(console: Console, message: str):
         elapsed = time.perf_counter() - start
         if ctx.error_msg:
             print_error(_err, f"{ctx.error_msg} ({elapsed:.2f}s)")
+            if "Authentication failed" in ctx.error_msg:
+                _err.print(
+                    f"  [{DIM_COLOR}]Run [bold]mem0 init[/bold] to reconfigure your API key"
+                    f" · [bold]https://app.mem0.ai/dashboard/api-keys[/bold][/]"
+                )
         raise
     else:
         elapsed = time.perf_counter() - start
