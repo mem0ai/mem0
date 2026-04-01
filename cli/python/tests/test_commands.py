@@ -177,30 +177,28 @@ class TestAddCommand:
     def test_add_no_content_exits(self, mock_backend):
         console, _buf = _make_console()
         err_console, _err_buf = _make_err_console()
-        # Patch stdin.isatty to return True so it doesn't try to read stdin
         with (
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
-            patch("mem0_cli.commands.memory.sys") as mock_sys,
+            patch("mem0_cli.commands.memory._stdin_is_piped", return_value=False),
+            pytest.raises((SystemExit, ClickExit)),
         ):
-            mock_sys.stdin.isatty.return_value = True
-            with pytest.raises((SystemExit, ClickExit)):
-                cmd_add(
-                    mock_backend,
-                    None,
-                    user_id="alice",
-                    agent_id=None,
-                    app_id=None,
-                    run_id=None,
-                    messages=None,
-                    file=None,
-                    metadata=None,
-                    immutable=False,
-                    no_infer=False,
-                    expires=None,
-                    categories=None,
-                    output="text",
-                )
+            cmd_add(
+                mock_backend,
+                None,
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                output="text",
+            )
 
     def test_add_invalid_metadata_json(self, mock_backend):
         console, _buf = _make_console()
