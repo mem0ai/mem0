@@ -319,6 +319,12 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
       parts.push('WRONG: memory_search("What timezone am I in?")');
       parts.push('RIGHT: memory_search("user timezone location based")');
       parts.push("");
+      parts.push("SEARCH SCOPE: Choose the right scope for each search:");
+      parts.push('- scope: "long-term" for user context, identity, preferences, decisions (default, most common)');
+      parts.push('- scope: "session" for facts from this conversation only');
+      parts.push('- scope: "all" only when you truly need both scopes combined');
+      parts.push("Using a specific scope avoids unnecessary backend fan-out.");
+      parts.push("");
       parts.push("SEARCH FILTERS: When the user's intent implies a time range or category constraint, pass a `filters` object alongside your rewritten query.");
       parts.push('- Time: "last week" -> filters: {"created_at": {"gte": "2026-03-24"}}');
       parts.push('- Category: "my preferences" -> categories: ["preference"]');

@@ -80,7 +80,12 @@ export interface SkillsConfig {
     credentialPatterns?: string[];
   };
   recall?: {
+    /** Master switch. false = no auto-recall regardless of strategy. */
     enabled?: boolean;
+    /** Controls auto-recall behavior. Only consulted when enabled !== false.
+     *  "smart" (default): long-term search only, 1 search/turn.
+     *  "manual": zero plugin searches, agent controls all search.
+     *  "always": long-term + session search, 2 searches/turn. */
     strategy?: "always" | "smart" | "manual";
     tokenBudget?: number;
     maxMemories?: number;
