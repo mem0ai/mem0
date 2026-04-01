@@ -4,7 +4,8 @@
 
 import { printError, printInfo, timedStatus, colors } from "../branding.js";
 import type { Backend } from "../backend/base.js";
-import { formatJson } from "../output.js";
+import { formatAgentEnvelope, formatJson } from "../output.js";
+import { setCurrentCommand } from "../state.js";
 import Table from "cli-table3";
 import boxen from "boxen";
 
@@ -29,6 +30,8 @@ export async function cmdEventList(
   backend: Backend,
   opts: { output: string },
 ): Promise<void> {
+  setCurrentCommand("event list");
+  const start = performance.now();
   let results: Record<string, unknown>[];
   try {
     results = await timedStatus("Fetching events...", async () => {
@@ -38,9 +41,15 @@ export async function cmdEventList(
     printError(e instanceof Error ? e.message : String(e));
     process.exit(1);
   }
+  const elapsed = (performance.now() - start) / 1000;
 
-  if (opts.output === "json") {
-    formatJson(results);
+  if (opts.output === "agent" || opts.output === "json") {
+    formatAgentEnvelope({
+      command: "event list",
+      data: results,
+      count: results.length,
+      durationMs: Math.round(elapsed * 1000),
+    });
     return;
   }
 
@@ -85,6 +94,8 @@ export async function cmdEventStatus(
   eventId: string,
   opts: { output: string },
 ): Promise<void> {
+  setCurrentCommand("event status");
+  const start = performance.now();
   let ev: Record<string, unknown>;
   try {
     ev = await timedStatus("Fetching event...", async () => {
@@ -94,9 +105,14 @@ export async function cmdEventStatus(
     printError(e instanceof Error ? e.message : String(e));
     process.exit(1);
   }
+  const elapsed = (performance.now() - start) / 1000;
 
-  if (opts.output === "json") {
-    formatJson(ev);
+  if (opts.output === "agent" || opts.output === "json") {
+    formatAgentEnvelope({
+      command: "event status",
+      data: ev,
+      durationMs: Math.round(elapsed * 1000),
+    });
     return;
   }
 

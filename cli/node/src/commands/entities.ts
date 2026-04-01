@@ -12,7 +12,8 @@ import {
 	printSuccess,
 	timedStatus,
 } from "../branding.js";
-import { formatJson } from "../output.js";
+import { formatAgentEnvelope, formatJson } from "../output.js";
+import { setCurrentCommand } from "../state.js";
 
 const { brand, accent, dim } = colors;
 
@@ -23,6 +24,7 @@ export async function cmdEntitiesList(
 	entityType: string,
 	opts: { output: string },
 ): Promise<void> {
+	setCurrentCommand("entity list");
 	if (!VALID_TYPES.has(entityType)) {
 		printError(
 			`Invalid entity type: ${entityType}. Use: ${[...VALID_TYPES].join(", ")}`,
@@ -45,8 +47,13 @@ export async function cmdEntitiesList(
 	}
 	const elapsed = (performance.now() - start) / 1000;
 
-	if (opts.output === "json") {
-		formatJson(results);
+	if (opts.output === "agent" || opts.output === "json") {
+		formatAgentEnvelope({
+			command: "entity list",
+			data: results,
+			count: results.length,
+			durationMs: Math.round(elapsed * 1000),
+		});
 		return;
 	}
 
@@ -86,6 +93,12 @@ export async function cmdEntitiesDelete(
 		output: string;
 	},
 ): Promise<void> {
+	setCurrentCommand("entity delete");
+	const { isAgentMode } = await import("../state.js");
+	if (isAgentMode() && !opts.force) {
+		printError("Destructive operation requires --force in agent mode.");
+		process.exit(1);
+	}
 	if (!opts.userId && !opts.agentId && !opts.appId && !opts.runId) {
 		printError(
 			"Provide at least one of --user-id, --agent-id, --app-id, --run-id.",
@@ -148,7 +161,13 @@ export async function cmdEntitiesDelete(
 	}
 	const elapsed = (performance.now() - start) / 1000;
 
-	if (opts.output === "json") {
+	if (opts.output === "agent") {
+		formatAgentEnvelope({
+			command: "entity delete",
+			data: result,
+			durationMs: Math.round(elapsed * 1000),
+		});
+	} else if (opts.output === "json") {
 		formatJson(result);
 	} else if (opts.output !== "quiet") {
 		printSuccess(`Entity deleted with all memories (${elapsed.toFixed(2)}s)`);

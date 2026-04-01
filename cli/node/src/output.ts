@@ -243,6 +243,29 @@ export function formatJsonEnvelope(opts: {
 	console.log(JSON.stringify(envelope, null, 2));
 }
 
+export function formatAgentEnvelope(opts: {
+	command: string;
+	data: unknown;
+	durationMs?: number;
+	scope?: Record<string, string | undefined>;
+	count?: number;
+}): void {
+	const envelope: Record<string, unknown> = {
+		status: "success",
+		command: opts.command,
+	};
+	if (opts.durationMs !== undefined) envelope.duration_ms = opts.durationMs;
+	if (opts.scope) {
+		const filtered = Object.fromEntries(
+			Object.entries(opts.scope).filter(([, v]) => v),
+		);
+		if (Object.keys(filtered).length > 0) envelope.scope = filtered;
+	}
+	if (opts.count !== undefined) envelope.count = opts.count;
+	envelope.data = opts.data;
+	console.log(JSON.stringify(envelope, null, 2));
+}
+
 export function printResultSummary(opts: {
 	count: number;
 	durationSecs?: number;

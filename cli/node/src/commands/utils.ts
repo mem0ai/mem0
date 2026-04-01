@@ -6,7 +6,8 @@ import fs from "node:fs";
 import boxen from "boxen";
 import type { Backend } from "../backend/base.js";
 import { colors, printError, printSuccess, timedStatus } from "../branding.js";
-import { formatJsonEnvelope } from "../output.js";
+import { formatAgentEnvelope, formatJsonEnvelope } from "../output.js";
+import { setCurrentCommand } from "../state.js";
 import { CLI_VERSION } from "../version.js";
 
 const { brand, dim, success, error: errorColor } = colors;
@@ -15,6 +16,7 @@ export async function cmdStatus(
 	backend: Backend,
 	opts: { userId?: string; agentId?: string; output?: string } = {},
 ): Promise<void> {
+	setCurrentCommand("status");
 	const start = performance.now();
 	let result: Record<string, unknown>;
 	try {
@@ -29,8 +31,8 @@ export async function cmdStatus(
 	}
 	const elapsed = (performance.now() - start) / 1000;
 
-	if (opts.output === "json") {
-		formatJsonEnvelope({
+	if (opts.output === "agent" || opts.output === "json") {
+		formatAgentEnvelope({
 			command: "status",
 			data: {
 				connected: result.connected,
@@ -81,6 +83,7 @@ export async function cmdImport(
 	filePath: string,
 	opts: { userId?: string; agentId?: string; output?: string },
 ): Promise<void> {
+	setCurrentCommand("import");
 	let data: Record<string, unknown>[];
 	try {
 		const raw = fs.readFileSync(filePath, "utf-8");
@@ -125,8 +128,8 @@ export async function cmdImport(
 	const elapsed = (performance.now() - start) / 1000;
 	console.log(); // Clear progress line
 
-	if (opts.output === "json") {
-		formatJsonEnvelope({
+	if (opts.output === "agent" || opts.output === "json") {
+		formatAgentEnvelope({
 			command: "import",
 			data: {
 				added,

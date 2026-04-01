@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createMockBackend } from "./setup.js";
 import type { Backend } from "../src/backend/base.js";
+import { setAgentMode } from "../src/state.js";
 
 let mockBackend: Backend;
 
@@ -31,6 +32,7 @@ import { afterEach } from "vitest";
 afterEach(() => {
   console.log = originalLog;
   console.error = originalError;
+  setAgentMode(false);
 });
 
 describe("cmdAdd", () => {
@@ -257,5 +259,113 @@ describe("cmdEventStatus", () => {
     await cmdEventStatus(mockBackend, "evt-abc-123-def-456", { output: "json" });
     expect(output).toContain("evt-abc-123-def-456");
     expect(output).toContain("ADD");
+  });
+});
+
+describe("agent mode", () => {
+  it("cmdAdd outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdAdd } = await import("../src/commands/memory.js");
+    await cmdAdd(mockBackend, "test preference", {
+      userId: "alice",
+      immutable: false,
+      noInfer: false,
+      enableGraph: false,
+      output: "agent",
+    });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("add");
+    expect(parsed.data).toBeDefined();
+    expect(parsed.scope).toMatchObject({ user_id: "alice" });
+  });
+
+  it("cmdSearch outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdSearch } = await import("../src/commands/memory.js");
+    await cmdSearch(mockBackend, "preferences", {
+      userId: "alice",
+      topK: 10,
+      threshold: 0.3,
+      rerank: false,
+      keyword: false,
+      enableGraph: false,
+      output: "agent",
+    });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("search");
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.count).toBe(2);
+  });
+
+  it("cmdList outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdList } = await import("../src/commands/memory.js");
+    await cmdList(mockBackend, {
+      userId: "alice",
+      page: 1,
+      pageSize: 100,
+      enableGraph: false,
+      output: "agent",
+    });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("list");
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.count).toBe(2);
+  });
+
+  it("cmdGet outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdGet } = await import("../src/commands/memory.js");
+    await cmdGet(mockBackend, "abc-123-def-456", { output: "agent" });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("get");
+    expect(parsed.data).toBeDefined();
+    expect(parsed.data).toMatchObject({ id: "abc-123-def-456" });
+  });
+
+  it("cmdUpdate outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdUpdate } = await import("../src/commands/memory.js");
+    await cmdUpdate(mockBackend, "abc-123", "Updated text", { output: "agent" });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("update");
+    expect(parsed.data).toBeDefined();
+  });
+
+  it("cmdDelete outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdDelete } = await import("../src/commands/memory.js");
+    await cmdDelete(mockBackend, "abc-123", { output: "agent" });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("delete");
+    expect(parsed.data).toBeDefined();
+  });
+
+  it("cmdEventList outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdEventList } = await import("../src/commands/events.js");
+    await cmdEventList(mockBackend, { output: "agent" });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("event list");
+    expect(Array.isArray(parsed.data)).toBe(true);
+    expect(parsed.count).toBe(2);
+  });
+
+  it("cmdEventStatus outputs JSON envelope", async () => {
+    setAgentMode(true);
+    const { cmdEventStatus } = await import("../src/commands/events.js");
+    await cmdEventStatus(mockBackend, "evt-abc-123-def-456", { output: "agent" });
+    const parsed = JSON.parse(output.trim());
+    expect(parsed.status).toBe("success");
+    expect(parsed.command).toBe("event status");
+    expect(parsed.data).toBeDefined();
+    expect(parsed.data).toMatchObject({ id: "evt-abc-123-def-456" });
   });
 });
