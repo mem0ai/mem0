@@ -39,7 +39,7 @@ afterEach(() => {
 
 describe("branding constants", () => {
   it("has correct brand color", () => {
-    expect(BRAND_COLOR).toBe("#8b5cf6");
+    expect(BRAND_COLOR).toBe("#F1C96C");
   });
 
   it("has correct tagline", () => {
