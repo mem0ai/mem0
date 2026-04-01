@@ -110,28 +110,24 @@ Each memory you store must be a **self-contained, independently understandable f
 
 **DO NOT split requirements, specifications, or details about the same entity across multiple memory_store calls.** Even if information is phrased differently ("Budget for X", "X requires Y", "X needs Z"), if they all refer to the same entity, combine ALL into ONE call.
 
-**WRONG** — fragmented across separate calls:
+**WRONG** — fragmented into separate facts:
 ```
-memory_store("Conference requires at least 4 breakout rooms")
-memory_store("Conference requires vegan options")
-memory_store("Conference requires parking")
+memory_store(facts: ["Conference requires at least 4 breakout rooms", "Conference requires vegan options", "Conference requires parking"], category: "project")
 ```
 
-**CORRECT** — unified single call:
+**CORRECT** — grouped into one self-contained fact:
 ```
-memory_store("Conference requires at least 4 breakout rooms for 30-40 people each, robust vegan and vegetarian options with allergen-free alternatives, parking for at least 100 vehicles, venue within walking distance of transit")
-```
-
-**WRONG** — same entity split across calls:
-```
-memory_store("Budget is $150-175 per person for TechForward event")
-memory_store("TechForward event requires strong WiFi")
-memory_store("TechForward event requires hybrid capabilities")
+memory_store(facts: ["Conference requires at least 4 breakout rooms for 30-40 people each, robust vegan and vegetarian options with allergen-free alternatives, parking for at least 100 vehicles, venue within walking distance of transit"], category: "project")
 ```
 
-**CORRECT** — combined:
+**WRONG** — same entity split into separate facts:
 ```
-memory_store("TechForward event has a budget of $150-175 per person per day including venue rental, standard AV setup, and catering. Requires strong WiFi and hybrid event capabilities for remote attendees.")
+memory_store(facts: ["Budget is $150-175 per person for TechForward event", "TechForward event requires strong WiFi", "TechForward event requires hybrid capabilities"], category: "project")
+```
+
+**CORRECT** — combined into one fact about TechForward:
+```
+memory_store(facts: ["TechForward event has a budget of $150-175 per person per day including venue rental, standard AV setup, and catering. Requires strong WiFi and hybrid event capabilities for remote attendees."], category: "project")
 ```
 
 **Only create separate memories when information refers to genuinely different entities, concepts, or unrelated topics** (e.g., "TechForward event" vs "Marketing campaign" are separate).
@@ -333,7 +329,7 @@ Recalled: ["User has a dog", "Dog's name is Poppy", "User walks dog daily"]
 User: "Poppy learned fetch! Our walks are even better now, honestly it's the best part of my day"
 → memory_search("dog Poppy walks") → find all three old memory IDs
 → memory_forget(id-1), memory_forget(id-2), memory_forget(id-3)
-→ memory_store("User has a dog named Poppy and says taking him for walks is the best part of their day. Poppy recently learned fetch, making walks more enjoyable.", {category: "preference", importance: 0.85})
+→ memory_store(facts: ["User has a dog named Poppy and says taking him for walks is the best part of their day. Poppy recently learned fetch, making walks more enjoyable."], category: "preference")
 ```
 
 ### Example 12: NOOP — generic greeting, nothing to store

@@ -431,6 +431,15 @@ function registerTools(
 
           // Skills mode: bypass extraction LLM, store directly via infer=false
           if (skillsActive) {
+            // Enforce batch homogeneity: if no category provided for a multi-fact
+            // batch, warn. The prompt teaches batch-by-category but this is the
+            // runtime safety net.
+            if (allFacts.length > 1 && !p.category) {
+              api.logger.warn(
+                `openclaw-mem0: multi-fact batch (${allFacts.length} facts) without category. Retention policy defaults to uncategorized. Prompt instructs batch-by-category.`,
+              );
+            }
+
             // Resolve metadata: prefer explicit params, fall back to metadata record
             const rawMetadata = p.metadata;
             const category = p.category ?? rawMetadata?.category as string | undefined;
