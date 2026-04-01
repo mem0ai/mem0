@@ -5,8 +5,7 @@ import { EmbeddingConfig } from "../types";
 export class OpenAIEmbedder implements Embedder {
   private openai: OpenAI;
   private model: string;
-  private embeddingDims?: number;
-  private passDimensionsToApi: boolean;
+  private embeddingDims: number | undefined;
 
   constructor(config: EmbeddingConfig) {
     this.openai = new OpenAI({
@@ -14,15 +13,16 @@ export class OpenAIEmbedder implements Embedder {
       baseURL: config.baseURL || config.url,
     });
     this.model = config.model || "text-embedding-3-small";
-    this.passDimensionsToApi = config.embeddingDims != null;
-    this.embeddingDims = config.embeddingDims ?? 1536;
+    this.embeddingDims = config.embeddingDims;
   }
 
   async embed(text: string): Promise<number[]> {
     const response = await this.openai.embeddings.create({
       model: this.model,
       input: text,
-      ...(this.passDimensionsToApi && { dimensions: this.embeddingDims }),
+      ...(this.embeddingDims !== undefined && {
+        dimensions: this.embeddingDims,
+      }),
     });
     return response.data[0].embedding;
   }
@@ -31,7 +31,9 @@ export class OpenAIEmbedder implements Embedder {
     const response = await this.openai.embeddings.create({
       model: this.model,
       input: texts,
-      ...(this.passDimensionsToApi && { dimensions: this.embeddingDims }),
+      ...(this.embeddingDims !== undefined && {
+        dimensions: this.embeddingDims,
+      }),
     });
     return response.data.map((item) => item.embedding);
   }
