@@ -96,6 +96,43 @@ def mock_backend():
         {"name": "alice", "count": 5},
         {"name": "bob", "count": 3},
     ]
+    backend.list_events.return_value = [
+        {
+            "id": "evt-abc-123-def-456",
+            "event_type": "ADD",
+            "status": "SUCCEEDED",
+            "graph_status": None,
+            "latency": 1234.5,
+            "created_at": "2026-04-01T10:00:00Z",
+            "updated_at": "2026-04-01T10:00:01Z",
+        },
+        {
+            "id": "evt-def-456-ghi-789",
+            "event_type": "SEARCH",
+            "status": "PENDING",
+            "graph_status": None,
+            "latency": None,
+            "created_at": "2026-04-01T10:01:00Z",
+            "updated_at": "2026-04-01T10:01:00Z",
+        },
+    ]
+    backend.get_event.return_value = {
+        "id": "evt-abc-123-def-456",
+        "event_type": "ADD",
+        "status": "SUCCEEDED",
+        "graph_status": "SUCCEEDED",
+        "latency": 1234.5,
+        "created_at": "2026-04-01T10:00:00Z",
+        "updated_at": "2026-04-01T10:00:01Z",
+        "results": [
+            {
+                "id": "mem-abc-123",
+                "event": "ADD",
+                "user_id": "alice",
+                "data": {"memory": "User prefers dark mode"},
+            }
+        ],
+    }
 
     return backend
 

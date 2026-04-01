@@ -515,7 +515,8 @@
         { "name": "api-key", "flags": ["--api-key"], "type": "string", "default": null, "help": "API key (skip prompt)." },
         { "name": "user-id", "flags": ["-u", "--user-id"], "type": "string", "default": null, "help": "Default user ID (skip prompt)." },
         { "name": "email", "flags": ["--email"], "type": "string", "default": null, "help": "Login via email verification code." },
-        { "name": "code", "flags": ["--code"], "type": "string", "default": null, "help": "Verification code (use with --email for non-interactive login)." }
+        { "name": "code", "flags": ["--code"], "type": "string", "default": null, "help": "Verification code (use with --email for non-interactive login)." },
+        { "name": "force", "flags": ["--force"], "type": "boolean", "default": false, "help": "Overwrite existing config without confirmation." }
       ]
     },
     {

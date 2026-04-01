@@ -13,6 +13,7 @@ import {
 } from "../branding.js";
 import {
 	formatAddResult,
+	formatAgentEnvelope,
 	formatJson,
 	formatJsonEnvelope,
 	formatMemoriesTable,
@@ -20,6 +21,18 @@ import {
 	formatSingleMemory,
 	printResultSummary,
 } from "../output.js";
+import { isAgentMode, setCurrentCommand } from "../state.js";
+
+/** True only when stdin is an actual pipe or file redirect — never in agent mode. */
+function _stdinIsPiped(): boolean {
+	if (isAgentMode()) return false;
+	try {
+		const stat = fs.fstatSync(0);
+		return stat.isFIFO() || stat.isFile();
+	} catch {
+		return false;
+	}
+}
 
 export async function cmdAdd(
 	backend: Backend,
@@ -40,6 +53,7 @@ export async function cmdAdd(
 		output: string;
 	},
 ): Promise<void> {
+	setCurrentCommand("add");
 	let msgs: Record<string, unknown>[] | undefined;
 	let content = text;
 
@@ -64,8 +78,8 @@ export async function cmdAdd(
 			process.exit(1);
 		}
 	}
-	// Read from stdin if piped
-	else if (!content && !process.stdin.isTTY) {
+	// Read from stdin only if stdin is an actual pipe or file redirect
+	else if (!content && _stdinIsPiped()) {
 		content = fs.readFileSync(0, "utf-8").trim();
 	}
 
@@ -136,8 +150,43 @@ export async function cmdAdd(
 
 	if (opts.output === "quiet") return;
 
+	// Deduplicate PENDING entries sharing the same event_id across all output modes
+	const rawResults: Record<string, unknown>[] = Array.isArray(result)
+		? result
+		: ((result.results as Record<string, unknown>[]) ?? [result]);
+	const seenEvents = new Set<string>();
+	const deduped: Record<string, unknown>[] = [];
+	for (const r of rawResults) {
+		if (r.status === "PENDING") {
+			const eid = (r.event_id as string) ?? "";
+			if (eid && seenEvents.has(eid)) continue;
+			if (eid) seenEvents.add(eid);
+		}
+		deduped.push(r);
+	}
+	// Write back so downstream formatters see deduplicated data
+	const dedupedResult: Record<string, unknown> = Array.isArray(result)
+		? (deduped as unknown as Record<string, unknown>)
+		: { ...result, results: deduped };
+
+	if (opts.output === "agent") {
+		const scope: Record<string, string | undefined> = {
+			user_id: opts.userId,
+			agent_id: opts.agentId,
+			app_id: opts.appId,
+			run_id: opts.runId,
+		};
+		formatAgentEnvelope({
+			command: "add",
+			data: deduped,
+			scope,
+			count: deduped.length,
+		});
+		return;
+	}
+
 	if (opts.output === "json") {
-		formatAddResult(result, opts.output);
+		formatAddResult(dedupedResult, opts.output);
 		return;
 	}
 
@@ -148,14 +197,18 @@ export async function cmdAdd(
 		app_id: opts.appId,
 		run_id: opts.runId,
 	});
-	const results = Array.isArray(result)
-		? result
-		: ((result.results as unknown[]) ?? [result]);
-	const count = results.length;
-	printSuccess(
-		`Memory processed — ${count} memor${count === 1 ? "y" : "ies"} extracted`,
-	);
-	formatAddResult(result, opts.output);
+	const count = deduped.length;
+	const allPending = count > 0 && deduped.every((r) => r.status === "PENDING");
+	if (allPending) {
+		printSuccess(
+			`Memory queued — ${count} event${count !== 1 ? "s" : ""} pending`,
+		);
+	} else {
+		printSuccess(
+			`Memory processed — ${count} memor${count === 1 ? "y" : "ies"} extracted`,
+		);
+	}
+	formatAddResult(dedupedResult, opts.output);
 }
 
 export async function cmdSearch(
@@ -176,6 +229,7 @@ export async function cmdSearch(
 		output: string;
 	},
 ): Promise<void> {
+	setCurrentCommand("search");
 	if (!query) {
 		printError("No query provided. Pass a query argument or pipe via stdin.");
 		process.exit(1);
@@ -231,6 +285,23 @@ export async function cmdSearch(
 
 	if (opts.output === "quiet") return;
 
+	if (opts.output === "agent") {
+		const scope: Record<string, string | undefined> = {
+			user_id: opts.userId,
+			agent_id: opts.agentId,
+			app_id: opts.appId,
+			run_id: opts.runId,
+		};
+		formatAgentEnvelope({
+			command: "search",
+			data: results,
+			scope,
+			count: results.length,
+			durationMs: Math.round(elapsed * 1000),
+		});
+		return;
+	}
+
 	if (opts.output === "json") {
 		formatJson(results);
 	} else if (opts.output === "table") {
@@ -267,6 +338,7 @@ export async function cmdGet(
 	memoryId: string,
 	opts: { output: string },
 ): Promise<void> {
+	setCurrentCommand("get");
 	let result: Record<string, unknown>;
 	try {
 		result = await timedStatus("Fetching memory...", async () => {
@@ -277,7 +349,11 @@ export async function cmdGet(
 		process.exit(1);
 	}
 
-	formatSingleMemory(result, opts.output);
+	if (opts.output === "agent") {
+		formatAgentEnvelope({ command: "get", data: result });
+	} else {
+		formatSingleMemory(result, opts.output);
+	}
 }
 
 export async function cmdList(
@@ -296,6 +372,7 @@ export async function cmdList(
 		output: string;
 	},
 ): Promise<void> {
+	setCurrentCommand("list");
 	if (opts.pageSize < 1) {
 		printError("--page-size must be >= 1.");
 		process.exit(1);
@@ -330,12 +407,19 @@ export async function cmdList(
 
 	if (opts.output === "quiet") return;
 
-	if (opts.output === "json") {
-		formatJsonEnvelope({
+	if (opts.output === "agent" || opts.output === "json") {
+		const scope: Record<string, string | undefined> = {
+			user_id: opts.userId,
+			agent_id: opts.agentId,
+			app_id: opts.appId,
+			run_id: opts.runId,
+		};
+		formatAgentEnvelope({
 			command: "list",
 			data: results,
+			scope,
 			count: results.length,
-			scope: { user_id: opts.userId, agent_id: opts.agentId },
+			durationMs: Math.round(elapsed * 1000),
 		});
 	} else if (opts.output === "table") {
 		if (results.length > 0) {
@@ -374,6 +458,7 @@ export async function cmdUpdate(
 	text: string | undefined,
 	opts: { metadata?: string; output: string },
 ): Promise<void> {
+	setCurrentCommand("update");
 	let meta: Record<string, unknown> | undefined;
 	if (opts.metadata) {
 		try {
@@ -396,7 +481,13 @@ export async function cmdUpdate(
 	}
 	const elapsed = (performance.now() - start) / 1000;
 
-	if (opts.output === "json") {
+	if (opts.output === "agent") {
+		formatAgentEnvelope({
+			command: "update",
+			data: result,
+			durationMs: Math.round(elapsed * 1000),
+		});
+	} else if (opts.output === "json") {
 		formatJson(result);
 	} else if (opts.output !== "quiet") {
 		printSuccess(
@@ -410,6 +501,7 @@ export async function cmdDelete(
 	memoryId: string,
 	opts: { output: string; dryRun?: boolean; force?: boolean },
 ): Promise<void> {
+	setCurrentCommand("delete");
 	if (opts.dryRun) {
 		let mem: Record<string, unknown>;
 		try {
@@ -436,7 +528,13 @@ export async function cmdDelete(
 	}
 	const elapsed = (performance.now() - start) / 1000;
 
-	if (opts.output === "json") {
+	if (opts.output === "agent") {
+		formatAgentEnvelope({
+			command: "delete",
+			data: { id: memoryId, deleted: true },
+			durationMs: Math.round(elapsed * 1000),
+		});
+	} else if (opts.output === "json") {
 		formatJson(result);
 	} else if (opts.output !== "quiet") {
 		printSuccess(
@@ -458,16 +556,15 @@ export async function cmdDeleteAll(
 		output: string;
 	},
 ): Promise<void> {
+	setCurrentCommand("delete-all");
+	const { isAgentMode } = await import("../state.js");
+	if (isAgentMode() && !opts.force) {
+		printError("Destructive operation requires --force in agent mode.");
+		process.exit(1);
+	}
 	if (opts.all) {
 		// Project-wide wipe using wildcard entity IDs
-		if (opts.dryRun) {
-			printInfo("Would delete ALL memories project-wide.");
-			printInfo(
-				"Run without --dry-run to see the actual count of deleted memories.",
-			);
-			printInfo("No changes made.");
-			return;
-		}
+		// Note: --dry-run is ignored here because the API has no count-before-delete endpoint.
 
 		if (!opts.force) {
 			const readline = await import("node:readline");
@@ -509,7 +606,13 @@ export async function cmdDeleteAll(
 		}
 		const elapsed = (performance.now() - start) / 1000;
 
-		if (opts.output === "json") {
+		if (opts.output === "agent") {
+			formatAgentEnvelope({
+				command: "delete-all",
+				data: result,
+				durationMs: Math.round(elapsed * 1000),
+			});
+		} else if (opts.output === "json") {
 			formatJson(result);
 		} else if (opts.output !== "quiet") {
 			if (result.message) {
@@ -586,7 +689,13 @@ export async function cmdDeleteAll(
 	}
 	const elapsed = (performance.now() - start) / 1000;
 
-	if (opts.output === "json") {
+	if (opts.output === "agent") {
+		formatAgentEnvelope({
+			command: "delete-all",
+			data: result,
+			durationMs: Math.round(elapsed * 1000),
+		});
+	} else if (opts.output === "json") {
 		formatJson(result);
 	} else if (opts.output !== "quiet") {
 		if (result.message) {

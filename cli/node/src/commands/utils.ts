@@ -6,7 +6,8 @@ import fs from "node:fs";
 import boxen from "boxen";
 import type { Backend } from "../backend/base.js";
 import { colors, printError, printSuccess, timedStatus } from "../branding.js";
-import { formatJsonEnvelope } from "../output.js";
+import { formatAgentEnvelope, formatJsonEnvelope } from "../output.js";
+import { setCurrentCommand } from "../state.js";
 import { CLI_VERSION } from "../version.js";
 
 const { brand, dim, success, error: errorColor } = colors;
@@ -15,6 +16,7 @@ export async function cmdStatus(
 	backend: Backend,
 	opts: { userId?: string; agentId?: string; output?: string } = {},
 ): Promise<void> {
+	setCurrentCommand("status");
 	const start = performance.now();
 	let result: Record<string, unknown>;
 	try {
@@ -29,14 +31,13 @@ export async function cmdStatus(
 	}
 	const elapsed = (performance.now() - start) / 1000;
 
-	if (opts.output === "json") {
-		formatJsonEnvelope({
+	if (opts.output === "agent" || opts.output === "json") {
+		formatAgentEnvelope({
 			command: "status",
 			data: {
 				connected: result.connected,
 				backend: result.backend ?? null,
 				base_url: result.base_url ?? null,
-				latency_ms: Math.round(elapsed * 1000),
 			},
 			durationMs: Math.round(elapsed * 1000),
 		});
@@ -56,6 +57,15 @@ export async function cmdStatus(
 	}
 	if (result.error) {
 		lines.push(`  ${errorColor("Error:")}    ${result.error}`);
+		if (String(result.error).includes("Authentication failed")) {
+			lines.push("");
+			lines.push(
+				`  ${dim("Run")} ${brand("mem0 init")} ${dim("to reconfigure your API key")}`,
+			);
+			lines.push(
+				`  ${dim("Get a key at")} ${brand("https://app.mem0.ai/dashboard/api-keys")}`,
+			);
+		}
 	}
 	lines.push(`  ${dim("Latency:")}  ${elapsed.toFixed(2)}s`);
 
@@ -81,6 +91,7 @@ export async function cmdImport(
 	filePath: string,
 	opts: { userId?: string; agentId?: string; output?: string },
 ): Promise<void> {
+	setCurrentCommand("import");
 	let data: Record<string, unknown>[];
 	try {
 		const raw = fs.readFileSync(filePath, "utf-8");
@@ -125,13 +136,12 @@ export async function cmdImport(
 	const elapsed = (performance.now() - start) / 1000;
 	console.log(); // Clear progress line
 
-	if (opts.output === "json") {
-		formatJsonEnvelope({
+	if (opts.output === "agent" || opts.output === "json") {
+		formatAgentEnvelope({
 			command: "import",
 			data: {
 				added,
 				failed,
-				duration_s: Number.parseFloat(elapsed.toFixed(2)),
 			},
 			durationMs: Math.round(elapsed * 1000),
 		});

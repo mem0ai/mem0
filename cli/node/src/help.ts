@@ -36,7 +36,7 @@ const COMMAND_GROUPS: { panel: string; commands: string[] }[] = [
 	},
 	{
 		panel: "Management",
-		commands: ["init", "status", "import", "help", "entity", "config"],
+		commands: ["init", "status", "import", "help", "entity", "event", "config"],
 	},
 ];
 

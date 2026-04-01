@@ -94,6 +94,10 @@ export interface Backend {
 	>;
 
 	entities(entityType: string): Promise<Record<string, unknown>[]>;
+
+	listEvents(): Promise<Record<string, unknown>[]>;
+
+	getEvent(eventId: string): Promise<Record<string, unknown>>;
 }
 
 export class AuthError extends Error {
