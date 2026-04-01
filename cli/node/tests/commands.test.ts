@@ -219,3 +219,43 @@ describe("cmdEntitiesList", () => {
     expect(output).toContain("alice");
   });
 });
+
+describe("cmdEventList", () => {
+  it("lists events in table mode", async () => {
+    const { cmdEventList } = await import("../src/commands/events.js");
+    await cmdEventList(mockBackend, { output: "table" });
+    expect(output).toContain("evt-abc-");
+    expect(output).toContain("ADD");
+    expect(output).toContain("SUCCEEDED");
+  });
+
+  it("lists events in json mode", async () => {
+    const { cmdEventList } = await import("../src/commands/events.js");
+    await cmdEventList(mockBackend, { output: "json" });
+    expect(output).toContain("evt-abc-123-def-456");
+    expect(output).toContain("evt-def-456-ghi-789");
+  });
+
+  it("shows empty message when no events", async () => {
+    (mockBackend.listEvents as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    const { cmdEventList } = await import("../src/commands/events.js");
+    await cmdEventList(mockBackend, { output: "table" });
+    expect((output + errOutput).toLowerCase()).toContain("no events");
+  });
+});
+
+describe("cmdEventStatus", () => {
+  it("shows event details in text mode", async () => {
+    const { cmdEventStatus } = await import("../src/commands/events.js");
+    await cmdEventStatus(mockBackend, "evt-abc-123-def-456", { output: "text" });
+    expect(output).toContain("evt-abc-123-def-456");
+    expect(output).toContain("SUCCEEDED");
+  });
+
+  it("shows event details in json mode", async () => {
+    const { cmdEventStatus } = await import("../src/commands/events.js");
+    await cmdEventStatus(mockBackend, "evt-abc-123-def-456", { output: "json" });
+    expect(output).toContain("evt-abc-123-def-456");
+    expect(output).toContain("ADD");
+  });
+});

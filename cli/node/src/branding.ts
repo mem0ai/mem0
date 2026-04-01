@@ -97,8 +97,7 @@ export function printScope(ids: Record<string, string | undefined>): void {
 	const parts: string[] = [];
 	for (const [key, val] of Object.entries(ids)) {
 		if (val) {
-			const label = key.replace(/_/g, " ").replace("id", "ID").trim();
-			parts.push(`${label}=${val}`);
+			parts.push(`${key}=${val}`);
 		}
 	}
 	if (parts.length > 0) {

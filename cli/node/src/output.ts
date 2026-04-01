@@ -172,14 +172,19 @@ export function formatAddResult(
 	for (const r of results) {
 		// Detect async PENDING response
 		if (r.status === "PENDING") {
-			const eventId = ((r.event_id as string) ?? "").slice(0, 8);
+			const eventId = (r.event_id as string) ?? "";
 			const icon = accent(sym("⧗", "..."));
 			const parts = [
 				`  ${icon} ${dim("Queued".padEnd(10))}`,
 				"Processing in background",
 			];
-			if (eventId) parts.push(dim(`(event ${eventId})`));
 			console.log(parts.join("  "));
+			if (eventId) {
+				console.log(`  ${dim(`  event_id: ${eventId}`)}`);
+				console.log(
+					`  ${dim(`  → Check status: mem0 event status ${eventId}`)}`,
+				);
+			}
 			continue;
 		}
 
@@ -249,7 +254,7 @@ export function printResultSummary(opts: {
 	if (opts.scopeIds) {
 		const scopeParts = Object.entries(opts.scopeIds)
 			.filter(([, v]) => v)
-			.map(([k, v]) => `${k.replace(/_/g, " ")}=${v}`);
+			.map(([k, v]) => `${k}=${v}`);
 		if (scopeParts.length > 0) parts.push(scopeParts.join(", "));
 	}
 	if (opts.durationSecs !== undefined)

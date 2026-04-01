@@ -114,9 +114,7 @@ program
 
 program
 	.command("init")
-	.description(
-		"Setup wizard for mem0 CLI. Supports email login (--email) or manual API key (--api-key).",
-	)
+	.description("Interactive setup wizard for mem0 CLI.")
 	.option("--api-key <key>", "API key (skip prompt).")
 	.option("-u, --user-id <id>", "Default user ID (skip prompt).")
 	.option("--email <email>", "Login via email verification code.")
@@ -175,7 +173,7 @@ program
 
 program
 	.command("search [query]")
-	.description("Search memories by semantic query.")
+	.description("Query your memory store — semantic, keyword, or hybrid retrieval.")
 	.option("-u, --user-id <id>", "Filter by user.")
 	.option("--agent-id <id>", "Filter by agent.")
 	.option("--app-id <id>", "Filter by app.")
@@ -513,6 +511,46 @@ entityCmd
 		await cmdEntitiesDelete(backend, opts);
 	});
 
+// ── Event subcommands ─────────────────────────────────────────────────────
+
+const eventCmd = program
+	.command("event")
+	.description("Inspect background processing events.")
+	.addHelpCommand(false)
+	.configureHelp({ formatHelp: richFormatHelp });
+
+eventCmd
+	.command("list")
+	.description("List recent background processing events.")
+	.option("-o, --output <format>", "Output: table, json.", "table")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 event list\n  $ mem0 event list -o json",
+	)
+	.action(async (opts) => {
+		const { cmdEventList } = await import("./commands/events.js");
+		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		await cmdEventList(backend, { output: opts.output });
+	});
+
+eventCmd
+	.command("status <eventId>")
+	.description("Check the status of a specific background event.")
+	.option("-o, --output <format>", "Output: text, json.", "text")
+	.option("--api-key <key>", "Override API key.")
+	.option("--base-url <url>", "Override API base URL.")
+	.addHelpText(
+		"after",
+		"\nExamples:\n  $ mem0 event status <event-id>\n  $ mem0 event status <event-id> -o json",
+	)
+	.action(async (eventId, opts) => {
+		const { cmdEventStatus } = await import("./commands/events.js");
+		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		await cmdEventStatus(backend, eventId, { output: opts.output });
+	});
+
 // ── Utility commands ──────────────────────────────────────────────────────
 
 program
@@ -595,7 +633,9 @@ program
 			console.log(
 				"  add              Add a memory from text, messages, file, or stdin",
 			);
-			console.log("  search           Search memories by semantic query");
+			console.log(
+				"  search           Query your memory store (semantic, keyword, hybrid)",
+			);
 			console.log("  get              Get a specific memory by ID");
 			console.log("  list             List memories with optional filters");
 			console.log("  update           Update a memory's text or metadata");
@@ -605,6 +645,7 @@ program
 			console.log("  import           Import memories from a JSON file");
 			console.log("  config           Manage configuration (show, get, set)");
 			console.log("  entity           Manage entities (list, delete)");
+			console.log("  event            Inspect background events (list, status)");
 			console.log("  init             Interactive setup wizard");
 			console.log("  status           Check connectivity and authentication");
 			console.log();
@@ -614,16 +655,6 @@ program
 			);
 			console.log();
 		}
-	});
-
-// ── Version ───────────────────────────────────────────────────────────────
-
-program
-	.command("version")
-	.description("Show version.")
-	.action(async () => {
-		const { cmdVersion } = await import("./commands/utils.js");
-		cmdVersion();
 	});
 
 // ── Entrypoint ────────────────────────────────────────────────────────────

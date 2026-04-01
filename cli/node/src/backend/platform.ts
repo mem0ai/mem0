@@ -335,4 +335,20 @@ export class PlatformBackend implements Backend {
 		}
 		return items;
 	}
+
+	async listEvents(): Promise<Record<string, unknown>[]> {
+		const result = (await this._request("GET", "/v1/events/")) as unknown;
+		if (Array.isArray(result)) return result;
+		return ((result as Record<string, unknown>).results ?? []) as Record<
+			string,
+			unknown
+		>[];
+	}
+
+	async getEvent(eventId: string): Promise<Record<string, unknown>> {
+		return (await this._request(
+			"GET",
+			`/v1/event/${eventId}/`,
+		)) as Record<string, unknown>;
+	}
 }
