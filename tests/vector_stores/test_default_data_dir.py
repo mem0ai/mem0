@@ -1,7 +1,6 @@
 """Tests for OS-appropriate default data directory (issue #4279)."""
 
 import os
-import sys
 import unittest
 from unittest.mock import patch
 
