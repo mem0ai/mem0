@@ -201,16 +201,25 @@ def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends
 @app.put("/memories/{memory_id}", summary="Update a memory")
 def update_memory(memory_id: str, updated_memory: Dict[str, Any], _api_key: Optional[str] = Depends(verify_api_key)):
     """Update an existing memory with new content.
-    
+
     Args:
         memory_id (str): ID of the memory to update
-        updated_memory (str): New content to update the memory with
-        
+        updated_memory (dict): Request body containing 'data' (str) with the new memory content,
+            and optionally 'metadata' (dict) for additional metadata updates.
+
     Returns:
         dict: Success message indicating the memory was updated
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
+        data = updated_memory.get("data")
+        if data is None:
+            raise HTTPException(status_code=400, detail="Request body must contain a 'data' field with the new memory content")
+        if not isinstance(data, str):
+            raise HTTPException(status_code=400, detail="'data' field must be a string")
+        metadata = updated_memory.get("metadata")
+        return MEMORY_INSTANCE.update(memory_id=memory_id, data=data, metadata=metadata)
+    except HTTPException:
+        raise
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))

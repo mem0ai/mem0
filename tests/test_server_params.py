@@ -505,3 +505,42 @@ class TestCallSignatureMatch:
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
         assert kwargs["query"] == "food"
+
+
+# ===========================================================================
+# UpdateMemory: data extraction from dict body (issue #3933)
+# ===========================================================================
+
+class TestUpdateMemory:
+    """Verify that update_memory correctly extracts data string from dict body."""
+
+    def test_update_with_data_field(self, client, mock_memory):
+        """PUT /memories/{id} with {'data': 'new content'} should forward the string."""
+        resp = client.put("/memories/mem-1", json={"data": "Likes tennis on weekends"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["memory_id"] == "mem-1"
+        assert kwargs["data"] == "Likes tennis on weekends"
+
+    def test_update_with_data_and_metadata(self, client, mock_memory):
+        """PUT /memories/{id} with data and metadata should forward both."""
+        resp = client.put("/memories/mem-1", json={
+            "data": "Likes tennis",
+            "metadata": {"category": "sports"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["data"] == "Likes tennis"
+        assert kwargs["metadata"] == {"category": "sports"}
+
+    def test_update_missing_data_field_returns_400(self, client, mock_memory):
+        """PUT /memories/{id} without 'data' field should return 400."""
+        resp = client.put("/memories/mem-1", json={"content": "wrong field name"})
+        assert resp.status_code == 400
+        assert "data" in resp.json()["detail"].lower()
+
+    def test_update_with_non_string_data_returns_400(self, client, mock_memory):
+        """PUT /memories/{id} with non-string data should return 400."""
+        resp = client.put("/memories/mem-1", json={"data": {"nested": "dict"}})
+        assert resp.status_code == 400
+        assert "string" in resp.json()["detail"].lower()
