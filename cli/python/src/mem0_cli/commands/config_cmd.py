@@ -20,7 +20,7 @@ err_console = Console(stderr=True)
 
 def cmd_config_show(*, output: str = "text") -> None:
     """Display current configuration (secrets redacted)."""
-    from mem0_cli.output import format_agent_envelope, format_json_envelope
+    from mem0_cli.output import format_agent_envelope
     from mem0_cli.state import is_agent_mode, set_current_command
     set_current_command("config show")
     if is_agent_mode():

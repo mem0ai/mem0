@@ -81,7 +81,10 @@ export function cmdConfigGet(key: string): void {
 				? redactKey(String(value))
 				: String(value);
 		if (isAgentMode()) {
-			formatAgentEnvelope({ command: "config get", data: { key, value: displayValue } });
+			formatAgentEnvelope({
+				command: "config get",
+				data: { key, value: displayValue },
+			});
 		} else {
 			console.log(displayValue);
 		}
@@ -95,7 +98,10 @@ export function cmdConfigSet(key: string, value: string): void {
 		saveConfig(config);
 		const display = key.includes("key") ? redactKey(value) : value;
 		if (isAgentMode()) {
-			formatAgentEnvelope({ command: "config set", data: { key, value: display } });
+			formatAgentEnvelope({
+				command: "config set",
+				data: { key, value: display },
+			});
 		} else {
 			printSuccess(`${key} = ${display}`);
 		}

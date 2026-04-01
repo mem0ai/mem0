@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time as _time
-
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -14,10 +12,9 @@ from mem0_cli.branding import (
     ACCENT_COLOR,
     BRAND_COLOR,
     DIM_COLOR,
+    ERROR_COLOR,
     SUCCESS_COLOR,
     WARNING_COLOR,
-    ERROR_COLOR,
-    print_error,
     print_info,
     timed_status,
 )

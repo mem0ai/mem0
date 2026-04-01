@@ -329,9 +329,9 @@ export class PlatformBackend implements Backend {
 	}
 
 	async getEvent(eventId: string): Promise<Record<string, unknown>> {
-		return (await this._request(
-			"GET",
-			`/v1/event/${eventId}/`,
-		)) as Record<string, unknown>;
+		return (await this._request("GET", `/v1/event/${eventId}/`)) as Record<
+			string,
+			unknown
+		>;
 	}
 }

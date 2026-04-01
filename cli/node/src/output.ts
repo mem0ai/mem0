@@ -243,7 +243,10 @@ export function formatJsonEnvelope(opts: {
 	console.log(JSON.stringify(envelope, null, 2));
 }
 
-function pick(obj: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+function pick(
+	obj: Record<string, unknown>,
+	keys: string[],
+): Record<string, unknown> {
 	const result: Record<string, unknown> = {};
 	for (const key of keys) {
 		if (key in obj) result[key] = obj[key];
@@ -273,7 +276,14 @@ export function sanitizeAgentData(command: string, data: unknown): unknown {
 			);
 		case "get": {
 			const r = data as Record<string, unknown>;
-			return pick(r, ["id", "memory", "created_at", "updated_at", "categories", "metadata"]);
+			return pick(r, [
+				"id",
+				"memory",
+				"created_at",
+				"updated_at",
+				"categories",
+				"metadata",
+			]);
 		}
 		case "update": {
 			const r = data as Record<string, unknown>;
@@ -294,7 +304,8 @@ export function sanitizeAgentData(command: string, data: unknown): unknown {
 			);
 		case "event status": {
 			const ev = data as Record<string, unknown>;
-			const rawResults = (ev.results as Record<string, unknown>[] | undefined) ?? [];
+			const rawResults =
+				(ev.results as Record<string, unknown>[] | undefined) ?? [];
 			const sanitizedResults = rawResults.map((r) => {
 				const nested = r.data as Record<string, unknown> | undefined;
 				return {
@@ -305,7 +316,14 @@ export function sanitizeAgentData(command: string, data: unknown): unknown {
 				};
 			});
 			return {
-				...pick(ev, ["id", "event_type", "status", "latency", "created_at", "updated_at"]),
+				...pick(ev, [
+					"id",
+					"event_type",
+					"status",
+					"latency",
+					"created_at",
+					"updated_at",
+				]),
 				results: sanitizedResults,
 			};
 		}
