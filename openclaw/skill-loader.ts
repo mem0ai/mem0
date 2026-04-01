@@ -289,15 +289,16 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
   parts.push("");
   parts.push("CREDENTIALS: NEVER store sk-, m0-, ghp_, AKIA, Bearer tokens, passwords. Store that it was configured, not the value.");
   parts.push("");
-  parts.push("SEARCH QUERIES: When calling memory_search, ALWAYS rewrite the query for retrieval. NEVER pass the user's raw message.");
-  parts.push("Process: (1) Identify what stored memory you are looking for. (2) Extract entities and technical terms from the user's message. (3) Add terms the stored memory would contain (category words like 'identity', 'decision', 'rule', 'preference'). (4) Compose as 3-6 keyword string. No question words, no pronouns, no filler.");
-  parts.push('WRONG: memory_search("Can you help me set up the Grafana Terraform provider?")');
-  parts.push('RIGHT: memory_search("Grafana Terraform monitoring infrastructure migration")');
-  parts.push('WRONG: memory_search("Do you remember my timezone?")');
-  parts.push('RIGHT: memory_search("user timezone location identity")');
-  parts.push('WRONG: memory_search("What did I say about Docker?")');
-  parts.push('RIGHT: memory_search("Docker rule preference avoid")');
-  parts.push("For the full query rewriting protocol with detailed reasoning, read the memory-triage skill's recall-protocol.");
+  parts.push("SEARCHING MEMORY: When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.");
+  parts.push("Stored memories are third-person factual statements. The user's message is conversational. Write a query that matches storage language, not conversation language.");
+  parts.push("Process: (1) Name your target: what category of memory are you looking for? (2) Extract signal: proper nouns, technical terms, domain concepts only. (3) Bridge to storage language: add terms the stored memory contains (user, decided, prefers, rule, configured, based in). (4) Compose 3-6 keywords. No questions, no pronouns, no filler.");
+  parts.push('WRONG: memory_search("Who was that nutritionist my wife recommended?")');
+  parts.push('RIGHT: memory_search("nutritionist wife recommended relationship")');
+  parts.push('WRONG: memory_search("How do I like my reports formatted?")');
+  parts.push('RIGHT: memory_search("report format preference style")');
+  parts.push('WRONG: memory_search("What timezone am I in?")');
+  parts.push('RIGHT: memory_search("user timezone location based")');
+  parts.push("For the complete query rewriting protocol with 7 worked examples and failure patterns, read the recall-protocol reference in the memory-triage skill.");
   parts.push("</memory-system>");
 
   return parts.join("\n");
