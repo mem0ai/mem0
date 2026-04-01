@@ -158,13 +158,14 @@ def format_add_result(console: Console, result: dict | list, output: str = "text
     for r in results:
         # Detect async PENDING response from Platform API
         if r.get("status") == "PENDING":
-            event_id = r.get("event_id", "")[:8]
+            event_id = r.get("event_id", "")
             icon = f"[{ACCENT_COLOR}]{_sym('⧗', '...')}[/]"
             parts = [f"  {icon} [{DIM_COLOR}]{'Queued':<10}[/]"]
             parts.append("[white]Processing in background[/]")
-            if event_id:
-                parts.append(f"[{DIM_COLOR}](event {event_id})[/]")
             console.print("  ".join(parts))
+            if event_id:
+                console.print(f"  [{DIM_COLOR}]  event_id: {event_id}[/]")
+                console.print(f"  [{DIM_COLOR}]  → Check status: mem0 event status {event_id}[/]")
             continue
 
         event = r.get("event", "ADD")
@@ -237,7 +238,7 @@ def print_result_summary(
     parts = [f"{count} result{'s' if count != 1 else ''}"]
     if page is not None:
         parts.append(f"page {page}")
-    scope_parts = [f"{k.replace('_', ' ')}={v}" for k, v in scope_ids.items() if v]
+    scope_parts = [f"{k}={v}" for k, v in scope_ids.items() if v]
     if scope_parts:
         parts.append(", ".join(scope_parts))
     if duration_secs is not None:

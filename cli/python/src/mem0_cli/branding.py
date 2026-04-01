@@ -117,8 +117,7 @@ def print_scope(console: Console, **ids: str | None) -> None:
     parts = []
     for key, val in ids.items():
         if val:
-            label = key.replace("_", " ").replace("id", "ID").strip()
-            parts.append(f"{label}={val}")
+            parts.append(f"{key}={val}")
     if parts:
         scope_str = ", ".join(parts)
         console.print(f"  [{DIM_COLOR}]Scope: {scope_str}[/]")

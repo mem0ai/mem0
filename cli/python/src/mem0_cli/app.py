@@ -43,7 +43,14 @@ entity_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-# entity_app registered after Memory commands to control panel ordering
+
+event_app = typer.Typer(
+    name="event",
+    help="Inspect background processing events.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+# entity_app and event_app registered after Memory commands to control panel ordering
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -273,7 +280,7 @@ def search(
         None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
     ),
 ) -> None:
-    """Search memories by semantic query.
+    """Query your memory store — semantic, keyword, or hybrid retrieval.
 
     Examples:
       mem0 search "preferences" --user-id alice
@@ -702,6 +709,70 @@ def entity_delete(
 app.add_typer(entity_app, name="entity", rich_help_panel="Management")
 
 
+# ── Event subcommands ─────────────────────────────────────────────────────
+
+
+@event_app.command("list")
+def event_list(
+    output: str = typer.Option(
+        "table", "--output", "-o", help="Output: table, json.", rich_help_panel="Output"
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="Override API key.",
+        envvar="MEM0_API_KEY",
+        rich_help_panel="Connection",
+    ),
+    base_url: str | None = typer.Option(
+        None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
+    ),
+) -> None:
+    """List recent background processing events.
+
+    Examples:
+      mem0 event list
+      mem0 event list -o json
+    """
+    from mem0_cli.commands.events_cmd import cmd_event_list
+
+    backend = _get_backend(api_key, base_url)
+    cmd_event_list(backend, output=output)
+
+
+@event_app.command("status")
+def event_status(
+    event_id: str = typer.Argument(..., help="Event ID to inspect."),
+    output: str = typer.Option(
+        "text", "--output", "-o", help="Output: text, json.", rich_help_panel="Output"
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="Override API key.",
+        envvar="MEM0_API_KEY",
+        rich_help_panel="Connection",
+    ),
+    base_url: str | None = typer.Option(
+        None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
+    ),
+) -> None:
+    """Check the status of a specific background event.
+
+    Examples:
+      mem0 event status <event-id>
+      mem0 event status <event-id> -o json
+    """
+    from mem0_cli.commands.events_cmd import cmd_event_status
+
+    backend = _get_backend(api_key, base_url)
+    cmd_event_status(backend, event_id, output=output)
+
+
+# ── Event subgroup ──
+app.add_typer(event_app, name="event", rich_help_panel="Management")
+
+
 # ── Management commands ───────────────────────────────────────────────────
 
 
@@ -831,7 +902,7 @@ def _build_help_json() -> dict:
             },
         },
         "search": {
-            "description": "Search memories by semantic query.",
+            "description": "Query your memory store — semantic, keyword, or hybrid retrieval.",
             "usage": "mem0 search <query> [OPTIONS]",
             "arguments": {"query": {"description": "Search query.", "required": False}},
             "options": {
@@ -935,6 +1006,24 @@ def _build_help_json() -> dict:
                 "value": {"description": "Value to set.", "required": True},
             },
         },
+        "event": {
+            "description": "Inspect background processing events.",
+            "subcommands": {
+                "list": {
+                    "description": "List recent background processing events.",
+                    "usage": "mem0 event list [OPTIONS]",
+                    "options": {"--output, -o": "Output format: table, json."},
+                },
+                "status": {
+                    "description": "Check the status of a specific background event.",
+                    "usage": "mem0 event status <event_id> [OPTIONS]",
+                    "arguments": {
+                        "event_id": {"description": "Event ID to inspect.", "required": True}
+                    },
+                    "options": {"--output, -o": "Output format: text, json."},
+                },
+            },
+        },
         "entity": {
             "description": "Manage entities.",
             "subcommands": {
@@ -1015,7 +1104,7 @@ def help(
         console.print("Usage: mem0 <command> [OPTIONS]\n")
         console.print("[bold]Commands:[/]")
         console.print("  add              Add a memory from text, messages, file, or stdin")
-        console.print("  search           Search memories by semantic query")
+        console.print("  search           Query your memory store (semantic, keyword, hybrid)")
         console.print("  get              Get a specific memory by ID")
         console.print("  list             List memories with optional filters")
         console.print("  update           Update a memory's text or metadata")
@@ -1023,20 +1112,13 @@ def help(
         console.print("  import           Import memories from a JSON file")
         console.print("  config           Manage configuration (show, get, set)")
         console.print("  entity           Manage entities (list, delete)")
+        console.print("  event            Inspect background events (list, status)")
         console.print("  init             Interactive setup wizard")
         console.print("  status           Check connectivity and authentication")
         console.print()
         console.print("  mem0 <command> --help    Get help for a command")
         console.print("  mem0 help --json         Machine-readable help (for LLM agents)")
         console.print()
-
-
-@app.command(rich_help_panel="Utility")
-def version() -> None:
-    """Show version and exit."""
-    from mem0_cli.commands.utils import cmd_version
-
-    cmd_version()
 
 
 # Register config subgroup here so it appears after help in Management panel

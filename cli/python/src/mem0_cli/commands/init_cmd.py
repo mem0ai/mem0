@@ -205,7 +205,7 @@ def run_init(
             raise typer.Exit(1)
         config.platform.api_key = api_key_val
         config.platform.base_url = base_url
-        config.defaults.user_id = user_id or "mem0-cli"
+        config.defaults.user_id = user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
 
         save_config(config)
 
@@ -271,7 +271,7 @@ def run_init(
                 raise typer.Exit(1)
             config.platform.api_key = api_key_val
             config.platform.base_url = base_url
-            config.defaults.user_id = user_id or "mem0-cli"
+            config.defaults.user_id = user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
 
             save_config(config)
 
@@ -331,9 +331,10 @@ def _setup_defaults(config: Mem0Config) -> None:
     console.print()
     print_info(console, "Set default entity IDs (press Enter to skip).\n")
 
+    _default_user = os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
     user_id = Prompt.ask(
         f"  [{BRAND_COLOR}]Default User ID[/] [{DIM_COLOR}](recommended)[/]",
-        default="mem0-cli",
+        default=_default_user,
     )
     if user_id:
         config.defaults.user_id = user_id

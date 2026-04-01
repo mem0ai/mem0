@@ -311,6 +311,13 @@ class PlatformBackend(Backend):
             items = [e for e in items if e.get("type", "").lower() == target_type]
         return items
 
+    def list_events(self) -> list[dict]:
+        result = self._request("GET", "/v1/events/")
+        return result if isinstance(result, list) else result.get("results", [])
+
+    def get_event(self, event_id: str) -> dict:
+        return self._request("GET", f"/v1/event/{event_id}/")
+
 
 class AuthError(Exception):
     pass

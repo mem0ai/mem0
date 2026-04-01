@@ -25,6 +25,7 @@ from mem0_cli.commands.memory import (
     cmd_search,
     cmd_update,
 )
+from mem0_cli.commands.events_cmd import cmd_event_list, cmd_event_status
 from mem0_cli.commands.utils import (
     cmd_import,
     cmd_status,
@@ -1024,3 +1025,66 @@ class TestEnableGraph:
             )
         call_kwargs = mock_backend.list_memories.call_args
         assert call_kwargs.kwargs.get("enable_graph") is True
+
+
+class TestEventCommands:
+    def test_event_list_table(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_list(mock_backend, output="table")
+        out = buf.getvalue()
+        assert "evt-abc-" in out
+        assert "ADD" in out
+        assert "SUCCEEDED" in out
+
+    def test_event_list_json(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_list(mock_backend, output="json")
+        out = buf.getvalue()
+        assert "evt-abc-123-def-456" in out
+        assert "evt-def-456-ghi-789" in out
+
+    def test_event_list_empty(self, mock_backend):
+        mock_backend.list_events.return_value = []
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_list(mock_backend, output="table")
+        out = buf.getvalue()
+        assert "No events" in out
+
+    def test_event_status_text(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_status(mock_backend, "evt-abc-123-def-456", output="text")
+        out = buf.getvalue()
+        assert "evt-abc-123-def-456" in out
+        assert "SUCCEEDED" in out
+
+    def test_event_status_json(self, mock_backend):
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.events_cmd.console", console),
+            patch("mem0_cli.commands.events_cmd.err_console", err_console),
+        ):
+            cmd_event_status(mock_backend, "evt-abc-123-def-456", output="json")
+        out = buf.getvalue()
+        assert "evt-abc-123-def-456" in out
+        assert "ADD" in out
