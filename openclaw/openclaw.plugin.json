@@ -1,6 +1,7 @@
 {
   "id": "openclaw-mem0",
   "kind": "memory",
+  "skills": ["skills"],
   "uiHints": {
     "mode": {
       "label": "Mode",
@@ -68,6 +69,11 @@
       "label": "Open-Source Configuration",
       "advanced": true,
       "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. Has sensible defaults — only override what you need."
+    },
+    "skills": {
+      "label": "Agentic Memory Skills",
+      "advanced": true,
+      "help": "Enable skills-based memory extraction. The agent controls what to remember (triage), how to recall (recall), and periodic cleanup (dream). Disables auto-capture when active."
     }
   },
   "configSchema": {
@@ -160,6 +166,56 @@
           "historyDbPath": {
             "type": "string"
           }
+        }
+      },
+      "skills": {
+        "type": "object",
+        "properties": {
+          "triage": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "importanceThreshold": { "type": "number" },
+              "enableGraph": { "type": "boolean" },
+              "credentialPatterns": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "recall": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "strategy": { "type": "string", "enum": ["always", "smart", "manual"] },
+              "tokenBudget": { "type": "number" },
+              "maxMemories": { "type": "number" },
+              "rerank": { "type": "boolean" },
+              "keywordSearch": { "type": "boolean" },
+              "filterMemories": { "type": "boolean" },
+              "threshold": { "type": "number" },
+              "identityAlwaysInclude": { "type": "boolean" },
+              "categoryOrder": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "dream": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "schedule": { "type": "string" },
+              "mergeThreshold": { "type": "number" },
+              "maxMemoriesPerUser": { "type": "number" },
+              "preserveImmutable": { "type": "boolean" },
+              "credentialScan": { "type": "boolean" },
+              "expireStaleAfterDays": { "type": "number" }
+            }
+          },
+          "domain": { "type": "string" },
+          "customRules": {
+            "type": "object",
+            "properties": {
+              "include": { "type": "array", "items": { "type": "string" } },
+              "exclude": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "categories": { "type": "object" }
         }
       }
     },

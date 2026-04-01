@@ -38,6 +38,21 @@ import {
   isNonInteractiveTrigger,
   isSubagentSession,
 } from "./isolation.ts";
+import {
+  loadTriagePrompt,
+  loadDreamPrompt,
+  resolveCategories,
+  ttlToExpirationDate,
+  isSkillsMode,
+} from "./skill-loader.ts";
+import { recall as skillRecall, sanitizeQuery } from "./recall.ts";
+import {
+  incrementSessionCount,
+  shouldDream,
+  acquireDreamLock,
+  releaseDreamLock,
+  recordDreamCompletion,
+} from "./dream-gate.ts";
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
@@ -95,8 +110,9 @@ const memoryPlugin = {
     const _resolveUserId = (opts: { agentId?: string; userId?: string }) =>
       resolveUserId(cfg.userId, opts, currentSessionId);
 
+    const skillsActive = isSkillsMode(cfg.skills);
     api.logger.info(
-      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
+      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
     );
 
     // Helper: build add options
@@ -115,22 +131,24 @@ const memoryPlugin = {
       return opts;
     }
 
-    // Helper: build search options
+    // Helper: build search options (skills config overrides legacy defaults)
     function buildSearchOptions(
       userIdOverride?: string,
       limit?: number,
       runId?: string,
       sessionKey?: string,
     ): SearchOptions {
+      const recallCfg = cfg.skills?.recall;
       const opts: SearchOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
         top_k: limit ?? cfg.topK,
         limit: limit ?? cfg.topK,
-        threshold: cfg.searchThreshold,
-        keyword_search: true,
-        reranking: true,
+        threshold: recallCfg?.threshold ?? cfg.searchThreshold,
+        keyword_search: recallCfg?.keywordSearch !== false,
+        reranking: recallCfg?.rerank !== false,
         source: "OPENCLAW",
       };
+      if (recallCfg?.filterMemories) opts.filter_memories = true;
       if (runId) opts.run_id = runId;
       return opts;
     }
@@ -139,7 +157,7 @@ const memoryPlugin = {
     // Tools
     // ========================================================================
 
-    registerTools(api, provider, cfg, _resolveUserId, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId);
+    registerTools(api, provider, cfg, _resolveUserId, _effectiveUserId, _agentUserId, buildAddOptions, buildSearchOptions, () => currentSessionId, skillsActive);
 
     // ========================================================================
     // CLI Commands
@@ -153,17 +171,22 @@ const memoryPlugin = {
 
     registerHooks(api, provider, cfg, _effectiveUserId, buildAddOptions, buildSearchOptions, {
       setCurrentSessionId: (id: string) => { currentSessionId = id; },
-    });
+      getStateDir: () => pluginStateDir,
+    }, skillsActive);
 
     // ========================================================================
     // Service
     // ========================================================================
 
+    // State directory for persistent gate tracking (dream consolidation)
+    let pluginStateDir: string | undefined;
+
     api.registerService({
       id: "openclaw-mem0",
-      start: () => {
+      start: (...args: any[]) => {
+        pluginStateDir = args[0]?.stateDir;
         api.logger.info(
-          `openclaw-mem0: initialized (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture})`,
+          `openclaw-mem0: initialized (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, stateDir: ${pluginStateDir ?? "none"})`,
         );
       },
       stop: () => {
@@ -187,6 +210,7 @@ function registerTools(
   buildAddOptions: (userIdOverride?: string, runId?: string, sessionKey?: string) => AddOptions,
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
   getCurrentSessionId: () => string | undefined,
+  skillsActive: boolean = false,
 ) {
   api.registerTool(
     {
@@ -223,14 +247,28 @@ function registerTools(
               'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
           }),
         ),
+        categories: Type.Optional(
+          Type.Array(Type.String(), {
+            description:
+              'Filter results by category (e.g. ["identity", "preference"]). Only returns memories tagged with these categories.',
+          }),
+        ),
+        filters: Type.Optional(
+          Type.Record(Type.String(), Type.Unknown(), {
+            description:
+              'Advanced filters object. Supports date ranges and metadata filtering. Examples: {"created_at": {"gte": "2026-03-01"}} for recent memories, {"AND": [{"categories": {"contains": "decision"}}, {"created_at": {"gte": "2026-01-01"}}]} for decisions this year. Operators: eq, ne, gt, gte, lt, lte, in, contains, icontains. Logical: AND, OR, NOT.',
+          }),
+        ),
       }),
       async execute(_toolCallId, params) {
-        const { query, limit, userId, agentId, scope = "all" } = params as {
+        const { query, limit, userId, agentId, scope = "all", categories: filterCategories, filters: agentFilters } = params as {
           query: string;
           limit?: number;
           userId?: string;
           agentId?: string;
           scope?: "session" | "long-term" | "all";
+          categories?: string[];
+          filters?: Record<string, unknown>;
         };
 
         try {
@@ -238,29 +276,36 @@ function registerTools(
           const uid = _resolveUserId({ agentId, userId });
           const currentSessionId = getCurrentSessionId();
 
+          // Apply agent-provided filters to search options
+          const applyFilters = (opts: SearchOptions): SearchOptions => {
+            if (filterCategories?.length) opts.categories = filterCategories;
+            if (agentFilters) opts.filters = agentFilters;
+            return opts;
+          };
+
           if (scope === "session") {
             if (currentSessionId) {
               results = await provider.search(
                 query,
-                buildSearchOptions(uid, limit, currentSessionId),
+                applyFilters(buildSearchOptions(uid, limit, currentSessionId)),
               );
             }
           } else if (scope === "long-term") {
             results = await provider.search(
               query,
-              buildSearchOptions(uid, limit),
+              applyFilters(buildSearchOptions(uid, limit)),
             );
           } else {
             // "all" — search both scopes and combine
             const longTermResults = await provider.search(
               query,
-              buildSearchOptions(uid, limit),
+              applyFilters(buildSearchOptions(uid, limit)),
             );
             let sessionResults: MemoryItem[] = [];
             if (currentSessionId) {
               sessionResults = await provider.search(
                 query,
-                buildSearchOptions(uid, limit, currentSessionId),
+                applyFilters(buildSearchOptions(uid, limit, currentSessionId)),
               );
             }
             // Deduplicate by ID, preferring long-term
@@ -327,7 +372,25 @@ function registerTools(
       description:
         "Save important information in long-term memory via Mem0. Use for preferences, facts, decisions, and anything worth remembering.",
       parameters: Type.Object({
-        text: Type.String({ description: "Information to remember" }),
+        text: Type.Optional(
+          Type.String({ description: "Single fact to remember. Use 'facts' array instead when storing multiple facts from one conversation turn." }),
+        ),
+        facts: Type.Optional(
+          Type.Array(Type.String(), {
+            description: "Array of facts to store in one call. ALL facts MUST share the same category. If a turn has facts in different categories, make one call per category. Category determines retention policy (TTL, immutability).",
+          }),
+        ),
+        category: Type.Optional(
+          Type.String({
+            description:
+              'Memory category. Determines retention policy (TTL, immutability). All facts in this call inherit this category. Options: "identity", "preference", "decision", "rule", "project", "configuration", "technical", "relationship"',
+          }),
+        ),
+        importance: Type.Optional(
+          Type.Number({
+            description: "Importance override (0.0-1.0). Omit to use category default. Applies to all facts in this call. Defaults: identity/config 0.95, rules 0.90, preferences 0.85, decisions 0.80, projects 0.75, operational 0.60",
+          }),
+        ),
         userId: Type.Optional(
           Type.String({
             description: "User ID to scope this memory",
@@ -341,7 +404,7 @@ function registerTools(
         ),
         metadata: Type.Optional(
           Type.Record(Type.String(), Type.Unknown(), {
-            description: "Optional metadata to attach to this memory",
+            description: "Additional metadata to attach to this memory",
           }),
         ),
         longTerm: Type.Optional(
@@ -352,22 +415,121 @@ function registerTools(
         ),
       }),
       async execute(_toolCallId, params) {
-        const { text, userId, agentId, longTerm = true } = params as {
-          text: string;
+        const p = params as {
+          text?: string;
+          facts?: string[];
+          category?: string;
+          importance?: number;
           userId?: string;
           agentId?: string;
           metadata?: Record<string, unknown>;
           longTerm?: boolean;
         };
+        const { userId, agentId, longTerm = true } = p;
+
+        // Resolve facts: prefer 'facts' array, fall back to single 'text'
+        const allFacts: string[] = p.facts?.length ? p.facts : (p.text ? [p.text] : []);
+        if (allFacts.length === 0) {
+          return {
+            content: [{ type: "text", text: "No facts provided. Pass 'text' or 'facts' array." }],
+            details: { error: "missing_facts" },
+          };
+        }
 
         try {
-          const uid = _resolveUserId({ agentId, userId });
           const currentSessionId = getCurrentSessionId();
+
+          // Block subagent writes at the tool level. The system prompt
+          // instructs subagents not to store, but a disobedient tool call
+          // would write to a transient namespace that is never read again.
+          if (isSubagentSession(currentSessionId)) {
+            api.logger.warn("openclaw-mem0: blocked memory_store from subagent session");
+            return {
+              content: [{ type: "text", text: "Memory storage is not available in subagent sessions. The main agent handles memory." }],
+              details: { error: "subagent_blocked" },
+            };
+          }
+
+          const uid = _resolveUserId({ agentId, userId });
           const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
+
+          // Skills mode: bypass extraction LLM, store directly via infer=false
+          if (skillsActive) {
+            // Enforce batch homogeneity: if no category provided for a multi-fact
+            // batch, warn. The prompt teaches batch-by-category but this is the
+            // runtime safety net.
+            if (allFacts.length > 1 && !p.category) {
+              api.logger.warn(
+                `openclaw-mem0: multi-fact batch (${allFacts.length} facts) without category. Retention policy defaults to uncategorized. Prompt instructs batch-by-category.`,
+              );
+            }
+
+            // Resolve metadata: prefer explicit params, fall back to metadata record
+            const rawMetadata = p.metadata;
+            const category = p.category ?? rawMetadata?.category as string | undefined;
+            const importance = p.importance ?? rawMetadata?.importance as number | undefined;
+            const parsedMetadata: Record<string, unknown> = {
+              ...(rawMetadata ?? {}),
+              ...(category && { category }),
+              ...(importance !== undefined && { importance }),
+            };
+            const categories = resolveCategories(cfg.skills);
+            const catConfig = category ? categories[category] : undefined;
+            const expirationDate = catConfig ? ttlToExpirationDate(catConfig.ttl) : undefined;
+            const isImmutable = catConfig?.immutable ?? false;
+
+            // Single API call: all facts go as deduced_memories array
+            const addOpts: AddOptions = {
+              user_id: uid,
+              source: "OPENCLAW",
+              infer: false,
+              deduced_memories: allFacts,
+              metadata: parsedMetadata ?? {},
+              ...(expirationDate && { expiration_date: expirationDate }),
+              ...(isImmutable && { immutable: true }),
+            };
+            if (runId) addOpts.run_id = runId;
+            if (cfg.mode === "platform") {
+              addOpts.output_format = "v1.1";
+              if (cfg.enableGraph || cfg.skills?.triage?.enableGraph) {
+                addOpts.enable_graph = true;
+              }
+            }
+
+            const result = await provider.add(
+              [{ role: "user", content: allFacts.join("\n") }],
+              addOpts,
+            );
+
+            const count = result.results?.length ?? 0;
+            api.logger.info(
+              `openclaw-mem0: skills-mode stored ${count} memor${count === 1 ? "y" : "ies"} from ${allFacts.length} fact(s) in 1 API call (infer=false, category=${category ?? "none"})`,
+            );
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Stored ${allFacts.length} fact(s) [${category ?? "uncategorized"}]: ${allFacts.map(f => `"${f.slice(0, 60)}${f.length > 60 ? "..." : ""}"`).join(", ")}`,
+                },
+              ],
+              details: {
+                action: "stored",
+                mode: "skills",
+                infer: false,
+                category,
+                factCount: allFacts.length,
+                results: result.results,
+              },
+            };
+          }
+
+          // Legacy mode: let mem0 extraction LLM handle it
+          const combinedText = allFacts.join("\n");
 
           // Pre-check for near-duplicates so the extraction model has
           // context about existing memories and can UPDATE rather than ADD
-          const preview = text.slice(0, 200);
+          const preview = combinedText.slice(0, 200);
           const dedupOpts = buildSearchOptions(uid, 3);
           dedupOpts.threshold = 0.85;
           const existing = await provider.search(preview, dedupOpts);
@@ -378,7 +540,7 @@ function registerTools(
           }
 
           const result = await provider.add(
-            [{ role: "user", content: text }],
+            [{ role: "user", content: combinedText }],
             buildAddOptions(uid, runId, currentSessionId),
           );
 
@@ -610,6 +772,16 @@ function registerTools(
         };
 
         try {
+          // Block subagent deletes at the tool level.
+          const currentSessionId = getCurrentSessionId();
+          if (isSubagentSession(currentSessionId)) {
+            api.logger.warn("openclaw-mem0: blocked memory_forget from subagent session");
+            return {
+              content: [{ type: "text", text: "Memory deletion is not available in subagent sessions. The main agent handles memory." }],
+              details: { error: "subagent_blocked" },
+            };
+          }
+
           if (memoryId) {
             await provider.delete(memoryId);
             return {
@@ -697,6 +869,150 @@ function registerTools(
       },
     },
     { name: "memory_forget" },
+  );
+
+  api.registerTool(
+    {
+      name: "memory_update",
+      label: "Memory Update",
+      description:
+        "Update an existing memory's text in place. Use when a fact has changed and you have the memory ID. This is atomic and preserves the memory's history. Preferred over delete-then-store for corrections.",
+      parameters: Type.Object({
+        memoryId: Type.String({ description: "The memory ID to update" }),
+        text: Type.String({ description: "The new text for this memory (replaces the old text)" }),
+      }),
+      async execute(_toolCallId, params) {
+        const { memoryId, text } = params as { memoryId: string; text: string };
+
+        try {
+          const currentSessionId = getCurrentSessionId();
+          if (isSubagentSession(currentSessionId)) {
+            api.logger.warn("openclaw-mem0: blocked memory_update from subagent session");
+            return {
+              content: [{ type: "text", text: "Memory update is not available in subagent sessions." }],
+              details: { error: "subagent_blocked" },
+            };
+          }
+
+          await provider.update(memoryId, text);
+          return {
+            content: [
+              { type: "text", text: `Updated memory ${memoryId}: "${text.slice(0, 80)}${text.length > 80 ? "..." : ""}"` },
+            ],
+            details: { action: "updated", id: memoryId },
+          };
+        } catch (err) {
+          return {
+            content: [
+              { type: "text", text: `Memory update failed: ${String(err)}` },
+            ],
+            details: { error: String(err) },
+          };
+        }
+      },
+    },
+    { name: "memory_update" },
+  );
+
+  api.registerTool(
+    {
+      name: "memory_delete_all",
+      label: "Memory Delete All",
+      description:
+        "Delete ALL memories for a user. Use with extreme caution. This is irreversible. Only use when the user explicitly asks to forget everything or reset their memory.",
+      parameters: Type.Object({
+        confirm: Type.Boolean({
+          description: "Must be true to proceed. Safety gate to prevent accidental bulk deletion.",
+        }),
+        userId: Type.Optional(
+          Type.String({ description: "User ID to delete all memories for (default: configured userId)" }),
+        ),
+      }),
+      async execute(_toolCallId, params) {
+        const { confirm, userId } = params as { confirm: boolean; userId?: string };
+
+        try {
+          const currentSessionId = getCurrentSessionId();
+          if (isSubagentSession(currentSessionId)) {
+            api.logger.warn("openclaw-mem0: blocked memory_delete_all from subagent session");
+            return {
+              content: [{ type: "text", text: "Bulk memory deletion is not available in subagent sessions." }],
+              details: { error: "subagent_blocked" },
+            };
+          }
+
+          if (!confirm) {
+            return {
+              content: [{ type: "text", text: "Bulk deletion requires confirm: true. Ask the user to confirm before proceeding." }],
+              details: { error: "confirmation_required" },
+            };
+          }
+
+          const uid = _resolveUserId({ userId });
+          await provider.deleteAll(uid);
+          api.logger.info(`openclaw-mem0: deleted all memories for user ${uid}`);
+          return {
+            content: [
+              { type: "text", text: `All memories deleted for user "${uid}".` },
+            ],
+            details: { action: "deleted_all", user_id: uid },
+          };
+        } catch (err) {
+          return {
+            content: [
+              { type: "text", text: `Bulk memory deletion failed: ${String(err)}` },
+            ],
+            details: { error: String(err) },
+          };
+        }
+      },
+    },
+    { name: "memory_delete_all" },
+  );
+
+  api.registerTool(
+    {
+      name: "memory_history",
+      label: "Memory History",
+      description:
+        "View the edit history of a specific memory. Shows all changes over time including previous values, new values, and timestamps. Useful for understanding how a memory evolved.",
+      parameters: Type.Object({
+        memoryId: Type.String({ description: "The memory ID to view history for" }),
+      }),
+      async execute(_toolCallId, params) {
+        const { memoryId } = params as { memoryId: string };
+
+        try {
+          const history = await provider.history(memoryId);
+
+          if (!history || history.length === 0) {
+            return {
+              content: [{ type: "text", text: `No history found for memory ${memoryId}.` }],
+              details: { count: 0 },
+            };
+          }
+
+          const text = history
+            .map((h, i) => `${i + 1}. [${h.event}] ${h.created_at}\n   Old: ${h.old_memory || "(none)"}\n   New: ${h.new_memory || "(none)"}`)
+            .join("\n\n");
+
+          return {
+            content: [
+              { type: "text", text: `History for memory ${memoryId} (${history.length} entries):\n\n${text}` },
+            ],
+            details: { count: history.length, history },
+          };
+        } catch (err) {
+          return {
+            content: [
+              { type: "text", text: `Memory history failed: ${String(err)}` },
+            ],
+            details: { error: String(err) },
+          };
+        }
+      },
+    },
+    { name: "memory_history" },
   );
 }
 
@@ -813,6 +1129,72 @@ function registerCli(
             console.error(`Stats failed: ${String(err)}`);
           }
         });
+      mem0
+        .command("dream")
+        .description("Run memory consolidation (review, merge, prune stored memories)")
+        .option("--dry-run", "Show memory inventory without running consolidation")
+        .action(async (opts: { dryRun?: boolean }) => {
+          try {
+            const uid = cfg.userId;
+            const memories = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
+            const count = Array.isArray(memories) ? memories.length : 0;
+
+            if (count === 0) {
+              console.log("No memories to consolidate.");
+              return;
+            }
+
+            // Show current state summary on stderr (keeps stdout clean for piping)
+            const catCounts = new Map<string, number>();
+            for (const mem of memories) {
+              const cat = (mem.metadata as any)?.category ?? mem.categories?.[0] ?? "uncategorized";
+              catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1);
+            }
+            process.stderr.write(`\nMemory inventory for "${uid}":\n`);
+            for (const [cat, num] of [...catCounts.entries()].sort((a, b) => b[1] - a[1])) {
+              process.stderr.write(`  ${cat}: ${num}\n`);
+            }
+            process.stderr.write(`  TOTAL: ${count}\n\n`);
+
+            if (opts.dryRun) {
+              process.stderr.write("Dry run — no changes made.\n");
+              return;
+            }
+
+            // Load dream prompt and format it with the full memory inventory
+            const dreamPrompt = loadDreamPrompt(cfg.skills ?? {});
+            if (!dreamPrompt) {
+              process.stderr.write("Dream skill file not found at skills/memory-dream/SKILL.md\n");
+              return;
+            }
+
+            // Build the full dream context: protocol + memory dump
+            const memoryDump = (memories as MemoryItem[]).map((m, i) => {
+              const cat = (m.metadata as any)?.category ?? m.categories?.[0] ?? "uncategorized";
+              const imp = (m.metadata as any)?.importance ?? "?";
+              const created = m.created_at ?? "unknown";
+              return `${i + 1}. [${m.id}] (${cat}, importance: ${imp}, created: ${created}) ${m.memory}`;
+            }).join("\n");
+
+            const fullPrompt = [
+              "<dream-protocol>",
+              dreamPrompt,
+              "</dream-protocol>",
+              "",
+              `<all-memories count="${count}" user="${uid}">`,
+              memoryDump,
+              "</all-memories>",
+              "",
+              "Begin consolidation. Review all memories above and execute merge, delete, and rewrite operations using the available tools.",
+            ].join("\n");
+
+            // Only the prompt goes to stdout — safe to pipe directly
+            process.stdout.write(fullPrompt + "\n");
+            process.stderr.write(`Dream prompt written to stdout (${fullPrompt.length} chars). Pipe with: openclaw mem0 dream | openclaw run --stdin\n`);
+          } catch (err) {
+            console.error(`Dream failed: ${String(err)}`);
+          }
+        });
     },
     { commands: ["mem0"] },
   );
@@ -831,8 +1213,163 @@ function registerHooks(
   buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
   session: {
     setCurrentSessionId: (id: string) => void;
+    getStateDir: () => string | undefined;
   },
+  skillsActive: boolean = false,
 ) {
+  // ========================================================================
+  // SKILLS MODE: Agentic memory via before_prompt_build
+  // ========================================================================
+  if (skillsActive) {
+    // Use before_prompt_build instead of before_agent_start:
+    // - prependSystemContext: static memory protocol (provider-cacheable, no per-turn cost)
+    // - prependContext: dynamic recalled memories (changes every turn)
+    //
+    // NOTE: We previously used a shared `lastCleanUserMessage` variable populated
+    // by message_received to get clean user content. That variable was process-global
+    // mutable state vulnerable to cross-session races. Removed in favor of using
+    // sanitizeQuery() on event.prompt within this hook, where ctx.sessionKey is
+    // available and the execution is scoped to the correct session.
+    api.on("before_prompt_build", async (event: any, ctx: any) => {
+      if (!event.prompt || event.prompt.length < 5) return;
+
+      const trigger = ctx?.trigger ?? undefined;
+      const sessionId = ctx?.sessionKey ?? undefined;
+      if (isNonInteractiveTrigger(trigger, sessionId)) {
+        api.logger.info("openclaw-mem0: skills-mode skipping non-interactive trigger");
+        return;
+      }
+
+      // Skip recall for system/bootstrap prompts. These are OpenClaw internal
+      // commands (/new, /reset) that contain system instructions, not user queries.
+      // Sending them to mem0 search wastes API calls and returns noise.
+      const promptLower = event.prompt.toLowerCase();
+      const isSystemPrompt =
+        promptLower.includes("a new session was started") ||
+        promptLower.includes("session startup sequence") ||
+        promptLower.includes("/new or /reset") ||
+        promptLower.startsWith("system:") ||
+        promptLower.startsWith("run your session");
+      if (isSystemPrompt) {
+        api.logger.info("openclaw-mem0: skills-mode skipping recall for system/bootstrap prompt");
+        // Still inject the protocol, just skip recall search
+        const systemContext = loadTriagePrompt(cfg.skills ?? {});
+        return { prependSystemContext: systemContext };
+      }
+
+      if (sessionId) session.setCurrentSessionId(sessionId);
+
+      const isSubagent = isSubagentSession(sessionId);
+      const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
+
+      // Static protocol goes in prependSystemContext (cacheable across turns)
+      let systemContext = loadTriagePrompt(cfg.skills ?? {});
+      if (isSubagent) {
+        systemContext = "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories.\n\n" + systemContext;
+      }
+
+      // Dynamic recall goes in prependContext (changes every turn).
+      // Strategy controls how much the plugin searches automatically:
+      //   "always" — long-term + session search every turn (2 searches)
+      //   "smart"  — long-term search only, no session search (1 search) [default]
+      //   "manual" — no auto-recall; agent controls all search via memory_search (0 searches)
+      let recallContext = "";
+      const recallEnabled = cfg.skills?.recall?.enabled !== false;
+      const recallStrategy = cfg.skills?.recall?.strategy ?? "smart";
+
+      if (recallEnabled && recallStrategy !== "manual") {
+        try {
+          const query = sanitizeQuery(event.prompt);
+
+          // Smart mode: skip session search (saves 1 API call per turn)
+          const sessionIdForRecall = recallStrategy === "always"
+            ? (isSubagent ? undefined : sessionId)
+            : undefined; // smart: long-term only
+
+          const recallResult = await skillRecall(
+            provider,
+            query,
+            userId,
+            cfg.skills ?? {},
+            sessionIdForRecall,
+          );
+
+          api.logger.info(
+            `openclaw-mem0: skills-mode recall (strategy=${recallStrategy}) injecting ${recallResult.memories.length} memories (~${recallResult.tokenEstimate} tokens)`,
+          );
+
+          recallContext = recallResult.context;
+        } catch (err) {
+          api.logger.warn(`openclaw-mem0: skills-mode recall failed: ${String(err)}`);
+        }
+      } else if (recallEnabled && recallStrategy === "manual") {
+        api.logger.info("openclaw-mem0: skills-mode recall strategy=manual, agent controls search");
+      }
+
+      // Auto-dream: check gates and inject consolidation protocol if due
+      const stateDir = session.getStateDir();
+      const dreamEnabled = cfg.skills?.dream?.enabled !== false && cfg.skills?.dream?.auto !== false;
+      let dreamContext = "";
+      if (dreamEnabled && stateDir && !isSubagent) {
+        try {
+          const memories = await provider.getAll({ user_id: userId, source: "OPENCLAW" });
+          const memCount = Array.isArray(memories) ? memories.length : 0;
+          const gateResult = await shouldDream(stateDir, cfg.skills?.dream ?? {}, memCount);
+          if (gateResult.pass && acquireDreamLock(stateDir)) {
+            const dreamPrompt = loadDreamPrompt(cfg.skills ?? {});
+            if (dreamPrompt) {
+              dreamContext = "\n\n<auto-dream>\nIMPORTANT: Before responding to the user, run a memory consolidation pass. Follow the protocol below, then respond normally.\n\n" + dreamPrompt + "\n</auto-dream>";
+              dreamJustRan = true;
+              api.logger.info(`openclaw-mem0: auto-dream triggered (${memCount} memories, gate passed)`);
+            } else {
+              releaseDreamLock(stateDir);
+            }
+          }
+        } catch (err) {
+          api.logger.warn(`openclaw-mem0: auto-dream gate check failed: ${String(err)}`);
+        }
+      }
+
+      return {
+        prependSystemContext: systemContext,  // cached by provider
+        prependContext: recallContext + dreamContext,  // per-turn dynamic
+      };
+    });
+
+    // Skills mode: NO auto-capture. Track sessions for dream gating.
+    let dreamJustRan = false;
+
+    api.on("agent_end", async (event: any, ctx: any) => {
+      if (!event.success) return;
+      const sessionId = ctx?.sessionKey ?? undefined;
+      const trigger = ctx?.trigger ?? undefined;
+      if (sessionId) session.setCurrentSessionId(sessionId);
+
+      // If dream just ran, release lock and record completion
+      const stateDir = session.getStateDir();
+      if (dreamJustRan && stateDir) {
+        releaseDreamLock(stateDir);
+        recordDreamCompletion(stateDir);
+        api.logger.info("openclaw-mem0: auto-dream completed, lock released");
+        dreamJustRan = false;
+        return;
+      }
+
+      // Track session for dream gating (interactive turns only)
+      if (stateDir && sessionId && !isNonInteractiveTrigger(trigger, sessionId)) {
+        incrementSessionCount(stateDir, sessionId);
+      }
+
+      api.logger.info("openclaw-mem0: skills-mode agent_end (no auto-capture)");
+    });
+
+    return; // Skip legacy hook registration
+  }
+
+  // ========================================================================
+  // LEGACY MODE: Original auto-recall + auto-capture behavior
+  // ========================================================================
+
   // Auto-recall: inject relevant memories before agent starts
   if (cfg.autoRecall) {
     api.on("before_agent_start", async (event, ctx) => {
