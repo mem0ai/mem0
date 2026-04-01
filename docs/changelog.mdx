@@ -8,6 +8,21 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-04-01" description="v1.0.10">
+
+**New Features & Updates:**
+- **LLMs:** Added MiniMax provider support for AWS Bedrock ([#4609](https://github.com/mem0ai/mem0/pull/4609))
+
+**Bug Fixes:**
+- **Configs:** Migrated CassandraConfig and AzureMySQLConfig to pydantic v2 ConfigDict ([#4646](https://github.com/mem0ai/mem0/pull/4646))
+- **LLMs:** Forward `response_format` to OpenAI-compatible API for DeepSeek ([#4635](https://github.com/mem0ai/mem0/pull/4635))
+- **LLMs:** Forward `response_format` to OpenAI-compatible API for vLLM ([#4608](https://github.com/mem0ai/mem0/pull/4608))
+- **Vector Stores:** Only list authorized collections when listing MongoDB collections ([#3888](https://github.com/mem0ai/mem0/pull/3888))
+- **Core:** Reset graph database in `Memory.reset()` ([#4185](https://github.com/mem0ai/mem0/pull/4185))
+- **Core:** Make `AsyncMemory.from_config` a regular classmethod ([#4183](https://github.com/mem0ai/mem0/pull/4183))
+
+</Update>
+
 <Update label="2026-03-28" description="v1.0.9">
 
 **New Features & Updates:**
@@ -816,6 +831,15 @@ mode: "wide"
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-04-01" description="v2.4.5">
+
+**Bug Fixes:**
+- **OSS:** Replace `.single()` with `.maybeSingle()` in SupabaseDB.get() to handle missing rows ([#4599](https://github.com/mem0ai/mem0/pull/4599))
+- **Embeddings:** Pass dimensions parameter to OpenAI embeddings API ([#4632](https://github.com/mem0ai/mem0/pull/4632))
+- **OSS:** Extract JSON from chatty LLM responses in fact retrieval ([#4533](https://github.com/mem0ai/mem0/pull/4533))
+
+</Update>
 
 <Update label="2026-03-28" description="v2.4.4">
 
