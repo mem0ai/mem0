@@ -45,7 +45,7 @@ import {
   ttlToExpirationDate,
   isSkillsMode,
 } from "./skill-loader.ts";
-import { recall as skillRecall } from "./recall.ts";
+import { recall as skillRecall, sanitizeQuery } from "./recall.ts";
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
@@ -1033,20 +1033,15 @@ function registerHooks(
   // SKILLS MODE: Agentic memory via before_prompt_build
   // ========================================================================
   if (skillsActive) {
-    // Track the clean user message from message_received for recall queries.
-    // message_received gives us the raw user content WITHOUT OpenClaw's sender
-    // metadata prefix, solving the search query pollution problem at the source.
-    let lastCleanUserMessage: string | undefined;
-
-    api.on("message_received", async (event: any) => {
-      if (event.content && typeof event.content === "string") {
-        lastCleanUserMessage = event.content;
-      }
-    });
-
     // Use before_prompt_build instead of before_agent_start:
     // - prependSystemContext: static memory protocol (provider-cacheable, no per-turn cost)
     // - prependContext: dynamic recalled memories (changes every turn)
+    //
+    // NOTE: We previously used a shared `lastCleanUserMessage` variable populated
+    // by message_received to get clean user content. That variable was process-global
+    // mutable state vulnerable to cross-session races. Removed in favor of using
+    // sanitizeQuery() on event.prompt within this hook, where ctx.sessionKey is
+    // available and the execution is scoped to the correct session.
     api.on("before_prompt_build", async (event: any, ctx: any) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
@@ -1073,9 +1068,9 @@ function registerHooks(
       const recallEnabled = cfg.skills?.recall?.enabled !== false;
       if (recallEnabled) {
         try {
-          // Use clean user message from message_received (no metadata prefix)
-          // Fall back to event.prompt if message_received hasn't fired yet
-          const query = lastCleanUserMessage || event.prompt;
+          // Sanitize event.prompt inline (strip OpenClaw metadata prefix).
+          // No shared state needed. This runs within the session-scoped hook.
+          const query = sanitizeQuery(event.prompt);
 
           const recallResult = await skillRecall(
             provider,
@@ -1094,9 +1089,6 @@ function registerHooks(
           api.logger.warn(`openclaw-mem0: skills-mode recall failed: ${String(err)}`);
         }
       }
-
-      // Clear the clean message after use (one-shot per turn)
-      lastCleanUserMessage = undefined;
 
       return {
         prependSystemContext: systemContext,  // cached by provider

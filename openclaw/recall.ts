@@ -208,7 +208,7 @@ function formatRecalledMemories(
  * conversational rewriting. Query rewriting is the agent's responsibility
  * via the skill protocol (the agent formulates search queries with context).
  */
-function sanitizeQuery(raw: string): string {
+export function sanitizeQuery(raw: string): string {
   let cleaned = raw.replace(/Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi, "");
   cleaned = cleaned.replace(/^\[.*?\]\s*/g, "");
   cleaned = cleaned.trim();
