@@ -425,8 +425,20 @@ function registerTools(
         }
 
         try {
-          const uid = _resolveUserId({ agentId, userId });
           const currentSessionId = getCurrentSessionId();
+
+          // Block subagent writes at the tool level. The system prompt
+          // instructs subagents not to store, but a disobedient tool call
+          // would write to a transient namespace that is never read again.
+          if (isSubagentSession(currentSessionId)) {
+            api.logger.warn("openclaw-mem0: blocked memory_store from subagent session");
+            return {
+              content: [{ type: "text", text: "Memory storage is not available in subagent sessions. The main agent handles memory." }],
+              details: { error: "subagent_blocked" },
+            };
+          }
+
+          const uid = _resolveUserId({ agentId, userId });
           const runId = !longTerm && currentSessionId ? currentSessionId : undefined;
 
           // Skills mode: bypass extraction LLM, store directly via infer=false
@@ -748,6 +760,16 @@ function registerTools(
         };
 
         try {
+          // Block subagent deletes at the tool level.
+          const currentSessionId = getCurrentSessionId();
+          if (isSubagentSession(currentSessionId)) {
+            api.logger.warn("openclaw-mem0: blocked memory_forget from subagent session");
+            return {
+              content: [{ type: "text", text: "Memory deletion is not available in subagent sessions. The main agent handles memory." }],
+              details: { error: "subagent_blocked" },
+            };
+          }
+
           if (memoryId) {
             await provider.delete(memoryId);
             return {
