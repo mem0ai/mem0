@@ -130,6 +130,20 @@ class TestAddResult:
         output = buf.getvalue()
         assert output.strip() == ""
 
+    def test_format_add_result_deduplicates_pending_by_event_id(self):
+        console, buf = _make_console()
+        result = {
+            "results": [
+                {"status": "PENDING", "event_id": "evt-dup"},
+                {"status": "PENDING", "event_id": "evt-dup"},
+            ]
+        }
+        format_add_result(console, result, "text")
+        output = buf.getvalue()
+        # Should show only one PENDING block despite two entries with same event_id
+        assert output.count("evt-dup") == 2  # event_id line + status hint line
+        assert output.count("Queued") == 1
+
     def test_format_add_result_empty(self):
         console, buf = _make_console()
         format_add_result(console, {"results": []}, "text")

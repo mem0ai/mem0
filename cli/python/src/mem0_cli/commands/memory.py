@@ -154,8 +154,25 @@ def cmd_add(
     if output == "quiet":
         return
 
+    # Deduplicate PENDING entries sharing the same event_id across all output modes
+    results_list = result if isinstance(result, list) else result.get("results", [result])
+    seen_events: set[str] = set()
+    deduped: list[dict] = []
+    for r in results_list:
+        if r.get("status") == "PENDING":
+            eid = r.get("event_id", "")
+            if eid and eid in seen_events:
+                continue
+            if eid:
+                seen_events.add(eid)
+        deduped.append(r)
+    # Write back so downstream formatters see deduplicated data
+    if isinstance(result, dict) and "results" in result:
+        result = {**result, "results": deduped}
+    else:
+        result = deduped
+
     if output == "agent":
-        results_list = result if isinstance(result, list) else result.get("results", [result])
         scope = {
             k: v
             for k, v in {
@@ -169,9 +186,9 @@ def cmd_add(
         format_agent_envelope(
             console,
             command="add",
-            data=results_list,
+            data=deduped,
             scope=scope or None,
-            count=len(results_list),
+            count=len(deduped),
         )
         return
 
@@ -181,12 +198,17 @@ def cmd_add(
 
     console.print()
     print_scope(console, user_id=user_id, agent_id=agent_id, app_id=app_id, run_id=run_id)
-    # Count results
-    results = result if isinstance(result, list) else result.get("results", [result])
-    count = len(results) if results else 0
-    print_success(
-        console, f"Memory processed — {count} memor{'y' if count == 1 else 'ies'} extracted"
-    )
+    count = len(deduped)
+    all_pending = count > 0 and all(r.get("status") == "PENDING" for r in deduped)
+    if all_pending:
+        print_success(
+            console,
+            f"Memory queued — {count} event{'s' if count != 1 else ''} pending",
+        )
+    else:
+        print_success(
+            console, f"Memory processed — {count} memor{'y' if count == 1 else 'ies'} extracted"
+        )
     format_add_result(console, result, output)
 
 

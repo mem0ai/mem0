@@ -155,10 +155,16 @@ def format_add_result(console: Console, result: dict | list, output: str = "text
         return
 
     console.print()
+    seen_pending_events: set[str] = set()
     for r in results:
         # Detect async PENDING response from Platform API
         if r.get("status") == "PENDING":
             event_id = r.get("event_id", "")
+            # Deduplicate PENDING entries with the same event_id
+            if event_id and event_id in seen_pending_events:
+                continue
+            if event_id:
+                seen_pending_events.add(event_id)
             icon = f"[{ACCENT_COLOR}]{_sym('⧗', '...')}[/]"
             parts = [f"  {icon} [{DIM_COLOR}]{'Queued':<10}[/]"]
             parts.append("[white]Processing in background[/]")

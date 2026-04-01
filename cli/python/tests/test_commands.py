@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import typing
 from io import StringIO
 from unittest.mock import patch
 
@@ -276,6 +277,66 @@ class TestAddCommand:
                 output="text",
             )
         mock_backend.add.assert_called_once()
+
+
+class TestAddDeduplicatesPending:
+    """Ensure duplicate PENDING entries with the same event_id are collapsed."""
+
+    DUPLICATE_PENDING: typing.ClassVar[dict] = {
+        "results": [
+            {"status": "PENDING", "event_id": "evt-dup"},
+            {"status": "PENDING", "event_id": "evt-dup"},
+        ]
+    }
+
+    def _run_add(self, mock_backend, output):
+        mock_backend.add.return_value = self.DUPLICATE_PENDING
+        console, buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.memory.console", console),
+            patch("mem0_cli.commands.memory.err_console", err_console),
+        ):
+            cmd_add(
+                mock_backend,
+                "test",
+                user_id="alice",
+                agent_id=None,
+                app_id=None,
+                run_id=None,
+                messages=None,
+                file=None,
+                metadata=None,
+                immutable=False,
+                no_infer=False,
+                expires=None,
+                categories=None,
+                output=output,
+            )
+        return buf.getvalue()
+
+    def test_text_shows_one_pending(self, mock_backend):
+        raw = self._run_add(mock_backend, "text")
+        assert raw.count("Queued") == 1
+
+    def test_json_shows_one_pending(self, mock_backend):
+        raw = self._run_add(mock_backend, "json")
+        data = json.loads(raw)
+        results = data.get("results", data)
+        pending = [r for r in results if r.get("status") == "PENDING"]
+        assert len(pending) == 1
+
+    def test_agent_shows_one_pending(self, mock_backend):
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(True)
+        try:
+            raw = self._run_add(mock_backend, "agent")
+        finally:
+            set_agent_mode(False)
+        data = json.loads(raw)
+        assert data["count"] == 1
+        assert len(data["data"]) == 1
 
 
 class TestSearchCommand:
