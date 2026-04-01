@@ -86,6 +86,59 @@ describe("cmdAdd", () => {
   });
 });
 
+describe("cmdAdd deduplicates PENDING", () => {
+  const DUPLICATE_PENDING = {
+    results: [
+      { status: "PENDING", event_id: "evt-dup" },
+      { status: "PENDING", event_id: "evt-dup" },
+    ],
+  };
+
+  it("text shows one pending block", async () => {
+    (mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(DUPLICATE_PENDING);
+    const { cmdAdd } = await import("../src/commands/memory.js");
+    await cmdAdd(mockBackend, "test", {
+      userId: "alice",
+      immutable: false,
+      noInfer: false,
+      enableGraph: false,
+      output: "text",
+    });
+    expect(output.match(/Queued/g)?.length).toBe(1);
+  });
+
+  it("json shows one pending entry", async () => {
+    (mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(DUPLICATE_PENDING);
+    const { cmdAdd } = await import("../src/commands/memory.js");
+    await cmdAdd(mockBackend, "test", {
+      userId: "alice",
+      immutable: false,
+      noInfer: false,
+      enableGraph: false,
+      output: "json",
+    });
+    const data = JSON.parse(output);
+    const pending = data.results.filter((r: Record<string, unknown>) => r.status === "PENDING");
+    expect(pending).toHaveLength(1);
+  });
+
+  it("agent shows one pending entry", async () => {
+    (mockBackend.add as ReturnType<typeof vi.fn>).mockResolvedValue(DUPLICATE_PENDING);
+    setAgentMode(true);
+    const { cmdAdd } = await import("../src/commands/memory.js");
+    await cmdAdd(mockBackend, "test", {
+      userId: "alice",
+      immutable: false,
+      noInfer: false,
+      enableGraph: false,
+      output: "agent",
+    });
+    const data = JSON.parse(output);
+    expect(data.count).toBe(1);
+    expect(data.data).toHaveLength(1);
+  });
+});
+
 describe("cmdSearch", () => {
   it("searches and shows results in text mode", async () => {
     const { cmdSearch } = await import("../src/commands/memory.js");

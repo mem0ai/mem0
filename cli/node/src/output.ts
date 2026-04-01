@@ -169,10 +169,14 @@ export function formatAddResult(
 	}
 
 	console.log();
+	const seenPendingEvents = new Set<string>();
 	for (const r of results) {
 		// Detect async PENDING response
 		if (r.status === "PENDING") {
 			const eventId = (r.event_id as string) ?? "";
+			// Deduplicate PENDING entries with the same event_id
+			if (eventId && seenPendingEvents.has(eventId)) continue;
+			if (eventId) seenPendingEvents.add(eventId);
 			const icon = accent(sym("⧗", "..."));
 			const parts = [
 				`  ${icon} ${dim("Queued".padEnd(10))}`,

@@ -99,6 +99,18 @@ describe("formatAddResult", () => {
     });
     expect(output).toContain("Queued");
   });
+
+  it("deduplicates PENDING entries with same event_id", () => {
+    formatAddResult({
+      results: [
+        { status: "PENDING", event_id: "evt-dup" },
+        { status: "PENDING", event_id: "evt-dup" },
+      ],
+    });
+    // Should show only one PENDING block despite two entries with same event_id
+    expect(output.match(/Queued/g)?.length).toBe(1);
+    expect(output.match(/evt-dup/g)?.length).toBe(2); // event_id line + status hint line
+  });
 });
 
 describe("printResultSummary", () => {

@@ -150,10 +150,26 @@ export async function cmdAdd(
 
 	if (opts.output === "quiet") return;
 
+	// Deduplicate PENDING entries sharing the same event_id across all output modes
+	const rawResults: Record<string, unknown>[] = Array.isArray(result)
+		? result
+		: ((result.results as Record<string, unknown>[]) ?? [result]);
+	const seenEvents = new Set<string>();
+	const deduped: Record<string, unknown>[] = [];
+	for (const r of rawResults) {
+		if (r.status === "PENDING") {
+			const eid = (r.event_id as string) ?? "";
+			if (eid && seenEvents.has(eid)) continue;
+			if (eid) seenEvents.add(eid);
+		}
+		deduped.push(r);
+	}
+	// Write back so downstream formatters see deduplicated data
+	const dedupedResult: Record<string, unknown> = Array.isArray(result)
+		? (deduped as unknown as Record<string, unknown>)
+		: { ...result, results: deduped };
+
 	if (opts.output === "agent") {
-		const resultsList = Array.isArray(result)
-			? result
-			: ((result.results as Record<string, unknown>[]) ?? [result]);
 		const scope: Record<string, string | undefined> = {
 			user_id: opts.userId,
 			agent_id: opts.agentId,
@@ -162,15 +178,15 @@ export async function cmdAdd(
 		};
 		formatAgentEnvelope({
 			command: "add",
-			data: resultsList,
+			data: deduped,
 			scope,
-			count: resultsList.length,
+			count: deduped.length,
 		});
 		return;
 	}
 
 	if (opts.output === "json") {
-		formatAddResult(result, opts.output);
+		formatAddResult(dedupedResult, opts.output);
 		return;
 	}
 
@@ -181,14 +197,20 @@ export async function cmdAdd(
 		app_id: opts.appId,
 		run_id: opts.runId,
 	});
-	const results = Array.isArray(result)
-		? result
-		: ((result.results as unknown[]) ?? [result]);
-	const count = results.length;
-	printSuccess(
-		`Memory processed — ${count} memor${count === 1 ? "y" : "ies"} extracted`,
-	);
-	formatAddResult(result, opts.output);
+	const count = deduped.length;
+	const allPending =
+		count > 0 &&
+		deduped.every((r) => r.status === "PENDING");
+	if (allPending) {
+		printSuccess(
+			`Memory queued — ${count} event${count !== 1 ? "s" : ""} pending`,
+		);
+	} else {
+		printSuccess(
+			`Memory processed — ${count} memor${count === 1 ? "y" : "ies"} extracted`,
+		);
+	}
+	formatAddResult(dedupedResult, opts.output);
 }
 
 export async function cmdSearch(
