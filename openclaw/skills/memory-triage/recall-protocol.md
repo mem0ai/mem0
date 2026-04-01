@@ -1,10 +1,7 @@
 ---
 name: memory-recall
-version: "1.0.0"
-trigger: every_turn
-injection: prepend_system
-tools_used:
-  - memory_search
+description: Protocol for searching and using recalled memories. Teaches query rewriting for retrieval.
+applies_to: memory-triage
 ---
 
 # Using Your Recalled Memories
@@ -27,33 +24,46 @@ Below your instructions you will find a `<recalled-memories>` section containing
 
 Your recalled memories are a relevance-ranked subset. You may need more. Use `memory_search` when:
 
-**The user references something you lack context for:**
-```
-User: "Can you check on that deployment we set up last week?"
-→ memory_search("deployment setup last week")
-```
+- The user references something you lack context for
+- The conversation topic shifts significantly
+- The user explicitly asks if you remember something
+- Before updating a memory, find the existing one first
+- You need category-specific context
 
-**The conversation topic shifts significantly:**
-```
-You were discussing infrastructure, now user asks about their finance agent
-→ memory_search("finance agent")
-```
+## Query Rewriting (CRITICAL)
 
-**The user explicitly asks if you remember something:**
-```
-User: "Do you remember what we decided about the database?"
-→ memory_search("database decision")
-```
+When calling `memory_search`, NEVER pass the user's raw message as the query. Rewrite it for retrieval.
 
-**Before updating a memory, find the existing one:**
-```
-→ memory_search("project deadline") to find the old memory before replacing it
-```
+The user's message is conversational. Your stored memories are factual statements in third person. Write a query that matches the **language of the stored memories**, not the language of the user's question.
 
-**You need category-specific context:**
+**How to rewrite:**
+1. Extract the key concepts: names, topics, entities, technical terms
+2. Remove conversational framing: "can you help me", "I was wondering", "do you remember"
+3. Add related terms that the stored memory likely contains
+4. Think: "What words would I have used when I stored this fact?"
+
+**Examples:**
+
 ```
-→ memory_search("user preferences", categories: ["preference"])
-→ memory_search("infrastructure", categories: ["identity", "operational"])
+User: "Can you help me set up the Grafana Terraform provider?"
+BAD:  memory_search("Can you help me set up the Grafana Terraform provider?")
+GOOD: memory_search("Grafana Terraform infrastructure monitoring setup")
+
+User: "What was that database we decided on last week?"
+BAD:  memory_search("What was that database we decided on last week?")
+GOOD: memory_search("database decision migration")
+
+User: "Do you remember my timezone?"
+BAD:  memory_search("Do you remember my timezone?")
+GOOD: memory_search("user timezone location identity")
+
+User: "Who's Jake again?"
+BAD:  memory_search("Who's Jake again?")
+GOOD: memory_search("Jake role team")
+
+User: "What's our SLA?"
+BAD:  memory_search("What's our SLA?")
+GOOD: memory_search("SLA uptime latency target")
 ```
 
 ## When NOT to Search

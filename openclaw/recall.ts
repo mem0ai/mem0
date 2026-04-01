@@ -204,17 +204,14 @@ function formatRecalledMemories(
 
 /**
  * Strip OpenClaw metadata prefix from event.prompt before using as search query.
- * OpenClaw wraps user messages with sender metadata and timestamps:
- *   Sender (untrusted metadata):```json{...}```\n[timestamp] actual message
+ * This only removes framework noise (sender metadata, timestamps) — NOT
+ * conversational rewriting. Query rewriting is the agent's responsibility
+ * via the skill protocol (the agent formulates search queries with context).
  */
 function sanitizeQuery(raw: string): string {
-  // Strip sender metadata block (multiline): Sender (untrusted metadata):\n```json\n{...}\n```
   let cleaned = raw.replace(/Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi, "");
-  // Strip timestamp prefix: [Mon 2026-03-30 21:05 GMT+5:30]
   cleaned = cleaned.replace(/^\[.*?\]\s*/g, "");
-  // Trim whitespace
   cleaned = cleaned.trim();
-  // If cleaning removed everything, fall back to original
   return cleaned || raw;
 }
 

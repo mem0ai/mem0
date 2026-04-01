@@ -288,6 +288,14 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
   parts.push('  memory_store(facts: ["User is Alex, backend engineer at Stripe, PST timezone", "User prefers concise responses with no fluff"], category: "identity", importance: 0.90)');
   parts.push("");
   parts.push("CREDENTIALS: NEVER store sk-, m0-, ghp_, AKIA, Bearer tokens, passwords. Store that it was configured, not the value.");
+  parts.push("");
+  parts.push("SEARCH QUERIES: When calling memory_search, REWRITE the query for retrieval — do NOT pass the user's raw message.");
+  parts.push("- Extract key concepts: names, topics, entities, technical terms.");
+  parts.push("- Remove conversational framing: 'can you help me', 'I was wondering', 'do you remember'.");
+  parts.push("- Think: what words would the STORED memory contain? Write a query that matches those words.");
+  parts.push('- Example: User says "Can you help me set up the Grafana Terraform provider?" → memory_search("Grafana Terraform infrastructure monitoring setup")');
+  parts.push('- Example: User says "What was that database we decided on?" → memory_search("database decision migration")');
+  parts.push('- Example: User says "Do you remember my timezone?" → memory_search("user timezone location identity")');
   parts.push("For the full protocol with examples, read the memory-triage skill.");
   parts.push("</memory-system>");
 
