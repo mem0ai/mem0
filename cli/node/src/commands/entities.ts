@@ -99,20 +99,22 @@ export async function cmdEntitiesDelete(
 		printError("Destructive operation requires --force in agent mode.");
 		process.exit(1);
 	}
-	if (!opts.userId) {
-		if (opts.agentId || opts.appId || opts.runId) {
-			printError(
-				"Entity deletion is only supported for --user-id.",
-				"The API does not support deleting agent, app, or run entities directly.",
-			);
-		} else {
-			printError("Provide --user-id to delete an entity.");
-		}
+	if (!opts.userId && !opts.agentId && !opts.appId && !opts.runId) {
+		printError(
+			"Provide at least one of --user-id, --agent-id, --app-id, --run-id.",
+		);
 		process.exit(1);
 	}
 
+	const scopeParts: string[] = [];
+	if (opts.userId) scopeParts.push(`user=${opts.userId}`);
+	if (opts.agentId) scopeParts.push(`agent=${opts.agentId}`);
+	if (opts.appId) scopeParts.push(`app=${opts.appId}`);
+	if (opts.runId) scopeParts.push(`run=${opts.runId}`);
+	const scope = scopeParts.join(", ");
+
 	if (opts.dryRun) {
-		printInfo(`Would delete entity user=${opts.userId} and all its memories.`);
+		printInfo(`Would delete entity ${scope} and all its memories.`);
 		printInfo("No changes made.");
 		return;
 	}
@@ -124,7 +126,7 @@ export async function cmdEntitiesDelete(
 		});
 		const answer = await new Promise<string>((resolve) => {
 			rl.question(
-				`\n  \u26a0  Delete entity user=${opts.userId} AND all its memories? This cannot be undone. [y/N] `,
+				`\n  \u26a0  Delete entity ${scope} AND all its memories? This cannot be undone. [y/N] `,
 				resolve,
 			);
 		});
@@ -139,7 +141,12 @@ export async function cmdEntitiesDelete(
 	let result: Record<string, unknown>;
 	try {
 		result = await timedStatus("Deleting entity...", async () => {
-			return backend.deleteEntities({ userId: opts.userId });
+			return backend.deleteEntities({
+				userId: opts.userId,
+				agentId: opts.agentId,
+				appId: opts.appId,
+				runId: opts.runId,
+			});
 		});
 	} catch (e) {
 		printError(e instanceof Error ? e.message : String(e));

@@ -264,17 +264,26 @@ export class PlatformBackend implements Backend {
 	}
 
 	async deleteEntities(opts: EntityIds): Promise<Record<string, unknown>> {
-		const params: Record<string, string> = {};
-		if (opts.userId) params.user_id = opts.userId;
-		if (opts.agentId) params.agent_id = opts.agentId;
-		if (opts.appId) params.app_id = opts.appId;
-		if (opts.runId) params.run_id = opts.runId;
-		if (Object.keys(params).length === 0) {
+		// v2 endpoint: DELETE /v2/entities/{entity_type}/{entity_id}/
+		const typeMap: [string, string | undefined][] = [
+			["user", opts.userId],
+			["agent", opts.agentId],
+			["app", opts.appId],
+			["run", opts.runId],
+		];
+		const entities = typeMap.filter(([, v]) => v) as [string, string][];
+		if (entities.length === 0) {
 			throw new Error("At least one entity ID is required for deleteEntities.");
 		}
-		return (await this._request("DELETE", "/v1/entities/", {
-			params,
-		})) as Record<string, unknown>;
+		// Delete each provided entity via the v2 path-based endpoint
+		let result: Record<string, unknown> = {};
+		for (const [entityType, entityId] of entities) {
+			result = (await this._request(
+				"DELETE",
+				`/v2/entities/${entityType}/${entityId}/`,
+			)) as Record<string, unknown>;
+		}
+		return result;
 	}
 
 	async status(
