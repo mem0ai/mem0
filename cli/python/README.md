@@ -34,6 +34,13 @@ mem0 search "What are Alice's preferences?" --user-id alice
 mem0 list --user-id alice
 ```
 
+## Releasing
+
+1. Update `version` in `pyproject.toml`
+2. Create a GitHub Release with tag `cli-v<version>` (e.g. `cli-v0.2.0`)
+
+For a pre-release, use a beta version like `0.2.0b1` and check the **pre-release** checkbox.
+
 ## License
 
 Apache-2.0
