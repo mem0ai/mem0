@@ -11,6 +11,7 @@ from mem0_cli.output import (
     format_memories_table,
     format_memories_text,
     format_single_memory,
+    sanitize_agent_data,
 )
 
 
@@ -134,3 +135,62 @@ class TestAddResult:
         format_add_result(console, {"results": []}, "text")
         output = buf.getvalue()
         assert "No memories extracted" in output
+
+
+class TestSanitizeAgentData:
+    def test_add_projects_fields(self):
+        raw = [{"id": "abc", "memory": "test", "event": "ADD", "metadata": {"x": 1}, "categories": ["a"]}]
+        result = sanitize_agent_data("add", raw)
+        assert result == [{"id": "abc", "memory": "test", "event": "ADD"}]
+
+    def test_add_pending_passthrough(self):
+        raw = [{"status": "PENDING", "event_id": "evt-123", "metadata": "noise"}]
+        result = sanitize_agent_data("add", raw)
+        assert result == [{"status": "PENDING", "event_id": "evt-123"}]
+
+    def test_search_projects_fields(self):
+        raw = [{"id": "abc", "memory": "test", "score": 0.9, "created_at": "2026-01-01", "categories": ["a"], "user_id": "u1", "agent_id": None}]
+        result = sanitize_agent_data("search", raw)
+        assert result == [{"id": "abc", "memory": "test", "score": 0.9, "created_at": "2026-01-01", "categories": ["a"]}]
+
+    def test_list_projects_fields(self):
+        raw = [{"id": "abc", "memory": "test", "created_at": "2026-01-01", "categories": ["a"], "user_id": "u1"}]
+        result = sanitize_agent_data("list", raw)
+        assert result == [{"id": "abc", "memory": "test", "created_at": "2026-01-01", "categories": ["a"]}]
+
+    def test_get_projects_fields(self):
+        raw = {"id": "abc", "memory": "test", "created_at": "2026-01-01", "updated_at": "2026-01-02", "categories": ["a"], "metadata": {"k": "v"}, "user_id": "u1"}
+        result = sanitize_agent_data("get", raw)
+        assert "user_id" not in result
+        assert "id" in result and "memory" in result
+
+    def test_update_projects_fields(self):
+        raw = {"id": "abc", "memory": "updated", "extra": "noise"}
+        result = sanitize_agent_data("update", raw)
+        assert result == {"id": "abc", "memory": "updated"}
+
+    def test_event_list_projects_fields(self):
+        raw = [{"id": "evt-1", "event_type": "ADD", "status": "SUCCEEDED", "graph_status": None, "latency": 100.0, "created_at": "2026-01-01", "updated_at": "2026-01-02"}]
+        result = sanitize_agent_data("event list", raw)
+        assert result == [{"id": "evt-1", "event_type": "ADD", "status": "SUCCEEDED", "latency": 100.0, "created_at": "2026-01-01"}]
+        assert "updated_at" not in result[0]
+        assert "graph_status" not in result[0]
+
+    def test_event_status_flattens_results(self):
+        raw = {
+            "id": "evt-1", "event_type": "ADD", "status": "SUCCEEDED",
+            "latency": 100.0,
+            "created_at": "2026-01-01", "updated_at": "2026-01-02",
+            "results": [{"id": "mem-1", "event": "ADD", "user_id": "alice", "data": {"memory": "dark mode"}}]
+        }
+        result = sanitize_agent_data("event status", raw)
+        assert result["results"][0] == {"id": "mem-1", "event": "ADD", "user_id": "alice", "memory": "dark mode"}
+        assert "data" not in result["results"][0]
+
+    def test_passthrough_commands(self):
+        for cmd in ("status", "import", "config show", "config get", "config set"):
+            data = {"key": "value", "other": "stuff"}
+            assert sanitize_agent_data(cmd, data) == data
+
+    def test_none_data(self):
+        assert sanitize_agent_data("add", None) is None

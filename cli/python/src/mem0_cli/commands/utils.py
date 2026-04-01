@@ -54,7 +54,6 @@ def cmd_status(
                 "connected": result.get("connected", False),
                 "backend": result.get("backend", "?"),
                 "base_url": result.get("base_url", ""),
-                "latency_ms": int(_elapsed * 1000),
             },
             duration_ms=int(_elapsed * 1000),
         )

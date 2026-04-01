@@ -134,7 +134,6 @@ def cmd_event_status(backend: Backend, event_id: str, *, output: str = "text") -
 
     status = str(ev.get("status", "—"))
     ev_type = str(ev.get("event_type", "—"))
-    graph_status = str(ev.get("graph_status") or "—")
     latency = ev.get("latency")
     latency_str = f"{latency:.0f}ms" if isinstance(latency, (int, float)) else "—"
     created = str(ev.get("created_at", "—"))[:19].replace("T", " ")
@@ -145,7 +144,6 @@ def cmd_event_status(backend: Backend, event_id: str, *, output: str = "text") -
     lines.append(f"  [{DIM_COLOR}]Event ID:[/]     {event_id}")
     lines.append(f"  [{DIM_COLOR}]Type:[/]         {ev_type}")
     lines.append(f"  [{DIM_COLOR}]Status:[/]       {_status_styled(status)}")
-    lines.append(f"  [{DIM_COLOR}]Graph:[/]        {graph_status}")
     lines.append(f"  [{DIM_COLOR}]Latency:[/]      {latency_str}")
     lines.append(f"  [{DIM_COLOR}]Created:[/]      {created}")
     lines.append(f"  [{DIM_COLOR}]Updated:[/]      {updated}")

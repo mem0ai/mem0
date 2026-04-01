@@ -1135,6 +1135,7 @@ class TestAgentMode:
         assert "data" in data
         assert isinstance(data["data"], list)
         assert data["count"] == 1
+        assert set(data["data"][0].keys()) == {"id", "memory", "event"}
 
     def test_add_agent_mode_scope(self, mock_backend):
         console, buf = _make_console()
@@ -1193,6 +1194,7 @@ class TestAgentMode:
         assert isinstance(data["data"], list)
         assert data["count"] == 2
         assert "duration_ms" in data
+        assert set(data["data"][0].keys()) == {"id", "memory", "score", "created_at", "categories"}
 
     # ── list ─────────────────────────────────────────────────────────────────
 
@@ -1222,6 +1224,7 @@ class TestAgentMode:
         assert isinstance(data["data"], list)
         assert data["count"] == 2
         assert data["scope"]["user_id"] == "alice"
+        assert set(data["data"][0].keys()) == {"id", "memory", "created_at", "categories"}
 
     # ── get ──────────────────────────────────────────────────────────────────
 
@@ -1239,6 +1242,7 @@ class TestAgentMode:
         assert isinstance(data["data"], dict)
         assert data["data"]["id"] == "abc-123-def-456"
         assert "memory" in data["data"]
+        assert set(data["data"].keys()) >= {"id", "memory"}
 
     # ── update ───────────────────────────────────────────────────────────────
 
@@ -1290,6 +1294,7 @@ class TestAgentMode:
         assert isinstance(data["data"], list)
         assert data["count"] == 2
         assert "duration_ms" in data
+        assert set(data["data"][0].keys()) == {"id", "event_type", "status", "latency", "created_at"}
 
     # ── event status ─────────────────────────────────────────────────────────
 
@@ -1307,6 +1312,8 @@ class TestAgentMode:
         assert isinstance(data["data"], dict)
         assert data["data"]["id"] == "evt-abc-123-def-456"
         assert "duration_ms" in data
+        assert set(data["data"]["results"][0].keys()) == {"id", "event", "user_id", "memory"}
+        assert "data" not in data["data"]["results"][0]
 
     # ── error handling ───────────────────────────────────────────────────────
 

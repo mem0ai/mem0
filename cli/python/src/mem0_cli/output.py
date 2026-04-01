@@ -226,6 +226,75 @@ def format_json_envelope(
     console.print_json(json.dumps(envelope, default=str))
 
 
+def sanitize_agent_data(command: str, data: Any) -> Any:
+    """Project API response data to minimal relevant fields for agent consumption."""
+
+    def pick(obj: dict, keys: list) -> dict:
+        return {k: obj[k] for k in keys if k in obj}
+
+    if data is None:
+        return data
+
+    if command == "add":
+        items = data if isinstance(data, list) else [data]
+        result = []
+        for item in items:
+            if item.get("status") == "PENDING":
+                result.append(pick(item, ["status", "event_id"]))
+            else:
+                result.append(pick(item, ["id", "memory", "event"]))
+        return result
+
+    if command == "search":
+        return [pick(r, ["id", "memory", "score", "created_at", "categories"]) for r in data]
+
+    if command == "list":
+        return [pick(r, ["id", "memory", "created_at", "categories"]) for r in data]
+
+    if command == "get":
+        return pick(data, ["id", "memory", "created_at", "updated_at", "categories", "metadata"])
+
+    if command == "update":
+        return pick(data, ["id", "memory"])
+
+    if command in ("delete", "delete-all", "entity delete"):
+        return data
+
+    if command == "entity list":
+        result = []
+        for r in data:
+            item = pick(r, ["type", "count"])
+            item["name"] = r.get("name") or r.get("id", "")
+            result.append(item)
+        return result
+
+    if command == "event list":
+        return [
+            pick(r, ["id", "event_type", "status", "latency", "created_at"])
+            for r in data
+        ]
+
+    if command == "event status":
+        ev = data
+        raw_results = ev.get("results") or []
+        sanitized_results = []
+        for r in raw_results:
+            nested = r.get("data") or {}
+            memory = nested.get("memory") if isinstance(nested, dict) else None
+            sanitized_results.append({
+                "id": r.get("id"),
+                "event": r.get("event"),
+                "user_id": r.get("user_id"),
+                "memory": memory,
+            })
+        result = pick(ev, ["id", "event_type", "status", "latency", "created_at", "updated_at"])
+        result["results"] = sanitized_results
+        return result
+
+    # Pass-through: status, import, config show/get/set
+    return data
+
+
 def format_agent_envelope(
     console: Console,
     *,
@@ -248,7 +317,7 @@ def format_agent_envelope(
             envelope["scope"] = filtered
     if count is not None:
         envelope["count"] = count
-    envelope["data"] = data
+    envelope["data"] = sanitize_agent_data(command, data)
     console.print_json(json.dumps(envelope, default=str))
 
 

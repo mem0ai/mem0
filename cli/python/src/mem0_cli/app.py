@@ -1140,4 +1140,13 @@ app.add_typer(config_app, name="config", rich_help_panel="Management")
 
 
 def main() -> None:
+    import sys
+
+    # Allow --json/--agent anywhere in the command line (not just before subcommand).
+    _json_flags = {"--json", "--agent"}
+    if any(a in _json_flags for a in sys.argv[1:]):
+        from mem0_cli.state import set_agent_mode
+        set_agent_mode(True)
+        sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in _json_flags]
+
     app()

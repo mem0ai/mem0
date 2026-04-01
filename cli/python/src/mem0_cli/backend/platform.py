@@ -284,19 +284,9 @@ class PlatformBackend(Backend):
         user_id: str | None = None,
         agent_id: str | None = None,
     ) -> dict[str, Any]:
-        """Check connectivity by making a lightweight API call."""
+        """Check connectivity using the ping endpoint."""
         try:
-            # If entity IDs are available, validate with a minimal memories list
-            if user_id or agent_id:
-                payload: dict[str, Any] = {}
-                params = {"page": "1", "page_size": "1"}
-                api_filters = self._build_filters(user_id=user_id, agent_id=agent_id)
-                if api_filters:
-                    payload["filters"] = api_filters
-                self._request("POST", "/v2/memories/", json=payload, params=params)
-            else:
-                # No entity IDs — use entities endpoint to validate API key
-                self._request("GET", "/v1/entities/")
+            self._request("GET", "/v1/ping/")
             return {"connected": True, "backend": "platform", "base_url": self.base_url}
         except Exception as e:
             return {"connected": False, "backend": "platform", "error": str(e)}
