@@ -1,6 +1,35 @@
+import os
+import sys
+from pathlib import Path
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+
+def _default_data_dir(provider: str) -> str:
+    """Return an OS-appropriate data directory for the given vector store provider.
+
+    Respects MEM0_DATA_DIR environment variable if set. Otherwise:
+    - Linux: $XDG_DATA_HOME/mem0/{provider} or ~/.local/share/mem0/{provider}
+    - macOS: ~/Library/Application Support/mem0/{provider}
+    - Windows: %LOCALAPPDATA%/mem0/{provider} or %APPDATA%/mem0/{provider}
+    """
+    env_dir = os.environ.get("MEM0_DATA_DIR")
+    if env_dir:
+        return str(Path(env_dir) / provider)
+
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA", "")
+        if base:
+            return str(Path(base) / "mem0" / provider)
+        return str(Path.home() / "mem0" / provider)
+    elif sys.platform == "darwin":
+        return str(Path.home() / "Library" / "Application Support" / "mem0" / provider)
+    else:
+        xdg = os.environ.get("XDG_DATA_HOME", "")
+        if xdg:
+            return str(Path(xdg) / "mem0" / provider)
+        return str(Path.home() / ".local" / "share" / "mem0" / provider)
 
 
 class VectorStoreConfig(BaseModel):
@@ -61,7 +90,7 @@ class VectorStoreConfig(BaseModel):
 
         # also check if path in allowed kays for pydantic model, and whether config extra fields are allowed
         if "path" not in config and "path" in config_class.__annotations__:
-            config["path"] = f"/tmp/{provider}"
+            config["path"] = _default_data_dir(provider)
 
         self.config = config_class(**config)
         return self
