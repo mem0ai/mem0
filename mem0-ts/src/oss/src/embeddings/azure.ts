@@ -5,7 +5,7 @@ import { EmbeddingConfig } from "../types";
 export class AzureOpenAIEmbedder implements Embedder {
   private client: AzureOpenAI;
   private model: string;
-  private embeddingDims?: number;
+  private embeddingDims: number | undefined;
 
   constructor(config: EmbeddingConfig) {
     if (!config.apiKey || !config.modelProperties?.endpoint) {
@@ -20,13 +20,16 @@ export class AzureOpenAIEmbedder implements Embedder {
       ...rest,
     });
     this.model = config.model || "text-embedding-3-small";
-    this.embeddingDims = config.embeddingDims || 1536;
+    this.embeddingDims = config.embeddingDims;
   }
 
   async embed(text: string): Promise<number[]> {
     const response = await this.client.embeddings.create({
       model: this.model,
       input: text,
+      ...(this.embeddingDims !== undefined && {
+        dimensions: this.embeddingDims,
+      }),
     });
     return response.data[0].embedding;
   }
@@ -35,6 +38,9 @@ export class AzureOpenAIEmbedder implements Embedder {
     const response = await this.client.embeddings.create({
       model: this.model,
       input: texts,
+      ...(this.embeddingDims !== undefined && {
+        dimensions: this.embeddingDims,
+      }),
     });
     return response.data.map((item) => item.embedding);
   }
