@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
+    DatetimeRange,
     Distance,
     FieldCondition,
     Filter,
@@ -814,3 +815,111 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertIsNotNone(result.must_not)
         # Deduplicated: NOT wins, $not is skipped — exactly 1 entry
         self.assertEqual(len(result.must_not), 1)
+
+
+class TestQdrantDatetimeRangeFilters(unittest.TestCase):
+    """Tests for datetime range filter support (issue #4591)."""
+
+    def setUp(self):
+        self.client_mock = MagicMock(spec=QdrantClient)
+        self.qdrant = Qdrant(
+            collection_name="test_collection",
+            embedding_model_dims=128,
+            client=self.client_mock,
+        )
+
+    def test_iso_datetime_gte_lte_uses_datetime_range(self):
+        """ISO datetime strings in range filters should use DatetimeRange."""
+        cond = self.qdrant._build_field_condition(
+            "created_at", {"gte": "2025-01-01T00:00:00Z", "lte": "2025-12-31T23:59:59Z"}
+        )
+        self.assertIsInstance(cond, FieldCondition)
+        self.assertIsInstance(cond.range, DatetimeRange)
+        self.assertIsNotNone(cond.range.gte)
+        self.assertIsNotNone(cond.range.lte)
+
+    def test_iso_date_only_uses_datetime_range(self):
+        """Date-only strings (YYYY-MM-DD) should also use DatetimeRange."""
+        cond = self.qdrant._build_field_condition(
+            "created_at", {"gte": "2025-01-01", "lt": "2025-02-01"}
+        )
+        self.assertIsInstance(cond.range, DatetimeRange)
+
+    def test_iso_datetime_with_offset_uses_datetime_range(self):
+        """Datetime with timezone offset should use DatetimeRange."""
+        cond = self.qdrant._build_field_condition(
+            "updated_at", {"gt": "2025-06-15T10:30:00+05:30"}
+        )
+        self.assertIsInstance(cond.range, DatetimeRange)
+
+    def test_numeric_range_still_uses_range(self):
+        """Numeric values should still use Range (not DatetimeRange)."""
+        cond = self.qdrant._build_field_condition(
+            "priority", {"gte": 5, "lte": 10}
+        )
+        self.assertIsInstance(cond.range, Range)
+        self.assertEqual(cond.range.gte, 5)
+        self.assertEqual(cond.range.lte, 10)
+
+    def test_float_range_still_uses_range(self):
+        """Float values should still use Range."""
+        cond = self.qdrant._build_field_condition(
+            "score", {"gt": 0.5, "lt": 0.9}
+        )
+        self.assertIsInstance(cond.range, Range)
+
+    def test_datetime_range_via_create_filter(self):
+        """DatetimeRange should work through _create_filter."""
+        result = self.qdrant._create_filter(
+            {"created_at": {"gte": "2025-01-01T00:00:00Z", "lte": "2025-12-31T23:59:59Z"}}
+        )
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 1)
+        self.assertIsInstance(result.must[0].range, DatetimeRange)
+
+    def test_malformed_datetime_raises_with_field_context(self):
+        """Malformed date-like string should raise ValueError with field name."""
+        with self.assertRaises(ValueError) as ctx:
+            self.qdrant._build_field_condition(
+                "created_at", {"gte": "2025-13-45"}
+            )
+        self.assertIn("created_at", str(ctx.exception))
+
+    def test_mixed_datetime_and_numeric_raises_error(self):
+        """Mixed datetime string + numeric value in same range should raise an error.
+
+        When not all values are datetime strings, _is_datetime_range returns False
+        and Range receives a string, causing a Pydantic ValidationError.
+        """
+        from pydantic import ValidationError
+
+        with self.assertRaises(ValidationError):
+            self.qdrant._build_field_condition(
+                "field", {"gte": "2025-01-01", "lte": 100}
+            )
+
+    def test_iso_datetime_with_fractional_seconds(self):
+        """Fractional seconds should use DatetimeRange."""
+        cond = self.qdrant._build_field_condition(
+            "created_at", {"gte": "2025-01-01T00:00:00.123456Z"}
+        )
+        self.assertIsInstance(cond.range, DatetimeRange)
+
+    def test_iso_datetime_space_separated(self):
+        """Space-separated datetime should use DatetimeRange."""
+        cond = self.qdrant._build_field_condition(
+            "created_at", {"gte": "2025-01-01 10:30:00"}
+        )
+        self.assertIsInstance(cond.range, DatetimeRange)
+
+    def test_datetime_with_numeric_mixed_filters(self):
+        """Datetime and numeric range filters can coexist in same query."""
+        result = self.qdrant._create_filter({
+            "created_at": {"gte": "2025-01-01"},
+            "priority": {"gte": 5},
+        })
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 2)
+        types = {type(c.range) for c in result.must}
+        self.assertIn(DatetimeRange, types)
+        self.assertIn(Range, types)
