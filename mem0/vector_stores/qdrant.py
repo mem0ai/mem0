@@ -1,8 +1,10 @@
 import logging
+import re
 from typing import Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
+    DatetimeRange,
     Distance,
     FieldCondition,
     Filter,
@@ -139,6 +141,23 @@ class Qdrant(VectorStoreBase):
         ]
         self.client.upsert(collection_name=self.collection_name, points=points)
 
+    # ISO 8601 datetime pattern for detecting datetime strings in range filters
+    _ISO_DATETIME_RE = re.compile(
+        r"^\d{4}-\d{2}-\d{2}"  # date part
+        r"([T ]\d{2}:\d{2}(:\d{2})?"  # optional time part
+        r"(\.\d+)?"  # optional fractional seconds
+        r"(Z|[+-]\d{2}:?\d{2})?"  # optional timezone
+        r")?$"
+    )
+
+    @staticmethod
+    def _is_datetime_range(range_kwargs: dict) -> bool:
+        """Check if all values in range kwargs are ISO datetime strings."""
+        return all(
+            isinstance(v, str) and Qdrant._ISO_DATETIME_RE.match(v)
+            for v in range_kwargs.values()
+        )
+
     def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
         """
         Build a single FieldCondition from a key-value filter pair.
@@ -177,6 +196,13 @@ class Qdrant(VectorStoreBase):
                     f"Use AND to combine them as separate conditions."
                 )
             range_kwargs = {op: value[op] for op in range_ops if op in value}
+            if self._is_datetime_range(range_kwargs):
+                try:
+                    return FieldCondition(key=key, range=DatetimeRange(**range_kwargs))
+                except (ValueError, TypeError) as e:
+                    raise ValueError(
+                        f"Invalid datetime value in range filter for field '{key}': {e}"
+                    ) from e
             return FieldCondition(key=key, range=Range(**range_kwargs))
         elif "eq" in value:
             return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
