@@ -1,6 +1,5 @@
 import logging
 import re
-from datetime import datetime
 from typing import Optional
 
 from qdrant_client import QdrantClient
@@ -153,22 +152,11 @@ class Qdrant(VectorStoreBase):
 
     @staticmethod
     def _is_datetime_range(range_kwargs: dict) -> bool:
-        """Check if any value in range kwargs looks like an ISO datetime string."""
-        return any(
+        """Check if all values in range kwargs are ISO datetime strings."""
+        return all(
             isinstance(v, str) and Qdrant._ISO_DATETIME_RE.match(v)
             for v in range_kwargs.values()
         )
-
-    @staticmethod
-    def _parse_datetime(value):
-        """Parse a datetime string or return the value as-is if already a datetime."""
-        if isinstance(value, datetime):
-            return value
-        if isinstance(value, str):
-            # Try ISO format parsing
-            cleaned = value.replace("Z", "+00:00")
-            return datetime.fromisoformat(cleaned)
-        return value
 
     def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
         """
@@ -209,8 +197,12 @@ class Qdrant(VectorStoreBase):
                 )
             range_kwargs = {op: value[op] for op in range_ops if op in value}
             if self._is_datetime_range(range_kwargs):
-                parsed_kwargs = {op: self._parse_datetime(val) for op, val in range_kwargs.items()}
-                return FieldCondition(key=key, range=DatetimeRange(**parsed_kwargs))
+                try:
+                    return FieldCondition(key=key, range=DatetimeRange(**range_kwargs))
+                except (ValueError, TypeError) as e:
+                    raise ValueError(
+                        f"Invalid datetime value in range filter for field '{key}': {e}"
+                    ) from e
             return FieldCondition(key=key, range=Range(**range_kwargs))
         elif "eq" in value:
             return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
