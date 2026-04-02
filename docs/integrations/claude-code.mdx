@@ -1,0 +1,156 @@
+---
+title: Claude Code
+description: "Add persistent memory to Claude Code and Claude Cowork with the Mem0 plugin — MCP server, lifecycle hooks, and SDK skill."
+---
+
+Add persistent memory to [**Claude Code**](https://docs.anthropic.com/en/docs/claude-code) (CLI) and **Claude Cowork** (desktop app) with the Mem0 plugin. Your agent forgets everything between sessions — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
+
+## Overview
+
+1. **MCP Server** — Connect to Mem0's remote MCP server for memory tools (add, search, update, delete)
+2. **Lifecycle Hooks** — Automatic memory capture at session start, context compaction, task completion, and session end
+3. **SDK Skill** — Teaches the agent how to integrate the Mem0 SDK into your applications
+4. **Zero local dependencies** — Cloud-hosted MCP server, no local setup required
+
+## Prerequisites
+
+Before setting up Mem0 with Claude Code, ensure you have:
+
+1. A Mem0 Platform account and API key:
+   - [Sign up at app.mem0.ai](https://app.mem0.ai)
+   - [Get your API key](https://app.mem0.ai/dashboard/api-keys) (starts with `m0-`)
+
+2. Claude Code CLI or Claude Cowork desktop app installed
+
+3. Your API key exported in your shell:
+
+```bash
+export MEM0_API_KEY="m0-your-api-key"
+```
+
+## Installation
+
+### Option A — Plugin Marketplace (Recommended)
+
+Install the full plugin including MCP server, lifecycle hooks, and SDK skill:
+
+```
+/plugin marketplace add mem0ai/mem0
+/plugin install mem0@mem0-plugins
+```
+
+**Claude Cowork desktop app:** Open the Cowork tab, click **Customize** in the sidebar, click **Browse plugins**, and install Mem0.
+
+### Option B — MCP Only
+
+Add the Mem0 MCP server directly with a single command:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "claude code"
+```
+
+This gives you the MCP tools but not the lifecycle hooks or SDK skill.
+
+### Option C — Manual MCP Configuration
+
+Add to your Claude Code MCP config (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "type": "http",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token ${MEM0_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+<Info icon="check">
+  Start a new session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
+</Info>
+
+## What's Included
+
+| Component | Plugin Install | MCP Only |
+|-----------|:--------------:|:--------:|
+| MCP Server (9 memory tools) | Yes | Yes |
+| Lifecycle Hooks | Yes | No |
+| Mem0 SDK Skill | Yes | No |
+
+## Available MCP Tools
+
+Once installed, the following tools are available in every Claude Code session:
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Lifecycle Hooks
+
+When installed via the plugin marketplace, Mem0 hooks into Claude Code's lifecycle to automatically manage memory:
+
+### Session Start
+On every new session, the plugin prompts Claude to call `search_memories` to load relevant context from prior sessions. On resumed or post-compaction sessions, it adjusts the prompt accordingly.
+
+### User Prompt
+Before processing each user message, the plugin searches Mem0 for memories relevant to the current prompt and injects them into context. Short prompts (< 20 characters) are skipped to minimize latency.
+
+### Pre-Compaction
+Before context compaction, the plugin prompts Claude to store a comprehensive session summary — including goals, accomplishments, decisions, modified files, and current state — so nothing is lost.
+
+### Task Completed
+After each task completion, the plugin prompts Claude to extract and store key learnings: successful strategies, failed approaches, architectural decisions, and new conventions.
+
+### Session End
+When Claude finishes responding, the plugin prompts for any unstored learnings and captures transcript state via the Mem0 REST API as a background safety net.
+
+## Example Workflow
+
+```text
+# Session 1: Working on a feature
+You: Let's refactor the auth module to use JWT tokens instead of sessions.
+
+# Claude searches memories, finds nothing relevant, proceeds with the work.
+# After completing the task, Mem0 stores:
+#   - Decision: "Migrated auth from sessions to JWT tokens"
+#   - Files modified: auth/middleware.ts, auth/token.ts
+#   - User preference: "Prefers TypeScript, uses ESLint"
+
+# Session 2 (days later): Related work
+You: Add refresh token rotation to the auth system.
+
+# Claude searches memories, retrieves the JWT migration context.
+# Knows the file structure, decisions made, and user preferences.
+# Continues seamlessly without re-explaining the codebase.
+```
+
+## Troubleshooting
+
+- **"Connection failed"** — Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`
+- **No tools appearing** — Restart your Claude Code session after installation
+- **Memories not being captured** — Ensure you installed via the plugin marketplace (Option A) for lifecycle hooks. MCP-only installs require manual memory operations.
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="Codex Integration" icon="robot" href="/integrations/codex">
+    Add Mem0 memory to OpenAI Codex workflows
+  </Card>
+</CardGroup>

@@ -431,6 +431,20 @@
                 ]
               },
               {
+                "tab": "Agent Plugins",
+                "groups": [
+                  {
+                    "group": "Coding Agents",
+                    "icon": "terminal",
+                    "pages": [
+                      "integrations/claude-code",
+                      "integrations/cursor",
+                      "integrations/codex"
+                    ]
+                  }
+                ]
+              },
+              {
                 "tab": "API Reference",
                 "groups": [
                   {
