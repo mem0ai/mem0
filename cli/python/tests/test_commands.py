@@ -30,7 +30,6 @@ from mem0_cli.commands.memory import (
 from mem0_cli.commands.utils import (
     cmd_import,
     cmd_status,
-    cmd_version,
 )
 
 
@@ -740,15 +739,6 @@ class TestStatusCommand:
         output = buf.getvalue()
         assert '"connected"' in output
         assert '"status"' in output
-
-
-class TestVersionCommand:
-    def test_version(self):
-        console, buf = _make_console()
-        with patch("mem0_cli.commands.utils.console", console):
-            cmd_version()
-        output = buf.getvalue()
-        assert "0.1.0" in output
 
 
 class TestImportCommand:

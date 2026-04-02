@@ -83,11 +83,6 @@ class TestCLIIntegration:
         assert "add" in result.stdout
         assert "search" in result.stdout
 
-    def test_version_flag(self):
-        result = _run(["--version"])
-        assert result.returncode == 0
-        assert "0.1.0" in result.stdout
-
     def test_add_help(self):
         result = _run(["add", "--help"])
         assert result.returncode == 0

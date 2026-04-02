@@ -10,8 +10,8 @@
     "logoMini": "\u25c6 mem0",
     "tagline": "The Memory Layer for AI Agents",
     "colors": {
-      "brand": "#F1C96C",
-      "accent": "#F5D78E",
+      "brand": "#8b5cf6",
+      "accent": "#a78bfa",
       "success": "#22c55e",
       "error": "#ef4444",
       "warning": "#f59e0b",
