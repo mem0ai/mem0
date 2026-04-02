@@ -149,9 +149,11 @@ class TestTelemetrySingleton:
     def setup_method(self):
         # Reset singleton state before each test
         telemetry_module._oss_telemetry_instance = None
+        telemetry_module._oss_telemetry_shutting_down = False
 
     def teardown_method(self):
         telemetry_module._oss_telemetry_instance = None
+        telemetry_module._oss_telemetry_shutting_down = False
 
     def test_singleton_reuses_instance(self):
         """_get_oss_telemetry() should return the same instance on repeated calls."""
@@ -261,6 +263,21 @@ class TestTelemetrySingleton:
             telemetry_module.capture_event("test.event", MagicMock())
             assert telemetry_module._oss_telemetry_instance is None
 
+    def test_no_new_instance_after_shutdown(self):
+        """After _shutdown_oss_telemetry(), _get_oss_telemetry() should not create a new instance."""
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            with patch("mem0.memory.telemetry.Posthog"):
+                with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="u"):
+                    with patch("atexit.register"):
+                        # Create and then shut down the singleton
+                        telemetry_module._get_oss_telemetry()
+                        telemetry_module._shutdown_oss_telemetry()
+
+                        # After shutdown, getting telemetry should return None, not a new instance
+                        result = telemetry_module._get_oss_telemetry()
+                        assert result is None
+                        assert telemetry_module._oss_telemetry_instance is None
+
 
 class TestMemoryLifecycle:
     """Verify Memory.close() and context manager support."""
@@ -354,7 +371,7 @@ class TestAsyncMemoryLifecycle:
             async with m:
                 pass
 
-        asyncio.new_event_loop().run_until_complete(run())
+        asyncio.run(run())
         m.db.close.assert_called_once()
 
     def test_async_context_manager_closes_on_exception(self):
@@ -366,7 +383,7 @@ class TestAsyncMemoryLifecycle:
                 raise ValueError("boom")
 
         with pytest.raises(ValueError):
-            asyncio.new_event_loop().run_until_complete(run())
+            asyncio.run(run())
         m.db.close.assert_called_once()
 
 
