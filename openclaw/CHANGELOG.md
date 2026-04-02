@@ -2,6 +2,17 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [1.0.1] - 2026-04-02
+
+### Added
+- **CD workflow**: Added continuous deployment workflow for `@mem0/openclaw-mem0` with OIDC trusted publishing ([#4672](https://github.com/mem0ai/mem0/pull/4672))
+- **Plugin configuration manifest**: Added `compat` and `build` metadata to `package.json` specifying minimum gateway version and OpenClaw SDK compatibility (`>=2026.3.24-beta.2`) ([#4667](https://github.com/mem0ai/mem0/pull/4667))
+- **LICENSE**: Added Apache-2.0 license file to the package ([#4667](https://github.com/mem0ai/mem0/pull/4667))
+
+### Fixed
+- **Dream gate correctness**: Fixed cheap-first ordering, session isolation, and verified completion in the dream gate memory consolidation pipeline ([#4666](https://github.com/mem0ai/mem0/pull/4666))
+- **Graceful startup without API key**: Plugin now starts gracefully when no API key is configured instead of crashing on init ([#4669](https://github.com/mem0ai/mem0/pull/4669))
+
 ## [1.0.0] - 2026-04-01
 
 ### Added
