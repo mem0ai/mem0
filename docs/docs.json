@@ -401,6 +401,15 @@
                     ]
                   },
                   {
+                    "group": "Coding Agents",
+                    "icon": "terminal",
+                    "pages": [
+                      "integrations/claude-code",
+                      "integrations/cursor",
+                      "integrations/codex"
+                    ]
+                  },
+                  {
                     "group": "Voice & Real-time",
                     "icon": "microphone",
                     "pages": [
