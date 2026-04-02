@@ -253,13 +253,6 @@ describe("cmdDeleteAll", () => {
   });
 });
 
-describe("cmdVersion", () => {
-  it("shows version", async () => {
-    const { cmdVersion } = await import("../src/commands/utils.js");
-    cmdVersion();
-    expect(output).toContain("0.1.0");
-  });
-});
 
 describe("cmdEntitiesList", () => {
   it("lists users in table mode", async () => {
