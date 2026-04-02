@@ -94,6 +94,25 @@ const memoryPlugin = {
 
   register(api: OpenClawPluginApi) {
     const cfg = mem0ConfigSchema.parse(api.pluginConfig);
+
+    // If API key is missing, register successfully but skip all memory operations.
+    // This prevents install from failing and gives the user a clear setup message.
+    if (cfg.needsSetup) {
+      api.logger.warn(
+        "openclaw-mem0: API key not configured. Memory features are disabled.\n" +
+        "  To set up, run:\n" +
+        '  openclaw config set plugins.entries.openclaw-mem0.config.apiKey "m0-your-key"\n' +
+        "  openclaw gateway restart\n" +
+        "  Get your key at: https://app.mem0.ai/dashboard/api-keys"
+      );
+      api.registerService({
+        id: "openclaw-mem0",
+        start: () => { api.logger.info("openclaw-mem0: waiting for API key configuration"); },
+        stop: () => {},
+      });
+      return;
+    }
+
     const provider = createProvider(cfg, api);
 
     // Track current session ID for tool-level session scoping.
