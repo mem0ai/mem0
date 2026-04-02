@@ -30,7 +30,7 @@ def get_default_vector_store_path(provider: str) -> str:
     return str(base / provider)
 
 
-def _migrate_legacy_data(provider: str, new_path: str):
+def _migrate_legacy_data(provider: str, new_path: str, legacy_path: Optional[str] = None):
     """Auto-migrate data from legacy /tmp/{provider} to the new persistent path.
 
     Skips migration if:
@@ -40,8 +40,14 @@ def _migrate_legacy_data(provider: str, new_path: str):
 
     Falls back to a warning with manual instructions if the copy fails.
     Note: On Windows /tmp doesn't exist, so this is effectively a no-op.
+
+    Args:
+        provider: Vector store provider name (e.g. 'qdrant').
+        new_path: The new persistent path to migrate data to.
+        legacy_path: Override the legacy path (default: /tmp/{provider}).
+                     Exposed for testing; production callers should omit this.
     """
-    legacy_path = Path(f"/tmp/{provider}")
+    legacy_path = Path(legacy_path if legacy_path is not None else f"/tmp/{provider}")
     if not legacy_path.exists() or legacy_path.is_symlink() or not any(legacy_path.iterdir()):
         return
 

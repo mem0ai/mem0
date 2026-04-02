@@ -10,7 +10,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mem0.vector_stores.configs import VectorStoreConfig, get_default_vector_store_path
+from mem0.vector_stores.configs import (
+    VectorStoreConfig,
+    _migrate_legacy_data,
+    get_default_vector_store_path,
+)
 
 # ---------------------------------------------------------------------------
 # get_default_vector_store_path unit tests
@@ -247,171 +251,156 @@ class TestFaissDefaultPath:
 # ---------------------------------------------------------------------------
 
 class TestLegacyPathMigration:
-    """Tests that legacy /tmp data is automatically migrated to the new path."""
+    """Tests that legacy /tmp data is automatically migrated to the new path.
 
-    def _clean_env(self, monkeypatch):
-        for var in ("MEM0_DATA_DIR", "XDG_DATA_HOME", "APPDATA"):
-            monkeypatch.delenv(var, raising=False)
+    Uses the ``legacy_path`` parameter of ``_migrate_legacy_data`` so that every
+    test exercises real filesystem operations (via pytest ``tmp_path``) instead of
+    mocking ``Path`` and ``shutil.copytree``.  This catches real issues like
+    permission errors, path resolution, and symlink handling that mocks silently
+    skip over.
+    """
 
-    def test_auto_migration_copies_legacy_data(self, monkeypatch, tmp_path, caplog):
-        """When legacy /tmp/{provider} has data and new path is empty, should copy."""
-        self._clean_env(monkeypatch)
-        legacy_dir = tmp_path / "legacy_qdrant"
-        legacy_dir.mkdir()
-        (legacy_dir / "data.bin").write_text("test data")
+    def test_auto_migration_copies_legacy_data(self, tmp_path, caplog):
+        """When legacy dir has data and new path doesn't exist, data is copied."""
+        legacy = tmp_path / "legacy_qdrant"
+        legacy.mkdir()
+        (legacy / "collection").mkdir()
+        (legacy / "collection" / "data.bin").write_bytes(b"\x00real-vector-data")
 
-        new_dir = tmp_path / "new_qdrant"
+        new = tmp_path / "new_qdrant"
 
-        from mem0.vector_stores.configs import _migrate_legacy_data
+        with caplog.at_level(logging.INFO, logger="mem0.vector_stores.configs"):
+            _migrate_legacy_data("qdrant", str(new), legacy_path=str(legacy))
 
-        with patch("mem0.vector_stores.configs.Path") as mock_path_cls:
-            real_legacy = Path(str(legacy_dir))
-
-            mock_new_path = MagicMock()
-            mock_new_path.exists.return_value = False
-            mock_sentinel = MagicMock()
-            mock_sentinel.exists.return_value = False
-            mock_new_path.__truediv__ = MagicMock(return_value=mock_sentinel)
-
-            mock_path_cls.side_effect = lambda p: real_legacy if "/tmp/" in str(p) else mock_new_path
-
-            with patch("shutil.copytree") as mock_copytree:
-                with caplog.at_level(logging.INFO, logger="mem0.vector_stores.configs"):
-                    _migrate_legacy_data("qdrant", str(new_dir))
-
-                mock_copytree.assert_called_once()
-                assert mock_copytree.call_args[0][1] == str(new_dir)
-                assert mock_copytree.call_args[1]["dirs_exist_ok"] is True
-                mock_sentinel.touch.assert_called_once()
-
+        # Data was actually copied
+        assert (new / "collection" / "data.bin").exists()
+        assert (new / "collection" / "data.bin").read_bytes() == b"\x00real-vector-data"
+        # Sentinel was written
+        assert (new / ".migration_complete").exists()
+        # Legacy data is untouched (copy, not move)
+        assert (legacy / "collection" / "data.bin").exists()
         assert "migrated" in caplog.text.lower()
 
-    def test_no_migration_when_legacy_path_missing(self, monkeypatch, caplog):
-        """Should not migrate when /tmp/{provider} doesn't exist."""
-        self._clean_env(monkeypatch)
-        from mem0.vector_stores.configs import _migrate_legacy_data
+    def test_no_migration_when_legacy_path_missing(self, tmp_path):
+        """No-op when the legacy directory doesn't exist at all."""
+        nonexistent = tmp_path / "does_not_exist"
+        new = tmp_path / "new"
 
-        with patch("mem0.vector_stores.configs.Path") as mock_path_cls:
-            mock_legacy_path = MagicMock()
-            mock_legacy_path.exists.return_value = False
-            mock_path_cls.return_value = mock_legacy_path
+        _migrate_legacy_data("qdrant", str(new), legacy_path=str(nonexistent))
 
-            with patch("shutil.copytree") as mock_copytree:
-                _migrate_legacy_data("qdrant", "/new/path")
-                mock_copytree.assert_not_called()
+        assert not new.exists()
 
-    def test_no_migration_when_legacy_path_empty_dir(self, monkeypatch, tmp_path, caplog):
-        """Should not migrate when /tmp/{provider} exists but is an empty directory."""
-        self._clean_env(monkeypatch)
-        legacy_dir = tmp_path / "empty_qdrant"
-        legacy_dir.mkdir()
+    def test_no_migration_when_legacy_path_empty_dir(self, tmp_path):
+        """No-op when the legacy directory exists but is empty."""
+        legacy = tmp_path / "empty_qdrant"
+        legacy.mkdir()
 
-        from mem0.vector_stores.configs import _migrate_legacy_data
+        new = tmp_path / "new"
 
-        with patch("mem0.vector_stores.configs.Path") as mock_path_cls:
-            real_legacy = Path(str(legacy_dir))
-            mock_path_cls.side_effect = lambda p: real_legacy if "/tmp/" in str(p) else MagicMock()
+        _migrate_legacy_data("qdrant", str(new), legacy_path=str(legacy))
 
-            with patch("shutil.copytree") as mock_copytree:
-                _migrate_legacy_data("qdrant", str(tmp_path / "new"))
-                mock_copytree.assert_not_called()
+        assert not new.exists()
 
-    def test_no_migration_when_legacy_path_is_symlink(self, monkeypatch, tmp_path, caplog):
-        """Should refuse to migrate if legacy path is a symlink (security)."""
-        self._clean_env(monkeypatch)
+    def test_no_migration_when_legacy_path_is_symlink(self, tmp_path):
+        """Refuse to migrate if legacy path is a symlink (prevents symlink attacks)."""
         real_dir = tmp_path / "real_data"
         real_dir.mkdir()
-        (real_dir / "data.bin").write_text("sensitive")
+        (real_dir / "secret.key").write_text("sensitive")
 
-        symlink_dir = tmp_path / "symlink_qdrant"
-        symlink_dir.symlink_to(real_dir)
+        symlink = tmp_path / "symlink_qdrant"
+        symlink.symlink_to(real_dir)
 
-        from mem0.vector_stores.configs import _migrate_legacy_data
+        new = tmp_path / "new"
 
-        with patch("mem0.vector_stores.configs.Path") as mock_path_cls:
-            real_symlink = Path(str(symlink_dir))
-            mock_path_cls.side_effect = lambda p: real_symlink if "/tmp/" in str(p) else MagicMock()
+        _migrate_legacy_data("qdrant", str(new), legacy_path=str(symlink))
 
-            with patch("shutil.copytree") as mock_copytree:
-                _migrate_legacy_data("qdrant", str(tmp_path / "new"))
-                mock_copytree.assert_not_called()
+        assert not new.exists()
 
-    def test_no_migration_when_new_path_already_has_data(self, monkeypatch, tmp_path, caplog):
-        """Should not clobber existing data at the new path."""
-        self._clean_env(monkeypatch)
-        legacy_dir = tmp_path / "legacy"
-        legacy_dir.mkdir()
-        (legacy_dir / "data.bin").write_text("legacy")
+    def test_no_migration_when_new_path_already_has_data(self, tmp_path, caplog):
+        """Don't clobber existing data at the new path."""
+        legacy = tmp_path / "legacy"
+        legacy.mkdir()
+        (legacy / "old.bin").write_text("legacy data")
 
-        new_dir = tmp_path / "new"
-        new_dir.mkdir()
-        (new_dir / "existing.bin").write_text("keep this")
+        new = tmp_path / "new"
+        new.mkdir()
+        (new / "existing.bin").write_text("keep this")
 
-        from mem0.vector_stores.configs import _migrate_legacy_data
+        with caplog.at_level(logging.INFO, logger="mem0.vector_stores.configs"):
+            _migrate_legacy_data("qdrant", str(new), legacy_path=str(legacy))
 
-        with patch("mem0.vector_stores.configs.Path") as mock_path_cls:
-            real_legacy = Path(str(legacy_dir))
-            real_new = Path(str(new_dir))
+        # Existing data preserved, legacy data NOT copied
+        assert (new / "existing.bin").read_text() == "keep this"
+        assert not (new / "old.bin").exists()
+        assert "both legacy path" in caplog.text.lower()
 
-            mock_path_cls.side_effect = lambda p: real_legacy if "/tmp/" in str(p) else real_new
+    def test_no_migration_when_sentinel_exists(self, tmp_path):
+        """Skip migration when .migration_complete sentinel already exists."""
+        legacy = tmp_path / "legacy"
+        legacy.mkdir()
+        (legacy / "data.bin").write_text("legacy data")
 
-            with patch("shutil.copytree") as mock_copytree:
-                with caplog.at_level(logging.INFO, logger="mem0.vector_stores.configs"):
-                    _migrate_legacy_data("qdrant", str(new_dir))
-                mock_copytree.assert_not_called()
+        new = tmp_path / "new"
+        new.mkdir()
+        (new / ".migration_complete").touch()
 
-    def test_no_migration_when_sentinel_exists(self, monkeypatch, tmp_path, caplog):
-        """Should skip migration when .migration_complete sentinel already exists."""
-        self._clean_env(monkeypatch)
-        legacy_dir = tmp_path / "legacy"
-        legacy_dir.mkdir()
-        (legacy_dir / "data.bin").write_text("legacy")
+        _migrate_legacy_data("qdrant", str(new), legacy_path=str(legacy))
 
-        new_dir = tmp_path / "new"
-        new_dir.mkdir()
-        (new_dir / ".migration_complete").write_text("")
+        # Legacy data was NOT copied (sentinel prevented it)
+        assert not (new / "data.bin").exists()
 
-        from mem0.vector_stores.configs import _migrate_legacy_data
+    def test_migration_failure_falls_back_to_warning(self, tmp_path, caplog):
+        """If copytree fails, log a warning with manual instructions."""
+        legacy = tmp_path / "legacy"
+        legacy.mkdir()
+        (legacy / "data.bin").write_text("legacy data")
 
-        with patch("mem0.vector_stores.configs.Path") as mock_path_cls:
-            real_legacy = Path(str(legacy_dir))
-            real_new = Path(str(new_dir))
+        new = tmp_path / "new"
 
-            mock_path_cls.side_effect = lambda p: real_legacy if "/tmp/" in str(p) else real_new
+        with patch("shutil.copytree", side_effect=PermissionError("denied")):
+            with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.configs"):
+                _migrate_legacy_data("qdrant", str(new), legacy_path=str(legacy))
 
-            with patch("shutil.copytree") as mock_copytree:
-                _migrate_legacy_data("qdrant", str(new_dir))
-                mock_copytree.assert_not_called()
+        # No sentinel on failure
+        assert not (new / ".migration_complete").exists()
+        assert "denied" in caplog.text
 
-    def test_migration_failure_falls_back_to_warning(self, monkeypatch, tmp_path, caplog):
-        """If migration fails, should log a warning with manual instructions."""
-        self._clean_env(monkeypatch)
-        legacy_dir = tmp_path / "legacy"
-        legacy_dir.mkdir()
-        (legacy_dir / "data.bin").write_text("legacy")
+    def test_migration_is_idempotent(self, tmp_path):
+        """Running migration twice doesn't duplicate data (sentinel prevents re-run)."""
+        legacy = tmp_path / "legacy"
+        legacy.mkdir()
+        (legacy / "data.bin").write_text("original")
 
-        from mem0.vector_stores.configs import _migrate_legacy_data
+        new = tmp_path / "new"
 
-        with patch("mem0.vector_stores.configs.Path") as mock_path_cls:
-            real_legacy = Path(str(legacy_dir))
+        _migrate_legacy_data("qdrant", str(new), legacy_path=str(legacy))
+        assert (new / "data.bin").read_text() == "original"
 
-            mock_new_path = MagicMock()
-            mock_new_path.exists.return_value = False
-            mock_sentinel = MagicMock()
-            mock_sentinel.exists.return_value = False
-            mock_new_path.__truediv__ = MagicMock(return_value=mock_sentinel)
+        # Modify legacy data after first migration
+        (legacy / "data.bin").write_text("modified")
 
-            mock_path_cls.side_effect = lambda p: real_legacy if "/tmp/" in str(p) else mock_new_path
+        # Second call is a no-op because sentinel exists
+        _migrate_legacy_data("qdrant", str(new), legacy_path=str(legacy))
+        assert (new / "data.bin").read_text() == "original"
 
-            with patch("shutil.copytree", side_effect=PermissionError("denied")):
-                with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.configs"):
-                    _migrate_legacy_data("qdrant", "/new/path")
+    def test_migration_preserves_nested_directory_structure(self, tmp_path):
+        """Deep directory trees are faithfully copied."""
+        legacy = tmp_path / "legacy"
+        (legacy / "collections" / "default" / "segments").mkdir(parents=True)
+        (legacy / "collections" / "default" / "segments" / "index.bin").write_bytes(b"\x01\x02")
+        (legacy / "meta.json").write_text('{"version": 1}')
 
-        assert "denied" in caplog.text or "manually" in caplog.text.lower() or "move" in caplog.text.lower()
+        new = tmp_path / "new"
+
+        _migrate_legacy_data("qdrant", str(new), legacy_path=str(legacy))
+
+        assert (new / "meta.json").read_text() == '{"version": 1}'
+        assert (new / "collections" / "default" / "segments" / "index.bin").read_bytes() == b"\x01\x02"
 
     def test_no_migration_when_explicit_path_provided(self, monkeypatch, caplog):
-        """Should not attempt migration when user provides explicit path."""
-        self._clean_env(monkeypatch)
+        """VectorStoreConfig with explicit path should not trigger migration."""
+        for var in ("MEM0_DATA_DIR", "XDG_DATA_HOME", "APPDATA"):
+            monkeypatch.delenv(var, raising=False)
         with caplog.at_level(logging.WARNING, logger="mem0.vector_stores.configs"):
             VectorStoreConfig(provider="qdrant", config={"path": "/my/path"})
 
