@@ -1,6 +1,6 @@
-# Mem0 Plugin for Claude Code, Claude Cowork & Cursor
+# Mem0 Plugin for Claude Code, Claude Cowork, Cursor & Codex
 
-Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), and **Cursor**.
+Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, and **Codex**.
 
 ## Step 1: Set your API key
 
@@ -47,6 +47,65 @@ Claude Code and Claude Cowork share the same plugin system.
 
 This installs the full plugin including the MCP server, lifecycle hooks (automatic memory capture), and the Mem0 SDK skill.
 
+### Codex
+
+**Option A — Repo marketplace** (recommended for teams):
+
+Add the plugin marketplace to your repo root (already included in this repository):
+
+```
+.agents/plugins/marketplace.json
+```
+
+Then in Codex, browse the repo's plugin directory and install Mem0.
+
+**Option B — Personal marketplace**:
+
+Add to `~/.agents/plugins/marketplace.json`:
+
+```json
+{
+  "name": "mem0-plugins",
+  "interface": {
+    "displayName": "Mem0 Plugins"
+  },
+  "plugins": [
+    {
+      "name": "mem0",
+      "source": {
+        "source": "local",
+        "path": "/path/to/mem0/mem0-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
+```
+
+**Option C — Manual MCP configuration**:
+
+Add to your Codex MCP config:
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "type": "http",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token ${MEM0_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+This installs the MCP server and the Mem0 SDK skill. Codex uses the skill-based memory protocol instead of lifecycle hooks.
+
 ### Cursor
 
 > **Already have `mem0` configured as an MCP server?** Remove the existing entry from your Cursor MCP settings before installing to avoid duplicate tools.
@@ -86,15 +145,17 @@ After installing, confirm the MCP server is connected:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) |
-|-----------|:--------------------:|:--------------------:|:------------------------:|
-| MCP Server | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No |
-| Mem0 SDK Skill | Yes | Yes | No |
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex |
+|-----------|:--------------------:|:--------------------:|:------------------------:|:-----:|
+| MCP Server | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | Yes | No | No |
+| Mem0 SDK Skill | Yes | Yes | No | Yes |
+| Memory Protocol Skill | No | No | No | Yes |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points: session start, context compaction, task completion, and session end.
+- **Lifecycle Hooks** — Automatic memory capture at key points: session start, context compaction, task completion, and session end. (Claude Code/Cursor only)
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
+- **Memory Protocol Skill** — Codex-specific skill that instructs the agent to retrieve relevant memories at task start, store learnings on completion, and capture session state before context loss. Replaces lifecycle hooks on platforms that don't support them.
 
 ## MCP Tools
 

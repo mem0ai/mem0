@@ -1,0 +1,212 @@
+---
+title: Codex
+description: "Add persistent memory to OpenAI Codex with the Mem0 plugin — MCP server, memory protocol skill, and plugin marketplace support."
+---
+
+Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP and using a skill-based memory protocol to automatically retrieve context and store learnings.
+
+## Overview
+
+1. **MCP Server** — Connect to Mem0's remote MCP server for memory tools (add, search, update, delete)
+2. **Memory Protocol Skill** — Instructs the agent to retrieve memories at task start, store learnings on completion, and capture session state before context loss
+3. **Plugin Marketplace** — Install via Codex's repo-level or personal plugin marketplace
+4. **Zero local dependencies** — Cloud-hosted MCP server, no local setup required
+
+## Prerequisites
+
+Before setting up Mem0 with Codex, ensure you have:
+
+1. A Mem0 Platform account and API key:
+   - [Sign up at app.mem0.ai](https://app.mem0.ai)
+   - [Get your API key](https://app.mem0.ai/dashboard/api-keys) (starts with `m0-`)
+
+2. OpenAI Codex access
+
+3. Your API key exported in your shell:
+
+```bash
+export MEM0_API_KEY="m0-your-api-key"
+```
+
+## Installation
+
+### Option A — Repo Marketplace (Recommended for Teams)
+
+Add a `.agents/plugins/marketplace.json` to your repository root:
+
+```json
+{
+  "name": "mem0-plugins",
+  "interface": {
+    "displayName": "Mem0 Plugins"
+  },
+  "plugins": [
+    {
+      "name": "mem0",
+      "source": {
+        "source": "local",
+        "path": "./plugins/mem0"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
+```
+
+Then in Codex, browse the repo's plugin directory and install Mem0.
+
+### Option B — Personal Marketplace
+
+Add to `~/.agents/plugins/marketplace.json`:
+
+```json
+{
+  "name": "mem0-plugins",
+  "interface": {
+    "displayName": "Mem0 Plugins"
+  },
+  "plugins": [
+    {
+      "name": "mem0",
+      "source": {
+        "source": "local",
+        "path": "/path/to/mem0-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
+```
+
+### Option C — Manual MCP Configuration
+
+Add to your Codex MCP config:
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "type": "http",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token ${MEM0_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+<Info icon="check">
+  Start a new Codex task and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
+</Info>
+
+## What's Included
+
+| Component | Plugin Install | MCP Only |
+|-----------|:--------------:|:--------:|
+| MCP Server (9 memory tools) | Yes | Yes |
+| Memory Protocol Skill | Yes | No |
+| Mem0 SDK Skill | Yes | No |
+
+## Available MCP Tools
+
+Once installed, the following tools are available in every Codex session:
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Memory Protocol Skill
+
+Codex uses a skill-based approach instead of lifecycle hooks. When installed via the plugin marketplace, the memory protocol skill instructs the agent to:
+
+### On Every New Task
+1. Call `search_memories` with a query related to the current task to load relevant context
+2. Review returned memories to understand what was learned in prior sessions
+3. Optionally call `get_memories` to browse all stored memories
+
+### After Completing Significant Work
+Store key learnings using `add_memory` with structured metadata:
+
+| What to store | Metadata type |
+|--------------|---------------|
+| Architectural decisions | `{"type": "decision"}` |
+| Strategies that worked | `{"type": "task_learning"}` |
+| Failed approaches | `{"type": "anti_pattern"}` |
+| User preferences observed | `{"type": "user_preference"}` |
+| Environment discoveries | `{"type": "environmental"}` |
+| Conventions established | `{"type": "convention"}` |
+
+### Before Losing Context
+Store a comprehensive session summary including goals, accomplishments, decisions, files modified, and current state with metadata `{"type": "session_state"}`.
+
+## Plugin Manifest
+
+The Codex plugin manifest (`.codex-plugin/plugin.json`) follows the Codex plugin specification:
+
+```json
+{
+  "name": "mem0",
+  "version": "0.1.0",
+  "description": "Mem0 memory layer for AI applications.",
+  "skills": "./skills/",
+  "mcpServers": "./.codex-mcp.json",
+  "interface": {
+    "displayName": "Mem0",
+    "shortDescription": "Persistent memory layer for AI coding workflows",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"]
+  }
+}
+```
+
+## Example Workflow
+
+```text
+# Task 1: Setting up a new service
+You: Create a REST API for the notifications service using Express and TypeScript.
+
+# Codex searches memories, finds user preferences from prior tasks.
+# After completing the task, Mem0 stores:
+#   - Decision: "Notifications service uses Express + TypeScript + Zod validation"
+#   - Convention: "All API routes follow /api/v1/{resource} pattern"
+#   - Preference: "User prefers explicit error types over generic catch-all"
+
+# Task 2 (days later): Extending the service
+You: Add WebSocket support for real-time notification delivery.
+
+# Codex searches memories, retrieves the architecture decisions and conventions.
+# Follows the same patterns established in the first task.
+```
+
+## Troubleshooting
+
+- **"Connection failed"** — Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`
+- **No tools appearing** — Restart your Codex session after plugin installation
+- **Plugin not found** — Ensure `.agents/plugins/marketplace.json` is at the repository root and `source.path` points to the correct plugin directory
+- **Skills not loading** — Verify the `skills` field in `plugin.json` points to a valid directory containing `SKILL.md` files
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="Claude Code Integration" icon="terminal" href="/integrations/claude-code">
+    Add Mem0 memory to Claude Code workflows
+  </Card>
+</CardGroup>
