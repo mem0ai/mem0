@@ -15,6 +15,11 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 ### Added
 - **Path traversal tests**: 12 new tests covering `safePath`, `readSkillFile`, `readDomainOverlay`, and `loadSkill` with traversal inputs
 
+## [1.0.2] - 2026-04-02
+
+### Fixed
+- **Security scanner warning**: Removed `resolveEnvVars()` and `resolveEnvVarsDeep()` from `config.ts` — OpenClaw already resolves `${VAR}` in `openclaw.json` before passing config to the plugin, so plugin-side env resolution was redundant and triggered the "credential harvesting" static analysis warning ([#4676](https://github.com/mem0ai/mem0/pull/4676))
+
 ## [1.0.1] - 2026-04-02
 
 ### Added
