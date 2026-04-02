@@ -4,33 +4,10 @@
 
 import type { Mem0Config, Mem0Mode } from "./types.ts";
 
-// ============================================================================
-// Env Var Resolution
-// ============================================================================
-
-function resolveEnvVars(value: string): string {
-  return value.replace(/\$\{([^}]+)\}/g, (_, envVar) => {
-    const envValue = process.env[envVar];
-    if (!envValue) {
-      throw new Error(`Environment variable ${envVar} is not set`);
-    }
-    return envValue;
-  });
-}
-
-function resolveEnvVarsDeep(obj: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      result[key] = resolveEnvVars(value);
-    } else if (value && typeof value === "object" && !Array.isArray(value)) {
-      result[key] = resolveEnvVarsDeep(value as Record<string, unknown>);
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
-}
+// NOTE: No process.env access in this module. OpenClaw resolves ${VAR}
+// syntax in openclaw.json before passing pluginConfig to register().
+// Plugin-side env var resolution was removed to clear OpenClaw's
+// security scanner warning ("credential harvesting" pattern).
 
 // ============================================================================
 // Default Custom Instructions & Categories
@@ -200,18 +177,16 @@ export const mem0ConfigSchema = {
     // The plugin should register successfully and log a setup message.
     const needsSetup = mode === "platform" && (typeof cfg.apiKey !== "string" || !cfg.apiKey);
 
-    // Resolve env vars in oss config
+    // OpenClaw resolves ${VAR} in pluginConfig before register() — no plugin-side expansion needed
     let ossConfig: Mem0Config["oss"];
     if (cfg.oss && typeof cfg.oss === "object" && !Array.isArray(cfg.oss)) {
-      ossConfig = resolveEnvVarsDeep(
-        cfg.oss as Record<string, unknown>,
-      ) as unknown as Mem0Config["oss"];
+      ossConfig = cfg.oss as Mem0Config["oss"];
     }
 
     return {
       mode,
       apiKey:
-        typeof cfg.apiKey === "string" ? resolveEnvVars(cfg.apiKey) : undefined,
+        typeof cfg.apiKey === "string" ? cfg.apiKey : undefined,
       userId:
         typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
       orgId: typeof cfg.orgId === "string" ? cfg.orgId : undefined,
