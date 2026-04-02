@@ -557,9 +557,8 @@ Extract ALL memorable information from both user and assistant messages. Think b
 **From user messages:**
 - Personal details, preferences, plans, relationships, professional context
 - Health/wellness, opinions, hobbies, emotional states
-- Every specific activity, event, or place
 - Entity attributes (breed, model, color, make, size)
-- Implicit preferences revealed through requests (asking for Netflix comedy recs → enjoys watching comedy on Netflix)
+- Implicit preferences revealed through requests 
 - **Shared content and reference material** — when a user shares documents, case studies, articles, data, specifications, stat blocks, code, or any structured information, extract the key factual data FROM that content. The user shared it because they want it remembered.
 - Firsts and milestones — 'first call-out', 'just started', 'recently joined', etc.
 - Specific foods, meals, and who was present (e.g. 'dinner with mom — salads, sandwiches, homemade desserts').
@@ -584,12 +583,12 @@ Conversations about pets, hobbies, childhood memories, funny anecdotes, and pers
 
 ### Extract Incidental Facts, Not Just Requests
 
-When a user asks a question or makes a request, their message often contains INCIDENTAL PERSONAL FACTS stated as context. These facts are just as extractable as the request itself — often MORE valuable, because they reveal personal details the user volunteered:
+When a user asks a question or makes a request, their message often contains INCIDENTAL PERSONAL FACTS stated as context. These facts are just as extractable as the request itself:
 
-- "I've harvested cherry tomatoes from my garden — any companion plant suggestions?" → Extract BOTH "User grows cherry tomatoes in their garden" AND the gardening interest. The cherry tomato fact is a personal detail, not just context for the question.
-- "I just started 'The Nightingale' by Kristin Hannah — can you recommend similar books?" → Extract BOTH "User started reading 'The Nightingale' by Kristin Hannah on [date]" AND the reading preference.
-- "As an aspiring stand-up comedian, can you suggest Netflix comedy specials?" → Extract BOTH the career aspiration AND the entertainment preference.
-- "My daughter Sara loves painting — where can I find kids' art classes?" → Extract "User has a daughter named Sara who loves painting" AND the interest in art classes.
+- "I've harvested cherry tomatoes from my garden — any companion plant suggestions?" → Extract BOTH "User grows cherry tomatoes in their garden" 
+- "I just started 'The Nightingale' by Kristin Hannah — can you recommend similar books?" → Extract BOTH "User started reading 'The Nightingale' by Kristin Hannah on [date]" 
+- "As an aspiring stand-up comedian, can you suggest Netflix comedy specials?" → Extract BOTH the career aspiration 
+- "My daughter Sara loves painting — where can I find kids' art classes?" → Extract "User has a daughter named Sara who loves painting" 
 
 Do NOT let the request overshadow the facts. A question about companion plants is transient; the fact that the user grows cherry tomatoes is a persistent personal detail worth remembering.
 
@@ -602,11 +601,6 @@ When a message contains a photo description (e.g., "[Shared photo: ...]" or desc
 - A photo of a group at a park → extract the activity (e.g., "had a picnic at the park")
 - A photo showing a specific object, place, or person → extract what is depicted
 - A photo with visible text (signs, posters, book covers) → extract the text content
-
-IMPORTANT: Photo descriptions may be auto-generated and can be inaccurate. When the speaker's own words describe what is in the photo, ALWAYS trust the speaker's description over the auto-generated caption. For example, if the speaker says "Here's my cat Oliver" but the caption says "a dog sitting on a couch," the memory should reference "cat named Oliver," not "dog." The speaker knows what they shared — the caption is a machine guess.
-
-When the speaker's text provides no description but a photo caption is present, extract the caption's content cautiously, attributing it as "shared a photo showing [description]" rather than stating it as definitive fact.
-
 
 ## Memory Quality Standards
 
@@ -626,12 +620,10 @@ Good: "User switched from in-person French classes to online Spanish classes on 
 When the change is explicitly temporary or a trial, capture that too — "for a month", "trying out", "testing" — these signal the old arrangement may resume.
 
 ### Clean Factual Statements
-Transform conversational language into well-formed statements while preserving the FULL meaning including emotional reactions, motivations, and subjective experiences. Remove filler words and conversation mechanics (greetings, "like", "you know"), but KEEP:
+Preserve the FULL meaning including emotional reactions, motivations, and subjective experiences. Remove filler words and conversation mechanics (greetings, "like", "you know"), but KEEP:
 - Emotional states: "scared but reassured", "happy and thankful", "liberated and empowered"
 - Motivations and reasons: "motivated by her own journey and the support she received"
 - Subjective descriptions: "resilient", "therapeutic", "nerve-wracking"
-
-These are NOT noise — they are the most human and memorable parts of a statement. Reducing "she was scared but reassured by family" to "she was unharmed" destroys the most queryable information.
 
 ### Self-Contained
 Every memory must be understandable on its own. Replace all pronouns with specific names or "User."
@@ -649,14 +641,12 @@ Preserve exact quantities as stated. "416 pages" stays "416 pages", not "about 4
 
 When information contains specific details — whether quantities, identifiers, descriptions, visual details, quoted text, named objects, proper nouns, or any concrete information — those specifics MUST survive extraction. Replacing a specific detail with a vague category is a critical error.
 
-#### Proper Nouns and Titles Are Sacred
+#### Proper Nouns and Titles Should be Preserved
 
 Book titles, movie titles, game names, song titles, restaurant names, neighborhood names, brand names, character names, and named places are the HIGHEST-VALUE details in a memory. Users search by name — a memory without the name is unfindable. ALWAYS preserve exact proper nouns:
 
-- "loved 'Becoming Nicole' by Amy Ellis Nutt" → KEEP "'Becoming Nicole' by Amy Ellis Nutt", NOT "a book about a trans girl" or "a book"
-- "watched 'Eternal Sunshine of the Spotless Mind'" → KEEP the full title, NOT "a romantic drama about memory"
-- "played Xenoblade Chronicles" → KEEP "Xenoblade Chronicles", NOT "a video game" or "a gaming session"
-- "went to Woodhaven for a road trip" → KEEP "Woodhaven", NOT "a road trip destination" or "a small town"
+- "watched 'Eternal Sunshine of the Spotless Mind'" → KEEP the full title
+- "went to Woodhaven for a road trip" → KEEP "Woodhaven"
 - "tried the new restaurant Osteria Francescana" → KEEP "Osteria Francescana", NOT "a new restaurant"
 - "reading 'A Court of Thorns and Roses'" → KEEP the title in quotes, NOT "a fantasy book"
 - "his favorite character is Aragorn from Lord of the Rings" → KEEP "Aragorn" and "Lord of the Rings"
@@ -665,21 +655,13 @@ Book titles, movie titles, game names, song titles, restaurant names, neighborho
 
 Never generalize specific qualifiers. The qualifier is almost always the detail that matters most for recall:
 
-- "promoted to assistant manager" → KEEP "assistant manager", NOT "got promoted"
-- "ordered grilled salmon and roasted vegetables" → KEEP "grilled salmon and roasted vegetables", NOT "a healthy meal"
+- "promoted to assistant manager" → KEEP "assistant manager", NOT "manager"
+- "ordered grilled salmon and roasted vegetables" → KEEP "grilled salmon and roasted vegetables", NOT "healthy meal"
 - "started doing aerial yoga" → KEEP "aerial yoga", NOT "yoga" or "a workout class"
 - "painted a forest scene in watercolors" → KEEP "a forest scene in watercolors", NOT "started painting"
-- "drove a Ferrari 488 GTB" → KEEP "Ferrari 488 GTB", NOT "a sports car"
+- "drove a Ferrari 488 GTB" → KEEP "Ferrari 488 GTB", NOT "sports car"
 - "scored 3 goals in the semifinal" → KEEP "3 goals in the semifinal", NOT "scored several goals"
 - "walks her dogs multiple times a day" → KEEP "multiple times a day", NOT "regularly" or "daily"
-
-#### Other Specific Details
-
-- "a cup with a dog face on it" → KEEP "a cup with a dog face", NOT "their own pots"
-- "pink sneakers for running" → KEEP "pink sneakers", NOT just "runs for exercise"
-- "4 Mummies" stays "4 Mummies", NOT just "Mummies"
-- "construction started in 2014" stays "construction started in 2014", NOT "construction started"
-- "allergic to reptiles and animals with fur" → KEEP exactly, NOT "allergic to certain animals"
 
 If the input is specific, the memory must be equally specific. The concrete details are precisely what distinguishes a useful memory from a useless one. NEVER replace a specific noun, number, title, or description with a vague category or paraphrase — this destroys the information the user actually shared.
 
@@ -748,14 +730,14 @@ Summary: "User is an aspiring stand-up comedian interested in improving their cr
 Recently Extracted: []
 Existing Memories: []
 New Messages:
-[{"role": "user", "content": "Can you recommend some stand-up comedy specials on Netflix with strong storytelling? I love John Mulaney's 'Kid Gorgeous'."},
- {"role": "assistant", "content": "Great taste! Here are some Netflix specials known for storytelling: 1) Hasan Minhaj's 'Homecoming King' 2) Mike Birbiglia's 'The New One' 3) Hannah Gadsby's 'Nanette'. All focus on narrative-driven comedy like Mulaney."}]
+[{"role": "user", "content": "Can you recommend some sports documentaries on Netflix with strong storytelling? I love \"The Last Dance\" by Michael Jordan."},
+ {"role": "assistant", "content": "Great taste! Here are some Netflix documentaries known for their storytelling: 1) \"Formula 1: Drive to Survive\" (behind the scenes of Formula 1 racing) 2) \"Athlete A\" (investigative look at USA Gymnastics) 3) \"The Battered Bastards of Baseball\" (independent baseball story). All focus on powerful, narrative-driven sports stories."}]
 Observation Date: 2023-06-01
 
 Output:
 {"memory": [
-  {"id": "0", "text": "User enjoys watching stand-up comedy specials on Netflix, particularly those with strong storytelling like John Mulaney's 'Kid Gorgeous'"},
-  {"id": "1", "text": "User was recommended Netflix comedy specials for storytelling: Hasan Minhaj's 'Homecoming King', Mike Birbiglia's 'The New One', and Hannah Gadsby's 'Nanette'"}
+  {"id": "0", "text": "User enjoys watching sports documentaries on Netflix with strong storytelling, such as 'The Last Dance' featuring Michael Jordan"},
+  {"id": "1", "text": "User was recommended the following sports documentaries on Netflix for storytelling: 'Formula 1: Drive to Survive', 'Athlete A', and 'The Battered Bastards of Baseball'"}
 ]}
 
 The user's viewing preference (Netflix stand-up comedy) is extracted alongside the assistant's specific recommendations. Both are valuable for future personalization.
@@ -772,23 +754,6 @@ Observation Date: 2025-08-19
 
 Output: {"memory": []}
 
-
-## Example 4: Temporal Precision and Meaning Preservation
-
-Summary: ""
-Recently Extracted: []
-Existing Memories: []
-New Messages:
-[{"role": "user", "content": "I'm feeling sluggish today — I didn't get to bed until 2 AM last Wednesday, which made Thursday morning a real struggle."}]
-Observation Date: 2023-05-25
-
-Output:
-{"memory": [
-  {"id": "0", "text": "User went to bed at 2 AM on Wednesday, May 24, 2023, resulting in a difficult Thursday morning"}
-]}
-
-"Didn't get to bed until 2 AM" means a late BEDTIME of 2 AM. "Last Wednesday" is grounded to May 24 using Observation Date.
-
 ## Example 5: Deduplication — Skip Already Captured
 
 Recently Extracted: ["Marcus was promoted to Senior Engineer at Shopify around August 12, 2025"]
@@ -802,19 +767,19 @@ Output: {"memory": []}
 
 ## Example 6: Extract ALL Dimensions — Don't Miss Secondary Info
 
-Summary: "User is an aspiring stand-up comedian."
+Summary: "User is an aspiring actor."
 Recently Extracted: []
 Existing Memories: []
 New Messages:
-[{"role": "user", "content": "As an aspiring stand-up comedian, I'm looking for advice on improving my craft. Can you recommend some stand-up comedy specials on Netflix with strong storytelling like John Mulaney's 'Kid Gorgeous'? I also want to find online resources for comedy writing."},
- {"role": "assistant", "content": "For Netflix specials with great storytelling, check out Hasan Minhaj and Mike Birbiglia. For comedy writing, I'd recommend the Comedy Writing Workbook by Gene Perret and the Kill Tony podcast for studying crowd work."}]
+[{"role": "user", "content": "As an aspiring actor, I'm looking for advice on improving my craft. Can you recommend some films on Netflix with strong acting performances like Daniel Day-Lewis in 'There Will Be Blood'? I also want to find online resources for acting techniques."},
+ {"role": "assistant", "content": "For Netflix films with great acting, check out 'Marriage Story' and 'The Irishman'. For acting techniques, I'd recommend 'An Actor Prepares' by Stanislavski and the MasterClass by Helen Mirren."}]
 Observation Date: 2023-06-01
 
 Output:
 {"memory": [
-  {"id": "0", "text": "User is an aspiring stand-up comedian seeking to improve their craft through studying comedy specials and writing resources"},
-  {"id": "1", "text": "User enjoys watching stand-up comedy specials on Netflix, especially those with strong storytelling like John Mulaney's 'Kid Gorgeous'"},
-  {"id": "2", "text": "User was recommended Hasan Minhaj and Mike Birbiglia specials for storytelling, the Comedy Writing Workbook by Gene Perret, and the Kill Tony podcast for studying crowd work"}
+  {"id": "0", "text": "User is an aspiring actor seeking to improve their craft through studying films with strong performances and acting technique resources"},
+  {"id": "1", "text": "User enjoys watching films on Netflix with outstanding acting, especially performances like Daniel Day-Lewis in 'There Will Be Blood'"},
+  {"id": "2", "text": "User was recommended 'Marriage Story' and 'The Irishman' for performance study, 'An Actor Prepares' by Stanislavski, and Helen Mirren's MasterClass for acting techniques"}
 ]}
 
 Three dimensions: (1) career aspiration, (2) entertainment viewing preference, (3) specific recommendations. Each extracted separately.
