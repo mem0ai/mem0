@@ -83,7 +83,6 @@ class TestCLIIntegration:
         assert "add" in result.stdout
         assert "search" in result.stdout
 
-
     def test_add_help(self):
         result = _run(["add", "--help"])
         assert result.returncode == 0

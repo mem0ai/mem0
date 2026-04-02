@@ -741,7 +741,6 @@ class TestStatusCommand:
         assert '"status"' in output
 
 
-
 class TestImportCommand:
     def test_import_json(self, mock_backend, tmp_path):
         file_path = tmp_path / "import.json"
