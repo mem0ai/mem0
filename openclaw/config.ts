@@ -196,14 +196,9 @@ export const mem0ConfigSchema = {
     const mode: Mem0Mode =
       cfg.mode === "oss" || cfg.mode === "open-source" ? "open-source" : "platform";
 
-    // Platform mode requires apiKey
-    if (mode === "platform") {
-      if (typeof cfg.apiKey !== "string" || !cfg.apiKey) {
-        throw new Error(
-          "apiKey is required for platform mode (set mode: \"open-source\" for self-hosted)",
-        );
-      }
-    }
+    // Platform mode requires apiKey — but don't throw on missing config.
+    // The plugin should register successfully and log a setup message.
+    const needsSetup = mode === "platform" && (typeof cfg.apiKey !== "string" || !cfg.apiKey);
 
     // Resolve env vars in oss config
     let ossConfig: Mem0Config["oss"];
@@ -241,6 +236,7 @@ export const mem0ConfigSchema = {
       searchThreshold:
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
+      needsSetup,
       oss: ossConfig,
       skills:
         cfg.skills && typeof cfg.skills === "object" && !Array.isArray(cfg.skills)
