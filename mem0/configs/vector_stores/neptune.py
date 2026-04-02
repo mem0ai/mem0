@@ -5,7 +5,7 @@ This module provides configuration settings for integrating with Amazon Neptune 
 as a vector store backend for Mem0's memory layer.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class NeptuneAnalyticsConfig(BaseModel):
@@ -22,6 +22,4 @@ class NeptuneAnalyticsConfig(BaseModel):
     collection_name: str = Field("mem0", description="Default name for the collection")
     endpoint: str = Field("endpoint", description="Graph ID for the runtime")
 
-    model_config = {
-        "arbitrary_types_allowed": False,
-    }
+    model_config = ConfigDict(arbitrary_types_allowed=False)
