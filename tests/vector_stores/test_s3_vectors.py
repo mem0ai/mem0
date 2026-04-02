@@ -1,7 +1,7 @@
-from mem0.configs.vector_stores.s3_vectors import S3VectorsConfig
 import pytest
 from botocore.exceptions import ClientError
 
+from mem0.configs.vector_stores.s3_vectors import S3VectorsConfig
 from mem0.memory.main import Memory
 from mem0.vector_stores.s3_vectors import S3Vectors
 
@@ -195,6 +195,52 @@ def test_delete(mock_boto_client):
     mock_boto_client.delete_vectors.assert_called_once_with(
         vectorBucketName=BUCKET_NAME, indexName=INDEX_NAME, keys=["id1"]
     )
+
+
+def test_list_with_filters(mock_boto_client):
+    """Test that list applies client-side filtering when filters are provided."""
+    mock_paginator = mock_boto_client.get_paginator.return_value
+    mock_paginator.paginate.return_value = [
+        {
+            "vectors": [
+                {"key": "id1", "metadata": {"user_id": "user1", "data": "memory one"}},
+                {"key": "id2", "metadata": {"user_id": "user2", "data": "memory two"}},
+                {"key": "id3", "metadata": {"user_id": "user1", "data": "memory three"}},
+            ]
+        }
+    ]
+
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+    results = store.list(filters={"user_id": "user1"})
+
+    assert len(results[0]) == 2
+    assert all(r.payload["user_id"] == "user1" for r in results[0])
+
+
+def test_list(mock_boto_client):
+    """Test that list returns all vectors when no filters are provided."""
+    mock_paginator = mock_boto_client.get_paginator.return_value
+    mock_paginator.paginate.return_value = [
+        {
+            "vectors": [
+                {"key": "id1", "metadata": {"user_id": "user1", "data": "memory one"}},
+                {"key": "id2", "metadata": {"user_id": "user2", "data": "memory two"}},
+            ]
+        }
+    ]
+
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+    results = store.list()
+
+    assert len(results[0]) == 2
 
 
 def test_reset(mock_boto_client):
