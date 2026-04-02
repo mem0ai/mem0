@@ -31,6 +31,7 @@ import { GoogleLLM } from "../llms/google";
 import { AzureOpenAILLM } from "../llms/azure";
 import { AzureOpenAIEmbedder } from "../embeddings/azure";
 import { LangchainLLM } from "../llms/langchain";
+import { DeepSeekLLM } from "../llms/deepseek";
 import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
@@ -82,6 +83,8 @@ export class LLMFactory {
         return new MistralLLM(config);
       case "langchain":
         return new LangchainLLM(config);
+      case "deepseek":
+        return new DeepSeekLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }
