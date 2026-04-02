@@ -150,18 +150,23 @@ export function acquireDreamLock(stateDir: string): boolean {
     const lock = JSON.parse(raw) as DreamLock;
     const age = Date.now() - lock.startedAt;
     if (age < LOCK_STALE_MS) {
-      // Lock is held and not stale
-      return false;
+      return false; // Held and not stale
     }
-    // Stale lock, reclaim
+    // Stale lock — remove it before attempting exclusive create
+    try { fs.unlinkSync(lp); } catch { /* race ok */ }
   } catch {
     // No lock file, proceed
   }
 
-  // Write lock
+  // Atomic create with exclusive flag (wx). If two processes race,
+  // only one succeeds. The other gets EEXIST.
   const lock: DreamLock = { pid: process.pid, startedAt: Date.now() };
-  fs.writeFileSync(lp, JSON.stringify(lock));
-  return true;
+  try {
+    fs.writeFileSync(lp, JSON.stringify(lock), { flag: "wx" });
+    return true;
+  } catch {
+    return false; // Lost race
+  }
 }
 
 /**

@@ -1348,39 +1348,51 @@ function registerHooks(
     let dreamSessionId: string | undefined;
 
     api.on("agent_end", async (event: any, ctx: any) => {
-      if (!event.success) return;
       const sessionId = ctx?.sessionKey ?? undefined;
       const trigger = ctx?.trigger ?? undefined;
       if (sessionId) session.setCurrentSessionId(sessionId);
 
-      // If dream was triggered for THIS session, check if it actually ran
+      // If dream was triggered for THIS session, handle cleanup regardless
+      // of success/failure. A failed turn must still release the lock.
       const stateDir = session.getStateDir();
       if (dreamSessionId && dreamSessionId === sessionId && stateDir) {
-        // Verify the model actually called memory tools (not false completion).
-        // Check event.messages for memory_store, memory_update, memory_forget tool calls.
-        const messages = event.messages ?? [];
-        const dreamToolsUsed = messages.some((m: any) => {
-          if (m.role !== "assistant") return false;
-          const content = Array.isArray(m.content) ? m.content : [];
-          return content.some((block: any) =>
-            block.type === "tool_use" &&
-            ["memory_store", "memory_update", "memory_forget", "memory_delete_all", "memory_list"].includes(block.name)
-          );
-        });
+        dreamSessionId = undefined;
 
-        if (dreamToolsUsed) {
+        if (!event.success) {
+          // Turn failed/aborted after lock acquired. Release lock, do not
+          // record completion. Gates will re-trigger next eligible turn.
+          releaseDreamLock(stateDir);
+          api.logger.warn("openclaw-mem0: auto-dream turn failed, lock released, will retry");
+          return;
+        }
+
+        // Verify the model actually performed WRITE operations (not just reads).
+        // Only count memory_store, memory_update, memory_forget, memory_delete_all.
+        // Exclude memory_list and memory_search (read-only, orient-only pass).
+        // Scan only the LAST assistant message (this turn), not the full session
+        // snapshot, to avoid matching earlier tool calls from prior turns.
+        const WRITE_TOOLS = new Set(["memory_store", "memory_update", "memory_forget", "memory_delete_all"]);
+        const messages = event.messages ?? [];
+        // Find the last assistant message (this turn's output)
+        const lastAssistant = [...messages].reverse().find((m: any) => m.role === "assistant");
+        const writeToolUsed = lastAssistant && Array.isArray(lastAssistant.content)
+          ? lastAssistant.content.some((block: any) =>
+              block.type === "tool_use" && WRITE_TOOLS.has(block.name)
+            )
+          : false;
+
+        if (writeToolUsed) {
           releaseDreamLock(stateDir);
           recordDreamCompletion(stateDir);
-          api.logger.info("openclaw-mem0: auto-dream completed (verified tool usage), lock released");
+          api.logger.info("openclaw-mem0: auto-dream completed (verified write tool usage), lock released");
         } else {
-          // Model did not run dream tools. Release lock but do NOT record completion.
-          // Gates will re-trigger on the next eligible turn.
           releaseDreamLock(stateDir);
-          api.logger.warn("openclaw-mem0: auto-dream injected but model did not execute consolidation. Lock released, will retry.");
+          api.logger.warn("openclaw-mem0: auto-dream injected but no write tools executed. Lock released, will retry.");
         }
-        dreamSessionId = undefined;
         return;
       }
+
+      if (!event.success) return;
 
       // Track session for dream gating (interactive turns only)
       if (stateDir && sessionId && !isNonInteractiveTrigger(trigger, sessionId)) {
