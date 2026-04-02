@@ -48,7 +48,8 @@ import {
 import { recall as skillRecall, sanitizeQuery } from "./recall.ts";
 import {
   incrementSessionCount,
-  shouldDream,
+  checkCheapGates,
+  checkMemoryGate,
   acquireDreamLock,
   releaseDreamLock,
   recordDreamCompletion,
@@ -1306,23 +1307,29 @@ function registerHooks(
         api.logger.info("openclaw-mem0: skills-mode recall strategy=manual, agent controls search");
       }
 
-      // Auto-dream: check gates and inject consolidation protocol if due
+      // Auto-dream: check CHEAP gates first (local file reads only).
+      // Only hit the API for memory count if time + session gates pass.
       const stateDir = session.getStateDir();
       const dreamEnabled = cfg.skills?.dream?.enabled !== false && cfg.skills?.dream?.auto !== false;
       let dreamContext = "";
       if (dreamEnabled && stateDir && !isSubagent) {
         try {
-          const memories = await provider.getAll({ user_id: userId, source: "OPENCLAW" });
-          const memCount = Array.isArray(memories) ? memories.length : 0;
-          const gateResult = await shouldDream(stateDir, cfg.skills?.dream ?? {}, memCount);
-          if (gateResult.pass && acquireDreamLock(stateDir)) {
-            const dreamPrompt = loadDreamPrompt(cfg.skills ?? {});
-            if (dreamPrompt) {
-              dreamContext = "\n\n<auto-dream>\nIMPORTANT: Before responding to the user, run a memory consolidation pass. Follow the protocol below, then respond normally.\n\n" + dreamPrompt + "\n</auto-dream>";
-              dreamJustRan = true;
-              api.logger.info(`openclaw-mem0: auto-dream triggered (${memCount} memories, gate passed)`);
-            } else {
-              releaseDreamLock(stateDir);
+          const cheapResult = checkCheapGates(stateDir, cfg.skills?.dream ?? {});
+          if (cheapResult.proceed) {
+            // Cheap gates passed. Now do the expensive memory count check.
+            const memories = await provider.getAll({ user_id: userId, source: "OPENCLAW" });
+            const memCount = Array.isArray(memories) ? memories.length : 0;
+            const memResult = checkMemoryGate(memCount, cfg.skills?.dream ?? {});
+            if (memResult.pass && acquireDreamLock(stateDir)) {
+              const dreamPrompt = loadDreamPrompt(cfg.skills ?? {});
+              if (dreamPrompt) {
+                dreamContext = "\n\n<auto-dream>\nIMPORTANT: Before responding to the user, run a memory consolidation pass. Follow the protocol below, then respond normally.\n\n" + dreamPrompt + "\n</auto-dream>";
+                // Track which session triggered dream (session-keyed, not global)
+                dreamSessionId = sessionId;
+                api.logger.info(`openclaw-mem0: auto-dream triggered (${memCount} memories, gate passed)`);
+              } else {
+                releaseDreamLock(stateDir);
+              }
             }
           }
         } catch (err) {
@@ -1336,8 +1343,9 @@ function registerHooks(
       };
     });
 
-    // Skills mode: NO auto-capture. Track sessions for dream gating.
-    let dreamJustRan = false;
+    // Session-keyed dream tracking. Only the session that triggered dream
+    // can complete it. Prevents cross-session false completion.
+    let dreamSessionId: string | undefined;
 
     api.on("agent_end", async (event: any, ctx: any) => {
       if (!event.success) return;
@@ -1345,13 +1353,32 @@ function registerHooks(
       const trigger = ctx?.trigger ?? undefined;
       if (sessionId) session.setCurrentSessionId(sessionId);
 
-      // If dream just ran, release lock and record completion
+      // If dream was triggered for THIS session, check if it actually ran
       const stateDir = session.getStateDir();
-      if (dreamJustRan && stateDir) {
-        releaseDreamLock(stateDir);
-        recordDreamCompletion(stateDir);
-        api.logger.info("openclaw-mem0: auto-dream completed, lock released");
-        dreamJustRan = false;
+      if (dreamSessionId && dreamSessionId === sessionId && stateDir) {
+        // Verify the model actually called memory tools (not false completion).
+        // Check event.messages for memory_store, memory_update, memory_forget tool calls.
+        const messages = event.messages ?? [];
+        const dreamToolsUsed = messages.some((m: any) => {
+          if (m.role !== "assistant") return false;
+          const content = Array.isArray(m.content) ? m.content : [];
+          return content.some((block: any) =>
+            block.type === "tool_use" &&
+            ["memory_store", "memory_update", "memory_forget", "memory_delete_all", "memory_list"].includes(block.name)
+          );
+        });
+
+        if (dreamToolsUsed) {
+          releaseDreamLock(stateDir);
+          recordDreamCompletion(stateDir);
+          api.logger.info("openclaw-mem0: auto-dream completed (verified tool usage), lock released");
+        } else {
+          // Model did not run dream tools. Release lock but do NOT record completion.
+          // Gates will re-trigger on the next eligible turn.
+          releaseDreamLock(stateDir);
+          api.logger.warn("openclaw-mem0: auto-dream injected but model did not execute consolidation. Lock released, will retry.");
+        }
+        dreamSessionId = undefined;
         return;
       }
 
