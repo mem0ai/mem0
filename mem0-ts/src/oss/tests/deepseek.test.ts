@@ -20,9 +20,7 @@ describe("DeepSeekLLM (unit)", () => {
     const original = process.env.DEEPSEEK_API_KEY;
     delete process.env.DEEPSEEK_API_KEY;
     try {
-      expect(() => new DeepSeekLLM({})).toThrow(
-        "DeepSeek API key is required",
-      );
+      expect(() => new DeepSeekLLM({})).toThrow("DeepSeek API key is required");
     } finally {
       if (original !== undefined) process.env.DEEPSEEK_API_KEY = original;
     }
