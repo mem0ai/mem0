@@ -16,7 +16,7 @@ const NOISE_MESSAGE_PATTERNS: RegExp[] = [
   /^Pre-compaction memory flush/i,
   /^(ok|yes|no|sir|sure|thanks|done|good|nice|cool|got it|it's on|continue)$/i,
   /^System: \[.*\] (Slack message edited|Gateway restart|Exec (failed|completed))/,
-  /^System: \[.*\] ⚠️ After-Compaction Audit:/,
+  /^System: \[.*\] ⚠️ Post-Compaction Audit:/,
 ];
 
 /** Content fragments that should be stripped from otherwise-valid messages. */
@@ -24,7 +24,7 @@ const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = 
   { pattern: /Conversation info \(untrusted metadata\):\s*```json\s*\{[\s\S]*?\}\s*```/g, replacement: "" },
   { pattern: /\[media attached:.*?\]/g, replacement: "" },
   { pattern: /To send an image back, prefer the message tool[\s\S]*?Keep caption in the text body\./g, replacement: "" },
-  { pattern: /System: \[\d{4}-\d{2}-\d{2}.*?\] ⚠️ After-Compaction Audit:[\s\S]*?after memory compaction\./g, replacement: "" },
+  { pattern: /System: \[\d{4}-\d{2}-\d{2}.*?\] ⚠️ Post-Compaction Audit:[\s\S]*?after memory compaction\./g, replacement: "" },
   { pattern: /Replied message \(untrusted, for context\):\s*```json[\s\S]*?```/g, replacement: "" },
 ];
 
