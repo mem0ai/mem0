@@ -3,6 +3,8 @@
  * DeepSeek LLM — unit tests (mocked OpenAI).
  */
 
+import { DeepSeekLLM } from "../src/llms/deepseek";
+
 const mockCreate = jest.fn();
 
 jest.mock("openai", () => {
@@ -11,10 +13,20 @@ jest.mock("openai", () => {
   }));
 });
 
-import { DeepSeekLLM } from "../src/llms/deepseek";
-
 describe("DeepSeekLLM (unit)", () => {
   beforeEach(() => mockCreate.mockClear());
+
+  it("throws when no API key is provided", () => {
+    const original = process.env.DEEPSEEK_API_KEY;
+    delete process.env.DEEPSEEK_API_KEY;
+    try {
+      expect(() => new DeepSeekLLM({})).toThrow(
+        "DeepSeek API key is required",
+      );
+    } finally {
+      if (original !== undefined) process.env.DEEPSEEK_API_KEY = original;
+    }
+  });
 
   it("generateResponse() returns a text response", async () => {
     mockCreate.mockResolvedValueOnce({
@@ -79,7 +91,7 @@ describe("DeepSeekLLM (unit)", () => {
 
     await expect(
       llm.generateResponse([{ role: "user", content: "Hi" }]),
-    ).rejects.toThrow("Connection refused");
+    ).rejects.toThrow("DeepSeek LLM failed: Connection refused");
   });
 
   it("generateChat() returns LLMResponse shape", async () => {
@@ -109,6 +121,6 @@ describe("DeepSeekLLM (unit)", () => {
 
     await expect(
       llm.generateChat([{ role: "user", content: "Hi" }]),
-    ).rejects.toThrow("Timeout");
+    ).rejects.toThrow("DeepSeek LLM failed: Timeout");
   });
 });
