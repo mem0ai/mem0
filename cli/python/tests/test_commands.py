@@ -30,7 +30,6 @@ from mem0_cli.commands.memory import (
 from mem0_cli.commands.utils import (
     cmd_import,
     cmd_status,
-    cmd_version,
 )
 
 
