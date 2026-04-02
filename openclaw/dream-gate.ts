@@ -92,38 +92,43 @@ export function incrementSessionCount(stateDir: string, sessionId: string): void
 // ============================================================================
 
 /**
- * Check all three gates. Returns true only if ALL pass.
- * Gates are checked cheapest-first (time, session, memory).
+ * Check cheap gates (time + sessions). These are local file reads only.
+ * Call this BEFORE any API calls. If this fails, skip the expensive
+ * memory count check entirely.
  */
-export async function shouldDream(
+export function checkCheapGates(
   stateDir: string,
-  config: { minHours?: number; minSessions?: number; minMemories?: number },
-  memoryCount: number,
-): Promise<{ pass: boolean; reason?: string }> {
-  const cfg: DreamGateConfig = {
-    minHours: config.minHours ?? DEFAULTS.minHours,
-    minSessions: config.minSessions ?? DEFAULTS.minSessions,
-    minMemories: config.minMemories ?? DEFAULTS.minMemories,
-  };
-
+  config: { minHours?: number; minSessions?: number },
+): { proceed: boolean; reason?: string } {
+  const minHours = config.minHours ?? DEFAULTS.minHours;
+  const minSessions = config.minSessions ?? DEFAULTS.minSessions;
   const state = readState(stateDir);
 
-  // Gate 1: Time
+  // Gate 1: Time (one local file read)
   const hoursSince = (Date.now() - state.lastConsolidatedAt) / 3_600_000;
-  if (hoursSince < cfg.minHours) {
-    return { pass: false, reason: `time: ${hoursSince.toFixed(1)}h < ${cfg.minHours}h` };
+  if (hoursSince < minHours) {
+    return { proceed: false, reason: `time: ${hoursSince.toFixed(1)}h < ${minHours}h` };
   }
 
-  // Gate 2: Sessions
-  if (state.sessionsSince < cfg.minSessions) {
-    return { pass: false, reason: `sessions: ${state.sessionsSince} < ${cfg.minSessions}` };
+  // Gate 2: Sessions (same file, already read)
+  if (state.sessionsSince < minSessions) {
+    return { proceed: false, reason: `sessions: ${state.sessionsSince} < ${minSessions}` };
   }
 
-  // Gate 3: Memory count
-  if (memoryCount < cfg.minMemories) {
-    return { pass: false, reason: `memories: ${memoryCount} < ${cfg.minMemories}` };
-  }
+  return { proceed: true };
+}
 
+/**
+ * Check expensive memory count gate. Only call AFTER checkCheapGates passes.
+ */
+export function checkMemoryGate(
+  memoryCount: number,
+  config: { minMemories?: number },
+): { pass: boolean; reason?: string } {
+  const minMemories = config.minMemories ?? DEFAULTS.minMemories;
+  if (memoryCount < minMemories) {
+    return { pass: false, reason: `memories: ${memoryCount} < ${minMemories}` };
+  }
   return { pass: true };
 }
 
@@ -145,18 +150,23 @@ export function acquireDreamLock(stateDir: string): boolean {
     const lock = JSON.parse(raw) as DreamLock;
     const age = Date.now() - lock.startedAt;
     if (age < LOCK_STALE_MS) {
-      // Lock is held and not stale
-      return false;
+      return false; // Held and not stale
     }
-    // Stale lock, reclaim
+    // Stale lock — remove it before attempting exclusive create
+    try { fs.unlinkSync(lp); } catch { /* race ok */ }
   } catch {
     // No lock file, proceed
   }
 
-  // Write lock
+  // Atomic create with exclusive flag (wx). If two processes race,
+  // only one succeeds. The other gets EEXIST.
   const lock: DreamLock = { pid: process.pid, startedAt: Date.now() };
-  fs.writeFileSync(lp, JSON.stringify(lock));
-  return true;
+  try {
+    fs.writeFileSync(lp, JSON.stringify(lock), { flag: "wx" });
+    return true;
+  } catch {
+    return false; // Lost race
+  }
 }
 
 /**
