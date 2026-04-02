@@ -376,7 +376,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
-        observation_date: Optional[str] = None,
+        timestamp: Optional[str] = None,
     ):
         """
         Create a new memory.
@@ -455,7 +455,7 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, observation_date)
+            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, timestamp)
             future2 = executor.submit(self._add_to_graph, messages, effective_filters)
 
             concurrent.futures.wait([future1, future2])
@@ -471,7 +471,7 @@ class Memory(MemoryBase):
 
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer, observation_date=None):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, timestamp=None):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -547,7 +547,7 @@ class Memory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
-            observation_date=observation_date,
+            timestamp=timestamp,
         )
 
         try:
@@ -871,7 +871,7 @@ class Memory(MemoryBase):
         limit: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
-        rerank: bool = True,
+        rerank: bool = False,
     ):
         """
         Searches for memories based on a query
@@ -2077,7 +2077,7 @@ class AsyncMemory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         metadata_filters: Optional[Dict[str, Any]] = None,
-        rerank: bool = True,
+        rerank: bool = False,
     ):
         """
         Searches for memories based on a query

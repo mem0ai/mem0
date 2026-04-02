@@ -1056,7 +1056,7 @@ def generate_additive_extraction_prompt(
     *,
     last_k_messages=None,
     current_date=None,
-    observation_date=None,
+    timestamp=None,
     custom_instructions=None,
     use_input_language=False,
 ):
@@ -1065,7 +1065,7 @@ def generate_additive_extraction_prompt(
     Pairs with ADDITIVE_EXTRACTION_PROMPT system prompt.
     The LLM will produce only ADD operations, with optional linked_memory_ids.
     """
-    current_date, observation_date = _resolve_dates(current_date, observation_date)
+    current_date, observation_date = _resolve_dates(current_date, timestamp)
 
     sections = []
     sections.append(f"## Summary\n{_format_summary(summary)}")
