@@ -3686,6 +3686,10 @@
 											"type": "object"
 										},
 										"description": "List of custom categories to be used for memory categorization."
+									},
+									"multilingual": {
+										"type": "boolean",
+										"description": "Whether to use the input language for memory storage and retrieval."
 									}
 								}
 							}
