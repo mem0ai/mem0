@@ -2,7 +2,7 @@ import logging
 import os
 import shutil
 
-from qdrant_client import QdrantClient
+from qdrant_client import QdrantClient, models
 from qdrant_client.models import (
     Distance,
     FieldCondition,
@@ -11,6 +11,8 @@ from qdrant_client.models import (
     PointIdsList,
     PointStruct,
     Range,
+    SparseVector,
+    SparseVectorParams,
     VectorParams,
 )
 
@@ -58,7 +60,7 @@ class Qdrant(VectorStoreBase):
             if host and port:
                 params["host"] = host
                 params["port"] = port
-            
+
             if not params:
                 params["path"] = path
                 self.is_local = True
@@ -73,11 +75,44 @@ class Qdrant(VectorStoreBase):
         self.collection_name = collection_name
         self.embedding_model_dims = embedding_model_dims
         self.on_disk = on_disk
+        self._bm25_encoder = None
         self.create_col(embedding_model_dims, on_disk)
+
+    def _get_bm25_encoder(self):
+        """Lazy-load the BM25 sparse text encoder (fastembed)."""
+        if self._bm25_encoder is None:
+            try:
+                from fastembed import SparseTextEmbedding
+                self._bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25")
+                logger.info("BM25 encoder loaded (fastembed Qdrant/bm25)")
+            except ImportError:
+                logger.warning("fastembed not installed — BM25 keyword search disabled. Install with: pip install fastembed")
+                self._bm25_encoder = False  # sentinel: tried and failed
+            except Exception as e:
+                logger.warning(f"Failed to load BM25 encoder: {e}")
+                self._bm25_encoder = False
+        return self._bm25_encoder if self._bm25_encoder is not False else None
+
+    def _encode_bm25(self, text: str) -> SparseVector | None:
+        """Encode text into a BM25 sparse vector."""
+        encoder = self._get_bm25_encoder()
+        if encoder is None:
+            return None
+        try:
+            results = list(encoder.embed([text]))
+            if results:
+                sparse = results[0]
+                return SparseVector(
+                    indices=sparse.indices.tolist(),
+                    values=sparse.values.tolist(),
+                )
+        except Exception as e:
+            logger.debug(f"BM25 encoding failed: {e}")
+        return None
 
     def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
         """
-        Create a new collection.
+        Create a new collection with dense vectors and BM25 sparse vectors.
 
         Args:
             vector_size (int): Size of the vectors to be stored.
@@ -95,6 +130,11 @@ class Qdrant(VectorStoreBase):
         self.client.create_collection(
             collection_name=self.collection_name,
             vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
+            sparse_vectors_config={
+                "bm25": SparseVectorParams(
+                    modifier=models.Modifier.IDF,
+                ),
+            },
         )
         self._create_filter_indexes()
 
@@ -104,9 +144,9 @@ class Qdrant(VectorStoreBase):
         if self.is_local:
             logger.debug("Skipping payload index creation for local Qdrant (not supported)")
             return
-            
+
         common_fields = ["user_id", "agent_id", "run_id", "actor_id"]
-        
+
         for field in common_fields:
             try:
                 self.client.create_payload_index(
@@ -120,7 +160,8 @@ class Qdrant(VectorStoreBase):
 
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         """
-        Insert vectors into a collection.
+        Insert vectors into a collection, including BM25 sparse vectors
+        computed from the text_lemmatized payload field.
 
         Args:
             vectors (list): List of vectors to insert.
@@ -128,14 +169,21 @@ class Qdrant(VectorStoreBase):
             ids (list, optional): List of IDs corresponding to vectors. Defaults to None.
         """
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
-        points = [
-            PointStruct(
-                id=idx if ids is None else ids[idx],
-                vector=vector,
-                payload=payloads[idx] if payloads else {},
-            )
-            for idx, vector in enumerate(vectors)
-        ]
+        points = []
+        for idx, vector in enumerate(vectors):
+            payload = payloads[idx] if payloads else {}
+            point_id = idx if ids is None else ids[idx]
+
+            # Build named vectors: dense + optional BM25 sparse
+            named_vectors = {"": vector}
+            text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
+            if text_for_bm25:
+                sparse = self._encode_bm25(text_for_bm25)
+                if sparse is not None:
+                    named_vectors["bm25"] = sparse
+
+            points.append(PointStruct(id=point_id, vector=named_vectors, payload=payload))
+
         self.client.upsert(collection_name=self.collection_name, points=points)
 
     def _create_filter(self, filters: dict) -> Filter:
@@ -150,7 +198,7 @@ class Qdrant(VectorStoreBase):
         """
         if not filters:
             return None
-            
+
         conditions = []
         for key, value in filters.items():
             if isinstance(value, dict) and "gte" in value and "lte" in value:
@@ -191,22 +239,24 @@ class Qdrant(VectorStoreBase):
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
-            list: Search results, or None if the collection does not support sparse vectors.
+            list: Search results, or None if BM25 is not available.
         """
-        try:
-            from qdrant_client import models
+        sparse_query = self._encode_bm25(query)
+        if sparse_query is None:
+            return None
 
+        try:
             query_filter = self._create_filter(filters) if filters else None
             hits = self.client.query_points(
                 collection_name=self.collection_name,
-                query=models.Document(text=query, model="Qdrant/bm25"),
+                query=sparse_query,
                 using="bm25",
                 query_filter=query_filter,
                 limit=limit,
             )
             return hits.points
         except Exception as e:
-            logger.debug(f"BM25 keyword search failed (collection may lack sparse vector config): {e}")
+            logger.debug(f"BM25 keyword search failed: {e}")
             return None
 
     def delete(self, vector_id: int):
@@ -232,7 +282,16 @@ class Qdrant(VectorStoreBase):
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
-        point = PointStruct(id=vector_id, vector=vector, payload=payload)
+        # Build named vectors with BM25 if payload has text
+        named_vectors = {"": vector} if vector else vector
+        if payload and vector:
+            text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
+            if text_for_bm25:
+                sparse = self._encode_bm25(text_for_bm25)
+                if sparse is not None:
+                    named_vectors["bm25"] = sparse
+
+        point = PointStruct(id=vector_id, vector=named_vectors, payload=payload)
         self.client.upsert(collection_name=self.collection_name, points=[point])
 
     def get(self, vector_id: int) -> dict:
