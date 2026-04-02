@@ -202,6 +202,90 @@ class TestWeaviateDB(unittest.TestCase):
 
         self.client_mock.collections.delete.assert_called_once_with("test_collection")
 
+    def test_build_filters_none(self):
+        """Test that _build_filters returns None when no filters are provided."""
+        result = self.weaviate_db._build_filters(None)
+        self.assertIsNone(result)
+
+        result = self.weaviate_db._build_filters({})
+        self.assertIsNone(result)
+
+    def test_build_filters_standard_keys(self):
+        """Test that _build_filters handles user_id, agent_id, run_id."""
+        filters = {"user_id": "alice", "agent_id": "bot1"}
+        result = self.weaviate_db._build_filters(filters)
+        # Result should be a combined filter (not None)
+        self.assertIsNotNone(result)
+
+    def test_build_filters_custom_metadata(self):
+        """Test that _build_filters handles custom metadata keys like category."""
+        filters = {"category": "movies"}
+        result = self.weaviate_db._build_filters(filters)
+        self.assertIsNotNone(result)
+
+    def test_build_filters_mixed_keys(self):
+        """Test that _build_filters handles a mix of standard and custom keys."""
+        filters = {"user_id": "alice", "category": "movies"}
+        result = self.weaviate_db._build_filters(filters)
+        self.assertIsNotNone(result)
+
+    def test_build_filters_skips_none_values(self):
+        """Test that _build_filters skips keys with None values."""
+        filters = {"user_id": "alice", "agent_id": None}
+        result = self.weaviate_db._build_filters(filters)
+        self.assertIsNotNone(result)
+
+    def test_search_with_custom_metadata_filter(self):
+        """Test that search passes custom metadata filters to Weaviate."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+
+        mock_hybrid = MagicMock()
+        self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
+        mock_hybrid.return_value = mock_response
+
+        vectors = [[0.1] * 1536]
+        filters = {"user_id": "alice", "category": "movies"}
+        self.weaviate_db.search(query="", vectors=vectors, limit=5, filters=filters)
+
+        mock_hybrid.assert_called_once()
+        call_kwargs = mock_hybrid.call_args
+        # The filters argument should not be None when custom metadata is provided
+        self.assertIsNotNone(call_kwargs.kwargs.get("filters") or call_kwargs[1].get("filters"))
+
+    def test_search_with_mismatched_filter_returns_empty(self):
+        """Test that search with a non-matching filter returns no results."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+
+        mock_hybrid = MagicMock()
+        self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
+        mock_hybrid.return_value = mock_response
+
+        vectors = [[0.1] * 1536]
+        # Filter for a category that doesn't exist
+        filters = {"category": "nonexistent"}
+        results = self.weaviate_db.search(query="", vectors=vectors, limit=5, filters=filters)
+
+        self.assertEqual(len(results), 0)
+
+    def test_list_with_custom_metadata_filter(self):
+        """Test that list passes custom metadata filters to Weaviate."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+
+        mock_fetch = MagicMock()
+        self.client_mock.collections.get.return_value.query.fetch_objects = mock_fetch
+        mock_fetch.return_value = mock_response
+
+        filters = {"user_id": "alice", "category": "movies"}
+        self.weaviate_db.list(filters=filters, limit=10)
+
+        mock_fetch.assert_called_once()
+        call_kwargs = mock_fetch.call_args
+        # The filters argument should not be None when custom metadata is provided
+        self.assertIsNotNone(call_kwargs.kwargs.get("filters") or call_kwargs[1].get("filters"))
+
 
 if __name__ == "__main__":
     unittest.main()
