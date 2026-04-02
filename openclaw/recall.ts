@@ -239,7 +239,7 @@ export async function recall(
   // Build search options with enhanced features
   const searchOpts: SearchOptions = {
     user_id: userId,
-    top_k: maxMemories * 2, // Over-fetch for ranking
+    top_k: maxMemories * 2, // Request more candidates for ranking
     threshold,
     keyword_search: recallConfig.keywordSearch !== false, // Default on
     reranking: recallConfig.rerank !== false, // Default on
