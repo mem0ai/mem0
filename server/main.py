@@ -4,7 +4,7 @@ import secrets
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
@@ -122,6 +122,7 @@ class MemoryCreate(BaseModel):
     infer: Optional[bool] = Field(None, description="Whether to extract facts from messages. Defaults to True.")
     memory_type: Optional[str] = Field(None, description="Type of memory to store (e.g. 'core').")
     prompt: Optional[str] = Field(None, description="Custom prompt to use for fact extraction.")
+    custom_categories: Optional[Dict[str, str]] = Field(None, description="Custom categories dict for memory classification. Each key is a category name, value is a description.")
 
 
 class MemoryUpdate(BaseModel):
@@ -167,20 +168,58 @@ def get_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    filters: Optional[str] = Query(None, description="JSON-encoded metadata filters, e.g. {\"categories\":{\"contains\":\"restaurants\"}}."),
+    limit: Optional[int] = Query(None, description="Maximum number of results to return."),
     _api_key: Optional[str] = Depends(verify_api_key),
 ):
-    """Retrieve stored memories."""
+    """Retrieve stored memories with optional metadata filters."""
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
-        params = {
+        params: Dict[str, Any] = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
+        if filters:
+            import json as _json
+            try:
+                params["filters"] = _json.loads(filters)
+            except _json.JSONDecodeError as je:
+                raise HTTPException(status_code=400, detail=f"Invalid filters JSON: {je}")
+        if limit is not None:
+            params["limit"] = limit
         return MEMORY_INSTANCE.get_all(**params)
     except Exception as e:
         logging.exception("Error in get_all_memories:")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class MemoryListRequest(BaseModel):
+    user_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    run_id: Optional[str] = None
+    filters: Optional[Dict[str, Any]] = Field(None, description="Metadata filters with operators (e.g. contains, in, eq).")
+    limit: Optional[int] = Field(None, description="Maximum number of results to return.")
+
+@app.post("/memories/list", summary="List memories with filters")
+def list_memories_with_filters(body: MemoryListRequest, _api_key: Optional[str] = Depends(verify_api_key)):
+    """List memories with optional metadata filters.
+
+    Supports filter operators such as ``contains``, ``in``, ``eq``, ``ne``, etc.
+    Example request body::
+
+        {
+            "user_id": "alice",
+            "filters": {"categories": {"contains": "restaurants"}}
+        }
+    """
+    if not any([body.user_id, body.agent_id, body.run_id]):
+        raise HTTPException(status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required.")
+    try:
+        params = {k: v for k, v in body.model_dump().items() if v is not None}
+        return MEMORY_INSTANCE.get_all(**params)
+    except Exception as e:
+        logging.exception("Error in list_memories_with_filters:")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
 def get_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):

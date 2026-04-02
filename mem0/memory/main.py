@@ -24,6 +24,7 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
+from mem0.memory.categorization import categorize_memory
 from mem0.memory.utils import (
     ensure_json_instruction,
     extract_json,
@@ -391,6 +392,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        custom_categories: Optional[Dict[str, str]] = None,
     ):
         """
         Create a new memory.
@@ -413,6 +415,10 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.memory_type (str, optional): Type of memory to create. Defaults to None. By default, it creates the short term memories and long term (semantic and episodic) memories. Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            custom_categories (Dict[str, str], optional): A dictionary of custom categories with
+                category name as key and description as value. When provided, these categories are
+                merged into the metadata under the 'custom_categories' key, allowing filtering
+                during search/retrieval. Defaults to None.
 
 
         Returns:
@@ -469,7 +475,7 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
+            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, custom_categories)
             future2 = executor.submit(self._add_to_graph, messages, effective_filters)
 
             concurrent.futures.wait([future1, future2])
@@ -485,7 +491,7 @@ class Memory(MemoryBase):
 
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, custom_categories=None):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -642,19 +648,31 @@ class Memory(MemoryBase):
 
                     event_type = resp.get("event")
                     if event_type == "ADD":
+                        add_metadata = deepcopy(metadata)
+                        # Categorize memory using LLM if custom_categories provided
+                        if custom_categories:
+                            categories = categorize_memory(self.llm, action_text, custom_categories)
+                            if categories:
+                                add_metadata['categories'] = json.dumps(categories, ensure_ascii=False)
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "add")
                         memory_id = self._create_memory(
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
-                            metadata=deepcopy(metadata),
+                            metadata=add_metadata,
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
                         memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "UPDATE")
                         if memory_id is None:
                             continue
+                        update_metadata = deepcopy(metadata)
+                        # Re-categorize on update since memory content changed
+                        if custom_categories:
+                            categories = categorize_memory(self.llm, action_text, custom_categories)
+                            if categories:
+                                update_metadata['categories'] = json.dumps(categories, ensure_ascii=False)
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "update")
@@ -662,7 +680,7 @@ class Memory(MemoryBase):
                             memory_id=memory_id,
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
-                            metadata=deepcopy(metadata),
+                            metadata=update_metadata,
                         )
                         returned_memories.append(
                             {
@@ -1760,6 +1778,12 @@ class AsyncMemory(MemoryBase):
                     event_type = resp.get("event")
 
                     if event_type == "ADD":
+                        add_metadata = deepcopy(metadata)
+                        # Categorize memory using LLM if custom_categories provided
+                        if custom_categories:
+                            categories = categorize_memory(self.llm, action_text, custom_categories)
+                            if categories:
+                                add_metadata['categories'] = json.dumps(categories, ensure_ascii=False)
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = await asyncio.to_thread(
@@ -1769,7 +1793,7 @@ class AsyncMemory(MemoryBase):
                             self._create_memory(
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
+                                metadata=add_metadata,
                             )
                         )
                         memory_tasks.append((task, resp, "ADD", None))
@@ -1777,6 +1801,12 @@ class AsyncMemory(MemoryBase):
                         memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "UPDATE")
                         if memory_id is None:
                             continue
+                        update_metadata = deepcopy(metadata)
+                        # Re-categorize on update since memory content changed
+                        if custom_categories:
+                            categories = categorize_memory(self.llm, action_text, custom_categories)
+                            if categories:
+                                update_metadata['categories'] = json.dumps(categories, ensure_ascii=False)
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = await asyncio.to_thread(
@@ -1787,7 +1817,7 @@ class AsyncMemory(MemoryBase):
                                 memory_id=memory_id,
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
+                                metadata=update_metadata,
                             )
                         )
                         memory_tasks.append((task, resp, "UPDATE", memory_id))
