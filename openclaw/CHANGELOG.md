@@ -2,6 +2,19 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [1.0.3] - 2026-04-03
+
+### Fixed
+- **Path traversal vulnerability**: Added `safePath()` containment helper to `readSkillFile` and `readDomainOverlay` in `skill-loader.ts` — prevents directory traversal via `config.domain` or the exported `loadSkill` API
+- **Noise filter regression**: Reverted incorrect `After-Compaction` regex rename back to `Post-Compaction` so the filter correctly matches real upstream compaction audit messages
+- **Cosmetic revert**: Restored `// Over-fetch for ranking` comment in `recall.ts` (was changed to work around a false-positive scanner match on the substring `fetch`)
+
+### Changed
+- **Supply-chain hardening**: Pinned `mem0ai` dependency to exact `2.3.0` (was `^2.3.0`)
+
+### Added
+- **Path traversal tests**: 12 new tests covering `safePath`, `readSkillFile`, `readDomainOverlay`, and `loadSkill` with traversal inputs
+
 ## [1.0.1] - 2026-04-02
 
 ### Added
