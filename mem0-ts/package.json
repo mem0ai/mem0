@@ -68,6 +68,11 @@
       "!src/community/**"
     ]
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "mem0-ts"
+  },
   "keywords": [
     "mem0",
     "api",

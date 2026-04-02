@@ -19,6 +19,11 @@
     "test:edge": "vitest --config vitest.edge.config.js --run",
     "test:node": "vitest --config vitest.node.config.js --run"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "vercel-ai-sdk"
+  },
   "keywords": [
     "ai",
     "vercel-ai"
