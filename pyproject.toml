@@ -21,10 +21,12 @@ dependencies = [
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
     "protobuf>=5.29.0,<6.0.0",
-    "spacy>=3.7.0",
 ]
 
 [project.optional-dependencies]
+nlp = [
+    "spacy>=3.7.0",
+]
 graph = [
     "langchain-neo4j>=0.4.0",
     "langchain-aws>=0.2.23",
