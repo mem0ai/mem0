@@ -4,6 +4,11 @@
   "type": "module",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "openclaw"
+  },
   "keywords": [
     "openclaw",
     "plugin",
