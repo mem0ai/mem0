@@ -401,15 +401,6 @@
                     ]
                   },
                   {
-                    "group": "Coding Agents",
-                    "icon": "terminal",
-                    "pages": [
-                      "integrations/claude-code",
-                      "integrations/cursor",
-                      "integrations/codex"
-                    ]
-                  },
-                  {
                     "group": "Voice & Real-time",
                     "icon": "microphone",
                     "pages": [
@@ -435,6 +426,20 @@
                       "integrations/agentops",
                       "integrations/keywords",
                       "integrations/raycast"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Agent Plugins",
+                "groups": [
+                  {
+                    "group": "Coding Agents",
+                    "icon": "terminal",
+                    "pages": [
+                      "integrations/claude-code",
+                      "integrations/cursor",
+                      "integrations/codex"
                     ]
                   }
                 ]
