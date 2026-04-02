@@ -110,10 +110,26 @@ function resolveSkillsDir(): string {
 }
 
 const SKILLS_DIR = resolveSkillsDir();
+const RESOLVED_SKILLS_DIR = path.resolve(SKILLS_DIR);
+
+/**
+ * Resolve path segments under SKILLS_DIR and verify the result doesn't escape.
+ * Returns null if the resolved path is outside the skills directory (path traversal).
+ * Note: path.resolve follows symlinks lexically; the skills directory is
+ * package-owned so symlink escape is not a practical concern.
+ */
+export function safePath(...segments: string[]): string | null {
+  const resolved = path.resolve(SKILLS_DIR, ...segments);
+  if (resolved !== RESOLVED_SKILLS_DIR &&
+      !resolved.startsWith(RESOLVED_SKILLS_DIR + path.sep)) {
+    return null;
+  }
+  return resolved;
+}
 
 function readSkillFile(skillName: string): string | null {
-  // Skills use OpenClaw directory format: <skill-name>/SKILL.md
-  const filePath = path.join(SKILLS_DIR, skillName, "SKILL.md");
+  const filePath = safePath(skillName, "SKILL.md");
+  if (!filePath) return null;
   try {
     return fs.readFileSync(filePath, "utf-8");
   } catch {
@@ -127,8 +143,8 @@ function readSkillFile(skillName: string): string | null {
  * The `applies_to` frontmatter field is checked for backward compatibility.
  */
 function readDomainOverlay(domain: string, targetSkill: string): string | null {
-  // Domain overlays are stored inside the target skill's directory
-  const filePath = path.join(SKILLS_DIR, targetSkill, "domains", `${domain}.md`);
+  const filePath = safePath(targetSkill, "domains", `${domain}.md`);
+  if (!filePath) return null;
   try {
     const content = fs.readFileSync(filePath, "utf-8");
     const parsed = parseSkillFile(content);
