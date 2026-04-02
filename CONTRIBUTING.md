@@ -75,6 +75,7 @@ All packages are published automatically via GitHub Actions when a GitHub Releas
 | `mem0ai` (TypeScript SDK) | npm | `ts-v*` | `ts-v2.4.6` |
 | `@mem0/cli` (Node CLI) | npm | `cli-node-v*` | `cli-node-v0.1.2` |
 | `@mem0/vercel-ai-provider` | npm | `vercel-ai-v*` | `vercel-ai-v2.0.6` |
+| `@mem0/openclaw-mem0` | npm | `openclaw-v*` | `openclaw-v1.0.1` |
 
 #### How to Release
 
