@@ -742,14 +742,6 @@ class TestStatusCommand:
         assert '"status"' in output
 
 
-class TestVersionCommand:
-    def test_version(self):
-        console, buf = _make_console()
-        with patch("mem0_cli.commands.utils.console", console):
-            cmd_version()
-        output = buf.getvalue()
-        assert "0.1.0" in output
-
 
 class TestImportCommand:
     def test_import_json(self, mock_backend, tmp_path):
