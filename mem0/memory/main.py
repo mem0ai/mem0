@@ -622,28 +622,36 @@ class Memory(MemoryBase):
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
+                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        if memory_id is None:
+                            logger.warning(f"UPDATE skipped: LLM returned unknown id {resp.get('id')!r}")
+                            continue
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "update")
                         self._update_memory(
-                            memory_id=temp_uuid_mapping[resp.get("id")],
+                            memory_id=memory_id,
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata),
                         )
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp.get("id")],
+                                "id": memory_id,
                                 "memory": action_text,
                                 "event": event_type,
                                 "previous_memory": resp.get("old_memory"),
                             }
                         )
                     elif event_type == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
+                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        if memory_id is None:
+                            logger.warning(f"DELETE skipped: LLM returned unknown id {resp.get('id')!r}")
+                            continue
+                        self._delete_memory(memory_id=memory_id)
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp.get("id")],
+                                "id": memory_id,
                                 "memory": action_text,
                                 "event": event_type,
                             }
@@ -1726,6 +1734,10 @@ class AsyncMemory(MemoryBase):
                         )
                         memory_tasks.append((task, resp, "ADD", None))
                     elif event_type == "UPDATE":
+                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        if memory_id is None:
+                            logger.warning(f"UPDATE skipped: LLM returned unknown id {resp.get('id')!r}")
+                            continue
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = await asyncio.to_thread(
@@ -1733,16 +1745,20 @@ class AsyncMemory(MemoryBase):
                             )
                         task = asyncio.create_task(
                             self._update_memory(
-                                memory_id=temp_uuid_mapping[resp["id"]],
+                                memory_id=memory_id,
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
                                 metadata=deepcopy(metadata),
                             )
                         )
-                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
+                        memory_tasks.append((task, resp, "UPDATE", memory_id))
                     elif event_type == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
-                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
+                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        if memory_id is None:
+                            logger.warning(f"DELETE skipped: LLM returned unknown id {resp.get('id')!r}")
+                            continue
+                        task = asyncio.create_task(self._delete_memory(memory_id=memory_id))
+                        memory_tasks.append((task, resp, "DELETE", memory_id))
                     elif event_type == "NONE":
                         # Even if content doesn't need updating, update session IDs if provided
                         memory_id = temp_uuid_mapping.get(resp.get("id"))
