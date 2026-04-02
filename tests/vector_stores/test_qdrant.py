@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
+    DatetimeRange,
     Distance,
     FieldCondition,
     Filter,
@@ -814,3 +815,48 @@ class TestQdrantEnhancedFilters(unittest.TestCase):
         self.assertIsNotNone(result.must_not)
         # Deduplicated: NOT wins, $not is skipped — exactly 1 entry
         self.assertEqual(len(result.must_not), 1)
+
+    def test_datetime_range_uses_datetime_range_model(self):
+        """ISO datetime strings should use DatetimeRange, not numeric Range.
+
+        Regression test for issue #4591: datetime range queries silently
+        returned 0 results because Range (numeric) was used instead of
+        DatetimeRange for ISO datetime string values.
+        """
+
+        cond = self.qdrant._build_field_condition(
+            "created_at",
+            {"gte": "2024-01-01T00:00:00Z", "lt": "2024-02-01T00:00:00Z"},
+        )
+        self.assertIsInstance(cond, FieldCondition)
+        self.assertIsNone(cond.range)
+        self.assertIsNotNone(cond.datetime_range)
+        self.assertIsInstance(cond.datetime_range, DatetimeRange)
+        self.assertEqual(cond.datetime_range.gte, "2024-01-01T00:00:00Z")
+        self.assertEqual(cond.datetime_range.lt, "2024-02-01T00:00:00Z")
+
+    def test_numeric_range_still_uses_range(self):
+        """Numeric values should continue to use Range, not DatetimeRange."""
+        cond = self.qdrant._build_field_condition("priority", {"gte": 5, "lte": 10})
+        self.assertIsInstance(cond, FieldCondition)
+        self.assertIsNotNone(cond.range)
+        self.assertIsNone(cond.datetime_range)
+        self.assertEqual(cond.range.gte, 5)
+        self.assertEqual(cond.range.lte, 10)
+
+    def test_create_filter_datetime_range(self):
+        """Datetime range filter through _create_filter should use DatetimeRange."""
+
+        result = self.qdrant._create_filter({
+            "user_id": "alice",
+            "created_at": {"gte": "2024-01-01T00:00:00Z", "lt": "2024-06-01T00:00:00Z"},
+        })
+        self.assertIsInstance(result, Filter)
+        self.assertEqual(len(result.must), 2)
+
+        datetime_cond = [c for c in result.must if c.key == "created_at"][0]
+        self.assertIsInstance(datetime_cond.datetime_range, DatetimeRange)
+        self.assertEqual(datetime_cond.datetime_range.gte, "2024-01-01T00:00:00Z")
+
+        numeric_cond = [c for c in result.must if c.key == "user_id"][0]
+        self.assertIsInstance(numeric_cond.match, MatchValue)

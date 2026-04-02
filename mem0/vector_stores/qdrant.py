@@ -3,6 +3,7 @@ from typing import Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
+    DatetimeRange,
     Distance,
     FieldCondition,
     Filter,
@@ -177,6 +178,10 @@ class Qdrant(VectorStoreBase):
                     f"Use AND to combine them as separate conditions."
                 )
             range_kwargs = {op: value[op] for op in range_ops if op in value}
+            sample_value = next(iter(range_kwargs.values()))
+            if isinstance(sample_value, str):
+                # String values are datetime strings (ISO format) — use DatetimeRange
+                return FieldCondition(key=key, datetime_range=DatetimeRange(**range_kwargs))
             return FieldCondition(key=key, range=Range(**range_kwargs))
         elif "eq" in value:
             return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
