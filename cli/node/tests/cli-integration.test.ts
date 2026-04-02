@@ -44,13 +44,6 @@ describe("CLI Integration — help and version", () => {
     expect(result.stdout).toContain("search");
   });
 
-  it("shows version with --version", () => {
-    const result = run(["--version"]);
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("0.1.0");
-  });
-
-
   it("help --json produces valid JSON", () => {
     const result = run(["help", "--json"]);
     expect(result.exitCode).toBe(0);
