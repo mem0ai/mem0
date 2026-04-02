@@ -178,16 +178,31 @@ class AzureMySQL(VectorStoreBase):
         dims = vector_size or self.embedding_model_dims
 
         with self._get_cursor(commit=True) as cur:
-            # Create table with vector column
+            # Create table with vector column and a generated column for fulltext keyword search
             cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS `{table_name}` (
                     id VARCHAR(255) PRIMARY KEY,
                     vector JSON,
                     payload JSON,
+                    text_lemmatized VARCHAR(1000) GENERATED ALWAYS AS
+                        (CAST(payload->>'$.text_lemmatized' AS CHAR(1000))) STORED,
                     INDEX idx_payload_keys ((CAST(payload AS CHAR(255)) ARRAY))
                 )
             """)
             logger.info(f"Created collection '{table_name}' with vector dimension {dims}")
+
+            # Add FULLTEXT index on text_lemmatized for keyword_search()
+            try:
+                cur.execute(f"""
+                    CREATE FULLTEXT INDEX ft_text_lemmatized
+                    ON `{table_name}` (text_lemmatized)
+                """)
+                logger.info(f"Created FULLTEXT index on '{table_name}.text_lemmatized'")
+            except Exception as e:
+                logger.debug(
+                    f"Could not create FULLTEXT index on '{table_name}.text_lemmatized': {e}. "
+                    "It may already exist or FULLTEXT may not be supported."
+                )
 
     def insert(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
         """

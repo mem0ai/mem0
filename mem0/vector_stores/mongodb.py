@@ -86,6 +86,41 @@ class MongoDB(VectorStoreBase):
                 logger.info(
                     f"Search index '{self.index_name}' created successfully for collection '{self.collection_name}'."
                 )
+
+            # Create Atlas Search text index for keyword_search()
+            text_index_name = f"{self.collection_name}_text_search_index"
+            try:
+                found_text_indexes = list(collection.list_search_indexes(name=text_index_name))
+                if not found_text_indexes:
+                    text_search_index_model = SearchIndexModel(
+                        name=text_index_name,
+                        definition={
+                            "mappings": {
+                                "dynamic": False,
+                                "fields": {
+                                    "payload": {
+                                        "type": "document",
+                                        "fields": {
+                                            "data": {"type": "string"},
+                                            "text_lemmatized": {"type": "string"},
+                                        },
+                                    }
+                                },
+                            }
+                        },
+                    )
+                    collection.create_search_index(text_search_index_model)
+                    logger.info(
+                        f"Text search index '{text_index_name}' created successfully for collection '{self.collection_name}'."
+                    )
+                else:
+                    logger.info(f"Text search index '{text_index_name}' already exists in collection '{self.collection_name}'.")
+            except Exception as e:
+                logger.warning(
+                    f"Could not create text search index '{text_index_name}': {e}. "
+                    "Atlas Search may not be available. keyword_search() will not work."
+                )
+
             return collection
         except PyMongoError as e:
             logger.error(f"Error creating collection and search index: {e}")

@@ -11,7 +11,7 @@ try:
 except ImportError:
     raise ImportError("The 'pymilvus' library is required. Please install it using 'pip install pymilvus'.")
 
-from pymilvus import CollectionSchema, DataType, FieldSchema, MilvusClient
+from pymilvus import CollectionSchema, DataType, FieldSchema, Function, FunctionType, MilvusClient
 
 logger = logging.getLogger(__name__)
 
@@ -73,14 +73,34 @@ class MilvusDB(VectorStoreBase):
                 FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
                 FieldSchema(name="vectors", dtype=DataType.FLOAT_VECTOR, dim=vector_size),
                 FieldSchema(name="metadata", dtype=DataType.JSON),
+                # Text field for BM25 full-text search (auto-tokenized by Milvus analyzer)
+                FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535, enable_analyzer=True),
+                # Sparse vector field populated automatically by the BM25 function below
+                FieldSchema(name="sparse", dtype=DataType.SPARSE_FLOAT_VECTOR),
             ]
 
             schema = CollectionSchema(fields, enable_dynamic_field=True)
 
-            index = self.client.prepare_index_params(
+            # Add BM25 function so Milvus auto-generates sparse vectors from the text field
+            bm25_function = Function(
+                name="bm25",
+                input_field_names=["text"],
+                output_field_names=["sparse"],
+                function_type=FunctionType.BM25,
+            )
+            schema.add_function(bm25_function)
+
+            index_params = self.client.prepare_index_params()
+            index_params.add_index(
                 field_name="vectors", metric_type=metric_type, index_type="AUTOINDEX", index_name="vector_index"
             )
-            self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index)
+            index_params.add_index(
+                field_name="sparse",
+                index_type="SPARSE_INVERTED_INDEX",
+                metric_type="BM25",
+                index_name="sparse_index",
+            )
+            self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
 
     def insert(self, ids, vectors, payloads, **kwargs: Optional[dict[str, any]]):
         """Insert vectors into a collection.
@@ -92,7 +112,13 @@ class MilvusDB(VectorStoreBase):
         """
         # Batch insert all records at once for better performance and consistency
         data = [
-            {"id": idx, "vectors": embedding, "metadata": metadata}
+            {
+                "id": idx,
+                "vectors": embedding,
+                "metadata": metadata,
+                # Populate the text field for BM25 sparse search; prefer lemmatized text, fall back to raw data
+                "text": (metadata.get("text_lemmatized") or metadata.get("data", ""))[:65535] if metadata else "",
+            }
             for idx, embedding, metadata in zip(ids, vectors, payloads)
         ]
         self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
@@ -214,7 +240,10 @@ class MilvusDB(VectorStoreBase):
             vector (List[float], optional): Updated vector.
             payload (Dict, optional): Updated payload.
         """
-        schema = {"id": vector_id, "vectors": vector, "metadata": payload}
+        text = ""
+        if payload:
+            text = (payload.get("text_lemmatized") or payload.get("data", ""))[:65535]
+        schema = {"id": vector_id, "vectors": vector, "metadata": payload, "text": text}
         self.client.upsert(collection_name=self.collection_name, data=schema)
 
     def get(self, vector_id):

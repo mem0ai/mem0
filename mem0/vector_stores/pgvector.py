@@ -179,6 +179,13 @@ class PGVector(VectorStoreBase):
                     USING hnsw (vector vector_cosine_ops)
                     """
                 )
+            cur.execute(
+                f"""
+                CREATE INDEX IF NOT EXISTS {self.collection_name}_text_lemmatized_idx
+                ON {self.collection_name}
+                USING gin(to_tsvector('simple', payload->>'text_lemmatized'));
+                """
+            )
 
     def insert(self, vectors: list[list[float]], payloads=None, ids=None) -> None:
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
@@ -283,7 +290,8 @@ class PGVector(VectorStoreBase):
 
                 results = cur.fetchall()
             return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Keyword search failed: {e}")
             return None
 
     def delete(self, vector_id: str) -> None:
