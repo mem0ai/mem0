@@ -42,7 +42,8 @@ jobs:
       - name: Publish to npm
         run: |
           if [ "${{ github.event.release.prerelease }}" = "true" ]; then
-            npm publish --provenance --access public --tag next
+            PREID=$(node -p "require('./package.json').version.split('-')[1].split('.')[0]")
+            npm publish --provenance --access public --tag "$PREID"
           else
             npm publish --provenance --access public
           fi
