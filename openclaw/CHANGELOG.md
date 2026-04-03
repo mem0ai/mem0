@@ -2,7 +2,7 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
-## [1.0.4] - 2026-04-03
+## [1.0.4] - 2026-04-03 (beta)
 
 ### Added
 - **Interactive login flow**: `openclaw mem0 login` with interactive menu (email verification or direct API key). Non-interactive modes: `--api-key`, `--email`, `--email --code`
