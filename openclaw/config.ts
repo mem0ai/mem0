@@ -2,12 +2,43 @@
  * Configuration parsing, env var resolution, and default instructions/categories.
  */
 
+import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { homedir, userInfo } from "node:os";
 import type { Mem0Config, Mem0Mode } from "./types.ts";
 
 // NOTE: No process.env access in this module. OpenClaw resolves ${VAR}
 // syntax in openclaw.json before passing pluginConfig to register().
 // Plugin-side env var resolution was removed to clear OpenClaw's
 // security scanner warning ("credential harvesting" pattern).
+
+// ============================================================================
+// Login config fallback — reads ~/.mem0/config.json (shared with CLI)
+// ============================================================================
+
+function readMem0ConfigFile(): {
+  apiKey?: string;
+  baseUrl?: string;
+  orgId?: string;
+  projectId?: string;
+} {
+  try {
+    const configPath = join(homedir(), ".mem0", "config.json");
+    if (!existsSync(configPath)) return {};
+    const raw = JSON.parse(readFileSync(configPath, "utf-8"));
+    const p = raw?.platform;
+    if (!p) return {};
+    return {
+      // Support both camelCase (our login) and snake_case (Python CLI)
+      apiKey: p.apiKey || p.api_key || undefined,
+      baseUrl: p.baseUrl || p.base_url || undefined,
+      orgId: p.orgId || p.org_id || undefined,
+      projectId: p.projectId || p.project_id || undefined,
+    };
+  } catch {
+    return {};
+  }
+}
 
 // ============================================================================
 // Default Custom Instructions & Categories
@@ -123,8 +154,7 @@ export const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
     "Significant life events, milestones, transitions, upcoming plans and changes",
   lessons:
     "Lessons learned, insights gained, mistakes acknowledged, changed opinions or beliefs",
-  work:
-    "Work-related context: job responsibilities, workplace dynamics, career progression, professional challenges",
+  work: "Work-related context: job responsibilities, workplace dynamics, career progression, professional challenges",
   health:
     "Health-related information voluntarily shared: conditions, medications, fitness, wellness goals",
 };
@@ -136,6 +166,7 @@ export const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
 const ALLOWED_KEYS = [
   "mode",
   "apiKey",
+  "baseUrl",
   "userId",
   "orgId",
   "projectId",
@@ -171,11 +202,30 @@ export const mem0ConfigSchema = {
 
     // Accept both "open-source" and legacy "oss" as open-source mode; everything else is platform
     const mode: Mem0Mode =
-      cfg.mode === "oss" || cfg.mode === "open-source" ? "open-source" : "platform";
+      cfg.mode === "oss" || cfg.mode === "open-source"
+        ? "open-source"
+        : "platform";
+
+    // Resolve API key: pluginConfig → ~/.mem0/config.json fallback
+    let resolvedApiKey =
+      typeof cfg.apiKey === "string" ? cfg.apiKey : undefined;
+    let resolvedBaseUrl =
+      typeof cfg.baseUrl === "string" ? cfg.baseUrl : undefined;
+    let resolvedOrgId = typeof cfg.orgId === "string" ? cfg.orgId : undefined;
+    let resolvedProjectId =
+      typeof cfg.projectId === "string" ? cfg.projectId : undefined;
+    if (mode === "platform" && !resolvedApiKey) {
+      const fileConfig = readMem0ConfigFile();
+      if (fileConfig.apiKey) resolvedApiKey = fileConfig.apiKey;
+      if (fileConfig.baseUrl) resolvedBaseUrl = fileConfig.baseUrl;
+      if (!resolvedOrgId && fileConfig.orgId) resolvedOrgId = fileConfig.orgId;
+      if (!resolvedProjectId && fileConfig.projectId)
+        resolvedProjectId = fileConfig.projectId;
+    }
 
     // Platform mode requires apiKey — but don't throw on missing config.
     // The plugin should register successfully and log a setup message.
-    const needsSetup = mode === "platform" && (typeof cfg.apiKey !== "string" || !cfg.apiKey);
+    const needsSetup = mode === "platform" && !resolvedApiKey;
 
     // OpenClaw resolves ${VAR} in pluginConfig before register() — no plugin-side expansion needed
     let ossConfig: Mem0Config["oss"];
@@ -185,12 +235,20 @@ export const mem0ConfigSchema = {
 
     return {
       mode,
-      apiKey:
-        typeof cfg.apiKey === "string" ? cfg.apiKey : undefined,
+      apiKey: resolvedApiKey,
+      baseUrl: resolvedBaseUrl,
       userId:
-        typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
-      orgId: typeof cfg.orgId === "string" ? cfg.orgId : undefined,
-      projectId: typeof cfg.projectId === "string" ? cfg.projectId : undefined,
+        typeof cfg.userId === "string" && cfg.userId
+          ? cfg.userId
+          : (() => {
+              try {
+                return userInfo().username || "default";
+              } catch {
+                return "default";
+              }
+            })(),
+      orgId: resolvedOrgId,
+      projectId: resolvedProjectId,
       autoCapture: cfg.autoCapture !== false,
       autoRecall: cfg.autoRecall !== false,
       customInstructions:
@@ -199,8 +257,8 @@ export const mem0ConfigSchema = {
           : DEFAULT_CUSTOM_INSTRUCTIONS,
       customCategories:
         cfg.customCategories &&
-          typeof cfg.customCategories === "object" &&
-          !Array.isArray(cfg.customCategories)
+        typeof cfg.customCategories === "object" &&
+        !Array.isArray(cfg.customCategories)
           ? (cfg.customCategories as Record<string, string>)
           : DEFAULT_CUSTOM_CATEGORIES,
       customPrompt:
@@ -214,7 +272,9 @@ export const mem0ConfigSchema = {
       needsSetup,
       oss: ossConfig,
       skills:
-        cfg.skills && typeof cfg.skills === "object" && !Array.isArray(cfg.skills)
+        cfg.skills &&
+        typeof cfg.skills === "object" &&
+        !Array.isArray(cfg.skills)
           ? (cfg.skills as Mem0Config["skills"])
           : undefined,
     };

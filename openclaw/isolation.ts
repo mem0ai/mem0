@@ -31,7 +31,8 @@ export function isNonInteractiveTrigger(
 
   // Fallback: detect cron/heartbeat from the session key pattern
   if (sessionKey) {
-    if (/:cron:/i.test(sessionKey) || /:heartbeat:/i.test(sessionKey)) return true;
+    if (/:cron:/i.test(sessionKey) || /:heartbeat:/i.test(sessionKey))
+      return true;
   }
 
   return false;
@@ -58,7 +59,9 @@ export function isSubagentSession(sessionKey: string | undefined): boolean {
  * Returns the subagent UUID for subagent sessions, the agentId for
  * non-"main" named agents, or undefined for the main agent session.
  */
-export function extractAgentId(sessionKey: string | undefined): string | undefined {
+export function extractAgentId(
+  sessionKey: string | undefined,
+): string | undefined {
   if (!sessionKey) return undefined;
 
   // Check for subagent pattern: "agent:<parent>:subagent:<uuid>"
@@ -77,7 +80,10 @@ export function extractAgentId(sessionKey: string | undefined): string | undefin
  * Derive the effective user_id from a session key, namespacing per-agent.
  * Falls back to baseUserId when the session is not agent-scoped.
  */
-export function effectiveUserId(baseUserId: string, sessionKey?: string): string {
+export function effectiveUserId(
+  baseUserId: string,
+  sessionKey?: string,
+): string {
   const agentId = extractAgentId(sessionKey);
   return agentId ? `${baseUserId}:agent:${agentId}` : baseUserId;
 }

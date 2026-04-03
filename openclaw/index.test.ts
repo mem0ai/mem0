@@ -26,9 +26,11 @@ describe("extractAgentId", () => {
 
   it("returns subagent namespace from subagent session key", () => {
     // OpenClaw subagent format: agent:main:subagent:<uuid>
-    expect(extractAgentId("agent:main:subagent:3b85177f-69e0-412d-8ecd-fbe542f362ce")).toBe(
-      "subagent-3b85177f-69e0-412d-8ecd-fbe542f362ce",
-    );
+    expect(
+      extractAgentId(
+        "agent:main:subagent:3b85177f-69e0-412d-8ecd-fbe542f362ce",
+      ),
+    ).toBe("subagent-3b85177f-69e0-412d-8ecd-fbe542f362ce");
   });
 
   it("returns undefined for the main agent session (agent:main:main)", () => {
@@ -128,15 +130,15 @@ describe("resolveUserId", () => {
   });
 
   it("uses explicit userId when agentId is absent", () => {
-    expect(
-      resolveUserId(base, { userId: "bob" }, "agent:beta:uuid"),
-    ).toBe("bob");
+    expect(resolveUserId(base, { userId: "bob" }, "agent:beta:uuid")).toBe(
+      "bob",
+    );
   });
 
   it("derives from session key when both agentId and userId are absent", () => {
-    expect(
-      resolveUserId(base, {}, "agent:gamma:uuid"),
-    ).toBe("alice:agent:gamma");
+    expect(resolveUserId(base, {}, "agent:gamma:uuid")).toBe(
+      "alice:agent:gamma",
+    );
   });
 
   it("falls back to base userId when nothing else is provided", () => {
@@ -215,11 +217,18 @@ describe("isNonInteractiveTrigger", () => {
   });
 
   it("detects cron from session key as fallback", () => {
-    expect(isNonInteractiveTrigger(undefined, "agent:main:cron:c85abdb2-d900-4cd8-8601-9dd960c560c9")).toBe(true);
+    expect(
+      isNonInteractiveTrigger(
+        undefined,
+        "agent:main:cron:c85abdb2-d900-4cd8-8601-9dd960c560c9",
+      ),
+    ).toBe(true);
   });
 
   it("detects heartbeat from session key as fallback", () => {
-    expect(isNonInteractiveTrigger(undefined, "agent:main:heartbeat:abc123")).toBe(true);
+    expect(
+      isNonInteractiveTrigger(undefined, "agent:main:heartbeat:abc123"),
+    ).toBe(true);
   });
 
   it("returns false when both trigger and sessionKey are undefined", () => {
@@ -232,7 +241,11 @@ describe("isNonInteractiveTrigger", () => {
 // ---------------------------------------------------------------------------
 describe("isSubagentSession", () => {
   it("returns true for subagent session keys", () => {
-    expect(isSubagentSession("agent:main:subagent:3b85177f-69e0-412d-8ecd-fbe542f362ce")).toBe(true);
+    expect(
+      isSubagentSession(
+        "agent:main:subagent:3b85177f-69e0-412d-8ecd-fbe542f362ce",
+      ),
+    ).toBe(true);
   });
 
   it("returns false for main agent session", () => {
@@ -263,22 +276,36 @@ describe("isNoiseMessage", () => {
 
   it("detects current-time stamps", () => {
     expect(
-      isNoiseMessage("Current time: Friday, February 20th, 2026 — 3:58 AM (America/New_York)"),
+      isNoiseMessage(
+        "Current time: Friday, February 20th, 2026 — 3:58 AM (America/New_York)",
+      ),
     ).toBe(true);
   });
 
   it("detects single-word acknowledgments", () => {
-    for (const word of ["ok", "yes", "sir", "done", "cool", "Got it", "it's on"]) {
+    for (const word of [
+      "ok",
+      "yes",
+      "sir",
+      "done",
+      "cool",
+      "Got it",
+      "it's on",
+    ]) {
       expect(isNoiseMessage(word)).toBe(true);
     }
   });
 
   it("detects system routing messages", () => {
     expect(
-      isNoiseMessage("System: [2026-02-19 19:51:31 PST] Slack message edited in #D0AFV2LDGDS."),
+      isNoiseMessage(
+        "System: [2026-02-19 19:51:31 PST] Slack message edited in #D0AFV2LDGDS.",
+      ),
     ).toBe(true);
     expect(
-      isNoiseMessage("System: [2026-02-19 22:15:42 PST] Exec failed (gentle-b, signal 15)"),
+      isNoiseMessage(
+        "System: [2026-02-19 22:15:42 PST] Exec failed (gentle-b, signal 15)",
+      ),
     ).toBe(true);
   });
 
@@ -307,36 +334,68 @@ describe("isNoiseMessage", () => {
 // ---------------------------------------------------------------------------
 describe("isGenericAssistantMessage", () => {
   it("detects 'I see you've shared' openers", () => {
-    expect(isGenericAssistantMessage("I see you've shared an update. How can I help?")).toBe(true);
-    expect(isGenericAssistantMessage("I see you've shared a summary of the Atlas configuration update. Is there anything specific you'd like me to help with?")).toBe(true);
+    expect(
+      isGenericAssistantMessage(
+        "I see you've shared an update. How can I help?",
+      ),
+    ).toBe(true);
+    expect(
+      isGenericAssistantMessage(
+        "I see you've shared a summary of the Atlas configuration update. Is there anything specific you'd like me to help with?",
+      ),
+    ).toBe(true);
   });
 
   it("detects 'Thanks for sharing' openers", () => {
-    expect(isGenericAssistantMessage("Thanks for sharing that update! Would you like me to review the changes?")).toBe(true);
+    expect(
+      isGenericAssistantMessage(
+        "Thanks for sharing that update! Would you like me to review the changes?",
+      ),
+    ).toBe(true);
   });
 
   it("detects 'How can I help' standalone", () => {
-    expect(isGenericAssistantMessage("How can I help you with this?")).toBe(true);
+    expect(isGenericAssistantMessage("How can I help you with this?")).toBe(
+      true,
+    );
   });
 
   it("detects 'Got it' + follow-up", () => {
     expect(isGenericAssistantMessage("Got it! How can I assist?")).toBe(true);
-    expect(isGenericAssistantMessage("Got it. Let me know what you need.")).toBe(true);
+    expect(
+      isGenericAssistantMessage("Got it. Let me know what you need."),
+    ).toBe(true);
   });
 
   it("detects 'I'll help/review/look into'", () => {
     expect(isGenericAssistantMessage("I'll review that for you.")).toBe(true);
-    expect(isGenericAssistantMessage("I'll look into this right away.")).toBe(true);
+    expect(isGenericAssistantMessage("I'll look into this right away.")).toBe(
+      true,
+    );
   });
 
   it("preserves substantive assistant content", () => {
-    expect(isGenericAssistantMessage("## What I Accomplished\n\nDeployed the API to production with Vercel.")).toBe(false);
-    expect(isGenericAssistantMessage("The ElevenLabs SDK has been installed and configured. Voice skill is ready.")).toBe(false);
-    expect(isGenericAssistantMessage("Updated the call scripts sheet with truth-based messaging templates.")).toBe(false);
+    expect(
+      isGenericAssistantMessage(
+        "## What I Accomplished\n\nDeployed the API to production with Vercel.",
+      ),
+    ).toBe(false);
+    expect(
+      isGenericAssistantMessage(
+        "The ElevenLabs SDK has been installed and configured. Voice skill is ready.",
+      ),
+    ).toBe(false);
+    expect(
+      isGenericAssistantMessage(
+        "Updated the call scripts sheet with truth-based messaging templates.",
+      ),
+    ).toBe(false);
   });
 
   it("preserves long messages even with generic openers", () => {
-    const longMsg = "I see you've shared an update. " + "Here are the detailed changes I made to the configuration. ".repeat(10);
+    const longMsg =
+      "I see you've shared an update. " +
+      "Here are the detailed changes I made to the configuration. ".repeat(10);
     expect(isGenericAssistantMessage(longMsg)).toBe(false);
   });
 });
@@ -360,7 +419,8 @@ What models are you currently using?`;
   });
 
   it("removes media attachment lines", () => {
-    const input = "[media attached: /path/to/file.jpg (image/jpeg) | /path/to/file.jpg]\nActual question here";
+    const input =
+      "[media attached: /path/to/file.jpg (image/jpeg) | /path/to/file.jpg]\nActual question here";
     const result = stripNoiseFromContent(input);
     expect(result).toContain("Actual question here");
     expect(result).not.toContain("[media attached:");
@@ -440,10 +500,14 @@ What is the deployment plan?`,
 
   it("handles a realistic mixed payload", () => {
     const messages = [
-      { role: "user", content: "Pre-compaction memory flush. Store durable memories now." },
+      {
+        role: "user",
+        content: "Pre-compaction memory flush. Store durable memories now.",
+      },
       {
         role: "assistant",
-        content: "## What I Accomplished\n\nDeployed the API to production with Vercel.",
+        content:
+          "## What I Accomplished\n\nDeployed the API to production with Vercel.",
       },
       { role: "user", content: "sir" },
     ];
@@ -454,8 +518,15 @@ What is the deployment plan?`,
 
   it("drops generic assistant acknowledgments", () => {
     const messages = [
-      { role: "user", content: "[ASSISTANT]: Updated the Google Sheet with truth-based scripts." },
-      { role: "assistant", content: "I see you've shared an update. How can I help?" },
+      {
+        role: "user",
+        content:
+          "[ASSISTANT]: Updated the Google Sheet with truth-based scripts.",
+      },
+      {
+        role: "assistant",
+        content: "I see you've shared an update. How can I help?",
+      },
     ];
     const result = filterMessagesForExtraction(messages);
     expect(result).toHaveLength(1);
@@ -480,10 +551,13 @@ What is the deployment plan?`,
   it("keeps substantive assistant messages even with generic opener", () => {
     const messages = [
       { role: "user", content: "What did you do?" },
-      { role: "assistant", content: "I deployed the API to production and configured the webhook endpoints for Stripe integration." },
+      {
+        role: "assistant",
+        content:
+          "I deployed the API to production and configured the webhook endpoints for Stripe integration.",
+      },
     ];
     const result = filterMessagesForExtraction(messages);
     expect(result).toHaveLength(2);
   });
 });
-

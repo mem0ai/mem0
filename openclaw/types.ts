@@ -8,6 +8,7 @@ export type Mem0Config = {
   mode: Mem0Mode;
   // Platform-specific
   apiKey?: string;
+  baseUrl?: string;
   orgId?: string;
   projectId?: string;
   customInstructions: string;
@@ -156,5 +157,15 @@ export interface Mem0Provider {
   update(memoryId: string, text: string): Promise<void>;
   delete(memoryId: string): Promise<void>;
   deleteAll(userId: string): Promise<void>;
-  history(memoryId: string): Promise<Array<{ id: string; old_memory: string; new_memory: string; event: string; created_at: string }>>;
+  history(
+    memoryId: string,
+  ): Promise<
+    Array<{
+      id: string;
+      old_memory: string;
+      new_memory: string;
+      event: string;
+      created_at: string;
+    }>
+  >;
 }

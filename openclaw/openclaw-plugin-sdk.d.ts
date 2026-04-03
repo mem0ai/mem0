@@ -12,10 +12,7 @@ declare module "openclaw/plugin-sdk" {
       definition: Record<string, unknown>,
       metadata?: Record<string, unknown>,
     ): void;
-    on(
-      event: string,
-      handler: (event: any, ctx: any) => any,
-    ): void;
+    on(event: string, handler: (event: any, ctx: any) => any): void;
     registerCli(
       handler: (context: { program: any }) => void,
       options?: Record<string, unknown>,

@@ -67,11 +67,19 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
           memoryCallCount++;
           capturedConfig = { ...config };
         }
-        async add() { return { results: [] }; }
-        async search() { return { results: [] }; }
-        async get() { return {}; }
-        async getAll() { return []; }
-        async delete() { }
+        async add() {
+          return { results: [] };
+        }
+        async search() {
+          return { results: [] };
+        }
+        async get() {
+          return {};
+        }
+        async getAll() {
+          return [];
+        }
+        async delete() {}
       },
     }));
   });
@@ -88,7 +96,9 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
     // Trigger lazy init by calling search
     try {
       await provider.search("test", { user_id: "u1" });
-    } catch { /* provider may fail on mock, that's ok */ }
+    } catch {
+      /* provider may fail on mock, that's ok */
+    }
 
     expect(capturedConfig).toBeDefined();
     expect(capturedConfig!.disableHistory).toBe(true);
@@ -105,7 +115,7 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
 
     try {
       await provider.search("test", { user_id: "u1" });
-    } catch { }
+    } catch {}
 
     expect(capturedConfig).toBeDefined();
     expect(capturedConfig!.disableHistory).toBeUndefined();
@@ -130,11 +140,19 @@ describe("OSSProvider — initPromise retry after failure", () => {
           }
           // Second+ call succeeds
         }
-        async search() { return { results: [] }; }
-        async get() { return {}; }
-        async getAll() { return []; }
-        async add() { return { results: [] }; }
-        async delete() { }
+        async search() {
+          return { results: [] };
+        }
+        async get() {
+          return {};
+        }
+        async getAll() {
+          return [];
+        }
+        async add() {
+          return { results: [] };
+        }
+        async delete() {}
       },
     }));
   });
@@ -149,9 +167,9 @@ describe("OSSProvider — initPromise retry after failure", () => {
     const provider = createProvider(cfg, api);
 
     // First call: _init throws, but initPromise is cleared so retry is possible
-    await expect(
-      provider.search("test", { user_id: "u1" }),
-    ).rejects.toThrow("SQLITE_CANTOPEN");
+    await expect(provider.search("test", { user_id: "u1" })).rejects.toThrow(
+      "SQLITE_CANTOPEN",
+    );
 
     // Second call: should retry _init (not return cached rejection)
     // callCount === 1 threw, so callCount === 2 should succeed
@@ -179,11 +197,19 @@ describe("OSSProvider — graceful SQLite fallback", () => {
           }
           // Succeeds when disableHistory is true
         }
-        async search() { return { results: [] }; }
-        async get() { return {}; }
-        async getAll() { return []; }
-        async add() { return { results: [] }; }
-        async delete() { }
+        async search() {
+          return { results: [] };
+        }
+        async get() {
+          return {};
+        }
+        async getAll() {
+          return [];
+        }
+        async add() {
+          return { results: [] };
+        }
+        async delete() {}
       },
     }));
   });
@@ -234,9 +260,9 @@ describe("OSSProvider — graceful SQLite fallback", () => {
     const provider = createProvider(cfg, api);
 
     // Should throw — no fallback possible when disableHistory was already set
-    await expect(
-      provider.search("test", { user_id: "u1" }),
-    ).rejects.toThrow("vector store connection refused");
+    await expect(provider.search("test", { user_id: "u1" })).rejects.toThrow(
+      "vector store connection refused",
+    );
   });
 });
 
@@ -257,11 +283,19 @@ describe("PlatformProvider — initPromise retry after failure", () => {
             throw new Error("Network timeout");
           }
         }
-        async search() { return []; }
-        async get() { return {}; }
-        async getAll() { return []; }
-        async add() { return { results: [] }; }
-        async delete() { }
+        async search() {
+          return [];
+        }
+        async get() {
+          return {};
+        }
+        async getAll() {
+          return [];
+        }
+        async add() {
+          return { results: [] };
+        }
+        async delete() {}
       },
     }));
   });
@@ -276,9 +310,9 @@ describe("PlatformProvider — initPromise retry after failure", () => {
     const provider = createProvider(cfg, api);
 
     // First call fails
-    await expect(
-      provider.search("test", { user_id: "u1" }),
-    ).rejects.toThrow("Network timeout");
+    await expect(provider.search("test", { user_id: "u1" })).rejects.toThrow(
+      "Network timeout",
+    );
 
     // Second call should retry (not return cached rejection)
     const results = await provider.search("test", { user_id: "u1" });
