@@ -9,9 +9,6 @@
  *   - dream   : Run memory consolidation
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
 import { createInterface } from "node:readline";
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
@@ -23,6 +20,12 @@ import type {
   SearchOptions,
 } from "../types.ts";
 import { loadDreamPrompt } from "../skill-loader.ts";
+import {
+  readMem0Config,
+  getBaseUrl,
+  setPlatformAuth,
+  writeMem0Config,
+} from "./config-file.ts";
 
 // ============================================================================
 // Login config helpers
@@ -36,60 +39,6 @@ function prompt(question: string): Promise<string> {
       resolve(answer.trim());
     });
   });
-}
-
-const CONFIG_DIR = join(homedir(), ".mem0");
-const CONFIG_FILE = join(CONFIG_DIR, "config.json");
-const DEFAULT_BASE_URL = "https://api.mem0.ai";
-
-interface Mem0FileConfig {
-  version: number;
-  platform: Record<string, unknown>;
-  defaults: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-function readMem0Config(): Mem0FileConfig {
-  if (existsSync(CONFIG_FILE)) {
-    try {
-      const raw = JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
-      return {
-        ...raw,
-        version: raw.version ?? 1,
-        platform: raw.platform ?? {},
-        defaults: raw.defaults ?? {},
-      };
-    } catch {
-      /* ignore parse errors */
-    }
-  }
-  return { version: 1, platform: {}, defaults: {} };
-}
-
-/** Get the base URL from config, handling both camelCase and snake_case */
-function getBaseUrl(config: Mem0FileConfig): string {
-  const p = config.platform;
-  return ((p.baseUrl ?? p.base_url) as string) || DEFAULT_BASE_URL;
-}
-
-/** Set API key + base URL on the platform config (preserves existing fields) */
-function setPlatformAuth(
-  config: Mem0FileConfig,
-  apiKey: string,
-  baseUrl: string,
-): void {
-  config.platform.apiKey = apiKey;
-  config.platform.baseUrl = baseUrl;
-  // Also write snake_case so Python CLI can read it
-  config.platform.api_key = apiKey;
-  config.platform.base_url = baseUrl;
-}
-
-function writeMem0Config(config: Mem0FileConfig): void {
-  if (!existsSync(CONFIG_DIR)) {
-    mkdirSync(CONFIG_DIR, { mode: 0o700, recursive: true });
-  }
-  writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { mode: 0o600 });
 }
 
 // ============================================================================
