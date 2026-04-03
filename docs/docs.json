@@ -133,6 +133,24 @@
                     "pages": [
                       "platform/contribute"
                     ]
+                  },
+                  {
+                    "group": "Release Notes",
+                    "icon": "rocket",
+                    "pages": [
+                      "changelog"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "OpenClaw",
+                "groups": [
+                  {
+                    "group": "OpenClaw",
+                    "pages": [
+                      "integrations/openclaw"
+                    ]
                   }
                 ]
               },
@@ -394,6 +412,7 @@
                       "integrations/agno",
                       "integrations/camel-ai",
                       "integrations/openclaw",
+                      "integrations/hermes",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
@@ -528,18 +547,6 @@
                       "api-reference/webhook/get-webhook",
                       "api-reference/webhook/update-webhook",
                       "api-reference/webhook/delete-webhook"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tab": "Release Notes",
-                "groups": [
-                  {
-                    "group": "Changelog",
-                    "icon": "rocket",
-                    "pages": [
-                      "changelog"
                     ]
                   }
                 ]
