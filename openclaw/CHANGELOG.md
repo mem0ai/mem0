@@ -2,6 +2,33 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [1.0.4] - 2026-04-03
+
+### Added
+- **Interactive login flow**: `openclaw mem0 login` with interactive menu (email verification or direct API key). Non-interactive modes: `--api-key`, `--email`, `--email --code`
+- **Config file fallback**: Reads `~/.mem0/config.json` (shared with Python CLI) when no API key in plugin config. Supports both camelCase and snake_case field names
+- **CLI subcommands**: `openclaw mem0 login`, `openclaw mem0 search`, `openclaw mem0 stats`, `openclaw mem0 status`, `openclaw mem0 dream`
+- **`memory_delete` tool**: Unified delete — single ID, search-then-delete, bulk, entity cascade. Replaces `memory_forget` and `memory_delete_all`
+- **Backend layer**: `backend/base.ts` + `backend/platform.ts` with direct `fetch()` for platform mode, `providerToBackend()` adapter for OSS
+- **Plugin manifest**: Added `name`, `description`, `contracts.tools`, `baseUrl` config field, CLI `descriptors` for lazy-loading
+
+### Changed
+- **Modular architecture**: Extracted tools into `tools/` directory (7 files) and CLI into `cli/commands.ts` — `index.ts` down from 1724 to ~780 lines
+- **WRITE_TOOLS updated**: Dream gate tracks `memory_delete` instead of removed `memory_forget` / `memory_delete_all`
+- **Auto-recall timeout** (#4634): Recall wrapped in 8-second `Promise.race` — if OSS/Ollama LLM takes too long, recall is skipped instead of stalling the gateway
+- **Auto-capture fire-and-forget** (#4634): `provider.add()` now runs in the background via `.then()/.catch()` — the `agent_end` hook returns immediately, zero event loop blocking
+- **Auto-capture minimum content gate**: Skips extraction when total user content is <50 chars after filtering — trivial conversations ("ok", "thanks") no longer trigger LLM calls
+- **CLI search**: Removed `source: "OPENCLAW"` filter and lowered threshold to 0.3 so explicit searches find all memories, not just plugin-tagged ones
+
+### Removed
+- `memory_forget` tool — replaced by `memory_delete`
+- `memory_delete_all` tool — replaced by `memory_delete`
+- `memory_status` tool — redundant with `openclaw mem0 status` CLI
+- `memory_import` tool — bulk import, rarely needed by agents
+- `entity_list`, `entity_delete` tools — niche, platform-only
+- `event_list`, `event_status` tools — debugging tools, not agent tools
+- Duplicate `ToolContext` interfaces from individual tool files — now imports from canonical `tools/index.ts`
+
 ## [1.0.3] - 2026-04-03
 
 ### Fixed
