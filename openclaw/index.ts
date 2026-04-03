@@ -549,12 +549,12 @@ function registerHooks(
   if (cfg.autoRecall) {
     const RECALL_TIMEOUT_MS = 8_000;
 
-    api.on("before_prompt_build", async (event: any, ctx: any) => {
+    api.on("before_agent_start", async (event, ctx) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
       // Skip non-interactive triggers (cron, heartbeat, automation)
-      const trigger = ctx?.trigger ?? undefined;
-      const sessionId = ctx?.sessionKey ?? undefined;
+      const trigger = (ctx as any)?.trigger ?? undefined;
+      const sessionId = (ctx as any)?.sessionKey ?? undefined;
       if (isNonInteractiveTrigger(trigger, sessionId)) {
         api.logger.info(
           "openclaw-mem0: skipping recall for non-interactive trigger",
