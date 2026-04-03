@@ -679,10 +679,91 @@ class Memory(MemoryBase):
         try:
             all_texts = [r[1] for r in records]
             all_entities = extract_entities_batch(all_texts)
+
+            # 7a: Global dedup — collect unique entities across all memories
+            global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
             for idx, (memory_id, text, embedding, payload) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
-                    self._upsert_entity(entity_text, entity_type, memory_id, search_filters)
+                    key = entity_text.strip().lower()
+                    if key in global_entities:
+                        global_entities[key][2].add(memory_id)
+                    else:
+                        global_entities[key] = [entity_type, entity_text, {memory_id}]
+
+            if global_entities:
+                ordered_keys = list(global_entities.keys())
+                entity_texts = [global_entities[k][1] for k in ordered_keys]
+
+                # 7b: Single batch embed for all unique entities
+                try:
+                    entity_embeddings = self.embedding_model.embed_batch(entity_texts, "add")
+                except Exception:
+                    # Fallback: embed individually, use None for failures
+                    entity_embeddings = []
+                    for t in entity_texts:
+                        try:
+                            entity_embeddings.append(self.embedding_model.embed(t, "add"))
+                        except Exception:
+                            entity_embeddings.append(None)
+
+                # Filter out entities with failed embeddings
+                valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
+                if valid:
+                    valid_indices, valid_keys = zip(*valid)
+                    valid_vectors = [entity_embeddings[i] for i in valid_indices]
+
+                    # 7c: Batch search for existing entities
+                    valid_texts = [global_entities[k][1] for k in valid_keys]
+                    existing_matches = self.entity_store.search_batch(
+                        queries=valid_texts,
+                        vectors_list=valid_vectors,
+                        limit=1,
+                        filters=search_filters,
+                    )
+
+                    # 7d: Separate into inserts vs updates
+                    to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    for j, key in enumerate(valid_keys):
+                        entity_type, entity_text, memory_ids = global_entities[key]
+                        matches = existing_matches[j] if j < len(existing_matches) else []
+
+                        if matches and matches[0].score >= 0.95:
+                            # Update existing entity
+                            match = matches[0]
+                            payload = match.payload or {}
+                            linked = set(payload.get("linked_memory_ids", []))
+                            linked |= memory_ids
+                            payload["linked_memory_ids"] = sorted(linked)
+                            try:
+                                self.entity_store.update(
+                                    vector_id=match.id,
+                                    vector=None,
+                                    payload=payload,
+                                )
+                            except Exception as e:
+                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
+                        else:
+                            # New entity — collect for batch insert
+                            to_insert_vectors.append(valid_vectors[j])
+                            to_insert_ids.append(str(uuid.uuid4()))
+                            to_insert_payloads.append({
+                                "data": entity_text,
+                                "entity_type": entity_type,
+                                "linked_memory_ids": sorted(memory_ids),
+                                **search_filters,
+                            })
+
+                    # 7e: Single batch insert for all new entities
+                    if to_insert_vectors:
+                        try:
+                            self.entity_store.insert(
+                                vectors=to_insert_vectors,
+                                ids=to_insert_ids,
+                                payloads=to_insert_payloads,
+                            )
+                        except Exception as e:
+                            logger.warning(f"Batch entity insert failed: {e}")
         except Exception as e:
             logger.warning(f"Batch entity linking failed: {e}")
 

@@ -229,6 +229,23 @@ class Qdrant(VectorStoreBase):
         )
         return hits.points
 
+    def search_batch(self, queries: list, vectors_list: list, limit: int = 1, filters: dict = None):
+        """Batch search using Qdrant's query_batch_points for efficiency."""
+        query_filter = self._create_filter(filters) if filters else None
+        requests = [
+            models.QueryRequest(query=vec, filter=query_filter, limit=limit)
+            for vec in vectors_list
+        ]
+        try:
+            results = self.client.query_batch_points(
+                collection_name=self.collection_name,
+                requests=requests,
+            )
+            return [r.points for r in results]
+        except Exception as e:
+            logger.warning(f"Batch search failed, falling back to sequential: {e}")
+            return [self.search(q, v, limit=limit, filters=filters) for q, v in zip(queries, vectors_list)]
+
     def keyword_search(self, query, limit=5, filters=None):
         """
         Search using BM25 sparse vectors for keyword-based retrieval.

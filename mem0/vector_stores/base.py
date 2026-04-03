@@ -73,3 +73,20 @@ class VectorStoreBase(ABC):
             List of search results with id, score, payload, or None if not supported.
         """
         return None
+
+    def search_batch(self, queries: list, vectors_list: list, limit: int = 1, filters: dict = None):
+        """Batch search for multiple queries at once.
+
+        Default implementation calls search() sequentially. Override in subclasses
+        with native batch support (e.g., Qdrant query_batch_points).
+
+        Args:
+            queries: List of query texts.
+            vectors_list: List of query vectors (one per query).
+            limit: Maximum results per query.
+            filters: Optional metadata filters applied to all queries.
+
+        Returns:
+            List of result lists, one per query.
+        """
+        return [self.search(q, v, limit=limit, filters=filters) for q, v in zip(queries, vectors_list)]
