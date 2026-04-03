@@ -454,21 +454,22 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, timestamp)
-            future2 = executor.submit(self._add_to_graph, messages, effective_filters)
-
-            concurrent.futures.wait([future1, future2])
-
-            vector_store_result = future1.result()
-            graph_result = future2.result()
-
         if self.enable_graph:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer, timestamp)
+                future2 = executor.submit(self._add_to_graph, messages, effective_filters)
+
+                concurrent.futures.wait([future1, future2])
+
+                vector_store_result = future1.result()
+                graph_result = future2.result()
+
             return {
                 "results": vector_store_result,
                 "relations": graph_result,
             }
 
+        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, timestamp)
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, timestamp=None):
@@ -1737,19 +1738,20 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_task = asyncio.create_task(
-            self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
-        )
-        graph_task = asyncio.create_task(self._add_to_graph(messages, effective_filters))
-
-        vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
-
         if self.enable_graph:
+            vector_store_task = asyncio.create_task(
+                self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+            )
+            graph_task = asyncio.create_task(self._add_to_graph(messages, effective_filters))
+
+            vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
+
             return {
                 "results": vector_store_result,
                 "relations": graph_result,
             }
 
+        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
