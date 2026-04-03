@@ -1,7 +1,15 @@
 {
   "id": "openclaw-mem0",
+  "name": "Memory (Mem0)",
+  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
   "kind": "memory",
   "skills": ["skills"],
+  "contracts": {
+    "tools": [
+      "memory_search", "memory_store", "memory_get", "memory_list",
+      "memory_update", "memory_delete", "memory_history"
+    ]
+  },
   "uiHints": {
     "mode": {
       "label": "Mode",
@@ -12,6 +20,12 @@
       "sensitive": true,
       "placeholder": "m0-...",
       "help": "API key from app.mem0.ai (or use ${MEM0_API_KEY}). Only needed for platform mode."
+    },
+    "baseUrl": {
+      "label": "API Base URL",
+      "placeholder": "https://api.mem0.ai",
+      "advanced": true,
+      "help": "Override the Mem0 API base URL. Only needed for custom deployments."
     },
     "userId": {
       "label": "Default User ID",
@@ -89,6 +103,9 @@
         ]
       },
       "apiKey": {
+        "type": "string"
+      },
+      "baseUrl": {
         "type": "string"
       },
       "userId": {

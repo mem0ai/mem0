@@ -15,7 +15,7 @@ import * as path from "path";
 
 interface DreamState {
   lastConsolidatedAt: number; // ms since epoch, 0 = never
-  sessionsSince: number;      // interactive sessions since last consolidation
+  sessionsSince: number; // interactive sessions since last consolidation
   lastSessionId: string | null;
 }
 
@@ -53,7 +53,9 @@ function lockPath(stateDir: string): string {
 function ensureDir(dir: string): void {
   try {
     fs.mkdirSync(dir, { recursive: true });
-  } catch { /* exists */ }
+  } catch {
+    /* exists */
+  }
 }
 
 function readState(stateDir: string): DreamState {
@@ -78,7 +80,10 @@ function writeState(stateDir: string, state: DreamState): void {
  * Called from agent_end on every interactive turn.
  * Increments session counter (deduped by sessionId).
  */
-export function incrementSessionCount(stateDir: string, sessionId: string): void {
+export function incrementSessionCount(
+  stateDir: string,
+  sessionId: string,
+): void {
   const state = readState(stateDir);
   if (state.lastSessionId !== sessionId) {
     state.sessionsSince++;
@@ -107,12 +112,18 @@ export function checkCheapGates(
   // Gate 1: Time (one local file read)
   const hoursSince = (Date.now() - state.lastConsolidatedAt) / 3_600_000;
   if (hoursSince < minHours) {
-    return { proceed: false, reason: `time: ${hoursSince.toFixed(1)}h < ${minHours}h` };
+    return {
+      proceed: false,
+      reason: `time: ${hoursSince.toFixed(1)}h < ${minHours}h`,
+    };
   }
 
   // Gate 2: Sessions (same file, already read)
   if (state.sessionsSince < minSessions) {
-    return { proceed: false, reason: `sessions: ${state.sessionsSince} < ${minSessions}` };
+    return {
+      proceed: false,
+      reason: `sessions: ${state.sessionsSince} < ${minSessions}`,
+    };
   }
 
   return { proceed: true };
@@ -153,7 +164,11 @@ export function acquireDreamLock(stateDir: string): boolean {
       return false; // Held and not stale
     }
     // Stale lock — remove it before attempting exclusive create
-    try { fs.unlinkSync(lp); } catch { /* race ok */ }
+    try {
+      fs.unlinkSync(lp);
+    } catch {
+      /* race ok */
+    }
   } catch {
     // No lock file, proceed
   }
@@ -175,7 +190,9 @@ export function acquireDreamLock(stateDir: string): boolean {
 export function releaseDreamLock(stateDir: string): void {
   try {
     fs.unlinkSync(lockPath(stateDir));
-  } catch { /* already gone */ }
+  } catch {
+    /* already gone */
+  }
 }
 
 /**
