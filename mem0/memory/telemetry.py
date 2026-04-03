@@ -1,7 +1,9 @@
+import atexit
 import logging
 import os
 import platform
 import sys
+import threading
 
 from posthog import Posthog
 
@@ -55,20 +57,62 @@ class AnonymousTelemetry:
     def close(self):
         if self.posthog is not None:
             self.posthog.shutdown()
+            self.posthog = None
 
 
+# Thread-safe lazy singleton for OSS telemetry.
+# A single AnonymousTelemetry instance (and its underlying PostHog client /
+# background thread) is reused for the lifetime of the process instead of
+# creating a new one on every capture_event() call.  The singleton is shut down
+# once at process exit via an atexit handler.
+_oss_telemetry_instance = None
+_oss_telemetry_lock = threading.Lock()
+_oss_telemetry_shutting_down = False
+
+
+def _get_oss_telemetry():
+    """Return the process-wide AnonymousTelemetry singleton, creating it on first call.
+
+    Returns None after _shutdown_oss_telemetry() has run (interpreter exit).
+    """
+    global _oss_telemetry_instance
+    if _oss_telemetry_shutting_down:
+        return None
+    if _oss_telemetry_instance is not None:
+        return _oss_telemetry_instance
+
+    with _oss_telemetry_lock:
+        if _oss_telemetry_shutting_down:
+            return None
+        # Double-checked locking
+        if _oss_telemetry_instance is not None:
+            return _oss_telemetry_instance
+        _oss_telemetry_instance = AnonymousTelemetry()
+        atexit.register(_shutdown_oss_telemetry)
+        return _oss_telemetry_instance
+
+
+def _shutdown_oss_telemetry():
+    global _oss_telemetry_instance, _oss_telemetry_shutting_down
+    with _oss_telemetry_lock:
+        _oss_telemetry_shutting_down = True
+        if _oss_telemetry_instance is not None:
+            _oss_telemetry_instance.close()
+            _oss_telemetry_instance = None
+
+
+# Module-level client telemetry singleton (used by capture_client_event).
 client_telemetry = AnonymousTelemetry()
+atexit.register(client_telemetry.close)
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
     if not MEM0_TELEMETRY:
         return
 
-    oss_telemetry = AnonymousTelemetry(
-        vector_store=memory_instance._telemetry_vector_store
-        if hasattr(memory_instance, "_telemetry_vector_store")
-        else None,
-    )
+    oss_telemetry = _get_oss_telemetry()
+    if oss_telemetry is None:
+        return
 
     event_data = {
         "collection": memory_instance.collection_name,
