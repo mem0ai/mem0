@@ -108,6 +108,10 @@ def _email_login(
     The caller expects at minimum an ``api_key`` field.
     """
     url = base_url.rstrip("/")
+    _source_headers = {
+        "X-Mem0-Source": "cli",
+        "X-Mem0-Client-Language": "python",
+    }
 
     with httpx.Client(timeout=30.0) as client:
         # If code is already provided, skip sending — user already has a code
@@ -116,6 +120,7 @@ def _email_login(
             resp = client.post(
                 f"{url}/api/v1/auth/email_code/",
                 json={"email": email},
+                headers=_source_headers,
             )
             if resp.status_code == 429:
                 print_error(err_console, "Too many attempts. Try again in a few minutes.")
@@ -148,6 +153,7 @@ def _email_login(
         resp = client.post(
             f"{url}/api/v1/auth/email_code/verify/",
             json={"email": email, "code": code.strip()},
+            headers=_source_headers,
         )
         if resp.status_code == 429:
             print_error(err_console, "Too many attempts. Try again in a few minutes.")
@@ -229,6 +235,7 @@ def run_init(
             raise typer.Exit(1)
         config.platform.api_key = api_key_val
         config.platform.base_url = base_url
+        config.platform.user_email = email
         config.defaults.user_id = (
             user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
         )
@@ -299,6 +306,7 @@ def run_init(
                 raise typer.Exit(1)
             config.platform.api_key = api_key_val
             config.platform.base_url = base_url
+            config.platform.user_email = email_addr
             config.defaults.user_id = (
                 user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
             )
@@ -384,6 +392,14 @@ def _validate_platform(config: Mem0Config) -> None:
         )
         if status.get("connected"):
             print_success(console, "Connected to mem0 Platform!")
+            # Cache user_email from ping response for telemetry distinct_id
+            try:
+                ping_data = backend.ping()
+                user_email = ping_data.get("user_email") if isinstance(ping_data, dict) else None
+                if user_email:
+                    config.platform.user_email = user_email
+            except Exception:
+                pass
         else:
             print_error(
                 err_console,

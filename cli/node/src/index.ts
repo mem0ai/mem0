@@ -14,6 +14,7 @@ import type { Mem0Config } from "./config.js";
 import { loadConfig } from "./config.js";
 import { richFormatHelp } from "./help.js";
 import { setAgentMode } from "./state.js";
+import { captureEvent } from "./telemetry.js";
 import { CLI_VERSION } from "./version.js";
 
 const program = new Command();
@@ -122,6 +123,26 @@ program
 	.helpOption("--help", "Show this message and exit.")
 	.addHelpCommand(false)
 	.configureHelp({ formatHelp: richFormatHelp });
+
+// ── Telemetry hook ───────────────────────────────────────────────────────
+
+program.hook("preAction", (_thisCommand, actionCommand) => {
+	try {
+		const commandName = actionCommand.name();
+		const parentName = actionCommand.parent?.name();
+		const fullCommand =
+			parentName && parentName !== "mem0"
+				? `${parentName}.${commandName}`
+				: commandName;
+		const isAgent = !!(program.opts().json || program.opts().agent);
+		captureEvent(`cli.${fullCommand}`, {
+			command: fullCommand,
+			is_agent: isAgent,
+		});
+	} catch {
+		/* silently swallow */
+	}
+});
 
 // ── Init ──────────────────────────────────────────────────────────────────
 
