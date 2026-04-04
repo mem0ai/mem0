@@ -1022,6 +1022,15 @@ export function registerCliCommands(
           console.log("");
           console.log(`  Config file: ${OPENCLAW_CONFIG_FILE}`);
           console.log("");
+          console.log("  To change a setting:");
+          console.log("    openclaw mem0 config set <key> <value>");
+          console.log("");
+          console.log("  Examples:");
+          console.log("    openclaw mem0 config set mode open-source");
+          console.log("    openclaw mem0 config set mode platform");
+          console.log("    openclaw mem0 config set auto_recall false");
+          console.log("    openclaw mem0 config set top_k 10");
+          console.log("");
         });
 
       configCmd
