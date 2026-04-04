@@ -89,9 +89,11 @@ describe("registerAllTools", () => {
     const ctx = createMockToolDeps();
     registerAllTools(ctx);
 
+    // Tools are registered as required (single argument — no metadata object).
+    // The name comes from the tool definition itself (call[0]).
     const names = (
       ctx.api.registerTool as ReturnType<typeof vi.fn>
-    ).mock.calls.map((call: unknown[]) => (call[1] as { name: string }).name);
+    ).mock.calls.map((call: unknown[]) => (call[0] as { name: string }).name);
 
     expect(names).toEqual([
       "memory_search",
@@ -102,6 +104,16 @@ describe("registerAllTools", () => {
       "memory_delete",
       "memory_history",
     ]);
+  });
+
+  it("registers tools without a second argument (required, not optional)", () => {
+    const ctx = createMockToolDeps();
+    registerAllTools(ctx);
+
+    const calls = (ctx.api.registerTool as ReturnType<typeof vi.fn>).mock.calls;
+    for (const call of calls) {
+      expect(call).toHaveLength(1);
+    }
   });
 });
 

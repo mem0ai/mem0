@@ -25,11 +25,11 @@ export interface ToolDeps {
 export function registerAllTools(deps: ToolDeps): void {
   const { api } = deps;
 
-  api.registerTool(createMemorySearchTool(deps), { name: "memory_search" });
-  api.registerTool(createMemoryAddTool(deps), { name: "memory_add" });
-  api.registerTool(createMemoryGetTool(deps), { name: "memory_get" });
-  api.registerTool(createMemoryListTool(deps), { name: "memory_list" });
-  api.registerTool(createMemoryUpdateTool(deps), { name: "memory_update" });
-  api.registerTool(createMemoryDeleteTool(deps), { name: "memory_delete" });
-  api.registerTool(createMemoryHistoryTool(deps), { name: "memory_history" });
+  api.registerTool(createMemorySearchTool(deps));
+  api.registerTool(createMemoryAddTool(deps));
+  api.registerTool(createMemoryGetTool(deps));
+  api.registerTool(createMemoryListTool(deps));
+  api.registerTool(createMemoryUpdateTool(deps));
+  api.registerTool(createMemoryDeleteTool(deps));
+  api.registerTool(createMemoryHistoryTool(deps));
 }
