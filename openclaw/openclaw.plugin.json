@@ -6,9 +6,14 @@
   "skills": ["skills"],
   "contracts": {
     "tools": [
-      "memory_search", "memory_store", "memory_get", "memory_list",
+      "memory_search", "memory_add", "memory_get", "memory_list",
       "memory_update", "memory_delete", "memory_history"
     ]
+  },
+  "providerAuthEnvVars": {
+    "mem0": ["MEM0_API_KEY"],
+    "mem0-oss-openai": ["OPENAI_API_KEY"],
+    "mem0-oss-anthropic": ["ANTHROPIC_API_KEY"]
   },
   "uiHints": {
     "mode": {
@@ -19,7 +24,7 @@
       "label": "Mem0 API Key",
       "sensitive": true,
       "placeholder": "m0-...",
-      "help": "API key from app.mem0.ai (or use ${MEM0_API_KEY}). Only needed for platform mode."
+      "help": "Platform mode only. Use a SecretRef ({\"source\":\"env\",\"provider\":\"default\",\"id\":\"MEM0_API_KEY\"}) or ${MEM0_API_KEY} instead of storing the key directly."
     },
     "baseUrl": {
       "label": "API Base URL",
@@ -82,7 +87,7 @@
     "oss": {
       "label": "Open-Source Configuration",
       "advanced": true,
-      "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. Has sensible defaults — only override what you need."
+      "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. For API keys in sub-provider configs, use SecretRef objects or ${VAR} syntax instead of plaintext values."
     },
     "skills": {
       "label": "Agentic Memory Skills",
@@ -98,8 +103,7 @@
         "type": "string",
         "enum": [
           "platform",
-          "open-source",
-          "oss"
+          "open-source"
         ]
       },
       "apiKey": {
@@ -216,12 +220,10 @@
             "type": "object",
             "properties": {
               "enabled": { "type": "boolean" },
-              "schedule": { "type": "string" },
-              "mergeThreshold": { "type": "number" },
-              "maxMemoriesPerUser": { "type": "number" },
-              "preserveImmutable": { "type": "boolean" },
-              "credentialScan": { "type": "boolean" },
-              "expireStaleAfterDays": { "type": "number" }
+              "auto": { "type": "boolean" },
+              "minHours": { "type": "number" },
+              "minSessions": { "type": "number" },
+              "minMemories": { "type": "number" }
             }
           },
           "domain": { "type": "string" },

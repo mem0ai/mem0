@@ -3,8 +3,8 @@ name: memory-triage
 description: >
   ALWAYS USE THIS SKILL. Persistent long-term memory protocol powered by mem0.
   After EVERY response, evaluate the conversation for durable facts worth storing
-  via memory_store. Handles identity, preferences, decisions, configurations, rules,
-  projects, and relationships. Use memory_store (NOT workspace files) for all user facts.
+  via memory_add. Handles identity, preferences, decisions, configurations, rules,
+  projects, and relationships. Use memory_add (NOT workspace files) for all user facts.
   Read this skill at the start of every session.
 user-invocable: false
 metadata:
@@ -108,26 +108,26 @@ Each memory you store must be a **self-contained, independently understandable f
 
 **ALWAYS group all information about the same entity, concept, event, or subject into a SINGLE unified memory.** If multiple pieces of information refer to the same entity (e.g., a conference, a project, a person, a system), they MUST be combined into one comprehensive memory.
 
-**DO NOT split requirements, specifications, or details about the same entity across multiple memory_store calls.** Even if information is phrased differently ("Budget for X", "X requires Y", "X needs Z"), if they all refer to the same entity, combine ALL into ONE call.
+**DO NOT split requirements, specifications, or details about the same entity across multiple memory_add calls.** Even if information is phrased differently ("Budget for X", "X requires Y", "X needs Z"), if they all refer to the same entity, combine ALL into ONE call.
 
 **WRONG** — fragmented into separate facts:
 ```
-memory_store(facts: ["Conference requires at least 4 breakout rooms", "Conference requires vegan options", "Conference requires parking"], category: "project")
+memory_add(facts: ["Conference requires at least 4 breakout rooms", "Conference requires vegan options", "Conference requires parking"], category: "project")
 ```
 
 **CORRECT** — grouped into one self-contained fact:
 ```
-memory_store(facts: ["Conference requires at least 4 breakout rooms for 30-40 people each, robust vegan and vegetarian options with allergen-free alternatives, parking for at least 100 vehicles, venue within walking distance of transit"], category: "project")
+memory_add(facts: ["Conference requires at least 4 breakout rooms for 30-40 people each, robust vegan and vegetarian options with allergen-free alternatives, parking for at least 100 vehicles, venue within walking distance of transit"], category: "project")
 ```
 
 **WRONG** — same entity split into separate facts:
 ```
-memory_store(facts: ["Budget is $150-175 per person for TechForward event", "TechForward event requires strong WiFi", "TechForward event requires hybrid capabilities"], category: "project")
+memory_add(facts: ["Budget is $150-175 per person for TechForward event", "TechForward event requires strong WiFi", "TechForward event requires hybrid capabilities"], category: "project")
 ```
 
 **CORRECT** — combined into one fact about TechForward:
 ```
-memory_store(facts: ["TechForward event has a budget of $150-175 per person per day including venue rental, standard AV setup, and catering. Requires strong WiFi and hybrid event capabilities for remote attendees."], category: "project")
+memory_add(facts: ["TechForward event has a budget of $150-175 per person per day including venue rental, standard AV setup, and catering. Requires strong WiFi and hybrid event capabilities for remote attendees."], category: "project")
 ```
 
 **Only create separate memories when information refers to genuinely different entities, concepts, or unrelated topics** (e.g., "TechForward event" vs "Marketing campaign" are separate).
@@ -151,10 +151,10 @@ Do not store characterizations from assistant messages (e.g., "user seems excite
 
 ## How to Store
 
-Use `memory_store` with the `facts` array. All facts in one call MUST share the same category because category determines retention policy (TTL, immutability).
+Use `memory_add` with the `facts` array. All facts in one call MUST share the same category because category determines retention policy (TTL, immutability).
 
 ```
-memory_store(
+memory_add(
   facts: ["fact one in third person", "fact two in third person"],
   category: "identity"
 )
@@ -163,8 +163,8 @@ memory_store(
 If a turn produces facts in different categories, make one call per category:
 
 ```
-memory_store(facts: ["User is Alex, senior engineer at Stripe, PST timezone"], category: "identity")
-memory_store(facts: ["As of 2026-04-01, user decided to migrate from Postgres to CockroachDB"], category: "decision")
+memory_add(facts: ["User is Alex, senior engineer at Stripe, PST timezone"], category: "identity")
+memory_add(facts: ["As of 2026-04-01, user decided to migrate from Postgres to CockroachDB"], category: "decision")
 ```
 
 Categories: `identity`, `configuration`, `rule`, `preference`, `decision`, `technical`, `relationship`, `project`
@@ -197,8 +197,8 @@ Categories: `identity`, `configuration`, `rule`, `preference`, `decision`, `tech
 
 When a recalled memory needs updating (fact changed, status changed, new detail added):
 1. `memory_search` to find the existing memory
-2. `memory_forget` on the old memory's ID
-3. `memory_store` with the corrected/expanded fact
+2. `memory_delete` on the old memory's ID
+3. `memory_add` with the corrected/expanded fact
 
 **Choose the MORE COMPLETE version.** When both old and new have unique context, COMBINE them into a unified memory using the user's stated words.
 
@@ -240,7 +240,7 @@ When a recalled memory needs updating (fact changed, status changed, new detail 
 ```
 User: "I set up the research agent on Claude Sonnet with a 30-min cron. It checks HackerNews and sends summaries to #research-feed in Slack."
 Agent: [responds helpfully]
-→ memory_store(facts: ["User's research agent runs on Claude Sonnet, cron every 30 minutes, monitors HackerNews and posts summaries to Slack #research-feed"], category: "configuration")
+→ memory_add(facts: ["User's research agent runs on Claude Sonnet, cron every 30 minutes, monitors HackerNews and posts summaries to Slack #research-feed"], category: "configuration")
 ```
 
 ### Example 2: NOOP — tool output
@@ -260,7 +260,7 @@ User: "Hey Chris here again"
 ### Example 4: Rule with rationale (preserving user's words)
 ```
 User: "Never use Docker for local dev, it ate 40GB of disk last time and my Mac mini only has 256GB"
-→ memory_store(facts: ["User rule: avoid Docker for local dev. Reason: ate 40GB of disk on 256GB Mac mini"], category: "rule")
+→ memory_add(facts: ["User rule: avoid Docker for local dev. Reason: ate 40GB of disk on 256GB Mac mini"], category: "rule")
 ```
 
 ### Example 5: UPDATE — combining contexts from both versions
@@ -268,22 +268,22 @@ User: "Never use Docker for local dev, it ate 40GB of disk last time and my Mac 
 Recalled: ["As of 2026-03-15, user is planning trip to Paris in September with friend Jack"]
 User: "Can't wait for the Paris trip, definitely want to hit the Eiffel Tower and try authentic French pastries"
 → memory_search("Paris trip planning")
-→ memory_forget("mem-id-of-old")
-→ memory_store(facts: ["As of 2026-03-30, user is planning trip to Paris in September 2025 with friend Jack, says they can't wait to visit the Eiffel Tower and try authentic French pastries"], category: "project")
+→ memory_delete(memoryId: "mem-id-of-old")
+→ memory_add(facts: ["As of 2026-03-30, user is planning trip to Paris in September 2025 with friend Jack, says they can't wait to visit the Eiffel Tower and try authentic French pastries"], category: "project")
 ```
 
 ### Example 6: Outcome over intent
 ```
 User: "Update the call scripts sheet with the new truth-based templates"
 Agent: [updates the sheet successfully]
-→ memory_store(facts: ["Call scripts sheet (ID: 146Qbb...) was updated with truth-based templates (as of 2026-03-30)"], category: "configuration")
+→ memory_add(facts: ["Call scripts sheet (ID: 146Qbb...) was updated with truth-based templates (as of 2026-03-30)"], category: "configuration")
 ```
 
 ### Example 7: Credential — store the fact, not the value
 ```
 User: "Use this API key for the new service: sk-proj-abc123def456"
 Agent: [configures the service]
-→ memory_store(facts: ["API key was configured for the new service (as of 2026-03-30)"], category: "configuration")
+→ memory_add(facts: ["API key was configured for the new service (as of 2026-03-30)"], category: "configuration")
 ```
 
 ### Example 8: NOOP — cosmetic difference, not material
@@ -296,7 +296,7 @@ User: "Yeah me and Poppy love our daily walks"
 ### Example 9: Entity grouping — single call, not fragmented
 ```
 User: "The budget for the offsite is $200 per head. We need a venue with WiFi, parking for 50 cars, and a projector."
-→ memory_store(facts: ["Team offsite budget is $200 per person. Venue requirements: WiFi, parking for 50 vehicles, and projector setup."], category: "project")
+→ memory_add(facts: ["Team offsite budget is $200 per person. Venue requirements: WiFi, parking for 50 vehicles, and projector setup."], category: "project")
 All details about the same entity (offsite) go in one fact, one call.
 ```
 
@@ -304,15 +304,15 @@ All details about the same entity (offsite) go in one fact, one call.
 ```
 Recalled: ["User enjoys hiking on weekends and finds it therapeutic"]
 User: "I hurt my knee last week, can't hike for a while"
-→ memory_store(facts: ["As of 2026-03-30, user has temporarily paused hiking due to knee injury"], category: "project")
+→ memory_add(facts: ["As of 2026-03-30, user has temporarily paused hiking due to knee injury"], category: "project")
 DO NOT delete the hiking preference. It is temporarily paused, not contradicted.
 ```
 
 ### Example 11: Mixed categories in one turn — separate calls
 ```
 User: "I'm Sarah, I work at Cloudflare. I just decided to switch our monitoring from Datadog to Grafana because of cost."
-→ memory_store(facts: ["User is Sarah, works at Cloudflare"], category: "identity")
-→ memory_store(facts: ["As of 2026-03-30, user decided to switch monitoring from Datadog to Grafana due to cost"], category: "decision")
+→ memory_add(facts: ["User is Sarah, works at Cloudflare"], category: "identity")
+→ memory_add(facts: ["As of 2026-03-30, user decided to switch monitoring from Datadog to Grafana due to cost"], category: "decision")
 Two calls because identity and decision have different retention policies.
 ```
 
@@ -328,8 +328,8 @@ Agent: "Hello! How can I help?"
 Recalled: ["User has a dog", "Dog's name is Poppy", "User walks dog daily"]
 User: "Poppy learned fetch! Our walks are even better now, honestly it's the best part of my day"
 → memory_search("dog Poppy walks") → find all three old memory IDs
-→ memory_forget(id-1), memory_forget(id-2), memory_forget(id-3)
-→ memory_store(facts: ["User has a dog named Poppy and says taking him for walks is the best part of their day. Poppy recently learned fetch, making walks more enjoyable."], category: "preference")
+→ memory_delete(memoryId: "id-1"), memory_delete(memoryId: "id-2"), memory_delete(memoryId: "id-3")
+→ memory_add(facts: ["User has a dog named Poppy and says taking him for walks is the best part of their day. Poppy recently learned fetch, making walks more enjoyable."], category: "preference")
 ```
 
 ### Example 12: NOOP — generic greeting, nothing to store

@@ -1,43 +1,26 @@
 /**
- * Configuration parsing, env var resolution, and default instructions/categories.
+ * Configuration parsing and default instructions/categories.
+ *
+ * NOTE: This module must NOT import from `node:fs` or `node:fs/promises`.
+ * All filesystem operations are centralized in fs-safe.ts.
  */
 
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { homedir, userInfo } from "node:os";
+import { userInfo } from "node:os";
 import type { Mem0Config, Mem0Mode } from "./types.ts";
 
-// NOTE: No process.env access in this module. OpenClaw resolves ${VAR}
-// syntax in openclaw.json before passing pluginConfig to register().
-// Plugin-side env var resolution was removed to clear OpenClaw's
-// security scanner warning ("credential harvesting" pattern).
+// NOTE: The gateway resolves ${VAR} syntax in openclaw.json before passing
+// pluginConfig to register(). No plugin-side variable resolution needed.
 
 // ============================================================================
-// Login config fallback — reads ~/.mem0/config.json (shared with CLI)
+// Login config fallback type — read from openclaw.json plugin section
 // ============================================================================
 
-function readMem0ConfigFile(): {
+/** Shape accepted by parse() for the openclaw.json plugin auth fallback. */
+export interface FileConfig {
   apiKey?: string;
   baseUrl?: string;
   orgId?: string;
   projectId?: string;
-} {
-  try {
-    const configPath = join(homedir(), ".mem0", "config.json");
-    if (!existsSync(configPath)) return {};
-    const raw = JSON.parse(readFileSync(configPath, "utf-8"));
-    const p = raw?.platform;
-    if (!p) return {};
-    return {
-      // Support both camelCase (our login) and snake_case (Python CLI)
-      apiKey: p.apiKey || p.api_key || undefined,
-      baseUrl: p.baseUrl || p.base_url || undefined,
-      orgId: p.orgId || p.org_id || undefined,
-      projectId: p.projectId || p.project_id || undefined,
-    };
-  } catch {
-    return {};
-  }
 }
 
 // ============================================================================
@@ -193,20 +176,18 @@ function assertAllowedKeys(
 }
 
 export const mem0ConfigSchema = {
-  parse(value: unknown): Mem0Config {
+  parse(value: unknown, fileConfig?: FileConfig): Mem0Config {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       throw new Error("openclaw-mem0 config required");
     }
     const cfg = value as Record<string, unknown>;
     assertAllowedKeys(cfg, ALLOWED_KEYS, "openclaw-mem0 config");
 
-    // Accept both "open-source" and legacy "oss" as open-source mode; everything else is platform
+    // Only two modes: "platform" (default) or "open-source"
     const mode: Mem0Mode =
-      cfg.mode === "oss" || cfg.mode === "open-source"
-        ? "open-source"
-        : "platform";
+      cfg.mode === "open-source" ? "open-source" : "platform";
 
-    // Resolve API key: pluginConfig → ~/.mem0/config.json fallback
+    // Resolve API key: pluginConfig → fileConfig fallback (from openclaw.json plugin section)
     let resolvedApiKey =
       typeof cfg.apiKey === "string" ? cfg.apiKey : undefined;
     let resolvedBaseUrl =
@@ -214,8 +195,7 @@ export const mem0ConfigSchema = {
     let resolvedOrgId = typeof cfg.orgId === "string" ? cfg.orgId : undefined;
     let resolvedProjectId =
       typeof cfg.projectId === "string" ? cfg.projectId : undefined;
-    if (mode === "platform" && !resolvedApiKey) {
-      const fileConfig = readMem0ConfigFile();
+    if (mode === "platform" && !resolvedApiKey && fileConfig) {
       if (fileConfig.apiKey) resolvedApiKey = fileConfig.apiKey;
       if (fileConfig.baseUrl) resolvedBaseUrl = fileConfig.baseUrl;
       if (!resolvedOrgId && fileConfig.orgId) resolvedOrgId = fileConfig.orgId;
@@ -227,7 +207,7 @@ export const mem0ConfigSchema = {
     // The plugin should register successfully and log a setup message.
     const needsSetup = mode === "platform" && !resolvedApiKey;
 
-    // OpenClaw resolves ${VAR} in pluginConfig before register() — no plugin-side expansion needed
+    // OpenClaw resolves ${VAR} in openclaw.json before register() — no plugin-side expansion needed
     let ossConfig: Mem0Config["oss"];
     if (cfg.oss && typeof cfg.oss === "object" && !Array.isArray(cfg.oss)) {
       ossConfig = cfg.oss as Mem0Config["oss"];

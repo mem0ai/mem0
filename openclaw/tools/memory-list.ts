@@ -1,183 +1,64 @@
-/**
- * memory_list tool — extracted from index.ts registerTools().
- *
- * Lists all stored memories for a user or agent. Supports scope filtering
- * (session/long-term/all), deduplication, and CLI-parity parameters for
- * pagination, category filtering, date ranges, and graph support.
- */
-
 import { Type } from "@sinclair/typebox";
-import type { Mem0Config, Mem0Provider, MemoryItem } from "../types.ts";
+import type { MemoryItem } from "../types.ts";
+import type { ToolDeps } from "./index.ts";
 
-import type { ListOptions } from "../types.ts";
-import type { ToolContext } from "./index.ts";
-
-// ---------------------------------------------------------------------------
-// Tool factory
-// ---------------------------------------------------------------------------
-
-/**
- * Creates the `memory_list` tool config object suitable for
- * `api.registerTool(config, { name })`.
- */
-export function createMemoryListTool(ctx: ToolContext) {
-  const { provider, resolveUserId, getCurrentSessionId } = ctx;
+export function createMemoryListTool(deps: ToolDeps) {
+  const { provider, resolveUserId, getCurrentSessionId } = deps;
 
   return {
     name: "memory_list",
     label: "Memory List",
-    description:
-      "List all stored memories for a user or agent. Use this when you want to see everything that's been remembered, rather than searching for something specific.",
+    description: "List all stored memories for a user or agent.",
     parameters: Type.Object({
-      userId: Type.Optional(
-        Type.String({
-          description:
-            "User ID to list memories for (default: configured userId)",
-        }),
-      ),
-      agentId: Type.Optional(
-        Type.String({
-          description:
-            'Agent ID to list memories for a specific agent (e.g. "researcher"). Overrides userId.',
-        }),
-      ),
+      userId: Type.Optional(Type.String({ description: "User ID (default: configured)" })),
+      agentId: Type.Optional(Type.String({ description: "Agent ID namespace" })),
       scope: Type.Optional(
-        Type.Union(
-          [
-            Type.Literal("session"),
-            Type.Literal("long-term"),
-            Type.Literal("all"),
-          ],
-          {
-            description:
-              'Memory scope: "session" (current session only), "long-term" (user-scoped only), or "all" (both). Default: "all"',
-          },
-        ),
-      ),
-      // --- NEW CLI-parity parameters ---
-      page: Type.Optional(
-        Type.Number({ description: "Page number (default: 1)" }),
-      ),
-      pageSize: Type.Optional(
-        Type.Number({ description: "Results per page (default: 100)" }),
-      ),
-      category: Type.Optional(
-        Type.String({ description: "Filter by category" }),
-      ),
-      after: Type.Optional(
-        Type.String({ description: "Created after date (YYYY-MM-DD)" }),
-      ),
-      before: Type.Optional(
-        Type.String({ description: "Created before date (YYYY-MM-DD)" }),
-      ),
-      enableGraph: Type.Optional(
-        Type.Boolean({ description: "Enable graph in listing" }),
+        Type.Union([Type.Literal("session"), Type.Literal("long-term"), Type.Literal("all")], {
+          description: 'Scope: "all" (default), "session", or "long-term"',
+        }),
       ),
     }),
 
     async execute(_toolCallId: string, params: Record<string, unknown>) {
-      const {
-        userId,
-        agentId,
-        scope = "all",
-        // New CLI-parity params
-        page,
-        pageSize,
-        category,
-        after,
-        before,
-        enableGraph,
-      } = params as {
-        userId?: string;
-        agentId?: string;
-        scope?: "session" | "long-term" | "all";
-        page?: number;
-        pageSize?: number;
-        category?: string;
-        after?: string;
-        before?: string;
-        enableGraph?: boolean;
+      const { userId, agentId, scope = "all" } = params as {
+        userId?: string; agentId?: string; scope?: "session" | "long-term" | "all";
       };
 
+      const start = Date.now();
       try {
         let memories: MemoryItem[] = [];
         const uid = resolveUserId({ agentId, userId });
         const currentSessionId = getCurrentSessionId();
 
-        // Build base options for getAll, incorporating new CLI-parity params
-        const buildGetAllOpts = (extra?: { run_id?: string }): ListOptions => {
-          const opts: Record<string, unknown> = {
-            user_id: uid,
-            source: "OPENCLAW",
-          };
-          if (extra?.run_id) opts.run_id = extra.run_id;
-          if (pageSize !== undefined) opts.page_size = pageSize;
-          if (page !== undefined) opts.page = page;
-          if (category !== undefined) opts.category = category;
-          if (after !== undefined) opts.after = after;
-          if (before !== undefined) opts.before = before;
-          if (enableGraph !== undefined) opts.enable_graph = enableGraph;
-          return opts as unknown as ListOptions;
-        };
-
         if (scope === "session") {
-          if (currentSessionId) {
-            memories = await provider!.getAll(
-              buildGetAllOpts({ run_id: currentSessionId }),
-            );
-          }
+          if (currentSessionId) memories = await provider.getAll({ user_id: uid, run_id: currentSessionId, source: "OPENCLAW" });
         } else if (scope === "long-term") {
-          memories = await provider!.getAll(buildGetAllOpts());
+          memories = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
         } else {
-          // "all" — combine both scopes
-          const longTerm = await provider!.getAll(buildGetAllOpts());
+          const longTerm = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
           let session: MemoryItem[] = [];
-          if (currentSessionId) {
-            session = await provider!.getAll(
-              buildGetAllOpts({ run_id: currentSessionId }),
-            );
-          }
+          if (currentSessionId) session = await provider.getAll({ user_id: uid, run_id: currentSessionId, source: "OPENCLAW" });
           const seen = new Set(longTerm.map((r) => r.id));
           memories = [...longTerm, ...session.filter((r) => !seen.has(r.id))];
         }
 
+        deps.captureToolEvent("memory_list", { success: true, latency_ms: Date.now() - start, result_count: memories.length });
+
         if (!memories || memories.length === 0) {
-          return {
-            content: [{ type: "text", text: "No memories stored yet." }],
-            details: { count: 0 },
-          };
+          return { content: [{ type: "text", text: "No memories stored yet." }], details: { count: 0 } };
         }
 
-        const text = memories
-          .map((r, i) => `${i + 1}. ${r.memory} (id: ${r.id})`)
-          .join("\n");
-
-        const sanitized = memories.map((r) => ({
-          id: r.id,
-          memory: r.memory,
-          categories: r.categories,
-          created_at: r.created_at,
-        }));
-
+        const text = memories.map((r, i) => `${i + 1}. ${r.memory} (id: ${r.id})`).join("\n");
         return {
-          content: [
-            {
-              type: "text",
-              text: `${memories.length} memories:\n\n${text}`,
-            },
-          ],
-          details: { count: memories.length, memories: sanitized },
+          content: [{ type: "text", text: `${memories.length} memories:\n\n${text}` }],
+          details: {
+            count: memories.length,
+            memories: memories.map((r) => ({ id: r.id, memory: r.memory, categories: r.categories, created_at: r.created_at })),
+          },
         };
       } catch (err) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Memory list failed: ${String(err)}`,
-            },
-          ],
-          details: { error: String(err) },
-        };
+        deps.captureToolEvent("memory_list", { success: false, latency_ms: Date.now() - start, error: String(err) });
+        return { content: [{ type: "text", text: `Memory list failed: ${String(err)}` }], details: { error: String(err) } };
       }
     },
   };

@@ -48,7 +48,7 @@ Execute the actions identified in Phase 2. Work in this priority order:
 
 ### 3a. Delete dangerous and expired entries
 
-Delete immediately using `memory_forget`:
+Delete immediately using `memory_delete`:
 - Credentials, API keys, tokens, passwords, secrets (patterns: sk-, m0-, ghp_, AKIA, Bearer, password=, token=, secret=)
 - Pure timestamps with no context
 - Raw tool output stored as memory
@@ -62,7 +62,7 @@ Delete immediately using `memory_forget`:
 When two or more memories express the same fact:
 1. Pick the most complete version as the base
 2. Call `memory_update` on the best version to incorporate missing details from the others
-3. Call `memory_forget` on the redundant entries
+3. Call `memory_delete` on the redundant entries
 
 `memory_update` is preferred over forget-then-store because it is atomic and preserves edit history.
 

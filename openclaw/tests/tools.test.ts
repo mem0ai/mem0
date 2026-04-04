@@ -7,29 +7,25 @@
  */
 import { describe, it, expect, vi } from "vitest";
 
-import type { ToolContext } from "../tools/index.ts";
+import type { ToolDeps } from "../tools/index.ts";
 import { registerAllTools } from "../tools/index.ts";
 import { createMemorySearchTool } from "../tools/memory-search.ts";
-import { createMemoryStoreTool } from "../tools/memory-store.ts";
+import { createMemoryAddTool } from "../tools/memory-add.ts";
 import { createMemoryGetTool } from "../tools/memory-get.ts";
 import { createMemoryDeleteTool } from "../tools/memory-delete.ts";
 import { createMemoryListTool } from "../tools/memory-list.ts";
+import { createMemoryUpdateTool } from "../tools/memory-update.ts";
+import { createMemoryHistoryTool } from "../tools/memory-history.ts";
 
 // ---------------------------------------------------------------------------
 // Mock helper
 // ---------------------------------------------------------------------------
 
-function createMockToolContext(overrides = {}): ToolContext {
+function createMockToolDeps(overrides = {}): ToolDeps {
   return {
     api: {
       registerTool: vi.fn(),
       logger: { info: vi.fn(), warn: vi.fn() },
-    } as any,
-    backend: {
-      get: vi.fn().mockResolvedValue({ id: "test-id", memory: "test memory" }),
-      delete: vi.fn().mockResolvedValue(undefined),
-      status: vi.fn().mockResolvedValue({ connected: true }),
-      deleteEntities: vi.fn().mockResolvedValue(undefined),
     } as any,
     cfg: {
       mode: "platform",
@@ -68,6 +64,7 @@ function createMockToolContext(overrides = {}): ToolContext {
     agentUserId: vi.fn().mockReturnValue("testuser:agent:test"),
     getCurrentSessionId: vi.fn().mockReturnValue(undefined),
     skillsActive: false,
+    captureToolEvent: vi.fn(),
     buildAddOptions: vi
       .fn()
       .mockReturnValue({ user_id: "testuser", source: "OPENCLAW" }),
@@ -84,28 +81,40 @@ function createMockToolContext(overrides = {}): ToolContext {
 
 describe("registerAllTools", () => {
   it("calls api.registerTool exactly 7 times", () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     registerAllTools(ctx);
     expect(ctx.api.registerTool).toHaveBeenCalledTimes(7);
   });
 
   it("registers tools with the correct names", () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     registerAllTools(ctx);
 
+    // Tools are registered as required (single argument — no metadata object).
+    // The name comes from the tool definition itself (call[0]).
     const names = (
       ctx.api.registerTool as ReturnType<typeof vi.fn>
-    ).mock.calls.map((call: unknown[]) => (call[1] as { name: string }).name);
+    ).mock.calls.map((call: unknown[]) => (call[0] as { name: string }).name);
 
     expect(names).toEqual([
       "memory_search",
-      "memory_store",
+      "memory_add",
       "memory_get",
       "memory_list",
       "memory_update",
       "memory_delete",
       "memory_history",
     ]);
+  });
+
+  it("registers tools without a second argument (required, not optional)", () => {
+    const ctx = createMockToolDeps();
+    registerAllTools(ctx);
+
+    const calls = (ctx.api.registerTool as ReturnType<typeof vi.fn>).mock.calls;
+    for (const call of calls) {
+      expect(call).toHaveLength(1);
+    }
   });
 });
 
@@ -116,7 +125,7 @@ describe("registerAllTools", () => {
 describe("tool factory shape", () => {
   const factories = [
     { fn: createMemorySearchTool, expectedName: "memory_search" },
-    { fn: createMemoryStoreTool, expectedName: "memory_store" },
+    { fn: createMemoryAddTool, expectedName: "memory_add" },
     { fn: createMemoryGetTool, expectedName: "memory_get" },
     { fn: createMemoryDeleteTool, expectedName: "memory_delete" },
     { fn: createMemoryListTool, expectedName: "memory_list" },
@@ -125,7 +134,7 @@ describe("tool factory shape", () => {
   for (const { fn, expectedName } of factories) {
     describe(expectedName, () => {
       it("returns an object with name, label, description, parameters, and execute", () => {
-        const ctx = createMockToolContext();
+        const ctx = createMockToolDeps();
         const tool = fn(ctx);
 
         expect(tool.name).toBe(expectedName);
@@ -146,7 +155,7 @@ describe("tool factory shape", () => {
 
 describe("memory_search execute", () => {
   it("returns formatted results when provider returns matches", async () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     const tool = createMemorySearchTool(ctx);
 
     const result = await tool.execute("call-1", {
@@ -163,7 +172,7 @@ describe("memory_search execute", () => {
   });
 
   it("returns 'no relevant memories' when provider returns empty", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn().mockResolvedValue([]),
         add: vi.fn(),
@@ -183,7 +192,7 @@ describe("memory_search execute", () => {
   });
 
   it("handles errors gracefully", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn().mockRejectedValue(new Error("network failure")),
         add: vi.fn(),
@@ -204,7 +213,7 @@ describe("memory_search execute", () => {
   });
 
   it("calls resolveUserId with provided agentId and userId", async () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     const tool = createMemorySearchTool(ctx);
 
     await tool.execute("call-4", {
@@ -220,7 +229,7 @@ describe("memory_search execute", () => {
   });
 
   it("passes limit to buildSearchOptions", async () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     const tool = createMemorySearchTool(ctx);
 
     await tool.execute("call-5", { query: "test", limit: 10 });
@@ -232,7 +241,7 @@ describe("memory_search execute", () => {
     const searchMock = vi
       .fn()
       .mockResolvedValue([{ id: "s1", memory: "session mem", score: 0.8 }]);
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       getCurrentSessionId: vi.fn().mockReturnValue("session-abc"),
       provider: {
         search: searchMock,
@@ -273,7 +282,7 @@ describe("memory_search execute", () => {
         { id: "m2", memory: "session only", score: 0.7 },
       ]);
 
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       getCurrentSessionId: vi.fn().mockReturnValue("session-xyz"),
       provider: {
         search: searchMock,
@@ -300,13 +309,13 @@ describe("memory_search execute", () => {
 });
 
 // ---------------------------------------------------------------------------
-// memory_store execute
+// memory_add execute
 // ---------------------------------------------------------------------------
 
-describe("memory_store execute", () => {
+describe("memory_add execute", () => {
   it("calls provider.add with the text and returns stored result", async () => {
-    const ctx = createMockToolContext();
-    const tool = createMemoryStoreTool(ctx);
+    const ctx = createMockToolDeps();
+    const tool = createMemoryAddTool(ctx);
 
     const result = await tool.execute("call-1", {
       text: "User prefers dark mode",
@@ -323,8 +332,8 @@ describe("memory_store execute", () => {
   });
 
   it("returns error when no text or facts are provided", async () => {
-    const ctx = createMockToolContext();
-    const tool = createMemoryStoreTool(ctx);
+    const ctx = createMockToolDeps();
+    const tool = createMemoryAddTool(ctx);
 
     const result = await tool.execute("call-2", {});
 
@@ -333,8 +342,8 @@ describe("memory_store execute", () => {
   });
 
   it("supports facts array", async () => {
-    const ctx = createMockToolContext();
-    const tool = createMemoryStoreTool(ctx);
+    const ctx = createMockToolDeps();
+    const tool = createMemoryAddTool(ctx);
 
     const result = await tool.execute("call-3", {
       facts: ["fact one", "fact two"],
@@ -350,7 +359,7 @@ describe("memory_store execute", () => {
   });
 
   it("handles errors gracefully", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn().mockResolvedValue([]),
         add: vi.fn().mockRejectedValue(new Error("API error")),
@@ -361,11 +370,11 @@ describe("memory_store execute", () => {
         history: vi.fn(),
       },
     });
-    const tool = createMemoryStoreTool(ctx);
+    const tool = createMemoryAddTool(ctx);
 
     const result = await tool.execute("call-4", { text: "test" });
 
-    expect(result.content[0].text).toContain("Memory store failed");
+    expect(result.content[0].text).toContain("Memory add failed");
     expect(result.details.error).toContain("API error");
   });
 
@@ -373,7 +382,7 @@ describe("memory_store execute", () => {
     const addMock = vi.fn().mockResolvedValue({
       results: [{ event: "ADD", memory: "stored in skills mode" }],
     });
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       skillsActive: true,
       provider: {
         search: vi.fn().mockResolvedValue([]),
@@ -385,7 +394,7 @@ describe("memory_store execute", () => {
         history: vi.fn(),
       },
     });
-    const tool = createMemoryStoreTool(ctx);
+    const tool = createMemoryAddTool(ctx);
 
     const result = await tool.execute("call-5", {
       text: "skills fact",
@@ -395,18 +404,17 @@ describe("memory_store execute", () => {
     expect(addMock).toHaveBeenCalledOnce();
     const addOpts = addMock.mock.calls[0][1];
     expect(addOpts.infer).toBe(false);
-    expect(addOpts.source).toBe("OPENCLAW");
     expect(result.details.mode).toBe("skills");
     expect(result.details.category).toBe("preference");
   });
 
   it("blocks subagent sessions from storing", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       getCurrentSessionId: vi
         .fn()
         .mockReturnValue("agent:main:subagent:uuid-123"),
     });
-    const tool = createMemoryStoreTool(ctx);
+    const tool = createMemoryAddTool(ctx);
 
     const result = await tool.execute("call-6", { text: "subagent fact" });
 
@@ -419,7 +427,7 @@ describe("memory_store execute", () => {
     const addMock = vi.fn().mockResolvedValue({
       results: [{ event: "ADD", memory: "stored" }],
     });
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       skillsActive: false,
       provider: {
         search: searchMock,
@@ -431,7 +439,7 @@ describe("memory_store execute", () => {
         history: vi.fn(),
       },
     });
-    const tool = createMemoryStoreTool(ctx);
+    const tool = createMemoryAddTool(ctx);
 
     await tool.execute("call-7", { text: "new fact" });
 
@@ -447,7 +455,7 @@ describe("memory_store execute", () => {
 
 describe("memory_get execute", () => {
   it("calls provider.get with the memoryId and returns formatted result", async () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     const tool = createMemoryGetTool(ctx);
 
     const result = await tool.execute("call-1", { memoryId: "test-id" });
@@ -461,7 +469,7 @@ describe("memory_get execute", () => {
   });
 
   it("handles errors gracefully", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn(),
         add: vi.fn(),
@@ -486,11 +494,11 @@ describe("memory_get execute", () => {
 // ---------------------------------------------------------------------------
 
 describe("memory_delete execute", () => {
-  it("deletes by memory_id via provider.delete", async () => {
-    const ctx = createMockToolContext();
+  it("deletes by memoryId via provider.delete", async () => {
+    const ctx = createMockToolDeps();
     const tool = createMemoryDeleteTool(ctx);
 
-    const result = await tool.execute("call-1", { memory_id: "mem-abc" });
+    const result = await tool.execute("call-1", { memoryId: "mem-abc" });
 
     expect(ctx.provider!.delete).toHaveBeenCalledWith("mem-abc");
     expect(result.content[0].text).toBe("Memory mem-abc deleted.");
@@ -503,7 +511,7 @@ describe("memory_delete execute", () => {
       .fn()
       .mockResolvedValue([{ id: "m1", memory: "match", score: 0.95 }]);
     const deleteMock = vi.fn().mockResolvedValue(undefined);
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: searchMock,
         add: vi.fn(),
@@ -532,7 +540,7 @@ describe("memory_delete execute", () => {
       { id: "m2", memory: "candidate two", score: 0.6 },
     ]);
     const deleteMock = vi.fn();
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: searchMock,
         add: vi.fn(),
@@ -557,7 +565,7 @@ describe("memory_delete execute", () => {
   });
 
   it("returns no matching memories when query yields empty results", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn().mockResolvedValue([]),
         add: vi.fn(),
@@ -577,7 +585,7 @@ describe("memory_delete execute", () => {
   });
 
   it("requires confirm:true for bulk delete (all)", async () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     const tool = createMemoryDeleteTool(ctx);
 
     const result = await tool.execute("call-5", { all: true });
@@ -588,7 +596,7 @@ describe("memory_delete execute", () => {
 
   it("performs bulk delete when all:true and confirm:true", async () => {
     const deleteAllMock = vi.fn().mockResolvedValue(undefined);
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn(),
         add: vi.fn(),
@@ -612,59 +620,34 @@ describe("memory_delete execute", () => {
     expect(result.details.action).toBe("deleted_all");
   });
 
-  it("requires confirm:true for entity cascade delete", async () => {
-    const ctx = createMockToolContext();
-    const tool = createMemoryDeleteTool(ctx);
-
-    const result = await tool.execute("call-7", { entity: true });
-
-    expect(result.details.error).toBe("confirmation_required");
-  });
-
-  it("performs entity cascade delete when entity:true and confirm:true", async () => {
-    const ctx = createMockToolContext();
-    const tool = createMemoryDeleteTool(ctx);
-
-    const result = await tool.execute("call-8", {
-      entity: true,
-      confirm: true,
-      user_id: "alice",
-    });
-
-    expect(ctx.backend.deleteEntities).toHaveBeenCalledWith({
-      userId: "alice",
-    });
-    expect(result.details.action).toBe("entity_deleted");
-  });
-
   it("returns error when no mode param is specified", async () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     const tool = createMemoryDeleteTool(ctx);
 
     const result = await tool.execute("call-9", {});
 
     expect(result.content[0].text).toContain(
-      "Provide memory_id, query, all, or entity",
+      "Provide memoryId, query, or all:true",
     );
     expect(result.details.error).toBe("missing_param");
   });
 
   it("blocks subagent sessions from deleting", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       getCurrentSessionId: vi
         .fn()
         .mockReturnValue("agent:main:subagent:uuid-456"),
     });
     const tool = createMemoryDeleteTool(ctx);
 
-    const result = await tool.execute("call-10", { memory_id: "m1" });
+    const result = await tool.execute("call-10", { memoryId: "m1" });
 
     expect(ctx.provider!.delete).not.toHaveBeenCalled();
     expect(result.details.error).toBe("subagent_blocked");
   });
 
   it("handles errors gracefully", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn(),
         add: vi.fn(),
@@ -677,7 +660,7 @@ describe("memory_delete execute", () => {
     });
     const tool = createMemoryDeleteTool(ctx);
 
-    const result = await tool.execute("call-11", { memory_id: "m1" });
+    const result = await tool.execute("call-11", { memoryId: "m1" });
 
     expect(result.content[0].text).toContain("Memory delete failed");
     expect(result.details.error).toContain("delete failed");
@@ -690,7 +673,7 @@ describe("memory_delete execute", () => {
 
 describe("memory_list execute", () => {
   it("calls provider.getAll and returns formatted list", async () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     const tool = createMemoryListTool(ctx);
 
     const result = await tool.execute("call-1", {});
@@ -703,7 +686,7 @@ describe("memory_list execute", () => {
   });
 
   it("returns 'no memories stored' when provider returns empty", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn(),
         add: vi.fn(),
@@ -723,7 +706,7 @@ describe("memory_list execute", () => {
   });
 
   it("handles errors gracefully", async () => {
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       provider: {
         search: vi.fn(),
         add: vi.fn(),
@@ -743,7 +726,7 @@ describe("memory_list execute", () => {
   });
 
   it("resolves userId from agentId", async () => {
-    const ctx = createMockToolContext();
+    const ctx = createMockToolDeps();
     const tool = createMemoryListTool(ctx);
 
     await tool.execute("call-4", { agentId: "researcher" });
@@ -765,7 +748,7 @@ describe("memory_list execute", () => {
         { id: "m2", memory: "session only" },
       ]);
 
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       getCurrentSessionId: vi.fn().mockReturnValue("session-123"),
       provider: {
         search: vi.fn(),
@@ -790,7 +773,7 @@ describe("memory_list execute", () => {
     const getAllMock = vi
       .fn()
       .mockResolvedValue([{ id: "s1", memory: "session mem" }]);
-    const ctx = createMockToolContext({
+    const ctx = createMockToolDeps({
       getCurrentSessionId: vi.fn().mockReturnValue("sess-abc"),
       provider: {
         search: vi.fn(),
@@ -811,5 +794,204 @@ describe("memory_list execute", () => {
     const opts = getAllMock.mock.calls[0][0];
     expect(opts.run_id).toBe("sess-abc");
     expect(result.details.count).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// memory_update execute
+// ---------------------------------------------------------------------------
+
+describe("memory_update execute", () => {
+  it("calls provider.update and returns success", async () => {
+    const ctx = createMockToolDeps();
+    const tool = createMemoryUpdateTool(ctx);
+
+    const result = await tool.execute("call-1", {
+      memoryId: "mem-123",
+      text: "Updated preference",
+    });
+
+    expect(ctx.provider!.update).toHaveBeenCalledWith(
+      "mem-123",
+      "Updated preference",
+    );
+    expect(result.content[0].text).toContain("Updated memory mem-123");
+    expect(result.content[0].text).toContain("Updated preference");
+    expect(result.details.action).toBe("updated");
+    expect(result.details.id).toBe("mem-123");
+  });
+
+  it("truncates long text in response", async () => {
+    const ctx = createMockToolDeps();
+    const tool = createMemoryUpdateTool(ctx);
+
+    const longText = "A".repeat(120);
+    const result = await tool.execute("call-2", {
+      memoryId: "mem-456",
+      text: longText,
+    });
+
+    expect(ctx.provider!.update).toHaveBeenCalledWith("mem-456", longText);
+    // The response text should contain the first 80 chars followed by "..."
+    expect(result.content[0].text).toContain("A".repeat(80) + "...");
+    expect(result.content[0].text).not.toContain("A".repeat(81));
+    expect(result.details.action).toBe("updated");
+  });
+
+  it("blocks subagent sessions", async () => {
+    const ctx = createMockToolDeps({
+      getCurrentSessionId: vi
+        .fn()
+        .mockReturnValue("agent:main:subagent:uuid-789"),
+    });
+    const tool = createMemoryUpdateTool(ctx);
+
+    const result = await tool.execute("call-3", {
+      memoryId: "mem-123",
+      text: "should not update",
+    });
+
+    expect(ctx.provider!.update).not.toHaveBeenCalled();
+    expect(result.content[0].text).toContain(
+      "not available in subagent sessions",
+    );
+    expect(result.details.error).toBe("subagent_blocked");
+  });
+
+  it("handles errors gracefully", async () => {
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn().mockRejectedValue(new Error("update conflict")),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn(),
+      },
+    });
+    const tool = createMemoryUpdateTool(ctx);
+
+    const result = await tool.execute("call-4", {
+      memoryId: "mem-123",
+      text: "new text",
+    });
+
+    expect(result.content[0].text).toContain("Memory update failed");
+    expect(result.content[0].text).toContain("update conflict");
+    expect(result.details.error).toContain("update conflict");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// memory_history execute
+// ---------------------------------------------------------------------------
+
+describe("memory_history execute", () => {
+  it("returns formatted history", async () => {
+    const historyEntries = [
+      {
+        event: "ADD",
+        created_at: "2026-01-01T00:00:00Z",
+        old_memory: null,
+        new_memory: "Initial memory text",
+      },
+      {
+        event: "UPDATE",
+        created_at: "2026-01-02T00:00:00Z",
+        old_memory: "Initial memory text",
+        new_memory: "Updated memory text",
+      },
+    ];
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn().mockResolvedValue(historyEntries),
+      },
+    });
+    const tool = createMemoryHistoryTool(ctx);
+
+    const result = await tool.execute("call-1", { memoryId: "mem-abc" });
+
+    expect(ctx.provider!.history).toHaveBeenCalledWith("mem-abc");
+    expect(result.content[0].text).toContain("History for memory mem-abc");
+    expect(result.content[0].text).toContain("2 entries");
+    expect(result.content[0].text).toContain("[ADD]");
+    expect(result.content[0].text).toContain("[UPDATE]");
+    expect(result.content[0].text).toContain("Initial memory text");
+    expect(result.content[0].text).toContain("Updated memory text");
+    expect(result.content[0].text).toContain("Old: (none)");
+    expect(result.details.count).toBe(2);
+    expect(result.details.history).toEqual(historyEntries);
+  });
+
+  it("handles empty history", async () => {
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn().mockResolvedValue([]),
+      },
+    });
+    const tool = createMemoryHistoryTool(ctx);
+
+    const result = await tool.execute("call-2", { memoryId: "mem-empty" });
+
+    expect(result.content[0].text).toBe(
+      "No history found for memory mem-empty.",
+    );
+    expect(result.details.count).toBe(0);
+  });
+
+  it("handles null history", async () => {
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn().mockResolvedValue(null),
+      },
+    });
+    const tool = createMemoryHistoryTool(ctx);
+
+    const result = await tool.execute("call-3", { memoryId: "mem-null" });
+
+    expect(result.content[0].text).toBe(
+      "No history found for memory mem-null.",
+    );
+    expect(result.details.count).toBe(0);
+  });
+
+  it("handles errors gracefully", async () => {
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn().mockRejectedValue(new Error("history unavailable")),
+      },
+    });
+    const tool = createMemoryHistoryTool(ctx);
+
+    const result = await tool.execute("call-4", { memoryId: "mem-err" });
+
+    expect(result.content[0].text).toContain("Memory history failed");
+    expect(result.content[0].text).toContain("history unavailable");
+    expect(result.details.error).toContain("history unavailable");
   });
 });
