@@ -66,10 +66,10 @@ function createMockToolDeps(overrides = {}): ToolDeps {
     skillsActive: false,
     buildAddOptions: vi
       .fn()
-      .mockReturnValue({ user_id: "testuser", source: "OPENCLAW" }),
+      .mockReturnValue({ user_id: "testuser" }),
     buildSearchOptions: vi
       .fn()
-      .mockReturnValue({ user_id: "testuser", top_k: 5, source: "OPENCLAW" }),
+      .mockReturnValue({ user_id: "testuser", top_k: 5 }),
     ...overrides,
   };
 }
@@ -403,7 +403,6 @@ describe("memory_add execute", () => {
     expect(addMock).toHaveBeenCalledOnce();
     const addOpts = addMock.mock.calls[0][1];
     expect(addOpts.infer).toBe(false);
-    expect(addOpts.source).toBe("OPENCLAW");
     expect(result.details.mode).toBe("skills");
     expect(result.details.category).toBe("preference");
   });

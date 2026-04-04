@@ -30,13 +30,13 @@ export function createMemoryListTool(deps: ToolDeps) {
         const currentSessionId = getCurrentSessionId();
 
         if (scope === "session") {
-          if (currentSessionId) memories = await provider.getAll({ user_id: uid, run_id: currentSessionId, source: "OPENCLAW" });
+          if (currentSessionId) memories = await provider.getAll({ user_id: uid, run_id: currentSessionId });
         } else if (scope === "long-term") {
-          memories = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
+          memories = await provider.getAll({ user_id: uid });
         } else {
-          const longTerm = await provider.getAll({ user_id: uid, source: "OPENCLAW" });
+          const longTerm = await provider.getAll({ user_id: uid });
           let session: MemoryItem[] = [];
-          if (currentSessionId) session = await provider.getAll({ user_id: uid, run_id: currentSessionId, source: "OPENCLAW" });
+          if (currentSessionId) session = await provider.getAll({ user_id: uid, run_id: currentSessionId });
           const seen = new Set(longTerm.map((r) => r.id));
           memories = [...longTerm, ...session.filter((r) => !seen.has(r.id))];
         }

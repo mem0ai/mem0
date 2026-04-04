@@ -82,13 +82,6 @@ export { createProvider } from "./providers.ts";
 // Helpers
 // ============================================================================
 
-/** Convert Record<string, string> categories to the array format mem0ai expects */
-function categoriesToArray(
-  cats: Record<string, string>,
-): Array<Record<string, string>> {
-  return Object.entries(cats).map(([key, value]) => ({ [key]: value }));
-}
-
 // ============================================================================
 // Plugin Definition
 // ============================================================================
@@ -130,7 +123,7 @@ const memoryPlugin = {
         cfg,
         () => cfg.userId,
         (id: string) => `${cfg.userId}:agent:${id}`,
-        () => ({ user_id: cfg.userId, top_k: cfg.topK, source: "OPENCLAW" }),
+        () => ({ user_id: cfg.userId, top_k: cfg.topK }),
         () => undefined,
       );
 
@@ -183,12 +176,9 @@ const memoryPlugin = {
     ): AddOptions {
       const opts: AddOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
-        source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
       if (cfg.mode === "platform") {
-        opts.custom_instructions = cfg.customInstructions;
-        opts.custom_categories = categoriesToArray(cfg.customCategories);
         opts.enable_graph = cfg.enableGraph;
         opts.output_format = "v1.1";
       }
@@ -210,7 +200,6 @@ const memoryPlugin = {
         threshold: recallCfg?.threshold ?? cfg.searchThreshold,
         keyword_search: recallCfg?.keywordSearch !== false,
         reranking: recallCfg?.rerank !== false,
-        source: "OPENCLAW",
       };
       if (recallCfg?.filterMemories) opts.filter_memories = true;
       if (runId) opts.run_id = runId;
@@ -434,7 +423,6 @@ function registerHooks(
             // Cheap gates passed. Now do the expensive memory count check.
             const memories = await provider.getAll({
               user_id: userId,
-              source: "OPENCLAW",
             });
             const memCount = Array.isArray(memories) ? memories.length : 0;
             const memResult = checkMemoryGate(
