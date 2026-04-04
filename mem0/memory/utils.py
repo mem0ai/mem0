@@ -218,6 +218,7 @@ def process_telemetry_filters(filters):
 def sanitize_relationship_for_cypher(relationship) -> str:
     """Sanitize relationship text for Cypher queries by replacing problematic characters."""
     char_map = {
+        "`": "",  # Strip backticks to prevent Cypher injection via backtick-wrapped identifiers
         "...": "_ellipsis_",
         "…": "_ellipsis_",
         "。": "_period_",

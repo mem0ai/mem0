@@ -97,15 +97,41 @@ class ApacheAgeConfig(BaseModel):
         return values
 
 
+class FalkorDBConfig(BaseModel):
+    host: str = Field("localhost", description="Host address for the FalkorDB server")
+    port: int = Field(6379, description="Port for the FalkorDB server")
+    database: str = Field(
+        "mem0",
+        description="Graph name prefix in FalkorDB (each user gets {database}_{user_id})",
+    )
+    username: Optional[str] = Field(None, description="Username for FalkorDB authentication")
+    password: Optional[str] = Field(None, description="Password for FalkorDB authentication")
+    base_label: Optional[bool] = Field(
+        True, description="Whether to use base node label __Entity__ for all entities"
+    )
+
+    @model_validator(mode="after")
+    def check_auth_pair(self):
+        if bool(self.username) != bool(self.password):
+            raise ValueError(
+                "Both 'username' and 'password' must be provided together, or neither."
+            )
+        return self
+
+
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'apache_age')",
+        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'apache_age', 'falkordb')",
         default="neo4j",
     )
-    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, ApacheAgeConfig] = Field(
+    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, ApacheAgeConfig, FalkorDBConfig] = Field(
         description="Configuration for the specific data store", default=None
     )
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
+    fallback_llm: Optional[LlmConfig] = Field(
+        description="Fallback LLM for graph entity/relation extraction when primary LLM returns incomplete results",
+        default=None,
+    )
     custom_prompt: Optional[str] = Field(
         description="Custom prompt to fetch entities from the given text", default=None
     )
@@ -132,5 +158,7 @@ class GraphStoreConfig(BaseModel):
             return KuzuConfig(**v.model_dump())
         elif provider == "apache_age":
             return ApacheAgeConfig(**v.model_dump())
+        elif provider == "falkordb":
+            return FalkorDBConfig(**v.model_dump())
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")
