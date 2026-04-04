@@ -15,6 +15,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("../cli/config-file.ts", () => ({
   readPluginAuth: vi.fn().mockReturnValue({}),
   writePluginAuth: vi.fn(),
+  writePluginConfigField: vi.fn(),
   getBaseUrl: vi.fn().mockReturnValue("https://api.mem0.ai"),
   OPENCLAW_CONFIG_FILE: "/mock/.openclaw/openclaw.json",
 }));
@@ -39,6 +40,7 @@ import { registerCliCommands } from "../cli/commands.ts";
 import {
   readPluginAuth,
   writePluginAuth,
+  writePluginConfigField,
   getBaseUrl,
 } from "../cli/config-file.ts";
 import { loadDreamPrompt } from "../skill-loader.ts";
@@ -283,7 +285,6 @@ describe("registerCliCommands", () => {
       expect(names).toContain("update");
       expect(names).toContain("delete");
       expect(names).toContain("history");
-      expect(names).toContain("stats");
       expect(names).toContain("status");
       expect(names).toContain("config");
       expect(names).toContain("dream");
@@ -316,7 +317,7 @@ describe("registerCliCommands", () => {
 
       await initCmd._action!({ apiKey: "m0-my-key-1234" });
 
-      // saveLoginConfig calls writePluginAuth
+      // saveLoginConfig calls writePluginAuth with the API key
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({
           apiKey: "m0-my-key-1234",
@@ -889,67 +890,6 @@ describe("registerCliCommands", () => {
 
       expect(consoleSpy.error).toHaveBeenCalledWith(
         expect.stringContaining("History failed"),
-      );
-    });
-  });
-
-  // ========================================================================
-  // stats subcommand
-  // ========================================================================
-
-  describe("stats subcommand", () => {
-    it("calls provider.getAll and prints statistics", async () => {
-      const { mem0, provider } = setup();
-      const statsCmd = findCommand(mem0, "stats")!;
-
-      await statsCmd._action!({});
-
-      expect(provider.getAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: "testuser",
-          source: "OPENCLAW",
-        }),
-      );
-      expect(consoleSpy.log).toHaveBeenCalledWith("Mode: platform");
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining("Total memories: 1"),
-      );
-    });
-
-    it("uses --user-id override", async () => {
-      const { mem0, provider } = setup();
-      const statsCmd = findCommand(mem0, "stats")!;
-
-      await statsCmd._action!({ userId: "alice" });
-
-      expect(provider.getAll).toHaveBeenCalledWith(
-        expect.objectContaining({ user_id: "alice" }),
-      );
-    });
-
-    it("uses agentUserId when --agent-id is provided", async () => {
-      const { mem0, provider, agentUserId } = setup();
-      const statsCmd = findCommand(mem0, "stats")!;
-
-      await statsCmd._action!({ agentId: "researcher" });
-
-      expect(agentUserId).toHaveBeenCalledWith("researcher");
-      expect(provider.getAll).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: "testuser:agent:researcher",
-        }),
-      );
-    });
-
-    it("handles stats errors gracefully", async () => {
-      const { mem0, provider } = setup();
-      provider.getAll.mockRejectedValueOnce(new Error("stats boom"));
-      const statsCmd = findCommand(mem0, "stats")!;
-
-      await statsCmd._action!({});
-
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining("Stats failed"),
       );
     });
   });

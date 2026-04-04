@@ -280,7 +280,7 @@ class OSSProvider implements Mem0Provider {
     }
 
     // Force the SDK's internal auto-initialization to complete now.
-    // Without this, concurrent method calls (e.g. auto-recall + stats)
+    // Without this, concurrent method calls (e.g. auto-recall + search)
     // both trigger _autoInitialize() simultaneously, causing PGVector's
     // pg client to call connect() twice → "Client has already been
     // connected" crash. (#4638)

@@ -109,6 +109,33 @@ export function writePluginAuth(auth: PluginAuthConfig): void {
   writeFullConfig(full);
 }
 
+export function writePluginConfigField(
+  path: string[],
+  value: unknown,
+): void {
+  const full = readFullConfig() as any;
+
+  if (!full.plugins) full.plugins = {};
+  if (!full.plugins.entries) full.plugins.entries = {};
+  if (!full.plugins.entries[PLUGIN_ID]) {
+    full.plugins.entries[PLUGIN_ID] = { enabled: true, config: {} };
+  }
+  if (!full.plugins.entries[PLUGIN_ID].config) {
+    full.plugins.entries[PLUGIN_ID].config = {};
+  }
+
+  let target = full.plugins.entries[PLUGIN_ID].config;
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!target[path[i]] || typeof target[path[i]] !== "object") {
+      target[path[i]] = {};
+    }
+    target = target[path[i]];
+  }
+  target[path[path.length - 1]] = value;
+
+  writeFullConfig(full);
+}
+
 /** Get the configured base URL from openclaw.json or default */
 export function getBaseUrl(): string {
   const auth = readPluginAuth();

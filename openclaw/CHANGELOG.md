@@ -10,7 +10,7 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 - **`memory_delete` tool**: Unified delete — single ID, search-then-delete, bulk, entity cascade. Replaces `memory_forget` and `memory_delete_all`
 - **`memory_update` tool**: Update existing memories by ID with new content
 - **`memory_history` tool**: View change history for a specific memory
-- **CLI subcommands**: `openclaw mem0 init`, `openclaw mem0 search`, `openclaw mem0 stats`, `openclaw mem0 status`, `openclaw mem0 dream`, `openclaw mem0 config show`, `openclaw mem0 config set`
+- **CLI subcommands**: `openclaw mem0 init`, `openclaw mem0 search`, `openclaw mem0 status`, `openclaw mem0 dream`, `openclaw mem0 config show`, `openclaw mem0 config set`
 - **Config show help text**: `config show` now displays how to change settings via `config set` with examples
 - **`fs-safe.ts` module**: Isolated filesystem wrappers (sync read/write/exists/mkdir/unlink) in a separate entry point — keeps file I/O out of the main bundle
 - **Plugin manifest**: Added `name`, `description`, `contracts.tools`, `baseUrl` config field, CLI `descriptors` for lazy-loading, `configSchema`, and `uiHints`

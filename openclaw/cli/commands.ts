@@ -14,7 +14,6 @@
  *
  * Management:
  *   - init        : Authenticate with Mem0 Platform (email or API key)
- *   - stats       : Show memory statistics (--agent-id, --user-id)
  *   - status      : Check API connectivity and show current config
  *   - config show : Display current plugin configuration
  *   - config get  : Get a single config value
@@ -40,6 +39,7 @@ import type { PluginAuthConfig } from "./config-file.ts";
 import {
   readPluginAuth,
   writePluginAuth,
+  writePluginConfigField,
   getBaseUrl,
   OPENCLAW_CONFIG_FILE,
 } from "./config-file.ts";
@@ -194,6 +194,17 @@ function saveLoginConfig(
 
   console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
   console.log(`  Mode: platform`);
+  console.log(`  User ID: ${userId}`);
+}
+
+function saveOssConfig(userIdFlag?: string): void {
+  const existingAuth = readPluginAuth();
+  const userId = resolveUserId(userIdFlag, existingAuth.userId);
+
+  writePluginAuth({ userId, mode: "open-source" });
+
+  console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
+  console.log(`  Mode: open-source`);
   console.log(`  User ID: ${userId}`);
 }
 
@@ -387,11 +398,12 @@ export function registerCliCommands(
               }
 
               console.log("\n  Mem0 Setup\n");
-              console.log("  How would you like to authenticate?");
+              console.log("  How would you like to set up Mem0?");
               console.log("  1. Login with email (recommended)");
-              console.log("  2. Enter API key manually\n");
+              console.log("  2. Enter API key manually");
+              console.log("  3. Open-source mode (self-hosted)\n");
 
-              const choice = await promptInput("  Choice (1/2): ");
+              const choice = await promptInput("  Choice (1/2/3): ");
 
               if (choice === "1") {
                 // --- Email interactive flow ---
@@ -469,6 +481,64 @@ export function registerCliCommands(
                     `  API key saved but could not reach ${baseUrl}: ${check.error}`,
                   );
                 }
+                console.log(
+                  "  Restart the gateway: openclaw gateway restart\n",
+                );
+              } else if (choice === "3") {
+                // --- Open-source interactive flow ---
+                console.log(
+                  "\n  Open-source mode uses the Mem0 OSS SDK locally.",
+                );
+                console.log(
+                  "  By default it requires an OpenAI API key for embeddings and LLM.\n",
+                );
+
+                console.log(
+                  "  You need an OpenAI API key for embeddings and LLM.",
+                );
+                console.log(
+                  "  Get one from https://platform.openai.com/api-keys\n",
+                );
+                const openaiKey = await promptInput(
+                  "  OpenAI API Key (or press Enter to skip): ",
+                );
+                if (openaiKey) {
+                  writePluginConfigField(
+                    ["oss", "embedder"],
+                    { provider: "openai", config: { apiKey: openaiKey } },
+                  );
+                  writePluginConfigField(
+                    ["oss", "llm"],
+                    { provider: "openai", config: { apiKey: openaiKey } },
+                  );
+                  console.log(
+                    "\n  OpenAI API key saved to config.\n",
+                  );
+                } else {
+                  console.log(
+                    "\n  Skipped. You can add it later via:",
+                  );
+                  console.log(
+                    "    openclaw mem0 config set oss.embedder.config.apiKey <key>",
+                  );
+                  console.log(
+                    "  Or set OPENAI_API_KEY in your environment.\n",
+                  );
+                }
+
+                // Prompt for userId
+                let userIdValue3 = opts.userId;
+                if (!userIdValue3) {
+                  const defaultUid = resolveUserId(undefined, existingAuth.userId);
+                  const uidInput = await promptInput(
+                    `  User ID (${defaultUid}): `,
+                  );
+                  userIdValue3 = uidInput || undefined;
+                }
+
+                console.log("");
+                saveOssConfig(userIdValue3);
+                console.log("  Open-source mode configured!");
                 console.log(
                   "  Restart the gateway: openclaw gateway restart\n",
                 );
@@ -827,42 +897,6 @@ export function registerCliCommands(
         });
 
       // ====================================================================
-      // stats (matches: mem0 stats --agent-id --user-id)
-      // ====================================================================
-
-      mem0
-        .command("stats")
-        .description("Show memory statistics")
-        .option("--agent-id <agentId>", "Show stats for a specific agent")
-        .option("--user-id <userId>", "Override user ID")
-        .action(async (opts: { agentId?: string; userId?: string }) => {
-          try {
-            const uid = opts.userId
-              ? opts.userId
-              : opts.agentId
-                ? agentUserId(opts.agentId)
-                : cfg.userId;
-            const memories = await provider.getAll({
-              user_id: uid,
-              source: "OPENCLAW",
-            });
-            console.log(`Mode: ${cfg.mode}`);
-            console.log(
-              `User: ${uid}${opts.agentId ? ` (agent: ${opts.agentId})` : ""}`,
-            );
-            console.log(
-              `Total memories: ${Array.isArray(memories) ? memories.length : "unknown"}`,
-            );
-            console.log(`Graph enabled: ${cfg.enableGraph}`);
-            console.log(
-              `Auto-recall: ${cfg.autoRecall}, Auto-capture: ${cfg.autoCapture}`,
-            );
-          } catch (err) {
-            console.error(`Stats failed: ${String(err)}`);
-          }
-        });
-
-      // ====================================================================
       // status (matches: mem0 status)
       // ====================================================================
 
@@ -1083,6 +1117,54 @@ export function registerCliCommands(
           console.log(
             `${key} = ${displayValue(field, value)}`,
           );
+        });
+
+      // ====================================================================
+      // help (matches: mem0 help, mem0 help --json)
+      // ====================================================================
+
+      mem0
+        .command("help")
+        .description("Show help. Use --json for machine-readable output (for LLM agents)")
+        .option("--json", "Output as JSON for agent/programmatic use")
+        .action((opts: { json?: boolean }) => {
+          const commands = {
+            memory: {
+              add: "Add a memory from text, messages, or stdin",
+              search: "Query your memory store — semantic, keyword, or hybrid retrieval",
+              get: "Get a specific memory by ID",
+              list: "List memories with optional filters",
+              update: "Update a memory's text or metadata",
+              delete: "Delete a memory, all memories, or an entity",
+              history: "View edit history of a memory",
+            },
+            management: {
+              init: "Interactive setup wizard for mem0 CLI",
+              status: "Check connectivity and authentication",
+              help: "Show help. Use --json for machine-readable output (for LLM agents)",
+              config: "Manage mem0 configuration (show, get, set)",
+              dream: "Run memory consolidation (review, merge, prune)",
+            },
+          };
+
+          if (opts.json) {
+            console.log(JSON.stringify({ commands }, null, 2));
+            return;
+          }
+
+          console.log("");
+          console.log("  openclaw mem0 <command>");
+          console.log("");
+          console.log("  Memory:");
+          for (const [cmd, desc] of Object.entries(commands.memory)) {
+            console.log(`    ${cmd.padEnd(12)} ${desc}`);
+          }
+          console.log("");
+          console.log("  Management:");
+          for (const [cmd, desc] of Object.entries(commands.management)) {
+            console.log(`    ${cmd.padEnd(12)} ${desc}`);
+          }
+          console.log("");
         });
 
       // ====================================================================

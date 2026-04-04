@@ -12,7 +12,7 @@
  * - Auto-capture: stores key facts scoped to the current session after each agent turn
  * - Per-agent isolation: multi-agent setups write/read from separate userId namespaces
  *   automatically via sessionKey routing (zero breaking changes for single-agent setups)
- * - CLI: openclaw mem0 search, openclaw mem0 stats
+ * - CLI: openclaw mem0 search, openclaw mem0 status
  * - Dual mode: platform or open-source (self-hosted)
  */
 
