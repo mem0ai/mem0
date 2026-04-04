@@ -7,6 +7,12 @@ description: "Configure Groq as an LLM provider in Mem0 for high-speed inference
 
 In order to use LLMs from Groq, go to their [platform](https://console.groq.com/keys) and get the API key. Set the API key as `GROQ_API_KEY` environment variable to use the model as given below in the example.
 
+When using Groq with OpenAI-compatible clients along with Mem0, set:
+
+GROQ_BASE_URL=https://api.groq.com
+
+Avoid including `/openai/v1`, since Mem0 internally appends the required path. Including it may result in duplicated endpoints and 404 errors.
+
 ## Usage
 
 <CodeGroup>
@@ -16,7 +22,6 @@ from mem0 import Memory
 
 os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ["GROQ_API_KEY"] = "your-api-key"
-os.environ["GROQ_BASE_URL"] = "https://api.groq.com"
 
 config = {
     "llm": {
@@ -47,7 +52,6 @@ const config = {
     provider: 'groq',
     config: {
       apiKey: process.env.GROQ_API_KEY || '',
-      baseUrl: process.env.GROQ_BASE_URL || 'https://api.groq.com',
       model: 'mixtral-8x7b-32768',
       temperature: 0.1,
       maxTokens: 1000,
