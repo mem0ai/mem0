@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json as _json
 import os
 import stat as _stat_mod
@@ -136,17 +137,15 @@ def _get_backend_and_config(
             _validated_user_email = email
             if config.platform.user_email != email:
                 config.platform.user_email = email
-                try:
+                with contextlib.suppress(Exception):
                     save_config(config)
-                except Exception:
-                    pass
     except AuthError:
         print_error(
             err_console,
             "Invalid or expired API key.",
             hint="Run 'mem0 init' or set MEM0_API_KEY environment variable.",
         )
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except Exception:
         print_warning(err_console, "Could not validate API key (network issue). Proceeding anyway.")
 

@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { type Backend, AuthError, getBackend } from "./backend/index.js";
+import { AuthError, type Backend, getBackend } from "./backend/index.js";
 import { colors, printError, printWarning } from "./branding.js";
 import type { Mem0Config } from "./config.js";
 import { loadConfig, saveConfig } from "./config.js";
@@ -248,7 +248,10 @@ program
 	.action(async (text, opts) => {
 		const { cmdAdd } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = await getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const ids = resolveIds(config, opts);
 		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
@@ -302,7 +305,10 @@ program
 		}
 		const { cmdSearch } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = await getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const ids = resolveIds(config, opts);
 		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
@@ -370,7 +376,10 @@ program
 	.action(async (opts) => {
 		const { cmdList } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = await getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const ids = resolveIds(config, opts);
 		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
@@ -673,7 +682,10 @@ program
 	.action(async (opts) => {
 		const { cmdStatus } = await import("./commands/utils.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = await getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdStatus(backend, {
 			userId: config.defaults.userId || undefined,
@@ -697,7 +709,10 @@ program
 	.action(async (filePath, opts) => {
 		const { cmdImport } = await import("./commands/utils.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = await getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const ids = resolveIds(config, opts);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdImport(backend, filePath, {
