@@ -80,7 +80,7 @@ def _send_posthog_event(posthog_host: str, payload: dict) -> None:
 
 
 if __name__ == "__main__":
-    try:
+    import contextlib
+
+    with contextlib.suppress(Exception):
         main()
-    except Exception:
-        pass
