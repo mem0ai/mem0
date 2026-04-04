@@ -16,6 +16,7 @@ from mem0 import Memory
 
 os.environ["OPENAI_API_KEY"] = "your-api-key" # used for embedding model
 os.environ["GROQ_API_KEY"] = "your-api-key"
+os.environ["GROQ_BASE_URL"] = "https://api.groq.com"
 
 config = {
     "llm": {
@@ -46,6 +47,7 @@ const config = {
     provider: 'groq',
     config: {
       apiKey: process.env.GROQ_API_KEY || '',
+      baseUrl: process.env.GROQ_BASE_URL || 'https://api.groq.com',
       model: 'mixtral-8x7b-32768',
       temperature: 0.1,
       maxTokens: 1000,
