@@ -280,7 +280,7 @@ class OSSProvider implements Mem0Provider {
     }
 
     // Force the SDK's internal auto-initialization to complete now.
-    // Without this, concurrent method calls (e.g. auto-recall + stats)
+    // Without this, concurrent method calls (e.g. auto-recall + search)
     // both trigger _autoInitialize() simultaneously, causing PGVector's
     // pg client to call connect() twice → "Client has already been
     // connected" crash. (#4638)
@@ -370,7 +370,7 @@ class OSSProvider implements Mem0Provider {
 
   async update(memoryId: string, text: string): Promise<void> {
     await this.ensureMemory();
-    await this.memory.update(memoryId, { data: text });
+    await this.memory.update(memoryId, text);
   }
 
   async delete(memoryId: string): Promise<void> {

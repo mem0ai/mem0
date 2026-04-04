@@ -6,8 +6,8 @@
  * Lock prevents concurrent consolidation runs.
  */
 
-import * as fs from "fs";
-import * as path from "path";
+import * as path from "node:path";
+import { readText, writeText, mkdirp, unlink } from "./fs-safe.ts";
 
 // ============================================================================
 // Types
@@ -52,7 +52,7 @@ function lockPath(stateDir: string): string {
 
 function ensureDir(dir: string): void {
   try {
-    fs.mkdirSync(dir, { recursive: true });
+    mkdirp(dir);
   } catch {
     /* exists */
   }
@@ -60,7 +60,7 @@ function ensureDir(dir: string): void {
 
 function readState(stateDir: string): DreamState {
   try {
-    const raw = fs.readFileSync(statePath(stateDir), "utf-8");
+    const raw = readText(statePath(stateDir));
     return JSON.parse(raw) as DreamState;
   } catch {
     return { lastConsolidatedAt: 0, sessionsSince: 0, lastSessionId: null };
@@ -69,7 +69,7 @@ function readState(stateDir: string): DreamState {
 
 function writeState(stateDir: string, state: DreamState): void {
   ensureDir(stateDir);
-  fs.writeFileSync(statePath(stateDir), JSON.stringify(state, null, 2));
+  writeText(statePath(stateDir), JSON.stringify(state, null, 2));
 }
 
 // ============================================================================
@@ -157,7 +157,7 @@ export function acquireDreamLock(stateDir: string): boolean {
 
   // Check existing lock
   try {
-    const raw = fs.readFileSync(lp, "utf-8");
+    const raw = readText(lp);
     const lock = JSON.parse(raw) as DreamLock;
     const age = Date.now() - lock.startedAt;
     if (age < LOCK_STALE_MS) {
@@ -165,7 +165,7 @@ export function acquireDreamLock(stateDir: string): boolean {
     }
     // Stale lock — remove it before attempting exclusive create
     try {
-      fs.unlinkSync(lp);
+      unlink(lp);
     } catch {
       /* race ok */
     }
@@ -177,7 +177,7 @@ export function acquireDreamLock(stateDir: string): boolean {
   // only one succeeds. The other gets EEXIST.
   const lock: DreamLock = { pid: process.pid, startedAt: Date.now() };
   try {
-    fs.writeFileSync(lp, JSON.stringify(lock), { flag: "wx" });
+    writeText(lp, JSON.stringify(lock), { flag: "wx" });
     return true;
   } catch {
     return false; // Lost race
@@ -189,7 +189,7 @@ export function acquireDreamLock(stateDir: string): boolean {
  */
 export function releaseDreamLock(stateDir: string): void {
   try {
-    fs.unlinkSync(lockPath(stateDir));
+    unlink(lockPath(stateDir));
   } catch {
     /* already gone */
   }

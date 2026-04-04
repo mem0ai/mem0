@@ -4,6 +4,7 @@
  * Platform (SaaS) backend — communicates with api.mem0.ai.
  */
 
+import { PLUGIN_VERSION } from "../telemetry.ts";
 import {
   APIError,
   type AddOptions,
@@ -25,6 +26,10 @@ export class PlatformBackend implements Backend {
     this.headers = {
       Authorization: `Token ${config.apiKey}`,
       "Content-Type": "application/json",
+      "X-Mem0-Source": "OPENCLAW",
+      "X-Mem0-Client-Language": "node",
+      "X-Mem0-Client-Version": PLUGIN_VERSION,
+      "X-Mem0-Caller-Type": "plugin",
     };
   }
 
@@ -287,11 +292,15 @@ export class PlatformBackend implements Backend {
     return result;
   }
 
+  async ping(): Promise<Record<string, unknown>> {
+    return (await this._request("GET", "/v1/ping/")) as Record<string, unknown>;
+  }
+
   async status(
     _opts: { userId?: string; agentId?: string } = {},
   ): Promise<Record<string, unknown>> {
     try {
-      await this._request("GET", "/v1/ping/");
+      await this.ping();
       return { connected: true, backend: "platform", base_url: this.baseUrl };
     } catch (e) {
       return {
