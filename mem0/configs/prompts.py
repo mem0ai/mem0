@@ -457,3 +457,39 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
 
     Do not return anything except the JSON format.
     """
+
+
+CONFLICT_CLASSIFICATION_PROMPT = """You are a memory conflict classifier. You will be given an existing memory and a new incoming fact about the same subject.
+
+Your task is to classify the relationship between them and score the specificity of each statement.
+
+Classification definitions:
+- CONTRADICTION: The two statements cannot both be true at the same time.
+- NUANCE: The statements are compatible but in tension (partial overlap, qualifier shift, or one adds context to the other).
+- UPDATE: The new fact supersedes or enriches the old one with no logical conflict.
+- NONE: No meaningful relationship; the retrieval was a false positive.
+
+Confidence scoring (0.0–1.0):
+Score how specifically and verifiably each statement is expressed.
+- Vague statement ("user likes food"): ~0.2
+- Moderately specific ("user prefers vegetarian meals"): ~0.5
+- Highly specific and verifiable ("user is allergic to peanuts, confirmed 2024-03"): ~0.9
+
+Return ONLY valid JSON with no preamble and no markdown fences. The JSON must contain exactly these five keys:
+{
+  "conflict_class": "CONTRADICTION" | "NUANCE" | "UPDATE" | "NONE",
+  "explanation": "<one sentence explaining the relationship>",
+  "proposed_action": "<one sentence describing the recommended outcome>",
+  "confidence_new": <float 0.0-1.0>,
+  "confidence_old": <float 0.0-1.0>
+}"""
+
+
+def get_conflict_classification_messages(old_memory: str, new_fact: str) -> list:
+    return [
+        {"role": "system", "content": CONFLICT_CLASSIFICATION_PROMPT},
+        {
+            "role": "user",
+            "content": f"Existing memory: {old_memory}\n\nNew incoming fact: {new_fact}",
+        },
+    ]

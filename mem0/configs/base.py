@@ -1,5 +1,6 @@
 import os
-from typing import Any, Dict, Optional
+import uuid
+from typing import Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,25 @@ from mem0.configs.rerankers.config import RerankerConfig
 # Set up the directory path
 home_dir = os.path.expanduser("~")
 mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
+
+
+class ConflictDetectionConfig(BaseModel):
+    similarity_threshold: float = Field(
+        description="Cosine similarity score above which a pair is sent to secondary classification",
+        default_factory=lambda: float(os.environ.get("MEM0_CONFLICT_SIMILARITY_THRESHOLD", "0.85")),
+    )
+    top_k: int = Field(
+        description="Maximum number of existing memories to retrieve per new fact",
+        default_factory=lambda: int(os.environ.get("MEM0_CONFLICT_TOP_K", "20")),
+    )
+    auto_resolve_strategy: Literal["keep-higher-confidence", "keep-newer", "merge"] = Field(
+        description="Strategy for auto-resolving CONTRADICTION pairs",
+        default_factory=lambda: os.environ.get("MEM0_CONFLICT_AUTO_RESOLVE_STRATEGY", "keep-higher-confidence"),
+    )
+    hitl_enabled: bool = Field(
+        description="Whether to prompt a human for CONTRADICTION resolution",
+        default_factory=lambda: os.environ.get("MEM0_CONFLICT_HITL_ENABLED", "false").lower() == "true",
+    )
 
 
 class MemoryItem(BaseModel):
@@ -63,6 +83,14 @@ class MemoryConfig(BaseModel):
     custom_update_memory_prompt: Optional[str] = Field(
         description="Custom prompt for the update memory",
         default=None,
+    )
+    conflict_detection: ConflictDetectionConfig = Field(
+        description="Configuration for conflict detection and resolution",
+        default_factory=ConflictDetectionConfig,
+    )
+    session_id: str = Field(
+        description="Unique session identifier for HITL override scoping",
+        default_factory=lambda: str(uuid.uuid4()),
     )
 
 

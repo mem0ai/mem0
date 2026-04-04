@@ -17,7 +17,15 @@ from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
+    get_conflict_classification_messages,
     get_update_memory_messages,
+)
+from mem0.memory.conflict import (
+    ConflictResolution,
+    _execute_merge_llm_call,
+    apply_auto_resolution,
+    hitl_prompt_async,
+    hitl_prompt_sync,
 )
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
@@ -546,17 +554,102 @@ class Memory(MemoryBase):
             search_filters["agent_id"] = filters["agent_id"]
         if filters.get("run_id"):
             search_filters["run_id"] = filters["run_id"]
+        fact_search_results_map_sync: dict = {}
         for new_mem in new_retrieved_facts:
             messages_embeddings = self.embedding_model.embed(new_mem, "add")
             new_message_embeddings[new_mem] = messages_embeddings
             existing_memories = self.vector_store.search(
                 query=new_mem,
                 vectors=messages_embeddings,
-                limit=5,
+                limit=self.config.conflict_detection.top_k,
                 filters=search_filters,
             )
-            for mem in existing_memories:
-                retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
+            fact_search_results_map_sync[new_mem] = [
+                {"id": mem.id, "text": mem.payload.get("data", ""), "score": getattr(mem, "score", 0.0) or 0.0}
+                for mem in existing_memories
+            ]
+
+        # Conflict detection pipeline — runs before the single-pass update call
+        similarity_threshold_sync = self.config.conflict_detection.similarity_threshold
+        hitl_enabled_sync = self.config.conflict_detection.hitl_enabled
+        auto_strategy_sync = self.config.conflict_detection.auto_resolve_strategy
+        session_id_sync = self.config.session_id
+        contradiction_handled_facts_sync: set = set()
+
+        for fact in list(new_retrieved_facts):
+            for mem_item in fact_search_results_map_sync.get(fact, []):
+                score = mem_item.get("score") or 0.0
+                if score < similarity_threshold_sync:
+                    continue
+                try:
+                    classification_msgs = get_conflict_classification_messages(mem_item["text"], fact)
+                    classification_response = self.llm.generate_response(
+                        messages=classification_msgs,
+                        response_format={"type": "json_object"},
+                    )
+                    parsed_cls = json.loads(classification_response)
+                    conflict_class = parsed_cls.get("conflict_class", "NONE")
+                    if conflict_class not in ("CONTRADICTION", "NUANCE", "UPDATE", "NONE"):
+                        conflict_class = "NONE"
+                    cr = ConflictResolution(
+                        new_fact=fact,
+                        old_memory_id=mem_item["id"],
+                        old_memory_text=mem_item["text"],
+                        conflict_class=conflict_class,
+                        explanation=parsed_cls.get("explanation", ""),
+                        proposed_action=parsed_cls.get("proposed_action", ""),
+                        confidence_new=float(parsed_cls.get("confidence_new", 0.5)),
+                        confidence_old=float(parsed_cls.get("confidence_old", 0.5)),
+                        auto_resolved=False,
+                        resolution="SKIP",
+                        merged_text=None,
+                    )
+                except Exception as e:
+                    logger.error(f"Conflict classification failed for fact '{fact}': {e}")
+                    continue
+
+                if conflict_class != "CONTRADICTION":
+                    continue
+
+                if hitl_enabled_sync:
+                    choice = hitl_prompt_sync(cr, session_id_sync)
+                    resolution = "KEEP_NEW" if choice in ("y", "always-replace") else "KEEP_OLD"
+                    from dataclasses import replace as _dc_replace_sync
+                    cr = _dc_replace_sync(cr, auto_resolved=False, resolution=resolution)
+                else:
+                    cr = apply_auto_resolution(cr, auto_strategy_sync)
+
+                # Execute resolution — _delete_memory and _create_memory write db.add_history internally
+                if cr.resolution == "KEEP_NEW":
+                    self._delete_memory(memory_id=cr.old_memory_id)
+                    if fact not in new_message_embeddings:
+                        new_message_embeddings[fact] = self.embedding_model.embed(fact, "add")
+                    self._create_memory(
+                        data=fact,
+                        existing_embeddings=new_message_embeddings,
+                        metadata=deepcopy(metadata),
+                    )
+                    contradiction_handled_facts_sync.add(fact)
+                elif cr.resolution == "KEEP_OLD":
+                    contradiction_handled_facts_sync.add(fact)
+                elif cr.resolution == "MERGE":
+                    merged_text = _execute_merge_llm_call(cr, self.llm)
+                    self._delete_memory(memory_id=cr.old_memory_id)
+                    merged_embeddings = self.embedding_model.embed(merged_text, "add")
+                    self._create_memory(
+                        data=merged_text,
+                        existing_embeddings={merged_text: merged_embeddings},
+                        metadata=deepcopy(metadata),
+                    )
+                    contradiction_handled_facts_sync.add(fact)
+
+        # Remove contradiction-handled facts from the single-pass list
+        new_retrieved_facts = [f for f in new_retrieved_facts if f not in contradiction_handled_facts_sync]
+
+        # Build retrieved_old_memory from remaining facts' search results
+        for fact in new_retrieved_facts:
+            for mem_item in fact_search_results_map_sync.get(fact, []):
+                retrieved_old_memory.append({"id": mem_item["id"], "text": mem_item["text"]})
 
         unique_data = {}
         for item in retrieved_old_memory:
@@ -1651,15 +1744,106 @@ class AsyncMemory(MemoryBase):
                 self.vector_store.search,
                 query=new_mem_content,
                 vectors=embeddings,
-                limit=5,
+                limit=self.config.conflict_detection.top_k,
                 filters=search_filters,
             )
-            return [{"id": mem.id, "text": mem.payload.get("data", "")} for mem in existing_mems]
+            return [
+                {"id": mem.id, "text": mem.payload.get("data", ""), "score": getattr(mem, "score", 0.0) or 0.0}
+                for mem in existing_mems
+            ]
 
         search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
         search_results_list = await asyncio.gather(*search_tasks)
-        for result_group in search_results_list:
-            retrieved_old_memory.extend(result_group)
+
+        # Conflict detection pipeline — runs before the single-pass update call
+        fact_search_results_map = dict(zip(new_retrieved_facts, search_results_list))
+        similarity_threshold = self.config.conflict_detection.similarity_threshold
+        hitl_enabled = self.config.conflict_detection.hitl_enabled
+        auto_strategy = self.config.conflict_detection.auto_resolve_strategy
+        session_id = self.config.session_id
+        contradiction_handled_facts: set = set()
+
+        for fact in list(new_retrieved_facts):
+            for mem_item in fact_search_results_map.get(fact, []):
+                score = mem_item.get("score") or 0.0
+                if score < similarity_threshold:
+                    continue
+                # Secondary LLM classification
+                try:
+                    classification_msgs = get_conflict_classification_messages(mem_item["text"], fact)
+                    classification_response = await asyncio.to_thread(
+                        self.llm.generate_response,
+                        messages=classification_msgs,
+                        response_format={"type": "json_object"},
+                    )
+                    parsed_cls = json.loads(classification_response)
+                    conflict_class = parsed_cls.get("conflict_class", "NONE")
+                    if conflict_class not in ("CONTRADICTION", "NUANCE", "UPDATE", "NONE"):
+                        conflict_class = "NONE"
+                    cr = ConflictResolution(
+                        new_fact=fact,
+                        old_memory_id=mem_item["id"],
+                        old_memory_text=mem_item["text"],
+                        conflict_class=conflict_class,
+                        explanation=parsed_cls.get("explanation", ""),
+                        proposed_action=parsed_cls.get("proposed_action", ""),
+                        confidence_new=float(parsed_cls.get("confidence_new", 0.5)),
+                        confidence_old=float(parsed_cls.get("confidence_old", 0.5)),
+                        auto_resolved=False,
+                        resolution="SKIP",
+                        merged_text=None,
+                    )
+                except Exception as e:
+                    logger.error(f"Conflict classification failed for fact '{fact}': {e}")
+                    continue
+
+                if conflict_class != "CONTRADICTION":
+                    continue
+
+                # Resolve the contradiction
+                if hitl_enabled:
+                    choice = await hitl_prompt_async(cr, session_id)
+                    resolution = "KEEP_NEW" if choice in ("y", "always-replace") else "KEEP_OLD"
+                    from dataclasses import replace as _dc_replace
+                    cr = _dc_replace(cr, auto_resolved=False, resolution=resolution)
+                else:
+                    cr = apply_auto_resolution(cr, auto_strategy)
+
+                # Execute resolution — _delete_memory and _create_memory write db.add_history internally
+                if cr.resolution == "KEEP_NEW":
+                    await self._delete_memory(memory_id=cr.old_memory_id)
+                    if fact not in new_message_embeddings:
+                        new_message_embeddings[fact] = await asyncio.to_thread(
+                            self.embedding_model.embed, fact, "add"
+                        )
+                    await self._create_memory(
+                        data=fact,
+                        existing_embeddings=new_message_embeddings,
+                        metadata=deepcopy(metadata),
+                    )
+                    contradiction_handled_facts.add(fact)
+                elif cr.resolution == "KEEP_OLD":
+                    contradiction_handled_facts.add(fact)
+                elif cr.resolution == "MERGE":
+                    merged_text = await asyncio.to_thread(_execute_merge_llm_call, cr, self.llm)
+                    await self._delete_memory(memory_id=cr.old_memory_id)
+                    merged_embeddings = await asyncio.to_thread(
+                        self.embedding_model.embed, merged_text, "add"
+                    )
+                    await self._create_memory(
+                        data=merged_text,
+                        existing_embeddings={merged_text: merged_embeddings},
+                        metadata=deepcopy(metadata),
+                    )
+                    contradiction_handled_facts.add(fact)
+
+        # Remove contradiction-handled facts from the single-pass list
+        new_retrieved_facts = [f for f in new_retrieved_facts if f not in contradiction_handled_facts]
+
+        # Build retrieved_old_memory from remaining facts' search results
+        for fact in new_retrieved_facts:
+            for mem_item in fact_search_results_map.get(fact, []):
+                retrieved_old_memory.append({"id": mem_item["id"], "text": mem_item["text"]})
 
         unique_data = {}
         for item in retrieved_old_memory:

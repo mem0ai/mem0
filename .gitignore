@@ -186,3 +186,10 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+
+# Shubhan gitignores
+.claude/
+.codex/
+.cursor/
+.github/
+openspec/
