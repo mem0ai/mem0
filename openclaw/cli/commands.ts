@@ -92,7 +92,11 @@ async function apiPost(
   try {
     resp = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Mem0-Source": "OPENCLAW",
+        "X-Mem0-Client-Language": "node",
+      },
       body: JSON.stringify(body),
     });
   } catch (err) {
@@ -127,14 +131,22 @@ async function apiPost(
 async function validateApiKey(
   baseUrl: string,
   apiKey: string,
-): Promise<{ ok: boolean; status?: number; error?: string }> {
+): Promise<{ ok: boolean; status?: number; error?: string; userEmail?: string }> {
   try {
     const resp = await fetch(`${baseUrl}/v1/ping/`, {
-      headers: { Authorization: `Token ${apiKey}` },
+      headers: {
+        Authorization: `Token ${apiKey}`,
+        "X-Mem0-Source": "OPENCLAW",
+        "X-Mem0-Client-Language": "node",
+      },
     });
-    return resp.ok
-      ? { ok: true }
-      : { ok: false, status: resp.status };
+    if (!resp.ok) return { ok: false, status: resp.status };
+    try {
+      const data = (await resp.json()) as Record<string, unknown>;
+      return { ok: true, userEmail: data.user_email as string | undefined };
+    } catch {
+      return { ok: true };
+    }
   } catch (err) {
     return { ok: false, error: String(err) };
   }
@@ -186,11 +198,12 @@ function saveLoginConfig(
   apiKey: string,
   baseUrl: string,
   userIdFlag?: string,
+  userEmail?: string,
 ): void {
   const existingAuth = readPluginAuth();
   const userId = resolveUserId(userIdFlag, existingAuth.userId);
 
-  writePluginAuth({ apiKey, baseUrl, userId, mode: "platform" });
+  writePluginAuth({ apiKey, baseUrl, userId, mode: "platform", ...(userEmail && { userEmail }) });
 
   console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
   console.log(`  Mode: platform`);
@@ -226,12 +239,25 @@ export function registerCliCommands(
     sessionKey?: string,
   ) => SearchOptions,
   getCurrentSessionId: () => string | undefined,
+  captureCliEvent?: (command: string) => void,
 ): void {
   api.registerCli(
     ({ program }) => {
       const mem0 = program
         .command("mem0")
         .description("Mem0 memory plugin commands");
+
+      // Telemetry: fire event for each CLI subcommand
+      if (captureCliEvent) {
+        mem0.hook("preAction", (_thisCmd, actionCmd) => {
+          try {
+            const name = actionCmd.name();
+            const parent = actionCmd.parent?.name();
+            const full = parent && parent !== "mem0" ? `${parent}.${name}` : name;
+            captureCliEvent(full);
+          } catch { /* silently swallow */ }
+        });
+      }
 
       // ====================================================================
       // init (matches: mem0 init)
@@ -263,14 +289,14 @@ export function registerCliCommands(
                   return;
                 }
 
-                saveLoginConfig(opts.apiKey, baseUrl, opts.userId);
+                const check = await validateApiKey(baseUrl, opts.apiKey);
+                saveLoginConfig(opts.apiKey, baseUrl, opts.userId, check.userEmail);
                 if (hasExistingConfig) {
                   console.log(
                     "  Existing configuration detected — updated API key (other settings preserved).",
                   );
                 }
 
-                const check = await validateApiKey(baseUrl, opts.apiKey);
                 if (check.ok) {
                   console.log(
                     "  API key validated. Connected to Mem0 Platform.",
@@ -296,7 +322,7 @@ export function registerCliCommands(
                 const apiKey = await verifyEmailCode(baseUrl, email, opts.code);
                 if (!apiKey) return;
 
-                saveLoginConfig(apiKey, baseUrl, opts.userId);
+                saveLoginConfig(apiKey, baseUrl, opts.userId, email);
                 if (hasExistingConfig) {
                   console.log(
                     "  Existing configuration detected — updated API key (other settings preserved).",
@@ -441,7 +467,7 @@ export function registerCliCommands(
                 }
 
                 console.log("");
-                saveLoginConfig(apiKey, baseUrl, userIdValue);
+                saveLoginConfig(apiKey, baseUrl, userIdValue, email);
                 console.log("  Authenticated!");
                 console.log(
                   "  Restart the gateway: openclaw gateway restart\n",
@@ -465,9 +491,9 @@ export function registerCliCommands(
                 }
 
                 console.log("");
-                saveLoginConfig(key, baseUrl, userIdValue2);
-
                 const check = await validateApiKey(baseUrl, key);
+                saveLoginConfig(key, baseUrl, userIdValue2, check.userEmail);
+
                 if (check.ok) {
                   console.log(
                     "  API key validated. Connected to Mem0 Platform.",

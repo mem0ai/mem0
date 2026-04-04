@@ -330,7 +330,11 @@ describe("registerCliCommands", () => {
       expect(fetch).toHaveBeenCalledWith(
         "https://api.mem0.ai/v1/ping/",
         expect.objectContaining({
-          headers: { Authorization: "Token m0-my-key-1234" },
+          headers: {
+            Authorization: "Token m0-my-key-1234",
+            "X-Mem0-Source": "OPENCLAW",
+            "X-Mem0-Client-Language": "node",
+          },
         }),
       );
 

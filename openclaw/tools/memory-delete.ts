@@ -24,6 +24,7 @@ export function createMemoryDeleteTool(deps: ToolDeps) {
         all?: boolean; confirm?: boolean; userId?: string;
       };
 
+      const start = Date.now();
       try {
         if (isSubagentSession(getCurrentSessionId())) {
           return { content: [{ type: "text", text: "Memory deletion is not available in subagent sessions." }], details: { error: "subagent_blocked" } };
@@ -31,6 +32,7 @@ export function createMemoryDeleteTool(deps: ToolDeps) {
 
         if (memoryId) {
           await provider.delete(memoryId);
+          deps.captureToolEvent("memory_delete", { success: true, latency_ms: Date.now() - start, delete_mode: "single" });
           return { content: [{ type: "text", text: `Memory ${memoryId} deleted.` }], details: { action: "deleted", id: memoryId } };
         }
 
@@ -59,12 +61,14 @@ export function createMemoryDeleteTool(deps: ToolDeps) {
           }
           const uid = resolveUserId({ agentId, userId });
           await provider.deleteAll(uid);
+          deps.captureToolEvent("memory_delete", { success: true, latency_ms: Date.now() - start, delete_mode: "all" });
           api.logger.info(`openclaw-mem0: deleted all memories for user ${uid}`);
           return { content: [{ type: "text", text: `All memories deleted for user "${uid}".` }], details: { action: "deleted_all", user_id: uid } };
         }
 
         return { content: [{ type: "text", text: "Provide memoryId, query, or all:true." }], details: { error: "missing_param" } };
       } catch (err) {
+        deps.captureToolEvent("memory_delete", { success: false, latency_ms: Date.now() - start, error: String(err) });
         return { content: [{ type: "text", text: `Memory delete failed: ${String(err)}` }], details: { error: String(err) } };
       }
     },

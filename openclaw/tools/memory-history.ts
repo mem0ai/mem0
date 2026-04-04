@@ -14,8 +14,10 @@ export function createMemoryHistoryTool(deps: ToolDeps) {
 
     async execute(_toolCallId: string, params: Record<string, unknown>) {
       const { memoryId } = params as { memoryId: string };
+      const start = Date.now();
       try {
         const history = await provider.history(memoryId);
+        deps.captureToolEvent("memory_history", { success: true, latency_ms: Date.now() - start, result_count: history?.length ?? 0 });
         if (!history || history.length === 0) {
           return { content: [{ type: "text", text: `No history found for memory ${memoryId}.` }], details: { count: 0 } };
         }
@@ -27,6 +29,7 @@ export function createMemoryHistoryTool(deps: ToolDeps) {
           details: { count: history.length, history },
         };
       } catch (err) {
+        deps.captureToolEvent("memory_history", { success: false, latency_ms: Date.now() - start, error: String(err) });
         return { content: [{ type: "text", text: `Memory history failed: ${String(err)}` }], details: { error: String(err) } };
       }
     },

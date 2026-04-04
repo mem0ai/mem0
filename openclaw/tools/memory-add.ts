@@ -33,6 +33,7 @@ export function createMemoryAddTool(deps: ToolDeps) {
         return { content: [{ type: "text", text: "No facts provided. Pass 'text' or 'facts' array." }], details: { error: "missing_facts" } };
       }
 
+      const start = Date.now();
       try {
         const currentSessionId = getCurrentSessionId();
 
@@ -73,6 +74,7 @@ export function createMemoryAddTool(deps: ToolDeps) {
           const count = result.results?.length ?? 0;
           api.logger.info(`openclaw-mem0: stored ${count} memor${count === 1 ? "y" : "ies"} (infer=false, category=${category ?? "none"})`);
 
+          deps.captureToolEvent("memory_add", { success: true, latency_ms: Date.now() - start, fact_count: allFacts.length, mode: "skills" });
           return {
             content: [{ type: "text", text: `Stored ${allFacts.length} fact(s) [${category ?? "uncategorized"}]: ${allFacts.map(f => `"${f.slice(0, 60)}${f.length > 60 ? "..." : ""}"`).join(", ")}` }],
             details: { action: "stored", mode: "skills", category, factCount: allFacts.length, results: result.results },
@@ -92,11 +94,13 @@ export function createMemoryAddTool(deps: ToolDeps) {
         if (updated.length > 0) summary.push(`${updated.length} updated`);
         if (summary.length === 0) summary.push("No new memories extracted");
 
+        deps.captureToolEvent("memory_add", { success: true, latency_ms: Date.now() - start, fact_count: allFacts.length });
         return {
           content: [{ type: "text", text: `Stored: ${summary.join(", ")}. ${result.results?.map((r) => `[${r.event}] ${r.memory}`).join("; ") ?? ""}` }],
           details: { action: "stored", results: result.results },
         };
       } catch (err) {
+        deps.captureToolEvent("memory_add", { success: false, latency_ms: Date.now() - start, error: String(err) });
         return { content: [{ type: "text", text: `Memory add failed: ${String(err)}` }], details: { error: String(err) } };
       }
     },

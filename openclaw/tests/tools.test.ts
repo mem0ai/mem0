@@ -64,6 +64,7 @@ function createMockToolDeps(overrides = {}): ToolDeps {
     agentUserId: vi.fn().mockReturnValue("testuser:agent:test"),
     getCurrentSessionId: vi.fn().mockReturnValue(undefined),
     skillsActive: false,
+    captureToolEvent: vi.fn(),
     buildAddOptions: vi
       .fn()
       .mockReturnValue({ user_id: "testuser", source: "OPENCLAW" }),

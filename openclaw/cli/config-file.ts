@@ -31,6 +31,7 @@ export interface PluginAuthConfig {
   userId?: string;
   orgId?: string;
   projectId?: string;
+  userEmail?: string;
   mode?: string;
   enableGraph?: boolean;
   autoRecall?: boolean;
@@ -77,6 +78,7 @@ export function readPluginAuth(): PluginAuthConfig {
     userId: (cfg.userId ?? cfg.user_id) as string | undefined,
     orgId: (cfg.orgId ?? cfg.org_id) as string | undefined,
     projectId: (cfg.projectId ?? cfg.project_id) as string | undefined,
+    userEmail: (cfg.userEmail ?? cfg.user_email) as string | undefined,
     mode: cfg.mode as string | undefined,
     enableGraph: cfg.enableGraph as boolean | undefined,
     autoRecall: cfg.autoRecall as boolean | undefined,
