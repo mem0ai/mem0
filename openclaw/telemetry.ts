@@ -11,7 +11,7 @@
 import { createHash } from "node:crypto";
 import { readPluginAuth } from "./cli/config-file.ts";
 
-export const PLUGIN_VERSION = "1.0.5";
+export const PLUGIN_VERSION = "1.0.4";
 
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
