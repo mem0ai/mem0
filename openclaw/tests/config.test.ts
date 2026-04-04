@@ -99,9 +99,9 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
 // mem0ConfigSchema.parse() — mode parsing
 // ---------------------------------------------------------------------------
 describe("mem0ConfigSchema.parse() — mode parsing", () => {
-  it('"oss" is normalized to "open-source"', () => {
-    const cfg = mem0ConfigSchema.parse({ mode: "oss" });
-    expect(cfg.mode).toBe("open-source");
+  it('"oss" is not a valid mode and defaults to "platform"', () => {
+    const cfg = mem0ConfigSchema.parse({ mode: "oss", apiKey: "k" });
+    expect(cfg.mode).toBe("platform");
   });
 
   it('"open-source" stays as "open-source"', () => {
@@ -184,8 +184,8 @@ describe("mem0ConfigSchema.parse() — needsSetup", () => {
     expect(cfg.needsSetup).toBe(false);
   });
 
-  it("is false when mode is open-source (no apiKey needed)", () => {
-    const cfg = mem0ConfigSchema.parse({ mode: "oss" });
+  it("is false when mode is 'open-source' via explicit string (no apiKey needed)", () => {
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source" });
     expect(cfg.needsSetup).toBe(false);
   });
 
