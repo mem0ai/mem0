@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -424,3 +425,63 @@ class TestMiniMaxProvider:
             assert msg["role"] != "system"
         # user message must be present
         assert kwargs["messages"][0]["role"] == "user"
+
+
+# ---------------------------------------------------------------------------
+# _parse_response — legacy InvokeModel response parsing
+# ---------------------------------------------------------------------------
+
+class TestParseResponseLegacy:
+    """Tests for the InvokeModel (non-Converse) response parsing path."""
+
+    def _make_invoke_response(self, body_dict: dict):
+        """Build a mock InvokeModel response with a readable body stream."""
+        import io
+        body_bytes = json.dumps(body_dict).encode()
+        mock_body = MagicMock()
+        mock_body.read.return_value = body_bytes
+        return {"body": mock_body}
+
+    def test_ai21_completions_normal(self, mock_boto3):
+        """AI21 response with a normal completions array is parsed correctly."""
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        response = self._make_invoke_response({
+            "completions": [{"data": {"text": "Hello from AI21"}}]
+        })
+        result = llm._parse_response(response)
+        assert result == "Hello from AI21"
+
+    def test_ai21_completions_missing_key_uses_fallback(self, mock_boto3):
+        """When 'completions' key is absent, the fallback default must not
+        crash.  Before the fix this raised TypeError because the default was
+        ``[{"data", {"text": ""}}]`` (a set literal) instead of
+        ``[{"data": {"text": ""}}]`` (a dict literal)."""
+        llm = _make_llm("ai21.j2-mid-v1", mock_boto3)
+        response = self._make_invoke_response({"id": "some-id"})
+        # Must NOT raise TypeError: unhashable type: 'dict'
+        result = llm._parse_response(response)
+        assert result == ""
+
+    def test_anthropic_content_normal(self, mock_boto3):
+        llm = _make_llm("anthropic.claude-3-5-sonnet-20240620-v1:0", mock_boto3)
+        response = self._make_invoke_response({
+            "content": [{"text": "Hello from Anthropic"}]
+        })
+        result = llm._parse_response(response)
+        assert result == "Hello from Anthropic"
+
+    def test_mistral_outputs_normal(self, mock_boto3):
+        llm = _make_llm("mistral.mistral-7b-instruct-v0:2", mock_boto3)
+        response = self._make_invoke_response({
+            "outputs": [{"text": "Hello from Mistral"}]
+        })
+        result = llm._parse_response(response)
+        assert result == "Hello from Mistral"
+
+    def test_cohere_generations_normal(self, mock_boto3):
+        llm = _make_llm("cohere.command-text-v14", mock_boto3)
+        response = self._make_invoke_response({
+            "generations": [{"text": "Hello from Cohere"}]
+        })
+        result = llm._parse_response(response)
+        assert result == "Hello from Cohere"
