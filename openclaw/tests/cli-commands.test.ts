@@ -58,6 +58,8 @@ interface MockCommand {
   _args: Array<{ name: string; desc: string }>;
   command(name: string): MockCommand;
   description(desc: string): MockCommand;
+  configureHelp(opts: any): MockCommand;
+  hook(event: string, fn: (...args: any[]) => any): MockCommand;
   option(flags: string, desc: string, defaultVal?: string): MockCommand;
   argument(name: string, desc: string): MockCommand;
   action(fn: (...args: any[]) => any): MockCommand;
@@ -78,6 +80,12 @@ function createMockCommand(name: string): MockCommand {
     },
     description(desc: string) {
       cmd._description = desc;
+      return cmd;
+    },
+    configureHelp(_opts: any) {
+      return cmd;
+    },
+    hook(_event: string, _fn: (...args: any[]) => any) {
       return cmd;
     },
     option(flags: string, desc: string, defaultVal?: string) {
@@ -284,7 +292,6 @@ describe("registerCliCommands", () => {
       expect(names).toContain("list");
       expect(names).toContain("update");
       expect(names).toContain("delete");
-      expect(names).toContain("history");
       expect(names).toContain("status");
       expect(names).toContain("config");
       expect(names).toContain("dream");
@@ -321,7 +328,6 @@ describe("registerCliCommands", () => {
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({
           apiKey: "m0-my-key-1234",
-          baseUrl: "https://api.mem0.ai",
           mode: "platform",
         }),
       );
@@ -858,48 +864,6 @@ describe("registerCliCommands", () => {
   });
 
   // ========================================================================
-  // history subcommand
-  // ========================================================================
-
-  describe("history subcommand", () => {
-    it("calls provider.history and prints entries as JSON", async () => {
-      const { mem0, provider } = setup();
-      const historyCmd = findCommand(mem0, "history")!;
-
-      await historyCmd._action!("m1");
-
-      expect(provider.history).toHaveBeenCalledWith("m1");
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining("UPDATE"),
-      );
-    });
-
-    it("prints message when no history found", async () => {
-      const { mem0, provider } = setup();
-      provider.history.mockResolvedValueOnce([]);
-      const historyCmd = findCommand(mem0, "history")!;
-
-      await historyCmd._action!("m1");
-
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        "No history found for this memory.",
-      );
-    });
-
-    it("handles history errors gracefully", async () => {
-      const { mem0, provider } = setup();
-      provider.history.mockRejectedValueOnce(new Error("history boom"));
-      const historyCmd = findCommand(mem0, "history")!;
-
-      await historyCmd._action!("m1");
-
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining("History failed"),
-      );
-    });
-  });
-
-  // ========================================================================
   // status subcommand
   // ========================================================================
 
@@ -965,7 +929,7 @@ describe("registerCliCommands", () => {
       expect(allOutput).toContain("Key");
       expect(allOutput).toContain("Value");
       expect(allOutput).toContain("platform.api_key");
-      expect(allOutput).toContain("platform.base_url");
+      expect(allOutput).toContain("platform.email");
       expect(allOutput).toContain("defaults.user_id");
       expect(allOutput).toContain("Config file:");
     });
@@ -1031,9 +995,9 @@ describe("registerCliCommands", () => {
       const configCmd = findCommand(mem0, "config")!;
       const getCmd = findCommand(configCmd, "get")!;
 
-      getCmd._action!("platform.base_url");
+      getCmd._action!("platform.email");
 
-      expect(consoleSpy.log).toHaveBeenCalledWith("https://api.mem0.ai");
+      expect(consoleSpy.log).toHaveBeenCalledWith("(not set)");
     });
   });
 

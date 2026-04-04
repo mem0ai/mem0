@@ -958,9 +958,8 @@ export function registerCliCommands(
         auto_capture: "autoCapture",
         top_k: "topK",
         mode: "mode",
-        // Dot notation (matches Python CLI: platform.api_key, defaults.user_id)
         "platform.api_key": "apiKey",
-        "platform.base_url": "baseUrl",
+        "platform.email": "userEmail",
         "defaults.user_id": "userId",
         "defaults.org_id": "orgId",
         "defaults.project_id": "projectId",
