@@ -6,4 +6,5 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
+  external: [/^node:/, "fs", "os", "path", "url", "readline", "module"],
 });

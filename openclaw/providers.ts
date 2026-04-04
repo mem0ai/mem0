@@ -370,7 +370,7 @@ class OSSProvider implements Mem0Provider {
 
   async update(memoryId: string, text: string): Promise<void> {
     await this.ensureMemory();
-    await this.memory.update(memoryId, { data: text });
+    await this.memory.update(memoryId, text);
   }
 
   async delete(memoryId: string): Promise<void> {

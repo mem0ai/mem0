@@ -3,10 +3,10 @@
  * injects user config, and produces the final injectable prompt string.
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { fileURLToPath } from "url";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { SkillsConfig, CategoryConfig } from "./types.ts";
+import { readText, exists } from "./fs-safe.ts";
 
 // ============================================================================
 // Defaults
@@ -111,7 +111,7 @@ function resolveSkillsDir(): string {
 
   // Validate: must contain the expected subdirectory structure
   for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, "memory-triage", "SKILL.md"))) {
+    if (exists(path.join(dir, "memory-triage", "SKILL.md"))) {
       return dir;
     }
   }
@@ -143,7 +143,7 @@ function readSkillFile(skillName: string): string | null {
   const filePath = safePath(skillName, "SKILL.md");
   if (!filePath) return null;
   try {
-    return fs.readFileSync(filePath, "utf-8");
+    return readText(filePath);
   } catch {
     return null;
   }
@@ -158,7 +158,7 @@ function readDomainOverlay(domain: string, targetSkill: string): string | null {
   const filePath = safePath(targetSkill, "domains", `${domain}.md`);
   if (!filePath) return null;
   try {
-    const content = fs.readFileSync(filePath, "utf-8");
+    const content = readText(filePath);
     const parsed = parseSkillFile(content);
     // Check applies_to for backward compat (skip if targeting a different skill)
     const appliesTo = parsed.frontmatter.applies_to;
@@ -318,7 +318,7 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
     const parts: string[] = [];
     parts.push("<memory-system>");
     parts.push(
-      "IMPORTANT: Use `memory_store` tool for ALL user facts. NEVER write user info to workspace files (USER.md, memory/).",
+      "IMPORTANT: Use `memory_add` tool for ALL user facts. NEVER write user info to workspace files (USER.md, memory/).",
     );
     parts.push("");
     parts.push(triage.prompt);
@@ -326,19 +326,19 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
     parts.push("## Tool Usage");
     parts.push("");
     parts.push(
-      "Batch facts by CATEGORY. All facts in one memory_store call must share the same category because category determines retention policy (TTL, immutability). If a turn has facts in different categories, make one call per category.",
+      "Batch facts by CATEGORY. All facts in one memory_add call must share the same category because category determines retention policy (TTL, immutability). If a turn has facts in different categories, make one call per category.",
     );
     parts.push("");
     parts.push("FORMAT (single category):");
     parts.push(
-      '  memory_store(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")',
+      '  memory_add(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")',
     );
     parts.push("FORMAT (mixed categories in one turn, separate calls):");
     parts.push(
-      '  memory_store(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")',
+      '  memory_add(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")',
     );
     parts.push(
-      '  memory_store(facts: ["As of 2026-04-01, migrating from Postgres to CockroachDB"], category: "decision")',
+      '  memory_add(facts: ["As of 2026-04-01, migrating from Postgres to CockroachDB"], category: "decision")',
     );
     // Only include search instructions if recall is enabled
     if (config.recall?.enabled !== false) {
@@ -434,7 +434,7 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
     "You have persistent long-term memory via mem0. After EVERY response, evaluate the turn for facts worth storing.",
   );
   parts.push(
-    "Use `memory_store` tool for ALL user facts. NEVER write user info to workspace files (USER.md, memory/).",
+    "Use `memory_add` tool for ALL user facts. NEVER write user info to workspace files (USER.md, memory/).",
   );
   parts.push("Most turns produce ZERO memory operations. That is correct.");
   parts.push(
@@ -444,7 +444,7 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
     "Batch facts by CATEGORY. All facts in one call must share the same category.",
   );
   parts.push(
-    'Format: memory_store(facts: ["fact text"], category: "identity")',
+    'Format: memory_add(facts: ["fact text"], category: "identity")',
   );
   parts.push(
     "NEVER store credentials (sk-, m0-, ghp_, AKIA, Bearer tokens, passwords).",

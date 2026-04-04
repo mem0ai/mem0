@@ -27,6 +27,13 @@ const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> =
         /Conversation info \(untrusted metadata\):\s*```json\s*\{[\s\S]*?\}\s*```/g,
       replacement: "",
     },
+    {
+      // OpenClaw TUI sends "Sender (untrusted metadata)" with a JSON block
+      // containing label, id, name, username — strip to prevent storing as memory
+      pattern:
+        /Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi,
+      replacement: "",
+    },
     { pattern: /\[media attached:.*?\]/g, replacement: "" },
     {
       pattern:

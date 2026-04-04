@@ -5,7 +5,7 @@
  * and the open-source self-hosted SDK. Uses the official `mem0ai` package.
  *
  * Features:
- * - 7 core tools: memory_search, memory_store, memory_get, memory_list,
+ * - 7 core tools: memory_search, memory_add, memory_get, memory_list,
  *   memory_update, memory_delete, memory_history
  * - Short-term (session-scoped) and long-term (user-scoped) memory
  * - Auto-recall: injects relevant memories (both scopes) before each agent turn
@@ -21,12 +21,12 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type {
   Mem0Config,
   Mem0Provider,
-  MemoryItem,
   AddOptions,
   SearchOptions,
 } from "./types.ts";
 import { createProvider, providerToBackend } from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
+import type { FileConfig } from "./config.ts";
 import { filterMessagesForExtraction } from "./filtering.ts";
 import {
   effectiveUserId,
@@ -51,9 +51,10 @@ import {
 } from "./dream-gate.ts";
 import { PlatformBackend } from "./backend/platform.ts";
 import type { Backend } from "./backend/base.ts";
-import { registerAllTools } from "./tools/index.ts";
-import type { ToolContext } from "./tools/index.ts";
 import { registerCliCommands } from "./cli/commands.ts";
+import { readPluginAuth } from "./cli/config-file.ts";
+import { registerAllTools } from "./tools/index.ts";
+import type { ToolDeps } from "./tools/index.ts";
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
@@ -74,6 +75,7 @@ export {
   filterMessagesForExtraction,
 } from "./filtering.ts";
 export { mem0ConfigSchema } from "./config.ts";
+export type { FileConfig } from "./config.ts";
 export { createProvider } from "./providers.ts";
 
 // ============================================================================
@@ -99,19 +101,28 @@ const memoryPlugin = {
   configSchema: mem0ConfigSchema,
 
   register(api: OpenClawPluginApi) {
-    const cfg = mem0ConfigSchema.parse(api.pluginConfig);
+    // Read auth from openclaw.json plugin config (picks up post-startup login).
+    // This is the single source of truth — set via `openclaw mem0 login`.
+    const pluginAuth = readPluginAuth();
+    const fileConfig: FileConfig = {
+      apiKey: pluginAuth.apiKey,
+      baseUrl: pluginAuth.baseUrl,
+      orgId: pluginAuth.orgId,
+      projectId: pluginAuth.projectId,
+    };
+    const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
 
     if (cfg.needsSetup) {
       api.logger.warn(
         "openclaw-mem0: API key not configured. Memory features are disabled.\n" +
           "  To set up, run:\n" +
-          "  openclaw mem0 login\n" +
+          "  openclaw mem0 init\n" +
           "  Get your key at: https://app.mem0.ai/dashboard/api-keys",
       );
 
-      // Register CLI even without API key — login command must be available
+      // Register CLI even without API key — init command must be available
       // to bootstrap configuration. Pass nulls for backend/provider since
-      // only the login subcommand works without auth.
+      // only the init subcommand works without auth.
       registerCliCommands(
         api,
         null as any,
@@ -207,23 +218,22 @@ const memoryPlugin = {
     }
 
     // ========================================================================
-    // Tools
+    // Tools (modular — each tool in its own file under tools/)
     // ========================================================================
 
-    const toolCtx: ToolContext = {
+    const toolDeps: ToolDeps = {
       api,
-      backend,
-      cfg,
       provider,
+      cfg,
       resolveUserId: _resolveUserId,
       effectiveUserId: _effectiveUserId,
       agentUserId: _agentUserId,
-      getCurrentSessionId: () => currentSessionId,
-      skillsActive,
       buildAddOptions,
       buildSearchOptions,
+      getCurrentSessionId: () => currentSessionId,
+      skillsActive,
     };
-    registerAllTools(toolCtx);
+    registerAllTools(toolDeps);
 
     // ========================================================================
     // CLI Commands
@@ -487,12 +497,12 @@ function registerHooks(
         }
 
         // Verify the model actually performed WRITE operations (not just reads).
-        // Only count memory_store, memory_update, memory_delete.
+        // Only count memory_add, memory_update, memory_delete.
         // Exclude memory_list and memory_search (read-only, orient-only pass).
         // Scan only the LAST assistant message (this turn), not the full session
         // snapshot, to avoid matching earlier tool calls from prior turns.
         const WRITE_TOOLS = new Set([
-          "memory_store",
+          "memory_add",
           "memory_update",
           "memory_delete",
         ]);
@@ -545,6 +555,9 @@ function registerHooks(
   // LEGACY MODE: Original auto-recall + auto-capture behavior
   // ========================================================================
 
+  // Track last seen session ID to detect actual new sessions (not every turn)
+  let lastRecallSessionId: string | undefined;
+
   // Auto-recall: inject relevant memories before agent starts
   if (cfg.autoRecall) {
     const RECALL_TIMEOUT_MS = 8_000;
@@ -562,24 +575,50 @@ function registerHooks(
         return;
       }
 
+      // Skip recall for system/bootstrap prompts to save API calls
+      const promptLower = event.prompt.toLowerCase();
+      const isSystemPrompt =
+        promptLower.includes("a new session was started") ||
+        promptLower.includes("session startup sequence") ||
+        promptLower.includes("/new or /reset") ||
+        promptLower.startsWith("system:") ||
+        promptLower.startsWith("run your session");
+      if (isSystemPrompt) {
+        api.logger.info(
+          "openclaw-mem0: skipping recall for system/bootstrap prompt",
+        );
+        return;
+      }
+
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
-      // Detect new session for cold-start broadening
-      const isNewSession = true; // treat every hook invocation as potentially new
+      // Detect actual new session (first turn with a different sessionKey)
+      const isNewSession =
+        sessionId !== undefined && sessionId !== lastRecallSessionId;
+      if (sessionId) lastRecallSessionId = sessionId;
 
       // Subagents have ephemeral UUIDs — their namespace is always empty.
       // Search the parent (main) user namespace instead so subagents get
       // the user's long-term context.
       const isSubagent = isSubagentSession(sessionId);
       const recallSessionKey = isSubagent ? undefined : sessionId;
+
+      // Strip OpenClaw sender metadata from the prompt before searching
+      const cleanPrompt = event.prompt
+        .replace(
+          /Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi,
+          "",
+        )
+        .trim();
+
       const recallWork = async () => {
-        // Use a larger candidate pool for recall, then filter down
+        // Single search with a reasonable candidate pool
         const recallTopK = Math.max((cfg.topK ?? 5) * 2, 10);
 
         // Search long-term memories (user-scoped; subagents read from parent namespace)
         let longTermResults = await provider.search(
-          event.prompt,
+          cleanPrompt,
           buildSearchOptions(
             undefined,
             recallTopK,
@@ -607,11 +646,9 @@ function registerHooks(
           }
         }
 
-        // For short/generic prompts or new sessions, broaden recall
-        // with a general query to avoid cold-start blindness.
-        // Use a lower threshold (0.5) since the generic query is
-        // intentionally broad and strict thresholds defeat the purpose.
-        if (event.prompt.length < 100 || isNewSession) {
+        // Only broaden for genuinely new sessions with short prompts
+        // (cold-start blindness). Skip on subsequent turns to save API calls.
+        if (isNewSession && cleanPrompt.length < 100) {
           const broadOpts = buildSearchOptions(
             undefined,
             5,
@@ -634,53 +671,18 @@ function registerHooks(
         // Cap at configured topK after filtering
         longTermResults = longTermResults.slice(0, cfg.topK);
 
-        // Search session memories (session-scoped) if we have a session ID
-        let sessionResults: MemoryItem[] = [];
-        if (sessionId) {
-          sessionResults = await provider.search(
-            event.prompt,
-            buildSearchOptions(
-              undefined,
-              undefined,
-              sessionId,
-              recallSessionKey,
-            ),
-          );
-          sessionResults = sessionResults.filter(
-            (r) => (r.score ?? 0) >= cfg.searchThreshold,
-          );
-        }
-
-        // Deduplicate session results against long-term
-        const longTermIds = new Set(longTermResults.map((r) => r.id));
-        const uniqueSessionResults = sessionResults.filter(
-          (r) => !longTermIds.has(r.id),
-        );
-
-        if (longTermResults.length === 0 && uniqueSessionResults.length === 0)
-          return undefined;
+        if (longTermResults.length === 0) return undefined;
 
         // Build context with clear labels
-        let memoryContext = "";
-        if (longTermResults.length > 0) {
-          memoryContext += longTermResults
-            .map(
-              (r) =>
-                `- ${r.memory}${r.categories?.length ? ` [${r.categories.join(", ")}]` : ""}`,
-            )
-            .join("\n");
-        }
-        if (uniqueSessionResults.length > 0) {
-          if (memoryContext) memoryContext += "\n";
-          memoryContext += "\nSession memories:\n";
-          memoryContext += uniqueSessionResults
-            .map((r) => `- ${r.memory}`)
-            .join("\n");
-        }
+        const memoryContext = longTermResults
+          .map(
+            (r) =>
+              `- ${r.memory}${r.categories?.length ? ` [${r.categories.join(", ")}]` : ""}`,
+          )
+          .join("\n");
 
-        const totalCount = longTermResults.length + uniqueSessionResults.length;
         api.logger.info(
-          `openclaw-mem0: injecting ${totalCount} memories into context (${longTermResults.length} long-term, ${uniqueSessionResults.length} session)`,
+          `openclaw-mem0: injecting ${longTermResults.length} memories into context`,
         );
 
         const preamble = isSubagent
@@ -797,6 +799,16 @@ function registerHooks(
         if (textContent.includes("<relevant-memories>")) {
           textContent = textContent
             .replace(/<relevant-memories>[\s\S]*?<\/relevant-memories>\s*/g, "")
+            .trim();
+          if (!textContent) continue;
+        }
+        // Strip OpenClaw sender metadata prefix (prevents storing TUI identity as memory)
+        if (textContent.includes("Sender") && textContent.includes("untrusted metadata")) {
+          textContent = textContent
+            .replace(
+              /Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi,
+              "",
+            )
             .trim();
           if (!textContent) continue;
         }
