@@ -178,7 +178,6 @@ function setup() {
   const buildSearchOptions = vi.fn().mockReturnValue({
     user_id: "testuser",
     top_k: 5,
-    source: "OPENCLAW",
   });
   const getCurrentSessionId = vi.fn().mockReturnValue(undefined);
 
@@ -521,7 +520,7 @@ describe("registerCliCommands", () => {
 
       expect(provider.add).toHaveBeenCalledWith(
         [{ role: "user", content: "User likes TypeScript" }],
-        expect.objectContaining({ user_id: "testuser", source: "OPENCLAW" }),
+        expect.objectContaining({ user_id: "testuser" }),
       );
       expect(consoleSpy.log).toHaveBeenCalledWith(
         expect.stringContaining("Added 1 memory"),
@@ -694,7 +693,6 @@ describe("registerCliCommands", () => {
         expect.objectContaining({
           user_id: "testuser",
           page_size: 50,
-          source: "OPENCLAW",
         }),
       );
       expect(consoleSpy.log).toHaveBeenCalledWith(
@@ -1190,7 +1188,6 @@ describe("registerCliCommands", () => {
       expect(provider.getAll).toHaveBeenCalledWith(
         expect.objectContaining({
           user_id: "testuser",
-          source: "OPENCLAW",
         }),
       );
       expect(loadDreamPrompt).toHaveBeenCalled();

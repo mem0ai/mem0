@@ -693,7 +693,7 @@ export function registerCliCommands(
                   : effectiveUserId(getCurrentSessionId());
               const result = await provider.add(
                 [{ role: "user", content: text }],
-                { user_id: uid, source: "OPENCLAW" },
+                { user_id: uid },
               );
               const count = result.results?.length ?? 0;
               if (count > 0) {
@@ -769,7 +769,6 @@ export function registerCliCommands(
               const memories = await provider.getAll({
                 user_id: uid,
                 page_size: limit,
-                source: "OPENCLAW",
               });
 
               if (!Array.isArray(memories) || memories.length === 0) {
@@ -1185,7 +1184,6 @@ export function registerCliCommands(
             const uid = cfg.userId;
             const memories = await provider.getAll({
               user_id: uid,
-              source: "OPENCLAW",
             });
             const count = Array.isArray(memories) ? memories.length : 0;
 
