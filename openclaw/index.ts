@@ -5,8 +5,8 @@
  * and the open-source self-hosted SDK. Uses the official `mem0ai` package.
  *
  * Features:
- * - 7 core tools: memory_search, memory_add, memory_get, memory_list,
- *   memory_update, memory_delete, memory_history
+ * - 6 core tools: memory_search, memory_add, memory_get, memory_list,
+ *   memory_update, memory_delete
  * - Short-term (session-scoped) and long-term (user-scoped) memory
  * - Auto-recall: injects relevant memories (both scopes) before each agent turn
  * - Auto-capture: stores key facts scoped to the current session after each agent turn
@@ -56,6 +56,9 @@ import { readPluginAuth } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
+import { bootstrapTelemetryFlag } from "./fs-safe.ts";
+
+bootstrapTelemetryFlag();
 
 // ============================================================================
 // Re-exports (for tests and external consumers)

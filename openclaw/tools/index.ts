@@ -7,7 +7,6 @@ import { createMemoryGetTool } from "./memory-get.ts";
 import { createMemoryListTool } from "./memory-list.ts";
 import { createMemoryUpdateTool } from "./memory-update.ts";
 import { createMemoryDeleteTool } from "./memory-delete.ts";
-import { createMemoryHistoryTool } from "./memory-history.ts";
 
 export interface ToolDeps {
   api: OpenClawPluginApi;
@@ -32,5 +31,4 @@ export function registerAllTools(deps: ToolDeps): void {
   api.registerTool(createMemoryListTool(deps));
   api.registerTool(createMemoryUpdateTool(deps));
   api.registerTool(createMemoryDeleteTool(deps));
-  api.registerTool(createMemoryHistoryTool(deps));
 }

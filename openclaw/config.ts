@@ -151,6 +151,7 @@ const ALLOWED_KEYS = [
   "apiKey",
   "baseUrl",
   "userId",
+  "userEmail",
   "orgId",
   "projectId",
   "autoCapture",
