@@ -3,6 +3,8 @@
  */
 
 import type { PlatformConfig } from "../config.js";
+import { isAgentMode } from "../state.js";
+import { CLI_VERSION } from "../version.js";
 import {
 	APIError,
 	type AddOptions,
@@ -24,6 +26,9 @@ export class PlatformBackend implements Backend {
 		this.headers = {
 			Authorization: `Token ${config.apiKey}`,
 			"Content-Type": "application/json",
+			"X-Mem0-Source": "cli",
+			"X-Mem0-Client-Language": "node",
+			"X-Mem0-Client-Version": CLI_VERSION,
 		};
 	}
 
@@ -38,9 +43,14 @@ export class PlatformBackend implements Backend {
 			url += `?${qs}`;
 		}
 
+		const headers = {
+			...this.headers,
+			"X-Mem0-Caller-Type": isAgentMode() ? "agent" : "user",
+		};
+
 		const fetchOpts: RequestInit = {
 			method,
-			headers: this.headers,
+			headers,
 			signal: AbortSignal.timeout(30_000),
 		};
 		if (opts?.json) {
@@ -286,11 +296,15 @@ export class PlatformBackend implements Backend {
 		return result;
 	}
 
+	async ping(): Promise<Record<string, unknown>> {
+		return (await this._request("GET", "/v1/ping/")) as Record<string, unknown>;
+	}
+
 	async status(
 		opts: { userId?: string; agentId?: string } = {},
 	): Promise<Record<string, unknown>> {
 		try {
-			await this._request("GET", "/v1/ping/");
+			await this.ping();
 			return { connected: true, backend: "platform", base_url: this.baseUrl };
 		} catch (e) {
 			return {

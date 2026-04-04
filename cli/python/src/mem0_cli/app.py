@@ -55,6 +55,40 @@ event_app = typer.Typer(
 # entity_app and event_app registered after Memory commands to control panel ordering
 
 
+# ── Telemetry helper ─────────────────────────────────────────────────────
+
+
+def _fire_telemetry(command_name: str, extra: dict | None = None) -> None:
+    """Fire a PostHog telemetry event (non-blocking, never fails)."""
+    try:
+        from mem0_cli.telemetry import capture_event
+
+        props = {"command": command_name}
+        if extra:
+            props.update(extra)
+        capture_event(f"cli.{command_name}", props)
+    except Exception:
+        pass
+
+
+@config_app.callback(invoke_without_command=True)
+def _config_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"config.{ctx.invoked_subcommand}")
+
+
+@entity_app.callback(invoke_without_command=True)
+def _entity_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"entity.{ctx.invoked_subcommand}")
+
+
+@event_app.callback(invoke_without_command=True)
+def _event_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"event.{ctx.invoked_subcommand}")
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
@@ -165,8 +199,11 @@ def main_callback(
     if version:
         from mem0_cli.commands.utils import cmd_version
 
+        _fire_telemetry("version")
         cmd_version()
         raise typer.Exit()
+    if ctx.invoked_subcommand:
+        _fire_telemetry(ctx.invoked_subcommand)
 
 
 # ── Memory: add ───────────────────────────────────────────────────────────
@@ -571,12 +608,14 @@ def delete(
 
     # ── Dispatch ─────────────────────────────────────────────────────
     if memory_id is not None:
+        _fire_telemetry("delete", {"delete_mode": "single"})
         from mem0_cli.commands.memory import cmd_delete
 
         backend = _get_backend(api_key, base_url)
         cmd_delete(backend, memory_id, dry_run=dry_run, force=force, output=output)
 
     elif all_:
+        _fire_telemetry("delete", {"delete_mode": "all"})
         from mem0_cli.commands.memory import cmd_delete_all
 
         backend, config = _get_backend_and_config(api_key, base_url)
@@ -584,6 +623,7 @@ def delete(
         cmd_delete_all(backend, force=force, dry_run=dry_run, all_=project, **ids, output=output)
 
     else:  # --entity
+        _fire_telemetry("delete", {"delete_mode": "entity"})
         from mem0_cli.commands.entities import cmd_entities_delete
 
         backend = _get_backend(api_key, base_url)
