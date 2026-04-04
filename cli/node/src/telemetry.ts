@@ -53,16 +53,21 @@ function getDistinctId(): string {
 /**
  * Fire a PostHog event (non-blocking, returns void, never throws).
  * Spawns telemetry-sender.cjs as a detached subprocess.
+ *
+ * When `preResolvedEmail` is provided (e.g. from an upfront ping
+ * validation), it is used directly as the PostHog distinct ID and the
+ * subprocess skips its own `/v1/ping/` call.
  */
 export function captureEvent(
 	eventName: string,
 	properties: Record<string, unknown> = {},
+	preResolvedEmail?: string,
 ): void {
 	if (!isTelemetryEnabled()) return;
 
 	try {
 		const config = loadConfig();
-		const distinctId = getDistinctId();
+		const distinctId = preResolvedEmail || getDistinctId();
 
 		const payload = {
 			api_key: POSTHOG_API_KEY,

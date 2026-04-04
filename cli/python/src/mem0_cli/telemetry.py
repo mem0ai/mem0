@@ -45,8 +45,17 @@ def _get_distinct_id() -> str:
     return "anonymous-cli"
 
 
-def capture_event(event_name: str, properties: dict[str, Any] | None = None) -> None:
-    """Fire a PostHog event via a detached subprocess (non-blocking)."""
+def capture_event(
+    event_name: str,
+    properties: dict[str, Any] | None = None,
+    pre_resolved_email: str | None = None,
+) -> None:
+    """Fire a PostHog event via a detached subprocess (non-blocking).
+
+    When *pre_resolved_email* is provided (e.g. from an upfront ping
+    validation), it is used directly as the PostHog distinct ID and the
+    subprocess skips its own ``/v1/ping/`` call.
+    """
     if not _is_telemetry_enabled():
         return
 
@@ -56,7 +65,7 @@ def capture_event(event_name: str, properties: dict[str, Any] | None = None) -> 
         from mem0_cli.state import is_agent_mode
 
         config = load_config()
-        distinct_id = _get_distinct_id()
+        distinct_id = pre_resolved_email or _get_distinct_id()
 
         payload = {
             "api_key": POSTHOG_API_KEY,
