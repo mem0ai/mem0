@@ -246,6 +246,7 @@ class OSSProvider implements Mem0Provider {
     if (this.ossConfig?.vectorStore)
       config.vectorStore = this.ossConfig.vectorStore;
     if (this.ossConfig?.llm) config.llm = this.ossConfig.llm;
+    if (this.ossConfig?.graphStore) config.graphStore = this.ossConfig.graphStore;
 
     if (this.ossConfig?.historyDbPath) {
       const dbPath = this.resolvePath

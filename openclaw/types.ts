@@ -20,6 +20,7 @@ export type Mem0Config = {
     embedder?: { provider: string; config: Record<string, unknown> };
     vectorStore?: { provider: string; config: Record<string, unknown> };
     llm?: { provider: string; config: Record<string, unknown> };
+    graphStore?: { provider: string; config: Record<string, unknown>; llm?: { provider: string; config: Record<string, unknown> }; customPrompt?: string };
     historyDbPath?: string;
     disableHistory?: boolean;
   };
