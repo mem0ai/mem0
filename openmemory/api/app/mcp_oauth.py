@@ -283,7 +283,7 @@ async def token(
     acc_token = generate_token()
     ref_token = generate_token()
     
-    access_token_ttl = int(os.getenv("OAUTH_ACCESS_TOKEN_TTL", 86400))  # 24 hours default
+    access_token_ttl = int(os.getenv("OAUTH_ACCESS_TOKEN_TTL", 2592000))  # 30 days default
     access_tokens[acc_token] = {"expires": time.time() + access_token_ttl, "scope": scope}
     refresh_tokens[ref_token] = {"access_token": acc_token, "expires": time.time() + 2592000, "scope": scope}
 
