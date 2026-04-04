@@ -24,7 +24,7 @@ services:
       - ./api:/usr/src/openmemory
       - ../synaptic_memory:/usr/src/synaptic/synaptic_memory
     command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 1 --proxy-headers --forwarded-allow-ips=\"*\""
+      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 1 --proxy-headers --forwarded-allow-ips=\"*\" --timeout-keep-alive 120"
   openmemory-ui:
     init: true
     build:

@@ -496,7 +496,7 @@ async def root_sse(request: Request):
     # Start the server loop in a background task
     asyncio.create_task(run_server())
 
-    return EventSourceResponse(content=sse_stream_reader, data_sender_callable=sse_writer)
+    return EventSourceResponse(content=sse_stream_reader, data_sender_callable=sse_writer, ping=30)
 
 @mcp_router.get("/{client_name}/sse/{user_id}")
 
