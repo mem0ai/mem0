@@ -12,7 +12,7 @@ import typer
 from rich.console import Console
 
 from mem0_cli import __version__
-from mem0_cli.branding import BRAND_COLOR, print_error
+from mem0_cli.branding import BRAND_COLOR, print_error, print_warning
 
 console = Console()
 err_console = Console(stderr=True)
@@ -55,6 +55,10 @@ event_app = typer.Typer(
 # entity_app and event_app registered after Memory commands to control panel ordering
 
 
+# ── Validated user identity (set by _get_backend_and_config) ──────────────
+
+_validated_user_email: str | None = None
+
 # ── Telemetry helper ─────────────────────────────────────────────────────
 
 
@@ -66,7 +70,7 @@ def _fire_telemetry(command_name: str, extra: dict | None = None) -> None:
         props = {"command": command_name}
         if extra:
             props.update(extra)
-        capture_event(f"cli.{command_name}", props)
+        capture_event(f"cli.{command_name}", props, pre_resolved_email=_validated_user_email)
     except Exception:
         pass
 
@@ -96,9 +100,16 @@ def _get_backend_and_config(
     api_key: str | None = None,
     base_url: str | None = None,
 ):
-    """Build and return the Platform backend plus the loaded config."""
+    """Build and return the Platform backend plus the loaded config.
+
+    Validates the API key upfront via ``/v1/ping/`` and caches the
+    resolved user email for telemetry.
+    """
+    global _validated_user_email
+
     from mem0_cli.backend import get_backend
-    from mem0_cli.config import load_config
+    from mem0_cli.backend.platform import AuthError
+    from mem0_cli.config import load_config, save_config
 
     config = load_config()
 
@@ -115,7 +126,31 @@ def _get_backend_and_config(
         )
         raise typer.Exit(1)
 
-    return get_backend(config), config
+    backend = get_backend(config)
+
+    # Validate the API key upfront with a fast timeout
+    try:
+        ping_data = backend.ping(timeout=5.0)
+        email = ping_data.get("user_email") if isinstance(ping_data, dict) else None
+        if email:
+            _validated_user_email = email
+            if config.platform.user_email != email:
+                config.platform.user_email = email
+                try:
+                    save_config(config)
+                except Exception:
+                    pass
+    except AuthError:
+        print_error(
+            err_console,
+            "Invalid or expired API key.",
+            hint="Run 'mem0 init' or set MEM0_API_KEY environment variable.",
+        )
+        raise typer.Exit(1)
+    except Exception:
+        print_warning(err_console, "Could not validate API key (network issue). Proceeding anyway.")
+
+    return backend, config
 
 
 def _get_backend(

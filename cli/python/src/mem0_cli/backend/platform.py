@@ -288,8 +288,18 @@ class PlatformBackend(Backend):
             result = self._request("DELETE", f"/v2/entities/{entity_type}/{entity_id}/")
         return result
 
-    def ping(self) -> dict:
-        """Call the ping endpoint and return the raw response."""
+    def ping(self, timeout: float | None = None) -> dict:
+        """Call the ping endpoint and return the raw response.
+
+        When *timeout* is given it overrides the client-level timeout so that
+        validation pings can fail fast without blocking the user.
+        """
+        if timeout is not None:
+            resp = self._client.get("/v1/ping/", timeout=timeout)
+            if resp.status_code == 401:
+                raise AuthError("Authentication failed. Your API key may be invalid or expired.")
+            resp.raise_for_status()
+            return resp.json()
         return self._request("GET", "/v1/ping/")
 
     def status(
