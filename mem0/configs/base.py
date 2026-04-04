@@ -64,6 +64,11 @@ class MemoryConfig(BaseModel):
         description="Custom prompt for the update memory",
         default=None,
     )
+    update_memory_search_limit: int = Field(
+        description="Maximum number of existing memories to retrieve per extracted fact during the memory update step. "
+        "Higher values improve deduplication accuracy at the cost of more tokens in the update prompt.",
+        default=5,
+    )
 
 
 class AzureConfig(BaseModel):

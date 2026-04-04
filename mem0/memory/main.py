@@ -247,6 +247,7 @@ class Memory(MemoryBase):
 
         self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
         self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
+        self.update_memory_search_limit = self.config.update_memory_search_limit
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
@@ -569,7 +570,7 @@ class Memory(MemoryBase):
             existing_memories = self.vector_store.search(
                 query=new_mem,
                 vectors=messages_embeddings,
-                limit=5,
+                limit=self.update_memory_search_limit,
                 filters=search_filters,
             )
             for mem in existing_memories:
@@ -1680,7 +1681,7 @@ class AsyncMemory(MemoryBase):
                 self.vector_store.search,
                 query=new_mem_content,
                 vectors=embeddings,
-                limit=5,
+                limit=self.update_memory_search_limit,
                 filters=search_filters,
             )
             return [{"id": mem.id, "text": mem.payload.get("data", "")} for mem in existing_mems]
