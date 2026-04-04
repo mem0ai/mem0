@@ -14,6 +14,8 @@ import { createMemoryAddTool } from "../tools/memory-add.ts";
 import { createMemoryGetTool } from "../tools/memory-get.ts";
 import { createMemoryDeleteTool } from "../tools/memory-delete.ts";
 import { createMemoryListTool } from "../tools/memory-list.ts";
+import { createMemoryUpdateTool } from "../tools/memory-update.ts";
+import { createMemoryHistoryTool } from "../tools/memory-history.ts";
 
 // ---------------------------------------------------------------------------
 // Mock helper
@@ -780,5 +782,204 @@ describe("memory_list execute", () => {
     const opts = getAllMock.mock.calls[0][0];
     expect(opts.run_id).toBe("sess-abc");
     expect(result.details.count).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// memory_update execute
+// ---------------------------------------------------------------------------
+
+describe("memory_update execute", () => {
+  it("calls provider.update and returns success", async () => {
+    const ctx = createMockToolDeps();
+    const tool = createMemoryUpdateTool(ctx);
+
+    const result = await tool.execute("call-1", {
+      memoryId: "mem-123",
+      text: "Updated preference",
+    });
+
+    expect(ctx.provider!.update).toHaveBeenCalledWith(
+      "mem-123",
+      "Updated preference",
+    );
+    expect(result.content[0].text).toContain("Updated memory mem-123");
+    expect(result.content[0].text).toContain("Updated preference");
+    expect(result.details.action).toBe("updated");
+    expect(result.details.id).toBe("mem-123");
+  });
+
+  it("truncates long text in response", async () => {
+    const ctx = createMockToolDeps();
+    const tool = createMemoryUpdateTool(ctx);
+
+    const longText = "A".repeat(120);
+    const result = await tool.execute("call-2", {
+      memoryId: "mem-456",
+      text: longText,
+    });
+
+    expect(ctx.provider!.update).toHaveBeenCalledWith("mem-456", longText);
+    // The response text should contain the first 80 chars followed by "..."
+    expect(result.content[0].text).toContain("A".repeat(80) + "...");
+    expect(result.content[0].text).not.toContain("A".repeat(81));
+    expect(result.details.action).toBe("updated");
+  });
+
+  it("blocks subagent sessions", async () => {
+    const ctx = createMockToolDeps({
+      getCurrentSessionId: vi
+        .fn()
+        .mockReturnValue("agent:main:subagent:uuid-789"),
+    });
+    const tool = createMemoryUpdateTool(ctx);
+
+    const result = await tool.execute("call-3", {
+      memoryId: "mem-123",
+      text: "should not update",
+    });
+
+    expect(ctx.provider!.update).not.toHaveBeenCalled();
+    expect(result.content[0].text).toContain(
+      "not available in subagent sessions",
+    );
+    expect(result.details.error).toBe("subagent_blocked");
+  });
+
+  it("handles errors gracefully", async () => {
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn().mockRejectedValue(new Error("update conflict")),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn(),
+      },
+    });
+    const tool = createMemoryUpdateTool(ctx);
+
+    const result = await tool.execute("call-4", {
+      memoryId: "mem-123",
+      text: "new text",
+    });
+
+    expect(result.content[0].text).toContain("Memory update failed");
+    expect(result.content[0].text).toContain("update conflict");
+    expect(result.details.error).toContain("update conflict");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// memory_history execute
+// ---------------------------------------------------------------------------
+
+describe("memory_history execute", () => {
+  it("returns formatted history", async () => {
+    const historyEntries = [
+      {
+        event: "ADD",
+        created_at: "2026-01-01T00:00:00Z",
+        old_memory: null,
+        new_memory: "Initial memory text",
+      },
+      {
+        event: "UPDATE",
+        created_at: "2026-01-02T00:00:00Z",
+        old_memory: "Initial memory text",
+        new_memory: "Updated memory text",
+      },
+    ];
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn().mockResolvedValue(historyEntries),
+      },
+    });
+    const tool = createMemoryHistoryTool(ctx);
+
+    const result = await tool.execute("call-1", { memoryId: "mem-abc" });
+
+    expect(ctx.provider!.history).toHaveBeenCalledWith("mem-abc");
+    expect(result.content[0].text).toContain("History for memory mem-abc");
+    expect(result.content[0].text).toContain("2 entries");
+    expect(result.content[0].text).toContain("[ADD]");
+    expect(result.content[0].text).toContain("[UPDATE]");
+    expect(result.content[0].text).toContain("Initial memory text");
+    expect(result.content[0].text).toContain("Updated memory text");
+    expect(result.content[0].text).toContain("Old: (none)");
+    expect(result.details.count).toBe(2);
+    expect(result.details.history).toEqual(historyEntries);
+  });
+
+  it("handles empty history", async () => {
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn().mockResolvedValue([]),
+      },
+    });
+    const tool = createMemoryHistoryTool(ctx);
+
+    const result = await tool.execute("call-2", { memoryId: "mem-empty" });
+
+    expect(result.content[0].text).toBe(
+      "No history found for memory mem-empty.",
+    );
+    expect(result.details.count).toBe(0);
+  });
+
+  it("handles null history", async () => {
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn().mockResolvedValue(null),
+      },
+    });
+    const tool = createMemoryHistoryTool(ctx);
+
+    const result = await tool.execute("call-3", { memoryId: "mem-null" });
+
+    expect(result.content[0].text).toBe(
+      "No history found for memory mem-null.",
+    );
+    expect(result.details.count).toBe(0);
+  });
+
+  it("handles errors gracefully", async () => {
+    const ctx = createMockToolDeps({
+      provider: {
+        search: vi.fn(),
+        add: vi.fn(),
+        getAll: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        get: vi.fn(),
+        history: vi.fn().mockRejectedValue(new Error("history unavailable")),
+      },
+    });
+    const tool = createMemoryHistoryTool(ctx);
+
+    const result = await tool.execute("call-4", { memoryId: "mem-err" });
+
+    expect(result.content[0].text).toContain("Memory history failed");
+    expect(result.content[0].text).toContain("history unavailable");
+    expect(result.details.error).toContain("history unavailable");
   });
 });
