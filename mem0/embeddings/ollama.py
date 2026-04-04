@@ -26,10 +26,29 @@ class OllamaEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "nomic-embed-text"
-        self.config.embedding_dims = self.config.embedding_dims or 512
-
         self.client = Client(host=self.config.ollama_base_url)
         self._ensure_model_exists()
+
+        if not self.config.embedding_dims:
+            self.config.embedding_dims = self._detect_embedding_dims()
+
+    def _detect_embedding_dims(self) -> int:
+        """
+        Auto-detect the embedding dimensions by making a test embed call.
+
+        Different Ollama models output different dimensions (e.g. bge-m3 → 1024,
+        nomic-embed-text → 768, mxbai-embed-large → 1024). Relying on a static
+        fallback causes Qdrant (and other vector stores) to create collections with
+        the wrong vector size, leading to dimension mismatch errors at insert time.
+        """
+        try:
+            response = self.client.embed(model=self.config.model, input="test")
+            embeddings = response.get("embeddings") or []
+            if embeddings and len(embeddings[0]) > 0:
+                return len(embeddings[0])
+        except Exception:
+            pass
+        return 512
 
     @staticmethod
     def _normalize_model_name(name: str) -> str:
