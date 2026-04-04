@@ -20,6 +20,7 @@ export const CONFIG_VERSION = 1;
 export interface PlatformConfig {
 	apiKey: string;
 	baseUrl: string;
+	userEmail: string;
 }
 
 export interface DefaultsConfig {
@@ -49,6 +50,7 @@ export function createDefaultConfig(): Mem0Config {
 		platform: {
 			apiKey: "",
 			baseUrl: DEFAULT_BASE_URL,
+			userEmail: "",
 		},
 	};
 }
@@ -70,6 +72,7 @@ export function loadConfig(): Mem0Config {
 		const plat = data.platform ?? {};
 		config.platform.apiKey = plat.api_key ?? "";
 		config.platform.baseUrl = plat.base_url ?? DEFAULT_BASE_URL;
+		config.platform.userEmail = plat.user_email ?? "";
 
 		const defaults = data.defaults ?? {};
 		config.defaults.userId = defaults.user_id ?? "";
@@ -114,6 +117,7 @@ export function saveConfig(config: Mem0Config): void {
 		platform: {
 			api_key: config.platform.apiKey,
 			base_url: config.platform.baseUrl,
+			user_email: config.platform.userEmail,
 		},
 	};
 
@@ -131,6 +135,7 @@ export function redactKey(key: string): string {
 const KEY_MAP: Record<string, [keyof Mem0Config, string]> = {
 	"platform.api_key": ["platform", "apiKey"],
 	"platform.base_url": ["platform", "baseUrl"],
+	"platform.user_email": ["platform", "userEmail"],
 	"defaults.user_id": ["defaults", "userId"],
 	"defaults.agent_id": ["defaults", "agentId"],
 	"defaults.app_id": ["defaults", "appId"],
@@ -139,6 +144,7 @@ const KEY_MAP: Record<string, [keyof Mem0Config, string]> = {
 	// Short-form aliases
 	api_key: ["platform", "apiKey"],
 	base_url: ["platform", "baseUrl"],
+	user_email: ["platform", "userEmail"],
 	user_id: ["defaults", "userId"],
 	agent_id: ["defaults", "agentId"],
 	app_id: ["defaults", "appId"],
