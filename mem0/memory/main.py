@@ -625,7 +625,7 @@ class Memory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
-            mem_metadata["created_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+            mem_metadata["created_at"] = timestamp if timestamp is not None else datetime.now(pytz.timezone("US/Pacific")).isoformat()
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
