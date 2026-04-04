@@ -176,6 +176,7 @@ const memoryPlugin = {
     ): AddOptions {
       const opts: AddOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
+        source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
       if (cfg.mode === "platform") {
@@ -200,6 +201,7 @@ const memoryPlugin = {
         threshold: recallCfg?.threshold ?? cfg.searchThreshold,
         keyword_search: recallCfg?.keywordSearch !== false,
         reranking: recallCfg?.rerank !== false,
+        source: "OPENCLAW",
       };
       if (recallCfg?.filterMemories) opts.filter_memories = true;
       if (runId) opts.run_id = runId;
@@ -423,6 +425,7 @@ function registerHooks(
             // Cheap gates passed. Now do the expensive memory count check.
             const memories = await provider.getAll({
               user_id: userId,
+              source: "OPENCLAW",
             });
             const memCount = Array.isArray(memories) ? memories.length : 0;
             const memResult = checkMemoryGate(

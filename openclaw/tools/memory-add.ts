@@ -58,7 +58,7 @@ export function createMemoryAddTool(deps: ToolDeps) {
           const isImmutable = catConfig?.immutable ?? false;
 
           const addOpts: AddOptions = {
-            user_id: uid, infer: false,
+            user_id: uid, source: "OPENCLAW", infer: false,
             deduced_memories: allFacts, metadata: parsedMetadata ?? {},
             ...(expirationDate && { expiration_date: expirationDate }),
             ...(isImmutable && { immutable: true }),

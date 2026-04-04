@@ -66,10 +66,10 @@ function createMockToolDeps(overrides = {}): ToolDeps {
     skillsActive: false,
     buildAddOptions: vi
       .fn()
-      .mockReturnValue({ user_id: "testuser" }),
+      .mockReturnValue({ user_id: "testuser", source: "OPENCLAW" }),
     buildSearchOptions: vi
       .fn()
-      .mockReturnValue({ user_id: "testuser", top_k: 5 }),
+      .mockReturnValue({ user_id: "testuser", top_k: 5, source: "OPENCLAW" }),
     ...overrides,
   };
 }

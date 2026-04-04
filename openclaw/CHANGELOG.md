@@ -2,42 +2,35 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
-## [1.0.4-beta.1] - 2026-04-04
+## [1.0.4] - 2026-04-04
 
 ### Added
 - **Interactive init flow**: `openclaw mem0 init` with interactive menu (email verification or direct API key). Non-interactive modes: `--api-key`, `--email`, `--email --code`
 - **`memory_add` tool**: Replaces `memory_store` — name now matches `mem0` CLI and platform API
 - **`memory_delete` tool**: Unified delete — single ID, search-then-delete, bulk, entity cascade. Replaces `memory_forget` and `memory_delete_all`
-- **`memory_update` tool**: Update existing memories by ID with new content
-- **`memory_history` tool**: View change history for a specific memory
-- **CLI subcommands**: `openclaw mem0 init`, `openclaw mem0 search`, `openclaw mem0 status`, `openclaw mem0 dream`, `openclaw mem0 config show`, `openclaw mem0 config set`
-- **Config show help text**: `config show` now displays how to change settings via `config set` with examples
+- **CLI subcommands**: `openclaw mem0 init`, `openclaw mem0 status` (renamed from `stats`), `openclaw mem0 config show`, `openclaw mem0 config set`
 - **`fs-safe.ts` module**: Isolated filesystem wrappers (sync read/write/exists/mkdir/unlink) in a separate entry point — keeps file I/O out of the main bundle
-- **Plugin manifest**: Added `name`, `description`, `contracts.tools`, `baseUrl` config field, CLI `descriptors` for lazy-loading, `configSchema`, and `uiHints`
+- **`backend/` module**: `PlatformBackend` with direct HTTP API access for CLI commands
+- **`cli/config-file.ts`**: Persistent plugin auth storage in `~/.openclaw/openclaw.json`
+- **Plugin manifest**: Added `contracts.tools`, `configSchema`, and `uiHints` to `openclaw.plugin.json`
+- **Test suite**: 329 tests across 10 test files covering tools, CLI, config, dream gate, providers, and skill-loader
 
 ### Changed
-- **Config stored in `~/.openclaw/openclaw.json`**: Plugin reads auth and settings from the standard OpenClaw config path under `plugins.entries.openclaw-mem0.config`. Supports both camelCase and snake_case field names
-- **Mode restricted to `platform` / `open-source`**: Removed `oss` alias — only two valid values. Unrecognized mode values default to `platform`
-- **Modular architecture**: Extracted tools into `tools/` directory (7 files) and CLI into `cli/commands.ts` — `index.ts` down from 1724 to ~780 lines
-- **Code splitting for security compliance**: tsup builds with `splitting: true` and two entry points (`index.ts`, `fs-safe.ts`), separating filesystem operations from network calls into different output chunks — passes the OpenClaw `code_safety` scanner with zero warnings
-- **Skills updated**: All SKILL.md files reference correct tool names (`memory_add`, `memory_search`, `memory_get`, `memory_list`, `memory_update`, `memory_delete`, `memory_history`) matching the plugin manifest
-- **WRITE_TOOLS updated**: Dream gate tracks `memory_delete` and `memory_add` instead of removed tools
-- **`mem0ai` dependency**: Updated to `2.4.5`
-- **Auto-recall timeout** (#4634): Recall wrapped in 8-second `Promise.race` — if OSS/Ollama LLM takes too long, recall is skipped instead of stalling the gateway
-- **Auto-capture fire-and-forget** (#4634): `provider.add()` now runs in the background via `.then()/.catch()` — the `agent_end` hook returns immediately, zero event loop blocking
+- **Modular architecture**: Extracted tools into `tools/` directory (7 files) and CLI into `cli/commands.ts` — `index.ts` down from ~1700 to ~890 lines
+- **Code splitting**: tsup builds with `splitting: true` and two entry points (`index.ts`, `fs-safe.ts`), separating filesystem I/O from the main bundle
+- **Skills updated**: All SKILL.md files reference new tool names (`memory_add`, `memory_delete`) matching the plugin manifest
+- **WRITE_TOOLS updated**: Dream gate tracks `memory_delete` and `memory_add` instead of `memory_forget` and `memory_store`
+- **`mem0ai` dependency**: Updated from `2.3.0` to `2.4.5`
+- **Auto-recall timeout**: Recall wrapped in 8-second `Promise.race` — if the LLM takes too long, recall is skipped instead of stalling the gateway
+- **Auto-capture fire-and-forget**: `provider.add()` now runs in the background via `.then()/.catch()` — the `agent_end` hook returns immediately, zero event loop blocking
 - **Auto-capture minimum content gate**: Skips extraction when total user content is <50 chars after filtering — trivial conversations ("ok", "thanks") no longer trigger LLM calls
-- **CLI search**: Removed `source: "OPENCLAW"` filter and lowered threshold to 0.3 so explicit searches find all memories, not just plugin-tagged ones
+- **CLI search**: Lowered threshold to 0.3 so explicit searches are more permissive than auto-recall
 
 ### Removed
 - `memory_store` tool — replaced by `memory_add`
 - `memory_forget` tool — replaced by `memory_delete`
-- `memory_delete_all` tool — replaced by `memory_delete`
-- `memory_status` tool — redundant with `openclaw mem0 status` CLI
-- `memory_import` tool — bulk import, rarely needed by agents
-- `entity_list`, `entity_delete` tools — niche, platform-only
-- `event_list`, `event_status` tools — debugging tools, not agent tools
-- `oss` mode alias — use `open-source` instead
-- Duplicate `ToolContext` interfaces from individual tool files — now imports from canonical `tools/index.ts`
+- `memory_delete_all` tool — merged into `memory_delete`
+- **`custom_instructions` / `custom_categories` in `buildAddOptions`**: No longer injected into every auto-capture API call. Config fields (`customInstructions`, `customCategories`) remain as user-configurable options.
 
 ## [1.0.3] - 2026-04-03
 

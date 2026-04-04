@@ -178,6 +178,7 @@ function setup() {
   const buildSearchOptions = vi.fn().mockReturnValue({
     user_id: "testuser",
     top_k: 5,
+    source: "OPENCLAW",
   });
   const getCurrentSessionId = vi.fn().mockReturnValue(undefined);
 
@@ -693,6 +694,7 @@ describe("registerCliCommands", () => {
         expect.objectContaining({
           user_id: "testuser",
           page_size: 50,
+          source: "OPENCLAW",
         }),
       );
       expect(consoleSpy.log).toHaveBeenCalledWith(
@@ -723,6 +725,7 @@ describe("registerCliCommands", () => {
       expect(provider.getAll).toHaveBeenCalledWith(
         expect.objectContaining({
           user_id: "testuser:agent:builder",
+          source: "OPENCLAW",
         }),
       );
     });
@@ -1188,6 +1191,7 @@ describe("registerCliCommands", () => {
       expect(provider.getAll).toHaveBeenCalledWith(
         expect.objectContaining({
           user_id: "testuser",
+          source: "OPENCLAW",
         }),
       );
       expect(loadDreamPrompt).toHaveBeenCalled();

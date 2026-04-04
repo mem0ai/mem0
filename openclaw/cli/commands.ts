@@ -769,6 +769,7 @@ export function registerCliCommands(
               const memories = await provider.getAll({
                 user_id: uid,
                 page_size: limit,
+                source: "OPENCLAW",
               });
 
               if (!Array.isArray(memories) || memories.length === 0) {
@@ -1184,6 +1185,7 @@ export function registerCliCommands(
             const uid = cfg.userId;
             const memories = await provider.getAll({
               user_id: uid,
+              source: "OPENCLAW",
             });
             const count = Array.isArray(memories) ? memories.length : 0;
 
