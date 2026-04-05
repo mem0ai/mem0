@@ -21,6 +21,9 @@ import time
 import secrets
 import hashlib
 import base64
+import sqlite3
+import json
+from pathlib import Path
 from fastapi import APIRouter, Request, Depends, HTTPException, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -29,12 +32,129 @@ import logging
 oauth_router = APIRouter()
 security = HTTPBearer(auto_error=False)
 
-# In-memory stores for the proxy
-# For production, use Redis or a database.
+# Ephemeral stores (short-lived, no persistence needed)
 auth_codes = {}
-access_tokens = {}
-refresh_tokens = {}
 device_codes = {}
+
+# --- SQLite-backed token store ---------------------------------------------------
+
+_OAUTH_DB_PATH = os.getenv("OAUTH_DB_PATH", "./oauth_tokens.db")
+
+
+def _get_db() -> sqlite3.Connection:
+    conn = sqlite3.connect(_OAUTH_DB_PATH)
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
+
+
+def _init_db() -> None:
+    conn = _get_db()
+    try:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS access_tokens (
+                token TEXT PRIMARY KEY,
+                expires REAL NOT NULL,
+                scope TEXT
+            );
+            CREATE TABLE IF NOT EXISTS refresh_tokens (
+                token TEXT PRIMARY KEY,
+                access_token TEXT NOT NULL,
+                expires REAL NOT NULL,
+                scope TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_access_expires ON access_tokens(expires);
+            CREATE INDEX IF NOT EXISTS idx_refresh_expires ON refresh_tokens(expires);
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+_init_db()
+
+
+class _TokenStore:
+    """SQLite-backed token store that survives container restarts."""
+
+    @staticmethod
+    def set_access_token(token: str, expires: float, scope: str | None) -> None:
+        conn = _get_db()
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO access_tokens (token, expires, scope) VALUES (?, ?, ?)",
+                (token, expires, scope),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    @staticmethod
+    def get_access_token(token: str) -> dict | None:
+        conn = _get_db()
+        try:
+            row = conn.execute(
+                "SELECT expires, scope FROM access_tokens WHERE token = ?", (token,)
+            ).fetchone()
+            if row is None:
+                return None
+            return {"expires": row[0], "scope": row[1]}
+        finally:
+            conn.close()
+
+    @staticmethod
+    def delete_access_token(token: str) -> None:
+        conn = _get_db()
+        try:
+            conn.execute("DELETE FROM access_tokens WHERE token = ?", (token,))
+            conn.commit()
+        finally:
+            conn.close()
+
+    @staticmethod
+    def set_refresh_token(
+        token: str, access_token: str, expires: float, scope: str | None
+    ) -> None:
+        conn = _get_db()
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO refresh_tokens (token, access_token, expires, scope) VALUES (?, ?, ?, ?)",
+                (token, access_token, expires, scope),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    @staticmethod
+    def pop_refresh_token(token: str) -> dict | None:
+        conn = _get_db()
+        try:
+            row = conn.execute(
+                "SELECT access_token, expires, scope FROM refresh_tokens WHERE token = ?",
+                (token,),
+            ).fetchone()
+            if row is None:
+                return None
+            conn.execute("DELETE FROM refresh_tokens WHERE token = ?", (token,))
+            conn.commit()
+            return {"access_token": row[0], "expires": row[1], "scope": row[2]}
+        finally:
+            conn.close()
+
+    @staticmethod
+    def cleanup_expired() -> int:
+        """Remove expired tokens. Returns count of rows deleted."""
+        now = time.time()
+        conn = _get_db()
+        try:
+            c1 = conn.execute("DELETE FROM access_tokens WHERE expires < ?", (now,)).rowcount
+            c2 = conn.execute("DELETE FROM refresh_tokens WHERE expires < ?", (now,)).rowcount
+            conn.commit()
+            return c1 + c2
+        finally:
+            conn.close()
+
+
+tokens = _TokenStore()
 
 OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID", "claude")
 SERVER_PASSWORD = os.getenv("MCP_SERVER_AUTH_TOKEN", "default_password")
@@ -268,13 +388,12 @@ async def token(
         scope = req["scope"]
         
     elif grant_type == "refresh_token":
-        req = refresh_tokens.pop(refresh_token, None)
+        req = tokens.pop_refresh_token(refresh_token)
         if not req:
             return JSONResponse({"error": "invalid_grant"}, status_code=400)
         if time.time() > req["expires"]:
             return JSONResponse({"error": "invalid_grant"}, status_code=400)
-        # Invalidate old access token if we tracked them bi-directionally
-        access_tokens.pop(req["access_token"], None)
+        tokens.delete_access_token(req["access_token"])
         scope = req["scope"]
         
     else:
@@ -282,10 +401,13 @@ async def token(
         
     acc_token = generate_token()
     ref_token = generate_token()
-    
-    access_token_ttl = int(os.getenv("OAUTH_ACCESS_TOKEN_TTL", 2592000))  # 30 days default
-    access_tokens[acc_token] = {"expires": time.time() + access_token_ttl, "scope": scope}
-    refresh_tokens[ref_token] = {"access_token": acc_token, "expires": time.time() + 2592000, "scope": scope}
+
+    access_token_ttl = int(os.getenv("OAUTH_ACCESS_TOKEN_TTL", str(365 * 24 * 3600)))  # 365 days default
+    tokens.set_access_token(acc_token, time.time() + access_token_ttl, scope)
+    tokens.set_refresh_token(ref_token, acc_token, time.time() + 365 * 24 * 3600, scope)
+
+    # Periodically clean up expired tokens
+    tokens.cleanup_expired()
 
     return JSONResponse({
         "access_token": acc_token,
@@ -303,16 +425,16 @@ def verify_oauth_or_api_key(credentials: HTTPAuthorizationCredentials = Depends(
             detail="Missing Authorization Header",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
+
     token = credentials.credentials
-    
+
     if SERVER_PASSWORD and token == SERVER_PASSWORD:
         return token
-        
-    token_data = access_tokens.get(token)
+
+    token_data = tokens.get_access_token(token)
     if token_data and time.time() < token_data["expires"]:
         return token
-        
+
     raise HTTPException(
         status_code=401,
         detail="Invalid or expired access token",

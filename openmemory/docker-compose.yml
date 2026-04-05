@@ -1,12 +1,14 @@
 services:
   mem0_store:
     image: qdrant/qdrant
+    restart: unless-stopped
     ports:
       - "6333:6333"
     volumes:
       - mem0_storage:/mem0/storage
   openmemory-mcp:
     image: mem0/openmemory-mcp
+    restart: unless-stopped
     build: api/
     environment:
       - USER
@@ -26,6 +28,7 @@ services:
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 1 --proxy-headers --forwarded-allow-ips=\"*\" --timeout-keep-alive 120"
   openmemory-ui:
+    restart: unless-stopped
     init: true
     build:
       context: ui/

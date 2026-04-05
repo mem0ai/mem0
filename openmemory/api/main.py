@@ -17,7 +17,7 @@ from fastapi_pagination import add_pagination
 async def lifespan(app: FastAPI):
     yield
     # Graceful shutdown of synaptic connections
-    from app.mcp_server import _synaptic
+    from app.mcp_synaptic import _synaptic
     if _synaptic:
         try:
             await _synaptic.close()
