@@ -52,7 +52,7 @@ USER_ID = os.environ.get("CONFLICT_USER", "conflict-test-user")
 DB_PATH = os.environ.get("CONFLICT_DB_PATH", ":memory:")
 VERBOSE = os.environ.get("CONFLICT_VERBOSE", "0") == "1"
 
-VALID_PASSES = {"KEEP_NEW", "KEEP_OLD", "MERGE", "DELETE_OLD", "SKIP"}
+VALID_PASSES = {"KEEP_NEW", "KEEP_OLD", "MERGE", "DELETE_OLD", "SKIP", "FOLLOW_LLM"}
 
 # Map CONFLICT_PASS value → mem0 auto_resolve_strategy string
 STRATEGY_MAP = {
@@ -61,6 +61,10 @@ STRATEGY_MAP = {
     "MERGE": "merge",
     "DELETE_OLD": "delete-old",
     "SKIP": "keep-higher-confidence",   # we'll construct equal-confidence pair → SKIP path
+    # FOLLOW_LLM: the LLM's own proposed_action from classification drives the resolution.
+    # The actual outcome (KEEP_NEW / KEEP_OLD / MERGE / DELETE_OLD) depends on the live LLM.
+    # Run with:  CONFLICT_PASS=FOLLOW_LLM python tests/memory/manual/test_conflict_real.py
+    "FOLLOW_LLM": "follow-llm",
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

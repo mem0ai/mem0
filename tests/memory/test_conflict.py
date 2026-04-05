@@ -796,6 +796,166 @@ class TestAddReturnShape:
 # S4 — Env var overrides
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# S5 — follow-llm strategy unit tests
+# ---------------------------------------------------------------------------
+
+class TestFollowLLMStrategy:
+    def _make_cr(self, proposed_action: str) -> ConflictResolution:
+        return ConflictResolution(
+            new_fact="User eats chicken",
+            old_memory_id="old-id",
+            old_memory_text="User is vegetarian",
+            conflict_class="CONTRADICTION",
+            explanation="conflict",
+            proposed_action=proposed_action,
+            confidence_new=0.5,
+            confidence_old=0.5,
+            auto_resolved=False,
+            resolution="",
+            merged_text=None,
+        )
+
+    def test_follow_llm_keep_new(self):
+        result = apply_auto_resolution(self._make_cr("KEEP_NEW"), "follow-llm")
+        assert result.resolution == "KEEP_NEW"
+        assert result.auto_resolved is True
+
+    def test_follow_llm_keep_old(self):
+        result = apply_auto_resolution(self._make_cr("KEEP_OLD"), "follow-llm")
+        assert result.resolution == "KEEP_OLD"
+        assert result.auto_resolved is True
+
+    def test_follow_llm_merge(self):
+        result = apply_auto_resolution(self._make_cr("MERGE"), "follow-llm")
+        assert result.resolution == "MERGE"
+        assert result.auto_resolved is True
+
+    def test_follow_llm_delete_old(self):
+        result = apply_auto_resolution(self._make_cr("DELETE_OLD"), "follow-llm")
+        assert result.resolution == "DELETE_OLD"
+        assert result.auto_resolved is True
+
+    def test_follow_llm_unknown_proposed_action_falls_back_to_keep_new(self):
+        """Unknown proposed_action → KEEP_NEW fallback, no exception."""
+        result = apply_auto_resolution(self._make_cr("INVALID"), "follow-llm")
+        assert result.resolution == "KEEP_NEW"
+        assert result.auto_resolved is True
+
+
+class TestFollowLLMIntegration:
+    """Pipeline-level tests for follow-llm strategy through _add_to_vector_store."""
+
+    def test_follow_llm_pipeline_keep_new(self, mocker):
+        """follow-llm + proposed_action=KEEP_NEW → _delete_memory + _create_memory called."""
+        memory, mock_vector_store = _make_memory(mocker, strategy="follow-llm")
+        old_mem = _make_mem_result("old-uuid", "User is vegetarian", score=0.92)
+        mock_vector_store.return_value.search.return_value = [old_mem]
+
+        classification = json.dumps({
+            "conflict_class": "CONTRADICTION",
+            "explanation": "conflict",
+            "proposed_action": "KEEP_NEW",
+            "confidence_new": 0.5,
+            "confidence_old": 0.5,
+        })
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            classification,
+        ]
+
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={}, filters={}, infer=True,
+        )
+
+        memory._delete_memory.assert_called_once_with(memory_id="old-uuid")
+        memory._create_memory.assert_called_once()
+
+    def test_follow_llm_pipeline_keep_old(self, mocker):
+        """follow-llm + proposed_action=KEEP_OLD → neither delete nor create called."""
+        memory, mock_vector_store = _make_memory(mocker, strategy="follow-llm")
+        old_mem = _make_mem_result("old-uuid", "User is vegetarian", score=0.92)
+        mock_vector_store.return_value.search.return_value = [old_mem]
+
+        classification = json.dumps({
+            "conflict_class": "CONTRADICTION",
+            "explanation": "conflict",
+            "proposed_action": "KEEP_OLD",
+            "confidence_new": 0.5,
+            "confidence_old": 0.5,
+        })
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            classification,
+        ]
+
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={}, filters={}, infer=True,
+        )
+
+        memory._delete_memory.assert_not_called()
+        memory._create_memory.assert_not_called()
+
+    def test_follow_llm_pipeline_delete_old(self, mocker):
+        """follow-llm + proposed_action=DELETE_OLD → _delete_memory called, _create_memory NOT."""
+        memory, mock_vector_store = _make_memory(mocker, strategy="follow-llm")
+        old_mem = _make_mem_result("old-uuid", "User is vegetarian", score=0.92)
+        mock_vector_store.return_value.search.return_value = [old_mem]
+
+        classification = json.dumps({
+            "conflict_class": "CONTRADICTION",
+            "explanation": "conflict",
+            "proposed_action": "DELETE_OLD",
+            "confidence_new": 0.5,
+            "confidence_old": 0.5,
+        })
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            classification,
+        ]
+
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={}, filters={}, infer=True,
+        )
+
+        memory._delete_memory.assert_called_once_with(memory_id="old-uuid")
+        memory._create_memory.assert_not_called()
+
+    def test_follow_llm_pipeline_merge(self, mocker):
+        """follow-llm + proposed_action=MERGE → 3 LLM calls, delete + create with merged text."""
+        memory, mock_vector_store = _make_memory(mocker, strategy="follow-llm")
+        old_mem = _make_mem_result("old-uuid", "User is vegetarian", score=0.92)
+        mock_vector_store.return_value.search.return_value = [old_mem]
+
+        classification = json.dumps({
+            "conflict_class": "CONTRADICTION",
+            "explanation": "conflict",
+            "proposed_action": "MERGE",
+            "confidence_new": 0.5,
+            "confidence_old": 0.5,
+        })
+        merged_text = "User is mostly plant-based but occasionally eats chicken"
+        merge_response = json.dumps({"merged": merged_text})
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats chicken occasionally"]}',
+            classification,
+            merge_response,
+        ]
+
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat chicken occasionally"}],
+            metadata={}, filters={}, infer=True,
+        )
+
+        assert memory.llm.generate_response.call_count == 3
+        memory._delete_memory.assert_called_once_with(memory_id="old-uuid")
+        args, kwargs = memory._create_memory.call_args
+        assert kwargs.get("data", args[0] if args else None) == merged_text
+
+
 class TestEnvVarOverrides:
     def test_env_var_overrides_defaults(self, monkeypatch):
         """Environment variables override ConflictDetectionConfig defaults."""
@@ -818,6 +978,12 @@ class TestEnvVarOverrides:
         from mem0.configs.base import ConflictDetectionConfig
         config = ConflictDetectionConfig()
         assert config.auto_resolve_strategy == "delete-old"
+
+    def test_follow_llm_strategy_env_var_override(self, monkeypatch):
+        monkeypatch.setenv("MEM0_CONFLICT_AUTO_RESOLVE_STRATEGY", "follow-llm")
+        from mem0.configs.base import ConflictDetectionConfig
+        config = ConflictDetectionConfig()
+        assert config.auto_resolve_strategy == "follow-llm"
 
     def test_apply_auto_resolution_delete_old(self):
         """apply_auto_resolution('delete-old') always returns DELETE_OLD regardless of confidence."""

@@ -252,6 +252,11 @@ def test_conflict_detection_config_accepts_delete_old_strategy():
     assert config.auto_resolve_strategy == "delete-old"
 
 
+def test_conflict_detection_config_accepts_follow_llm_strategy():
+    config = ConflictDetectionConfig(auto_resolve_strategy="follow-llm")
+    assert config.auto_resolve_strategy == "follow-llm"
+
+
 @pytest.mark.asyncio
 async def test_async_create_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)

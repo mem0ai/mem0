@@ -369,6 +369,94 @@ class TestSQLiteAudit:
         assert rows[0]["new_memory"] is None
         assert rows[0]["is_deleted"] is True
 
+    def test_follow_llm_keep_new_writes_delete_then_add(self, mocker):
+        """
+        follow-llm strategy + proposed_action=KEEP_NEW must produce exactly two
+        SQLite rows in order:
+          1. DELETE row for old memory
+          2. ADD    row for new fact
+        """
+        memory, mock_vs = _make_memory(mocker, strategy="follow-llm", real_sqlite=True)
+
+        old_mem_search = _make_search_result("old-mem-uuid", "User is vegetarian", score=0.92)
+        mock_vs.search.return_value = [old_mem_search]
+        mock_vs.get.return_value = _make_stored_memory("old-mem-uuid", "User is vegetarian")
+
+        classification = json.dumps({
+            "conflict_class": "CONTRADICTION",
+            "explanation": "conflict",
+            "proposed_action": "KEEP_NEW",
+            "confidence_new": 0.5,
+            "confidence_old": 0.5,
+        })
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            classification,
+        ]
+
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        rows = _get_all_history(memory.db)
+        _print_db_rows(rows, "follow-llm KEEP_NEW — expect DELETE then ADD")
+
+        assert len(rows) == 2, f"expected 2 rows, got {len(rows)}"
+
+        delete_row = next((r for r in rows if r["event"] == "DELETE"), None)
+        assert delete_row is not None, "Missing DELETE row"
+        assert delete_row["memory_id"] == "old-mem-uuid"
+        assert delete_row["old_memory"] == "User is vegetarian"
+        assert delete_row["is_deleted"] is True
+
+        add_row = next((r for r in rows if r["event"] == "ADD"), None)
+        assert add_row is not None, "Missing ADD row"
+        assert add_row["new_memory"] == "User eats steak"
+        assert add_row["is_deleted"] is False
+
+    def test_follow_llm_delete_old_writes_only_delete(self, mocker):
+        """
+        follow-llm strategy + proposed_action=DELETE_OLD must produce exactly one
+        SQLite row — DELETE for old memory, no ADD row.
+        """
+        memory, mock_vs = _make_memory(mocker, strategy="follow-llm", real_sqlite=True)
+
+        old_mem_search = _make_search_result("old-mem-uuid", "User is vegetarian", score=0.92)
+        mock_vs.search.return_value = [old_mem_search]
+        mock_vs.get.return_value = _make_stored_memory("old-mem-uuid", "User is vegetarian")
+
+        classification = json.dumps({
+            "conflict_class": "CONTRADICTION",
+            "explanation": "conflict",
+            "proposed_action": "DELETE_OLD",
+            "confidence_new": 0.5,
+            "confidence_old": 0.5,
+        })
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            classification,
+        ]
+
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        rows = _get_all_history(memory.db)
+        _print_db_rows(rows, "follow-llm DELETE_OLD — expect only DELETE")
+
+        assert len(rows) == 1, f"expected 1 row, got {len(rows)}: {rows}"
+        assert rows[0]["event"] == "DELETE"
+        assert rows[0]["memory_id"] == "old-mem-uuid"
+        assert rows[0]["old_memory"] == "User is vegetarian"
+        assert rows[0]["new_memory"] is None
+        assert rows[0]["is_deleted"] is True
+
     def test_merge_writes_delete_then_add_with_merged_text(self, mocker):
         """
         MERGE resolution must produce exactly two SQLite rows:

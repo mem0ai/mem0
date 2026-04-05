@@ -97,6 +97,19 @@ def apply_auto_resolution(cr: ConflictResolution, strategy: str) -> ConflictReso
         resolution = "MERGE"
     elif strategy == "delete-old":
         resolution = "DELETE_OLD"
+    elif strategy == "follow-llm":
+        proposed_action = cr.proposed_action.strip().upper()
+        if proposed_action == "KEEP_NEW":
+            resolution = "KEEP_NEW"
+        elif proposed_action == "KEEP_OLD":
+            resolution = "KEEP_OLD"
+        elif proposed_action == "DELETE_OLD":
+            resolution = "DELETE_OLD"
+        elif proposed_action == "MERGE":
+            resolution = "MERGE"
+        else:
+            resolution = "KEEP_NEW"
+            logger.error(f"Cannot identify proposed action: {proposed_action}. Using KEEP NEW as default")
     else:
         raise ValueError(f"Unknown auto_resolve_strategy: {strategy!r}")
 
