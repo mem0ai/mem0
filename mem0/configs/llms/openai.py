@@ -29,7 +29,7 @@ class OpenAIConfig(BaseLlmConfig):
         openrouter_base_url: Optional[str] = None,
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
-        store: bool = False,
+        store: Optional[bool] = None,
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
