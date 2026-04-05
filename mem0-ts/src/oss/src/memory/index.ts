@@ -108,7 +108,7 @@ export class Memory {
       } catch (error: any) {
         throw new Error(
           `Failed to auto-detect embedding dimension from provider '${this.config.embedder.provider}': ${error.message}. ` +
-            `Please set 'dimension' in vectorStore.config or 'embeddingDims' in embedder.config explicitly.`,
+          `Please set 'dimension' in vectorStore.config or 'embeddingDims' in embedder.config explicitly.`,
         );
       }
     }
@@ -161,7 +161,7 @@ export class Memory {
         collection_name: this.collectionName,
         enable_graph: this.enableGraph,
       });
-    } catch (error) {}
+    } catch (error) { }
   }
 
   private async _getTelemetryId() {
@@ -295,11 +295,11 @@ export class Memory {
 
     const [systemPrompt, userPrompt] = this.customPrompt
       ? [
-          this.customPrompt.toLowerCase().includes("json")
-            ? this.customPrompt
-            : `${this.customPrompt}\n\nYou MUST return a valid JSON object with a 'facts' key containing an array of strings.`,
-          `Input:\n${parsedMessages}`,
-        ]
+        this.customPrompt.toLowerCase().includes("json")
+          ? this.customPrompt
+          : `${this.customPrompt}\n\nYou MUST return a valid JSON object with a 'facts' key containing an array of strings.`,
+        `Input:\n${parsedMessages}`,
+      ]
       : getFactRetrievalMessages(parsedMessages);
 
     const response = await this.llm.generateResponse(
@@ -397,6 +397,13 @@ export class Memory {
           }
           case "UPDATE": {
             const realMemoryId = tempUuidMapping[action.id];
+            if (!realMemoryId) {
+              console.warn(
+                `[mem0] Could not resolve action.id "${action.id}" to a real memory ID — skipping. ` +
+                `Available keys: ${Object.keys(tempUuidMapping).join(", ")}`
+              );
+              break;
+            }
             await this.updateMemory(
               realMemoryId,
               action.text,
@@ -415,6 +422,13 @@ export class Memory {
           }
           case "DELETE": {
             const realMemoryId = tempUuidMapping[action.id];
+            if (!realMemoryId) {
+              console.warn(
+                `[mem0] Could not resolve action.id "${action.id}" to a real memory ID — skipping. ` +
+                `Available keys: ${Object.keys(tempUuidMapping).join(", ")}`
+              );
+              break;
+            }
             await this.deleteMemory(realMemoryId);
             results.push({
               id: realMemoryId,
