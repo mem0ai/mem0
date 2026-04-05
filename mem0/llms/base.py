@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 
@@ -116,6 +117,27 @@ class LLMBase(ABC):
             str or dict: The generated response.
         """
         pass
+
+    async def agenerate_response(
+        self, messages: List[Dict[str, str]], tools: Optional[List[Dict]] = None, tool_choice: str = "auto", **kwargs
+    ):
+        """
+        Async version of generate_response. By default, wraps the sync method
+        via asyncio.to_thread. Subclasses with native async clients (e.g. OpenAI)
+        should override this for true async behavior.
+
+        Args:
+            messages (list): List of message dicts containing 'role' and 'content'.
+            tools (list, optional): List of tools that the model can call. Defaults to None.
+            tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            **kwargs: Additional provider-specific parameters.
+
+        Returns:
+            str or dict: The generated response.
+        """
+        return await asyncio.to_thread(
+            self.generate_response, messages=messages, tools=tools, tool_choice=tool_choice, **kwargs
+        )
 
     def _get_common_params(self, **kwargs) -> Dict:
         """

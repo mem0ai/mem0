@@ -1636,8 +1636,7 @@ class AsyncMemory(MemoryBase):
         # Ensure 'json' appears in prompts for json_object response format compatibility
         system_prompt, user_prompt = ensure_json_instruction(system_prompt, user_prompt)
 
-        response = await asyncio.to_thread(
-            self.llm.generate_response,
+        response = await self.llm.agenerate_response(
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
             response_format={"type": "json_object"},
         )
@@ -1705,8 +1704,7 @@ class AsyncMemory(MemoryBase):
                 retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
             )
             try:
-                response = await asyncio.to_thread(
-                    self.llm.generate_response,
+                response = await self.llm.agenerate_response(
                     messages=[{"role": "user", "content": function_calling_prompt}],
                     response_format={"type": "json_object"},
                 )
@@ -2426,7 +2424,7 @@ class AsyncMemory(MemoryBase):
                 response = await asyncio.to_thread(llm.invoke, input=parsed_messages)
                 procedural_memory = response.content
             else:
-                procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
+                procedural_memory = await self.llm.agenerate_response(messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
         
         except Exception as e:
