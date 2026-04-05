@@ -139,8 +139,8 @@ class TestConflictAutoResolution:
         memory._delete_memory.assert_not_called()
         memory._create_memory.assert_not_called()
 
-    def test_nuance_passes_through_to_existing_flow(self, mocker):
-        """NUANCE classification → fact stays in list, single-pass LLM called"""
+    def test_nuance_skips_single_pass_update_llm(self, mocker):
+        """NUANCE classification does not invoke update-memory LLM path."""
         memory, mock_vector_store = _make_memory(mocker)
 
         old_mem = _make_mem_result("old-mem-uuid", "User prefers vegetarian meals", score=0.90)
@@ -156,7 +156,6 @@ class TestConflictAutoResolution:
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User sometimes avoids meat"]}',  # extraction
             nuance_response,                               # classification
-            '{"memory": []}',                             # single-pass (fact still in list)
         ]
 
         memory._add_to_vector_store(
@@ -166,13 +165,15 @@ class TestConflictAutoResolution:
             infer=True,
         )
 
-        # Three LLM calls: extraction, classification, single-pass
-        assert memory.llm.generate_response.call_count == 3
-        # No direct delete or create from conflict pipeline
+        # Two LLM calls: extraction + classification (single-pass update LLM removed)
+        assert memory.llm.generate_response.call_count == 2
+        # No delete path for NUANCE
         memory._delete_memory.assert_not_called()
+        # Unhandled facts are now directly inserted
+        memory._create_memory.assert_called_once()
 
-    def test_none_classification_is_skipped(self, mocker):
-        """NONE classification → false positive, fact passes to existing flow"""
+    def test_none_classification_skips_single_pass_update_llm(self, mocker):
+        """NONE classification does not invoke update-memory LLM path."""
         memory, mock_vector_store = _make_memory(mocker)
 
         old_mem = _make_mem_result("old-mem-uuid", "User likes jazz music", score=0.87)
@@ -188,7 +189,6 @@ class TestConflictAutoResolution:
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User prefers Italian food"]}',
             none_response,
-            '{"memory": []}',
         ]
 
         memory._add_to_vector_store(
@@ -198,20 +198,27 @@ class TestConflictAutoResolution:
             infer=True,
         )
 
-        assert memory.llm.generate_response.call_count == 3
+        assert memory.llm.generate_response.call_count == 2
         memory._delete_memory.assert_not_called()
-        memory._create_memory.assert_not_called()
+        memory._create_memory.assert_called_once()
 
-    def test_below_threshold_skips_secondary_call(self, mocker):
-        """score=0.60 < threshold=0.85 → secondary LLM call never made"""
+    def test_below_threshold_still_runs_classification(self, mocker):
+        """Similarity threshold is ignored; classification still runs."""
         memory, mock_vector_store = _make_memory(mocker)
 
         low_score_mem = _make_mem_result("old-mem-uuid", "User likes jazz", score=0.60)
         mock_vector_store.return_value.search.return_value = [low_score_mem]
 
+        none_response = json.dumps({
+            "conflict_class": "NONE",
+            "explanation": "No conflict",
+            "proposed_action": "No action",
+            "confidence_new": 0.5,
+            "confidence_old": 0.5,
+        })
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User likes coffee"]}',  # extraction
-            '{"memory": []}',                    # single-pass (no classification call)
+            none_response,                       # classification (even below former threshold)
         ]
 
         memory._add_to_vector_store(
@@ -221,8 +228,9 @@ class TestConflictAutoResolution:
             infer=True,
         )
 
-        # Only 2 calls: extraction + single-pass, no classification
+        # 2 calls: extraction + classification (single-pass update LLM removed)
         assert memory.llm.generate_response.call_count == 2
+        memory._create_memory.assert_called_once()
 
 
 class TestHITL:

@@ -389,6 +389,41 @@ def _add_contradiction(m, text: str) -> tuple[list[dict], list[dict]]:
     return rows, memories
 
 
+def _print_similarity_probe(m, probe_text: str, label: str, limit: int = 5) -> None:
+    """
+    Print the raw vector search scores used by conflict detection for probe_text.
+    This shows exactly which existing memories are compared and what score each
+    candidate receives before threshold gating.
+    """
+    threshold = m.config.conflict_detection.similarity_threshold
+    _section(f"Similarity probe — {label}")
+    _info(f"Probe text: {probe_text!r}")
+    _info(f"Conflict similarity threshold: {threshold}")
+
+    embeddings = m.embedding_model.embed(probe_text, "add")
+    hits = m.vector_store.search(
+        query=probe_text,
+        vectors=embeddings,
+        limit=limit,
+        filters={"user_id": USER_ID},
+    )
+
+    if not hits:
+        _info("No candidate memories returned by vector search")
+        return
+
+    print("  Compared memories and scores:")
+    for i, hit in enumerate(hits, 1):
+        hit_text = (getattr(hit, "payload", {}) or {}).get("data", "")
+        hit_score = getattr(hit, "score", None)
+        status = ">= threshold" if (hit_score is not None and hit_score >= threshold) else "< threshold"
+        print(
+            f"    [{i}] score={hit_score!r} ({status})\n"
+            f"        query={probe_text!r}\n"
+            f"        memory[{getattr(hit, 'id', 'unknown')}]={hit_text!r}"
+        )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GAP assessment helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -650,6 +685,11 @@ def run_keep_new() -> None:
         # ── Step 2: add contradiction
         _section("Step 2 — add contradicting fact (should trigger KEEP_NEW)")
         contradiction_text = "User eats chicken and steak regularly"
+        _print_similarity_probe(
+            m,
+            contradiction_text,
+            "KEEP_NEW contradiction vs existing memories",
+        )
         # EXPECTED: conflict detection fires, KEEP_NEW resolution chosen,
         #           DELETE row for old memory, ADD row for new fact
         rows, memories = _add_contradiction(m, contradiction_text)
@@ -759,6 +799,11 @@ def run_keep_old() -> None:
         _section("Step 2 — add weak contradicting fact (hoping for KEEP_OLD)")
         # Vague, uncertain, low-confidence claim
         contradiction_text = "User might have eaten cheese once at a party"
+        _print_similarity_probe(
+            m,
+            contradiction_text,
+            "KEEP_OLD contradiction vs existing memories",
+        )
         # EXPECTED: conflict detected; confidence_old > confidence_new → KEEP_OLD
         #           zero SQLite rows written (no mutation)
         rows, memories = _add_contradiction(m, contradiction_text)
@@ -849,6 +894,11 @@ def run_merge() -> None:
         # ── Step 2: add contradiction to trigger MERGE
         _section("Step 2 — add contradicting fact (should trigger MERGE)")
         contradiction_text = "User eats salmon and eggs every week"
+        _print_similarity_probe(
+            m,
+            contradiction_text,
+            "MERGE contradiction vs existing memories",
+        )
         # EXPECTED: conflict detected, MERGE strategy → third LLM call for merge,
         #           DELETE old + ADD merged text
         rows, memories = _add_contradiction(m, contradiction_text)
@@ -949,6 +999,11 @@ def run_skip() -> None:
         # EXPECTED: these topics are semantically unrelated — similarity score will be
         #           far below the 0.75 threshold → no conflict classification → no rows
         _add_baseline(m, baseline_a)
+        _print_similarity_probe(
+            m,
+            unrelated_a,
+            "SKIP/sub-case A probe against existing memories",
+        )
         rows_a, memories_a = _add_contradiction(m, unrelated_a)
         _print_history(rows_a, "SKIP/threshold — expect no conflict DELETE rows")
         _print_memories(memories_a, "after below-threshold add")
@@ -968,6 +1023,11 @@ def run_skip() -> None:
         # EXPECTED: topics are related, high similarity, but NUANCE not CONTRADICTION
         #           → conflict pipeline skips DELETE/CREATE, lets single-pass handle it
         _add_baseline(m, baseline_b)
+        _print_similarity_probe(
+            m,
+            nuance_b,
+            "SKIP/sub-case B probe against existing memories",
+        )
         rows_b, memories_b = _add_contradiction(m, nuance_b)
         _print_history(rows_b, "SKIP/nuance — expect no conflict DELETE rows")
         _print_memories(memories_b, "after NUANCE add")

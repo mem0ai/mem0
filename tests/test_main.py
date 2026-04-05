@@ -303,33 +303,19 @@ def test_custom_prompts(memory_custom_instance):
     memory_custom_instance.embedding_model = MockEmbeddings()
 
     with patch("mem0.memory.main.parse_messages", return_value="Test message") as mock_parse_messages:
-        with patch(
-            "mem0.memory.main.get_update_memory_messages", return_value="custom update memory prompt"
-        ) as mock_get_update_memory_messages:
-            memory_custom_instance.add(messages=messages, user_id="test_user")
+        memory_custom_instance.add(messages=messages, user_id="test_user")
 
-            ## custom prompt
-            ##
-            mock_parse_messages.assert_called_once_with(messages)
+        ## custom prompt
+        ##
+        mock_parse_messages.assert_called_once_with(messages)
 
-            memory_custom_instance.llm.generate_response.assert_any_call(
-                messages=[
-                    {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
-                    {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
-                ],
-                response_format={"type": "json_object"},
-            )
-
-            ## custom update memory prompt
-            ##
-            mock_get_update_memory_messages.assert_called_once_with(
-                [], ["fact1", "fact2"], memory_custom_instance.config.custom_update_memory_prompt
-            )
-
-            memory_custom_instance.llm.generate_response.assert_any_call(
-                messages=[{"role": "user", "content": mock_get_update_memory_messages.return_value}],
-                response_format={"type": "json_object"},
-            )
+        memory_custom_instance.llm.generate_response.assert_any_call(
+            messages=[
+                {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
+                {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
+            ],
+            response_format={"type": "json_object"},
+        )
 
 
 def test_no_telemetry_vector_store_when_disabled():

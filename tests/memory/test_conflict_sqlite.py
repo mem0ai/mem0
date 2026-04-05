@@ -321,7 +321,6 @@ class TestSQLiteAudit:
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User eats chicken regularly"]}',
             CONTRADICTION_HIGH_OLD,
-            '{"memory": []}',  # single-pass still runs after KEEP_OLD strips the fact
         ]
 
         memory._add_to_vector_store(
@@ -688,7 +687,7 @@ class TestAutoResolution:
         memory._delete_memory.assert_called_once()
         memory._create_memory.assert_called_once()
 
-    def test_nuance_stays_in_single_pass(self, mocker):
+    def test_nuance_skips_single_pass_update_llm(self, mocker):
         memory, mock_vs = _make_memory(mocker)
         mock_vs.search.return_value = [
             _make_search_result("old-mem-uuid", "User prefers vegetarian meals", score=0.90)
@@ -703,16 +702,16 @@ class TestAutoResolution:
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User sometimes avoids meat"]}',
             nuance_response,
-            '{"memory": []}',
         ]
         memory._add_to_vector_store(
             messages=[{"role": "user", "content": "I sometimes avoid meat"}],
             metadata={}, filters={}, infer=True,
         )
-        assert memory.llm.generate_response.call_count == 3
+        assert memory.llm.generate_response.call_count == 2
         memory._delete_memory.assert_not_called()
+        memory._create_memory.assert_called_once()
 
-    def test_none_stays_in_single_pass(self, mocker):
+    def test_none_skips_single_pass_update_llm(self, mocker):
         memory, mock_vs = _make_memory(mocker)
         mock_vs.search.return_value = [
             _make_search_result("old-mem-uuid", "User likes jazz", score=0.87)
@@ -727,31 +726,38 @@ class TestAutoResolution:
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User likes Italian food"]}',
             none_response,
-            '{"memory": []}',
         ]
         memory._add_to_vector_store(
             messages=[{"role": "user", "content": "I love Italian food"}],
             metadata={}, filters={}, infer=True,
         )
-        assert memory.llm.generate_response.call_count == 3
+        assert memory.llm.generate_response.call_count == 2
         memory._delete_memory.assert_not_called()
-        memory._create_memory.assert_not_called()
+        memory._create_memory.assert_called_once()
 
-    def test_below_threshold_skips_classification(self, mocker):
+    def test_below_threshold_still_runs_classification(self, mocker):
         memory, mock_vs = _make_memory(mocker)
         mock_vs.search.return_value = [
             _make_search_result("old-mem-uuid", "User likes jazz", score=0.60)
         ]
+        none_response = json.dumps({
+            "conflict_class": "NONE",
+            "explanation": "unrelated",
+            "proposed_action": "no action",
+            "confidence_new": 0.4,
+            "confidence_old": 0.4,
+        })
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User likes coffee"]}',
-            '{"memory": []}',
+            none_response,
         ]
         memory._add_to_vector_store(
             messages=[{"role": "user", "content": "I like coffee"}],
             metadata={}, filters={}, infer=True,
         )
-        # Only extraction + single-pass; no classification call
+        # Similarity threshold is ignored; extraction + classification still run.
         assert memory.llm.generate_response.call_count == 2
+        memory._create_memory.assert_called_once()
 
 
 class TestHITL:

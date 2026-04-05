@@ -18,7 +18,6 @@ from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     get_conflict_classification_messages,
-    get_update_memory_messages,
 )
 from mem0.memory.conflict import (
     ConflictResolution,
@@ -543,7 +542,6 @@ class Memory(MemoryBase):
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
-        retrieved_old_memory = []
         new_message_embeddings = {}
         # Search for existing memories using the provided session identifiers
         # Use all available session identifiers for accurate memory retrieval
@@ -569,18 +567,15 @@ class Memory(MemoryBase):
                 for mem in existing_memories
             ]
 
-        # Conflict detection pipeline — runs before the single-pass update call
-        similarity_threshold_sync = self.config.conflict_detection.similarity_threshold
+        # Conflict detection pipeline
         hitl_enabled_sync = self.config.conflict_detection.hitl_enabled
         auto_strategy_sync = self.config.conflict_detection.auto_resolve_strategy
         session_id_sync = self.config.session_id
         contradiction_handled_facts_sync: set = set()
+        returned_memories = []
 
         for fact in list(new_retrieved_facts):
             for mem_item in fact_search_results_map_sync.get(fact, []):
-                score = mem_item.get("score") or 0.0
-                if score < similarity_threshold_sync:
-                    continue
                 try:
                     classification_msgs = get_conflict_classification_messages(mem_item["text"], fact)
                     classification_response = self.llm.generate_response(
@@ -624,11 +619,12 @@ class Memory(MemoryBase):
                     self._delete_memory(memory_id=cr.old_memory_id)
                     if fact not in new_message_embeddings:
                         new_message_embeddings[fact] = self.embedding_model.embed(fact, "add")
-                    self._create_memory(
+                    created_id = self._create_memory(
                         data=fact,
                         existing_embeddings=new_message_embeddings,
                         metadata=deepcopy(metadata),
                     )
+                    returned_memories.append({"id": created_id, "memory": fact, "event": "ADD"})
                     contradiction_handled_facts_sync.add(fact)
                 elif cr.resolution == "KEEP_OLD":
                     contradiction_handled_facts_sync.add(fact)
@@ -636,142 +632,31 @@ class Memory(MemoryBase):
                     merged_text = _execute_merge_llm_call(cr, self.llm)
                     self._delete_memory(memory_id=cr.old_memory_id)
                     merged_embeddings = self.embedding_model.embed(merged_text, "add")
-                    self._create_memory(
+                    created_id = self._create_memory(
                         data=merged_text,
                         existing_embeddings={merged_text: merged_embeddings},
                         metadata=deepcopy(metadata),
                     )
+                    returned_memories.append({"id": created_id, "memory": merged_text, "event": "ADD"})
                     contradiction_handled_facts_sync.add(fact)
 
-        # Remove contradiction-handled facts from the single-pass list
-        new_retrieved_facts = [f for f in new_retrieved_facts if f not in contradiction_handled_facts_sync]
-
-        # Build retrieved_old_memory from remaining facts' search results
+        # For facts not resolved as contradictions, create them directly.
         for fact in new_retrieved_facts:
-            for mem_item in fact_search_results_map_sync.get(fact, []):
-                retrieved_old_memory.append({"id": mem_item["id"], "text": mem_item["text"]})
-
-        unique_data = {}
-        for item in retrieved_old_memory:
-            unique_data[item["id"]] = item
-        retrieved_old_memory = list(unique_data.values())
-        logger.info(f"Total existing memories: {len(retrieved_old_memory)}")
-
-        # mapping UUIDs with integers for handling UUID hallucinations
-        temp_uuid_mapping = {}
-        for idx, item in enumerate(retrieved_old_memory):
-            temp_uuid_mapping[str(idx)] = item["id"]
-            retrieved_old_memory[idx]["id"] = str(idx)
-
-        if new_retrieved_facts:
-            function_calling_prompt = get_update_memory_messages(
-                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
+            if fact in contradiction_handled_facts_sync:
+                continue
+            if fact not in new_message_embeddings:
+                new_message_embeddings[fact] = self.embedding_model.embed(fact, "add")
+            created_id = self._create_memory(
+                data=fact,
+                existing_embeddings=new_message_embeddings,
+                metadata=deepcopy(metadata),
             )
+            returned_memories.append({"id": created_id, "memory": fact, "event": "ADD"})
 
-            try:
-                response: str = self.llm.generate_response(
-                    messages=[{"role": "user", "content": function_calling_prompt}],
-                    response_format={"type": "json_object"},
-                )
-            except Exception as e:
-                logger.error(f"Error in new memory actions response: {e}")
-                response = ""
-
-            try:
-                if not response or not response.strip():
-                    logger.warning("Empty response from LLM, no memories to extract")
-                    new_memories_with_actions = {}
-                else:
-                    try:
-                        new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
-                    except json.JSONDecodeError:
-                        extracted_json = extract_json(response)
-                        new_memories_with_actions = json.loads(extracted_json, strict=False)
-            except Exception as e:
-                logger.error(f"Invalid JSON response: {e}")
-                new_memories_with_actions = {}
-        else:
-            new_memories_with_actions = {}
-
-        returned_memories = []
-        try:
-            for resp in new_memories_with_actions.get("memory", []):
-                logger.info(resp)
-                try:
-                    action_text = resp.get("text")
-                    if not action_text:
-                        logger.info("Skipping memory entry because of empty `text` field.")
-                        continue
-
-                    event_type = resp.get("event")
-                    if event_type == "ADD":
-                        # Ensure action_text has an embedding cached to avoid redundant API calls
-                        if action_text not in new_message_embeddings:
-                            new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "add")
-                        memory_id = self._create_memory(
-                            data=action_text,
-                            existing_embeddings=new_message_embeddings,
-                            metadata=deepcopy(metadata),
-                        )
-                        returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
-                    elif event_type == "UPDATE":
-                        # Ensure action_text has an embedding cached to avoid redundant API calls
-                        if action_text not in new_message_embeddings:
-                            new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "update")
-                        self._update_memory(
-                            memory_id=temp_uuid_mapping[resp.get("id")],
-                            data=action_text,
-                            existing_embeddings=new_message_embeddings,
-                            metadata=deepcopy(metadata),
-                        )
-                        returned_memories.append(
-                            {
-                                "id": temp_uuid_mapping[resp.get("id")],
-                                "memory": action_text,
-                                "event": event_type,
-                                "previous_memory": resp.get("old_memory"),
-                            }
-                        )
-                    elif event_type == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
-                        returned_memories.append(
-                            {
-                                "id": temp_uuid_mapping[resp.get("id")],
-                                "memory": action_text,
-                                "event": event_type,
-                            }
-                        )
-                    elif event_type == "NONE":
-                        # Even if content doesn't need updating, update session IDs if provided
-                        memory_id = temp_uuid_mapping.get(resp.get("id"))
-                        if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
-                            # Update only the session identifiers, keep content the same
-                            existing_memory = self.vector_store.get(vector_id=memory_id)
-                            if existing_memory is None:
-                                logger.warning(f"Memory {memory_id} not found for session ID update, skipping")
-                                continue
-                            updated_metadata = deepcopy(existing_memory.payload)
-                            if metadata.get("agent_id"):
-                                updated_metadata["agent_id"] = metadata["agent_id"]
-                            if metadata.get("run_id"):
-                                updated_metadata["run_id"] = metadata["run_id"]
-                            updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
-                                updated_metadata.get("created_at")
-                            )
-                            updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-                            self.vector_store.update(
-                                vector_id=memory_id,
-                                vector=None,  # Keep same embeddings
-                                payload=updated_metadata,
-                            )
-                            logger.info(f"Updated session IDs for memory {memory_id}")
-                        else:
-                            logger.info("NOOP for Memory.")
-                except Exception as e:
-                    logger.error(f"Error processing memory action: {resp}, Error: {e}")
-        except Exception as e:
-            logger.error(f"Error iterating new_memories_with_actions: {e}")
+        # Update-memory single-pass LLM is intentionally bypassed.
+        # Conflict classification + auto resolution is the only mutation path.
+        if new_retrieved_facts:
+            logger.info("Skipping update-memory LLM stage; relying exclusively on conflict auto-resolution.")
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(
@@ -1725,7 +1610,6 @@ class AsyncMemory(MemoryBase):
         if not new_retrieved_facts:
             logger.debug("No new facts retrieved from input. Skipping memory update LLM call.")
 
-        retrieved_old_memory = []
         new_message_embeddings = {}
         # Search for existing memories using the provided session identifiers
         # Use all available session identifiers for accurate memory retrieval
@@ -1755,19 +1639,16 @@ class AsyncMemory(MemoryBase):
         search_tasks = [process_fact_for_search(fact) for fact in new_retrieved_facts]
         search_results_list = await asyncio.gather(*search_tasks)
 
-        # Conflict detection pipeline — runs before the single-pass update call
+        # Conflict detection pipeline
         fact_search_results_map = dict(zip(new_retrieved_facts, search_results_list))
-        similarity_threshold = self.config.conflict_detection.similarity_threshold
         hitl_enabled = self.config.conflict_detection.hitl_enabled
         auto_strategy = self.config.conflict_detection.auto_resolve_strategy
         session_id = self.config.session_id
         contradiction_handled_facts: set = set()
+        returned_memories = []
 
         for fact in list(new_retrieved_facts):
             for mem_item in fact_search_results_map.get(fact, []):
-                score = mem_item.get("score") or 0.0
-                if score < similarity_threshold:
-                    continue
                 # Secondary LLM classification
                 try:
                     classification_msgs = get_conflict_classification_messages(mem_item["text"], fact)
@@ -1816,11 +1697,12 @@ class AsyncMemory(MemoryBase):
                         new_message_embeddings[fact] = await asyncio.to_thread(
                             self.embedding_model.embed, fact, "add"
                         )
-                    await self._create_memory(
+                    created_id = await self._create_memory(
                         data=fact,
                         existing_embeddings=new_message_embeddings,
                         metadata=deepcopy(metadata),
                     )
+                    returned_memories.append({"id": created_id, "memory": fact, "event": "ADD"})
                     contradiction_handled_facts.add(fact)
                 elif cr.resolution == "KEEP_OLD":
                     contradiction_handled_facts.add(fact)
@@ -1830,158 +1712,33 @@ class AsyncMemory(MemoryBase):
                     merged_embeddings = await asyncio.to_thread(
                         self.embedding_model.embed, merged_text, "add"
                     )
-                    await self._create_memory(
+                    created_id = await self._create_memory(
                         data=merged_text,
                         existing_embeddings={merged_text: merged_embeddings},
                         metadata=deepcopy(metadata),
                     )
+                    returned_memories.append({"id": created_id, "memory": merged_text, "event": "ADD"})
                     contradiction_handled_facts.add(fact)
 
-        # Remove contradiction-handled facts from the single-pass list
-        new_retrieved_facts = [f for f in new_retrieved_facts if f not in contradiction_handled_facts]
-
-        # Build retrieved_old_memory from remaining facts' search results
+        # For facts not resolved as contradictions, create them directly.
         for fact in new_retrieved_facts:
-            for mem_item in fact_search_results_map.get(fact, []):
-                retrieved_old_memory.append({"id": mem_item["id"], "text": mem_item["text"]})
-
-        unique_data = {}
-        for item in retrieved_old_memory:
-            unique_data[item["id"]] = item
-        retrieved_old_memory = list(unique_data.values())
-        logger.info(f"Total existing memories: {len(retrieved_old_memory)}")
-        temp_uuid_mapping = {}
-        for idx, item in enumerate(retrieved_old_memory):
-            temp_uuid_mapping[str(idx)] = item["id"]
-            retrieved_old_memory[idx]["id"] = str(idx)
-
-        if new_retrieved_facts:
-            function_calling_prompt = get_update_memory_messages(
-                retrieved_old_memory, new_retrieved_facts, self.config.custom_update_memory_prompt
-            )
-            try:
-                response = await asyncio.to_thread(
-                    self.llm.generate_response,
-                    messages=[{"role": "user", "content": function_calling_prompt}],
-                    response_format={"type": "json_object"},
+            if fact in contradiction_handled_facts:
+                continue
+            if fact not in new_message_embeddings:
+                new_message_embeddings[fact] = await asyncio.to_thread(
+                    self.embedding_model.embed, fact, "add"
                 )
-            except Exception as e:
-                logger.error(f"Error in new memory actions response: {e}")
-                response = ""
-            try:
-                if not response or not response.strip():
-                    logger.warning("Empty response from LLM, no memories to extract")
-                    new_memories_with_actions = {}
-                else:
-                    try:
-                        new_memories_with_actions = json.loads(remove_code_blocks(response), strict=False)
-                    except json.JSONDecodeError:
-                        extracted_json = extract_json(response)
-                        new_memories_with_actions = json.loads(extracted_json, strict=False)
-            except Exception as e:
-                logger.error(f"Invalid JSON response: {e}")
-                new_memories_with_actions = {}
-        else:
-            new_memories_with_actions = {}
+            created_id = await self._create_memory(
+                data=fact,
+                existing_embeddings=new_message_embeddings,
+                metadata=deepcopy(metadata),
+            )
+            returned_memories.append({"id": created_id, "memory": fact, "event": "ADD"})
 
-        returned_memories = []
-        try:
-            memory_tasks = []
-            for resp in new_memories_with_actions.get("memory", []):
-                logger.info(resp)
-                try:
-                    action_text = resp.get("text")
-                    if not action_text:
-                        continue
-                    event_type = resp.get("event")
-
-                    if event_type == "ADD":
-                        # Ensure action_text has an embedding cached to avoid redundant API calls
-                        if action_text not in new_message_embeddings:
-                            new_message_embeddings[action_text] = await asyncio.to_thread(
-                                self.embedding_model.embed, action_text, "add"
-                            )
-                        task = asyncio.create_task(
-                            self._create_memory(
-                                data=action_text,
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
-                            )
-                        )
-                        memory_tasks.append((task, resp, "ADD", None))
-                    elif event_type == "UPDATE":
-                        # Ensure action_text has an embedding cached to avoid redundant API calls
-                        if action_text not in new_message_embeddings:
-                            new_message_embeddings[action_text] = await asyncio.to_thread(
-                                self.embedding_model.embed, action_text, "update"
-                            )
-                        task = asyncio.create_task(
-                            self._update_memory(
-                                memory_id=temp_uuid_mapping[resp["id"]],
-                                data=action_text,
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
-                            )
-                        )
-                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
-                    elif event_type == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
-                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
-                    elif event_type == "NONE":
-                        # Even if content doesn't need updating, update session IDs if provided
-                        memory_id = temp_uuid_mapping.get(resp.get("id"))
-                        if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
-                            # Create async task to update only the session identifiers
-                            async def update_session_ids(mem_id, meta):
-                                existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=mem_id)
-                                if existing_memory is None:
-                                    logger.warning(f"Memory {mem_id} not found for session ID update, skipping")
-                                    return
-                                updated_metadata = deepcopy(existing_memory.payload)
-                                if meta.get("agent_id"):
-                                    updated_metadata["agent_id"] = meta["agent_id"]
-                                if meta.get("run_id"):
-                                    updated_metadata["run_id"] = meta["run_id"]
-                                updated_metadata["created_at"] = _normalize_iso_timestamp_to_utc(
-                                    updated_metadata.get("created_at")
-                                )
-                                updated_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-
-                                await asyncio.to_thread(
-                                    self.vector_store.update,
-                                    vector_id=mem_id,
-                                    vector=None,  # Keep same embeddings
-                                    payload=updated_metadata,
-                                )
-                                logger.info(f"Updated session IDs for memory {mem_id} (async)")
-
-                            task = asyncio.create_task(update_session_ids(memory_id, metadata))
-                            memory_tasks.append((task, resp, "NONE", memory_id))
-                        else:
-                            logger.info("NOOP for Memory (async).")
-                except Exception as e:
-                    logger.error(f"Error processing memory action (async): {resp}, Error: {e}")
-
-            for task, resp, event_type, mem_id in memory_tasks:
-                try:
-                    result_id = await task
-                    if event_type == "ADD":
-                        returned_memories.append({"id": result_id, "memory": resp.get("text"), "event": event_type})
-                    elif event_type == "UPDATE":
-                        returned_memories.append(
-                            {
-                                "id": mem_id,
-                                "memory": resp.get("text"),
-                                "event": event_type,
-                                "previous_memory": resp.get("old_memory"),
-                            }
-                        )
-                    elif event_type == "DELETE":
-                        returned_memories.append({"id": mem_id, "memory": resp.get("text"), "event": event_type})
-                except Exception as e:
-                    logger.error(f"Error awaiting memory task (async): {e}")
-        except Exception as e:
-            logger.error(f"Error in memory processing loop (async): {e}")
+        # Update-memory single-pass LLM is intentionally bypassed.
+        # Conflict classification + auto resolution is the only mutation path.
+        if new_retrieved_facts:
+            logger.info("Skipping update-memory LLM stage; relying exclusively on conflict auto-resolution.")
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
