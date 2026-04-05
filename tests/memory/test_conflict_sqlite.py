@@ -1150,7 +1150,7 @@ class TestBehavioralGaps:
 
     def test_gap6_procedural_memory_bypasses_conflict_pipeline(self, mocker):
         """
-        GAP-6: Memory.add() with memory_type='procedural' and agent_id set
+        GAP-6: Memory.add() with memory_type='procedural_memory' and agent_id set
         routes to _create_procedural_memory before _add_to_vector_store is
         called.  The conflict pipeline is never reached.
 
@@ -1169,11 +1169,11 @@ class TestBehavioralGaps:
         memory.add(
             [{"role": "user", "content": "Always greet users by name"}],
             agent_id="support-agent",
-            memory_type="procedural",
+            memory_type="procedural_memory",
         )
 
         print(
-            "\n  [GAP-6] With memory_type='procedural' + agent_id:\n"
+            "\n  [GAP-6] With memory_type='procedural_memory' + agent_id:\n"
             f"    _add_to_vector_store called = {add_to_vs_spy.called}\n"
             "  The conflict pipeline inside _add_to_vector_store is never reached.\n"
             "  Procedural memories bypass contradiction detection entirely."

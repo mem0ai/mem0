@@ -60,12 +60,13 @@ class TestAddToVectorStoreErrors:
         assert result == []  # Should return empty list when no memories processed
         # Check for error message in any of the log records
         assert any("Error in new_retrieved_facts" in record.msg for record in caplog.records), "Expected error message not found in logs"
-        assert mock_capture_event.call_count == 1
+        # capture_event is now fired by the outer add(), not _add_to_vector_store
+        assert mock_capture_event.call_count == 0
 
-    def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
-        """Test empty response from LLM during memory actions"""
-        # Setup
-        # First call returns valid JSON, second call returns empty string
+    def test_empty_llm_response_no_existing_memories(self, mock_memory, caplog):
+        """With no existing memories the conflict classification LLM is never called.
+        The extracted fact is created directly — only 1 LLM call total."""
+        # Setup — vector_store.search already returns [] from the fixture
         mock_memory.llm.generate_response.side_effect = ['{"facts": ["test fact"]}', ""]
 
         # Execute
@@ -74,10 +75,11 @@ class TestAddToVectorStoreErrors:
                 messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
             )
 
-        # Verify
-        assert mock_memory.llm.generate_response.call_count == 2
-        assert result == []  # Should return empty list when no memories processed
-        assert "Empty response from LLM, no memories to extract" in caplog.text
+        # Verify — update-memory LLM pass is gone; conflict LLM only fires on vector hits
+        assert mock_memory.llm.generate_response.call_count == 1
+        assert len(result) == 1
+        assert result[0]["memory"] == "test fact"
+        assert result[0]["event"] == "ADD"
 
 
 class TestAsyncUpdate:
@@ -162,11 +164,13 @@ class TestAsyncAddToVectorStoreErrors:
         assert result == []
         # Check for error message in any of the log records
         assert any("Error in new_retrieved_facts" in record.msg for record in caplog.records), "Expected error message not found in logs"
-        assert mock_capture_event.call_count == 1
+        # capture_event is now fired by the outer add(), not _add_to_vector_store
+        assert mock_capture_event.call_count == 0
 
     @pytest.mark.asyncio
-    async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
-        """Test empty response in AsyncMemory._add_to_vector_store"""
+    async def test_async_empty_llm_response_no_existing_memories(self, mock_async_memory, caplog, mocker):
+        """With no existing memories the conflict classification LLM is never called.
+        The extracted fact is created directly — only 1 LLM call total."""
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
         mock_async_memory.llm.generate_response.side_effect = ['{"facts": ["test fact"]}', ""]
         mock_capture_event = mocker.MagicMock()
@@ -177,9 +181,11 @@ class TestAsyncAddToVectorStoreErrors:
                 messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
             )
 
-        assert result == []
-        assert "Empty response from LLM, no memories to extract" in caplog.text
-        assert mock_capture_event.call_count == 1
+        # update-memory LLM pass is gone; conflict LLM only fires on vector hits
+        assert mock_async_memory.llm.generate_response.call_count == 1
+        assert len(result) == 1
+        assert result[0]["memory"] == "test fact"
+        assert result[0]["event"] == "ADD"
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -244,7 +250,6 @@ def test_update_memory_uses_utc_timestamps(mocker):
 def test_conflict_detection_config_accepts_delete_old_strategy():
     config = ConflictDetectionConfig(auto_resolve_strategy="delete-old")
     assert config.auto_resolve_strategy == "delete-old"
-    _assert_utc_timestamp(payload["updated_at"])
 
 
 @pytest.mark.asyncio

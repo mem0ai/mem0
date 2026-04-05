@@ -454,6 +454,13 @@ class Memory(MemoryBase):
             vector_store_result = future1.result()
             graph_result = future2.result()
 
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        capture_event(
+            "mem0.add",
+            self,
+            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"},
+        )
+
         if self.enable_graph:
             return {
                 "results": vector_store_result,
@@ -661,12 +668,6 @@ class Memory(MemoryBase):
         if new_retrieved_facts:
             logger.info("Skipping update-memory LLM stage; relying exclusively on conflict auto-resolution.")
 
-        keys, encoded_ids = process_telemetry_filters(filters)
-        capture_event(
-            "mem0.add",
-            self,
-            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"},
-        )
         return returned_memories
 
     def _add_to_graph(self, messages, filters):
@@ -1523,6 +1524,13 @@ class AsyncMemory(MemoryBase):
 
         vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
 
+        keys, encoded_ids = process_telemetry_filters(effective_filters)
+        capture_event(
+            "mem0.add",
+            self,
+            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
+        )
+
         if self.enable_graph:
             return {
                 "results": vector_store_result,
@@ -1746,12 +1754,6 @@ class AsyncMemory(MemoryBase):
         if new_retrieved_facts:
             logger.info("Skipping update-memory LLM stage; relying exclusively on conflict auto-resolution.")
 
-        keys, encoded_ids = process_telemetry_filters(effective_filters)
-        capture_event(
-            "mem0.add",
-            self,
-            {"version": self.api_version, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"},
-        )
         return returned_memories
 
     async def _add_to_graph(self, messages, filters):
