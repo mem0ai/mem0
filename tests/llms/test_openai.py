@@ -11,6 +11,7 @@ from mem0.llms.openai import OpenAILLM
 def mock_openai_client():
     with patch("mem0.llms.openai.OpenAI") as mock_openai:
         mock_client = Mock()
+        mock_client.base_url = "https://api.openai.com/v1/"
         mock_openai.return_value = mock_client
         yield mock_client
 
@@ -229,6 +230,94 @@ def test_reasoning_effort_config_values():
 
     config = OpenAIConfig(model="o3")
     assert config.reasoning_effort is None
+
+
+def test_store_defaults_to_false_for_openai(mock_openai_client):
+    """When targeting api.openai.com and store is not set, store=False should be sent (preserves legacy behavior)."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14")
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs["store"] is False
+
+
+def test_store_not_sent_for_non_openai_backend(mock_openai_client):
+    """When using a non-OpenAI base URL (Gemini, Groq, etc.), store should not be sent."""
+    mock_openai_client.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    config = OpenAIConfig(model="gemini-2.0-flash", openai_base_url="https://generativelanguage.googleapis.com/v1beta/openai")
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "store" not in call_kwargs
+
+
+def test_store_sent_when_explicitly_set_false(mock_openai_client):
+    """store=False should be sent when the user explicitly configures it."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", store=False)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs["store"] is False
+
+
+def test_store_sent_when_explicitly_set_true(mock_openai_client):
+    """store=True should be sent when the user explicitly configures it."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", store=True)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs["store"] is True
+
+
+def test_store_explicit_true_on_non_openai_backend(mock_openai_client):
+    """store=True should be sent even on non-OpenAI backends when user explicitly sets it."""
+    mock_openai_client.base_url = "https://api.groq.com/openai/v1/"
+    config = OpenAIConfig(model="some-model", openai_base_url="https://api.groq.com/openai/v1", store=True)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs["store"] is True
+
+
+def test_store_config_default_is_none():
+    """Config default for store should be None (not False) to avoid leaking to non-OpenAI backends."""
+    config = OpenAIConfig()
+    assert config.store is None
 
 
 def test_callback_with_tools(mock_openai_client):
