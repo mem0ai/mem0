@@ -335,6 +335,40 @@ class TestSQLiteAudit:
 
         assert len(rows) == 0, f"expected 0 rows, got {len(rows)}: {rows}"
 
+    def test_delete_old_writes_only_delete_to_sqlite(self, mocker):
+        """
+        DELETE_OLD resolution must produce exactly one SQLite row:
+          1. DELETE row for old memory (is_deleted=True, new_memory=None)
+        No ADD row should be written.
+        """
+        memory, mock_vs = _make_memory(mocker, strategy="delete-old", real_sqlite=True)
+
+        old_mem_search = _make_search_result("old-mem-uuid", "User is vegetarian", score=0.92)
+        mock_vs.search.return_value = [old_mem_search]
+        mock_vs.get.return_value = _make_stored_memory("old-mem-uuid", "User is vegetarian")
+
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats chicken regularly"]}',
+            CONTRADICTION_HIGH_OLD,
+        ]
+
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat chicken regularly"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        rows = _get_all_history(memory.db)
+        _print_db_rows(rows, "DELETE_OLD — expect only DELETE")
+
+        assert len(rows) == 1, f"expected 1 row, got {len(rows)}: {rows}"
+        assert rows[0]["event"] == "DELETE"
+        assert rows[0]["memory_id"] == "old-mem-uuid"
+        assert rows[0]["old_memory"] == "User is vegetarian"
+        assert rows[0]["new_memory"] is None
+        assert rows[0]["is_deleted"] is True
+
     def test_merge_writes_delete_then_add_with_merged_text(self, mocker):
         """
         MERGE resolution must produce exactly two SQLite rows:
@@ -687,6 +721,23 @@ class TestAutoResolution:
         memory._delete_memory.assert_called_once()
         memory._create_memory.assert_called_once()
 
+    def test_delete_old_strategy_deletes_without_add(self, mocker):
+        """delete-old resolves by deleting old memory and not creating a new one."""
+        memory, mock_vs = _make_memory(mocker, strategy="delete-old")
+        mock_vs.search.return_value = [
+            _make_search_result("old-mem-uuid", "User is vegetarian", score=0.92)
+        ]
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            CONTRADICTION_HIGH_OLD,
+        ]
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={}, filters={}, infer=True,
+        )
+        memory._delete_memory.assert_called_once_with(memory_id="old-mem-uuid")
+        memory._create_memory.assert_not_called()
+
     def test_nuance_skips_single_pass_update_llm(self, mocker):
         memory, mock_vs = _make_memory(mocker)
         mock_vs.search.return_value = [
@@ -940,6 +991,45 @@ class TestAsyncConflict:
         )
         memory._delete_memory.assert_awaited_once_with(memory_id="old-mem-uuid")
         memory._create_memory.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_async_delete_old_resolution(self, mocker):
+        """AsyncMemory: delete-old strategy → old memory deleted, new fact NOT created."""
+        mock_embedder = mocker.MagicMock()
+        mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", mock_embedder)
+
+        mock_vs_cls = mocker.MagicMock()
+        old_mem = _make_search_result("old-mem-uuid", "User is vegetarian", score=0.92)
+        mock_vs_cls.return_value.search.return_value = [old_mem]
+        mocker.patch(
+            "mem0.utils.factory.VectorStoreFactory.create",
+            side_effect=[mock_vs_cls.return_value, mocker.MagicMock()],
+        )
+        mock_llm_cls = mocker.MagicMock()
+        mocker.patch("mem0.utils.factory.LlmFactory.create", mock_llm_cls)
+        mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+
+        memory = AsyncMemory()
+        memory.config.conflict_detection.hitl_enabled = False
+        memory.config.conflict_detection.auto_resolve_strategy = "delete-old"
+        memory.config.conflict_detection.similarity_threshold = 0.85
+        memory.config.session_id = "async-delete-old-session"
+        memory._delete_memory = mocker.AsyncMock(return_value="old-mem-uuid")
+        memory._create_memory = mocker.AsyncMock(return_value="new-mem-uuid")
+
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            CONTRADICTION_HIGH_OLD,  # confidence values don't matter for delete-old
+        ]
+        await memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={},
+            effective_filters={},
+            infer=True,
+        )
+        memory._delete_memory.assert_awaited_once_with(memory_id="old-mem-uuid")
+        memory._create_memory.assert_not_awaited()
 
 
 class TestMultiMatch:

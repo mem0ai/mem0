@@ -9,11 +9,12 @@ Usage:
     CONFLICT_PASS=KEEP_NEW  python tests/memory/manual/test_conflict_real.py
     CONFLICT_PASS=KEEP_OLD  python tests/memory/manual/test_conflict_real.py
     CONFLICT_PASS=MERGE     python tests/memory/manual/test_conflict_real.py
+    CONFLICT_PASS=DELETE_OLD python tests/memory/manual/test_conflict_real.py
     CONFLICT_PASS=SKIP      python tests/memory/manual/test_conflict_real.py
 
 Required environment variables:
     OPENAI_API_KEY   — used by the embedder and LLM
-    CONFLICT_PASS    — one of KEEP_NEW | KEEP_OLD | MERGE | SKIP
+    CONFLICT_PASS    — one of KEEP_NEW | KEEP_OLD | MERGE | DELETE_OLD | SKIP
 
 Optional:
     CONFLICT_USER    — user_id scoping (default: "conflict-test-user")
@@ -51,13 +52,14 @@ USER_ID = os.environ.get("CONFLICT_USER", "conflict-test-user")
 DB_PATH = os.environ.get("CONFLICT_DB_PATH", ":memory:")
 VERBOSE = os.environ.get("CONFLICT_VERBOSE", "0") == "1"
 
-VALID_PASSES = {"KEEP_NEW", "KEEP_OLD", "MERGE", "SKIP"}
+VALID_PASSES = {"KEEP_NEW", "KEEP_OLD", "MERGE", "DELETE_OLD", "SKIP"}
 
 # Map CONFLICT_PASS value → mem0 auto_resolve_strategy string
 STRATEGY_MAP = {
     "KEEP_NEW": "keep-newer",       # always replaces old — deterministic KEEP_NEW
     "KEEP_OLD": "keep-higher-confidence",  # confidence_old > confidence_new → KEEP_OLD
     "MERGE": "merge",
+    "DELETE_OLD": "delete-old",
     "SKIP": "keep-higher-confidence",   # we'll construct equal-confidence pair → SKIP path
 }
 
@@ -968,6 +970,64 @@ def run_merge() -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Pass: DELETE_OLD
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_delete_old() -> None:
+    """
+    DELETE_OLD pass: on contradiction, deletes the old memory and does not add
+    the incoming fact.
+
+    Expected SQLite outcome: one DELETE row only.
+    Expected vector store: empty (old removed, new not inserted).
+    """
+    _banner("PASS: DELETE_OLD")
+    m = setup(STRATEGY_MAP["DELETE_OLD"])
+    _passes_run.append("DELETE_OLD")
+
+    try:
+        _section("Step 1 — add baseline memory")
+        baseline_text = "User is a strict vegetarian and never eats meat"
+        baseline_mems = _add_baseline(m, baseline_text)
+        _assert(len(baseline_mems) >= 1, "Baseline memory present in vector store")
+
+        _section("Step 2 — add contradiction (DELETE_OLD strategy)")
+        contradiction_text = "User eats chicken and steak regularly"
+        _print_similarity_probe(
+            m,
+            contradiction_text,
+            "DELETE_OLD contradiction vs existing memories",
+        )
+        rows, memories = _add_contradiction(m, contradiction_text)
+        _print_history(rows, "DELETE_OLD — expect one DELETE row only")
+        _print_memories(memories, "after DELETE_OLD resolution")
+
+        _section("Assertions")
+        delete_rows = [r for r in rows if r["event"] == "DELETE"]
+        add_rows = [r for r in rows if r["event"] == "ADD"]
+        _assert(len(delete_rows) >= 1, "DELETE row written for old memory")
+        _assert(len(add_rows) == 1, "No additional ADD row from contradiction step")
+
+        if delete_rows:
+            old_text = delete_rows[-1]["old_memory"]
+            _assert(old_text and "vegetarian" in old_text.lower(), f"DELETE row references old memory text: {old_text!r}")
+
+        live_texts = [m_["memory"] for m_ in memories]
+        has_new = any("chicken" in t.lower() for t in live_texts)
+        has_old = any("vegetarian" in t.lower() for t in live_texts)
+        _assert(not has_new, "New contradiction fact is NOT live after DELETE_OLD")
+        _assert(not has_old, "Old fact is NOT live after DELETE_OLD")
+
+        _diff_sqlite_vs_vector(rows, memories)
+    except Exception:
+        _fail("DELETE_OLD pass raised an exception")
+        traceback.print_exc()
+        _failures.append("DELETE_OLD pass raised an exception")
+    finally:
+        teardown(m)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Pass: SKIP
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1105,6 +1165,7 @@ DISPATCH = {
     "KEEP_NEW": run_keep_new,
     "KEEP_OLD": run_keep_old,
     "MERGE": run_merge,
+    "DELETE_OLD": run_delete_old,
     "SKIP": run_skip,
 }
 

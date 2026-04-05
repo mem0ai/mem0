@@ -38,11 +38,11 @@ class ConflictResolution:
     old_memory_text: str
     conflict_class: str  # ConflictClass
     explanation: str
-    proposed_action: str
+    proposed_action: str  # "KEEP_NEW" | "KEEP_OLD" | "MERGE" | "DELETE_OLD"
     confidence_new: float
     confidence_old: float
     auto_resolved: bool
-    resolution: str  # "KEEP_NEW" | "KEEP_OLD" | "MERGE" | "SKIP"
+    resolution: str  # "KEEP_NEW" | "KEEP_OLD" | "MERGE" | "DELETE_OLD" | "SKIP" (SKIP = unresolved sentinel)
     merged_text: Optional[str]
 
 
@@ -95,6 +95,8 @@ def apply_auto_resolution(cr: ConflictResolution, strategy: str) -> ConflictReso
         resolution = "KEEP_NEW"
     elif strategy == "merge":
         resolution = "MERGE"
+    elif strategy == "delete-old":
+        resolution = "DELETE_OLD"
     else:
         raise ValueError(f"Unknown auto_resolve_strategy: {strategy!r}")
 

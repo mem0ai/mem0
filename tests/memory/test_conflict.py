@@ -337,6 +337,56 @@ class TestAsyncConflict:
         memory._delete_memory.assert_awaited_once_with(memory_id="old-mem-uuid")
         memory._create_memory.assert_awaited_once()
 
+    @pytest.mark.asyncio
+    async def test_async_delete_old_resolution(self, mocker):
+        """AsyncMemory: delete-old strategy → old deleted, new fact NOT created."""
+        mock_embedder = mocker.MagicMock()
+        mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.utils.factory.EmbedderFactory.create", mock_embedder)
+
+        mock_vector_store = mocker.MagicMock()
+        old_mem = _make_mem_result("old-mem-uuid", "User is vegetarian", score=0.92)
+        mock_vector_store.return_value.search.return_value = [old_mem]
+        mocker.patch(
+            "mem0.utils.factory.VectorStoreFactory.create",
+            side_effect=[mock_vector_store.return_value, mocker.MagicMock()],
+        )
+
+        mock_llm = mocker.MagicMock()
+        mocker.patch("mem0.utils.factory.LlmFactory.create", mock_llm)
+        mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+
+        memory = AsyncMemory()
+        memory.config.conflict_detection.hitl_enabled = False
+        memory.config.conflict_detection.auto_resolve_strategy = "delete-old"
+        memory.config.conflict_detection.similarity_threshold = 0.85
+        memory.config.conflict_detection.top_k = 20
+        memory.config.session_id = "async-delete-old-session"
+        memory._delete_memory = mocker.AsyncMock(return_value="old-mem-uuid")
+        memory._create_memory = mocker.AsyncMock(return_value="new-mem-uuid")
+
+        contradiction_response = json.dumps({
+            "conflict_class": "CONTRADICTION",
+            "explanation": "Cannot be vegetarian and eat steak",
+            "proposed_action": "Delete old memory",
+            "confidence_new": 0.5,
+            "confidence_old": 0.5,
+        })
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            contradiction_response,
+        ]
+
+        await memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={},
+            effective_filters={},
+            infer=True,
+        )
+
+        memory._delete_memory.assert_awaited_once_with(memory_id="old-mem-uuid")
+        memory._create_memory.assert_not_awaited()
+
 
 class TestMergeStrategy:
     def test_merge_strategy_calls_merge_llm(self, mocker):
@@ -566,6 +616,35 @@ class TestResolutionStrategies:
         assert result.resolution == "KEEP_NEW"
         assert result.auto_resolved is True
 
+    def test_delete_old_strategy(self, mocker):
+        """delete-old resolves by deleting old memory and not adding the new fact."""
+        memory, mock_vector_store = _make_memory(mocker, strategy="delete-old")
+
+        old_mem = _make_mem_result("old-uuid", "User is vegetarian", score=0.92)
+        mock_vector_store.return_value.search.return_value = [old_mem]
+
+        contradiction_response = json.dumps({
+            "conflict_class": "CONTRADICTION",
+            "explanation": "conflict",
+            "proposed_action": "delete old memory",
+            "confidence_new": 0.4,
+            "confidence_old": 0.8,
+        })
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User eats steak"]}',
+            contradiction_response,
+        ]
+
+        memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I eat steak"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        memory._delete_memory.assert_called_once_with(memory_id="old-uuid")
+        memory._create_memory.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # S1 — HITL scenarios (y, n, always-keep, invalid input)
@@ -733,3 +812,28 @@ class TestEnvVarOverrides:
         assert config.top_k == 10
         assert config.auto_resolve_strategy == "keep-newer"
         assert config.hitl_enabled is True
+
+    def test_delete_old_strategy_env_var_override(self, monkeypatch):
+        monkeypatch.setenv("MEM0_CONFLICT_AUTO_RESOLVE_STRATEGY", "delete-old")
+        from mem0.configs.base import ConflictDetectionConfig
+        config = ConflictDetectionConfig()
+        assert config.auto_resolve_strategy == "delete-old"
+
+    def test_apply_auto_resolution_delete_old(self):
+        """apply_auto_resolution('delete-old') always returns DELETE_OLD regardless of confidence."""
+        cr = ConflictResolution(
+            new_fact="User eats steak",
+            old_memory_id="old-id",
+            old_memory_text="User is vegetarian",
+            conflict_class="CONTRADICTION",
+            explanation="conflict",
+            proposed_action="delete old",
+            confidence_new=0.9,
+            confidence_old=0.1,
+            auto_resolved=False,
+            resolution="",
+            merged_text=None,
+        )
+        result = apply_auto_resolution(cr, "delete-old")
+        assert result.resolution == "DELETE_OLD"
+        assert result.auto_resolved is True

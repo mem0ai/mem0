@@ -639,6 +639,9 @@ class Memory(MemoryBase):
                     )
                     returned_memories.append({"id": created_id, "memory": merged_text, "event": "ADD"})
                     contradiction_handled_facts_sync.add(fact)
+                elif cr.resolution == "DELETE_OLD":
+                    self._delete_memory(memory_id=cr.old_memory_id)
+                    contradiction_handled_facts_sync.add(fact)
 
         # For facts not resolved as contradictions, create them directly.
         for fact in new_retrieved_facts:
@@ -1718,6 +1721,9 @@ class AsyncMemory(MemoryBase):
                         metadata=deepcopy(metadata),
                     )
                     returned_memories.append({"id": created_id, "memory": merged_text, "event": "ADD"})
+                    contradiction_handled_facts.add(fact)
+                elif cr.resolution == "DELETE_OLD":
+                    await self._delete_memory(memory_id=cr.old_memory_id)
                     contradiction_handled_facts.add(fact)
 
         # For facts not resolved as contradictions, create them directly.

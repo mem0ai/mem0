@@ -24,7 +24,7 @@ class ConflictDetectionConfig(BaseModel):
         description="Maximum number of existing memories to retrieve per new fact",
         default_factory=lambda: int(os.environ.get("MEM0_CONFLICT_TOP_K", "20")),
     )
-    auto_resolve_strategy: Literal["keep-higher-confidence", "keep-newer", "merge"] = Field(
+    auto_resolve_strategy: Literal["keep-higher-confidence", "keep-newer", "merge", "delete-old"] = Field(
         description="Strategy for auto-resolving CONTRADICTION pairs",
         default_factory=lambda: os.environ.get("MEM0_CONFLICT_AUTO_RESOLVE_STRATEGY", "keep-higher-confidence"),
     )

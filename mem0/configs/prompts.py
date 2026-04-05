@@ -461,7 +461,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
 
 CONFLICT_CLASSIFICATION_PROMPT = """You are a memory conflict classifier. You will be given an existing memory and a new incoming fact about the same subject.
 
-Your task is to classify the relationship between them and score the specificity of each statement.
+Your task is to classify the relationship between them, score the specificity of each statement, and recommend a resolution action.
 
 Classification definitions:
 - CONTRADICTION: The two statements cannot both be true at the same time.
@@ -475,11 +475,17 @@ Score how specifically and verifiably each statement is expressed.
 - Moderately specific ("user prefers vegetarian meals"): ~0.5
 - Highly specific and verifiable ("user is allergic to peanuts, confirmed 2024-03"): ~0.9
 
+Resolution action definitions (for proposed_action field):
+- KEEP_NEW: Discard the existing memory and store the new fact instead.
+- KEEP_OLD: Retain the existing memory and discard the new fact.
+- MERGE: Combine both statements into a single unified memory that preserves the most accurate information from each.
+- DELETE_OLD: Remove the existing memory without storing the new fact (use when the new fact invalidates the old one but does not itself warrant storage).
+
 Return ONLY valid JSON with no preamble and no markdown fences. The JSON must contain exactly these five keys:
 {
   "conflict_class": "CONTRADICTION" | "NUANCE" | "UPDATE" | "NONE",
   "explanation": "<one sentence explaining the relationship>",
-  "proposed_action": "<one sentence describing the recommended outcome>",
+  "proposed_action": "KEEP_NEW" | "KEEP_OLD" | "MERGE" | "DELETE_OLD",
   "confidence_new": <float 0.0-1.0>,
   "confidence_old": <float 0.0-1.0>
 }"""

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
+from mem0.configs.base import ConflictDetectionConfig
 from mem0.memory.main import AsyncMemory, Memory, _normalize_iso_timestamp_to_utc
 
 
@@ -238,6 +239,11 @@ def test_update_memory_uses_utc_timestamps(mocker):
     memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.update.call_args.kwargs["payload"]
     assert payload["created_at"] == "2026-03-18T00:00:00+00:00"
+
+
+def test_conflict_detection_config_accepts_delete_old_strategy():
+    config = ConflictDetectionConfig(auto_resolve_strategy="delete-old")
+    assert config.auto_resolve_strategy == "delete-old"
     _assert_utc_timestamp(payload["updated_at"])
 
 
