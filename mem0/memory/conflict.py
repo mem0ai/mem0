@@ -18,9 +18,25 @@ logger = logging.getLogger(__name__)
 ConflictClass = Literal["CONTRADICTION", "NUANCE", "UPDATE", "NONE"]
 
 # Module-level session overrides keyed by session_id.
-# "always-replace" → resolve all subsequent CONTRADICTION as KEEP_NEW without prompting.
-# "always-keep"    → resolve all subsequent CONTRADICTION as KEEP_OLD without prompting.
+# Value is one of: "KEEP_NEW", "KEEP_OLD", "DELETE_OLD", "MERGE", "FOLLOW_LLM".
+# When set, hitl_prompt_* returns the stored resolution without prompting.
+# "FOLLOW_LLM" re-reads cr.proposed_action each time (non-deterministic but prompt-free).
 _session_overrides: dict[str, str] = {}
+
+_ACTION_LABELS: dict[str, str] = {
+    "KEEP_NEW":   "keep incoming, discard existing",
+    "KEEP_OLD":   "keep existing, discard incoming",
+    "DELETE_OLD": "delete existing, discard incoming (no new memory)",
+    "MERGE":      "combine both memories into one",
+}
+_ALL_ACTIONS = ["KEEP_NEW", "KEEP_OLD", "DELETE_OLD", "MERGE"]
+_ALWAYS_MAP: dict[str, str] = {
+    "always:keep-new":   "KEEP_NEW",
+    "always:keep-old":   "KEEP_OLD",
+    "always:delete-old": "DELETE_OLD",
+    "always:merge":      "MERGE",
+    "always:follow-llm": "FOLLOW_LLM",
+}
 
 MERGE_PROMPT = (
     "You are a memory consolidation assistant. "
@@ -116,67 +132,135 @@ def apply_auto_resolution(cr: ConflictResolution, strategy: str) -> ConflictReso
     return replace(cr, auto_resolved=True, resolution=resolution)
 
 
+def _resolve_proposed(cr: ConflictResolution) -> str:
+    """Normalize cr.proposed_action to a known action, falling back to KEEP_NEW."""
+    proposed = (cr.proposed_action or "").strip().upper()
+    return proposed if proposed in _ALL_ACTIONS else "KEEP_NEW"
+
+
+def _parse_hitl_input(raw: str, cr: ConflictResolution) -> tuple:
+    """
+    Parse a HITL user input string.
+    Returns (resolution, session_strategy_or_None).
+    resolution is None when the input is invalid.
+
+    Valid forms:
+      "y"                   → accept LLM's proposed action
+      "1" / "2" / "3"       → pick from the three alternatives
+      Any of the above followed by " always:<strategy>" to also set a session override.
+    """
+    parts = raw.split()
+    if not parts:
+        return None, None
+
+    action_part = parts[0]
+    always_part = parts[1] if len(parts) > 1 else None
+
+    proposed = _resolve_proposed(cr)
+    alternatives = [a for a in _ALL_ACTIONS if a != proposed]
+
+    if action_part == "y":
+        resolution = proposed
+    elif action_part in ("1", "2", "3") and int(action_part) - 1 < len(alternatives):
+        resolution = alternatives[int(action_part) - 1]
+    else:
+        return None, None
+
+    session_strategy = None
+    if always_part:
+        session_strategy = _ALWAYS_MAP.get(always_part)
+        if session_strategy is None:
+            print(f"  Warning: unrecognized strategy {always_part!r}. Valid: {', '.join(_ALWAYS_MAP)}")
+
+    return resolution, session_strategy
+
+
 def hitl_prompt_sync(cr: ConflictResolution, session_id: str) -> str:
     """
-    Blocking stdin HITL prompt. Prints a formatted block and waits for user input.
-    Returns one of: "y", "n", "always-replace", "always-keep".
-    Applies session overrides if already set; stores new "always-*" choices.
+    Blocking stdin HITL prompt.
+    Returns a resolution string: KEEP_NEW | KEEP_OLD | DELETE_OLD | MERGE.
+    Applies session overrides if already set; stores new always:* choices.
     """
     if session_id in _session_overrides:
-        return _session_overrides[session_id]
+        override = _session_overrides[session_id]
+        if override == "FOLLOW_LLM":
+            return _resolve_proposed(cr)
+        return override
 
     _print_hitl_block(cr)
-    choice = input("> ").strip().lower()
-    if choice not in ("y", "n", "always-replace", "always-keep"):
-        print("Invalid choice. Please enter y, n, always-replace, or always-keep.")
-        choice = input("> ").strip().lower()
-        if choice not in ("y", "n", "always-replace", "always-keep"):
-            choice = "n"
+    raw = input("> ").strip().lower()
+    resolution, session_strategy = _parse_hitl_input(raw, cr)
 
-    if choice in ("always-replace", "always-keep"):
-        _session_overrides[session_id] = choice
+    if resolution is None:
+        print("  Invalid choice. Enter y, 1, 2, or 3 — optionally followed by always:<strategy>.")
+        raw = input("> ").strip().lower()
+        resolution, session_strategy = _parse_hitl_input(raw, cr)
+        if resolution is None:
+            resolution = "KEEP_OLD"
 
-    return choice
+    if session_strategy:
+        _session_overrides[session_id] = session_strategy
+
+    return resolution
 
 
 async def hitl_prompt_async(cr: ConflictResolution, session_id: str) -> str:
     """
     Non-blocking async HITL prompt. Offloads stdin read to a thread pool executor.
-    Same logic and return values as hitl_prompt_sync.
+    Returns a resolution string: KEEP_NEW | KEEP_OLD | DELETE_OLD | MERGE.
+    Same session-override logic as hitl_prompt_sync.
     """
     import asyncio
 
     if session_id in _session_overrides:
-        return _session_overrides[session_id]
+        override = _session_overrides[session_id]
+        if override == "FOLLOW_LLM":
+            return _resolve_proposed(cr)
+        return override
 
     _print_hitl_block(cr)
-
     loop = asyncio.get_event_loop()
-    choice = (await loop.run_in_executor(None, input, "> ")).strip().lower()
-    if choice not in ("y", "n", "always-replace", "always-keep"):
-        print("Invalid choice. Please enter y, n, always-replace, or always-keep.")
-        choice = (await loop.run_in_executor(None, input, "> ")).strip().lower()
-        if choice not in ("y", "n", "always-replace", "always-keep"):
-            choice = "n"
 
-    if choice in ("always-replace", "always-keep"):
-        _session_overrides[session_id] = choice
+    raw = (await loop.run_in_executor(None, input, "> ")).strip().lower()
+    resolution, session_strategy = _parse_hitl_input(raw, cr)
 
-    return choice
+    if resolution is None:
+        print("  Invalid choice. Enter y, 1, 2, or 3 — optionally followed by always:<strategy>.")
+        raw = (await loop.run_in_executor(None, input, "> ")).strip().lower()
+        resolution, session_strategy = _parse_hitl_input(raw, cr)
+        if resolution is None:
+            resolution = "KEEP_OLD"
+
+    if session_strategy:
+        _session_overrides[session_id] = session_strategy
+
+    return resolution
 
 
 def _print_hitl_block(cr: ConflictResolution) -> None:
+    proposed = _resolve_proposed(cr)
+    alternatives = [a for a in _ALL_ACTIONS if a != proposed]
+
+    alt_lines = "\n".join(
+        f"  [{i + 1}]  {action:<12}— {_ACTION_LABELS[action]}"
+        for i, action in enumerate(alternatives)
+    )
+    always_options = " | ".join(_ALWAYS_MAP)
+
     print(
         f"\n┌─ Contradiction detected ──────────────────────────────┐\n"
         f"│ Existing:  {cr.old_memory_text}\n"
         f"│ Incoming:  {cr.new_fact}\n"
         f"│\n"
-        f"│ Classification: CONTRADICTION\n"
         f"│ {cr.explanation}\n"
         f"│\n"
-        f"│ Proposed action: {cr.proposed_action}\n"
+        f"│ LLM proposed: {cr.proposed_action}\n"
         f"└────────────────────────────────────────────────────────┘\n"
-        f"Choose: [y] accept proposed  [n] keep existing\n"
-        f"        [always-replace] replace all subsequent contradictions this session\n"
-        f"        [always-keep]    keep all subsequent contradictions this session"
+        f"\n"
+        f"  [y]  accept proposed → {proposed}  ({_ACTION_LABELS[proposed]})\n"
+        f"{alt_lines}\n"
+        f"\n"
+        f"To apply a strategy to all future conflicts this session, append:\n"
+        f"  {always_options}\n"
+        f'\nExamples: "y"  "2"  "y always:follow-llm"  "1 always:keep-old"'
     )

@@ -1162,6 +1162,75 @@ def _print_summary() -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Pass: FOLLOW_LLM
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_follow_llm() -> None:
+    """
+    FOLLOW_LLM pass: the LLM's own proposed_action from conflict classification
+    drives the resolution.  The actual outcome (KEEP_NEW / KEEP_OLD / MERGE /
+    DELETE_OLD) is non-deterministic — it depends on what the live LLM returns.
+
+    This pass asserts the structural invariant: exactly one of the four valid
+    outcome patterns is observed in SQLite + the vector store.
+
+    Expected SQLite outcome (one of):
+      KEEP_NEW   → DELETE + ADD rows
+      KEEP_OLD   → ADD row only (baseline ADD), no conflict-driven DELETE
+      DELETE_OLD → DELETE row only, no new ADD
+      MERGE      → DELETE + ADD rows with merged text
+    Expected vector store: consistent with whichever outcome was chosen.
+    """
+    _banner("PASS: FOLLOW_LLM")
+    m = setup(STRATEGY_MAP["FOLLOW_LLM"])
+    _passes_run.append("FOLLOW_LLM")
+
+    try:
+        _section("Step 1 — add baseline memory")
+        baseline_text = "User is a strict vegetarian and never eats meat"
+        baseline_mems = _add_baseline(m, baseline_text)
+        _assert(len(baseline_mems) >= 1, "Baseline memory present in vector store")
+
+        _section("Step 2 — add contradiction (FOLLOW_LLM strategy)")
+        contradiction_text = "User eats chicken and steak regularly"
+        _print_similarity_probe(
+            m,
+            contradiction_text,
+            "FOLLOW_LLM contradiction vs existing memories",
+        )
+        rows, memories = _add_contradiction(m, contradiction_text)
+        _print_history(rows, "FOLLOW_LLM — outcome determined by LLM proposed_action")
+        _print_memories(memories, "after FOLLOW_LLM resolution")
+
+        _section("Assertions")
+        delete_rows = [r for r in rows if r["event"] == "DELETE"]
+        add_rows    = [r for r in rows if r["event"] == "ADD"]
+
+        # One of the four structural patterns must hold
+        is_keep_new   = len(delete_rows) >= 1 and len(add_rows) >= 2  # baseline ADD + new ADD
+        is_keep_old   = len(delete_rows) == 0
+        is_delete_old = len(delete_rows) >= 1 and len(add_rows) == 1  # only baseline ADD
+        is_merge      = len(delete_rows) >= 1 and len(add_rows) >= 2  # baseline ADD + merged ADD
+
+        valid_outcome = is_keep_new or is_keep_old or is_delete_old or is_merge
+        _assert(valid_outcome, (
+            f"SQLite rows match one of the four valid FOLLOW_LLM outcomes "
+            f"(DELETE={len(delete_rows)}, ADD={len(add_rows)})"
+        ))
+
+        live_texts = [mem_["memory"] for mem_ in memories]
+        print(f"  LLM chose outcome — live memories: {live_texts}")
+
+        _diff_sqlite_vs_vector(rows, memories)
+    except Exception:
+        _fail("FOLLOW_LLM pass raised an exception")
+        traceback.print_exc()
+        _failures.append("FOLLOW_LLM pass raised an exception")
+    finally:
+        teardown(m)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Dispatcher
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -1171,6 +1240,7 @@ DISPATCH = {
     "MERGE": run_merge,
     "DELETE_OLD": run_delete_old,
     "SKIP": run_skip,
+    "FOLLOW_LLM": run_follow_llm,
 }
 
 

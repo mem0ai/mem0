@@ -614,8 +614,7 @@ class Memory(MemoryBase):
                     continue
 
                 if hitl_enabled_sync:
-                    choice = hitl_prompt_sync(cr, session_id_sync)
-                    resolution = "KEEP_NEW" if choice in ("y", "always-replace") else "KEEP_OLD"
+                    resolution = hitl_prompt_sync(cr, session_id_sync)
                     from dataclasses import replace as _dc_replace_sync
                     cr = _dc_replace_sync(cr, auto_resolved=False, resolution=resolution)
                 else:
@@ -1694,8 +1693,7 @@ class AsyncMemory(MemoryBase):
 
                 # Resolve the contradiction
                 if hitl_enabled:
-                    choice = await hitl_prompt_async(cr, session_id)
-                    resolution = "KEEP_NEW" if choice in ("y", "always-replace") else "KEEP_OLD"
+                    resolution = await hitl_prompt_async(cr, session_id)
                     from dataclasses import replace as _dc_replace
                     cr = _dc_replace(cr, auto_resolved=False, resolution=resolution)
                 else:

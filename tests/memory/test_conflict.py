@@ -235,7 +235,7 @@ class TestConflictAutoResolution:
 
 class TestHITL:
     def test_hitl_always_replace_persists_within_session(self, mocker):
-        """First contradiction: user picks always-replace. Second: prompt NOT shown."""
+        """First contradiction: user picks 'y always:keep-new'. Second: prompt NOT shown."""
         memory, mock_vector_store = _make_memory(mocker, hitl_enabled=True)
 
         old_mem = _make_mem_result("old-mem-uuid", "User is vegetarian", score=0.92)
@@ -244,14 +244,14 @@ class TestHITL:
         contradiction_response = json.dumps({
             "conflict_class": "CONTRADICTION",
             "explanation": "Conflicting dietary info",
-            "proposed_action": "Replace with new fact",
+            "proposed_action": "KEEP_NEW",
             "confidence_new": 0.7,
             "confidence_old": 0.4,
         })
 
         # Patch builtins.input so the real hitl_prompt_sync runs and stores the override
         memory.config.session_id = "hitl-test-session"
-        input_mock = mocker.patch("builtins.input", return_value="always-replace")
+        input_mock = mocker.patch("builtins.input", return_value="y always:keep-new")
         mocker.patch("mem0.memory.conflict._print_hitl_block")  # suppress stdout
 
         memory.llm.generate_response.side_effect = [
@@ -684,9 +684,9 @@ class TestHITLScenarios:
         memory._create_memory.assert_called_once()
 
     def test_hitl_n_resolves_keep_old(self, mocker):
-        """User enters 'n' → no delete, no create."""
+        """User enters '1' (first alternative = KEEP_OLD) → no delete, no create."""
         memory, contradiction = self._setup(mocker)
-        mocker.patch("builtins.input", return_value="n")
+        mocker.patch("builtins.input", return_value="1")
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User eats steak"]}',
             contradiction,
@@ -701,9 +701,9 @@ class TestHITLScenarios:
         memory._create_memory.assert_not_called()
 
     def test_hitl_always_keep_persists_within_session(self, mocker):
-        """'always-keep' on first contradiction → prompt not shown on second, resolves KEEP_OLD."""
+        """'1 always:keep-old' on first → prompt not shown on second, resolves KEEP_OLD."""
         memory, contradiction = self._setup(mocker)
-        input_mock = mocker.patch("builtins.input", return_value="always-keep")
+        input_mock = mocker.patch("builtins.input", return_value="1 always:keep-old")
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User eats steak"]}',
             contradiction,

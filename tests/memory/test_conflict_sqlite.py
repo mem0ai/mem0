@@ -923,7 +923,7 @@ class TestHITL:
         mock_vs.search.return_value = [
             _make_search_result("old-mem-uuid", "User is vegetarian", score=0.92)
         ]
-        mocker.patch("builtins.input", return_value="n")
+        mocker.patch("builtins.input", return_value="1")
         mocker.patch("mem0.memory.conflict._print_hitl_block")
         memory.llm.generate_response.side_effect = [
             '{"facts": ["User eats steak"]}',
@@ -941,7 +941,7 @@ class TestHITL:
         mock_vs.search.return_value = [
             _make_search_result("old-mem-uuid", "User is vegetarian", score=0.92)
         ]
-        input_mock = mocker.patch("builtins.input", return_value="always-replace")
+        input_mock = mocker.patch("builtins.input", return_value="y always:keep-new")
         mocker.patch("mem0.memory.conflict._print_hitl_block")
 
         memory.llm.generate_response.side_effect = [
