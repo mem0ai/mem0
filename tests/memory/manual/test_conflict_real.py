@@ -208,6 +208,73 @@ def _assert(condition: bool, msg: str) -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# LLM call logging
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _classify_llm_call(messages: list[dict]) -> str:
+    """Infer call purpose from message content keywords."""
+    full = " ".join((m.get("content") or "") for m in messages).lower()
+    if "consolidation" in full:
+        return "MERGE"
+    if "conflict_class" in full or ("contradiction" in full and "nuance" in full):
+        return "CONFLICT_CLASSIFICATION"
+    if "existing memory" in full or "memory_action" in full:
+        return "UPDATE_MEMORY"
+    if "fact" in full and ("extract" in full or "retrieve" in full or "input:" in full):
+        return "FACT_EXTRACTION"
+    return "UNKNOWN"
+
+
+def _wrap_llm_for_logging(m, pass_name: str) -> None:
+    """
+    Monkey-patch m.llm.generate_response to print every LLM call's
+    messages and raw JSON response. Installed once per Memory instance
+    inside setup() so all four call sites are captured:
+      1. FACT_EXTRACTION      — extracts facts from the raw message
+      2. CONFLICT_CLASSIFICATION — classifies a fact/memory pair
+      3. UPDATE_MEMORY        — decides ADD/UPDATE/DELETE for remaining facts
+      4. MERGE                — produces merged text (MERGE strategy only)
+    """
+    original_fn = m.llm.generate_response
+    _counter = [0]
+
+    def _logged(*args, **kwargs):
+        _counter[0] += 1
+        n = _counter[0]
+        messages = kwargs.get("messages") or (args[0] if args else [])
+        call_type = _classify_llm_call(messages)
+
+        sep = "═" * 68
+        print(f"\n╔{sep}╗")
+        print(f"║  LLM call #{n:<3} [{pass_name}]  type={call_type:<30}║")
+        print(f"╠{sep}╣")
+        for msg in messages:
+            role = msg.get("role", "?")
+            content = str(msg.get("content") or "")
+            wrapped = textwrap.wrap(content, width=64) or ["(empty)"]
+            print(f"║  [{role}]{'':>61}║")
+            for line in wrapped[:12]:
+                print(f"║    {line:<64}║")
+            if len(wrapped) > 12:
+                print(f"║    … ({len(wrapped) - 12} more lines omitted){'':>38}║")
+        print(f"╠{sep}╣")
+        print(f"║  RAW RESPONSE:{'':>53}║")
+
+        raw = original_fn(*args, **kwargs)
+
+        resp_wrapped = textwrap.wrap(raw or "(empty)", width=64) or ["(empty)"]
+        for line in resp_wrapped[:20]:
+            print(f"║    {line:<64}║")
+        if len(resp_wrapped) > 20:
+            print(f"║    … ({len(resp_wrapped) - 20} more lines omitted){'':>38}║")
+        print(f"╚{sep}╝")
+
+        return raw
+
+    m.llm.generate_response = _logged
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Memory factory
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -270,6 +337,8 @@ def setup(strategy: str):
 
     m = _make_memory(strategy)
     _ok("Memory instance created (embedder + vector store + SQLite all live)")
+    _wrap_llm_for_logging(m, CONFLICT_PASS or strategy)
+    _ok("LLM response logging enabled (all generate_response calls will print)")
     return m
 
 
