@@ -548,7 +548,7 @@ export function registerCliCommands(
                     "\n  Skipped. You can add it later via:",
                   );
                   console.log(
-                    "    openclaw mem0 config set oss.embedder.config.apiKey <key>",
+                    "    openclaw mem0 config set embedder_key <key>",
                   );
                   console.log(
                     "  Or set OPENAI_API_KEY in your environment.\n",
@@ -949,6 +949,7 @@ export function registerCliCommands(
       const CONFIG_KEYS: Record<string, string> = {
         // Short aliases (matches Python CLI)
         api_key: "apiKey",
+        email: "userEmail",
         base_url: "baseUrl",
         user_id: "userId",
         org_id: "orgId",
@@ -958,29 +959,34 @@ export function registerCliCommands(
         auto_capture: "autoCapture",
         top_k: "topK",
         mode: "mode",
-        "platform.api_key": "apiKey",
-        "platform.email": "userEmail",
-        "defaults.user_id": "userId",
-        "defaults.org_id": "orgId",
-        "defaults.project_id": "projectId",
-        "defaults.enable_graph": "enableGraph",
-        "defaults.auto_recall": "autoRecall",
-        "defaults.auto_capture": "autoCapture",
-        "defaults.top_k": "topK",
+        embedder_provider: "oss.embedder.provider",
+        embedder_model: "oss.embedder.config.model",
+        embedder_key: "oss.embedder.config.apiKey",
+        llm_provider: "oss.llm.provider",
+        llm_model: "oss.llm.config.model",
+        llm_key: "oss.llm.config.apiKey",
+        vector_provider: "oss.vectorStore.provider",
+        vector_host: "oss.vectorStore.config.host",
+        vector_port: "oss.vectorStore.config.port",
+        collection_name: "oss.vectorStore.config.collectionName",
+        vector_db_path: "oss.vectorStore.config.dbPath",
+        history_db_path: "oss.historyDbPath",
+        disable_history: "oss.disableHistory",
       };
 
       // Keys that contain secrets — redact in show/get output
-      const SECRET_KEYS = new Set(["apiKey"]);
+      const SECRET_KEYS = new Set(["apiKey", "oss.embedder.config.apiKey", "oss.llm.config.apiKey"]);
 
       // Boolean config fields — coerce "true"/"1"/"yes" on set
       const BOOLEAN_KEYS = new Set([
         "enableGraph",
         "autoRecall",
         "autoCapture",
+        "oss.disableHistory",
       ]);
 
       // Integer config fields — coerce to number on set
-      const INTEGER_KEYS = new Set(["topK"]);
+      const INTEGER_KEYS = new Set(["topK", "oss.vectorStore.config.port"]);
 
       /** Resolve a user-facing key to the internal camelCase field name. */
       function resolveConfigKey(key: string): string | null {
@@ -989,6 +995,15 @@ export function registerCliCommands(
 
       /** Read a config value by internal field name. */
       function getConfigValue(field: string): unknown {
+        if (field.startsWith("oss.")) {
+          const parts = field.split(".");
+          let current: unknown = cfg.oss;
+          for (let i = 1; i < parts.length && current != null; i++) {
+            current = (current as Record<string, unknown>)[parts[i]];
+          }
+          return current;
+        }
+
         const auth = readPluginAuth();
         const values: Record<string, unknown> = {
           apiKey: auth.apiKey ?? cfg.apiKey,
@@ -1027,19 +1042,36 @@ export function registerCliCommands(
         .command("show")
         .description("Show current configuration")
         .action(() => {
-          // Display order matching Python CLI: platform first, then defaults
-          const entries: Array<[string, string, string]> = [
-            ["platform.api_key", "apiKey", ""],
-            ["platform.email", "userEmail", ""],
-            ["defaults.user_id", "userId", ""],
-            ["defaults.org_id", "orgId", ""],
-            ["defaults.project_id", "projectId", ""],
-            ["defaults.enable_graph", "enableGraph", ""],
-            ["defaults.auto_recall", "autoRecall", ""],
-            ["defaults.auto_capture", "autoCapture", ""],
-            ["defaults.top_k", "topK", ""],
-            ["mode", "mode", ""],
+          // Display order: general first, then mode-specific
+          const entries: Array<[string, string]> = [
+            ["mode", "mode"],
+            ["user_id", "userId"],
+            ["auto_recall", "autoRecall"],
+            ["auto_capture", "autoCapture"],
+            ["top_k", "topK"],
           ];
+
+          if (cfg.mode === "platform") {
+            entries.push(
+              ["api_key", "apiKey"],
+              ["email", "userEmail"],
+              ["org_id", "orgId"],
+              ["project_id", "projectId"],
+              ["enable_graph", "enableGraph"],
+            );
+          } else {
+            entries.push(
+              ["embedder_provider", "oss.embedder.provider"],
+              ["embedder_model", "oss.embedder.config.model"],
+              ["embedder_key", "oss.embedder.config.apiKey"],
+              ["llm_provider", "oss.llm.provider"],
+              ["llm_model", "oss.llm.config.model"],
+              ["llm_key", "oss.llm.config.apiKey"],
+              ["vector_provider", "oss.vectorStore.provider"],
+              ["history_db_path", "oss.historyDbPath"],
+              ["disable_history", "oss.disableHistory"],
+            );
+          }
 
           // Calculate column widths
           const maxKeyLen = Math.max(
@@ -1068,17 +1100,21 @@ export function registerCliCommands(
           console.log("    openclaw mem0 config set <key> <value>");
           console.log("");
           console.log("  Examples:");
-          console.log("    openclaw mem0 config set mode open-source");
-          console.log("    openclaw mem0 config set mode platform");
-          console.log("    openclaw mem0 config set auto_recall false");
-          console.log("    openclaw mem0 config set top_k 10");
+          if (cfg.mode === "platform") {
+            console.log("    openclaw mem0 config set mode open-source");
+            console.log("    openclaw mem0 config set auto_recall false");
+          } else {
+            console.log("    openclaw mem0 config set vector_provider qdrant");
+            console.log("    openclaw mem0 config set llm_model gpt-4o");
+            console.log("    openclaw mem0 config set embedder_provider openai");
+          }
           console.log("");
         });
 
       configCmd
         .command("get")
         .description("Get a config value")
-        .argument("<key>", "Config key (e.g. user_id, platform.api_key)")
+        .argument("<key>", "Config key (e.g. user_id, api_key, llm_model)")
         .action((key: string) => {
           const field = resolveConfigKey(key);
           if (!field) {
@@ -1094,7 +1130,7 @@ export function registerCliCommands(
       configCmd
         .command("set")
         .description("Set a config value")
-        .argument("<key>", "Config key (e.g. user_id, platform.api_key)")
+        .argument("<key>", "Config key (e.g. user_id, api_key, llm_model)")
         .argument("<value>", "New value")
         .action((key: string, rawValue: string) => {
           const field = resolveConfigKey(key);
@@ -1121,7 +1157,12 @@ export function registerCliCommands(
             value = parsed;
           }
 
-          writePluginAuth({ [field]: value } as PluginAuthConfig);
+          // Nested OSS fields use dot-path writer; flat fields use auth writer
+          if (field.startsWith("oss.")) {
+            writePluginConfigField(field.split("."), value);
+          } else {
+            writePluginAuth({ [field]: value } as PluginAuthConfig);
+          }
           console.log(
             `${key} = ${displayValue(field, value)}`,
           );

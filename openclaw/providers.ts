@@ -254,10 +254,38 @@ class OSSProvider implements Mem0Provider {
 
     const config: Record<string, unknown> = { version: "v1.1" };
 
-    if (this.ossConfig?.embedder) config.embedder = this.ossConfig.embedder;
+    const defaultEmbedder = { provider: "openai", config: { model: "text-embedding-3-small" } };
+    const defaultLlm = { provider: "openai", config: { model: "gpt-5.4" } };
+
+    // Helper: strip empty-string values so they don't clobber defaults
+    const stripEmpty = (obj: Record<string, unknown>) => {
+      const out = { ...obj };
+      for (const k of Object.keys(out)) { if (out[k] === "") delete out[k]; }
+      return out;
+    };
+
+    if (this.ossConfig?.embedder) {
+      const ec = stripEmpty(this.ossConfig.embedder.config ?? {});
+      config.embedder = {
+        provider: this.ossConfig.embedder.provider || defaultEmbedder.provider,
+        config: { ...defaultEmbedder.config, ...ec },
+      };
+    } else {
+      config.embedder = defaultEmbedder;
+    }
+
+    if (this.ossConfig?.llm) {
+      const lc = stripEmpty(this.ossConfig.llm.config ?? {});
+      config.llm = {
+        provider: this.ossConfig.llm.provider || defaultLlm.provider,
+        config: { ...defaultLlm.config, ...lc },
+      };
+    } else {
+      config.llm = defaultLlm;
+    }
+
     if (this.ossConfig?.vectorStore)
       config.vectorStore = this.ossConfig.vectorStore;
-    if (this.ossConfig?.llm) config.llm = this.ossConfig.llm;
 
     if (this.ossConfig?.historyDbPath) {
       const dbPath = this.resolvePath
