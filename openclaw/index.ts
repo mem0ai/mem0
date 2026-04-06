@@ -775,6 +775,20 @@ function registerHooks(
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
+      const MEMORY_WRITE_TOOLS = new Set(["memory_add", "memory_update"]);
+      const agentUsedWriteTool = event.messages.some((msg: any) => {
+        if (msg?.role !== "assistant" || !Array.isArray(msg?.content)) return false;
+        return msg.content.some(
+          (block: any) => block?.type === "tool_use" && MEMORY_WRITE_TOOLS.has(block.name),
+        );
+      });
+      if (agentUsedWriteTool) {
+        api.logger.info(
+          "openclaw-mem0: skipping auto-capture — agent already used memory tools this turn",
+        );
+        return;
+      }
+
       // --- Build capture payload synchronously (cheap), then fire-and-forget ---
 
       // Patterns indicating an assistant message contains a summary of
