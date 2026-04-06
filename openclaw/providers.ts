@@ -81,6 +81,7 @@ class PlatformProvider implements Mem0Provider {
 
   constructor(
     private readonly apiKey: string,
+    private readonly baseUrl?: string,
     private readonly orgId?: string,
     private readonly projectId?: string,
   ) {}
@@ -97,11 +98,17 @@ class PlatformProvider implements Mem0Provider {
 
   private async _init(): Promise<void> {
     const { default: MemoryClient } = await import("mem0ai");
-    const opts: { apiKey: string; org_id?: string; project_id?: string } = {
+    const opts: {
+      apiKey: string;
+      host?: string;
+      organizationId?: string;
+      projectId?: string;
+    } = {
       apiKey: this.apiKey,
     };
-    if (this.orgId) opts.org_id = this.orgId;
-    if (this.projectId) opts.project_id = this.projectId;
+    if (this.baseUrl) opts.host = this.baseUrl;
+    if (this.orgId) opts.organizationId = this.orgId;
+    if (this.projectId) opts.projectId = this.projectId;
     this.client = new MemoryClient(opts);
   }
 
@@ -133,20 +140,11 @@ class PlatformProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    // Base filters: always scope by user_id, optionally by run_id
-    const baseFilters: Record<string, unknown> = { user_id: options.user_id };
-    if (options.run_id) baseFilters.run_id = options.run_id;
-
-    // Merge agent-provided filters (created_at ranges, metadata, etc.)
-    // with base filters. Agent filters extend, never override user scoping.
-    const mergedFilters = options.filters
-      ? { AND: [baseFilters, options.filters] }
-      : baseFilters;
-
     const opts: Record<string, unknown> = {
       api_version: "v2",
-      filters: mergedFilters,
+      user_id: options.user_id,
     };
+    if (options.run_id) opts.run_id = options.run_id;
     if (options.top_k != null) opts.top_k = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
     if (options.keyword_search != null)
@@ -155,6 +153,14 @@ class PlatformProvider implements Mem0Provider {
     if (options.filter_memories != null)
       opts.filter_memories = options.filter_memories;
     if (options.categories != null) opts.categories = options.categories;
+    const baseFilters: Record<string, unknown> = { user_id: options.user_id };
+    if (options.run_id) baseFilters.run_id = options.run_id;
+
+    if (options.filters) {
+      opts.filters = { AND: [baseFilters, options.filters] };
+    } else {
+      opts.filters = baseFilters;
+    }
 
     const results = await this.client.search(query, opts);
     return normalizeSearchResults(results);
@@ -168,10 +174,16 @@ class PlatformProvider implements Mem0Provider {
 
   async getAll(options: ListOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    const opts: Record<string, unknown> = { user_id: options.user_id };
-    if (options.run_id) opts.run_id = options.run_id;
+    const opts: Record<string, unknown> = {
+      api_version: "v2",
+      user_id: options.user_id,
+      filters: { user_id: options.user_id },
+    };
+    if (options.run_id) {
+      opts.run_id = options.run_id;
+      (opts.filters as Record<string, unknown>).run_id = options.run_id;
+    }
     if (options.page_size != null) opts.page_size = options.page_size;
-    if (options.source) opts.source = options.source;
 
     const results = await this.client.getAll(opts);
     if (Array.isArray(results)) return results.map(normalizeMemoryItem);
@@ -242,10 +254,38 @@ class OSSProvider implements Mem0Provider {
 
     const config: Record<string, unknown> = { version: "v1.1" };
 
-    if (this.ossConfig?.embedder) config.embedder = this.ossConfig.embedder;
+    const defaultEmbedder = { provider: "openai", config: { model: "text-embedding-3-small" } };
+    const defaultLlm = { provider: "openai", config: { model: "gpt-5.4" } };
+
+    // Helper: strip empty-string values so they don't clobber defaults
+    const stripEmpty = (obj: Record<string, unknown>) => {
+      const out = { ...obj };
+      for (const k of Object.keys(out)) { if (out[k] === "") delete out[k]; }
+      return out;
+    };
+
+    if (this.ossConfig?.embedder) {
+      const ec = stripEmpty(this.ossConfig.embedder.config ?? {});
+      config.embedder = {
+        provider: this.ossConfig.embedder.provider || defaultEmbedder.provider,
+        config: { ...defaultEmbedder.config, ...ec },
+      };
+    } else {
+      config.embedder = defaultEmbedder;
+    }
+
+    if (this.ossConfig?.llm) {
+      const lc = stripEmpty(this.ossConfig.llm.config ?? {});
+      config.llm = {
+        provider: this.ossConfig.llm.provider || defaultLlm.provider,
+        config: { ...defaultLlm.config, ...lc },
+      };
+    } else {
+      config.llm = defaultLlm;
+    }
+
     if (this.ossConfig?.vectorStore)
       config.vectorStore = this.ossConfig.vectorStore;
-    if (this.ossConfig?.llm) config.llm = this.ossConfig.llm;
 
     if (this.ossConfig?.historyDbPath) {
       const dbPath = this.resolvePath
@@ -419,7 +459,7 @@ export function createProvider(
     );
   }
 
-  return new PlatformProvider(cfg.apiKey!, cfg.orgId, cfg.projectId);
+  return new PlatformProvider(cfg.apiKey!, cfg.baseUrl, cfg.orgId, cfg.projectId);
 }
 
 // ============================================================================

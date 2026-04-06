@@ -58,6 +58,8 @@ interface MockCommand {
   _args: Array<{ name: string; desc: string }>;
   command(name: string): MockCommand;
   description(desc: string): MockCommand;
+  configureHelp(opts: any): MockCommand;
+  hook(event: string, fn: (...args: any[]) => any): MockCommand;
   option(flags: string, desc: string, defaultVal?: string): MockCommand;
   argument(name: string, desc: string): MockCommand;
   action(fn: (...args: any[]) => any): MockCommand;
@@ -78,6 +80,12 @@ function createMockCommand(name: string): MockCommand {
     },
     description(desc: string) {
       cmd._description = desc;
+      return cmd;
+    },
+    configureHelp(_opts: any) {
+      return cmd;
+    },
+    hook(_event: string, _fn: (...args: any[]) => any) {
       return cmd;
     },
     option(flags: string, desc: string, defaultVal?: string) {
@@ -144,6 +152,18 @@ function createMockBackend() {
     status: vi.fn().mockResolvedValue({
       connected: true,
       url: "https://api.mem0.ai",
+    }),
+    add: vi.fn().mockResolvedValue({ id: "new-1" }),
+    listEvents: vi.fn().mockResolvedValue([
+      { id: "evt-1111-2222-3333-4444", event_type: "ADD", status: "SUCCEEDED", latency: 1500, created_at: "2026-04-01T12:00:00Z" },
+    ]),
+    getEvent: vi.fn().mockResolvedValue({
+      id: "evt-1111-2222-3333-4444",
+      event_type: "ADD",
+      status: "SUCCEEDED",
+      latency: 1500,
+      created_at: "2026-04-01T12:00:00Z",
+      updated_at: "2026-04-01T12:00:01Z",
     }),
   };
 }
@@ -284,7 +304,6 @@ describe("registerCliCommands", () => {
       expect(names).toContain("list");
       expect(names).toContain("update");
       expect(names).toContain("delete");
-      expect(names).toContain("history");
       expect(names).toContain("status");
       expect(names).toContain("config");
       expect(names).toContain("dream");
@@ -321,7 +340,6 @@ describe("registerCliCommands", () => {
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({
           apiKey: "m0-my-key-1234",
-          baseUrl: "https://api.mem0.ai",
           mode: "platform",
         }),
       );
@@ -858,48 +876,6 @@ describe("registerCliCommands", () => {
   });
 
   // ========================================================================
-  // history subcommand
-  // ========================================================================
-
-  describe("history subcommand", () => {
-    it("calls provider.history and prints entries as JSON", async () => {
-      const { mem0, provider } = setup();
-      const historyCmd = findCommand(mem0, "history")!;
-
-      await historyCmd._action!("m1");
-
-      expect(provider.history).toHaveBeenCalledWith("m1");
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        expect.stringContaining("UPDATE"),
-      );
-    });
-
-    it("prints message when no history found", async () => {
-      const { mem0, provider } = setup();
-      provider.history.mockResolvedValueOnce([]);
-      const historyCmd = findCommand(mem0, "history")!;
-
-      await historyCmd._action!("m1");
-
-      expect(consoleSpy.log).toHaveBeenCalledWith(
-        "No history found for this memory.",
-      );
-    });
-
-    it("handles history errors gracefully", async () => {
-      const { mem0, provider } = setup();
-      provider.history.mockRejectedValueOnce(new Error("history boom"));
-      const historyCmd = findCommand(mem0, "history")!;
-
-      await historyCmd._action!("m1");
-
-      expect(consoleSpy.error).toHaveBeenCalledWith(
-        expect.stringContaining("History failed"),
-      );
-    });
-  });
-
-  // ========================================================================
   // status subcommand
   // ========================================================================
 
@@ -964,9 +940,9 @@ describe("registerCliCommands", () => {
       const allOutput = consoleSpy.log.mock.calls.map((c) => c[0]).join("\n");
       expect(allOutput).toContain("Key");
       expect(allOutput).toContain("Value");
-      expect(allOutput).toContain("platform.api_key");
-      expect(allOutput).toContain("platform.base_url");
-      expect(allOutput).toContain("defaults.user_id");
+      expect(allOutput).toContain("api_key");
+      expect(allOutput).toContain("email");
+      expect(allOutput).toContain("user_id");
       expect(allOutput).toContain("Config file:");
     });
   });
@@ -1026,14 +1002,14 @@ describe("registerCliCommands", () => {
       expect(logged).not.toContain("supersecret");
     });
 
-    it("supports dot-notation keys like platform.api_key", () => {
+    it("supports short alias keys like email", () => {
       const { mem0 } = setup();
       const configCmd = findCommand(mem0, "config")!;
       const getCmd = findCommand(configCmd, "get")!;
 
-      getCmd._action!("platform.base_url");
+      getCmd._action!("email");
 
-      expect(consoleSpy.log).toHaveBeenCalledWith("https://api.mem0.ai");
+      expect(consoleSpy.log).toHaveBeenCalledWith("(not set)");
     });
   });
 
@@ -1143,12 +1119,12 @@ describe("registerCliCommands", () => {
       expect(writePluginAuth).not.toHaveBeenCalled();
     });
 
-    it("supports dot-notation keys for set", () => {
+    it("supports short alias keys for set", () => {
       const { mem0 } = setup();
       const configCmd = findCommand(mem0, "config")!;
       const setCmd = findCommand(configCmd, "set")!;
 
-      setCmd._action!("defaults.user_id", "bob");
+      setCmd._action!("user_id", "bob");
 
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({ userId: "bob" }),
@@ -1265,6 +1241,175 @@ describe("registerCliCommands", () => {
 
       expect(consoleSpy.error).toHaveBeenCalledWith(
         expect.stringContaining("Dream failed"),
+      );
+    });
+  });
+
+  // ========================================================================
+  // import subcommand
+  // ========================================================================
+
+  describe("import subcommand", () => {
+    it("imports memories from a JSON array file", async () => {
+      const { mem0, backend } = setup();
+      const { readText } = await import("../fs-safe.ts");
+      (readText as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        JSON.stringify([
+          { memory: "fact one" },
+          { memory: "fact two" },
+        ]),
+      );
+      const importCmd = findCommand(mem0, "import")!;
+
+      await importCmd._action!("memories.json", {});
+
+      expect(backend.add).toHaveBeenCalledTimes(2);
+      expect(consoleSpy.log).toHaveBeenCalledWith("Imported 2 memories.");
+    });
+
+    it("imports a single JSON object", async () => {
+      const { mem0, backend } = setup();
+      const { readText } = await import("../fs-safe.ts");
+      (readText as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        JSON.stringify({ memory: "single fact" }),
+      );
+      const importCmd = findCommand(mem0, "import")!;
+
+      await importCmd._action!("single.json", {});
+
+      expect(backend.add).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.log).toHaveBeenCalledWith("Imported 1 memories.");
+    });
+
+    it("skips items with no extractable content", async () => {
+      const { mem0, backend } = setup();
+      const { readText } = await import("../fs-safe.ts");
+      (readText as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        JSON.stringify([{ memory: "valid" }, { nofield: true }]),
+      );
+      const importCmd = findCommand(mem0, "import")!;
+
+      await importCmd._action!("mixed.json", {});
+
+      expect(backend.add).toHaveBeenCalledTimes(1);
+      expect(consoleSpy.error).toHaveBeenCalledWith("1 memories failed to import.");
+    });
+
+    it("uses --user-id and --agent-id overrides", async () => {
+      const { mem0, backend } = setup();
+      const { readText } = await import("../fs-safe.ts");
+      (readText as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        JSON.stringify([{ memory: "fact" }]),
+      );
+      const importCmd = findCommand(mem0, "import")!;
+
+      await importCmd._action!("f.json", { userId: "override-user", agentId: "agent-1" });
+
+      expect(backend.add).toHaveBeenCalledWith("fact", undefined, expect.objectContaining({
+        userId: "override-user",
+        agentId: "agent-1",
+      }));
+    });
+
+    it("handles file read errors gracefully", async () => {
+      const { mem0 } = setup();
+      const { readText } = await import("../fs-safe.ts");
+      (readText as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+        throw new Error("ENOENT");
+      });
+      const importCmd = findCommand(mem0, "import")!;
+
+      await importCmd._action!("missing.json", {});
+
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to read file"),
+      );
+    });
+
+    it("handles backend.add failures gracefully", async () => {
+      const { mem0, backend } = setup();
+      const { readText } = await import("../fs-safe.ts");
+      (readText as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        JSON.stringify([{ memory: "will fail" }]),
+      );
+      backend.add.mockRejectedValueOnce(new Error("API error"));
+      const importCmd = findCommand(mem0, "import")!;
+
+      await importCmd._action!("fail.json", {});
+
+      expect(consoleSpy.log).toHaveBeenCalledWith("Imported 0 memories.");
+      expect(consoleSpy.error).toHaveBeenCalledWith("1 memories failed to import.");
+    });
+  });
+
+  // ========================================================================
+  // event subcommand
+  // ========================================================================
+
+  describe("event subcommand", () => {
+    it("lists events in table format", async () => {
+      const { mem0, backend } = setup();
+      const eventCmd = findCommand(mem0, "event")!;
+      const listCmd = findCommand(eventCmd, "list")!;
+
+      await listCmd._action!();
+
+      expect(backend.listEvents).toHaveBeenCalled();
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        expect.stringContaining("evt-1111-2222-3333-4444"),
+      );
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        expect.stringContaining("1 event"),
+      );
+    });
+
+    it("prints message when no events found", async () => {
+      const { mem0, backend } = setup();
+      backend.listEvents.mockResolvedValueOnce([]);
+      const eventCmd = findCommand(mem0, "event")!;
+      const listCmd = findCommand(eventCmd, "list")!;
+
+      await listCmd._action!();
+
+      expect(consoleSpy.log).toHaveBeenCalledWith("No events found.");
+    });
+
+    it("handles event list errors gracefully", async () => {
+      const { mem0, backend } = setup();
+      backend.listEvents.mockRejectedValueOnce(new Error("event boom"));
+      const eventCmd = findCommand(mem0, "event")!;
+      const listCmd = findCommand(eventCmd, "list")!;
+
+      await listCmd._action!();
+
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to list events"),
+      );
+    });
+
+    it("shows event status details", async () => {
+      const { mem0, backend } = setup();
+      const eventCmd = findCommand(mem0, "event")!;
+      const statusCmd = findCommand(eventCmd, "status")!;
+
+      await statusCmd._action!("evt-1111-2222-3333-4444");
+
+      expect(backend.getEvent).toHaveBeenCalledWith("evt-1111-2222-3333-4444");
+      expect(consoleSpy.log).toHaveBeenCalledWith("Event ID:  evt-1111-2222-3333-4444");
+      expect(consoleSpy.log).toHaveBeenCalledWith("Type:      ADD");
+      expect(consoleSpy.log).toHaveBeenCalledWith("Status:    SUCCEEDED");
+    });
+
+    it("handles event status errors gracefully", async () => {
+      const { mem0, backend } = setup();
+      backend.getEvent.mockRejectedValueOnce(new Error("not found"));
+      const eventCmd = findCommand(mem0, "event")!;
+      const statusCmd = findCommand(eventCmd, "status")!;
+
+      await statusCmd._action!("bad-id");
+
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to get event"),
       );
     });
   });

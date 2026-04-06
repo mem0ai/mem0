@@ -9,6 +9,8 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 - **`memory_add` tool**: Replaces `memory_store` — name now matches `mem0` CLI and platform API
 - **`memory_delete` tool**: Unified delete — single ID, search-then-delete, bulk, entity cascade. Replaces `memory_forget` and `memory_delete_all`
 - **CLI subcommands**: `openclaw mem0 init`, `openclaw mem0 status` (renamed from `stats`), `openclaw mem0 config show`, `openclaw mem0 config set`
+- **`import` CLI command**: Bulk-import memories from a JSON file with `--user-id` and `--agent-id` overrides
+- **`event list` / `event status` CLI commands**: Monitor background processing events
 - **`fs-safe.ts` module**: Isolated filesystem wrappers (sync read/write/exists/mkdir/unlink) in a separate entry point — keeps file I/O out of the main bundle
 - **`backend/` module**: `PlatformBackend` with direct HTTP API access for CLI commands
 - **`cli/config-file.ts`**: Persistent plugin auth storage in `~/.openclaw/openclaw.json`
@@ -16,7 +18,7 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 - **Test suite**: 329 tests across 10 test files covering tools, CLI, config, dream gate, providers, and skill-loader
 
 ### Changed
-- **Modular architecture**: Extracted tools into `tools/` directory (7 files) and CLI into `cli/commands.ts` — `index.ts` down from ~1700 to ~890 lines
+- **Modular architecture**: Extracted tools into `tools/` directory (6 files) and CLI into `cli/commands.ts` — `index.ts` down from ~1700 to ~890 lines
 - **Code splitting**: tsup builds with `splitting: true` and two entry points (`index.ts`, `fs-safe.ts`), separating filesystem I/O from the main bundle
 - **Skills updated**: All SKILL.md files reference new tool names (`memory_add`, `memory_delete`) matching the plugin manifest
 - **WRITE_TOOLS updated**: Dream gate tracks `memory_delete` and `memory_add` instead of `memory_forget` and `memory_store`
@@ -25,11 +27,15 @@ All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in th
 - **Auto-capture fire-and-forget**: `provider.add()` now runs in the background via `.then()/.catch()` — the `agent_end` hook returns immediately, zero event loop blocking
 - **Auto-capture minimum content gate**: Skips extraction when total user content is <50 chars after filtering — trivial conversations ("ok", "thanks") no longer trigger LLM calls
 - **CLI search**: Lowered threshold to 0.3 so explicit searches are more permissive than auto-recall
+- **Init defaults**: Choice defaults to `1` (email login) on Enter, User ID defaults to OS username — no more empty values
+- **Init no longer stores `baseUrl`**: Uses `https://api.mem0.ai` directly instead of persisting it to config
+- **Help output reordered**: `openclaw mem0 help` now shows high-value commands first (search, add) instead of alphabetical
 
 ### Removed
 - `memory_store` tool — replaced by `memory_add`
 - `memory_forget` tool — replaced by `memory_delete`
 - `memory_delete_all` tool — merged into `memory_delete`
+- `memory_history` tool and `history` CLI command — deprecated
 - **`custom_instructions` / `custom_categories` in `buildAddOptions`**: No longer injected into every auto-capture API call. Config fields (`customInstructions`, `customCategories`) remain as user-configurable options.
 
 ## [1.0.3] - 2026-04-03

@@ -5,8 +5,8 @@
  * and the open-source self-hosted SDK. Uses the official `mem0ai` package.
  *
  * Features:
- * - 7 core tools: memory_search, memory_add, memory_get, memory_list,
- *   memory_update, memory_delete, memory_history
+ * - 6 core tools: memory_search, memory_add, memory_get, memory_list,
+ *   memory_update, memory_delete
  * - Short-term (session-scoped) and long-term (user-scoped) memory
  * - Auto-recall: injects relevant memories (both scopes) before each agent turn
  * - Auto-capture: stores key facts scoped to the current session after each agent turn
@@ -16,6 +16,7 @@
  * - Dual mode: platform or open-source (self-hosted)
  */
 
+import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 import type {
@@ -56,6 +57,9 @@ import { readPluginAuth } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
+import { bootstrapTelemetryFlag } from "./fs-safe.ts";
+
+bootstrapTelemetryFlag();
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
@@ -87,12 +91,10 @@ export { createProvider } from "./providers.ts";
 // Plugin Definition
 // ============================================================================
 
-const memoryPlugin = {
+const memoryPlugin = definePluginEntry({
   id: "openclaw-mem0",
   name: "Memory (Mem0)",
   description: "Mem0 memory backend — Mem0 platform or self-hosted open-source",
-  kind: "memory" as const,
-  configSchema: mem0ConfigSchema,
 
   register(api: OpenClawPluginApi) {
     // Read auth from openclaw.json plugin config (picks up post-startup login).
@@ -231,6 +233,7 @@ const memoryPlugin = {
       api,
       provider,
       cfg,
+      backend,
       resolveUserId: _resolveUserId,
       effectiveUserId: _effectiveUserId,
       agentUserId: _agentUserId,
@@ -298,7 +301,7 @@ const memoryPlugin = {
       },
     });
   },
-};
+});
 
 // ============================================================================
 // Lifecycle Hook Registration
@@ -579,11 +582,11 @@ function registerHooks(
   // Track last seen session ID to detect actual new sessions (not every turn)
   let lastRecallSessionId: string | undefined;
 
-  // Auto-recall: inject relevant memories before agent starts
+  // Auto-recall: inject relevant memories before prompt is built
   if (cfg.autoRecall) {
     const RECALL_TIMEOUT_MS = 8_000;
 
-    api.on("before_agent_start", async (event: any, ctx: any) => {
+    api.on("before_prompt_build", async (event: any, ctx: any) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
       // Skip non-interactive triggers (cron, heartbeat, automation)
@@ -771,6 +774,20 @@ function registerHooks(
 
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
+
+      const MEMORY_MUTATE_TOOLS = new Set(["memory_add", "memory_update", "memory_delete"]);
+      const agentUsedMemoryTool = event.messages.some((msg: any) => {
+        if (msg?.role !== "assistant" || !Array.isArray(msg?.content)) return false;
+        return msg.content.some(
+          (block: any) => block?.type === "tool_use" && MEMORY_MUTATE_TOOLS.has(block.name),
+        );
+      });
+      if (agentUsedMemoryTool) {
+        api.logger.info(
+          "openclaw-mem0: skipping auto-capture — agent already used memory tools this turn",
+        );
+        return;
+      }
 
       // --- Build capture payload synchronously (cheap), then fire-and-forget ---
 
