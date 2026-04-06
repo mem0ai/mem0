@@ -7,7 +7,7 @@
   "contracts": {
     "tools": [
       "memory_search", "memory_add", "memory_get", "memory_list",
-      "memory_update", "memory_delete", "memory_history"
+      "memory_update", "memory_delete", "memory_event_list", "memory_event_status"
     ]
   },
   "providerAuthEnvVars": {
@@ -25,12 +25,6 @@
       "sensitive": true,
       "placeholder": "m0-...",
       "help": "Platform mode only. Use a SecretRef ({\"source\":\"env\",\"provider\":\"default\",\"id\":\"MEM0_API_KEY\"}) or ${MEM0_API_KEY} instead of storing the key directly."
-    },
-    "baseUrl": {
-      "label": "API Base URL",
-      "placeholder": "https://api.mem0.ai",
-      "advanced": true,
-      "help": "Override the Mem0 API base URL. Only needed for custom deployments."
     },
     "userId": {
       "label": "Default User ID",
@@ -109,10 +103,10 @@
       "apiKey": {
         "type": "string"
       },
-      "baseUrl": {
+      "userId": {
         "type": "string"
       },
-      "userId": {
+      "userEmail": {
         "type": "string"
       },
       "orgId": {

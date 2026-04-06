@@ -34,3 +34,10 @@ export function mkdirp(dirPath: string, mode?: number): void {
 export function unlink(filePath: string): void {
   fs.unlinkSync(filePath);
 }
+
+export function bootstrapTelemetryFlag(): void {
+  const val = process.env.MEM0_TELEMETRY;
+  if (val !== undefined) {
+    (globalThis as any).__mem0_telemetry_override = val;
+  }
+}

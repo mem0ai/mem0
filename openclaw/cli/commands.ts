@@ -10,7 +10,7 @@
  *   - list        : List memories with optional filters (--user-id, --agent-id, --top-k)
  *   - update      : Update a memory's text
  *   - delete      : Delete a memory or all memories (--all, --confirm)
- *   - history     : View edit history of a memory
+ *   - import      : Import memories from a JSON file
  *
  * Management:
  *   - init        : Authenticate with Mem0 Platform (email or API key)
@@ -18,6 +18,8 @@
  *   - config show : Display current plugin configuration
  *   - config get  : Get a single config value
  *   - config set  : Update a plugin config field
+ *   - event list  : List recent background events
+ *   - event status: Get status of a specific event
  *   - dream       : Run memory consolidation
  *
  * Naming conventions match the Python CLI (`mem0 init`, `mem0 search`, etc.)
@@ -35,12 +37,12 @@ import type {
   SearchOptions,
 } from "../types.ts";
 import { loadDreamPrompt } from "../skill-loader.ts";
+import { readText } from "../fs-safe.ts";
 import type { PluginAuthConfig } from "./config-file.ts";
 import {
   readPluginAuth,
   writePluginAuth,
   writePluginConfigField,
-  getBaseUrl,
   OPENCLAW_CONFIG_FILE,
 } from "./config-file.ts";
 
@@ -49,13 +51,14 @@ import {
 // ============================================================================
 
 /** Prompt user for input on stderr (keeps stdout clean for piping). */
-function promptInput(question: string): Promise<string> {
+function promptInput(question: string, prefill?: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stderr });
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
       rl.close();
       resolve(answer.trim());
     });
+    if (prefill) rl.write(prefill);
   });
 }
 
@@ -196,14 +199,13 @@ async function verifyEmailCode(
  */
 function saveLoginConfig(
   apiKey: string,
-  baseUrl: string,
   userIdFlag?: string,
   userEmail?: string,
 ): void {
   const existingAuth = readPluginAuth();
   const userId = resolveUserId(userIdFlag, existingAuth.userId);
 
-  writePluginAuth({ apiKey, baseUrl, userId, mode: "platform", ...(userEmail && { userEmail }) });
+  writePluginAuth({ apiKey, userId, mode: "platform", ...(userEmail && { userEmail }) });
 
   console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
   console.log(`  Mode: platform`);
@@ -245,7 +247,8 @@ export function registerCliCommands(
     ({ program }) => {
       const mem0 = program
         .command("mem0")
-        .description("Mem0 memory plugin commands");
+        .description("Mem0 memory plugin commands")
+        .configureHelp({ sortSubcommands: false, subcommandTerm: (cmd) => cmd.name() });
 
       // Telemetry: fire event for each CLI subcommand
       if (captureCliEvent) {
@@ -278,7 +281,7 @@ export function registerCliCommands(
             userId?: string;
           }) => {
             try {
-              const baseUrl = getBaseUrl();
+              const baseUrl = "https://api.mem0.ai";
               const existingAuth = readPluginAuth();
               const hasExistingConfig = !!(existingAuth.apiKey || existingAuth.mode);
 
@@ -290,7 +293,7 @@ export function registerCliCommands(
                 }
 
                 const check = await validateApiKey(baseUrl, opts.apiKey);
-                saveLoginConfig(opts.apiKey, baseUrl, opts.userId, check.userEmail);
+                saveLoginConfig(opts.apiKey, opts.userId, check.userEmail);
                 if (hasExistingConfig) {
                   console.log(
                     "  Existing configuration detected — updated API key (other settings preserved).",
@@ -322,7 +325,7 @@ export function registerCliCommands(
                 const apiKey = await verifyEmailCode(baseUrl, email, opts.code);
                 if (!apiKey) return;
 
-                saveLoginConfig(apiKey, baseUrl, opts.userId, email);
+                saveLoginConfig(apiKey, opts.userId, email);
                 if (hasExistingConfig) {
                   console.log(
                     "  Existing configuration detected — updated API key (other settings preserved).",
@@ -390,7 +393,7 @@ export function registerCliCommands(
                 // Validate existing key before asking
                 if (existingAuth.apiKey) {
                   const check = await validateApiKey(
-                    existingAuth.baseUrl || baseUrl,
+                    baseUrl,
                     existingAuth.apiKey,
                   );
                   if (check.ok) {
@@ -429,7 +432,7 @@ export function registerCliCommands(
               console.log("  2. Enter API key manually");
               console.log("  3. Open-source mode (self-hosted)\n");
 
-              const choice = await promptInput("  Choice (1/2/3): ");
+              const choice = (await promptInput("  Choice: ", "1")) || "1";
 
               if (choice === "1") {
                 // --- Email interactive flow ---
@@ -461,13 +464,13 @@ export function registerCliCommands(
                 if (!userIdValue) {
                   const defaultUid = resolveUserId(undefined, existingAuth.userId);
                   const uidInput = await promptInput(
-                    `  User ID (${defaultUid}): `,
+                    `  User ID: `, defaultUid,
                   );
-                  userIdValue = uidInput || undefined;
+                  userIdValue = uidInput || defaultUid;
                 }
 
                 console.log("");
-                saveLoginConfig(apiKey, baseUrl, userIdValue, email);
+                saveLoginConfig(apiKey, userIdValue, email);
                 console.log("  Authenticated!");
                 console.log(
                   "  Restart the gateway: openclaw gateway restart\n",
@@ -485,14 +488,14 @@ export function registerCliCommands(
                 if (!userIdValue2) {
                   const defaultUid = resolveUserId(undefined, existingAuth.userId);
                   const uidInput = await promptInput(
-                    `  User ID (${defaultUid}): `,
+                    `  User ID: `, defaultUid,
                   );
-                  userIdValue2 = uidInput || undefined;
+                  userIdValue2 = uidInput || defaultUid;
                 }
 
                 console.log("");
                 const check = await validateApiKey(baseUrl, key);
-                saveLoginConfig(key, baseUrl, userIdValue2, check.userEmail);
+                saveLoginConfig(key, userIdValue2, check.userEmail);
 
                 if (check.ok) {
                   console.log(
@@ -545,7 +548,7 @@ export function registerCliCommands(
                     "\n  Skipped. You can add it later via:",
                   );
                   console.log(
-                    "    openclaw mem0 config set oss.embedder.config.apiKey <key>",
+                    "    openclaw mem0 config set embedder_key <key>",
                   );
                   console.log(
                     "  Or set OPENAI_API_KEY in your environment.\n",
@@ -557,9 +560,9 @@ export function registerCliCommands(
                 if (!userIdValue3) {
                   const defaultUid = resolveUserId(undefined, existingAuth.userId);
                   const uidInput = await promptInput(
-                    `  User ID (${defaultUid}): `,
+                    `  User ID: `, defaultUid,
                   );
-                  userIdValue3 = uidInput || undefined;
+                  userIdValue3 = uidInput || defaultUid;
                 }
 
                 console.log("");
@@ -902,27 +905,6 @@ export function registerCliCommands(
         );
 
       // ====================================================================
-      // history (matches: mem0 history <memory_id>)
-      // ====================================================================
-
-      mem0
-        .command("history")
-        .description("View edit history of a memory")
-        .argument("<memory_id>", "Memory ID to view history for")
-        .action(async (memoryId: string) => {
-          try {
-            const entries = await provider.history(memoryId);
-            if (!entries.length) {
-              console.log("No history found for this memory.");
-              return;
-            }
-            console.log(JSON.stringify(entries, null, 2));
-          } catch (err) {
-            console.error(`History failed: ${String(err)}`);
-          }
-        });
-
-      // ====================================================================
       // status (matches: mem0 status)
       // ====================================================================
 
@@ -967,6 +949,7 @@ export function registerCliCommands(
       const CONFIG_KEYS: Record<string, string> = {
         // Short aliases (matches Python CLI)
         api_key: "apiKey",
+        email: "userEmail",
         base_url: "baseUrl",
         user_id: "userId",
         org_id: "orgId",
@@ -976,30 +959,34 @@ export function registerCliCommands(
         auto_capture: "autoCapture",
         top_k: "topK",
         mode: "mode",
-        // Dot notation (matches Python CLI: platform.api_key, defaults.user_id)
-        "platform.api_key": "apiKey",
-        "platform.base_url": "baseUrl",
-        "defaults.user_id": "userId",
-        "defaults.org_id": "orgId",
-        "defaults.project_id": "projectId",
-        "defaults.enable_graph": "enableGraph",
-        "defaults.auto_recall": "autoRecall",
-        "defaults.auto_capture": "autoCapture",
-        "defaults.top_k": "topK",
+        embedder_provider: "oss.embedder.provider",
+        embedder_model: "oss.embedder.config.model",
+        embedder_key: "oss.embedder.config.apiKey",
+        llm_provider: "oss.llm.provider",
+        llm_model: "oss.llm.config.model",
+        llm_key: "oss.llm.config.apiKey",
+        vector_provider: "oss.vectorStore.provider",
+        vector_host: "oss.vectorStore.config.host",
+        vector_port: "oss.vectorStore.config.port",
+        collection_name: "oss.vectorStore.config.collectionName",
+        vector_db_path: "oss.vectorStore.config.dbPath",
+        history_db_path: "oss.historyDbPath",
+        disable_history: "oss.disableHistory",
       };
 
       // Keys that contain secrets — redact in show/get output
-      const SECRET_KEYS = new Set(["apiKey"]);
+      const SECRET_KEYS = new Set(["apiKey", "oss.embedder.config.apiKey", "oss.llm.config.apiKey"]);
 
       // Boolean config fields — coerce "true"/"1"/"yes" on set
       const BOOLEAN_KEYS = new Set([
         "enableGraph",
         "autoRecall",
         "autoCapture",
+        "oss.disableHistory",
       ]);
 
       // Integer config fields — coerce to number on set
-      const INTEGER_KEYS = new Set(["topK"]);
+      const INTEGER_KEYS = new Set(["topK", "oss.vectorStore.config.port"]);
 
       /** Resolve a user-facing key to the internal camelCase field name. */
       function resolveConfigKey(key: string): string | null {
@@ -1008,6 +995,15 @@ export function registerCliCommands(
 
       /** Read a config value by internal field name. */
       function getConfigValue(field: string): unknown {
+        if (field.startsWith("oss.")) {
+          const parts = field.split(".");
+          let current: unknown = cfg.oss;
+          for (let i = 1; i < parts.length && current != null; i++) {
+            current = (current as Record<string, unknown>)[parts[i]];
+          }
+          return current;
+        }
+
         const auth = readPluginAuth();
         const values: Record<string, unknown> = {
           apiKey: auth.apiKey ?? cfg.apiKey,
@@ -1016,6 +1012,7 @@ export function registerCliCommands(
           orgId: auth.orgId ?? cfg.orgId,
           projectId: auth.projectId ?? cfg.projectId,
           mode: auth.mode ?? cfg.mode,
+          userEmail: auth.userEmail,
           enableGraph: cfg.enableGraph,
           autoRecall: cfg.autoRecall,
           autoCapture: cfg.autoCapture,
@@ -1045,19 +1042,36 @@ export function registerCliCommands(
         .command("show")
         .description("Show current configuration")
         .action(() => {
-          // Display order matching Python CLI: platform first, then defaults
-          const entries: Array<[string, string, string]> = [
-            ["platform.api_key", "apiKey", ""],
-            ["platform.base_url", "baseUrl", ""],
-            ["defaults.user_id", "userId", ""],
-            ["defaults.org_id", "orgId", ""],
-            ["defaults.project_id", "projectId", ""],
-            ["defaults.enable_graph", "enableGraph", ""],
-            ["defaults.auto_recall", "autoRecall", ""],
-            ["defaults.auto_capture", "autoCapture", ""],
-            ["defaults.top_k", "topK", ""],
-            ["mode", "mode", ""],
+          // Display order: general first, then mode-specific
+          const entries: Array<[string, string]> = [
+            ["mode", "mode"],
+            ["user_id", "userId"],
+            ["auto_recall", "autoRecall"],
+            ["auto_capture", "autoCapture"],
+            ["top_k", "topK"],
           ];
+
+          if (cfg.mode === "platform") {
+            entries.push(
+              ["api_key", "apiKey"],
+              ["email", "userEmail"],
+              ["org_id", "orgId"],
+              ["project_id", "projectId"],
+              ["enable_graph", "enableGraph"],
+            );
+          } else {
+            entries.push(
+              ["embedder_provider", "oss.embedder.provider"],
+              ["embedder_model", "oss.embedder.config.model"],
+              ["embedder_key", "oss.embedder.config.apiKey"],
+              ["llm_provider", "oss.llm.provider"],
+              ["llm_model", "oss.llm.config.model"],
+              ["llm_key", "oss.llm.config.apiKey"],
+              ["vector_provider", "oss.vectorStore.provider"],
+              ["history_db_path", "oss.historyDbPath"],
+              ["disable_history", "oss.disableHistory"],
+            );
+          }
 
           // Calculate column widths
           const maxKeyLen = Math.max(
@@ -1086,17 +1100,21 @@ export function registerCliCommands(
           console.log("    openclaw mem0 config set <key> <value>");
           console.log("");
           console.log("  Examples:");
-          console.log("    openclaw mem0 config set mode open-source");
-          console.log("    openclaw mem0 config set mode platform");
-          console.log("    openclaw mem0 config set auto_recall false");
-          console.log("    openclaw mem0 config set top_k 10");
+          if (cfg.mode === "platform") {
+            console.log("    openclaw mem0 config set mode open-source");
+            console.log("    openclaw mem0 config set auto_recall false");
+          } else {
+            console.log("    openclaw mem0 config set vector_provider qdrant");
+            console.log("    openclaw mem0 config set llm_model gpt-4o");
+            console.log("    openclaw mem0 config set embedder_provider openai");
+          }
           console.log("");
         });
 
       configCmd
         .command("get")
         .description("Get a config value")
-        .argument("<key>", "Config key (e.g. user_id, platform.api_key)")
+        .argument("<key>", "Config key (e.g. user_id, api_key, llm_model)")
         .action((key: string) => {
           const field = resolveConfigKey(key);
           if (!field) {
@@ -1112,7 +1130,7 @@ export function registerCliCommands(
       configCmd
         .command("set")
         .description("Set a config value")
-        .argument("<key>", "Config key (e.g. user_id, platform.api_key)")
+        .argument("<key>", "Config key (e.g. user_id, api_key, llm_model)")
         .argument("<value>", "New value")
         .action((key: string, rawValue: string) => {
           const field = resolveConfigKey(key);
@@ -1139,10 +1157,169 @@ export function registerCliCommands(
             value = parsed;
           }
 
-          writePluginAuth({ [field]: value } as PluginAuthConfig);
+          // Nested OSS fields use dot-path writer; flat fields use auth writer
+          if (field.startsWith("oss.")) {
+            writePluginConfigField(field.split("."), value);
+          } else {
+            writePluginAuth({ [field]: value } as PluginAuthConfig);
+          }
           console.log(
             `${key} = ${displayValue(field, value)}`,
           );
+        });
+
+      // ====================================================================
+      // import (matches: mem0 import <file>)
+      // ====================================================================
+
+      mem0
+        .command("import")
+        .description("Import memories from a JSON file")
+        .argument("<file>", "Path to JSON file containing memories")
+        .option("--user-id <userId>", "Override user ID for all imported memories")
+        .option("--agent-id <agentId>", "Override agent ID for all imported memories")
+        .action(
+          async (
+            file: string,
+            opts: { userId?: string; agentId?: string },
+          ) => {
+            try {
+              let data: unknown;
+              try {
+                data = JSON.parse(readText(file));
+              } catch (err) {
+                console.error(`Failed to read file: ${String(err)}`);
+                return;
+              }
+
+              const items = Array.isArray(data) ? data : [data];
+              let added = 0;
+              let failed = 0;
+
+              for (const item of items) {
+                const content =
+                  item?.memory ?? item?.text ?? item?.content ?? "";
+                if (!content) {
+                  failed++;
+                  continue;
+                }
+                try {
+                  await backend.add(content, undefined, {
+                    userId: opts.userId ?? item?.user_id ?? cfg.userId,
+                    agentId: opts.agentId ?? item?.agent_id,
+                    metadata: item?.metadata,
+                  });
+                  added++;
+                } catch {
+                  failed++;
+                }
+              }
+
+              console.log(`Imported ${added} memories.`);
+              if (failed) {
+                console.error(`${failed} memories failed to import.`);
+              }
+            } catch (err) {
+              console.error(`Import failed: ${String(err)}`);
+            }
+          },
+        );
+
+      // ====================================================================
+      // event (matches: mem0 event list, mem0 event status <id>)
+      // ====================================================================
+
+      const eventCmd = mem0
+        .command("event")
+        .description("Manage background processing events");
+
+      eventCmd
+        .command("list")
+        .description("List recent background events")
+        .action(async () => {
+          try {
+            const results = await backend.listEvents();
+            if (!results.length) {
+              console.log("No events found.");
+              return;
+            }
+
+            // Table header
+            const header = [
+              "Event ID".padEnd(36),
+              "Type".padEnd(14),
+              "Status".padEnd(12),
+              "Latency".padStart(10),
+              "Created".padEnd(20),
+            ].join("  ");
+            console.log(header);
+            console.log("-".repeat(header.length));
+
+            for (const ev of results) {
+              const evId = String(ev.id ?? "");
+              const evType = String(ev.event_type ?? "—").padEnd(14);
+              const status = String(ev.status ?? "—").padEnd(12);
+              const latency = typeof ev.latency === "number"
+                ? `${Math.round(ev.latency as number)}ms`
+                : "—";
+              const created = String(ev.created_at ?? "—")
+                .slice(0, 19)
+                .replace("T", " ");
+
+              console.log(
+                `${evId.padEnd(36)}  ${evType}  ${status}  ${latency.padStart(10)}  ${created}`,
+              );
+            }
+            console.log(`\n${results.length} event${results.length !== 1 ? "s" : ""}`);
+          } catch (err) {
+            console.error(`Failed to list events: ${String(err)}`);
+          }
+        });
+
+      eventCmd
+        .command("status")
+        .description("Get status of a specific background event")
+        .argument("<event_id>", "Event ID to check")
+        .action(async (eventId: string) => {
+          try {
+            const ev = await backend.getEvent(eventId);
+
+            const status = String(ev.status ?? "—");
+            const evType = String(ev.event_type ?? "—");
+            const latency = typeof ev.latency === "number"
+              ? `${Math.round(ev.latency as number)}ms`
+              : "—";
+            const created = String(ev.created_at ?? "—")
+              .slice(0, 19)
+              .replace("T", " ");
+            const updated = String(ev.updated_at ?? "—")
+              .slice(0, 19)
+              .replace("T", " ");
+
+            console.log(`Event ID:  ${eventId}`);
+            console.log(`Type:      ${evType}`);
+            console.log(`Status:    ${status}`);
+            console.log(`Latency:   ${latency}`);
+            console.log(`Created:   ${created}`);
+            console.log(`Updated:   ${updated}`);
+
+            const results = ev.results as Record<string, unknown>[] | undefined;
+            if (results && Array.isArray(results) && results.length) {
+              console.log(`\nResults (${results.length}):`);
+              for (const r of results) {
+                const memId = String(r.id ?? "").slice(0, 8);
+                const data = r.data as Record<string, unknown> | undefined;
+                const memory = data?.memory ?? "";
+                const evName = String(r.event ?? "");
+                const user = String(r.user_id ?? "");
+                let detail = `${evName}  ${memory}`;
+                if (user) detail += `  (user_id=${user})`;
+                console.log(`  · ${detail}  (${memId})`);
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to get event: ${String(err)}`);
+          }
         });
 
       // ====================================================================
@@ -1156,20 +1333,21 @@ export function registerCliCommands(
         .action((opts: { json?: boolean }) => {
           const commands = {
             memory: {
-              add: "Add a memory from text, messages, or stdin",
               search: "Query your memory store — semantic, keyword, or hybrid retrieval",
+              add: "Add a memory from text, messages, or stdin",
               get: "Get a specific memory by ID",
               list: "List memories with optional filters",
               update: "Update a memory's text or metadata",
               delete: "Delete a memory, all memories, or an entity",
-              history: "View edit history of a memory",
+              import: "Import memories from a JSON file",
             },
             management: {
               init: "Interactive setup wizard for mem0 CLI",
               status: "Check connectivity and authentication",
-              help: "Show help. Use --json for machine-readable output (for LLM agents)",
               config: "Manage mem0 configuration (show, get, set)",
+              event: "Manage background processing events (list, status)",
               dream: "Run memory consolidation (review, merge, prune)",
+              help: "Show help. Use --json for machine-readable output (for LLM agents)",
             },
           };
 
@@ -1283,9 +1461,8 @@ export function registerCliCommands(
         });
     },
     {
-      commands: ["mem0"],
       descriptors: [
-        { name: "mem0", description: "Mem0 memory plugin commands" },
+        { name: "mem0", description: "Mem0 memory plugin commands", hasSubcommands: true },
       ],
     },
   );

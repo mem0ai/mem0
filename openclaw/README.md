@@ -12,7 +12,7 @@ openclaw plugins install @mem0/openclaw-mem0
 
 ### Platform (Mem0 Cloud)
 
-Get an API key from [app.mem0.ai](https://app.mem0.ai):
+Get an API key from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys):
 
 ```bash
 openclaw mem0 init --api-key <your-key> --user-id <your-user-id>
@@ -32,7 +32,9 @@ Or configure manually in `openclaw.json`:
 
 ### Open-Source (Self-hosted)
 
-No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings and LLM.
+No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings and LLM. Vectors are stored locally in SQLite at `~/.mem0/vector_store.db` — no external database required.
+
+Defaults: `text-embedding-3-small` for embeddings, `gpt-5.4` for fact extraction.
 
 ```json5
 "openclaw-mem0": {
@@ -53,7 +55,7 @@ Customize the embedder, vector store, or LLM via the `oss` block:
   "oss": {
     "embedder": { "provider": "openai", "config": { "model": "text-embedding-3-small" } },
     "vectorStore": { "provider": "qdrant", "config": { "host": "localhost", "port": 6333 } },
-    "llm": { "provider": "openai", "config": { "model": "gpt-4o" } }
+    "llm": { "provider": "openai", "config": { "model": "gpt-5.4" } }
   }
 }
 ```
@@ -74,79 +76,57 @@ Both run silently. No prompting, no manual calls required.
 
 ### Memory Scopes
 
-| Scope | Description |
-|-------|-------------|
-| **Session (short-term)** | Memories scoped to the current conversation via `run_id`. Automatically recalled alongside long-term memories. |
-| **User (long-term)** | Persistent memories that span all sessions. Stored via `memory_add` with `longTerm: true` (the default). |
-
-During auto-recall, both scopes are searched and presented separately — long-term first, then session — so the agent has full context.
+- **Session (short-term)** — Scoped to the current conversation via `run_id`. Recalled alongside long-term memories.
+- **User (long-term)** — Persistent across all sessions. Default for `memory_add`.
 
 ### Multi-Agent Isolation
 
-In multi-agent setups, each agent gets its own memory namespace automatically. Session keys matching `agent:<name>:<uuid>` route memories to `userId:agent:<name>`. Single-agent deployments are unaffected.
-
-All memory tools accept an optional `agentId` parameter for cross-agent queries:
-
-```
-memory_search({ query: "user's tech stack", agentId: "researcher" })
-```
+Each agent gets its own memory namespace automatically via session key routing (`agent:<name>:<uuid>` maps to `userId:agent:<name>`). Single-agent setups are unaffected.
 
 ## Agent Tools
 
-Seven tools are available to the agent during conversations:
+Eight tools are registered for agent use:
 
 | Tool | Description |
-|------|-------------|
-| **`memory_search`** | Search memories by natural language query. Supports `scope` (`session`, `long-term`, `all`) and `agentId` filtering. |
-| **`memory_add`** | Save a fact to memory. Supports `category`, `importance`, `longTerm`, and `agentId`. |
-| **`memory_get`** | Retrieve a specific memory by ID. |
-| **`memory_list`** | List stored memories with optional `userId`, `agentId`, and `limit` filters. |
-| **`memory_update`** | Update an existing memory's text in place. Preserves edit history. |
-| **`memory_delete`** | Delete by ID, search query, or bulk (`all: true`). Requires `confirm: true` for bulk. |
-| **`memory_history`** | View the edit history of a specific memory. |
+| ---- | ----------- |
+| `memory_search` | Search by natural language query. Supports `scope` (`session`, `long-term`, `all`), `categories`, `filters`, and `agentId`. |
+| `memory_add` | Store facts. Accepts `text` or `facts` array, `category`, `importance`, `longTerm`, `metadata`. |
+| `memory_get` | Retrieve a single memory by ID. |
+| `memory_list` | List all memories. Filter by `userId`, `agentId`, `scope`. |
+| `memory_update` | Update a memory's text in place. Preserves history. |
+| `memory_delete` | Delete by `memoryId`, `query` (search-and-delete), or `all: true` (requires `confirm: true`). |
+| `memory_event_list` | List recent background processing events. Platform mode only. |
+| `memory_event_status` | Get status of a specific event by ID. Platform mode only. |
 
 ## CLI
 
-All commands follow the pattern `openclaw mem0 <command>`.
-
-### Memory Operations
+All commands: `openclaw mem0 <command>`.
 
 ```bash
-# Add a memory
+# Memory operations
 openclaw mem0 add "User prefers TypeScript over JavaScript"
-
-# Search memories
 openclaw mem0 search "what languages does the user know"
 openclaw mem0 search "preferences" --scope long-term
-openclaw mem0 search "context" --scope session
-
-# Get, list, update, delete
 openclaw mem0 get <memory_id>
 openclaw mem0 list --user-id alice --top-k 20
 openclaw mem0 update <memory_id> "Updated preference text"
 openclaw mem0 delete <memory_id>
 openclaw mem0 delete --all --user-id alice --confirm
+openclaw mem0 import memories.json
 
-# View edit history
-openclaw mem0 history <memory_id>
-```
-
-### Management
-
-```bash
-# Authenticate and configure
+# Management
 openclaw mem0 init
 openclaw mem0 init --api-key <key> --user-id alice
-
-# Check connectivity
 openclaw mem0 status
-
-# Manage configuration
 openclaw mem0 config show
 openclaw mem0 config get api_key
 openclaw mem0 config set user_id alice
 
-# Memory consolidation (review, merge, prune)
+# Events (platform only)
+openclaw mem0 event list
+openclaw mem0 event status <event_id>
+
+# Memory consolidation
 openclaw mem0 dream
 openclaw mem0 dream --dry-run
 ```
@@ -156,9 +136,9 @@ openclaw mem0 dream --dry-run
 ### General
 
 | Key | Type | Default | Description |
-|-----|------|---------|-------------|
+| --- | ---- | ------- | ----------- |
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Backend mode |
-| `userId` | `string` | `"default"` | Unique identifier for the user. You define this — it's not found in any dashboard. All memories are scoped to this value. |
+| `userId` | `string` | OS username | User identifier. All memories scoped to this value. |
 | `autoRecall` | `boolean` | `true` | Inject relevant memories before each turn |
 | `autoCapture` | `boolean` | `true` | Extract and store facts after each turn |
 | `topK` | `number` | `5` | Max memories returned per recall |
@@ -167,32 +147,30 @@ openclaw mem0 dream --dry-run
 ### Platform Mode
 
 | Key | Type | Default | Description |
-|-----|------|---------|-------------|
+| --- | ---- | ------- | ----------- |
 | `apiKey` | `string` | — | **Required.** Mem0 API key (supports `${MEM0_API_KEY}`) |
 | `orgId` | `string` | — | Organization ID |
 | `projectId` | `string` | — | Project ID |
-| `enableGraph` | `boolean` | `false` | Enable entity graph for relationship tracking |
-| `customInstructions` | `string` | *(built-in)* | Custom extraction rules for what to store and how to format |
-| `customCategories` | `object` | *(12 defaults)* | Category name to description map for memory tagging |
+| `enableGraph` | `boolean` | `false` | Entity graph for relationship tracking |
+| `customInstructions` | `string` | *(built-in)* | Custom extraction rules |
+| `customCategories` | `object` | *(12 defaults)* | Category name to description map |
 
 ### Open-Source Mode
 
-All fields below are optional. Defaults use OpenAI embeddings, in-memory vector store, and OpenAI LLM.
+All fields optional. Defaults: `text-embedding-3-small` embeddings, local SQLite vector store (`~/.mem0/vector_store.db`), `gpt-5.4` LLM.
 
 | Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `customPrompt` | `string` | *(built-in)* | Extraction prompt for memory processing |
+| --- | ---- | ------- | ----------- |
+| `customPrompt` | `string` | *(built-in)* | Extraction prompt |
 | `oss.embedder.provider` | `string` | `"openai"` | Embedding provider |
 | `oss.embedder.config` | `object` | — | Provider config (`apiKey`, `model`, `baseURL`) |
-| `oss.vectorStore.provider` | `string` | `"memory"` | Vector store provider |
-| `oss.vectorStore.config` | `object` | — | Provider config (`host`, `port`, `collectionName`) |
+| `oss.vectorStore.provider` | `string` | `"memory"` | Vector store provider (see list above) |
+| `oss.vectorStore.config` | `object` | — | Provider config (`host`, `port`, `collectionName`, `dbPath`) |
 | `oss.llm.provider` | `string` | `"openai"` | LLM provider |
 | `oss.llm.config` | `object` | — | Provider config (`apiKey`, `model`, `baseURL`) |
-| `oss.historyDbPath` | `string` | — | SQLite path for memory edit history |
-| `oss.disableHistory` | `boolean` | `false` | Skip history DB initialization |
-
-Supported providers: `openai`, `anthropic`, `ollama`, `lmstudio`, `qdrant`, `chroma`, and more. See the [Mem0 OSS docs](https://docs.mem0.ai/open-source/node-quickstart) for the full list.
+| `oss.historyDbPath` | `string` | — | SQLite path for edit history |
+| `oss.disableHistory` | `boolean` | `false` | Skip history DB |
 
 ## License
 
-Apache 2.0
+[Apache 2.0](LICENSE)

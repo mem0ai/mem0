@@ -22,9 +22,21 @@ const FLUSH_THRESHOLD = 10;
 let eventQueue: Record<string, unknown>[] = [];
 let flushTimer: ReturnType<typeof setInterval> | undefined;
 
+let _telemetryEnabled: boolean | undefined;
 function isTelemetryEnabled(): boolean {
-  const val = (process.env.MEM0_TELEMETRY ?? "true").toLowerCase();
-  return val !== "false" && val !== "0" && val !== "no";
+  if (_telemetryEnabled !== undefined) return _telemetryEnabled;
+  try {
+    const val = (globalThis as any).__mem0_telemetry_override;
+    if (val !== undefined) {
+      const s = String(val).toLowerCase();
+      _telemetryEnabled = s !== "false" && s !== "0" && s !== "no";
+    } else {
+      _telemetryEnabled = true;
+    }
+  } catch {
+    _telemetryEnabled = true;
+  }
+  return _telemetryEnabled;
 }
 
 /**

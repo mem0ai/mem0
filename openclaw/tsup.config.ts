@@ -7,5 +7,5 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
-  external: [/^node:/, "fs", "os", "path", "url", "readline", "module"],
+  external: [/^node:/, /^openclaw\//, "fs", "os", "path", "url", "readline", "module"],
 });

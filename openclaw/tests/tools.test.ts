@@ -15,7 +15,8 @@ import { createMemoryGetTool } from "../tools/memory-get.ts";
 import { createMemoryDeleteTool } from "../tools/memory-delete.ts";
 import { createMemoryListTool } from "../tools/memory-list.ts";
 import { createMemoryUpdateTool } from "../tools/memory-update.ts";
-import { createMemoryHistoryTool } from "../tools/memory-history.ts";
+import { createMemoryEventListTool } from "../tools/memory-event-list.ts";
+import { createMemoryEventStatusTool } from "../tools/memory-event-status.ts";
 
 // ---------------------------------------------------------------------------
 // Mock helper
@@ -80,10 +81,10 @@ function createMockToolDeps(overrides = {}): ToolDeps {
 // ---------------------------------------------------------------------------
 
 describe("registerAllTools", () => {
-  it("calls api.registerTool exactly 7 times", () => {
+  it("calls api.registerTool exactly 8 times", () => {
     const ctx = createMockToolDeps();
     registerAllTools(ctx);
-    expect(ctx.api.registerTool).toHaveBeenCalledTimes(7);
+    expect(ctx.api.registerTool).toHaveBeenCalledTimes(8);
   });
 
   it("registers tools with the correct names", () => {
@@ -103,7 +104,8 @@ describe("registerAllTools", () => {
       "memory_list",
       "memory_update",
       "memory_delete",
-      "memory_history",
+      "memory_event_list",
+      "memory_event_status",
     ]);
   });
 
@@ -129,6 +131,8 @@ describe("tool factory shape", () => {
     { fn: createMemoryGetTool, expectedName: "memory_get" },
     { fn: createMemoryDeleteTool, expectedName: "memory_delete" },
     { fn: createMemoryListTool, expectedName: "memory_list" },
+    { fn: createMemoryEventListTool, expectedName: "memory_event_list" },
+    { fn: createMemoryEventStatusTool, expectedName: "memory_event_status" },
   ];
 
   for (const { fn, expectedName } of factories) {
@@ -883,115 +887,3 @@ describe("memory_update execute", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// memory_history execute
-// ---------------------------------------------------------------------------
-
-describe("memory_history execute", () => {
-  it("returns formatted history", async () => {
-    const historyEntries = [
-      {
-        event: "ADD",
-        created_at: "2026-01-01T00:00:00Z",
-        old_memory: null,
-        new_memory: "Initial memory text",
-      },
-      {
-        event: "UPDATE",
-        created_at: "2026-01-02T00:00:00Z",
-        old_memory: "Initial memory text",
-        new_memory: "Updated memory text",
-      },
-    ];
-    const ctx = createMockToolDeps({
-      provider: {
-        search: vi.fn(),
-        add: vi.fn(),
-        getAll: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        get: vi.fn(),
-        history: vi.fn().mockResolvedValue(historyEntries),
-      },
-    });
-    const tool = createMemoryHistoryTool(ctx);
-
-    const result = await tool.execute("call-1", { memoryId: "mem-abc" });
-
-    expect(ctx.provider!.history).toHaveBeenCalledWith("mem-abc");
-    expect(result.content[0].text).toContain("History for memory mem-abc");
-    expect(result.content[0].text).toContain("2 entries");
-    expect(result.content[0].text).toContain("[ADD]");
-    expect(result.content[0].text).toContain("[UPDATE]");
-    expect(result.content[0].text).toContain("Initial memory text");
-    expect(result.content[0].text).toContain("Updated memory text");
-    expect(result.content[0].text).toContain("Old: (none)");
-    expect(result.details.count).toBe(2);
-    expect(result.details.history).toEqual(historyEntries);
-  });
-
-  it("handles empty history", async () => {
-    const ctx = createMockToolDeps({
-      provider: {
-        search: vi.fn(),
-        add: vi.fn(),
-        getAll: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        get: vi.fn(),
-        history: vi.fn().mockResolvedValue([]),
-      },
-    });
-    const tool = createMemoryHistoryTool(ctx);
-
-    const result = await tool.execute("call-2", { memoryId: "mem-empty" });
-
-    expect(result.content[0].text).toBe(
-      "No history found for memory mem-empty.",
-    );
-    expect(result.details.count).toBe(0);
-  });
-
-  it("handles null history", async () => {
-    const ctx = createMockToolDeps({
-      provider: {
-        search: vi.fn(),
-        add: vi.fn(),
-        getAll: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        get: vi.fn(),
-        history: vi.fn().mockResolvedValue(null),
-      },
-    });
-    const tool = createMemoryHistoryTool(ctx);
-
-    const result = await tool.execute("call-3", { memoryId: "mem-null" });
-
-    expect(result.content[0].text).toBe(
-      "No history found for memory mem-null.",
-    );
-    expect(result.details.count).toBe(0);
-  });
-
-  it("handles errors gracefully", async () => {
-    const ctx = createMockToolDeps({
-      provider: {
-        search: vi.fn(),
-        add: vi.fn(),
-        getAll: vi.fn(),
-        update: vi.fn(),
-        delete: vi.fn(),
-        get: vi.fn(),
-        history: vi.fn().mockRejectedValue(new Error("history unavailable")),
-      },
-    });
-    const tool = createMemoryHistoryTool(ctx);
-
-    const result = await tool.execute("call-4", { memoryId: "mem-err" });
-
-    expect(result.content[0].text).toContain("Memory history failed");
-    expect(result.content[0].text).toContain("history unavailable");
-    expect(result.details.error).toContain("history unavailable");
-  });
-});
