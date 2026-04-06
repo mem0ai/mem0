@@ -48,6 +48,7 @@ vector_stores = [
     "pymongo>=4.13.2",
     "pymochow>=2.2.9",
     "pymysql>=1.1.0",
+    "gaussdb[pool]>=1.0.0",
     "dbutils>=3.0.3",
     "valkey>=6.0.0",
     "databricks-sdk>=0.63.0",
