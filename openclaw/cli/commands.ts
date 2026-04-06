@@ -1420,9 +1420,8 @@ export function registerCliCommands(
         });
     },
     {
-      commands: ["mem0"],
       descriptors: [
-        { name: "mem0", description: "Mem0 memory plugin commands" },
+        { name: "mem0", description: "Mem0 memory plugin commands", hasSubcommands: true },
       ],
     },
   );

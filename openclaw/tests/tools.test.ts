@@ -15,6 +15,8 @@ import { createMemoryGetTool } from "../tools/memory-get.ts";
 import { createMemoryDeleteTool } from "../tools/memory-delete.ts";
 import { createMemoryListTool } from "../tools/memory-list.ts";
 import { createMemoryUpdateTool } from "../tools/memory-update.ts";
+import { createMemoryEventListTool } from "../tools/memory-event-list.ts";
+import { createMemoryEventStatusTool } from "../tools/memory-event-status.ts";
 
 // ---------------------------------------------------------------------------
 // Mock helper
@@ -79,10 +81,10 @@ function createMockToolDeps(overrides = {}): ToolDeps {
 // ---------------------------------------------------------------------------
 
 describe("registerAllTools", () => {
-  it("calls api.registerTool exactly 6 times", () => {
+  it("calls api.registerTool exactly 8 times", () => {
     const ctx = createMockToolDeps();
     registerAllTools(ctx);
-    expect(ctx.api.registerTool).toHaveBeenCalledTimes(6);
+    expect(ctx.api.registerTool).toHaveBeenCalledTimes(8);
   });
 
   it("registers tools with the correct names", () => {
@@ -102,6 +104,8 @@ describe("registerAllTools", () => {
       "memory_list",
       "memory_update",
       "memory_delete",
+      "memory_event_list",
+      "memory_event_status",
     ]);
   });
 
@@ -127,6 +131,8 @@ describe("tool factory shape", () => {
     { fn: createMemoryGetTool, expectedName: "memory_get" },
     { fn: createMemoryDeleteTool, expectedName: "memory_delete" },
     { fn: createMemoryListTool, expectedName: "memory_list" },
+    { fn: createMemoryEventListTool, expectedName: "memory_event_list" },
+    { fn: createMemoryEventStatusTool, expectedName: "memory_event_status" },
   ];
 
   for (const { fn, expectedName } of factories) {

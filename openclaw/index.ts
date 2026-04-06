@@ -16,6 +16,7 @@
  * - Dual mode: platform or open-source (self-hosted)
  */
 
+import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 
 import type {
@@ -90,12 +91,10 @@ export { createProvider } from "./providers.ts";
 // Plugin Definition
 // ============================================================================
 
-const memoryPlugin = {
+const memoryPlugin = definePluginEntry({
   id: "openclaw-mem0",
   name: "Memory (Mem0)",
   description: "Mem0 memory backend — Mem0 platform or self-hosted open-source",
-  kind: "memory" as const,
-  configSchema: mem0ConfigSchema,
 
   register(api: OpenClawPluginApi) {
     // Read auth from openclaw.json plugin config (picks up post-startup login).
@@ -234,6 +233,7 @@ const memoryPlugin = {
       api,
       provider,
       cfg,
+      backend,
       resolveUserId: _resolveUserId,
       effectiveUserId: _effectiveUserId,
       agentUserId: _agentUserId,
@@ -301,7 +301,7 @@ const memoryPlugin = {
       },
     });
   },
-};
+});
 
 // ============================================================================
 // Lifecycle Hook Registration
@@ -582,11 +582,11 @@ function registerHooks(
   // Track last seen session ID to detect actual new sessions (not every turn)
   let lastRecallSessionId: string | undefined;
 
-  // Auto-recall: inject relevant memories before agent starts
+  // Auto-recall: inject relevant memories before prompt is built
   if (cfg.autoRecall) {
     const RECALL_TIMEOUT_MS = 8_000;
 
-    api.on("before_agent_start", async (event: any, ctx: any) => {
+    api.on("before_prompt_build", async (event: any, ctx: any) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
       // Skip non-interactive triggers (cron, heartbeat, automation)

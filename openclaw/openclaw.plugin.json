@@ -7,7 +7,7 @@
   "contracts": {
     "tools": [
       "memory_search", "memory_add", "memory_get", "memory_list",
-      "memory_update", "memory_delete"
+      "memory_update", "memory_delete", "memory_event_list", "memory_event_status"
     ]
   },
   "providerAuthEnvVars": {
