@@ -30,9 +30,6 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: vercel-ai-sdk/pnpm-lock.yaml
 
-      - name: Upgrade npm for OIDC trusted publishing
-        run: npm install -g npm@latest
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
