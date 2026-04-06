@@ -116,73 +116,24 @@ result = crew.kickoff()
 
 ## Vercel AI SDK
 
-Source: [docs.mem0.ai/integrations/vercel-ai-sdk](https://docs.mem0.ai/integrations/vercel-ai-sdk)
+> **Dedicated skill available.** For comprehensive Vercel AI SDK documentation, see the [mem0-vercel-ai-sdk skill](../mem0-vercel-ai-sdk/SKILL.md) ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk)).
 
 Install: `npm install @mem0/vercel-ai-provider`
 
-### Basic Text Generation with Memory
+Quick example (wrapped model with automatic memory):
 
 ```typescript
 import { generateText } from "ai";
-import { createMem0 } from "@mem0/vercel-ai-provider";
-
-const mem0 = createMem0({
-    provider: "openai",
-    mem0ApiKey: "m0-xxx",
-    apiKey: "openai-api-key",
-});
-
-const { text } = await generateText({
-    model: mem0("gpt-4-turbo", { user_id: "borat" }),
-    prompt: "Suggest me a good car to buy!",
-});
-```
-
-### Streaming with Memory
-
-```typescript
-import { streamText } from "ai";
 import { createMem0 } from "@mem0/vercel-ai-provider";
 
 const mem0 = createMem0();
-
-const { textStream } = streamText({
+const { text } = await generateText({
     model: mem0("gpt-4-turbo", { user_id: "borat" }),
     prompt: "Suggest me a good car to buy!",
 });
-
-for await (const textPart of textStream) {
-    process.stdout.write(textPart);
-}
 ```
 
-### Using Memory Utilities Standalone
-
-```typescript
-import { openai } from "@ai-sdk/openai";
-import { generateText } from "ai";
-import { retrieveMemories, addMemories } from "@mem0/vercel-ai-provider";
-
-// Retrieve memories and inject into any provider
-const prompt = "Suggest me a good car to buy.";
-const memories = await retrieveMemories(prompt, { user_id: "borat", mem0ApiKey: "m0-xxx" });
-
-const { text } = await generateText({
-    model: openai("gpt-4-turbo"),
-    prompt: prompt,
-    system: memories,
-});
-
-// Store new memories
-await addMemories(
-    [{ role: "user", content: [{ type: "text", text: "I love red cars." }] }],
-    { user_id: "borat", mem0ApiKey: "m0-xxx" }
-);
-```
-
-### Supported Providers
-
-`openai`, `anthropic`, `google`, `groq`
+Supported providers: `openai`, `anthropic`, `google`, `groq`, `cohere`
 
 ---
 

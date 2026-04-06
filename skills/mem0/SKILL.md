@@ -1,25 +1,34 @@
 ---
 name: mem0
 description: >
-  Integrate Mem0 Platform into AI applications for persistent memory, personalization, and semantic search.
-  Use this skill when the user mentions "mem0", "memory layer", "remember user preferences",
-  "persistent context", "personalization", or needs to add long-term memory to chatbots, agents,
-  or AI apps. Covers Python and TypeScript SDKs, framework integrations (LangChain, CrewAI,
-  Vercel AI SDK, OpenAI Agents SDK, Pipecat), and the full Platform API. Use even when the user
-  doesn't explicitly say "mem0" but describes needing conversation memory, user context retention,
-  or knowledge retrieval across sessions.
+  Mem0 Platform SDK for adding persistent memory to AI applications.
+  TRIGGER when: user mentions "mem0", "MemoryClient", "memory layer",
+  "remember user preferences", "persistent context", "personalization",
+  or needs to add long-term memory to chatbots, agents, or AI apps.
+  Covers Python SDK (mem0ai), TypeScript SDK (mem0ai), and framework integrations
+  (LangChain, CrewAI, OpenAI Agents SDK, Pipecat, LlamaIndex, AutoGen, LangGraph).
+  Also covers the open-source self-hosted Memory class.
+  This is the DEFAULT mem0 skill for ambiguous queries.
+  DO NOT TRIGGER when: user asks about CLI commands, terminal usage, or shell
+  scripts (use mem0-cli), or Vercel AI SDK / @mem0/vercel-ai-provider / createMem0
+  (use mem0-vercel-ai-sdk).
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "1.0.0"
+  version: "2.0.0"
   category: ai-memory
   tags: "memory, personalization, ai, python, typescript, vector-search"
-compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var, and internet access to api.mem0.ai
+compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var (Platform), and internet access to api.mem0.ai
 ---
 
 # Mem0 Platform Integration
 
-Mem0 is a managed memory layer for AI applications. It stores, retrieves, and manages user memories via API — no infrastructure to deploy.
+> **Skill Graph:** This skill is part of the Mem0 skill graph:
+> - **mem0** (this skill) -- Platform Client SDK + OSS (Python + TypeScript)
+> - **[mem0-cli](../mem0-cli/SKILL.md)** ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-cli)) -- Command-line interface
+> - **[mem0-vercel-ai-sdk](../mem0-vercel-ai-sdk/SKILL.md)** ([GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk)) -- Vercel AI SDK provider
+
+Mem0 is a managed memory layer for AI applications. It stores, retrieves, and manages user memories via API — no infrastructure to deploy. For self-hosted usage, see the OSS section in the client references below.
 
 ## Step 1: Install and authenticate
 
@@ -134,14 +143,24 @@ def chat(user_input: str, user_id: str) -> str:
 For the latest docs beyond what's in the references, use the doc search tool:
 
 ```bash
-python scripts/mem0_doc_search.py --query "topic"
-python scripts/mem0_doc_search.py --page "/platform/features/graph-memory"
-python scripts/mem0_doc_search.py --index
+python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --query "topic"
+python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --page "/platform/features/graph-memory"
+python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --index
 ```
 
 No API key needed — searches docs.mem0.ai directly.
 
-## References
+## Client SDK References
+
+Language-specific deep references (Platform + OSS):
+
+| Language | File |
+|----------|------|
+| Python (MemoryClient + AsyncMemoryClient + Memory OSS) | [client/python.md](client/python.md) |
+| TypeScript/Node.js (MemoryClient + Memory OSS) | [client/node.md](client/node.md) |
+| Python vs TypeScript differences | [client/differences.md](client/differences.md) |
+
+## Platform References
 
 Load these on demand for deeper detail:
 
@@ -152,5 +171,12 @@ Load these on demand for deeper detail:
 | API reference (endpoints, filters, object schema) | [references/api-reference.md](references/api-reference.md) |
 | Architecture (pipeline, lifecycle, scoping, performance) | [references/architecture.md](references/architecture.md) |
 | Platform features (retrieval, graph, categories, MCP, etc.) | [references/features.md](references/features.md) |
-| Framework integrations (LangChain, CrewAI, Vercel AI, etc.) | [references/integration-patterns.md](references/integration-patterns.md) |
+| Framework integrations (LangChain, CrewAI, OpenAI Agents, etc.) | [references/integration-patterns.md](references/integration-patterns.md) |
 | Use cases & examples (real-world patterns with code) | [references/use-cases.md](references/use-cases.md) |
+
+## Related Mem0 Skills
+
+| Skill | When to use | Link |
+|-------|-------------|------|
+| mem0-cli | Terminal commands, scripting, CI/CD, agent tool loops | [local](../mem0-cli/SKILL.md) / [GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-cli) |
+| mem0-vercel-ai-sdk | Vercel AI SDK provider with automatic memory | [local](../mem0-vercel-ai-sdk/SKILL.md) / [GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk) |

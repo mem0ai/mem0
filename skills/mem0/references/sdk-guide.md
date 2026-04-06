@@ -2,6 +2,8 @@
 
 Complete SDK reference for Python and TypeScript. All methods use `MemoryClient` (Platform API).
 
+> **For language-specific deep references (including OSS):** See [client/python.md](../client/python.md) and [client/node.md](../client/node.md). For Python vs TypeScript differences: [client/differences.md](../client/differences.md).
+
 ## Initialization
 
 **Python:**
