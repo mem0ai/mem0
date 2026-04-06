@@ -940,9 +940,9 @@ describe("registerCliCommands", () => {
       const allOutput = consoleSpy.log.mock.calls.map((c) => c[0]).join("\n");
       expect(allOutput).toContain("Key");
       expect(allOutput).toContain("Value");
-      expect(allOutput).toContain("platform.api_key");
-      expect(allOutput).toContain("platform.email");
-      expect(allOutput).toContain("defaults.user_id");
+      expect(allOutput).toContain("api_key");
+      expect(allOutput).toContain("email");
+      expect(allOutput).toContain("user_id");
       expect(allOutput).toContain("Config file:");
     });
   });
@@ -1002,12 +1002,12 @@ describe("registerCliCommands", () => {
       expect(logged).not.toContain("supersecret");
     });
 
-    it("supports dot-notation keys like platform.api_key", () => {
+    it("supports short alias keys like email", () => {
       const { mem0 } = setup();
       const configCmd = findCommand(mem0, "config")!;
       const getCmd = findCommand(configCmd, "get")!;
 
-      getCmd._action!("platform.email");
+      getCmd._action!("email");
 
       expect(consoleSpy.log).toHaveBeenCalledWith("(not set)");
     });
@@ -1119,12 +1119,12 @@ describe("registerCliCommands", () => {
       expect(writePluginAuth).not.toHaveBeenCalled();
     });
 
-    it("supports dot-notation keys for set", () => {
+    it("supports short alias keys for set", () => {
       const { mem0 } = setup();
       const configCmd = findCommand(mem0, "config")!;
       const setCmd = findCommand(configCmd, "set")!;
 
-      setCmd._action!("defaults.user_id", "bob");
+      setCmd._action!("user_id", "bob");
 
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({ userId: "bob" }),
