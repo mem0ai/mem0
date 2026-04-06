@@ -478,15 +478,82 @@ When uncertain about expected artifacts, ask for clarification.
 
 ## Contributing Guidelines
 
-- Create a feature branch (`feature/your-feature`) from `main`.
-- Add tests for new features and bug fixes.
-- Ensure all tests pass before submitting a PR.
-- Run `make lint` and `make format` before committing (Python SDK).
-- Run `pnpm run lint` before committing (TypeScript packages).
-- Run `pre-commit install` on first setup — hooks run ruff + isort automatically.
+### Workflow
+
+1. Fork and clone the repository.
+2. Create a feature branch from `main` (e.g., `feature/my-new-feature`).
+3. Make your changes — add tests, docs, and examples as appropriate.
+4. Run linting and tests for every package you modified (see commands above).
+5. Run `pre-commit install` on first setup — hooks run ruff + isort automatically.
+6. Commit with a clear message following [Conventional Commits](https://www.conventionalcommits.org/) (e.g., `feat:`, `fix:`, `docs:`, `refactor:`).
+7. Push and open a Pull Request against `main`.
+
+### Pull Request Requirements
+
+Every PR must follow the repo's PR template (`.github/PULL_REQUEST_TEMPLATE.md`):
+
+1. **Linked Issue** — Reference the issue with `Closes #<number>`. If no issue exists, create one first or explain why in the description.
+2. **Description** — Explain what the PR does and why it's needed.
+3. **Type of Change** — Check the appropriate box:
+   - Bug fix / New feature / Breaking change / Refactor / Documentation update
+4. **Breaking Changes** — If applicable, describe what breaks and the migration path.
+5. **Test Coverage** — Check what applies:
+   - Added/updated unit tests
+   - Added/updated integration tests
+   - Tested manually (describe how)
+   - No tests needed (explain why)
+6. **Checklist** — All must be checked before merge:
+   - [ ] Code follows the project's style guidelines
+   - [ ] Self-review performed
+   - [ ] Tests added that prove the fix/feature works
+   - [ ] New and existing tests pass locally
+   - [ ] Documentation updated if needed
+
+### PR Description Template
+
+```markdown
+## Linked Issue
+
+Closes #<!-- issue number -->
+
+## Description
+
+<!-- What does this PR do? Why is it needed? -->
+
+## Type of Change
+
+- [ ] Bug fix (non-breaking change that fixes an issue)
+- [ ] New feature (non-breaking change that adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to change)
+- [ ] Refactor (no functional changes)
+- [ ] Documentation update
+
+## Breaking Changes
+
+N/A
+
+## Test Coverage
+
+- [ ] I added/updated unit tests
+- [ ] I added/updated integration tests
+- [ ] I tested manually (describe below)
+- [ ] No tests needed (explain why)
+
+## Checklist
+
+- [ ] My code follows the project's style guidelines
+- [ ] I have performed a self-review of my code
+- [ ] I have added tests that prove my fix/feature works
+- [ ] New and existing tests pass locally
+- [ ] I have updated documentation if needed
+```
+
+### General Rules
+
 - Follow existing code patterns — don't introduce new frameworks or abstractions without discussion.
 - Version bumps go in `pyproject.toml` (Python) or `package.json` (TypeScript).
 - For `server/` and `openmemory/` work, use Docker Compose for local development.
+- Do NOT use `pip` or `conda` for dependency management — use `hatch` (see `docs/contributing/development.mdx`).
 
 ### Contributing Guides
 
@@ -494,6 +561,10 @@ When uncertain about expected artifacts, ask for clarification.
 |------|-------|
 | Code contributions | `docs/contributing/development.mdx` |
 | Documentation contributions | `docs/contributing/documentation.mdx` |
+| PR template | `.github/PULL_REQUEST_TEMPLATE.md` |
+| Bug reports | `.github/ISSUE_TEMPLATE/bug_report.yml` |
+| Feature requests | `.github/ISSUE_TEMPLATE/feature_request.yml` |
+| Documentation issues | `.github/ISSUE_TEMPLATE/documentation_issue.yml` |
 
 ## Do NOT
 
