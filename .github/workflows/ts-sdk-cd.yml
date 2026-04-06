@@ -30,9 +30,6 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: mem0-ts/pnpm-lock.yaml
 
-      - name: Upgrade npm for OIDC trusted publishing
-        run: npm install -g npm@latest
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
