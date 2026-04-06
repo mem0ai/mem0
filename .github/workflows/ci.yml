@@ -48,6 +48,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
       - name: Clean up disk space
         run: |
           df -h
@@ -57,12 +58,6 @@ jobs:
           df -h
       - name: Install Hatch
         run: pip install hatch
-      - name: Load cached venv
-        id: cached-hatch-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install GEOS Libraries
         run: sudo apt-get update && sudo apt-get install -y libgeos-dev
       - name: Install dependencies
@@ -70,7 +65,6 @@ jobs:
           pip install --upgrade pip
           pip install -e ".[test,graph,vector_stores,llms,extras]"
           pip install ruff
-        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Linting
         run: make lint
       - name: Run tests and generate coverage report
@@ -89,17 +83,11 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
       - name: Install Hatch
         run: pip install hatch
-      - name: Load cached venv
-        id: cached-hatch-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install dependencies
         run: cd embedchain && make install_all
-        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Formatting
         run: |
           mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
