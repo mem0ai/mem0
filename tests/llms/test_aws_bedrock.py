@@ -436,7 +436,6 @@ class TestParseResponseLegacy:
 
     def _make_invoke_response(self, body_dict: dict):
         """Build a mock InvokeModel response with a readable body stream."""
-        import io
         body_bytes = json.dumps(body_dict).encode()
         mock_body = MagicMock()
         mock_body.read.return_value = body_bytes
