@@ -147,9 +147,11 @@
                 "tab": "OpenClaw",
                 "groups": [
                   {
-                    "group": "OpenClaw",
+                    "group": "Agent Harness",
+                    "icon": "robot",
                     "pages": [
-                      "integrations/openclaw"
+                      "integrations/openclaw",
+                      "integrations/hermes"
                     ]
                   }
                 ]
@@ -411,8 +413,6 @@
                       "integrations/autogen",
                       "integrations/agno",
                       "integrations/camel-ai",
-                      "integrations/openclaw",
-                      "integrations/hermes",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
@@ -459,6 +459,14 @@
                       "integrations/claude-code",
                       "integrations/cursor",
                       "integrations/codex"
+                    ]
+                  },
+                  {
+                    "group": "Agent Harness",
+                    "icon": "robot",
+                    "pages": [
+                      "integrations/openclaw",
+                      "integrations/hermes"
                     ]
                   }
                 ]
