@@ -3,6 +3,7 @@
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import { execFileSync } from "node:child_process";
 import type {
   Mem0Config,
   Mem0Provider,
@@ -296,57 +297,99 @@ class OSSProvider implements Mem0Provider {
     messages: Array<{ role: string; content: string }>,
     options: AddOptions,
   ): Promise<AddResult> {
-    await this.ensureMemory();
-    // OSS SDK uses camelCase: userId/runId, not user_id/run_id
-    const addOpts: Record<string, unknown> = { userId: options.user_id };
-    if (options.run_id) addOpts.runId = options.run_id;
-    if (options.source) addOpts.source = options.source;
-    // Agentic harness: direct storage bypass
-    if (options.infer !== undefined) addOpts.infer = options.infer;
-    if (options.metadata) addOpts.metadata = options.metadata;
-    if (options.expiration_date)
-      addOpts.expirationDate = options.expiration_date;
-    if (options.immutable) addOpts.immutable = options.immutable;
+    try {
+      const payload = JSON.stringify(messages);
+      const out = execFileSync(
+        "/home/claw/.bun/bin/bun",
+        [
+          "/home/claw/.openclaw/workspace/skills/mem0/scripts/mem0-add.js",
+          `--messages=${payload}`,
+        ],
+        { encoding: "utf8" },
+      );
+      return normalizeAddResult({
+        results: out ? [{ memory: String(out).trim(), event: "ADD" }] : [],
+      });
+    } catch {
+      await this.ensureMemory();
+      // OSS SDK uses camelCase: userId/runId, not user_id/run_id
+      const addOpts: Record<string, unknown> = { userId: options.user_id };
+      if (options.run_id) addOpts.runId = options.run_id;
+      if (options.source) addOpts.source = options.source;
+      if (options.infer !== undefined) addOpts.infer = options.infer;
+      if (options.metadata) addOpts.metadata = options.metadata;
+      if (options.expiration_date)
+        addOpts.expirationDate = options.expiration_date;
+      if (options.immutable) addOpts.immutable = options.immutable;
 
-    // OSS SDK doesn't support deduced_memories — when infer=false, it stores
-    // raw message content directly. Rewrite messages to contain the facts so
-    // OSS stores the right text.
-    let effectiveMessages = messages;
-    if (options.infer === false && options.deduced_memories?.length) {
-      effectiveMessages = options.deduced_memories.map((fact) => ({
-        role: "user",
-        content: fact,
-      }));
+      let effectiveMessages = messages;
+      if (options.infer === false && options.deduced_memories?.length) {
+        effectiveMessages = options.deduced_memories.map((fact) => ({
+          role: "user",
+          content: fact,
+        }));
+      }
+
+      const result = await this.memory.add(effectiveMessages, addOpts);
+      return normalizeAddResult(result);
     }
-
-    const result = await this.memory.add(effectiveMessages, addOpts);
-    return normalizeAddResult(result);
   }
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
-    await this.ensureMemory();
-    // OSS SDK uses camelCase: userId/runId, not user_id/run_id
-    const opts: Record<string, unknown> = { userId: options.user_id };
-    if (options.run_id) opts.runId = options.run_id;
-    if (options.limit != null) opts.limit = options.limit;
-    else if (options.top_k != null) opts.limit = options.top_k;
-    if (options.keyword_search != null)
-      opts.keyword_search = options.keyword_search;
-    if (options.reranking != null) opts.reranking = options.reranking;
-    if (options.source) opts.source = options.source;
-    if (options.threshold != null) opts.threshold = options.threshold;
-
-    const results = await this.memory.search(query, opts);
-    const normalized = normalizeSearchResults(results);
-
-    // Filter results by threshold if specified (client-side filtering as fallback)
-    if (options.threshold != null) {
-      return normalized.filter(
-        (item) => (item.score ?? 0) >= options.threshold!,
+    try {
+      const limit =
+        options.limit != null
+          ? options.limit
+          : options.top_k != null
+            ? options.top_k
+            : 5;
+      const out = execFileSync(
+        "/home/claw/.bun/bin/bun",
+        [
+          "/home/claw/.openclaw/workspace/skills/mem0/scripts/mem0-search.js",
+          query,
+          `--limit=${limit}`,
+        ],
+        { encoding: "utf8" },
       );
-    }
+      const lines = String(out)
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const normalized = normalizeSearchResults(
+        lines.map((line) => ({
+          memory: line.replace(/^\d+\.\s*/, ""),
+          score: 1,
+          user_id: options.user_id,
+        })),
+      );
+      if (options.threshold != null) {
+        return normalized.filter(
+          (item) => (item.score ?? 0) >= options.threshold!,
+        );
+      }
+      return normalized;
+    } catch {
+      await this.ensureMemory();
+      const opts: Record<string, unknown> = { userId: options.user_id };
+      if (options.run_id) opts.runId = options.run_id;
+      if (options.limit != null) opts.limit = options.limit;
+      else if (options.top_k != null) opts.limit = options.top_k;
+      if (options.keyword_search != null)
+        opts.keyword_search = options.keyword_search;
+      if (options.reranking != null) opts.reranking = options.reranking;
+      if (options.source) opts.source = options.source;
+      if (options.threshold != null) opts.threshold = options.threshold;
 
-    return normalized;
+      const results = await this.memory.search(query, opts);
+      const normalized = normalizeSearchResults(results);
+      if (options.threshold != null) {
+        return normalized.filter(
+          (item) => (item.score ?? 0) >= options.threshold!,
+        );
+      }
+      return normalized;
+    }
   }
 
   async get(memoryId: string): Promise<MemoryItem> {
