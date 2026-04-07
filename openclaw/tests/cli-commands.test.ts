@@ -1387,5 +1387,73 @@ describe("registerCliCommands", () => {
         expect.stringContaining("Failed to get event"),
       );
     });
+
+    it("event list returns early in open-source mode", async () => {
+      const provider = createMockProvider();
+      const cfg = { ...createMockCfg(), mode: "open-source" as const };
+      const mockApi = {
+        registerCli: vi.fn((cb: any) => {
+          const root = createMockCommand("root");
+          cb({ program: root });
+          const mem0 = findCommand(root, "mem0")!;
+          const eventCmd = findCommand(mem0, "event")!;
+          const listCmd = findCommand(eventCmd, "list")!;
+          listCmd._action!();
+        }),
+        logger: { info: vi.fn(), warn: vi.fn() },
+      } as any;
+
+      registerCliCommands(
+        mockApi,
+        null as any,
+        provider as any,
+        cfg as any,
+        vi.fn().mockReturnValue("testuser"),
+        vi.fn((id: string) => `testuser:agent:${id}`),
+        vi.fn().mockReturnValue({ user_id: "testuser", top_k: 5 }),
+        vi.fn().mockReturnValue(undefined),
+      );
+
+      // Wait for async action
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        "Event tracking is only available in platform mode.",
+      );
+    });
+
+    it("event status returns early in open-source mode", async () => {
+      const provider = createMockProvider();
+      const cfg = { ...createMockCfg(), mode: "open-source" as const };
+      const mockApi = {
+        registerCli: vi.fn((cb: any) => {
+          const root = createMockCommand("root");
+          cb({ program: root });
+          const mem0 = findCommand(root, "mem0")!;
+          const eventCmd = findCommand(mem0, "event")!;
+          const statusCmd = findCommand(eventCmd, "status")!;
+          statusCmd._action!("evt-123");
+        }),
+        logger: { info: vi.fn(), warn: vi.fn() },
+      } as any;
+
+      registerCliCommands(
+        mockApi,
+        null as any,
+        provider as any,
+        cfg as any,
+        vi.fn().mockReturnValue("testuser"),
+        vi.fn((id: string) => `testuser:agent:${id}`),
+        vi.fn().mockReturnValue({ user_id: "testuser", top_k: 5 }),
+        vi.fn().mockReturnValue(undefined),
+      );
+
+      // Wait for async action
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        "Event tracking is only available in platform mode.",
+      );
+    });
   });
 });
