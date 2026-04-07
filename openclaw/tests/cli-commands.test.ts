@@ -175,7 +175,6 @@ function createMockCfg() {
     apiKey: "m0-test-key-1234",
     baseUrl: "https://api.mem0.ai",
     topK: 5,
-    enableGraph: false,
     autoCapture: true,
     autoRecall: true,
     searchThreshold: 0.5,
@@ -967,7 +966,7 @@ describe("registerCliCommands", () => {
       const configCmd = findCommand(mem0, "config")!;
       const getCmd = findCommand(configCmd, "get")!;
 
-      getCmd._action!("org_id");
+      getCmd._action!("email");
 
       expect(consoleSpy.log).toHaveBeenCalledWith("(not set)");
     });
@@ -1033,18 +1032,6 @@ describe("registerCliCommands", () => {
       );
     });
 
-    it("coerces 'true' to boolean for boolean keys", () => {
-      const { mem0 } = setup();
-      const configCmd = findCommand(mem0, "config")!;
-      const setCmd = findCommand(configCmd, "set")!;
-
-      setCmd._action!("enable_graph", "true");
-
-      expect(writePluginAuth).toHaveBeenCalledWith(
-        expect.objectContaining({ enableGraph: true }),
-      );
-    });
-
     it("coerces 'false' to boolean false for boolean keys", () => {
       const { mem0 } = setup();
       const configCmd = findCommand(mem0, "config")!;
@@ -1066,18 +1053,6 @@ describe("registerCliCommands", () => {
 
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({ autoCapture: true }),
-      );
-    });
-
-    it("coerces 'yes' to boolean true for boolean keys", () => {
-      const { mem0 } = setup();
-      const configCmd = findCommand(mem0, "config")!;
-      const setCmd = findCommand(configCmd, "set")!;
-
-      setCmd._action!("enable_graph", "yes");
-
-      expect(writePluginAuth).toHaveBeenCalledWith(
-        expect.objectContaining({ enableGraph: true }),
       );
     });
 

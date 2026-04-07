@@ -32,7 +32,6 @@ function createMockToolDeps(overrides = {}): ToolDeps {
       mode: "platform",
       userId: "testuser",
       topK: 5,
-      enableGraph: false,
       autoCapture: true,
       autoRecall: true,
       searchThreshold: 0.5,

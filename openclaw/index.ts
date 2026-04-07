@@ -103,8 +103,6 @@ const memoryPlugin = definePluginEntry({
     const fileConfig: FileConfig = {
       apiKey: pluginAuth.apiKey,
       baseUrl: pluginAuth.baseUrl,
-      orgId: pluginAuth.orgId,
-      projectId: pluginAuth.projectId,
     };
     const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
 
@@ -182,7 +180,7 @@ const memoryPlugin = definePluginEntry({
     });
 
     api.logger.info(
-      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
+      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
     );
 
     // Helper: build add options
@@ -197,7 +195,6 @@ const memoryPlugin = definePluginEntry({
       };
       if (runId) opts.run_id = runId;
       if (cfg.mode === "platform") {
-        opts.enable_graph = cfg.enableGraph;
         opts.output_format = "v1.1";
       }
       return opts;
