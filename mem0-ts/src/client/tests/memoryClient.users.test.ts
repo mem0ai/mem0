@@ -3,13 +3,7 @@
  * Tests verify entity type routing and request construction.
  */
 import { MemoryClient } from "../mem0";
-import {
-  createMockUser,
-  createMockAllUsers,
-  TEST_API_KEY,
-  TEST_ORG_ID,
-  TEST_PROJECT_ID,
-} from "./helpers";
+import { createMockUser, createMockAllUsers, TEST_API_KEY } from "./helpers";
 import {
   setupMockFetch,
   findFetchCall,
@@ -45,11 +39,7 @@ describe("MemoryClient - users()", () => {
 describe("MemoryClient - deleteUsers()", () => {
   function createClientWithMockedAxios() {
     setupMockFetch();
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const axiosDeleteMock = jest
       .fn()
       .mockResolvedValue({ data: { message: "Deleted" } });
@@ -61,42 +51,28 @@ describe("MemoryClient - deleteUsers()", () => {
     const { client, axiosDeleteMock } = createClientWithMockedAxios();
     await client.deleteUsers({ user_id: "u1" });
 
-    expect(axiosDeleteMock).toHaveBeenCalledWith("/v2/entities/user/u1/", {
-      params: expect.objectContaining({
-        org_id: TEST_ORG_ID,
-        project_id: TEST_PROJECT_ID,
-      }),
-    });
+    expect(axiosDeleteMock).toHaveBeenCalledWith("/v2/entities/user/u1/");
   });
 
   test("routes agent_id to DELETE /v2/entities/agent/:name/", async () => {
     const { client, axiosDeleteMock } = createClientWithMockedAxios();
     await client.deleteUsers({ agent_id: "agent_1" });
 
-    expect(axiosDeleteMock).toHaveBeenCalledWith(
-      "/v2/entities/agent/agent_1/",
-      expect.any(Object),
-    );
+    expect(axiosDeleteMock).toHaveBeenCalledWith("/v2/entities/agent/agent_1/");
   });
 
   test("routes app_id to DELETE /v2/entities/app/:name/", async () => {
     const { client, axiosDeleteMock } = createClientWithMockedAxios();
     await client.deleteUsers({ app_id: "app_1" });
 
-    expect(axiosDeleteMock).toHaveBeenCalledWith(
-      "/v2/entities/app/app_1/",
-      expect.any(Object),
-    );
+    expect(axiosDeleteMock).toHaveBeenCalledWith("/v2/entities/app/app_1/");
   });
 
   test("routes run_id to DELETE /v2/entities/run/:name/", async () => {
     const { client, axiosDeleteMock } = createClientWithMockedAxios();
     await client.deleteUsers({ run_id: "run_1" });
 
-    expect(axiosDeleteMock).toHaveBeenCalledWith(
-      "/v2/entities/run/run_1/",
-      expect.any(Object),
-    );
+    expect(axiosDeleteMock).toHaveBeenCalledWith("/v2/entities/run/run_1/");
   });
 
   test("returns 'Entity deleted successfully.' for single entity", async () => {
@@ -113,11 +89,7 @@ describe("MemoryClient - deleteUsers()", () => {
     });
     setupMockFetch(extra);
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
     client.client.delete = jest
       .fn()
       .mockResolvedValue({ data: { message: "Deleted" } });
@@ -134,11 +106,7 @@ describe("MemoryClient - deleteUsers()", () => {
     });
     setupMockFetch(extra);
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
     client.client.delete = jest.fn();
 
     await expect(client.deleteUsers()).rejects.toThrow("No entities to delete");

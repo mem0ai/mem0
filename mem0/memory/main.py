@@ -245,7 +245,7 @@ class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
-        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
+        self.custom_instructions = self.config.custom_instructions
         self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
@@ -512,8 +512,8 @@ class Memory(MemoryBase):
 
         parsed_messages = parse_messages(messages)
 
-        if self.config.custom_fact_extraction_prompt:
-            system_prompt = self.config.custom_fact_extraction_prompt
+        if self.config.custom_instructions:
+            system_prompt = self.config.custom_instructions
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             # Determine if this should use agent memory extraction based on agent_id presence
@@ -1624,8 +1624,8 @@ class AsyncMemory(MemoryBase):
             return returned_memories
 
         parsed_messages = parse_messages(messages)
-        if self.config.custom_fact_extraction_prompt:
-            system_prompt = self.config.custom_fact_extraction_prompt
+        if self.config.custom_instructions:
+            system_prompt = self.config.custom_instructions
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             # Determine if this should use agent memory extraction based on agent_id presence

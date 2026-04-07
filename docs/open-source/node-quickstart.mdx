@@ -230,7 +230,7 @@ Mem0 offers granular configuration across vector stores, LLMs, embedders, and hi
 | --- | --- | --- |
 | `historyDbPath` | Path to history database | `"{mem0_dir}/history.db"` |
 | `version` | API version | `"v1.0"` |
-| `customPrompt` | Custom processing prompt | `undefined` |
+| `customInstructions` | Custom processing prompt | `undefined` |
   </Accordion>
   <Accordion title="History store">
 | Parameter | Description | Default |
@@ -273,7 +273,7 @@ const config = {
     }
   },
   disableHistory: false,
-  customPrompt: "I'm a virtual assistant. I'm here to help you with your queries."
+  customInstructions: "I'm a virtual assistant. I'm here to help you with your queries."
 };
 ```
   </Accordion>

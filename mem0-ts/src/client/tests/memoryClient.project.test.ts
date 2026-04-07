@@ -22,7 +22,7 @@ installConsoleSuppression();
 // ─── getProject() ───────────────────────────────────────
 
 describe("MemoryClient - getProject()", () => {
-  test("throws when organizationId and projectId not set", async () => {
+  test("throws when organizationId and projectId not set (ping returns no org)", async () => {
     const responses = new Map<string, { status: number; body: unknown }>();
     responses.set("/v1/ping/", { status: 200, body: { status: "ok" } });
     global.fetch = createMockFetch(responses);
@@ -47,11 +47,9 @@ describe("MemoryClient - getProject()", () => {
     });
     const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    // org/project come from ping mock response
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.ping();
     await client.getProject({ fields: ["custom_instructions"] });
 
     const call = mock.mock.calls.find(
@@ -74,11 +72,8 @@ describe("MemoryClient - updateProject()", () => {
     });
     const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.ping();
     await client.updateProject({
       custom_instructions: "Updated instructions",
     });
@@ -95,11 +90,8 @@ describe("MemoryClient - updateProject()", () => {
     });
     const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.ping();
     await client.updateProject({
       custom_instructions: "Updated instructions",
     });
@@ -161,11 +153,7 @@ describe("MemoryClient - feedback()", () => {
 describe("MemoryClient - Memory Exports", () => {
   test("createMemoryExport throws when missing filters or schema", async () => {
     setupMockFetch();
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await expect(
       client.createMemoryExport({
         filters: null as never,
@@ -182,11 +170,7 @@ describe("MemoryClient - Memory Exports", () => {
     });
     const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.createMemoryExport({
       schema: { fields: ["memory", "user_id"] },
       filters: { user_id: "u1" },
@@ -195,7 +179,7 @@ describe("MemoryClient - Memory Exports", () => {
     expect(findFetchCall(mock, "/v1/exports/", "POST")).toBeDefined();
   });
 
-  test("createMemoryExport attaches org_id and project_id to body", async () => {
+  test("createMemoryExport does not attach org_id/project_id to body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v1/exports/", {
       status: 200,
@@ -203,11 +187,7 @@ describe("MemoryClient - Memory Exports", () => {
     });
     const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.createMemoryExport({
       schema: { fields: ["memory"] },
       filters: { user_id: "u1" },
@@ -215,17 +195,13 @@ describe("MemoryClient - Memory Exports", () => {
 
     const call = findFetchCall(mock, "/v1/exports/", "POST");
     const body = getFetchBody(call!);
-    expect(body.org_id).toBe(TEST_ORG_ID);
-    expect(body.project_id).toBe(TEST_PROJECT_ID);
+    expect(body.org_id).toBeUndefined();
+    expect(body.project_id).toBeUndefined();
   });
 
   test("getMemoryExport throws when missing both id and filters", async () => {
     setupMockFetch();
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await expect(client.getMemoryExport({} as never)).rejects.toThrow(
       "Missing memory_export_id or filters",
     );
@@ -239,11 +215,7 @@ describe("MemoryClient - Memory Exports", () => {
     });
     const mock = setupMockFetch(extra);
 
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.getMemoryExport({ memory_export_id: "exp_123" });
 
     expect(findFetchCall(mock, "/v1/exports/get/", "POST")).toBeDefined();

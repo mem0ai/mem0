@@ -35,7 +35,7 @@ class TestAddToVectorStoreErrors:
 
         memory = Memory()
         memory.config = mocker.MagicMock()
-        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
         memory.api_version = "v1.1"
 
@@ -139,7 +139,7 @@ class TestAsyncAddToVectorStoreErrors:
 
         memory = AsyncMemory()
         memory.config = mocker.MagicMock()
-        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
         memory.api_version = "v1.1"
 
@@ -187,7 +187,7 @@ def _build_memory_instance(mocker, memory_cls):
     mocker.patch("mem0.memory.main.MEM0_TELEMETRY", False)
     memory = memory_cls()
     memory.config = mocker.MagicMock()
-    memory.config.custom_fact_extraction_prompt = None
+    memory.config.custom_instructions = None
     memory.config.custom_update_memory_prompt = None
     memory.api_version = "v1.1"
     memory.vector_store = mocker.MagicMock()

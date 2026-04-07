@@ -1,13 +1,13 @@
 ---
-title: Custom Fact Extraction Prompt
+title: Custom Instructions
 description: Tailor fact extraction so Mem0 stores only the details you care about.
 icon: "wand-magic-sparkles"
 ---
 
-Custom fact extraction prompts let you decide exactly which facts Mem0 records from a conversation. Define a focused prompt, give a few examples, and Mem0 will add only the memories that match your use case.
+Custom instructions let you decide exactly which facts Mem0 records from a conversation. Define a focused prompt, give a few examples, and Mem0 will add only the memories that match your use case.
 
 <Info>
-  **You’ll use this when…**
+  **You'll use this when...**
   - A project needs domain-specific facts (order numbers, customer info) without storing casual chatter.
   - You already have a clear schema for memories and want the LLM to follow it.
   - You must prevent irrelevant details from entering long-term storage.
@@ -24,13 +24,13 @@ Custom fact extraction prompts let you decide exactly which facts Mem0 records f
 - **Prompt instructions:** Describe which entities or phrases to keep. Specific guidance keeps the extractor focused.
 - **Few-shot examples:** Show positive and negative cases so the model copies the right format.
 - **Structured output:** Responses return JSON with a `facts` array that Mem0 converts into individual memories.
-- **LLM configuration:** `custom_fact_extraction_prompt` (Python) or `customPrompt` (TypeScript) lives alongside your model settings.
+- **LLM configuration:** `custom_instructions` (Python) or `customInstructions` (TypeScript) lives alongside your model settings.
 
 <AccordionGroup>
   <Accordion title="Prompt blueprint">
-    1. State the allowed fact types.  
-    2. Include short examples that mirror production messages.  
-    3. Show both empty (`[]`) and populated outputs.  
+    1. State the allowed fact types.
+    2. Include short examples that mirror production messages.
+    3. Show both empty (`[]`) and populated outputs.
     4. Remind the model to return JSON with a `facts` key only.
   </Accordion>
 </AccordionGroup>
@@ -43,8 +43,8 @@ Custom fact extraction prompts let you decide exactly which facts Mem0 records f
 
 <CodeGroup>
 ```python Python
-custom_fact_extraction_prompt = """
-Please only extract entities containing customer support information, order details, and user information. 
+custom_instructions = """
+Please only extract entities containing customer support information, order details, and user information.
 Here are some few shot examples:
 
 Input: Hi.
@@ -67,8 +67,8 @@ Return the facts and customer information in a json format as shown above.
 ```
 
 ```ts TypeScript
-const customPrompt = `
-Please only extract entities containing customer support information, order details, and user information. 
+const customInstructions = `
+Please only extract entities containing customer support information, order details, and user information.
 Here are some few shot examples:
 
 Input: Hi.
@@ -110,7 +110,7 @@ config = {
             "max_tokens": 2000,
         }
     },
-    "custom_fact_extraction_prompt": custom_fact_extraction_prompt,
+    "custom_instructions": custom_instructions,
     "version": "v1.1"
 }
 
@@ -131,7 +131,7 @@ const config = {
       maxTokens: 1500,
     },
   },
-  customPrompt: customPrompt,
+  customInstructions: customInstructions,
 };
 
 const memory = new Memory(config);

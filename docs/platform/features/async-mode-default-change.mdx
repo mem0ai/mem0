@@ -4,9 +4,15 @@ description: "The async_mode parameter now defaults to true for all memory addit
 ---
 
 <Note type="warning">
-  **Important Change**
+  **Parameter Removed from SDK**
 
-  The `async_mode` parameter defaults to `true` for all memory additions, changing the default API behavior to asynchronous processing.
+  The `async_mode` parameter has been removed from the Python and TypeScript SDKs. The platform now handles all memory operations asynchronously by default. You no longer need to pass `async_mode` when calling `add()` or other methods through the SDK. If you need synchronous behavior, use the REST API directly with `async_mode: false`.
+</Note>
+
+<Note type="warning">
+  **Historical Context**
+
+  The `async_mode` parameter previously defaulted to `true` for all memory additions, changing the default API behavior to asynchronous processing. The information below is preserved for reference for users working directly with the REST API.
 </Note>
 
 ## Overview
@@ -78,7 +84,8 @@ from mem0 import MemoryClient
 
 client = MemoryClient(api_key="your-api-key")
 
-# Explicitly set async_mode=False to preserve synchronous behavior
+# The SDK no longer accepts async_mode; operations are asynchronous by default.
+# To force synchronous processing, use the REST API directly (see cURL example).
 messages = [
     {"role": "user", "content": "I ordered a Nova 2000"}
 ]
@@ -86,7 +93,6 @@ messages = [
 result = client.add(
     messages,
     user_id="user-123",
-    async_mode=False  # This ensures synchronous processing
 )
 ```
 
@@ -95,14 +101,14 @@ const { MemoryClient } = require('mem0ai');
 
 const client = new MemoryClient({ apiKey: 'your-api-key' });
 
-// Explicitly set async_mode: false to preserve synchronous behavior
+// The SDK no longer accepts async_mode; operations are asynchronous by default.
+// To force synchronous processing, use the REST API directly (see cURL example).
 const messages = [
     { role: "user", content: "I ordered a Nova 2000" }
 ];
 
 const result = await client.add(messages, {
     user_id: "user-123",
-    async_mode: false  // This ensures synchronous processing
 });
 ```
 

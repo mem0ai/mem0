@@ -122,8 +122,6 @@
                     "icon": "arrow-right",
                     "pages": [
                       "migration/oss-to-platform",
-                      "migration/v0-to-v1",
-                      "migration/breaking-changes",
                       "migration/api-changes"
                     ]
                   },
@@ -179,7 +177,7 @@
                       "open-source/features/reranker-search",
                       "open-source/features/async-memory",
                       "open-source/features/multimodal-support",
-                      "open-source/features/custom-fact-extraction-prompt",
+                      "open-source/features/custom-instructions",
                       "open-source/features/custom-update-memory-prompt",
                       "open-source/features/rest-api",
                       "open-source/features/openai_compatibility"

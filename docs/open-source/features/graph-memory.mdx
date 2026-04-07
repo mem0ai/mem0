@@ -146,7 +146,7 @@ await memory.add(conversation, { userId: "demo-user" });
 
 const results = await memory.search(
   "Who did Alice meet at GraphConf?",
-  { userId: "demo-user", limit: 3, rerank: true }
+  { userId: "demo-user", topK: 3, rerank: true }
 );
 
 results.results.forEach((hit) => {
@@ -204,7 +204,7 @@ const config = {
       username: process.env.NEO4J_USERNAME!,
       password: process.env.NEO4J_PASSWORD!,
     },
-    customPrompt: "Please only capture people, organisations, and project links.",
+    customInstructions: "Please only capture people, organisations, and project links.",
   }
 };
 

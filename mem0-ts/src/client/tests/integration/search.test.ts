@@ -1,7 +1,7 @@
 /**
  * Integration tests: Search and history operations.
  *
- * Tests search v1, search v2, and memory history against the real API.
+ * Tests search, filtered search, and memory history against the real API.
  *
  * Run: MEM0_API_KEY=your-key npx jest search.test.ts --forceExit
  */
@@ -36,8 +36,8 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
     cleanup();
   });
 
-  // ─── Search v1 ────────────────────────────────────────────
-  describe("search v1", () => {
+  // ─── Search ─────────────────────────────────────────────
+  describe("search", () => {
     test("searches memories by user_id and returns results with scores", async () => {
       // Search index may lag behind listing index — poll until ready
       const results = await waitForSearchResults(
@@ -57,15 +57,14 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
     });
   });
 
-  // ─── Search v2 ────────────────────────────────────────────
-  describe("search v2", () => {
+  // ─── Search with filters ─────────────────────────────────
+  describe("search with filters", () => {
     test("searches with OR filters and returns results", async () => {
       const results = await waitForSearchResults(
         client,
         "What do you know about me?",
         {
           filters: { OR: [{ user_id: TEST_USER_ID }] },
-          api_version: "v2",
         },
       );
 
@@ -117,12 +116,12 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       expect(results.length).toBe(0);
     });
 
-    test("search with limit param does not throw", async () => {
+    test("search with top_k param does not throw", async () => {
       const results = await client.search(
         "Tell me about integration test user",
         {
           user_id: TEST_USER_ID,
-          limit: 1,
+          top_k: 1,
         },
       );
 

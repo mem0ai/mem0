@@ -60,7 +60,7 @@ def memory_custom_instance():
 
         config = MemoryConfig(
             version="v1.1",
-            custom_fact_extraction_prompt="custom prompt extracting memory in json format",
+            custom_instructions="custom prompt extracting memory in json format",
             custom_update_memory_prompt="custom prompt determining memory update",
         )
         config.graph_store.config = {"some_config": "value"}
@@ -314,7 +314,7 @@ def test_custom_prompts(memory_custom_instance):
 
             memory_custom_instance.llm.generate_response.assert_any_call(
                 messages=[
-                    {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
+                    {"role": "system", "content": memory_custom_instance.config.custom_instructions},
                     {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
                 ],
                 response_format={"type": "json_object"},

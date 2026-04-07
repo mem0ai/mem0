@@ -60,7 +60,7 @@ export interface GraphStoreConfig {
   provider: string;
   config: Neo4jConfig;
   llm?: LLMConfig;
-  customPrompt?: string;
+  customInstructions?: string;
 }
 
 export interface MemoryConfig {
@@ -80,7 +80,7 @@ export interface MemoryConfig {
   historyStore?: HistoryStoreConfig;
   disableHistory?: boolean;
   historyDbPath?: string;
-  customPrompt?: string;
+  customInstructions?: string;
   graphStore?: GraphStoreConfig;
   enableGraph?: boolean;
 }
@@ -148,7 +148,7 @@ export const MemoryConfigSchema = z.object({
     }),
   }),
   historyDbPath: z.string().optional(),
-  customPrompt: z.string().optional(),
+  customInstructions: z.string().optional(),
   enableGraph: z.boolean().optional(),
   graphStore: z
     .object({
@@ -164,7 +164,7 @@ export const MemoryConfigSchema = z.object({
           config: z.record(z.string(), z.any()),
         })
         .optional(),
-      customPrompt: z.string().optional(),
+      customInstructions: z.string().optional(),
     })
     .optional(),
   historyStore: z

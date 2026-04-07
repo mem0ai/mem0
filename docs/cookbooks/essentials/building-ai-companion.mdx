@@ -354,10 +354,10 @@ Exclude:
 ```
   </Tab>
   <Tab title="Open Source">
-Tell Mem0 what matters by including `custom_fact_extraction_prompt` in the config dict:
+Tell Mem0 what matters by including `custom_instructions` in the config dict:
 
 ```python
-MEMORY_CONFIG["custom_fact_extraction_prompt"] = """
+MEMORY_CONFIG["custom_instructions"] = """
 Extract from running coach conversations:
 - Training goals and race targets
 - Physical constraints or injuries
@@ -375,7 +375,7 @@ Return JSON with key "facts" as a list of strings (use [] if nothing to store).
 memory = Memory.from_config(MEMORY_CONFIG)
 ```
 
-<Note>`custom_fact_extraction_prompt` is a top-level key in the config dictionary passed to `Memory.from_config()`. Make sure it's set before creating the Memory instance — not after.</Note>
+<Note>`custom_instructions` is a top-level key in the config dictionary passed to `Memory.from_config()`. Make sure it's set before creating the Memory instance — not after.</Note>
   </Tab>
 </Tabs>
 
@@ -520,7 +520,7 @@ memory.add(
 # "hey" → don't store
 # "cool thanks" → don't store
 
-# Or rely on custom_fact_extraction_prompt to filter automatically
+# Or rely on custom_instructions to filter automatically
 ```
   </Tab>
 </Tabs>
@@ -627,7 +627,7 @@ MEMORY_CONFIG = {
             "ollama_base_url": "http://localhost:11434",
         },
     },
-    "custom_fact_extraction_prompt": """
+    "custom_instructions": """
     Extract: goals, constraints, preferences, progress
     Exclude: greetings, filler, casual chat
     Return JSON with key "facts" as a list of strings.

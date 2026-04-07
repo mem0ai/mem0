@@ -5,7 +5,7 @@
  */
 import { MemoryClient } from "../mem0";
 import { WebhookEvent } from "../mem0.types";
-import { TEST_API_KEY, TEST_ORG_ID, TEST_PROJECT_ID } from "./helpers";
+import { TEST_API_KEY } from "./helpers";
 import {
   setupMockFetch,
   findFetchCall,
@@ -23,8 +23,6 @@ function webhookMock(extra?: Map<string, { status: number; body: unknown }>) {
 function createClient() {
   return new MemoryClient({
     apiKey: TEST_API_KEY,
-    organizationId: TEST_ORG_ID,
-    projectId: TEST_PROJECT_ID,
   });
 }
 

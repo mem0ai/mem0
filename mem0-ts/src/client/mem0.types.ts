@@ -1,59 +1,73 @@
-interface Common {
-  project_id?: string | null;
-  org_id?: string | null;
-}
-
-export interface MemoryOptions {
-  api_version?: API_VERSION | string;
-  version?: API_VERSION | string;
+// ─── Base Options (shared across memory operations) ─────────
+export interface BaseMemoryOptions {
   user_id?: string;
   agent_id?: string;
   app_id?: string;
   run_id?: string;
   metadata?: Record<string, any>;
   filters?: Record<string, any>;
-  org_name?: string | null; // Deprecated
-  project_name?: string | null; // Deprecated
-  org_id?: string | number | null;
-  project_id?: string | number | null;
+}
+
+// ─── Per-Method Options ─────────────────────────────────────
+export interface AddMemoryOptions extends BaseMemoryOptions {
   infer?: boolean;
-  page?: number;
-  page_size?: number;
-  includes?: string;
-  excludes?: string;
-  enable_graph?: boolean;
-  start_date?: string;
-  end_date?: string;
   custom_categories?: custom_categories[];
   custom_instructions?: string;
   timestamp?: number;
-  output_format?: string | OutputFormat;
-  async_mode?: boolean;
-  filter_memories?: boolean;
-  immutable?: boolean;
   structured_data_schema?: Record<string, any>;
 }
 
+export interface SearchMemoryOptions extends BaseMemoryOptions {
+  top_k?: number;
+  threshold?: number;
+  rerank?: boolean;
+  fields?: string[];
+  categories?: string[];
+  only_metadata_based_search?: boolean;
+}
+
+export interface GetAllMemoryOptions extends BaseMemoryOptions {
+  page?: number;
+  page_size?: number;
+  start_date?: string;
+  end_date?: string;
+  categories?: string[];
+}
+
+export interface DeleteAllMemoryOptions extends BaseMemoryOptions {}
+
+export interface GetUsersOptions {
+  page?: number;
+  page_size?: number;
+}
+
+// ─── Project Options ────────────────────────────────────────
 export interface ProjectOptions {
   fields?: string[];
 }
 
-export enum OutputFormat {
-  V1 = "v1.0",
-  V1_1 = "v1.1",
+export interface PromptUpdatePayload {
+  custom_instructions?: string;
+  custom_categories?: custom_categories[];
+  retrieval_criteria?: any[];
+  enable_graph?: boolean;
+  version?: string;
+  inclusion_prompt?: string;
+  exclusion_prompt?: string;
+  memory_depth?: string | null;
+  usecase_setting?: string | number;
+  multilingual?: boolean;
+  [key: string]: any;
 }
 
-export enum API_VERSION {
-  V1 = "v1",
-  V2 = "v2",
-}
-
+// ─── Enums ──────────────────────────────────────────────────
 export enum Feedback {
   POSITIVE = "POSITIVE",
   NEGATIVE = "NEGATIVE",
   VERY_NEGATIVE = "VERY_NEGATIVE",
 }
 
+// ─── Message Types ──────────────────────────────────────────
 export interface MultiModalMessages {
   type: "image_url";
   image_url: {
@@ -68,30 +82,9 @@ export interface Messages {
 
 export interface Message extends Messages {}
 
-export interface MemoryHistory {
-  id: string;
-  memory_id: string;
-  input: Array<Messages>;
-  old_memory: string | null;
-  new_memory: string | null;
-  user_id: string;
-  categories: Array<string>;
-  event: Event | string;
-  created_at: Date;
-  updated_at: Date;
-}
-
-export interface SearchOptions extends MemoryOptions {
-  api_version?: API_VERSION | string;
-  limit?: number;
-  enable_graph?: boolean;
-  threshold?: number;
-  top_k?: number;
-  only_metadata_based_search?: boolean;
-  keyword_search?: boolean;
-  fields?: string[];
-  categories?: string[];
-  rerank?: boolean;
+// ─── Response Types (reflect API shapes, unchanged) ─────────
+export interface MemoryData {
+  memory: string;
 }
 
 enum Event {
@@ -99,10 +92,6 @@ enum Event {
   UPDATE = "UPDATE",
   DELETE = "DELETE",
   NOOP = "NOOP",
-}
-
-export interface MemoryData {
-  memory: string;
 }
 
 export interface Memory {
@@ -123,6 +112,19 @@ export interface Memory {
   agent_id?: string | null;
   app_id?: string | null;
   run_id?: string | null;
+}
+
+export interface MemoryHistory {
+  id: string;
+  memory_id: string;
+  input: Array<Messages>;
+  old_memory: string | null;
+  new_memory: string | null;
+  user_id: string;
+  categories: Array<string>;
+  event: Event | string;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface MemoryUpdateBody {
@@ -157,20 +159,7 @@ interface custom_categories {
   [key: string]: any;
 }
 
-export interface PromptUpdatePayload {
-  custom_instructions?: string;
-  custom_categories?: custom_categories[];
-  retrieval_criteria?: any[];
-  enable_graph?: boolean;
-  version?: string;
-  inclusion_prompt?: string;
-  exclusion_prompt?: string;
-  memory_depth?: string | null;
-  usecase_setting?: string | number;
-  multilingual?: boolean;
-  [key: string]: any;
-}
-
+// ─── Webhook Types ──────────────────────────────────────────
 export enum WebhookEvent {
   MEMORY_ADDED = "memory_add",
   MEMORY_UPDATED = "memory_update",
@@ -202,19 +191,20 @@ export interface WebhookUpdatePayload {
   eventTypes?: WebhookEvent[];
 }
 
+// ─── Feedback & Export Types ────────────────────────────────
 export interface FeedbackPayload {
   memory_id: string;
   feedback?: Feedback | null;
   feedback_reason?: string | null;
 }
 
-export interface CreateMemoryExportPayload extends Common {
+export interface CreateMemoryExportPayload {
   schema: Record<string, any>;
   filters: Record<string, any>;
   export_instructions?: string;
 }
 
-export interface GetMemoryExportPayload extends Common {
+export interface GetMemoryExportPayload {
   filters?: Record<string, any>;
   memory_export_id?: string;
 }
