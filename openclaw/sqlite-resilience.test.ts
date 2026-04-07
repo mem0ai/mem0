@@ -4,8 +4,17 @@
  * 2. initPromise poisoning fix (retry after failure)
  * 3. Graceful SQLite fallback in OSSProvider
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mem0ConfigSchema, createProvider } from "./index.ts";
+
+/** Stub vector-store classes required by OSSProvider._init's patching loop. */
+function vectorStubs() {
+  return {
+    PGVector: class { initialize() { return Promise.resolve(); } },
+    RedisDB: class { initialize() { return Promise.resolve(); } },
+    Qdrant: class { initialize() { return Promise.resolve(); } },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // 1. Config: disableHistory passthrough
@@ -60,6 +69,7 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
   beforeEach(() => {
     capturedConfig = undefined;
     memoryCallCount = 0;
+    vi.resetModules();
 
     vi.doMock("mem0ai/oss", () => ({
       Memory: class MockMemory {
@@ -81,7 +91,12 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
         }
         async delete() {}
       },
+      ...vectorStubs(),
     }));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("passes disableHistory: true to Memory when configured", async () => {
@@ -130,6 +145,7 @@ describe("OSSProvider — initPromise retry after failure", () => {
 
   beforeEach(() => {
     callCount = 0;
+    vi.resetModules();
 
     vi.doMock("mem0ai/oss", () => ({
       Memory: class MockMemory {
@@ -154,7 +170,12 @@ describe("OSSProvider — initPromise retry after failure", () => {
         }
         async delete() {}
       },
+      ...vectorStubs(),
     }));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("retries initialization after a transient failure", async () => {
@@ -187,6 +208,7 @@ describe("OSSProvider — graceful SQLite fallback", () => {
 
   beforeEach(() => {
     capturedConfigs = [];
+    vi.resetModules();
 
     vi.doMock("mem0ai/oss", () => ({
       Memory: class MockMemory {
@@ -211,7 +233,12 @@ describe("OSSProvider — graceful SQLite fallback", () => {
         }
         async delete() {}
       },
+      ...vectorStubs(),
     }));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("retries with disableHistory: true when initial construction fails", async () => {
@@ -242,13 +269,16 @@ describe("OSSProvider — graceful SQLite fallback", () => {
   });
 
   it("does not retry when disableHistory is already true", async () => {
+    vi.resetModules();
+
     vi.doMock("mem0ai/oss", () => ({
       Memory: class MockMemory {
-        constructor(config: Record<string, unknown>) {
+        constructor(_config: Record<string, unknown>) {
           // Fail even with disableHistory (e.g. vector store issue)
           throw new Error("vector store connection refused");
         }
       },
+      ...vectorStubs(),
     }));
 
     const { createProvider } = await import("./index.ts");
@@ -274,6 +304,7 @@ describe("PlatformProvider — initPromise retry after failure", () => {
 
   beforeEach(() => {
     callCount = 0;
+    vi.resetModules();
 
     vi.doMock("mem0ai", () => ({
       default: class MockMemoryClient {
@@ -298,6 +329,10 @@ describe("PlatformProvider — initPromise retry after failure", () => {
         async delete() {}
       },
     }));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("retries initialization after a transient failure", async () => {
