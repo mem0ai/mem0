@@ -205,15 +205,21 @@ describe("OSSProvider — initPromise retry after failure", () => {
 // ---------------------------------------------------------------------------
 describe("OSSProvider — graceful SQLite fallback", () => {
   let capturedConfigs: Record<string, unknown>[];
+  /** When set, the mock Memory constructor always throws with this message. */
+  let forceConstructorError: string | null;
 
   beforeEach(() => {
     capturedConfigs = [];
+    forceConstructorError = null;
     vi.resetModules();
 
     vi.doMock("mem0ai/oss", () => ({
       Memory: class MockMemory {
         constructor(config: Record<string, unknown>) {
           capturedConfigs.push({ ...config });
+          if (forceConstructorError) {
+            throw new Error(forceConstructorError);
+          }
           if (!config.disableHistory) {
             throw new Error("Could not locate the bindings file");
           }
@@ -269,17 +275,8 @@ describe("OSSProvider — graceful SQLite fallback", () => {
   });
 
   it("does not retry when disableHistory is already true", async () => {
-    vi.resetModules();
-
-    vi.doMock("mem0ai/oss", () => ({
-      Memory: class MockMemory {
-        constructor(_config: Record<string, unknown>) {
-          // Fail even with disableHistory (e.g. vector store issue)
-          throw new Error("vector store connection refused");
-        }
-      },
-      ...vectorStubs(),
-    }));
+    // Force the constructor to always throw, regardless of disableHistory
+    forceConstructorError = "vector store connection refused";
 
     const { createProvider } = await import("./index.ts");
     const cfg = mem0ConfigSchema.parse({
