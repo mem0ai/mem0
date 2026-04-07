@@ -1,4 +1,4 @@
-import { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import { Mem0ConfigSettings } from './mem0-types';
 import { loadApiKey } from '@ai-sdk/provider-utils';
 interface MultimodalContent {
@@ -26,7 +26,7 @@ interface Message {
     content: string | MultimodalContent | Array<MultimodalContent>;
 }
 
-const flattenPrompt = (prompt: LanguageModelV2Prompt) => {
+const flattenPrompt = (prompt: LanguageModelV3Prompt) => {
     try {
         return prompt.map((part) => {
             if (part.role === "user") {
@@ -66,7 +66,7 @@ const flattenPrompt = (prompt: LanguageModelV2Prompt) => {
     }
 }
 
-const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
+const convertToMem0Format = (messages: LanguageModelV3Prompt) => {
     try {
         return messages.flatMap((message: any) => {
             try {
@@ -85,7 +85,7 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
                                     content: obj.text,
                                 };
                             } else if (obj.type === "file") {
-                                // Handle LanguageModelV2Prompt file format
+                                // Handle LanguageModelV3Prompt file format
                                 if (obj.mediaType === "application/pdf") {
                                     return {
                                         role: message.role,
@@ -163,7 +163,7 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
                             content: obj.text,
                         };
                     } else if (obj.type === "file") {
-                        // Handle LanguageModelV2Prompt file format
+                        // Handle LanguageModelV3Prompt file format
                         if (obj.mediaType === "application/pdf") {
                             return {
                                 role: message.role,
@@ -307,7 +307,7 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
     }
 }
 
-const addMemories = async (messages: LanguageModelV2Prompt, config?: Mem0ConfigSettings) => {
+const addMemories = async (messages: LanguageModelV3Prompt, config?: Mem0ConfigSettings) => {
     try {
         let finalMessages: Array<Message> = [];
         if (typeof messages === "string") {
@@ -353,7 +353,7 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
     }
 }
 
-const retrieveMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
+const retrieveMemories = async (prompt: LanguageModelV3Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const systemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
@@ -389,7 +389,7 @@ const retrieveMemories = async (prompt: LanguageModelV2Prompt | string, config?:
     }
 }
 
-const getMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
+const getMemories = async (prompt: LanguageModelV3Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const memories = await searchInternalMemories(message, config);
@@ -404,7 +404,7 @@ const getMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0
     }
 }
 
-const searchMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
+const searchMemories = async (prompt: LanguageModelV3Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const memories = await searchInternalMemories(message, config);

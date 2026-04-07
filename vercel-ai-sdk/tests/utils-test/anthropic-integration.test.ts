@@ -3,7 +3,7 @@ dotenv.config();
 
 import { retrieveMemories } from "../../src";
 import { generateText } from "ai";
-import { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import { testConfig } from "../../config/test-config";
 import { createAnthropic } from "@ai-sdk/anthropic";
 
@@ -20,7 +20,7 @@ describe("ANTHROPIC Integration Tests", () => {
   });
 
   it("should retrieve memories and generate text using ANTHROPIC provider", async () => {
-    const messages: LanguageModelV2Prompt = [
+    const messages: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [

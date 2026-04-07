@@ -1,4 +1,4 @@
-import { LanguageModelV2, LanguageModelV2CallOptions } from "@ai-sdk/provider";
+import { LanguageModelV3, LanguageModelV3CallOptions, LanguageModelV3GenerateResult, LanguageModelV3StreamResult } from "@ai-sdk/provider";
 import { Mem0ProviderSettings } from "./mem0-provider";
 import { createOpenAI, OpenAIProviderSettings } from "@ai-sdk/openai";
 import { CohereProviderSettings, createCohere } from "@ai-sdk/cohere";
@@ -7,10 +7,8 @@ import { createGoogleGenerativeAI, GoogleGenerativeAIProviderSettings } from "@a
 import { createGroq, GroqProviderSettings } from "@ai-sdk/groq";
 
 // Define a private provider field
-class Mem0AITextGenerator implements LanguageModelV2 {
-    readonly specificationVersion = "v2";
-    readonly defaultObjectGenerationMode = "json";
-    readonly supportsImageUrls = false;
+class Mem0AITextGenerator implements LanguageModelV3 {
+    readonly specificationVersion = "v3";
     readonly modelId: string;
     readonly provider = "mem0";
     readonly supportedUrls: Record<string, RegExp[]> = {
@@ -74,15 +72,15 @@ class Mem0AITextGenerator implements LanguageModelV2 {
                 throw new Error("Invalid provider");
         }
     }
-    
-    async doGenerate(options: LanguageModelV2CallOptions): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
+
+    async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> {
         const result = await this.languageModel.doGenerate(options);
-        return result as Awaited<ReturnType<LanguageModelV2['doGenerate']>>;
+        return result as LanguageModelV3GenerateResult;
     }
 
-    async doStream(options: LanguageModelV2CallOptions): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
+    async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
         const result = await this.languageModel.doStream(options);
-        return result as Awaited<ReturnType<LanguageModelV2['doStream']>>;
+        return result as LanguageModelV3StreamResult;
     }
 }
 

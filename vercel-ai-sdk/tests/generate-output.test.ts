@@ -1,5 +1,5 @@
 import { generateText, streamText } from "ai";
-import { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import { simulateStreamingMiddleware, wrapLanguageModel } from 'ai';
 import { addMemories } from "../src";
 import { testConfig } from "../config/test-config";
@@ -21,7 +21,7 @@ describe.each(testConfig.providers)('TESTS: Generate/Stream Text with model %s',
 
   beforeAll(async () => {
     // Add some test memories before all tests
-    const messages: LanguageModelV2Prompt = [
+    const messages: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [

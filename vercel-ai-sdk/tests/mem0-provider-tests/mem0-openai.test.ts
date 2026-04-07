@@ -3,7 +3,7 @@ dotenv.config();
 
 import { createMem0 } from "../../src";
 import { generateText } from "ai";
-import { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import { testConfig } from "../../config/test-config";
 
 describe("OPENAI MEM0 Tests", () => {
@@ -22,7 +22,7 @@ describe("OPENAI MEM0 Tests", () => {
   });
 
   it("should retrieve memories and generate text using Mem0 OpenAI provider", async () => {
-    const messages: LanguageModelV2Prompt = [
+    const messages: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [
