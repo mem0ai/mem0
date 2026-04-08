@@ -46,9 +46,15 @@ class OllamaEmbedding(EmbeddingBase):
             embeddings = response.get("embeddings") or []
             if embeddings and len(embeddings[0]) > 0:
                 return len(embeddings[0])
-        except Exception:
-            pass
-        return 512
+        except Exception as e:
+            raise ValueError(
+                f"Could not auto-detect embedding dimensions for Ollama model '{self.config.model}': {e}. "
+                f"Please set 'embedding_dims' explicitly in your embedder config."
+            ) from e
+        raise ValueError(
+            f"Ollama model '{self.config.model}' returned empty embeddings during dimension detection. "
+            f"Please set 'embedding_dims' explicitly in your embedder config."
+        )
 
     @staticmethod
     def _normalize_model_name(name: str) -> str:

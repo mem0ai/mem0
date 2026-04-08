@@ -241,6 +241,45 @@ setup_config()
 logger = logging.getLogger(__name__)
 
 
+def _sync_embedding_dims_to_vector_store(embedding_model, vector_store_config):
+    """Detect actual embedding dimensions and propagate to the vector store config.
+
+    Makes a single probe call to the embedder to measure the real output
+    dimension, which is always the source of truth.  Falls back to the
+    embedder's ``embedding_dims`` config when the probe fails.
+
+    Only overrides the vector store's dimension field when the user did NOT
+    explicitly set it (detected via Pydantic ``model_fields_set``).
+    """
+
+    actual_dims = None
+    try:
+        test_embedding = embedding_model.embed("dimension_probe")
+        actual_dims = len(test_embedding)
+    except Exception:
+        actual_dims = getattr(embedding_model.config, "embedding_dims", None)
+
+    if actual_dims is None:
+        return
+
+    embedding_model.config.embedding_dims = actual_dims
+
+    dim_field = None
+    if hasattr(vector_store_config, "embedding_model_dims"):
+        dim_field = "embedding_model_dims"
+    elif hasattr(vector_store_config, "embedding_dimension"):
+        dim_field = "embedding_dimension"
+
+    if dim_field is None:
+        return
+
+    user_set_fields = getattr(vector_store_config, "model_fields_set", set())
+    if dim_field in user_set_fields:
+        return
+
+    setattr(vector_store_config, dim_field, actual_dims)
+
+
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
@@ -252,6 +291,7 @@ class Memory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+        _sync_embedding_dims_to_vector_store(self.embedding_model, self.config.vector_store.config)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -259,12 +299,12 @@ class Memory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
-        
+
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
             self.reranker = RerankerFactory.create(
-                config.reranker.provider, 
+                config.reranker.provider,
                 config.reranker.config
             )
 
@@ -1407,6 +1447,7 @@ class AsyncMemory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+        _sync_embedding_dims_to_vector_store(self.embedding_model, self.config.vector_store.config)
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -1414,7 +1455,7 @@ class AsyncMemory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
-        
+
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
