@@ -785,6 +785,69 @@ class TestHallucinatedIdGuard:
         assert result == []
         assert "DELETE skipped: LLM returned unknown id" in caplog.text
 
+    def test_sync_update_with_missing_id_key_skips_gracefully(self, mocker, caplog):
+        """UPDATE where the LLM omits the 'id' field entirely should be skipped."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-aaa"
+        existing_mem.payload = {"data": "User likes coffee"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        # LLM response has no "id" key at all
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User likes tea"]}',
+            '{"memory": [{"text": "User likes tea", "event": "UPDATE", "old_memory": "User likes coffee"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like tea"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        assert result == []
+        assert "UPDATE skipped: LLM returned unknown id" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_async_valid_id_still_processes_normally(self, mocker, caplog):
+        """Async path: a valid ID should process normally — no false positives from the guard."""
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-bbb"
+        existing_mem.payload = {"data": "User works at Acme"}
+        memory.vector_store.search.return_value = [existing_mem]
+        memory.vector_store.get.return_value = MagicMock(
+            payload={"data": "User works at Acme", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+
+        # ID "0" is valid since there's exactly 1 existing memory
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User works at Globex now"]}',
+            '{"memory": [{"id": "0", "text": "User works at Globex now", "event": "UPDATE", "old_memory": "User works at Acme"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = await memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I now work at Globex"}],
+                metadata={},
+                effective_filters={},
+                infer=True,
+            )
+
+        assert len(result) == 1
+        assert result[0]["event"] == "UPDATE"
+        assert result[0]["memory"] == "User works at Globex now"
+        assert result[0]["id"] == "uuid-bbb"
+        assert "skipped" not in caplog.text
+
 
 def test_normalize_iso_timestamp_to_utc_preserves_naive_values():
     assert _normalize_iso_timestamp_to_utc("2026-03-18T00:00:00") == "2026-03-18T00:00:00"
