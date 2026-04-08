@@ -16,57 +16,11 @@ These benefits enable more sophisticated memory management for applications wher
 
 You can set an expiration date for memories, after which they will no longer be retrieved in searches. This is useful for creating temporary memories or memories that are relevant only for a specific time period.
 
+<Note>
+The `expiration_date` parameter is only available via the REST API. It is not supported in the Python or JavaScript SDKs.
+</Note>
+
 <CodeGroup>
-
-```python Python
-import datetime
-from mem0 import MemoryClient
-
-client = MemoryClient(api_key="your-api-key")
-
-messages = [
-    {
-        "role": "user", 
-        "content": "I'll be in San Francisco until the end of this month."
-    }
-]
-
-# Set an expiration date for this memory
-client.add(messages=messages, user_id="alex", expiration_date=str(datetime.datetime.now().date() + datetime.timedelta(days=30)))
-
-# You can also use an explicit date string
-client.add(messages=messages, user_id="alex", expiration_date="2023-08-31")
-```
-
-```javascript JavaScript
-import MemoryClient from 'mem0ai';
-const client = new MemoryClient({ apiKey: 'your-api-key' });
-
-const messages = [
-    {
-        "role": "user", 
-        "content": "I'll be in San Francisco until the end of this month."
-    }
-];
-
-// Set an expiration date 30 days from now
-const expirationDate = new Date();
-expirationDate.setDate(expirationDate.getDate() + 30);
-client.add(messages, { 
-    user_id: "alex", 
-    expiration_date: expirationDate.toISOString().split('T')[0] 
-})
-    .then(response => console.log(response))
-    .catch(error => console.error(error));
-
-// You can also use an explicit date string
-client.add(messages, { 
-    user_id: "alex", 
-    expiration_date: "2023-08-31" 
-})
-    .then(response => console.log(response))
-    .catch(error => console.error(error));
-```
 
 ```bash cURL
 curl -X POST "https://api.mem0.ai/v1/memories/" \

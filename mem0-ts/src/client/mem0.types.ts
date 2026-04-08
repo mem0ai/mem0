@@ -15,6 +15,7 @@ export interface AddMemoryOptions extends BaseMemoryOptions {
   custom_instructions?: string;
   timestamp?: number;
   structured_data_schema?: Record<string, any>;
+  enable_graph?: boolean;
 }
 
 export interface SearchMemoryOptions extends BaseMemoryOptions {
@@ -24,6 +25,7 @@ export interface SearchMemoryOptions extends BaseMemoryOptions {
   fields?: string[];
   categories?: string[];
   only_metadata_based_search?: boolean;
+  enable_graph?: boolean;
 }
 
 export interface GetAllMemoryOptions extends BaseMemoryOptions {
@@ -32,6 +34,7 @@ export interface GetAllMemoryOptions extends BaseMemoryOptions {
   start_date?: string;
   end_date?: string;
   categories?: string[];
+  enable_graph?: boolean;
 }
 
 export interface DeleteAllMemoryOptions extends BaseMemoryOptions {}

@@ -127,15 +127,15 @@ async def search_memories(
     results = await mem0_client.search(
         query,
         user_id=USER_ID,
-        limit=5,
+        top_k=5,
         threshold=0.7,  # Higher threshold for more relevant results
-        
+
     )
-    
+
     # Format and return the results
     if not results.get('results', []):
         return "I don't have any relevant memories about this topic."
-    
+
     memories = [f"• {result['memory']}" for result in results.get('results', [])]
     return "Here's what I remember that might be relevant:\n" + "\n".join(memories)
 ```
@@ -343,15 +343,15 @@ async def search_memories(
     results = await mem0_client.search(
         query,
         user_id=USER_ID,
-        limit=5,
+        top_k=5,
         threshold=0.7,  # Higher threshold for more relevant results
-        
+
     )
-    
+
     # Format and return the results
     if not results.get('results', []):
         return "I don't have any relevant memories about this topic."
-    
+
     memories = [f"• {result['memory']}" for result in results.get('results', [])]
     return "Here's what I remember that might be relevant:\n" + "\n".join(memories)
 

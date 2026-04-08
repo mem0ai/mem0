@@ -265,7 +265,7 @@ Monitor graph growth, especially on free tiers, by periodically cleaning dormant
 ## Decision Points
 
 - Select the graph store that fits your deployment (managed Aura vs. self-hosted Neo4j vs. AWS Neptune vs. local Kuzu vs. Apache AGE on PostgreSQL).
-- Decide when to enable graph writes per request; routine conversations may stay vector-only to save latency.
+- Decide whether to include a graph store in your config; routine conversations may stay vector-only to save latency.
 - Set a policy for pruning stale relationships so your graph stays fast and affordable.
 
 ## Provider setup

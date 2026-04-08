@@ -32,6 +32,7 @@ class AddMemoryOptions(BaseMemoryOptions):
     structured_data_schema: Optional[Dict[str, Any]] = Field(
         default=None, description="Schema for structured data extraction"
     )
+    enable_graph: Optional[bool] = Field(default=None, description="Whether to enable graph memory for this operation")
 
 
 class SearchMemoryOptions(BaseMemoryOptions):
@@ -45,6 +46,7 @@ class SearchMemoryOptions(BaseMemoryOptions):
     only_metadata_based_search: Optional[bool] = Field(
         default=None, description="Whether to search only using metadata filters"
     )
+    enable_graph: Optional[bool] = Field(default=None, description="Whether to enable graph memory for this search")
 
 
 class GetAllMemoryOptions(BaseMemoryOptions):
@@ -52,6 +54,7 @@ class GetAllMemoryOptions(BaseMemoryOptions):
 
     page: Optional[int] = Field(default=None, description="Page number for pagination")
     page_size: Optional[int] = Field(default=None, description="Number of items per page")
+    enable_graph: Optional[bool] = Field(default=None, description="Whether to enable graph memory for retrieval")
 
 
 class DeleteAllMemoryOptions(BaseMemoryOptions):

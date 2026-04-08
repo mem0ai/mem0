@@ -45,7 +45,7 @@ class CollaborativeAgent:
 
     def brainstorm(self, prompt):
         # Get recent messages for context
-        memories = self.mem.search(prompt, run_id=self.run_id, limit=5)["results"]
+        memories = self.mem.search(prompt, run_id=self.run_id, top_k=5)["results"]
         context = "\n".join(f"- {m['memory']} (by {m.get('actor_id', 'Unknown')})" for m in memories)
         client = OpenAI()
         messages = [

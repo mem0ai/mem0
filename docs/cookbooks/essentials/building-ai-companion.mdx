@@ -62,7 +62,7 @@ mem0_client = MemoryClient(api_key="your-mem0-key")
 
 def chat(user_input, user_id):
     # Retrieve relevant memories
-    memories = mem0_client.search(user_input, user_id=user_id, limit=5)
+    memories = mem0_client.search(user_input, user_id=user_id, top_k=5)
     context = "\\n".join(m["memory"] for m in memories["results"])
 
     # Call LLM with memory context
@@ -545,11 +545,11 @@ expiration = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
 mem0_client.add(
     [{"role": "user", "content": "Rolled my left ankle, needs rest"}],
     user_id="max",
-    expiration_date=expiration
+    metadata={"expires_on": expiration}
 )
 ```
 
-In 14 days, this memory disappears automatically. Ray stops asking about the ankle.
+Store `expires_on` in metadata and use the REST API to set `expiration_date` if you need automatic expiration. Ray stops asking about the ankle once the memory expires or is pruned.
   </Tab>
   <Tab title="Open Source">
 ```python
@@ -685,7 +685,7 @@ mem0_client.add(
     [{"role": "user", "content": "Rolled ankle, need light workouts"}],
     user_id="max",
     categories=["constraints"],
-    expiration_date=expiration
+    metadata={"expires_on": expiration}
 )
 ```
   </Tab>
@@ -706,7 +706,7 @@ memory.add(
 <Tabs>
   <Tab title="Platform">
 ```python
-memories = mem0_client.search("training plan", user_id="max", limit=5)
+memories = mem0_client.search("training plan", user_id="max", top_k=5)
 # Gets: marathon goal, trail preference, ankle injury (if still valid)
 ```
   </Tab>

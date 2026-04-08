@@ -257,7 +257,7 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { page, page_size, ...otherOptions } = options ?? {};
+    const { page, page_size, ...bodyOptions } = options ?? {};
 
     let appendedParams = "";
     let paginated_response = false;
@@ -267,13 +267,15 @@ export default class MemoryClient {
       paginated_response = true;
     }
 
+    const params = this._prepareParams(bodyOptions);
+
     let url = paginated_response
       ? `${this.host}/v2/memories/?${appendedParams}`
       : `${this.host}/v2/memories/`;
     return this._fetchWithErrorHandling(url, {
       method: "POST",
       headers: this.headers,
-      body: JSON.stringify(otherOptions),
+      body: JSON.stringify(params),
     });
   }
 
