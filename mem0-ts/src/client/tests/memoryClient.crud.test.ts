@@ -134,6 +134,18 @@ describe("MemoryClient - getAll()", () => {
     expect(findFetchCall(mock, "/v2/memories/", "POST")).toBeDefined();
   });
 
+  test("wraps user_id into filters for v2 API", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v2/memories/", { status: 200, body: [] });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ user_id: "u1" });
+
+    const call = findFetchCall(mock, "/v2/memories/", "POST");
+    expect(getFetchBody(call!).filters).toEqual({ user_id: "u1" });
+  });
+
   test("appends page and page_size to URL as query params", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v2/memories/", { status: 200, body: [] });

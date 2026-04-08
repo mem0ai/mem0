@@ -54,6 +54,9 @@ class GetAllMemoryOptions(BaseMemoryOptions):
 
     page: Optional[int] = Field(default=None, description="Page number for pagination")
     page_size: Optional[int] = Field(default=None, description="Number of items per page")
+    start_date: Optional[str] = Field(default=None, description="Filter memories created on or after this date (ISO 8601)")
+    end_date: Optional[str] = Field(default=None, description="Filter memories created on or before this date (ISO 8601)")
+    categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
     enable_graph: Optional[bool] = Field(default=None, description="Whether to enable graph memory for retrieval")
 
 

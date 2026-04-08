@@ -38,7 +38,7 @@ describe("MemoryClient - search()", () => {
     expect(getFetchBody(call!).query).toBe("What is my name?");
   });
 
-  test("includes user_id in request body", async () => {
+  test("wraps user_id into filters for v2 API", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v2/memories/search/", { status: 200, body: [] });
     const mock = setupMockFetch(extra);
@@ -47,7 +47,7 @@ describe("MemoryClient - search()", () => {
     await client.search("test", { user_id: "u1" });
 
     const call = findFetchCall(mock, "/v2/memories/search/", "POST");
-    expect(getFetchBody(call!).user_id).toBe("u1");
+    expect(getFetchBody(call!).filters).toEqual({ user_id: "u1" });
   });
 
   test("passes filters through to the API body", async () => {

@@ -142,6 +142,29 @@ export default class MemoryClient {
     );
   }
 
+  _resolveFilters(options: Record<string, any>): {
+    filters?: Record<string, any>;
+    rest: Record<string, any>;
+  } {
+    const { user_id, agent_id, app_id, run_id, metadata, filters, ...rest } =
+      options;
+
+    let resolved: Record<string, any> | undefined = filters;
+    if (!resolved && (user_id || agent_id || app_id || run_id)) {
+      resolved = {};
+      if (user_id) resolved.user_id = user_id;
+      if (agent_id) resolved.agent_id = agent_id;
+      if (app_id) resolved.app_id = app_id;
+      if (run_id) resolved.run_id = run_id;
+    }
+
+    const body: Record<string, any> = { ...rest };
+    if (resolved) body.filters = resolved;
+    if (metadata) body.metadata = metadata;
+
+    return { filters: resolved, rest: body };
+  }
+
   async ping(): Promise<void> {
     try {
       const response = await this._fetchWithErrorHandling(
@@ -257,7 +280,8 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { page, page_size, ...bodyOptions } = options ?? {};
+    const { page, page_size, ...filterableOptions } = options ?? {};
+    const { rest: body } = this._resolveFilters(filterableOptions);
 
     let appendedParams = "";
     let paginated_response = false;
@@ -267,15 +291,13 @@ export default class MemoryClient {
       paginated_response = true;
     }
 
-    const params = this._prepareParams(bodyOptions);
-
     let url = paginated_response
       ? `${this.host}/v2/memories/?${appendedParams}`
       : `${this.host}/v2/memories/`;
     return this._fetchWithErrorHandling(url, {
       method: "POST",
       headers: this.headers,
-      body: JSON.stringify(params),
+      body: JSON.stringify(body),
     });
   }
 
@@ -286,7 +308,8 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
-    const payload = { query, ...(options ?? {}) };
+    const { rest: searchBody } = this._resolveFilters(options ?? {});
+    const payload: Record<string, any> = { query, ...searchBody };
 
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v2/memories/search/`,
