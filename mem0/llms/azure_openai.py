@@ -134,6 +134,8 @@ class AzureOpenAILLM(LLMBase):
             "messages": messages,
         })
 
+        if response_format:
+            params["response_format"] = response_format
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice
