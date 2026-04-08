@@ -627,6 +627,165 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+class TestHallucinatedIdGuard:
+    """Tests for temp_uuid_mapping guard against LLM-hallucinated IDs (issue #3931).
+
+    When the LLM returns an UPDATE or DELETE with an ID that doesn't exist in
+    temp_uuid_mapping, the code should skip gracefully instead of raising KeyError.
+    """
+
+    def test_sync_update_with_hallucinated_id_skips_gracefully(self, mocker, caplog):
+        """Sync UPDATE with an out-of-range ID should be skipped with a warning."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        # Simulate: 2 existing memories (IDs "0" and "1"), but LLM returns UPDATE for ID "12"
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-aaa"
+        existing_mem.payload = {"data": "User likes coffee"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        # First LLM call: fact extraction → returns one fact
+        # Second LLM call: memory update actions → returns UPDATE with hallucinated ID "12"
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User likes tea"]}',
+            '{"memory": [{"id": "12", "text": "User likes tea", "event": "UPDATE", "old_memory": "User likes coffee"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like tea"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        # Should not crash, should return empty (the hallucinated UPDATE was skipped)
+        assert result == []
+        assert "UPDATE skipped: LLM returned unknown id" in caplog.text
+        # _update_memory should NOT have been called
+        memory.vector_store.update.assert_not_called()
+
+    def test_sync_delete_with_hallucinated_id_skips_gracefully(self, mocker, caplog):
+        """Sync DELETE with an out-of-range ID should be skipped with a warning."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-aaa"
+        existing_mem.payload = {"data": "User likes coffee"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["Remove coffee preference"]}',
+            '{"memory": [{"id": "9", "text": "User likes coffee", "event": "DELETE"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I no longer like coffee"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        assert result == []
+        assert "DELETE skipped: LLM returned unknown id" in caplog.text
+        memory.vector_store.delete.assert_not_called()
+
+    def test_sync_valid_id_still_processes_normally(self, mocker, caplog):
+        """A valid ID should still be processed — the guard must not block legitimate operations."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-aaa"
+        existing_mem.payload = {"data": "User likes coffee"}
+        memory.vector_store.search.return_value = [existing_mem]
+        memory.vector_store.get.return_value = MagicMock(
+            payload={"data": "User likes coffee", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+
+        # ID "0" is valid since there's exactly 1 existing memory
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User likes tea now"]}',
+            '{"memory": [{"id": "0", "text": "User likes tea now", "event": "UPDATE", "old_memory": "User likes coffee"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like tea now"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        assert len(result) == 1
+        assert result[0]["event"] == "UPDATE"
+        assert result[0]["memory"] == "User likes tea now"
+        assert result[0]["id"] == "uuid-aaa"
+        assert "skipped" not in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_async_update_with_hallucinated_id_skips_gracefully(self, mocker, caplog):
+        """Async UPDATE with an out-of-range ID should be skipped with a warning."""
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-bbb"
+        existing_mem.payload = {"data": "User works at Acme"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User works at Globex"]}',
+            '{"memory": [{"id": "7", "text": "User works at Globex", "event": "UPDATE", "old_memory": "User works at Acme"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = await memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I now work at Globex"}],
+                metadata={},
+                effective_filters={},
+                infer=True,
+            )
+
+        assert result == []
+        assert "UPDATE skipped: LLM returned unknown id" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_async_delete_with_hallucinated_id_skips_gracefully(self, mocker, caplog):
+        """Async DELETE with an out-of-range ID should be skipped with a warning."""
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-ccc"
+        existing_mem.payload = {"data": "User lives in SF"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["Remove SF reference"]}',
+            '{"memory": [{"id": "16", "text": "User lives in SF", "event": "DELETE"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = await memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I moved away from SF"}],
+                metadata={},
+                effective_filters={},
+                infer=True,
+            )
+
+        assert result == []
+        assert "DELETE skipped: LLM returned unknown id" in caplog.text
+
+
 def test_normalize_iso_timestamp_to_utc_preserves_naive_values():
     assert _normalize_iso_timestamp_to_utc("2026-03-18T00:00:00") == "2026-03-18T00:00:00"
 

@@ -454,6 +454,7 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
     - If there is an addition, generate a new key and add the new memory corresponding to it.
     - If there is a deletion, the memory key-value pair should be removed from the memory.
     - If there is an update, the ID key should remain the same and only the value needs to be updated.
+    - IMPORTANT: For UPDATE and DELETE events, only use IDs that exist in the current memory above. Do not fabricate or hallucinate IDs. If the current memory has IDs "0" to "{len(retrieved_old_memory_dict) - 1}", only reference IDs within that range for UPDATE and DELETE operations.
 
     Do not return anything except the JSON format.
     """
