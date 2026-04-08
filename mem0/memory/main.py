@@ -63,6 +63,19 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
+def _resolve_mapped_id(temp_uuid_mapping, resp, event_type):
+    """Resolve a temp integer ID from the LLM response to a real UUID.
+
+    Returns the UUID if found, or None (with a warning log) if the LLM
+    hallucinated an ID that doesn't exist in the mapping.
+    """
+    raw_id = resp.get("id")
+    memory_id = temp_uuid_mapping.get(raw_id)
+    if memory_id is None:
+        logger.warning(f"{event_type} skipped: LLM returned unknown id {raw_id!r}")
+    return memory_id
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -639,9 +652,8 @@ class Memory(MemoryBase):
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
-                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "UPDATE")
                         if memory_id is None:
-                            logger.warning(f"UPDATE skipped: LLM returned unknown id {resp.get('id')!r}")
                             continue
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
@@ -661,9 +673,8 @@ class Memory(MemoryBase):
                             }
                         )
                     elif event_type == "DELETE":
-                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "DELETE")
                         if memory_id is None:
-                            logger.warning(f"DELETE skipped: LLM returned unknown id {resp.get('id')!r}")
                             continue
                         self._delete_memory(memory_id=memory_id)
                         returned_memories.append(
@@ -1763,9 +1774,8 @@ class AsyncMemory(MemoryBase):
                         )
                         memory_tasks.append((task, resp, "ADD", None))
                     elif event_type == "UPDATE":
-                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "UPDATE")
                         if memory_id is None:
-                            logger.warning(f"UPDATE skipped: LLM returned unknown id {resp.get('id')!r}")
                             continue
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
@@ -1782,9 +1792,8 @@ class AsyncMemory(MemoryBase):
                         )
                         memory_tasks.append((task, resp, "UPDATE", memory_id))
                     elif event_type == "DELETE":
-                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "DELETE")
                         if memory_id is None:
-                            logger.warning(f"DELETE skipped: LLM returned unknown id {resp.get('id')!r}")
                             continue
                         task = asyncio.create_task(self._delete_memory(memory_id=memory_id))
                         memory_tasks.append((task, resp, "DELETE", memory_id))
