@@ -1,6 +1,6 @@
 ---
-title: "SDK"
-description: "Release notes for the Mem0 Python SDK, TypeScript SDK, and Vercel AI SDK."
+title: "SDK & Tools"
+description: "Release notes for the Mem0 Python SDK, TypeScript SDK, Vercel AI SDK, CLI, and editor plugins."
 mode: "wide"
 ---
 
@@ -1216,4 +1216,95 @@ mode: "wide"
 </Update>
 
 </Tab>
+
+<Tab title="CLI">
+
+<Update label="2026-04-06" description="Python v0.2.2 / Node v0.2.2">
+
+**New Features:**
+- **Telemetry:** Added PostHog telemetry and source tracking to both Python and Node CLIs ([#4699](https://github.com/mem0ai/mem0/pull/4699))
+- **Validation:** API key validated upfront via `/v1/ping/` on startup — fail-fast with a helpful error instead of cryptic 401s ([#4701](https://github.com/mem0ai/mem0/pull/4701))
+
+**Bug Fixes:**
+- **CD:** Fixed OIDC trusted publishing with `npx npm@latest` ([#4724](https://github.com/mem0ai/mem0/pull/4724))
+- **CD:** Removed npm self-upgrade from CD workflows ([#4723](https://github.com/mem0ai/mem0/pull/4723))
+
+</Update>
+
+<Update label="2026-04-03" description="Python v0.2.1 / Node v0.2.1">
+
+**New Features:**
+- **Docs:** Comprehensive README with installation, usage examples, and purple branding ([#4680](https://github.com/mem0ai/mem0/pull/4680))
+
+**Bug Fixes:**
+- **npm:** Added `repository` field to Node packages for npm provenance ([#4671](https://github.com/mem0ai/mem0/pull/4671))
+- **CD:** Added CD workflows for Node SDK packages with OIDC trusted publishing ([#4670](https://github.com/mem0ai/mem0/pull/4670))
+
+</Update>
+
+<Update label="2026-04-02" description="Python v0.2.0 / Node v0.1.1">
+
+**New Features:**
+- **`event` commands:** `mem0 event list` shows recent background processing events in a table; `mem0 event status <id>` shows full detail including nested memory results ([#4649](https://github.com/mem0ai/mem0/pull/4649))
+- **`--json` / `--agent` flag:** Root-level flag switches all command output to a structured JSON envelope for programmatic/agent consumption. Envelope format: `{"status", "command", "duration_ms", "scope", "count", "data"}` ([#4649](https://github.com/mem0ai/mem0/pull/4649))
+- **Agent output sanitization:** Raw API responses projected to only relevant fields per command (e.g., `add` → `{id, memory, event}`, `search` → `{id, memory, score, created_at, categories}`) ([#4649](https://github.com/mem0ai/mem0/pull/4649))
+- **Email login:** Added email verification code login to `mem0 init` ([#4623](https://github.com/mem0ai/mem0/pull/4623))
+- **Brand update:** Updated color palette from purple to golden ([#4664](https://github.com/mem0ai/mem0/pull/4664))
+- **CI/CD:** Added CI pipelines and CD workflows for both CLIs ([#4640](https://github.com/mem0ai/mem0/pull/4640), [#4653](https://github.com/mem0ai/mem0/pull/4653))
+
+**Bug Fixes:**
+- **Node:** Fixed critical `MODULE_NOT_FOUND` crash on `status`, `import`, and all commands when installed globally — replaced runtime `createRequire` with build-time version injection ([#4636](https://github.com/mem0ai/mem0/pull/4636))
+- **Node:** API errors now show full response detail instead of bare "Bad Request" ([#4636](https://github.com/mem0ai/mem0/pull/4636))
+- **Python:** Fixed double error printing on all commands ([#4636](https://github.com/mem0ai/mem0/pull/4636))
+- **`status` command:** Replaced heavyweight `/v1/entities/` check with dedicated `GET /v1/ping/` endpoint ([#4649](https://github.com/mem0ai/mem0/pull/4649))
+- **`add` command:** Deduplicated PENDING results from API; changed misleading count message ([#4649](https://github.com/mem0ai/mem0/pull/4649))
+- **`init` command:** Partial flags now work in non-TTY; warns before overwriting existing config; added `--force` flag ([#4649](https://github.com/mem0ai/mem0/pull/4649))
+- **`delete` command:** Fixed entity delete via v2 API for all entity types ([#4649](https://github.com/mem0ai/mem0/pull/4649))
+
+**Improvements:**
+- Tables now show full UUIDs (was truncated to 8 chars, making `mem0 get <id>` fail) ([#4636](https://github.com/mem0ai/mem0/pull/4636))
+- Search table includes Score column ([#4636](https://github.com/mem0ai/mem0/pull/4636))
+- `config get api_key` short-form aliases added ([#4636](https://github.com/mem0ai/mem0/pull/4636))
+- Client-side validation for `--expires`, `--page-size`, `--page`, `--top-k`, `--threshold`, and empty content ([#4636](https://github.com/mem0ai/mem0/pull/4636))
+- `printInfo` / `printScope` moved to stderr to avoid contaminating JSON piping ([#4636](https://github.com/mem0ai/mem0/pull/4636))
+
+</Update>
+
+<Update label="2026-03-26" description="Python v0.1.0 / Node v0.1.0">
+
+**Initial Release — Official Mem0 CLI**
+
+A full-featured command-line interface for Mem0, available in both Python and Node.js:
+
+- **Install:** `pip install mem0-cli` (Python) or `npm install -g @mem0/cli` (Node.js)
+- **Full command suite:** `add`, `search`, `list`, `get`, `update`, `delete`, `import`, `config`, `init`, `status`, `entity`
+- **Interactive setup:** `mem0 init` with API key entry and user ID configuration
+- **Works everywhere:** Platform (Mem0 Cloud) and self-hosted OSS modes
+- **Scriptable:** `-o json` flag for CI/CD pipelines and automation
+- **Dual SDK:** Same commands, same experience across Python and Node.js
+- **Shared spec:** Both implementations driven by a single `cli-spec.json` ensuring identical behavior ([#4575](https://github.com/mem0ai/mem0/pull/4575))
+
+</Update>
+
+</Tab>
+
+<Tab title="Plugins">
+
+<Update label="2026-04-02" description="mem0-plugin v1.0.0">
+
+**Mem0 Plugin for Claude Code, Cursor, and Codex**
+
+The unified Mem0 plugin for AI development environments:
+
+- **9 MCP memory tools:** `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities` — all via `mcp.mem0.ai`
+- **Lifecycle hooks:** Automatic memory capture at session start, context compaction, task completion, and session end
+- **Cloud MCP server:** Managed endpoint replaces local MCP and Smithery setup
+- **Streamable HTTP transport:** New MCP transport protocol for real-time streaming
+- **Codex-specific skill:** Dedicated skill in `mem0-plugin/skills/mem0-codex` for Codex workflows
+- **Supported editors:** Claude Code, Claude Cowork, Cursor, Codex
+
+</Update>
+
+</Tab>
+
 </Tabs>
