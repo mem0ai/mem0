@@ -160,3 +160,9 @@ def test_generate_response_json_format_does_not_mutate_messages(mock_ollama_clie
     # Caller's messages must be untouched
     assert len(messages) == original_length
     assert messages[0]["content"] == original_content
+
+    # Verify behavior is preserved — Ollama still receives the JSON instruction
+    call_kwargs = mock_ollama_client.chat.call_args[1]
+    sent_messages = call_kwargs["messages"]
+    assert "json" in call_kwargs.get("format", "")
+    assert "Please respond with valid JSON only." in sent_messages[-1]["content"]
