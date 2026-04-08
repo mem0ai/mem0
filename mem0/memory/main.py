@@ -244,26 +244,27 @@ logger = logging.getLogger(__name__)
 def _sync_embedding_dims_to_vector_store(embedding_model, vector_store_config):
     """Detect actual embedding dimensions and propagate to the vector store config.
 
-    Makes a single probe call to the embedder to measure the real output
-    dimension, which is always the source of truth.  Falls back to the
-    embedder's ``embedding_dims`` config when the probe fails.
+    When the embedder already knows its dimensions (``embedding_dims`` is set),
+    those are propagated directly.  When it doesn't (``None``), a single probe
+    call is made to measure the real output length — this covers providers like
+    Azure OpenAI, FastEmbed, and AWS Bedrock that never set the value themselves.
 
     Only overrides the vector store's dimension field when the user did NOT
     explicitly set it (detected via Pydantic ``model_fields_set``).
     """
+    embedder_dims = getattr(embedding_model.config, "embedding_dims", None)
 
-    actual_dims = None
-    try:
-        test_embedding = embedding_model.embed("dimension_probe")
-        actual_dims = len(test_embedding)
-    except Exception:
-        actual_dims = getattr(embedding_model.config, "embedding_dims", None)
+    # If the embedder doesn't know its dimensions, detect them via a probe call.
+    if embedder_dims is None:
+        try:
+            test_embedding = embedding_model.embed("dimension_probe")
+            embedder_dims = len(test_embedding)
+            embedding_model.config.embedding_dims = embedder_dims
+        except Exception:
+            return
 
-    if actual_dims is None:
+    if not isinstance(embedder_dims, int) or embedder_dims <= 0:
         return
-
-    embedding_model.config.embedding_dims = actual_dims
-
     dim_field = None
     if hasattr(vector_store_config, "embedding_model_dims"):
         dim_field = "embedding_model_dims"
@@ -277,7 +278,7 @@ def _sync_embedding_dims_to_vector_store(embedding_model, vector_store_config):
     if dim_field in user_set_fields:
         return
 
-    setattr(vector_store_config, dim_field, actual_dims)
+    setattr(vector_store_config, dim_field, embedder_dims)
 
 
 class Memory(MemoryBase):
