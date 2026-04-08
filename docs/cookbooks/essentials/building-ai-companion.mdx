@@ -502,7 +502,7 @@ mem0_client.add([
 # "hey" → don't store
 # "cool thanks" → don't store
 
-# Or rely on custom_fact_extraction_prompt to filter automatically
+# Or rely on custom_instructions to filter automatically
 ```
   </Tab>
   <Tab title="Open Source">
@@ -545,7 +545,7 @@ expiration = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
 mem0_client.add(
     [{"role": "user", "content": "Rolled my left ankle, needs rest"}],
     user_id="max",
-   expiration_date=expiration
+    expiration_date=expiration
 )
 ```
 
