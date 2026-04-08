@@ -22,6 +22,7 @@ export class PGVector implements VectorStore {
   private useHnsw: boolean;
   private readonly dbName: string;
   private config: PGVectorConfig;
+  private _initPromise?: Promise<void>;
 
   constructor(config: PGVectorConfig) {
     this.collectionName = config.collectionName || "memories";
@@ -41,6 +42,26 @@ export class PGVector implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    // Idempotent: multiple calls (constructor fire-and-forget + explicit
+    // Memory._autoInitialize await) must share a single in-flight promise.
+    // Without this, the second call hits `this.client.connect()` on an
+    // already-connected `pg.Client` and throws "Client has already been
+    // connected. You cannot reuse a client." See #4727.
+    //
+    // On rejection the cached promise is cleared so that callers which are
+    // allowed to retry (e.g. Memory._ensureInitialized after a transient
+    // postgres failure) get a fresh init attempt instead of re-throwing
+    // the original error forever.
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize().catch((error) => {
+        this._initPromise = undefined;
+        throw error;
+      });
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       await this.client.connect();
 
