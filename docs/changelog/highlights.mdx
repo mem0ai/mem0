@@ -6,98 +6,77 @@ mode: "wide"
 
 <Update label="2026-04-06" description="Mem0 Skill Graph">
 
-**Mem0 Skill Graph for AI Coding Agents**
+**Mem0 Skill Graph — In-Context Documentation for AI Agents**
 
-Launched three interconnected skills that give Claude Code, Cursor, and Codex agents structured access to Mem0:
+AI coding agents in Claude Code, Cursor, and Codex can now access Mem0 knowledge directly in their workflow — no doc searching required. Three interconnected skills launched:
 
-- **mem0 Core Skill** — Python/TypeScript SDK reference, REST API patterns, and framework integration guides
-- **mem0-cli Skill** — Terminal command reference, configuration workflows, and CI/CD recipes
-- **mem0-vercel-ai-sdk Skill** — Vercel AI SDK provider API docs, memory utilities, and usage patterns
-
-Skills enable agents to use Mem0 without needing to search docs — memory operations, configuration, and best practices are available in-context.
+- **mem0 Core Skill** — Complete Python and TypeScript SDK reference, REST API patterns, and integration guides for LangChain, CrewAI, Autogen, and more
+- **mem0-cli Skill** — Terminal command reference, configuration walkthroughs, and CI/CD recipes
+- **mem0-vercel-ai-sdk Skill** — Vercel AI SDK provider API, memory-augmented generation patterns, and multi-provider setup
 
 </Update>
 
-<Update label="2026-04-04" description="OpenClaw Plugin v1.0.0 – v1.0.4">
+<Update label="2026-04-06" description="Mem0 CLI v0.2.2">
 
-**OpenClaw Plugin — Production-Ready Release**
+**Official Mem0 CLI — Now on PyPI and npm**
 
-The OpenClaw Mem0 plugin reached production readiness with a rapid v1.0.0 through v1.0.4 release cycle:
+A full-featured command-line interface for Mem0, available in both Python and Node.js:
 
-- **Skills-based memory architecture** — Complete extraction pipeline refactor with skill-loader, batched extraction, and domain-aware memory triage
-- **Dream gate** — Memory consolidation during idle periods for higher-quality long-term memory
-- **Interactive CLI** — `openclaw mem0 init` with email verification, plus subcommands for status, config, import, and event monitoring
-- **Security hardening** — Path traversal protection, pinned dependencies, removed redundant env var resolution
-- **329 tests** across 10 test files
-
-</Update>
-
-<Update label="2026-04-02" description="Mem0 CLI Launch">
-
-**Official Mem0 CLI — Available on PyPI and npm**
-
-Launched the Mem0 command-line interface for both Python (`mem0-cli`) and Node.js (`@mem0/cli`):
-
+- **Install:** `pip install mem0-cli` or `npm install -g @mem0/cli`
 - **Full command suite** — `add`, `search`, `list`, `get`, `update`, `delete`, `import`, `config`, `init`, `status`, `entity`, `event`
-- **Email verification login** — `mem0 init` with interactive setup
-- **Platform and OSS modes** — Works with Mem0 Cloud or self-hosted deployments
-- **JSON output** — `--json` flag for scripting and CI/CD pipelines
-- **Available now** — `pip install mem0-cli` or `npm install -g @mem0/cli`
+- **Interactive setup** — `mem0 init` with email verification or direct API key entry
+- **Works everywhere** — Platform (Mem0 Cloud) and self-hosted OSS modes
+- **Scriptable** — `--json` flag for CI/CD pipelines and automation
+- **Dual SDK** — Same commands, same experience across Python and Node.js
 
 </Update>
 
-<Update label="2026-03-25" description="Mem0 Plugin Ecosystem">
+<Update label="2026-04-04" description="OpenClaw v1.0.4">
 
-**Mem0 Plugins for Claude Code, Cursor, and Codex**
+**OpenClaw Plugin — Production-Ready**
 
-Launched official Mem0 plugins for major AI development environments:
+The OpenClaw Mem0 plugin went from initial release to production-ready in one week (v1.0.0 → v1.0.4):
 
-- **MCP server integration** — 9 memory management tools (add, search, update, delete, bulk operations, entity management)
+- **Skills-based memory architecture** — New extraction pipeline with skill-loader, batched extraction, and domain-aware memory triage
+- **Dream gate** — Automatic memory consolidation during idle periods for higher-quality long-term recall
+- **Interactive CLI** — `openclaw mem0 init`, `status`, `config`, `import`, and `event` commands
+- **Unified tool naming** — `memory_add` and `memory_delete` replace 4 legacy tools, matching the platform API
+- **Security hardened** — Path traversal protection, pinned dependencies, 329 tests across 10 files
+
+</Update>
+
+<Update label="2026-04-02" description="Mem0 Plugin for AI Editors">
+
+**Mem0 Plugin for Claude Code, Cursor, and Codex**
+
+Launched a unified Mem0 plugin across three major AI development environments — Claude Code and Cursor first (March 25), then Codex (April 2):
+
+- **9 MCP memory tools** — add, search, get, update, delete, bulk delete, entity management via `mcp.mem0.ai`
 - **Lifecycle hooks** — Automatic memory capture at session start, context compaction, task completion, and session end
-- **Cloud MCP server** — Replaced local MCP and Smithery with managed cloud endpoint at `mcp.mem0.ai`
-- **Streamable HTTP transport** — Real-time data streaming for MCP protocol
+- **Cloud MCP server** — Managed endpoint replaces local MCP and Smithery setup
+- **Streamable HTTP transport** — New MCP transport protocol for real-time streaming
+- **Codex-specific skill** — Dedicated skill in `mem0-plugin/skills/mem0-codex` for Codex workflows
 
 </Update>
 
-<Update label="2026-03-25" description="NemoClaw Integration">
+<Update label="2026-03-21" description="New Providers">
 
-**NemoClaw + Mem0 Plugin**
+**Apache AGE, Turbopuffer, MiniMax, and pgvector for Node.js**
 
-Added NemoClaw integration with setup scripts and quickstart guide, expanding the plugin ecosystem to NVIDIA's agent framework.
+Major expansion of the provider ecosystem:
 
-</Update>
-
-<Update label="2026-03-26" description="New Providers">
-
-**Turbopuffer, MiniMax, and pgvector for Node.js**
-
-Expanded the provider ecosystem across both SDKs:
-
+- **Apache AGE** — New graph store support, bringing the total to 4 graph store backends (Neo4j, Memgraph, Kuzu, Apache AGE)
 - **Turbopuffer** — New vector database provider for Python SDK
-- **MiniMax** — New LLM provider with AWS Bedrock support
+- **MiniMax** — New LLM provider with dedicated AWS Bedrock support
 - **pgvector for Node.js** — PostgreSQL vector support added to the TypeScript OSS SDK
-- **Reasoning models** — Added `reasoning_effort` parameter for OpenAI o1/o3 models
+- **Reasoning models** — `reasoning_effort` parameter for OpenAI o1/o3-style models
 
 </Update>
 
-<Update label="2026-03-09" description="TypeScript SDK v2.3.0">
+<Update label="2026-03-14" description="Mem0 Platform Skill">
 
-**TypeScript SDK — SQLite Migration (Breaking Change)**
+**Mem0 Platform Skill on skills.sh**
 
-Migrated from `sqlite3` to `better-sqlite3` to fix native binding resolution failures in plugin systems and container environments. Minimum Node.js version for OSS sqlite features is now Node 20+.
-
-</Update>
-
-<Update label="2025-10-16" description="Python SDK v1.0.0">
-
-**Python SDK v1.0.0**
-
-Major milestone release with:
-
-- **Reranker support** — Cohere, ZeroEntropy, Hugging Face, Sentence Transformers, and LLM-based rerankers
-- **New vector stores** — Azure MySQL and Azure AI Search
-- **Metadata filtering** for self-hosted deployments
-- **Async mode as default** — Better performance out of the box
-- **OpenAI 2.x compatibility**
+First skill launch — a dedicated Mem0 skill providing platform API reference, quickstart patterns, and integration examples directly inside agent sessions. Available on [skills.sh](https://skills.sh) for any compatible AI coding agent.
 
 </Update>
