@@ -6,8 +6,8 @@
  * Lock prevents concurrent consolidation runs.
  */
 
-import * as fs from "fs";
-import * as path from "path";
+import * as path from "node:path";
+import { readText, writeText, mkdirp, unlink } from "./fs-safe.ts";
 
 // ============================================================================
 // Types
@@ -15,7 +15,7 @@ import * as path from "path";
 
 interface DreamState {
   lastConsolidatedAt: number; // ms since epoch, 0 = never
-  sessionsSince: number;      // interactive sessions since last consolidation
+  sessionsSince: number; // interactive sessions since last consolidation
   lastSessionId: string | null;
 }
 
@@ -52,13 +52,15 @@ function lockPath(stateDir: string): string {
 
 function ensureDir(dir: string): void {
   try {
-    fs.mkdirSync(dir, { recursive: true });
-  } catch { /* exists */ }
+    mkdirp(dir);
+  } catch {
+    /* exists */
+  }
 }
 
 function readState(stateDir: string): DreamState {
   try {
-    const raw = fs.readFileSync(statePath(stateDir), "utf-8");
+    const raw = readText(statePath(stateDir));
     return JSON.parse(raw) as DreamState;
   } catch {
     return { lastConsolidatedAt: 0, sessionsSince: 0, lastSessionId: null };
@@ -67,7 +69,7 @@ function readState(stateDir: string): DreamState {
 
 function writeState(stateDir: string, state: DreamState): void {
   ensureDir(stateDir);
-  fs.writeFileSync(statePath(stateDir), JSON.stringify(state, null, 2));
+  writeText(statePath(stateDir), JSON.stringify(state, null, 2));
 }
 
 // ============================================================================
@@ -78,7 +80,10 @@ function writeState(stateDir: string, state: DreamState): void {
  * Called from agent_end on every interactive turn.
  * Increments session counter (deduped by sessionId).
  */
-export function incrementSessionCount(stateDir: string, sessionId: string): void {
+export function incrementSessionCount(
+  stateDir: string,
+  sessionId: string,
+): void {
   const state = readState(stateDir);
   if (state.lastSessionId !== sessionId) {
     state.sessionsSince++;
@@ -107,12 +112,18 @@ export function checkCheapGates(
   // Gate 1: Time (one local file read)
   const hoursSince = (Date.now() - state.lastConsolidatedAt) / 3_600_000;
   if (hoursSince < minHours) {
-    return { proceed: false, reason: `time: ${hoursSince.toFixed(1)}h < ${minHours}h` };
+    return {
+      proceed: false,
+      reason: `time: ${hoursSince.toFixed(1)}h < ${minHours}h`,
+    };
   }
 
   // Gate 2: Sessions (same file, already read)
   if (state.sessionsSince < minSessions) {
-    return { proceed: false, reason: `sessions: ${state.sessionsSince} < ${minSessions}` };
+    return {
+      proceed: false,
+      reason: `sessions: ${state.sessionsSince} < ${minSessions}`,
+    };
   }
 
   return { proceed: true };
@@ -146,14 +157,18 @@ export function acquireDreamLock(stateDir: string): boolean {
 
   // Check existing lock
   try {
-    const raw = fs.readFileSync(lp, "utf-8");
+    const raw = readText(lp);
     const lock = JSON.parse(raw) as DreamLock;
     const age = Date.now() - lock.startedAt;
     if (age < LOCK_STALE_MS) {
       return false; // Held and not stale
     }
     // Stale lock — remove it before attempting exclusive create
-    try { fs.unlinkSync(lp); } catch { /* race ok */ }
+    try {
+      unlink(lp);
+    } catch {
+      /* race ok */
+    }
   } catch {
     // No lock file, proceed
   }
@@ -162,7 +177,7 @@ export function acquireDreamLock(stateDir: string): boolean {
   // only one succeeds. The other gets EEXIST.
   const lock: DreamLock = { pid: process.pid, startedAt: Date.now() };
   try {
-    fs.writeFileSync(lp, JSON.stringify(lock), { flag: "wx" });
+    writeText(lp, JSON.stringify(lock), { flag: "wx" });
     return true;
   } catch {
     return false; // Lost race
@@ -174,8 +189,10 @@ export function acquireDreamLock(stateDir: string): boolean {
  */
 export function releaseDreamLock(stateDir: string): void {
   try {
-    fs.unlinkSync(lockPath(stateDir));
-  } catch { /* already gone */ }
+    unlink(lockPath(stateDir));
+  } catch {
+    /* already gone */
+  }
 }
 
 /**

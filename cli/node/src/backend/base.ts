@@ -89,6 +89,8 @@ export interface Backend {
 
 	deleteEntities(opts: EntityIds): Promise<Record<string, unknown>>;
 
+	ping(): Promise<Record<string, unknown>>;
+
 	status(opts?: { userId?: string; agentId?: string }): Promise<
 		Record<string, unknown>
 	>;

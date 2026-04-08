@@ -8,22 +8,27 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { type Backend, getBackend } from "./backend/index.js";
-import { colors, printError } from "./branding.js";
+import { AuthError, type Backend, getBackend } from "./backend/index.js";
+import { colors, printError, printWarning } from "./branding.js";
 import type { Mem0Config } from "./config.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, saveConfig } from "./config.js";
 import { richFormatHelp } from "./help.js";
 import { setAgentMode } from "./state.js";
+import { captureEvent } from "./telemetry.js";
 import { CLI_VERSION } from "./version.js";
 
 const program = new Command();
 
+// ── Validated user identity (set by getBackendAndConfig) ─────────────────
+
+let _validatedUserEmail: string | undefined;
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-function getBackendAndConfig(
+async function getBackendAndConfig(
 	apiKey?: string,
 	baseUrl?: string,
-): { backend: Backend; config: Mem0Config } {
+): Promise<{ backend: Backend; config: Mem0Config }> {
 	const config = loadConfig();
 
 	if (apiKey) config.platform.apiKey = apiKey;
@@ -37,11 +42,51 @@ function getBackendAndConfig(
 		process.exit(1);
 	}
 
-	return { backend: getBackend(config), config };
+	const backend = getBackend(config);
+
+	// Validate the API key upfront with a fast timeout
+	try {
+		const pingData = (await Promise.race([
+			backend.ping(),
+			new Promise<never>((_, reject) =>
+				setTimeout(() => reject(new Error("timeout")), 5000),
+			),
+		])) as Record<string, unknown>;
+
+		const email = pingData?.user_email as string | undefined;
+		if (email) {
+			_validatedUserEmail = email;
+			if (config.platform.userEmail !== email) {
+				config.platform.userEmail = email;
+				try {
+					saveConfig(config);
+				} catch {
+					/* ignore */
+				}
+			}
+		}
+	} catch (e) {
+		if (e instanceof AuthError) {
+			printError(
+				"Invalid or expired API key.",
+				"Run 'mem0 init' or set MEM0_API_KEY environment variable.",
+			);
+			process.exit(1);
+		}
+		// Network error / timeout — warn but proceed
+		printWarning(
+			"Could not validate API key (network issue). Proceeding anyway.",
+		);
+	}
+
+	return { backend, config };
 }
 
-function getBackendOnly(apiKey?: string, baseUrl?: string): Backend {
-	return getBackendAndConfig(apiKey, baseUrl).backend;
+async function getBackendOnly(
+	apiKey?: string,
+	baseUrl?: string,
+): Promise<Backend> {
+	return (await getBackendAndConfig(apiKey, baseUrl)).backend;
 }
 
 function checkAgentMode(): boolean {
@@ -123,6 +168,30 @@ program
 	.addHelpCommand(false)
 	.configureHelp({ formatHelp: richFormatHelp });
 
+// ── Telemetry hook ───────────────────────────────────────────────────────
+
+program.hook("preAction", (_thisCommand, actionCommand) => {
+	try {
+		const commandName = actionCommand.name();
+		const parentName = actionCommand.parent?.name();
+		const fullCommand =
+			parentName && parentName !== "mem0"
+				? `${parentName}.${commandName}`
+				: commandName;
+		const isAgent = !!(program.opts().json || program.opts().agent);
+		captureEvent(
+			`cli.${fullCommand}`,
+			{
+				command: fullCommand,
+				is_agent: isAgent,
+			},
+			_validatedUserEmail,
+		);
+	} catch {
+		/* silently swallow */
+	}
+});
+
 // ── Init ──────────────────────────────────────────────────────────────────
 
 program
@@ -179,7 +248,10 @@ program
 	.action(async (text, opts) => {
 		const { cmdAdd } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const ids = resolveIds(config, opts);
 		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
@@ -233,7 +305,10 @@ program
 		}
 		const { cmdSearch } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const ids = resolveIds(config, opts);
 		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
@@ -265,7 +340,7 @@ program
 	.action(async (memoryId, opts) => {
 		const { cmdGet } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
-		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdGet(backend, memoryId, { output });
 	});
@@ -301,7 +376,10 @@ program
 	.action(async (opts) => {
 		const { cmdList } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const ids = resolveIds(config, opts);
 		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
@@ -337,7 +415,7 @@ program
 		}
 		const { cmdUpdate } = await import("./commands/memory.js");
 		const isAgent = checkAgentMode();
-		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdUpdate(backend, memoryId, resolvedText, {
 			metadata: opts.metadata,
@@ -407,7 +485,7 @@ program
 		// ── Dispatch: single memory ──
 		if (memoryId) {
 			const { cmdDelete } = await import("./commands/memory.js");
-			const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+			const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
 			await cmdDelete(backend, memoryId, {
 				output,
 				dryRun: opts.dryRun,
@@ -419,7 +497,7 @@ program
 		// ── Dispatch: --all ──
 		if (opts.all) {
 			const { cmdDeleteAll } = await import("./commands/memory.js");
-			const { backend, config } = getBackendAndConfig(
+			const { backend, config } = await getBackendAndConfig(
 				opts.apiKey,
 				opts.baseUrl,
 			);
@@ -444,7 +522,7 @@ program
 		// ── Dispatch: --entity ──
 		if (opts.entity) {
 			const { cmdEntitiesDelete } = await import("./commands/entities.js");
-			const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+			const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
 			await cmdEntitiesDelete(backend, { ...opts, output });
 			return;
 		}
@@ -519,7 +597,7 @@ entityCmd
 	.action(async (entityType, opts) => {
 		const { cmdEntitiesList } = await import("./commands/entities.js");
 		const isAgent = checkAgentMode();
-		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdEntitiesList(backend, entityType, { output });
 	});
@@ -543,7 +621,7 @@ entityCmd
 	.action(async (opts) => {
 		const { cmdEntitiesDelete } = await import("./commands/entities.js");
 		const isAgent = checkAgentMode();
-		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdEntitiesDelete(backend, { ...opts, output });
 	});
@@ -569,7 +647,7 @@ eventCmd
 	.action(async (opts) => {
 		const { cmdEventList } = await import("./commands/events.js");
 		const isAgent = checkAgentMode();
-		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdEventList(backend, { output });
 	});
@@ -587,7 +665,7 @@ eventCmd
 	.action(async (eventId, opts) => {
 		const { cmdEventStatus } = await import("./commands/events.js");
 		const isAgent = checkAgentMode();
-		const backend = getBackendOnly(opts.apiKey, opts.baseUrl);
+		const backend = await getBackendOnly(opts.apiKey, opts.baseUrl);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdEventStatus(backend, eventId, { output });
 	});
@@ -604,7 +682,10 @@ program
 	.action(async (opts) => {
 		const { cmdStatus } = await import("./commands/utils.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdStatus(backend, {
 			userId: config.defaults.userId || undefined,
@@ -628,7 +709,10 @@ program
 	.action(async (filePath, opts) => {
 		const { cmdImport } = await import("./commands/utils.js");
 		const isAgent = checkAgentMode();
-		const { backend, config } = getBackendAndConfig(opts.apiKey, opts.baseUrl);
+		const { backend, config } = await getBackendAndConfig(
+			opts.apiKey,
+			opts.baseUrl,
+		);
 		const ids = resolveIds(config, opts);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdImport(backend, filePath, {

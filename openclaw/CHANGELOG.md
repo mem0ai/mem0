@@ -2,6 +2,71 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [1.0.4] - 2026-04-04
+
+### Added
+- **Interactive init flow**: `openclaw mem0 init` with interactive menu (email verification or direct API key). Non-interactive modes: `--api-key`, `--email`, `--email --code`
+- **`memory_add` tool**: Replaces `memory_store` — name now matches `mem0` CLI and platform API
+- **`memory_delete` tool**: Unified delete — single ID, search-then-delete, bulk, entity cascade. Replaces `memory_forget` and `memory_delete_all`
+- **CLI subcommands**: `openclaw mem0 init`, `openclaw mem0 status` (renamed from `stats`), `openclaw mem0 config show`, `openclaw mem0 config set`
+- **`import` CLI command**: Bulk-import memories from a JSON file with `--user-id` and `--agent-id` overrides
+- **`event list` / `event status` CLI commands**: Monitor background processing events
+- **`fs-safe.ts` module**: Isolated filesystem wrappers (sync read/write/exists/mkdir/unlink) in a separate entry point — keeps file I/O out of the main bundle
+- **`backend/` module**: `PlatformBackend` with direct HTTP API access for CLI commands
+- **`cli/config-file.ts`**: Persistent plugin auth storage in `~/.openclaw/openclaw.json`
+- **Plugin manifest**: Added `contracts.tools`, `configSchema`, and `uiHints` to `openclaw.plugin.json`
+- **Test suite**: 329 tests across 10 test files covering tools, CLI, config, dream gate, providers, and skill-loader
+
+### Changed
+- **Modular architecture**: Extracted tools into `tools/` directory (6 files) and CLI into `cli/commands.ts` — `index.ts` down from ~1700 to ~890 lines
+- **Code splitting**: tsup builds with `splitting: true` and two entry points (`index.ts`, `fs-safe.ts`), separating filesystem I/O from the main bundle
+- **Skills updated**: All SKILL.md files reference new tool names (`memory_add`, `memory_delete`) matching the plugin manifest
+- **WRITE_TOOLS updated**: Dream gate tracks `memory_delete` and `memory_add` instead of `memory_forget` and `memory_store`
+- **`mem0ai` dependency**: Updated from `2.3.0` to `2.4.5`
+- **Auto-recall timeout**: Recall wrapped in 8-second `Promise.race` — if the LLM takes too long, recall is skipped instead of stalling the gateway
+- **Auto-capture fire-and-forget**: `provider.add()` now runs in the background via `.then()/.catch()` — the `agent_end` hook returns immediately, zero event loop blocking
+- **Auto-capture minimum content gate**: Skips extraction when total user content is <50 chars after filtering — trivial conversations ("ok", "thanks") no longer trigger LLM calls
+- **CLI search**: Lowered threshold to 0.3 so explicit searches are more permissive than auto-recall
+- **Init defaults**: Choice defaults to `1` (email login) on Enter, User ID defaults to OS username — no more empty values
+- **Init no longer stores `baseUrl`**: Uses `https://api.mem0.ai` directly instead of persisting it to config
+- **Help output reordered**: `openclaw mem0 help` now shows high-value commands first (search, add) instead of alphabetical
+
+### Removed
+- `memory_store` tool — replaced by `memory_add`
+- `memory_forget` tool — replaced by `memory_delete`
+- `memory_delete_all` tool — merged into `memory_delete`
+- `memory_history` tool and `history` CLI command — deprecated
+- **`custom_instructions` / `custom_categories` in `buildAddOptions`**: No longer injected into every auto-capture API call. Config fields (`customInstructions`, `customCategories`) remain as user-configurable options.
+
+## [1.0.3] - 2026-04-03
+
+### Fixed
+- **Path traversal vulnerability**: Added `safePath()` containment helper to `readSkillFile` and `readDomainOverlay` in `skill-loader.ts` — prevents directory traversal via `config.domain` or the exported `loadSkill` API
+- **Noise filter regression**: Reverted incorrect `After-Compaction` regex rename back to `Post-Compaction` so the filter correctly matches real upstream compaction audit messages
+- **Cosmetic revert**: Restored `// Over-fetch for ranking` comment in `recall.ts` (was changed to work around a false-positive scanner match on the substring `fetch`)
+
+### Changed
+- **Supply-chain hardening**: Pinned `mem0ai` dependency to exact `2.3.0` (was `^2.3.0`)
+
+### Added
+- **Path traversal tests**: 12 new tests covering `safePath`, `readSkillFile`, `readDomainOverlay`, and `loadSkill` with traversal inputs
+
+## [1.0.2] - 2026-04-02
+
+### Fixed
+- **Security scanner warning**: Removed `resolveEnvVars()` and `resolveEnvVarsDeep()` from `config.ts` — OpenClaw already resolves `${VAR}` in `openclaw.json` before passing config to the plugin, so plugin-side env resolution was redundant and triggered the "credential harvesting" static analysis warning ([#4676](https://github.com/mem0ai/mem0/pull/4676))
+
+## [1.0.1] - 2026-04-02
+
+### Added
+- **CD workflow**: Added continuous deployment workflow for `@mem0/openclaw-mem0` with OIDC trusted publishing ([#4672](https://github.com/mem0ai/mem0/pull/4672))
+- **Plugin configuration manifest**: Added `compat` and `build` metadata to `package.json` specifying minimum gateway version and OpenClaw SDK compatibility (`>=2026.3.24-beta.2`) ([#4667](https://github.com/mem0ai/mem0/pull/4667))
+- **LICENSE**: Added Apache-2.0 license file to the package ([#4667](https://github.com/mem0ai/mem0/pull/4667))
+
+### Fixed
+- **Dream gate correctness**: Fixed cheap-first ordering, session isolation, and verified completion in the dream gate memory consolidation pipeline ([#4666](https://github.com/mem0ai/mem0/pull/4666))
+- **Graceful startup without API key**: Plugin now starts gracefully when no API key is configured instead of crashing on init ([#4669](https://github.com/mem0ai/mem0/pull/4669))
+
 ## [1.0.0] - 2026-04-01
 
 ### Added

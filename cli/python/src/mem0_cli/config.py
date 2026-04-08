@@ -27,6 +27,7 @@ CONFIG_VERSION = 1
 class PlatformConfig:
     api_key: str = ""
     base_url: str = DEFAULT_BASE_URL
+    user_email: str = ""
 
 
 @dataclass
@@ -48,6 +49,7 @@ class Mem0Config:
 SHORT_KEY_ALIASES: dict[str, str] = {
     "api_key": "platform.api_key",
     "base_url": "platform.base_url",
+    "user_email": "platform.user_email",
     "user_id": "defaults.user_id",
     "agent_id": "defaults.agent_id",
     "app_id": "defaults.app_id",
@@ -76,6 +78,7 @@ def load_config() -> Mem0Config:
         plat = data.get("platform", {})
         config.platform.api_key = plat.get("api_key", "")
         config.platform.base_url = plat.get("base_url", DEFAULT_BASE_URL)
+        config.platform.user_email = plat.get("user_email", "")
 
         defaults = data.get("defaults", {})
         config.defaults.user_id = defaults.get("user_id", "")
@@ -132,6 +135,7 @@ def save_config(config: Mem0Config) -> None:
         "platform": {
             "api_key": config.platform.api_key,
             "base_url": config.platform.base_url,
+            "user_email": config.platform.user_email,
         },
     }
 

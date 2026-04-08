@@ -304,6 +304,23 @@ class Memory(MemoryBase):
             )
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
+    def close(self):
+        """Release resources held by this Memory instance (SQLite connections, etc.).
+
+        The global telemetry singleton is intentionally *not* shut down here
+        because it is shared across all Memory instances in the process.  It is
+        cleaned up automatically at process exit via an ``atexit`` handler.
+        """
+        if hasattr(self, "db") and self.db is not None:
+            self.db.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
@@ -1432,6 +1449,18 @@ class AsyncMemory(MemoryBase):
                 os.makedirs(telemetry_config.path, exist_ok=True)
             self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
         capture_event("mem0.init", self, {"sync_type": "async"})
+
+    def close(self):
+        """Release resources held by this AsyncMemory instance."""
+        if hasattr(self, "db") and self.db is not None:
+            self.db.close()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):

@@ -30,9 +30,6 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: vercel-ai-sdk/pnpm-lock.yaml
 
-      - name: Upgrade npm for OIDC trusted publishing
-        run: npm install -g npm@latest
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -40,4 +37,10 @@ jobs:
         run: pnpm run build
 
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            PREID=$(node -p "require('./package.json').version.split('-')[1].split('.')[0]")
+            npx npm@latest publish --provenance --access public --tag "$PREID"
+          else
+            npx npm@latest publish --provenance --access public
+          fi

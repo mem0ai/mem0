@@ -41,10 +41,16 @@ async function emailLogin(
 	const url = baseUrl.replace(/\/+$/, "");
 	let codeValue = code;
 
+	const sourceHeaders = {
+		"Content-Type": "application/json",
+		"X-Mem0-Source": "cli",
+		"X-Mem0-Client-Language": "node",
+	};
+
 	if (!codeValue) {
 		const resp = await fetch(`${url}/api/v1/auth/email_code/`, {
 			method: "POST",
-			headers: { "Content-Type": "application/json" },
+			headers: sourceHeaders,
 			body: JSON.stringify({ email }),
 			signal: AbortSignal.timeout(30_000),
 		});
@@ -85,7 +91,7 @@ async function emailLogin(
 
 	const verifyResp = await fetch(`${url}/api/v1/auth/email_code/verify/`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: sourceHeaders,
 		body: JSON.stringify({ email, code: codeValue.trim() }),
 		signal: AbortSignal.timeout(30_000),
 	});
@@ -215,6 +221,16 @@ async function validatePlatform(config: Mem0Config): Promise<void> {
 		});
 		if (status.connected) {
 			printSuccess("Connected to mem0 Platform!");
+			// Cache user_email from ping response for telemetry distinct_id
+			try {
+				const pingData = (await backend.ping()) as Record<string, unknown>;
+				const userEmail = pingData?.user_email as string | undefined;
+				if (userEmail) {
+					config.platform.userEmail = userEmail;
+				}
+			} catch {
+				/* ignore — telemetry ID will fall back to API key hash */
+			}
 		} else {
 			printError(
 				`Could not connect: ${status.error ?? "Unknown error"}`,
@@ -307,6 +323,7 @@ export async function runInit(
 
 		config.platform.apiKey = apiKeyVal;
 		config.platform.baseUrl = baseUrl;
+		config.platform.userEmail = email;
 		config.defaults.userId =
 			opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 
@@ -385,6 +402,7 @@ export async function runInit(
 
 			config.platform.apiKey = apiKeyVal;
 			config.platform.baseUrl = baseUrl;
+			config.platform.userEmail = email;
 			config.defaults.userId =
 				opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 

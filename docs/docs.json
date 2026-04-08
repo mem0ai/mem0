@@ -133,6 +133,26 @@
                     "pages": [
                       "platform/contribute"
                     ]
+                  },
+                  {
+                    "group": "Release Notes",
+                    "icon": "rocket",
+                    "pages": [
+                      "changelog"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "OpenClaw",
+                "groups": [
+                  {
+                    "group": "Agent Harness",
+                    "icon": "robot",
+                    "pages": [
+                      "integrations/openclaw",
+                      "integrations/hermes"
+                    ]
                   }
                 ]
               },
@@ -393,11 +413,11 @@
                       "integrations/autogen",
                       "integrations/agno",
                       "integrations/camel-ai",
-                      "integrations/openclaw",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
-                      "integrations/vercel-ai-sdk"
+                      "integrations/vercel-ai-sdk",
+                      "integrations/chatdev"
                     ]
                   },
                   {
@@ -426,6 +446,28 @@
                       "integrations/agentops",
                       "integrations/keywords",
                       "integrations/raycast"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Agent Plugins",
+                "groups": [
+                  {
+                    "group": "Coding Agents",
+                    "icon": "terminal",
+                    "pages": [
+                      "integrations/claude-code",
+                      "integrations/cursor",
+                      "integrations/codex"
+                    ]
+                  },
+                  {
+                    "group": "Agent Harness",
+                    "icon": "robot",
+                    "pages": [
+                      "integrations/openclaw",
+                      "integrations/hermes"
                     ]
                   }
                 ]
@@ -514,18 +556,6 @@
                       "api-reference/webhook/get-webhook",
                       "api-reference/webhook/update-webhook",
                       "api-reference/webhook/delete-webhook"
-                    ]
-                  }
-                ]
-              },
-              {
-                "tab": "Release Notes",
-                "groups": [
-                  {
-                    "group": "Changelog",
-                    "icon": "rocket",
-                    "pages": [
-                      "changelog"
                     ]
                   }
                 ]

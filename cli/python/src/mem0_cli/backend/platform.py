@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 
+from mem0_cli import __version__
 from mem0_cli.backend.base import Backend
 from mem0_cli.config import PlatformConfig
 
@@ -21,11 +22,17 @@ class PlatformBackend(Backend):
             headers={
                 "Authorization": f"Token {config.api_key}",
                 "Content-Type": "application/json",
+                "X-Mem0-Source": "cli",
+                "X-Mem0-Client-Language": "python",
+                "X-Mem0-Client-Version": __version__,
             },
             timeout=30.0,
         )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
+        from mem0_cli.state import is_agent_mode
+
+        self._client.headers["X-Mem0-Caller-Type"] = "agent" if is_agent_mode() else "user"
         resp = self._client.request(method, path, **kwargs)
         if resp.status_code == 401:
             raise AuthError("Authentication failed. Your API key may be invalid or expired.")
@@ -281,6 +288,20 @@ class PlatformBackend(Backend):
             result = self._request("DELETE", f"/v2/entities/{entity_type}/{entity_id}/")
         return result
 
+    def ping(self, timeout: float | None = None) -> dict:
+        """Call the ping endpoint and return the raw response.
+
+        When *timeout* is given it overrides the client-level timeout so that
+        validation pings can fail fast without blocking the user.
+        """
+        if timeout is not None:
+            resp = self._client.get("/v1/ping/", timeout=timeout)
+            if resp.status_code == 401:
+                raise AuthError("Authentication failed. Your API key may be invalid or expired.")
+            resp.raise_for_status()
+            return resp.json()
+        return self._request("GET", "/v1/ping/")
+
     def status(
         self,
         *,
@@ -289,7 +310,7 @@ class PlatformBackend(Backend):
     ) -> dict[str, Any]:
         """Check connectivity using the ping endpoint."""
         try:
-            self._request("GET", "/v1/ping/")
+            self.ping()
             return {"connected": True, "backend": "platform", "base_url": self.base_url}
         except Exception as e:
             return {"connected": False, "backend": "platform", "error": str(e)}
