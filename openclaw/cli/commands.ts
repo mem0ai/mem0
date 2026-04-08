@@ -36,6 +36,7 @@ import type {
   MemoryItem,
   SearchOptions,
 } from "../types.ts";
+import { buildQdrantCountRequest, countMemories } from "../providers.ts";
 import { loadDreamPrompt } from "../skill-loader.ts";
 import { readText } from "../fs-safe.ts";
 import type { PluginAuthConfig } from "./config-file.ts";
@@ -1387,13 +1388,27 @@ export function registerCliCommands(
         .action(async (opts: { dryRun?: boolean }) => {
           try {
             const uid = cfg.userId;
+            const qdrantExactCountAvailable =
+              buildQdrantCountRequest(cfg, uid) !== null;
+            const count = qdrantExactCountAvailable
+              ? await countMemories(provider, cfg, {
+                  userId: uid,
+                  source: "OPENCLAW",
+                })
+              : null;
             const memories = await provider.getAll({
               user_id: uid,
               source: "OPENCLAW",
+              ...(typeof count === "number" ? { page_size: count } : {}),
             });
-            const count = Array.isArray(memories) ? memories.length : 0;
+            const effectiveCount =
+              typeof count === "number"
+                ? count
+                : Array.isArray(memories)
+                  ? memories.length
+                  : 0;
 
-            if (count === 0) {
+            if (effectiveCount === 0) {
               console.log("No memories to consolidate.");
               return;
             }
@@ -1412,7 +1427,7 @@ export function registerCliCommands(
             )) {
               process.stderr.write(`  ${cat}: ${num}\n`);
             }
-            process.stderr.write(`  TOTAL: ${count}\n\n`);
+            process.stderr.write(`  TOTAL: ${effectiveCount}\n\n`);
 
             if (opts.dryRun) {
               process.stderr.write("Dry run — no changes made.\n");
@@ -1444,7 +1459,7 @@ export function registerCliCommands(
               dreamPrompt,
               "</dream-protocol>",
               "",
-              `<all-memories count="${count}" user="${uid}">`,
+              `<all-memories count="${effectiveCount}" user="${uid}">`,
               memoryDump,
               "</all-memories>",
               "",

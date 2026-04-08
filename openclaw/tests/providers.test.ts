@@ -4,9 +4,13 @@
  * Verifies that the Backend wrapper correctly delegates to the
  * underlying Mem0Provider methods with proper argument mapping.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-import { providerToBackend } from "../providers.ts";
+import {
+  buildQdrantCountRequest,
+  countMemories,
+  providerToBackend,
+} from "../providers.ts";
 
 // ---------------------------------------------------------------------------
 // Mock provider factory
@@ -33,8 +37,113 @@ function createMockProvider() {
 
 const DEFAULT_USER = "test-user";
 
+function createOssQdrantConfig() {
+  return {
+    mode: "open-source" as const,
+    userId: DEFAULT_USER,
+    topK: 5,
+    enableGraph: false,
+    autoCapture: true,
+    autoRecall: true,
+    searchThreshold: 0.5,
+    customInstructions: "",
+    customCategories: {},
+    oss: {
+      vectorStore: {
+        provider: "qdrant",
+        config: {
+          host: "127.0.0.1",
+          port: 6333,
+          collectionName: "openclaw_mem0",
+        },
+      },
+    },
+  };
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+// ---------------------------------------------------------------------------
+// exact count helpers
+// ---------------------------------------------------------------------------
+
+describe("buildQdrantCountRequest", () => {
+  it("builds a qdrant count request for OSS mode", () => {
+    const request = buildQdrantCountRequest(
+      createOssQdrantConfig() as any,
+      "test-user:agent:researcher",
+    );
+
+    expect(request).not.toBeNull();
+    expect(request?.url).toBe(
+      "http://127.0.0.1:6333/collections/openclaw_mem0/points/count",
+    );
+    expect(request?.headers).toEqual({
+      "Content-Type": "application/json",
+    });
+    expect(JSON.parse(request?.body ?? "{}")).toEqual({
+      exact: true,
+      filter: {
+        must: [
+          {
+            key: "userId",
+            match: { value: "test-user:agent:researcher" },
+          },
+        ],
+      },
+    });
+  });
+});
+
+describe("countMemories", () => {
+  it("uses qdrant exact count when available", async () => {
+    const provider = createMockProvider();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: { count: 337 } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const count = await countMemories(provider as any, createOssQdrantConfig() as any, {
+      userId: DEFAULT_USER,
+      source: "OPENCLAW",
+    });
+
+    expect(count).toBe(337);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:6333/collections/openclaw_mem0/points/count",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+    expect(provider.getAll).not.toHaveBeenCalled();
+  });
+
+  it("falls back to provider.getAll when exact count is unavailable", async () => {
+    const provider = createMockProvider();
+    provider.getAll.mockResolvedValueOnce([
+      { id: "m1", memory: "one" },
+      { id: "m2", memory: "two" },
+    ]);
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
+
+    const count = await countMemories(provider as any, createOssQdrantConfig() as any, {
+      userId: DEFAULT_USER,
+      source: "OPENCLAW",
+    });
+
+    expect(count).toBe(2);
+    expect(provider.getAll).toHaveBeenCalledWith({
+      user_id: DEFAULT_USER,
+      source: "OPENCLAW",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

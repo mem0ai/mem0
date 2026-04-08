@@ -168,7 +168,7 @@ function createMockBackend() {
   };
 }
 
-function createMockCfg() {
+function createMockCfg(overrides: Record<string, unknown> = {}) {
   return {
     mode: "platform" as const,
     userId: "testuser",
@@ -182,6 +182,7 @@ function createMockCfg() {
     customInstructions: "",
     customCategories: {},
     skills: {},
+    ...overrides,
   };
 }
 
@@ -189,10 +190,10 @@ function createMockCfg() {
  * Register CLI commands using mocked deps, and return the captured
  * mem0 command tree plus all mock objects for assertions.
  */
-function setup() {
+function setup(cfgOverrides: Record<string, unknown> = {}) {
   const provider = createMockProvider();
   const backend = createMockBackend();
-  const cfg = createMockCfg();
+  const cfg = createMockCfg(cfgOverrides);
   const effectiveUserId = vi.fn().mockReturnValue("testuser");
   const agentUserId = vi.fn((id: string) => `testuser:agent:${id}`);
   const buildSearchOptions = vi.fn().mockReturnValue({
@@ -275,6 +276,7 @@ describe("registerCliCommands", () => {
     consoleSpy.error.mockRestore();
     consoleSpy.warn.mockRestore();
     stderrSpy.mockRestore();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -1182,6 +1184,49 @@ describe("registerCliCommands", () => {
       expect(stdoutOutput).toContain("dream prompt");
       expect(stdoutOutput).toContain("<all-memories");
       expect(stdoutOutput).toContain("User is an engineer");
+
+      stdoutSpy.mockRestore();
+    });
+
+    it("uses qdrant exact count to request the full memory inventory", async () => {
+      const { mem0, provider } = setup({
+        mode: "open-source",
+        oss: {
+          vectorStore: {
+            provider: "qdrant",
+            config: {
+              host: "127.0.0.1",
+              port: 6333,
+              collectionName: "openclaw_mem0",
+            },
+          },
+        },
+      });
+      provider.getAll.mockResolvedValueOnce([
+        {
+          id: "m1",
+          memory: "User is an engineer",
+          categories: ["identity"],
+          metadata: { category: "identity", importance: 0.9 },
+          created_at: "2026-01-01",
+        },
+      ]);
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ result: { count: 337 } }),
+      }));
+      const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+      const dreamCmd = findCommand(mem0, "dream")!;
+
+      await dreamCmd._action!({});
+
+      expect(provider.getAll).toHaveBeenCalledWith({
+        user_id: "testuser",
+        source: "OPENCLAW",
+        page_size: 337,
+      });
+      const stdoutOutput = stdoutSpy.mock.calls.map((c) => c[0]).join("");
+      expect(stdoutOutput).toContain('<all-memories count="337" user="testuser">');
 
       stdoutSpy.mockRestore();
     });

@@ -17,6 +17,12 @@ import type {
 // Result Normalizers
 // ============================================================================
 
+interface QdrantCountRequest {
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+}
+
 function normalizeMemoryItem(raw: any): MemoryItem {
   return {
     id: raw.id ?? raw.memory_id ?? "",
@@ -69,6 +75,111 @@ function normalizeAddResult(raw: any): AddResult {
     };
   }
   return { results: [] };
+}
+
+function readStringConfigValue(
+  config: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const value = config?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function readPortConfigValue(
+  config: Record<string, unknown> | undefined,
+  key: string,
+): number | undefined {
+  const value = config?.[key];
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return undefined;
+}
+
+export function buildQdrantCountRequest(
+  cfg: Mem0Config,
+  userId: string,
+): QdrantCountRequest | null {
+  if (cfg.mode !== "open-source") return null;
+  if (cfg.oss?.vectorStore?.provider !== "qdrant") return null;
+
+  const vectorConfig =
+    cfg.oss.vectorStore.config as Record<string, unknown> | undefined;
+  const collectionName = readStringConfigValue(vectorConfig, "collectionName");
+  if (!collectionName) return null;
+
+  const explicitUrl = readStringConfigValue(vectorConfig, "url");
+  const apiKey = readStringConfigValue(vectorConfig, "apiKey");
+  const baseUrl = (() => {
+    if (explicitUrl) return explicitUrl.replace(/\/+$/, "");
+    const host = readStringConfigValue(vectorConfig, "host") ?? "127.0.0.1";
+    const port = readPortConfigValue(vectorConfig, "port") ?? 6333;
+    const protocol = vectorConfig?.https === true ? "https" : "http";
+    return `${protocol}://${host}:${port}`;
+  })();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (apiKey) headers["api-key"] = apiKey;
+
+  return {
+    url: `${baseUrl}/collections/${encodeURIComponent(collectionName)}/points/count`,
+    headers,
+    body: JSON.stringify({
+      exact: true,
+      filter: {
+        must: [{ key: "userId", match: { value: userId } }],
+      },
+    }),
+  };
+}
+
+async function countMemoriesWithQdrant(
+  cfg: Mem0Config,
+  userId: string,
+): Promise<number | null> {
+  const request = buildQdrantCountRequest(cfg, userId);
+  if (!request) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(request.url, {
+      method: "POST",
+      headers: request.headers,
+      body: request.body,
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    return typeof payload?.result?.count === "number"
+      ? payload.result.count
+      : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function countMemories(
+  provider: Mem0Provider,
+  cfg: Mem0Config,
+  options: { userId: string; source?: string },
+): Promise<number> {
+  const exactCount = await countMemoriesWithQdrant(cfg, options.userId);
+  if (typeof exactCount === "number") return exactCount;
+
+  const memories = await provider.getAll({
+    user_id: options.userId,
+    ...(options.source ? { source: options.source } : {}),
+  });
+  return Array.isArray(memories) ? memories.length : 0;
 }
 
 // ============================================================================
@@ -400,6 +511,7 @@ class OSSProvider implements Mem0Provider {
     // OSS SDK uses camelCase: userId/runId, not user_id/run_id
     const getAllOpts: Record<string, unknown> = { userId: options.user_id };
     if (options.run_id) getAllOpts.runId = options.run_id;
+    if (options.page_size != null) getAllOpts.limit = options.page_size;
     if (options.source) getAllOpts.source = options.source;
     const results = await this.memory.getAll(getAllOpts);
     if (Array.isArray(results)) return results.map(normalizeMemoryItem);

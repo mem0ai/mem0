@@ -25,7 +25,11 @@ import type {
   AddOptions,
   SearchOptions,
 } from "./types.ts";
-import { createProvider, providerToBackend } from "./providers.ts";
+import {
+  createProvider,
+  providerToBackend,
+  countMemories,
+} from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
 import type { FileConfig } from "./config.ts";
 import { filterMessagesForExtraction } from "./filtering.ts";
@@ -454,11 +458,10 @@ function registerHooks(
           );
           if (cheapResult.proceed) {
             // Cheap gates passed. Now do the expensive memory count check.
-            const memories = await provider.getAll({
-              user_id: userId,
+            const memCount = await countMemories(provider, cfg, {
+              userId,
               source: "OPENCLAW",
             });
-            const memCount = Array.isArray(memories) ? memories.length : 0;
             const memResult = checkMemoryGate(
               memCount,
               cfg.skills?.dream ?? {},

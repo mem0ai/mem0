@@ -58,6 +58,7 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
   let memoryCallCount: number;
 
   beforeEach(() => {
+    vi.resetModules();
     capturedConfig = undefined;
     memoryCallCount = 0;
 
@@ -129,6 +130,7 @@ describe("OSSProvider — initPromise retry after failure", () => {
   let callCount: number;
 
   beforeEach(() => {
+    vi.resetModules();
     callCount = 0;
 
     vi.doMock("mem0ai/oss", () => ({
@@ -186,6 +188,7 @@ describe("OSSProvider — graceful SQLite fallback", () => {
   let capturedConfigs: Record<string, unknown>[];
 
   beforeEach(() => {
+    vi.resetModules();
     capturedConfigs = [];
 
     vi.doMock("mem0ai/oss", () => ({
@@ -273,6 +276,7 @@ describe("PlatformProvider — initPromise retry after failure", () => {
   let callCount: number;
 
   beforeEach(() => {
+    vi.resetModules();
     callCount = 0;
 
     vi.doMock("mem0ai", () => ({
