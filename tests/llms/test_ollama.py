@@ -140,3 +140,23 @@ def test_parse_response_with_tools_object_style(mock_ollama_client):
     result = llm._parse_response(mock_response, tools)
 
     assert result["tool_calls"] == [{"name": "extract", "arguments": {"entities": ["Alice"]}}]
+
+
+def test_generate_response_json_format_does_not_mutate_messages(mock_ollama_client):
+    """Requesting JSON response_format must not modify the caller's messages list."""
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OllamaLLM(config)
+    messages = [
+        {"role": "user", "content": "Give me a list of colors"},
+    ]
+    original_content = messages[0]["content"]
+    original_length = len(messages)
+
+    mock_response = {"message": {"content": '{"colors": ["red"]}'}}
+    mock_ollama_client.chat.return_value = mock_response
+
+    llm.generate_response(messages, response_format={"type": "json_object"})
+
+    # Caller's messages must be untouched
+    assert len(messages) == original_length
+    assert messages[0]["content"] == original_content
