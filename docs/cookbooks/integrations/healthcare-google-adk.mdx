@@ -77,7 +77,7 @@ def retrieve_patient_info(query: str) -> dict:
     results = mem0_client.search(
         query,
         user_id=USER_ID,
-        top_k=5,
+        limit=5,
         threshold=0.7  # Higher threshold for more relevant results
     )
 
