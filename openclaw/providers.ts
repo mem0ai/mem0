@@ -201,9 +201,7 @@ class PlatformProvider implements Mem0Provider {
     await this.client.deleteAll({ user_id: userId });
   }
 
-  async history(
-    memoryId: string,
-  ): Promise<
+  async history(memoryId: string): Promise<
     Array<{
       id: string;
       old_memory: string;
@@ -245,17 +243,26 @@ class OSSProvider implements Mem0Provider {
   private _buildConfig(disableHistory = false): Record<string, unknown> {
     const config: Record<string, unknown> = { version: "v1.1" };
 
-    const defaultEmbedder = { provider: "openai", config: { model: "text-embedding-3-small" } };
+    const defaultEmbedder = {
+      provider: "openai",
+      config: { model: "text-embedding-3-small" },
+    };
     const defaultLlm = { provider: "openai", config: { model: "gpt-5.4" } };
 
     const stripEmpty = (obj: Record<string, unknown>) => {
       const out = { ...obj };
-      for (const k of Object.keys(out)) { if (out[k] === "") delete out[k]; }
+      for (const k of Object.keys(out)) {
+        if (out[k] === "") delete out[k];
+      }
       return out;
     };
 
     if (this.ossConfig?.embedder) {
       const ec = stripEmpty(this.ossConfig.embedder.config ?? {});
+      if (ec.host && !ec.url) {
+        ec.url = ec.host;
+        delete ec.host;
+      }
       config.embedder = {
         provider: this.ossConfig.embedder.provider || defaultEmbedder.provider,
         config: { ...defaultEmbedder.config, ...ec },
@@ -266,6 +273,10 @@ class OSSProvider implements Mem0Provider {
 
     if (this.ossConfig?.llm) {
       const lc = stripEmpty(this.ossConfig.llm.config ?? {});
+      if (lc.host && !lc.url) {
+        lc.url = lc.host;
+        delete lc.host;
+      }
       config.llm = {
         provider: this.ossConfig.llm.provider || defaultLlm.provider,
         config: { ...defaultLlm.config, ...lc },
@@ -432,9 +443,7 @@ class OSSProvider implements Mem0Provider {
     await this.memory.deleteAll({ userId });
   }
 
-  async history(
-    memoryId: string,
-  ): Promise<
+  async history(memoryId: string): Promise<
     Array<{
       id: string;
       old_memory: string;
