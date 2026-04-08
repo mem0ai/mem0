@@ -1,0 +1,103 @@
+---
+title: "Highlights"
+description: "Major product launches, headline features, and milestones for Mem0."
+mode: "wide"
+---
+
+<Update label="2026-04-06" description="Mem0 Skill Graph">
+
+**Mem0 Skill Graph for AI Coding Agents**
+
+Launched three interconnected skills that give Claude Code, Cursor, and Codex agents structured access to Mem0:
+
+- **mem0 Core Skill** — Python/TypeScript SDK reference, REST API patterns, and framework integration guides
+- **mem0-cli Skill** — Terminal command reference, configuration workflows, and CI/CD recipes
+- **mem0-vercel-ai-sdk Skill** — Vercel AI SDK provider API docs, memory utilities, and usage patterns
+
+Skills enable agents to use Mem0 without needing to search docs — memory operations, configuration, and best practices are available in-context.
+
+</Update>
+
+<Update label="2026-04-04" description="OpenClaw Plugin v1.0.0 – v1.0.4">
+
+**OpenClaw Plugin — Production-Ready Release**
+
+The OpenClaw Mem0 plugin reached production readiness with a rapid v1.0.0 through v1.0.4 release cycle:
+
+- **Skills-based memory architecture** — Complete extraction pipeline refactor with skill-loader, batched extraction, and domain-aware memory triage
+- **Dream gate** — Memory consolidation during idle periods for higher-quality long-term memory
+- **Interactive CLI** — `openclaw mem0 init` with email verification, plus subcommands for status, config, import, and event monitoring
+- **Security hardening** — Path traversal protection, pinned dependencies, removed redundant env var resolution
+- **329 tests** across 10 test files
+
+</Update>
+
+<Update label="2026-04-02" description="Mem0 CLI Launch">
+
+**Official Mem0 CLI — Available on PyPI and npm**
+
+Launched the Mem0 command-line interface for both Python (`mem0-cli`) and Node.js (`@mem0/cli`):
+
+- **Full command suite** — `add`, `search`, `list`, `get`, `update`, `delete`, `import`, `config`, `init`, `status`, `entity`, `event`
+- **Email verification login** — `mem0 init` with interactive setup
+- **Platform and OSS modes** — Works with Mem0 Cloud or self-hosted deployments
+- **JSON output** — `--json` flag for scripting and CI/CD pipelines
+- **Available now** — `pip install mem0-cli` or `npm install -g @mem0/cli`
+
+</Update>
+
+<Update label="2026-03-25" description="Mem0 Plugin Ecosystem">
+
+**Mem0 Plugins for Claude Code, Cursor, and Codex**
+
+Launched official Mem0 plugins for major AI development environments:
+
+- **MCP server integration** — 9 memory management tools (add, search, update, delete, bulk operations, entity management)
+- **Lifecycle hooks** — Automatic memory capture at session start, context compaction, task completion, and session end
+- **Cloud MCP server** — Replaced local MCP and Smithery with managed cloud endpoint at `mcp.mem0.ai`
+- **Streamable HTTP transport** — Real-time data streaming for MCP protocol
+
+</Update>
+
+<Update label="2026-03-25" description="NemoClaw Integration">
+
+**NemoClaw + Mem0 Plugin**
+
+Added NemoClaw integration with setup scripts and quickstart guide, expanding the plugin ecosystem to NVIDIA's agent framework.
+
+</Update>
+
+<Update label="2026-03-26" description="New Providers">
+
+**Turbopuffer, MiniMax, and pgvector for Node.js**
+
+Expanded the provider ecosystem across both SDKs:
+
+- **Turbopuffer** — New vector database provider for Python SDK
+- **MiniMax** — New LLM provider with AWS Bedrock support
+- **pgvector for Node.js** — PostgreSQL vector support added to the TypeScript OSS SDK
+- **Reasoning models** — Added `reasoning_effort` parameter for OpenAI o1/o3 models
+
+</Update>
+
+<Update label="2026-03-09" description="TypeScript SDK v2.3.0">
+
+**TypeScript SDK — SQLite Migration (Breaking Change)**
+
+Migrated from `sqlite3` to `better-sqlite3` to fix native binding resolution failures in plugin systems and container environments. Minimum Node.js version for OSS sqlite features is now Node 20+.
+
+</Update>
+
+<Update label="2025-10-16" description="Python SDK v1.0.0">
+
+**Python SDK v1.0.0**
+
+Major milestone release with:
+
+- **Reranker support** — Cohere, ZeroEntropy, Hugging Face, Sentence Transformers, and LLM-based rerankers
+- **New vector stores** — Azure MySQL and Azure AI Search
+- **Metadata filtering** for self-hosted deployments
+- **Async mode as default** — Better performance out of the box
+- **OpenAI 2.x compatibility**
+
+</Update>
