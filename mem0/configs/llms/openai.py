@@ -29,7 +29,7 @@ class OpenAIConfig(BaseLlmConfig):
         openrouter_base_url: Optional[str] = None,
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
-        store: bool = False,
+        store: Optional[bool] = None,
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
@@ -53,6 +53,7 @@ class OpenAIConfig(BaseLlmConfig):
             openrouter_base_url: OpenRouter base URL, defaults to None
             site_url: Site URL for OpenRouter, defaults to None
             app_name: Application name for OpenRouter, defaults to None
+            store: Whether to persist OpenAI responses when the backend supports it, defaults to None
             response_callback: Optional callback for monitoring LLM responses.
         """
         # Initialize base parameters

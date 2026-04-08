@@ -55,7 +55,7 @@ def test_generate_response_without_tools(mock_openai_client):
     response = llm.generate_response(messages)
 
     mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, store=False
+        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
@@ -97,7 +97,7 @@ def test_generate_response_with_tools(mock_openai_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto", store=False
+        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto"
     )
 
     assert response["content"] == "I've added the memory for you."
@@ -168,6 +168,22 @@ def test_callback_exception_handling(mock_openai_client):
     
     # Verify callback was called (even though it raised an exception)
     assert llm.config.response_callback is faulty_callback
+
+
+def test_generate_response_includes_store_when_explicitly_configured(mock_openai_client):
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", store=False)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs["store"] is False
+
 
 
 def test_reasoning_model_with_reasoning_effort(mock_openai_client):
