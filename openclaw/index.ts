@@ -103,15 +103,21 @@ const memoryPlugin = definePluginEntry({
     const fileConfig: FileConfig = {
       apiKey: pluginAuth.apiKey,
       baseUrl: pluginAuth.baseUrl,
-      orgId: pluginAuth.orgId,
-      projectId: pluginAuth.projectId,
     };
     const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
 
     // Telemetry context bound to this plugin instance's config
-    const telemetryCtx = { apiKey: cfg.apiKey, mode: cfg.mode, skillsActive: false };
+    const telemetryCtx = {
+      apiKey: cfg.apiKey,
+      mode: cfg.mode,
+      skillsActive: false,
+    };
     const _captureEvent = (event: string, props?: Record<string, unknown>) => {
-      try { captureEvent(event, props, telemetryCtx); } catch { /* silently swallow */ }
+      try {
+        captureEvent(event, props, telemetryCtx);
+      } catch {
+        /* silently swallow */
+      }
     };
 
     if (cfg.needsSetup) {
@@ -182,7 +188,7 @@ const memoryPlugin = definePluginEntry({
     });
 
     api.logger.info(
-      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, graph: ${cfg.enableGraph}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
+      `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
     );
 
     // Helper: build add options
@@ -197,7 +203,6 @@ const memoryPlugin = definePluginEntry({
       };
       if (runId) opts.run_id = runId;
       if (cfg.mode === "platform") {
-        opts.enable_graph = cfg.enableGraph;
         opts.output_format = "v1.1";
       }
       return opts;
@@ -242,7 +247,10 @@ const memoryPlugin = definePluginEntry({
       getCurrentSessionId: () => currentSessionId,
       skillsActive,
       captureToolEvent: (toolName: string, props: Record<string, unknown>) => {
-        _captureEvent(`openclaw.tool.${toolName}`, { tool_name: toolName, ...props });
+        _captureEvent(`openclaw.tool.${toolName}`, {
+          tool_name: toolName,
+          ...props,
+        });
       },
     };
     registerAllTools(toolDeps);
@@ -328,7 +336,10 @@ function registerHooks(
     getStateDir: () => string | undefined;
   },
   skillsActive: boolean = false,
-  _captureEvent: (event: string, props?: Record<string, unknown>) => void = () => {},
+  _captureEvent: (
+    event: string,
+    props?: Record<string, unknown>,
+  ) => void = () => {},
 ) {
   // ========================================================================
   // SKILLS MODE: Agentic memory via before_prompt_build
@@ -355,16 +366,17 @@ function registerHooks(
         return;
       }
 
-      // Skip recall for system/bootstrap prompts. These are OpenClaw internal
-      // commands (/new, /reset) that contain system instructions, not user queries.
-      // Sending them to mem0 search wastes API calls and returns noise.
       const promptLower = event.prompt.toLowerCase();
+      const isChannelSystemEvent = /^system(?:\s*\(untrusted\))?:\s*\[/i.test(
+        event.prompt,
+      );
       const isSystemPrompt =
-        promptLower.includes("a new session was started") ||
-        promptLower.includes("session startup sequence") ||
-        promptLower.includes("/new or /reset") ||
-        promptLower.startsWith("system:") ||
-        promptLower.startsWith("run your session");
+        !isChannelSystemEvent &&
+        (promptLower.includes("a new session was started") ||
+          promptLower.includes("session startup sequence") ||
+          promptLower.includes("/new or /reset") ||
+          promptLower.startsWith("system:") ||
+          promptLower.startsWith("run your session"));
       if (isSystemPrompt) {
         api.logger.info(
           "openclaw-mem0: skills-mode skipping recall for system/bootstrap prompt",
@@ -472,7 +484,10 @@ function registerHooks(
                   "\n</auto-dream>";
                 // Track which session triggered dream (session-keyed, not global)
                 dreamSessionId = sessionId;
-                _captureEvent("openclaw.hook.dream", { phase: "triggered", memory_count: memCount });
+                _captureEvent("openclaw.hook.dream", {
+                  phase: "triggered",
+                  memory_count: memCount,
+                });
                 api.logger.info(
                   `openclaw-mem0: auto-dream triggered (${memCount} memories, gate passed)`,
                 );
@@ -545,7 +560,10 @@ function registerHooks(
         if (writeToolUsed) {
           releaseDreamLock(stateDir);
           recordDreamCompletion(stateDir);
-          _captureEvent("openclaw.hook.dream", { phase: "completed", write_tools_used: true });
+          _captureEvent("openclaw.hook.dream", {
+            phase: "completed",
+            write_tools_used: true,
+          });
           api.logger.info(
             "openclaw-mem0: auto-dream completed (verified write tool usage), lock released",
           );
@@ -599,14 +617,17 @@ function registerHooks(
         return;
       }
 
-      // Skip recall for system/bootstrap prompts to save API calls
       const promptLower = event.prompt.toLowerCase();
+      const isChannelSystemEvent = /^system(?:\s*\(untrusted\))?:\s*\[/i.test(
+        event.prompt,
+      );
       const isSystemPrompt =
-        promptLower.includes("a new session was started") ||
-        promptLower.includes("session startup sequence") ||
-        promptLower.includes("/new or /reset") ||
-        promptLower.startsWith("system:") ||
-        promptLower.startsWith("run your session");
+        !isChannelSystemEvent &&
+        (promptLower.includes("a new session was started") ||
+          promptLower.includes("session startup sequence") ||
+          promptLower.includes("/new or /reset") ||
+          promptLower.startsWith("system:") ||
+          promptLower.startsWith("run your session"));
       if (isSystemPrompt) {
         api.logger.info(
           "openclaw-mem0: skipping recall for system/bootstrap prompt",
@@ -775,11 +796,17 @@ function registerHooks(
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
-      const MEMORY_MUTATE_TOOLS = new Set(["memory_add", "memory_update", "memory_delete"]);
+      const MEMORY_MUTATE_TOOLS = new Set([
+        "memory_add",
+        "memory_update",
+        "memory_delete",
+      ]);
       const agentUsedMemoryTool = event.messages.some((msg: any) => {
-        if (msg?.role !== "assistant" || !Array.isArray(msg?.content)) return false;
+        if (msg?.role !== "assistant" || !Array.isArray(msg?.content))
+          return false;
         return msg.content.some(
-          (block: any) => block?.type === "tool_use" && MEMORY_MUTATE_TOOLS.has(block.name),
+          (block: any) =>
+            block?.type === "tool_use" && MEMORY_MUTATE_TOOLS.has(block.name),
         );
       });
       if (agentUsedMemoryTool) {
@@ -848,7 +875,10 @@ function registerHooks(
           if (!textContent) continue;
         }
         // Strip OpenClaw sender metadata prefix (prevents storing TUI identity as memory)
-        if (textContent.includes("Sender") && textContent.includes("untrusted metadata")) {
+        if (
+          textContent.includes("Sender") &&
+          textContent.includes("untrusted metadata")
+        ) {
           textContent = textContent
             .replace(
               /Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi,

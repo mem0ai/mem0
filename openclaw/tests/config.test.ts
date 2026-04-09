@@ -64,11 +64,6 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
     expect(cfg.searchThreshold).toBe(0.5);
   });
 
-  it("enableGraph defaults to false", () => {
-    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.enableGraph).toBe(false);
-  });
-
   it("customInstructions defaults to DEFAULT_CUSTOM_INSTRUCTIONS", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
     expect(cfg.customInstructions).toBe(DEFAULT_CUSTOM_INSTRUCTIONS);
@@ -274,14 +269,6 @@ describe("mem0ConfigSchema.parse() — explicit overrides", () => {
     expect(cfg.autoRecall).toBe(false);
   });
 
-  it("enableGraph can be set to true", () => {
-    const cfg = mem0ConfigSchema.parse({
-      apiKey: "k",
-      enableGraph: true,
-    });
-    expect(cfg.enableGraph).toBe(true);
-  });
-
   it("custom topK is used when provided", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "k", topK: 20 });
     expect(cfg.topK).toBe(20);
@@ -330,18 +317,6 @@ describe("mem0ConfigSchema.parse() — explicit overrides", () => {
     expect(cfg.baseUrl).toBe("https://custom.api.com");
   });
 
-  it("orgId is passed through when provided", () => {
-    const cfg = mem0ConfigSchema.parse({ apiKey: "k", orgId: "org-123" });
-    expect(cfg.orgId).toBe("org-123");
-  });
-
-  it("projectId is passed through when provided", () => {
-    const cfg = mem0ConfigSchema.parse({
-      apiKey: "k",
-      projectId: "proj-456",
-    });
-    expect(cfg.projectId).toBe("proj-456");
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -359,22 +334,23 @@ describe("mem0ConfigSchema.parse() — oss config", () => {
       historyDbPath: "/tmp/history.db",
       disableHistory: false,
     };
-    const cfg = mem0ConfigSchema.parse({ mode: "oss", oss: ossConfig });
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source", oss: ossConfig });
+    expect(cfg.mode).toBe("open-source");
     expect(cfg.oss).toEqual(ossConfig);
   });
 
   it("ignores oss when it is not a plain object", () => {
-    const cfg = mem0ConfigSchema.parse({ mode: "oss", oss: "not-an-object" });
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source", oss: "not-an-object" });
     expect(cfg.oss).toBeUndefined();
   });
 
   it("ignores oss when it is an array", () => {
-    const cfg = mem0ConfigSchema.parse({ mode: "oss", oss: [1, 2, 3] });
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source", oss: [1, 2, 3] });
     expect(cfg.oss).toBeUndefined();
   });
 
   it("ignores oss when it is null", () => {
-    const cfg = mem0ConfigSchema.parse({ mode: "oss", oss: null });
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source", oss: null });
     expect(cfg.oss).toBeUndefined();
   });
 });
@@ -388,7 +364,6 @@ describe("mem0ConfigSchema.parse() — skills config", () => {
       triage: {
         enabled: true,
         importanceThreshold: 3,
-        enableGraph: false,
         credentialPatterns: ["sk-", "ghp_"],
       },
       recall: {

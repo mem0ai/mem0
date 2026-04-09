@@ -4,6 +4,18 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-04-07" description="v1.0.5">
+
+**Bug Fixes:**
+- **Init interactive choice bug**: Fixed number selection in `openclaw mem0 init` — entering 1/2/3 now correctly selects the corresponding option (was broken by readline prefill concatenating with user input)
+- **OSS pgvector crash** ([#4727](https://github.com/mem0ai/mem0/issues/4727)): Fixed "Client has already been connected" cascade when using pgvector in OSS mode. The warmup call swallowed errors leaving a half-initialized pg client; concurrent recall/capture then all hit `client.connect()` on the same client. Fix: let warmup errors propagate (so `initPromise` resets and retries with a fresh Memory + fresh pg client) and build fresh config objects per attempt instead of mutating shared state.
+
+**Removed:**
+- **`orgId` / `projectId` config parameters**: Removed from config schema, CLI (`config show/get/set`), init display, and providers. The API key is project-scoped, so separate org/project IDs are unnecessary and could cause access errors if mismatched.
+- **`enableGraph` config parameter**: Removed from all config surfaces, providers, backend, and tools. Graph memory is being deprecated — removing the flag avoids unnecessary exposure.
+
+</Update>
+
 <Update label="2026-04-04" description="v1.0.4">
 
 **New Features:**
