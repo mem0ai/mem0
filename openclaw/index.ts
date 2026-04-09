@@ -736,22 +736,34 @@ function registerHooks(
         };
       };
 
+      // Sentinel to distinguish a real timeout from a legitimate `undefined`
+      // return from `recallWork` (e.g. when no memories match). This avoids
+      // mis-logging a timeout when the work completed successfully with no
+      // results.
+      const TIMEOUT_SENTINEL = Symbol("openclaw-mem0.recall.timeout");
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
       try {
-        const timeout = new Promise<undefined>((resolve) => {
-          setTimeout(() => resolve(undefined), RECALL_TIMEOUT_MS);
+        const timeout = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+          timeoutHandle = setTimeout(
+            () => resolve(TIMEOUT_SENTINEL),
+            RECALL_TIMEOUT_MS,
+          );
         });
-        const result = await Promise.race([
-          recallWork(),
-          timeout.then(() => {
-            api.logger.warn(
-              `openclaw-mem0: recall timed out after ${RECALL_TIMEOUT_MS}ms, skipping`,
-            );
-            return undefined;
-          }),
-        ]);
+        const result = await Promise.race([recallWork(), timeout]);
+        if (result === TIMEOUT_SENTINEL) {
+          api.logger.warn(
+            `openclaw-mem0: recall timed out after ${RECALL_TIMEOUT_MS}ms, skipping`,
+          );
+          return undefined;
+        }
         return result;
       } catch (err) {
         api.logger.warn(`openclaw-mem0: recall failed: ${String(err)}`);
+      } finally {
+        // Cancel the pending timer so a successful recall does not leave a
+        // phantom `setTimeout` callback that would fire RECALL_TIMEOUT_MS
+        // later and log a spurious "recall timed out" warning. See #4763.
+        if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
       }
     });
   }
