@@ -69,6 +69,10 @@ Add the following to your `.cursor/mcp.json`:
 
 ### Option D — Cursor Marketplace (Full Plugin)
 
+<Warning>
+  The Mem0 plugin is not currently available in the Cursor Marketplace. Use Options A, B, or C above for a working MCP installation.
+</Warning>
+
 Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks, the Mem0 SDK skill, and automatic memory capture.
 
 <Info icon="check">
@@ -136,7 +140,7 @@ You: The /orders endpoint is also slow, same pattern as before.
 - **"Connection failed"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
 - **Duplicate tools** — If you had a previous MCP config for `mem0`, remove it before installing the plugin
 - **No tools appearing** — Go to Cursor Settings > MCP and verify the `mem0` server shows as connected
-- **Hooks not running** — Hooks require the Marketplace install (Option D). Deeplink/manual installs only provide MCP tools.
+- **Hooks not running** — Hooks require the Marketplace install (Option D), which is temporarily unavailable. Use Options A, B, or C for MCP tools in the meantime.
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
