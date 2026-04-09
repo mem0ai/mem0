@@ -67,7 +67,6 @@ export function createMemoryAddTool(deps: ToolDeps) {
           if (runId) addOpts.run_id = runId;
           if (cfg.mode === "platform") {
             addOpts.output_format = "v1.1";
-            if (cfg.enableGraph || cfg.skills?.triage?.enableGraph) addOpts.enable_graph = true;
           }
 
           const result = await provider.add([{ role: "user", content: allFacts.join("\n") }], addOpts);

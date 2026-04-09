@@ -2,6 +2,7 @@
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
+  "version": "1.0.5",
   "kind": "memory",
   "skills": ["skills"],
   "contracts": {

@@ -9,11 +9,8 @@ export type Mem0Config = {
   // Platform-specific
   apiKey?: string;
   baseUrl?: string;
-  orgId?: string;
-  projectId?: string;
   customInstructions: string;
   customCategories: Record<string, string>;
-  enableGraph: boolean;
   // OSS-specific
   customPrompt?: string;
   oss?: {
@@ -40,7 +37,6 @@ export interface AddOptions {
   run_id?: string;
   custom_instructions?: string;
   custom_categories?: Array<Record<string, string>>;
-  enable_graph?: boolean;
   output_format?: string;
   source?: string;
   // Agentic harness additions
@@ -79,7 +75,6 @@ export interface SkillsConfig {
   triage?: {
     enabled?: boolean;
     importanceThreshold?: number;
-    enableGraph?: boolean;
     credentialPatterns?: string[];
   };
   recall?: {

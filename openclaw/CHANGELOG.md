@@ -2,6 +2,16 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [1.0.5] - 2026-04-07
+
+### Fixed
+- **Init interactive choice bug**: Fixed number selection in `openclaw mem0 init` — entering 1/2/3 now correctly selects the corresponding option (was broken by readline prefill concatenating with user input)
+- **OSS pgvector crash** ([#4727]): Fixed "Client has already been connected" cascade when using pgvector in OSS mode. The warmup call swallowed errors leaving a half-initialized pg client; concurrent recall/capture then all hit `client.connect()` on the same client. Fix: let warmup errors propagate (so `initPromise` resets and retries with a fresh Memory + fresh pg client) and build fresh config objects per attempt instead of mutating shared state.
+
+### Removed
+- **`orgId` / `projectId` config parameters**: Removed from config schema, CLI (`config show/get/set`), init display, and providers. The API key is project-scoped, so separate org/project IDs are unnecessary and could cause access errors if mismatched.
+- **`enableGraph` config parameter**: Removed from all config surfaces, providers, backend, and tools. Graph memory is being deprecated — removing the flag avoids unnecessary exposure.
+
 ## [1.0.4] - 2026-04-04
 
 ### Added

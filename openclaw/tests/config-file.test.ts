@@ -69,10 +69,7 @@ describe("readPluginAuth", () => {
               apiKey: "sk-test-123",
               baseUrl: "https://custom.api.com",
               userId: "user-1",
-              orgId: "org-1",
-              projectId: "proj-1",
               mode: "platform",
-              enableGraph: true,
               autoRecall: true,
               autoCapture: false,
               topK: 10,
@@ -87,17 +84,14 @@ describe("readPluginAuth", () => {
       apiKey: "sk-test-123",
       baseUrl: "https://custom.api.com",
       userId: "user-1",
-      orgId: "org-1",
-      projectId: "proj-1",
       mode: "platform",
-      enableGraph: true,
       autoRecall: true,
       autoCapture: false,
       topK: 10,
     });
   });
 
-  it("handles snake_case aliases (api_key, base_url, user_id, org_id, project_id)", () => {
+  it("handles snake_case aliases (api_key, base_url, user_id)", () => {
     setConfigFile({
       plugins: {
         entries: {
@@ -107,8 +101,6 @@ describe("readPluginAuth", () => {
               api_key: "sk-snake",
               base_url: "https://snake.api.com",
               user_id: "user-snake",
-              org_id: "org-snake",
-              project_id: "proj-snake",
             },
           },
         },
@@ -119,8 +111,6 @@ describe("readPluginAuth", () => {
     expect(auth.apiKey).toBe("sk-snake");
     expect(auth.baseUrl).toBe("https://snake.api.com");
     expect(auth.userId).toBe("user-snake");
-    expect(auth.orgId).toBe("org-snake");
-    expect(auth.projectId).toBe("proj-snake");
   });
 
   it("returns empty object when JSON is invalid", () => {
