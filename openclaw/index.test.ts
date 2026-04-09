@@ -561,3 +561,6 @@ What is the deployment plan?`,
     expect(result).toHaveLength(2);
   });
 });
+
+// NOTE: Feishu system event regression tests are in
+// ./tests/feishu-system-event.test.ts (self-contained, no runtime deps).

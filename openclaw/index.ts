@@ -358,13 +358,24 @@ function registerHooks(
       // Skip recall for system/bootstrap prompts. These are OpenClaw internal
       // commands (/new, /reset) that contain system instructions, not user queries.
       // Sending them to mem0 search wastes API calls and returns noise.
+      //
+      // NOTE: Feishu (Lark) channel messages are prepended with a "System:" prefix
+      // by openclaw-lark's enqueueSystemEvent (e.g. "System: [2026-04-08 ...] Feishu[...]").
+      // These are NOT bootstrap prompts — they are real user messages with channel metadata.
+      // Exclude them before the startsWith("system:") check. See mem0ai/mem0#4752.
       const promptLower = event.prompt.toLowerCase();
+      const isFeishuSystemEvent =
+        /^system(?:\s*\(untrusted\))?:\s*\[\d{4}-\d{2}-\d{2}.*?\]\s*feishu\[/i.test(
+          event.prompt,
+        );
       const isSystemPrompt =
-        promptLower.includes("a new session was started") ||
-        promptLower.includes("session startup sequence") ||
-        promptLower.includes("/new or /reset") ||
-        promptLower.startsWith("system:") ||
-        promptLower.startsWith("run your session");
+        !isFeishuSystemEvent && (
+          promptLower.includes("a new session was started") ||
+          promptLower.includes("session startup sequence") ||
+          promptLower.includes("/new or /reset") ||
+          promptLower.startsWith("system:") ||
+          promptLower.startsWith("run your session")
+        );
       if (isSystemPrompt) {
         api.logger.info(
           "openclaw-mem0: skills-mode skipping recall for system/bootstrap prompt",
@@ -599,14 +610,25 @@ function registerHooks(
         return;
       }
 
-      // Skip recall for system/bootstrap prompts to save API calls
+      // Skip recall for system/bootstrap prompts to save API calls.
+      //
+      // NOTE: Feishu (Lark) channel messages are prepended with a "System:" prefix
+      // by openclaw-lark's enqueueSystemEvent (e.g. "System: [2026-04-08 ...] Feishu[...]").
+      // These are NOT bootstrap prompts — they are real user messages with channel metadata.
+      // Exclude them before the startsWith("system:") check. See mem0ai/mem0#4752.
       const promptLower = event.prompt.toLowerCase();
+      const isFeishuSystemEvent =
+        /^system(?:\s*\(untrusted\))?:\s*\[\d{4}-\d{2}-\d{2}.*?\]\s*feishu\[/i.test(
+          event.prompt,
+        );
       const isSystemPrompt =
-        promptLower.includes("a new session was started") ||
-        promptLower.includes("session startup sequence") ||
-        promptLower.includes("/new or /reset") ||
-        promptLower.startsWith("system:") ||
-        promptLower.startsWith("run your session");
+        !isFeishuSystemEvent && (
+          promptLower.includes("a new session was started") ||
+          promptLower.includes("session startup sequence") ||
+          promptLower.includes("/new or /reset") ||
+          promptLower.startsWith("system:") ||
+          promptLower.startsWith("run your session")
+        );
       if (isSystemPrompt) {
         api.logger.info(
           "openclaw-mem0: skipping recall for system/bootstrap prompt",
