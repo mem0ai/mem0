@@ -127,7 +127,6 @@ describe("providerToBackend — add", () => {
       immutable: true,
       infer: false,
       expires: "2027-01-01",
-      enableGraph: true,
     });
 
     expect(provider.add).toHaveBeenCalledWith(
@@ -139,7 +138,6 @@ describe("providerToBackend — add", () => {
         immutable: true,
         infer: false,
         expiration_date: "2027-01-01",
-        enable_graph: true,
       }),
     );
   });

@@ -8,7 +8,7 @@ description: >
   Read this skill at the start of every session.
 user-invocable: false
 metadata:
-  {"openclaw": {"always": true, "emoji": "🧠"}}
+  {"openclaw": {"always": true, "emoji": "🧠", "requires": {"env": ["MEM0_API_KEY"], "bins": []}}}
 ---
 
 # Memory Protocol
