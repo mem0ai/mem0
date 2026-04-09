@@ -149,9 +149,6 @@ openclaw mem0 dream --dry-run
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
 | `apiKey` | `string` | — | **Required.** Mem0 API key (supports `${MEM0_API_KEY}`) |
-| `orgId` | `string` | — | Organization ID |
-| `projectId` | `string` | — | Project ID |
-| `enableGraph` | `boolean` | `false` | Entity graph for relationship tracking |
 | `customInstructions` | `string` | *(built-in)* | Custom extraction rules |
 | `customCategories` | `object` | *(12 defaults)* | Category name to description map |
 
@@ -169,7 +166,6 @@ All fields optional. Defaults: `text-embedding-3-small` embeddings, local SQLite
 | `oss.llm.provider` | `string` | `"openai"` | LLM provider |
 | `oss.llm.config` | `object` | — | Provider config (`apiKey`, `model`, `baseURL`) |
 | `oss.historyDbPath` | `string` | — | SQLite path for edit history |
-| `oss.disableHistory` | `boolean` | `false` | Skip history DB |
 
 ## License
 

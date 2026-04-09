@@ -367,16 +367,11 @@ function registerHooks(
       }
 
       const promptLower = event.prompt.toLowerCase();
-      const isChannelSystemEvent = /^system(?:\s*\(untrusted\))?:\s*\[/i.test(
-        event.prompt,
-      );
       const isSystemPrompt =
-        !isChannelSystemEvent &&
-        (promptLower.includes("a new session was started") ||
-          promptLower.includes("session startup sequence") ||
-          promptLower.includes("/new or /reset") ||
-          promptLower.startsWith("system:") ||
-          promptLower.startsWith("run your session"));
+        promptLower.includes("a new session was started") ||
+        promptLower.includes("session startup sequence") ||
+        promptLower.includes("/new or /reset") ||
+        promptLower.startsWith("run your session");
       if (isSystemPrompt) {
         api.logger.info(
           "openclaw-mem0: skills-mode skipping recall for system/bootstrap prompt",
@@ -618,16 +613,11 @@ function registerHooks(
       }
 
       const promptLower = event.prompt.toLowerCase();
-      const isChannelSystemEvent = /^system(?:\s*\(untrusted\))?:\s*\[/i.test(
-        event.prompt,
-      );
       const isSystemPrompt =
-        !isChannelSystemEvent &&
-        (promptLower.includes("a new session was started") ||
-          promptLower.includes("session startup sequence") ||
-          promptLower.includes("/new or /reset") ||
-          promptLower.startsWith("system:") ||
-          promptLower.startsWith("run your session"));
+        promptLower.includes("a new session was started") ||
+        promptLower.includes("session startup sequence") ||
+        promptLower.includes("/new or /reset") ||
+        promptLower.startsWith("run your session");
       if (isSystemPrompt) {
         api.logger.info(
           "openclaw-mem0: skipping recall for system/bootstrap prompt",
@@ -806,7 +796,8 @@ function registerHooks(
           return false;
         return msg.content.some(
           (block: any) =>
-            block?.type === "tool_use" && MEMORY_MUTATE_TOOLS.has(block.name),
+            (block?.type === "tool_use" || block?.type === "toolCall") &&
+            MEMORY_MUTATE_TOOLS.has(block.name),
         );
       });
       if (agentUsedMemoryTool) {
