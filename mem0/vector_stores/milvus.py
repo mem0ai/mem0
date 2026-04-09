@@ -126,20 +126,73 @@ class MilvusDB(VectorStoreBase):
     def _create_filter(self, filters: dict):
         """Prepare filters for efficient query.
 
+        Supports simple equality, comparison operators (ne, in, nin, contains,
+        icontains, gt, gte, lt, lte), and logical combinators ($or, $not).
+
         Args:
-            filters (dict): filters [user_id, agent_id, run_id]
+            filters (dict): filters dict produced by Memory._process_metadata_filters.
 
         Returns:
-            str: formated filter.
+            str: Milvus-compatible boolean expression.
         """
+        return self._build_expr(filters)
+
+    def _build_expr(self, filters: dict) -> str:
+        """Recursively build a Milvus filter expression string."""
         operands = []
         for key, value in filters.items():
-            if isinstance(value, str):
+            if key == "$or":
+                or_parts = [self._build_expr(cond) for cond in value]
+                operands.append("(" + " or ".join(or_parts) + ")")
+            elif key == "$not":
+                not_parts = [self._build_expr(cond) for cond in value]
+                for part in not_parts:
+                    operands.append(f"(not {part})")
+            elif isinstance(value, dict):
+                # Operator-based condition, e.g. {"ne": "work"}
+                for op, operand in value.items():
+                    operands.append(self._op_to_expr(key, op, operand))
+            elif isinstance(value, str):
                 operands.append(f'(metadata["{key}"] == "{value}")')
             else:
                 operands.append(f'(metadata["{key}"] == {value})')
-
         return " and ".join(operands)
+
+    @staticmethod
+    def _op_to_expr(key: str, op: str, value) -> str:
+        """Convert a single operator condition to a Milvus expression."""
+        field = f'metadata["{key}"]'
+        if op == "eq":
+            if isinstance(value, str):
+                return f'({field} == "{value}")'
+            return f"({field} == {value})"
+        elif op == "ne":
+            if isinstance(value, str):
+                return f'({field} != "{value}")'
+            return f"({field} != {value})"
+        elif op == "gt":
+            return f"({field} > {value})"
+        elif op == "gte":
+            return f"({field} >= {value})"
+        elif op == "lt":
+            return f"({field} < {value})"
+        elif op == "lte":
+            return f"({field} <= {value})"
+        elif op == "in":
+            formatted = [f'"{v}"' if isinstance(v, str) else str(v) for v in value]
+            return f'({field} in [{", ".join(formatted)}])'
+        elif op == "nin":
+            formatted = [f'"{v}"' if isinstance(v, str) else str(v) for v in value]
+            return f'({field} not in [{", ".join(formatted)}])'
+        elif op == "contains":
+            # Milvus string LIKE is case-sensitive: field like "%value%"
+            return f'({field} like "%{value}%")'
+        elif op == "icontains":
+            # Milvus does not support lower() in filter expressions.
+            # Fall back to case-sensitive LIKE which matches substring presence.
+            return f'({field} like "%{value}%")'
+        else:
+            raise ValueError(f"Unsupported Milvus filter operator: {op}")
 
     def _parse_output(self, data: list):
         """
@@ -182,6 +235,7 @@ class MilvusDB(VectorStoreBase):
         hits = self.client.search(
             collection_name=self.collection_name,
             data=[vectors],
+            anns_field="vectors",
             limit=limit,
             filter=query_filter,
             output_fields=["*"],
