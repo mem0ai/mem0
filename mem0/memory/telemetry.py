@@ -26,11 +26,8 @@ logging.getLogger("urllib3").setLevel(logging.CRITICAL + 1)
 _logger = logging.getLogger(__name__)
 
 
-# Sampling: hot-path events (add/search/get/...) are sampled at this rate to
-# keep PostHog volume bounded. Lifecycle events (init/reset/_create_procedural_memory)
-# always fire at 100% so the active-install heartbeat stays exact. The default
-# (10%) sits in the middle of PostHog's officially recommended 5–20% range; users
-# can override via MEM0_TELEMETRY_SAMPLE_RATE.
+# Default sampling rate for hot-path OSS events. Lifecycle events always fire at 100%.
+# Override via MEM0_TELEMETRY_SAMPLE_RATE env var.
 _DEFAULT_SAMPLE_RATE = 0.1
 
 
@@ -55,25 +52,14 @@ _LIFECYCLE_EVENTS = frozenset({"mem0.init", "mem0.reset", "mem0._create_procedur
 
 
 def _sampling_before_send(msg):
-    """PostHog before_send hook: sample hot-path events.
-
-    Returns None to drop the event, or the (annotated) msg to send. PostHog
-    catches exceptions raised here automatically and continues with the original
-    message, so this function physically cannot crash the library.
-
-    See: https://github.com/PostHog/posthog-python/blob/master/posthog/client.py
-    """
-    # Defensive: PostHog always passes a dict, but if the contract ever changes,
-    # drop the event rather than crashing or passing through a malformed payload.
+    """PostHog before_send hook: drop sampled hot-path events, annotate survivors with sample_rate."""
     if not isinstance(msg, dict):
         return None
 
     event_name = msg.get("event", "")
     is_lifecycle = event_name in _LIFECYCLE_EVENTS
 
-    # Standard observability-library gate: random ∈ [0, 1), so >= rate means
-    # rate=0 always drops and rate=1 always keeps. Using > would let random=0
-    # slip through at rate=0.
+    # >= so that rate=0 drops everything and rate=1 keeps everything (random ∈ [0, 1)).
     if not is_lifecycle and random.random() >= MEM0_TELEMETRY_SAMPLE_RATE:
         return None
 
@@ -90,19 +76,11 @@ class AnonymousTelemetry:
             self.user_id = None
             return
 
-        # before_send is gated to the OSS singleton so client_telemetry (hosted
-        # MemoryClient traffic) is provably never sampled. See _get_oss_telemetry().
         try:
             self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST, before_send=before_send)
         except TypeError:
-            # Older posthog versions (<4.5.0) do not accept before_send. The
-            # pyproject pin requires >=4.5.0, but if a user has pinned an older
-            # version transitively, fall back to constructing without sampling
-            # rather than crashing the library.
-            _logger.debug(
-                "posthog.Posthog does not accept before_send; sampling disabled. "
-                "Upgrade posthog to >=4.5.0 to enable telemetry sampling."
-            )
+            # posthog <4.5.0 does not accept before_send; fall back without sampling.
+            _logger.debug("posthog.Posthog does not accept before_send; upgrade to >=4.5.0 for sampling")
             self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
         self.user_id = get_or_create_user_id(vector_store)
 
@@ -174,8 +152,7 @@ def _shutdown_oss_telemetry():
 
 
 # Module-level client telemetry singleton (used by capture_client_event).
-# No before_send: hosted MemoryClient traffic is bounded, revenue-attributable,
-# and uses user_email as distinct_id — must never be sampled.
+# No before_send — hosted MemoryClient traffic must never be sampled.
 client_telemetry = AnonymousTelemetry()
 atexit.register(client_telemetry.close)
 

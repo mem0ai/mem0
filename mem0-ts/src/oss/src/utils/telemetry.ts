@@ -14,11 +14,8 @@ try {
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
 
-// Sampling: hot-path events (add/search/get/...) are sampled at this rate to
-// keep PostHog volume bounded. Lifecycle events ('init', 'reset') always fire
-// at 100% so the active-install heartbeat stays exact. The default (10%) sits
-// in the middle of PostHog's recommended 5–20% range; users can override via
-// MEM0_TELEMETRY_SAMPLE_RATE. Mirrors mem0/memory/telemetry.py.
+// Default sampling rate for hot-path OSS events. Lifecycle events always fire at 100%.
+// Override via MEM0_TELEMETRY_SAMPLE_RATE env var. Mirrors mem0/memory/telemetry.py.
 const DEFAULT_SAMPLE_RATE = 0.1;
 const MEM0_TELEMETRY_SAMPLE_RATE: number = ((): number => {
   try {
@@ -33,11 +30,7 @@ const MEM0_TELEMETRY_SAMPLE_RATE: number = ((): number => {
   return DEFAULT_SAMPLE_RATE;
 })();
 
-// Method names (unprefixed) that bypass sampling. Keep in sync with the
-// _captureEvent call sites in memory/index.ts. The Python equivalent uses
-// prefixed names (mem0.init, mem0.reset) — same set, different convention.
-// Typed as ReadonlySet to prevent downstream consumers from mutating the set
-// (the Python equivalent uses frozenset for the same reason).
+// Events that bypass sampling. Keep in sync with _captureEvent call sites in memory/index.ts.
 const LIFECYCLE_EVENTS: ReadonlySet<string> = new Set(["init", "reset"]);
 
 class UnifiedTelemetry implements TelemetryClient {
@@ -104,10 +97,7 @@ async function captureClientEvent(
     return;
   }
 
-  // Sample hot-path events; lifecycle events always fire (active-install heartbeat).
-  // Standard observability-library gate: Math.random() ∈ [0, 1), so >= rate means
-  // rate=0 always drops and rate=1 always keeps. Using > would let random=0 slip
-  // through at rate=0.
+  // >= so that rate=0 drops everything and rate=1 keeps everything (Math.random() ∈ [0, 1)).
   const isLifecycle = LIFECYCLE_EVENTS.has(eventName);
   if (!isLifecycle && Math.random() >= MEM0_TELEMETRY_SAMPLE_RATE) {
     return;

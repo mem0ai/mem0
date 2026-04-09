@@ -1,9 +1,8 @@
 """Tests for OSS telemetry sampling.
 
-Sampling is implemented via PostHog's before_send hook (D4 in plan), so these
-tests target the hook directly. Existing tests in test_telemetry.py mock the
-AnonymousTelemetry / Posthog layer above the hook and continue to pass — see
-that file for opt-out, singleton, and lifecycle tests.
+Tests target _sampling_before_send and its wiring directly. Existing tests in
+test_telemetry.py cover opt-out, singleton, and lifecycle behavior and are
+unaffected by sampling.
 """
 
 from unittest.mock import patch
