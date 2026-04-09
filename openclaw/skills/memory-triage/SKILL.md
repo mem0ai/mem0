@@ -1,14 +1,13 @@
 ---
 name: memory-triage
 description: >
-  ALWAYS USE THIS SKILL. Persistent long-term memory protocol powered by mem0.
-  After EVERY response, evaluate the conversation for durable facts worth storing
-  via memory_add. Handles identity, preferences, decisions, configurations, rules,
-  projects, and relationships. Use memory_add (NOT workspace files) for all user facts.
-  Read this skill at the start of every session.
+  Persistent long-term memory protocol powered by mem0.
+  Evaluate conversations for durable facts worth storing via memory_add.
+  Handles identity, preferences, decisions, configurations, rules,
+  projects, and relationships. Loaded by the openclaw-mem0 plugin when skills mode is active.
 user-invocable: false
 metadata:
-  {"openclaw": {"always": true, "emoji": "🧠", "requires": {"env": ["MEM0_API_KEY"], "bins": []}}}
+  {"openclaw": {"always": false, "emoji": "🧠", "requires": {"env": ["MEM0_API_KEY"], "bins": []}}}
 ---
 
 # Memory Protocol
