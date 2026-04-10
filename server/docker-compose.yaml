@@ -23,10 +23,12 @@ services:
     command: >
       sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     environment:
-      - PYTHONDONTWRITEBYTECODE=1  # Prevents Python from writing .pyc files
-      - PYTHONUNBUFFERED=1  # Ensures Python output is sent straight to terminal
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app:/app/packages
       - DASHBOARD_URL=http://localhost:3000
       - APP_DB_NAME=mem0_app
+      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret}
 
   postgres:
       image: ankane/pgvector:v0.5.1
@@ -54,7 +56,7 @@ services:
     networks:
       - mem0_network
     environment:
-      - NEXT_PUBLIC_API_URL=http://mem0:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8888
       - NEXT_PUBLIC_INSTANCE_NAME=Mem0
     depends_on:
       mem0:
