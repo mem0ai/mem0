@@ -7,6 +7,9 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    MatchAny,
+    MatchExcept,
+    MatchText,
     MatchValue,
     PointIdsList,
     PointStruct,
@@ -190,6 +193,14 @@ class Qdrant(VectorStoreBase):
         """
         Create a Filter object from the provided filters.
 
+        Supports advanced operators produced by ``_process_metadata_filters``:
+        - Simple equality:  ``{"key": "value"}``
+        - Operator dicts:   ``{"key": {"eq": …, "ne": …, "in": …, "nin": …,
+                                        "gt": …, "gte": …, "lt": …, "lte": …,
+                                        "contains": …, "icontains": …}}``
+        - Range shorthand:  ``{"key": {"gte": …, "lte": …}}``
+        - Logical:          ``{"$or": [...]}, {"$not": [...]}``
+
         Args:
             filters (dict): Filters to apply.
 
@@ -199,13 +210,60 @@ class Qdrant(VectorStoreBase):
         if not filters:
             return None
 
-        conditions = []
+        must = []
+        should = []
+        must_not = []
+
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
-            else:
-                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
-        return Filter(must=conditions) if conditions else None
+            # ── Logical combinators ──────────────────────────────
+            if key == "$or":
+                for sub_filter in value:
+                    inner = self._create_filter(sub_filter)
+                    if inner and inner.must:
+                        should.extend(inner.must)
+                continue
+            if key == "$not":
+                for sub_filter in value:
+                    inner = self._create_filter(sub_filter)
+                    if inner and inner.must:
+                        must_not.extend(inner.must)
+                continue
+
+            # ── Operator dict ────────────────────────────────────
+            if isinstance(value, dict):
+                # Range shorthand: {"gte": …, "lte": …}
+                if "gte" in value and "lte" in value and len(value) == 2:
+                    must.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
+                    continue
+
+                for op, operand in value.items():
+                    if op == "eq":
+                        must.append(FieldCondition(key=key, match=MatchValue(value=operand)))
+                    elif op == "ne":
+                        must_not.append(FieldCondition(key=key, match=MatchValue(value=operand)))
+                    elif op == "in":
+                        must.append(FieldCondition(key=key, match=MatchAny(any=operand)))
+                    elif op == "nin":
+                        must.append(FieldCondition(key=key, match=MatchExcept(**{"except": operand})))
+                    elif op in ("gt", "gte", "lt", "lte"):
+                        must.append(FieldCondition(key=key, range=Range(**{op: operand})))
+                    elif op in ("contains", "icontains"):
+                        must.append(FieldCondition(key=key, match=MatchText(text=operand)))
+                    else:
+                        # Unknown operator — treat as simple equality on the
+                        # whole dict value (backward-compatible fallback).
+                        must.append(FieldCondition(key=key, match=MatchValue(value=value)))
+                        break  # only add once for the whole dict
+                continue
+
+            # ── Simple equality ───────────────────────────────────
+            must.append(FieldCondition(key=key, match=MatchValue(value=value)))
+
+        return Filter(
+            must=must or None,
+            should=should or None,
+            must_not=must_not or None,
+        )
 
     def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
         """
