@@ -90,7 +90,7 @@ class TestQdrant(unittest.TestCase):
             collection_name="test_collection",
             query=vectors,
             query_filter=None,
-            top_k=1,
+            limit=1,
         )
 
         self.assertEqual(len(results), 1)

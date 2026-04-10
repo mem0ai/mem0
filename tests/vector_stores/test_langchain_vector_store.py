@@ -158,7 +158,7 @@ def test_list_with_filters(langchain_instance):
     results = langchain_instance.list(filters=filters, top_k=10)
 
     # Verify that the collection.get method was called with the correct filters
-    mock_collection.get.assert_called_once_with(where=filters, top_k=10)
+    mock_collection.get.assert_called_once_with(where=filters, limit=10)
 
     # Verify the results
     assert len(results) == 1
@@ -183,7 +183,7 @@ def test_list_with_single_filter(langchain_instance):
     results = langchain_instance.list(filters=filters, top_k=10)
 
     # Verify that the collection.get method was called with the correct filter
-    mock_collection.get.assert_called_once_with(where=filters, top_k=10)
+    mock_collection.get.assert_called_once_with(where=filters, limit=10)
 
     # Verify the results
     assert len(results) == 1
@@ -205,7 +205,7 @@ def test_list_with_no_filters(langchain_instance):
     results = langchain_instance.list(filters=None, top_k=10)
 
     # Verify that the collection.get method was called with no filters
-    mock_collection.get.assert_called_once_with(where=None, top_k=10)
+    mock_collection.get.assert_called_once_with(where=None, limit=10)
 
     # Verify the results
     assert len(results) == 1

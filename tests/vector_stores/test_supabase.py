@@ -70,7 +70,7 @@ def test_search_vectors(supabase_instance, mock_collection):
     results = supabase_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     mock_collection.query.assert_called_once_with(
-        data=vectors, top_k=2, filters={"category": {"$eq": "test"}}, include_metadata=True, include_value=True
+        data=vectors, limit=2, filters={"category": {"$eq": "test"}}, include_metadata=True, include_value=True
     )
 
     assert len(results) == 2

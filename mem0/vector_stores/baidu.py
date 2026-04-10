@@ -207,7 +207,7 @@ class BaiduDB(VectorStoreBase):
         request = VectorTopkSearchRequest(
             vector_field="vector",
             vector=FloatVector(vectors),
-            top_k=top_k,
+            limit=top_k,
             filter=search_filter,
             config=VectorSearchConfig(ef=200),
         )
