@@ -22,7 +22,7 @@ import {
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
 import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
-import { camelToSnakeKeys, snakeToCamelKeys } from "./utils";
+import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
 
 class APIError extends Error {
   constructor(message: string) {
@@ -510,7 +510,7 @@ export default class MemoryClient {
     }
 
     const params = new URLSearchParams();
-    fields?.forEach((field) => params.append("fields", field));
+    fields?.forEach((field) => params.append("fields", camelToSnake(field)));
 
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/orgs/organizations/${this.organizationId}/projects/${this.projectId}/?${params.toString()}`,

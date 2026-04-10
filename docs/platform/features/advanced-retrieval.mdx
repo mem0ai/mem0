@@ -206,16 +206,16 @@ def precise_search(query, user_id):
 // Fast and broad - good for exploration
 function quickSearch(query, userId) {
     return client.search(query, {
-        user_id: userId,
-        keyword_search: true
+        userId: userId,
+        keywordSearch: true
     });
 }
 
 // Balanced - good for most applications
 function standardSearch(query, userId) {
     return client.search(query, {
-        user_id: userId,
-        keyword_search: true,
+        userId: userId,
+        keywordSearch: true,
         rerank: true
     });
 }
@@ -223,9 +223,9 @@ function standardSearch(query, userId) {
 // High precision - good for critical applications
 function preciseSearch(query, userId) {
     return client.search(query, {
-        user_id: userId,
+        userId: userId,
         rerank: true,
-        filter_memories: true
+        filterMemories: true
     });
 }
 ```

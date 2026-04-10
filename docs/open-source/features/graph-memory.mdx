@@ -123,7 +123,6 @@ export NEO4J_PASSWORD="your-password"
 import { Memory } from "mem0ai/oss";
 
 const config = {
-  enableGraph: true,
   graphStore: {
     provider: "neo4j",
     config: {
@@ -196,7 +195,6 @@ memory = Memory.from_config(config_dict=config)
 import { Memory } from "mem0ai/oss";
 
 const config = {
-  enableGraph: true,
   graphStore: {
     provider: "neo4j",
     config: {
@@ -219,13 +217,8 @@ const memory = new Memory(config);
 config["graph_store"]["config"]["threshold"] = 0.75
 ```
   </Accordion>
-  <Accordion title="Toggle graph writes per request">
-    Disable graph writes or reads when you only want vector behaviour.
-
-```python
-memory.add(messages, user_id="demo-user", enable_graph=False)
-results = memory.search("marketing partners", user_id="demo-user", enable_graph=False)
-```
+  <Accordion title="Vector-only mode">
+    To use only vector memory without graph, simply omit the `graphStore` / `graph_store` section from your config. Graph memory activates automatically when a graph store is configured.
   </Accordion>
   <Accordion title="Organize multi-agent graphs">
     Separate or share context across agents and sessions with `user_id`, `agent_id`, and `run_id`.
@@ -258,7 +251,7 @@ Monitor graph growth, especially on free tiers, by periodically cleaning dormant
     Ensure the graph identifier matches the vector dimension used by your embedder and that the IAM role allows `neptune-graph:*DataViaQuery` actions.
   </Accordion>
   <Accordion title="Graph store outage fallback">
-    Catch the provider error and retry with `enable_graph=False` so vector-only search keeps serving responses while the graph backend recovers.
+    Catch the provider error and create a new `Memory` instance without the `graphStore` / `graph_store` config so vector-only search keeps serving responses while the graph backend recovers.
   </Accordion>
 </AccordionGroup>
 
@@ -280,7 +273,6 @@ Choose your backend and expand the matching panel for configuration details and 
 import { Memory } from "mem0ai/oss";
 
 const config = {
-    enableGraph: true,
     graphStore: {
         provider: "neo4j",
         config: {

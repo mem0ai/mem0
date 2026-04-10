@@ -98,9 +98,6 @@ client.project.update(
     custom_instructions="..."
 )
 
-# Enable graph memory for the project
-client.project.update(enable_graph=True)
-
 # Use the input language for memory storage and retrieval
 client.project.update(multilingual=True)
 
@@ -111,7 +108,6 @@ client.project.update(
         {"personal_info": "User personal information and preferences"},
         {"work_context": "Professional context and work-related information"}
     ],
-    enable_graph=True,
     multilingual=True
 )
 ```
@@ -176,7 +172,7 @@ async def manage_project():
 
     # All methods support async/await
     project_info = await client.project.get()
-    await client.project.update(enable_graph=True)
+    await client.project.update(multilingual=True)
     members = await client.project.get_members()
 
 # To call the async function properly

@@ -85,7 +85,7 @@ Successful requests return an array of events queued for processing. Each event 
 
 ## Graph relationships
 
-Add Memories can enrich the knowledge graph on write. Set `enable_graph: true` to create entity nodes and relationships for the stored memory. Use this when you want downstream `get_all` or search calls to traverse connected entities.
+Add Memories automatically enrich the knowledge graph on write. Entity nodes and relationships are created for the stored memory. Downstream `get_all` or search calls can then traverse connected entities.
 
 <CodeGroup>
 ```json Graph-aware request
@@ -93,8 +93,7 @@ Add Memories can enrich the knowledge graph on write. Set `enable_graph: true` t
   "user_id": "alice",
   "messages": [
     { "role": "user", "content": "I met with Dr. Lee at General Hospital." }
-  ],
-  "enable_graph": true
+  ]
 }
 ```
 </CodeGroup>
