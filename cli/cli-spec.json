@@ -1,0 +1,549 @@
+{
+  "specVersion": 1,
+  "cli": {
+    "name": "mem0",
+    "version": "0.1.0",
+    "description": "The Memory Layer for AI Agents",
+    "helpText": "\u25c6 mem0 CLI \u2014 The Memory Layer for AI Agents"
+  },
+  "branding": {
+    "logoMini": "\u25c6 mem0",
+    "tagline": "The Memory Layer for AI Agents",
+    "colors": {
+      "brand": "#8b5cf6",
+      "accent": "#a78bfa",
+      "success": "#22c55e",
+      "error": "#ef4444",
+      "warning": "#f59e0b",
+      "dim": "#6b7280"
+    },
+    "icons": {
+      "success": "\u2713",
+      "error": "\u2717",
+      "warning": "\u26a0",
+      "info": "\u25c6",
+      "pending": "\u29d7",
+      "add": "+",
+      "update": "~",
+      "delete": "-",
+      "noop": "\u00b7",
+      "connected": "\u25cf",
+      "disconnected": "\u25cf"
+    },
+    "logo": "███\u2557   ███\u2557███████\u2557███\u2557   ███\u2557 ██████\u2557      ██████\u2557██\u2557     ██\u2557\n████\u2557 ████\u2551██\u2554\u2550\u2550\u2550\u2550\u255d████\u2557 ████\u2551██\u2554\u2550████\u2557    ██\u2554\u2550\u2550\u2550\u2550\u255d██\u2551     ██\u2551\n██\u2554████\u2554██\u2551█████\u2557  ██\u2554████\u2554██\u2551██\u2551██\u2554██\u2551    ██\u2551     ██\u2551     ██\u2551\n██\u2551\u255a██\u2554\u255d██\u2551██\u2554\u2550\u2550\u255d  ██\u2551\u255a██\u2554\u255d██\u2551████\u2554\u255d██\u2551    ██\u2551     ██\u2551     ██\u2551\n██\u2551 \u255a\u2550\u255d ██\u2551███████\u2557██\u2551 \u255a\u2550\u255d ██\u2551\u255a██████\u2554\u255d    \u255a██████\u2557███████\u2557██\u2551\n\u255a\u2550\u255d     \u255a\u2550\u255d\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u255d     \u255a\u2550\u255d \u255a\u2550\u2550\u2550\u2550\u2550\u255d      \u255a\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u255d"
+  },
+  "config": {
+    "configDir": "~/.mem0",
+    "configFile": "config.json",
+    "version": 1,
+    "defaultBaseUrl": "https://api.mem0.ai",
+    "sections": {
+      "platform": {
+        "fields": {
+          "api_key": {
+            "type": "string",
+            "default": "",
+            "envVar": "MEM0_API_KEY",
+            "redact": true
+          },
+          "base_url": {
+            "type": "string",
+            "default": "https://api.mem0.ai",
+            "envVar": "MEM0_BASE_URL"
+          }
+        }
+      },
+      "defaults": {
+        "fields": {
+          "user_id": {
+            "type": "string",
+            "default": "",
+            "envVar": "MEM0_USER_ID"
+          },
+          "agent_id": {
+            "type": "string",
+            "default": "",
+            "envVar": "MEM0_AGENT_ID"
+          },
+          "app_id": {
+            "type": "string",
+            "default": "",
+            "envVar": "MEM0_APP_ID"
+          },
+          "run_id": {
+            "type": "string",
+            "default": "",
+            "envVar": "MEM0_RUN_ID"
+          },
+          "enable_graph": {
+            "type": "boolean",
+            "default": false,
+            "envVar": "MEM0_ENABLE_GRAPH"
+          }
+        }
+      }
+    }
+  },
+  "api": {
+    "endpoints": {
+      "add": { "method": "POST", "path": "/v1/memories/" },
+      "search": { "method": "POST", "path": "/v2/memories/search/" },
+      "get": { "method": "GET", "path": "/v1/memories/{memory_id}/" },
+      "list": { "method": "POST", "path": "/v2/memories/" },
+      "update": { "method": "PUT", "path": "/v1/memories/{memory_id}/" },
+      "delete": { "method": "DELETE", "path": "/v1/memories/{memory_id}/" },
+      "deleteAll": { "method": "DELETE", "path": "/v1/memories/" },
+      "entities": { "method": "GET", "path": "/v1/entities/" },
+      "deleteEntities": { "method": "DELETE", "path": "/v1/entities/" }
+    },
+    "authHeader": "Authorization",
+    "authScheme": "Token",
+    "timeout": 30,
+    "entityTypeMap": {
+      "users": "user",
+      "agents": "agent",
+      "apps": "app",
+      "runs": "run"
+    }
+  },
+  "errors": {
+    "AuthError": {
+      "httpStatus": 401,
+      "message": "Authentication failed. Your API key may be invalid or expired."
+    },
+    "NotFoundError": {
+      "httpStatus": 404,
+      "messageTemplate": "Resource not found: {path}"
+    },
+    "APIError": {
+      "httpStatus": 400,
+      "messageTemplate": "Bad request to {path}: {detail}"
+    },
+    "noApiKey": {
+      "message": "No API key configured.",
+      "hint": "Run 'mem0 init' or set MEM0_API_KEY environment variable."
+    }
+  },
+  "optionGroups": {
+    "scope": {
+      "label": "Scope",
+      "options": ["user_id", "agent_id", "app_id", "run_id"]
+    },
+    "search": {
+      "label": "Search",
+      "options": ["top_k", "threshold", "rerank", "keyword", "filter_json", "fields", "graph", "no_graph"]
+    },
+    "pagination": {
+      "label": "Pagination",
+      "options": ["page", "page_size"]
+    },
+    "filters": {
+      "label": "Filters",
+      "options": ["category", "after", "before", "graph", "no_graph"]
+    },
+    "output": {
+      "label": "Output",
+      "options": ["output"]
+    },
+    "connection": {
+      "label": "Connection",
+      "options": ["api_key", "base_url"]
+    }
+  },
+  "globalOptions": [
+    {
+      "name": "api_key",
+      "flags": ["--api-key"],
+      "type": "string",
+      "required": false,
+      "envVar": "MEM0_API_KEY",
+      "help": "Override API key.",
+      "panel": "Connection"
+    },
+    {
+      "name": "base_url",
+      "flags": ["--base-url"],
+      "type": "string",
+      "required": false,
+      "help": "Override API base URL.",
+      "panel": "Connection"
+    },
+    {
+      "name": "version",
+      "flags": ["--version"],
+      "type": "boolean",
+      "required": false,
+      "help": "Show version and exit."
+    }
+  ],
+  "commands": [
+    {
+      "name": "add",
+      "description": "Add a memory from text, messages, file, or stdin.",
+      "usage": "mem0 add <text> [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": true,
+      "resolveIds": true,
+      "resolveGraph": true,
+      "confirmDangerous": false,
+      "outputFormats": ["text", "json", "quiet"],
+      "defaultOutput": "text",
+      "arguments": [
+        {
+          "name": "text",
+          "type": "string",
+          "required": false,
+          "help": "Text content to add as a memory."
+        }
+      ],
+      "options": [
+        { "name": "user_id", "flags": ["--user-id", "-u"], "type": "string", "help": "Scope to user.", "panel": "Scope" },
+        { "name": "agent_id", "flags": ["--agent-id"], "type": "string", "help": "Scope to agent.", "panel": "Scope" },
+        { "name": "app_id", "flags": ["--app-id"], "type": "string", "help": "Scope to app.", "panel": "Scope" },
+        { "name": "run_id", "flags": ["--run-id"], "type": "string", "help": "Scope to run.", "panel": "Scope" },
+        { "name": "messages", "flags": ["--messages"], "type": "string", "help": "Conversation messages as JSON." },
+        { "name": "file", "flags": ["--file", "-f"], "type": "path", "help": "Read messages from JSON file." },
+        { "name": "metadata", "flags": ["--metadata", "-m"], "type": "string", "help": "Custom metadata as JSON." },
+        { "name": "immutable", "flags": ["--immutable"], "type": "boolean", "default": false, "help": "Prevent future updates." },
+        { "name": "no_infer", "flags": ["--no-infer"], "type": "boolean", "default": false, "help": "Skip inference, store raw." },
+        { "name": "expires", "flags": ["--expires"], "type": "string", "help": "Expiration date (YYYY-MM-DD)." },
+        { "name": "categories", "flags": ["--categories"], "type": "string", "help": "Categories (JSON array or comma-separated)." },
+        { "name": "graph", "flags": ["--graph"], "type": "boolean", "default": false, "help": "Enable graph memory extraction.", "panel": "Scope" },
+        { "name": "no_graph", "flags": ["--no-graph"], "type": "boolean", "default": false, "help": "Disable graph memory extraction.", "panel": "Scope" },
+        { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output format: text, json, quiet.", "panel": "Output" }
+      ],
+      "apiEndpoint": "add"
+    },
+    {
+      "name": "search",
+      "description": "Search memories by semantic query.",
+      "usage": "mem0 search <query> [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": true,
+      "resolveIds": true,
+      "resolveGraph": true,
+      "confirmDangerous": false,
+      "outputFormats": ["text", "json", "table"],
+      "defaultOutput": "text",
+      "arguments": [
+        {
+          "name": "query",
+          "type": "string",
+          "required": true,
+          "help": "Search query."
+        }
+      ],
+      "options": [
+        { "name": "user_id", "flags": ["--user-id", "-u"], "type": "string", "help": "Filter by user.", "panel": "Scope" },
+        { "name": "agent_id", "flags": ["--agent-id"], "type": "string", "help": "Filter by agent.", "panel": "Scope" },
+        { "name": "app_id", "flags": ["--app-id"], "type": "string", "help": "Filter by app.", "panel": "Scope" },
+        { "name": "run_id", "flags": ["--run-id"], "type": "string", "help": "Filter by run.", "panel": "Scope" },
+        { "name": "top_k", "flags": ["--top-k", "-k", "--limit"], "type": "integer", "default": 10, "help": "Number of results.", "panel": "Search" },
+        { "name": "threshold", "flags": ["--threshold"], "type": "float", "default": 0.3, "help": "Minimum similarity score.", "panel": "Search" },
+        { "name": "rerank", "flags": ["--rerank"], "type": "boolean", "default": false, "help": "Enable reranking (Platform only).", "panel": "Search" },
+        { "name": "keyword", "flags": ["--keyword"], "type": "boolean", "default": false, "help": "Use keyword search.", "panel": "Search" },
+        { "name": "filter_json", "flags": ["--filter"], "type": "string", "help": "Advanced filter expression (JSON).", "panel": "Search" },
+        { "name": "fields", "flags": ["--fields"], "type": "string", "help": "Specific fields to return (comma-separated).", "panel": "Search" },
+        { "name": "graph", "flags": ["--graph"], "type": "boolean", "default": false, "help": "Enable graph in search.", "panel": "Search" },
+        { "name": "no_graph", "flags": ["--no-graph"], "type": "boolean", "default": false, "help": "Disable graph in search.", "panel": "Search" },
+        { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json, table.", "panel": "Output" }
+      ],
+      "apiEndpoint": "search"
+    },
+    {
+      "name": "get",
+      "description": "Get a specific memory by ID.",
+      "usage": "mem0 get <memory_id> [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": false,
+      "resolveIds": false,
+      "resolveGraph": false,
+      "confirmDangerous": false,
+      "outputFormats": ["text", "json"],
+      "defaultOutput": "text",
+      "arguments": [
+        {
+          "name": "memory_id",
+          "type": "string",
+          "required": true,
+          "help": "Memory ID to retrieve."
+        }
+      ],
+      "options": [
+        { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json.", "panel": "Output" }
+      ],
+      "apiEndpoint": "get"
+    },
+    {
+      "name": "list",
+      "description": "List memories with optional filters.",
+      "usage": "mem0 list [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": true,
+      "resolveIds": true,
+      "resolveGraph": true,
+      "confirmDangerous": false,
+      "outputFormats": ["text", "json", "table"],
+      "defaultOutput": "table",
+      "arguments": [],
+      "options": [
+        { "name": "user_id", "flags": ["--user-id", "-u"], "type": "string", "help": "Filter by user.", "panel": "Scope" },
+        { "name": "agent_id", "flags": ["--agent-id"], "type": "string", "help": "Filter by agent.", "panel": "Scope" },
+        { "name": "app_id", "flags": ["--app-id"], "type": "string", "help": "Filter by app.", "panel": "Scope" },
+        { "name": "run_id", "flags": ["--run-id"], "type": "string", "help": "Filter by run.", "panel": "Scope" },
+        { "name": "page", "flags": ["--page"], "type": "integer", "default": 1, "help": "Page number.", "panel": "Pagination" },
+        { "name": "page_size", "flags": ["--page-size"], "type": "integer", "default": 100, "help": "Results per page.", "panel": "Pagination" },
+        { "name": "category", "flags": ["--category"], "type": "string", "help": "Filter by category.", "panel": "Filters" },
+        { "name": "after", "flags": ["--after"], "type": "string", "help": "Created after (YYYY-MM-DD).", "panel": "Filters" },
+        { "name": "before", "flags": ["--before"], "type": "string", "help": "Created before (YYYY-MM-DD).", "panel": "Filters" },
+        { "name": "graph", "flags": ["--graph"], "type": "boolean", "default": false, "help": "Enable graph in listing.", "panel": "Filters" },
+        { "name": "no_graph", "flags": ["--no-graph"], "type": "boolean", "default": false, "help": "Disable graph in listing.", "panel": "Filters" },
+        { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "table", "help": "Output: text, json, table.", "panel": "Output" }
+      ],
+      "apiEndpoint": "list"
+    },
+    {
+      "name": "update",
+      "description": "Update a memory's text or metadata.",
+      "usage": "mem0 update <memory_id> [text] [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": false,
+      "resolveIds": false,
+      "resolveGraph": false,
+      "confirmDangerous": false,
+      "outputFormats": ["text", "json", "quiet"],
+      "defaultOutput": "text",
+      "arguments": [
+        {
+          "name": "memory_id",
+          "type": "string",
+          "required": true,
+          "help": "Memory ID to update."
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "required": false,
+          "help": "New memory text."
+        }
+      ],
+      "options": [
+        { "name": "metadata", "flags": ["--metadata", "-m"], "type": "string", "help": "Update metadata (JSON)." },
+        { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json, quiet.", "panel": "Output" }
+      ],
+      "apiEndpoint": "update"
+    },
+    {
+      "name": "delete",
+      "description": "Delete a memory, all memories matching a scope, or an entity.",
+      "usage": "mem0 delete [memory_id] [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": true,
+      "resolveIds": true,
+      "resolveGraph": false,
+      "confirmDangerous": true,
+      "outputFormats": ["text", "json", "quiet"],
+      "defaultOutput": "text",
+      "arguments": [
+        {
+          "name": "memory_id",
+          "type": "string",
+          "required": false,
+          "help": "Memory ID to delete (omit when using --all or --entity)."
+        }
+      ],
+      "options": [
+        { "name": "all", "flags": ["--all"], "type": "boolean", "default": false, "help": "Delete all memories matching scope filters." },
+        { "name": "entity", "flags": ["--entity"], "type": "boolean", "default": false, "help": "Delete the entity itself and all its memories (cascade)." },
+        { "name": "project", "flags": ["--project"], "type": "boolean", "default": false, "help": "With --all: delete ALL memories project-wide." },
+        { "name": "dry_run", "flags": ["--dry-run"], "type": "boolean", "default": false, "help": "Show what would be deleted without deleting." },
+        { "name": "force", "flags": ["--force"], "type": "boolean", "default": false, "help": "Skip confirmation." },
+        { "name": "user_id", "flags": ["--user-id", "-u"], "type": "string", "help": "Scope to user.", "panel": "Scope" },
+        { "name": "agent_id", "flags": ["--agent-id"], "type": "string", "help": "Scope to agent.", "panel": "Scope" },
+        { "name": "app_id", "flags": ["--app-id"], "type": "string", "help": "Scope to app.", "panel": "Scope" },
+        { "name": "run_id", "flags": ["--run-id"], "type": "string", "help": "Scope to run.", "panel": "Scope" },
+        { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json, quiet.", "panel": "Output" }
+      ],
+      "apiEndpoint": "delete",
+      "notes": "Mutually exclusive modes: (1) mem0 delete <id> -- single memory, (2) mem0 delete --all [scope] -- bulk delete, (3) mem0 delete --entity [scope] -- entity cascade delete. Cannot combine <memoryId> with --all or --entity, and cannot combine --all with --entity."
+    },
+    {
+      "name": "import",
+      "description": "Import memories from a JSON file.",
+      "usage": "mem0 import <file_path> [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": true,
+      "resolveIds": true,
+      "resolveGraph": false,
+      "confirmDangerous": false,
+      "outputFormats": ["text"],
+      "defaultOutput": "text",
+      "arguments": [
+        {
+          "name": "file_path",
+          "type": "string",
+          "required": true,
+          "help": "JSON file to import."
+        }
+      ],
+      "options": [
+        { "name": "user_id", "flags": ["--user-id", "-u"], "type": "string", "help": "Override user ID.", "panel": "Scope" },
+        { "name": "agent_id", "flags": ["--agent-id"], "type": "string", "help": "Override agent ID.", "panel": "Scope" }
+      ],
+      "apiEndpoint": "add"
+    },
+    {
+      "name": "config",
+      "description": "Manage mem0 configuration.",
+      "isGroup": true,
+      "subcommands": [
+        {
+          "name": "show",
+          "description": "Display current configuration (secrets redacted).",
+          "usage": "mem0 config show",
+          "needsBackend": false,
+          "needsConfig": false,
+          "arguments": [],
+          "options": []
+        },
+        {
+          "name": "get",
+          "description": "Get a configuration value.",
+          "usage": "mem0 config get <key>",
+          "needsBackend": false,
+          "needsConfig": false,
+          "arguments": [
+            {
+              "name": "key",
+              "type": "string",
+              "required": true,
+              "help": "Config key (e.g. platform.api_key)."
+            }
+          ],
+          "options": []
+        },
+        {
+          "name": "set",
+          "description": "Set a configuration value.",
+          "usage": "mem0 config set <key> <value>",
+          "needsBackend": false,
+          "needsConfig": false,
+          "arguments": [
+            {
+              "name": "key",
+              "type": "string",
+              "required": true,
+              "help": "Config key (e.g. platform.api_key)."
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "required": true,
+              "help": "Value to set."
+            }
+          ],
+          "options": []
+        }
+      ]
+    },
+    {
+      "name": "entity",
+      "description": "Manage entities.",
+      "isGroup": true,
+      "subcommands": [
+        {
+          "name": "list",
+          "description": "List all entities of a given type.",
+          "usage": "mem0 entity list <entity_type>",
+          "needsBackend": true,
+          "needsConfig": false,
+          "resolveIds": false,
+          "resolveGraph": false,
+          "confirmDangerous": false,
+          "outputFormats": ["table", "json"],
+          "defaultOutput": "table",
+          "arguments": [
+            {
+              "name": "entity_type",
+              "type": "string",
+              "required": true,
+              "help": "Entity type: users, agents, apps, runs.",
+              "choices": ["users", "agents", "apps", "runs"]
+            }
+          ],
+          "options": [
+            { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "table", "help": "Output: table, json.", "panel": "Output" }
+          ],
+          "apiEndpoint": "entities"
+        },
+        {
+          "name": "delete",
+          "description": "Delete an entity and ALL its memories (cascade).",
+          "usage": "mem0 entity delete [OPTIONS]",
+          "needsBackend": true,
+          "needsConfig": false,
+          "resolveIds": false,
+          "resolveGraph": false,
+          "confirmDangerous": true,
+          "outputFormats": ["text", "json", "quiet"],
+          "defaultOutput": "text",
+          "arguments": [],
+          "options": [
+            { "name": "user_id", "flags": ["--user-id", "-u"], "type": "string", "help": "User ID.", "panel": "Scope" },
+            { "name": "agent_id", "flags": ["--agent-id"], "type": "string", "help": "Agent ID.", "panel": "Scope" },
+            { "name": "app_id", "flags": ["--app-id"], "type": "string", "help": "App ID.", "panel": "Scope" },
+            { "name": "run_id", "flags": ["--run-id"], "type": "string", "help": "Run ID.", "panel": "Scope" },
+            { "name": "dry_run", "flags": ["--dry-run"], "type": "boolean", "default": false, "help": "Show what would be deleted without deleting." },
+            { "name": "force", "flags": ["--force"], "type": "boolean", "default": false, "help": "Skip confirmation." },
+            { "name": "output", "flags": ["--output", "-o"], "type": "string", "default": "text", "help": "Output: text, json, quiet.", "panel": "Output" }
+          ],
+          "apiEndpoint": "deleteEntities"
+        }
+      ]
+    },
+    {
+      "name": "init",
+      "description": "Setup wizard for mem0 CLI. Supports email login (--email) or manual API key (--api-key).",
+      "usage": "mem0 init [OPTIONS]",
+      "needsBackend": false,
+      "needsConfig": false,
+      "resolveIds": false,
+      "resolveGraph": false,
+      "confirmDangerous": false,
+      "arguments": [],
+      "options": [
+        { "name": "api-key", "flags": ["--api-key"], "type": "string", "default": null, "help": "API key (skip prompt)." },
+        { "name": "user-id", "flags": ["-u", "--user-id"], "type": "string", "default": null, "help": "Default user ID (skip prompt)." },
+        { "name": "email", "flags": ["--email"], "type": "string", "default": null, "help": "Login via email verification code." },
+        { "name": "code", "flags": ["--code"], "type": "string", "default": null, "help": "Verification code (use with --email for non-interactive login)." },
+        { "name": "force", "flags": ["--force"], "type": "boolean", "default": false, "help": "Overwrite existing config without confirmation." }
+      ]
+    },
+    {
+      "name": "status",
+      "description": "Check connectivity and authentication.",
+      "usage": "mem0 status [OPTIONS]",
+      "needsBackend": true,
+      "needsConfig": true,
+      "resolveIds": false,
+      "resolveGraph": false,
+      "confirmDangerous": false,
+      "arguments": [],
+      "options": []
+    },
+    {
+      "name": "help",
+      "description": "Show help. Use --json for machine-readable output (for LLM agents).",
+      "usage": "mem0 help [OPTIONS]",
+      "needsBackend": false,
+      "needsConfig": false,
+      "resolveIds": false,
+      "resolveGraph": false,
+      "confirmDangerous": false,
+      "arguments": [],
+      "options": [
+        { "name": "json", "flags": ["--json"], "type": "boolean", "default": false, "help": "Output machine-readable JSON for LLM agents." }
+      ]
+    }
+  ]
+}

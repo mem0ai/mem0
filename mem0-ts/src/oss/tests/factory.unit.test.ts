@@ -87,6 +87,11 @@ jest.mock("../src/llms/lmstudio", () => ({
     .fn()
     .mockImplementation((config) => ({ type: "lmstudio-llm", config })),
 }));
+jest.mock("../src/llms/deepseek", () => ({
+  DeepSeekLLM: jest
+    .fn()
+    .mockImplementation((config) => ({ type: "deepseek-llm", config })),
+}));
 
 jest.mock("../src/vector_stores/qdrant", () => ({
   Qdrant: jest
@@ -200,6 +205,7 @@ describe("LLMFactory", () => {
     ["mistral"],
     ["langchain"],
     ["lmstudio"],
+    ["deepseek"],
   ])("creates LLM for provider '%s'", (provider) => {
     expect(() => LLMFactory.create(provider, dummyLLMConfig)).not.toThrow();
   });

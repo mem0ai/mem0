@@ -63,6 +63,19 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
+def _resolve_mapped_id(temp_uuid_mapping, resp, event_type):
+    """Resolve a temp integer ID from the LLM response to a real UUID.
+
+    Returns the UUID if found, or None (with a warning log) if the LLM
+    hallucinated an ID that doesn't exist in the mapping.
+    """
+    raw_id = resp.get("id")
+    memory_id = temp_uuid_mapping.get(raw_id)
+    if memory_id is None:
+        logger.warning(f"{event_type} skipped: LLM returned unknown id {raw_id!r}")
+    return memory_id
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -303,6 +316,23 @@ class Memory(MemoryBase):
                 self.config.vector_store.provider, telemetry_config
             )
         capture_event("mem0.init", self, {"sync_type": "sync"})
+
+    def close(self):
+        """Release resources held by this Memory instance (SQLite connections, etc.).
+
+        The global telemetry singleton is intentionally *not* shut down here
+        because it is shared across all Memory instances in the process.  It is
+        cleaned up automatically at process exit via an ``atexit`` handler.
+        """
+        if hasattr(self, "db") and self.db is not None:
+            self.db.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -622,28 +652,34 @@ class Memory(MemoryBase):
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "UPDATE")
+                        if memory_id is None:
+                            continue
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "update")
                         self._update_memory(
-                            memory_id=temp_uuid_mapping[resp.get("id")],
+                            memory_id=memory_id,
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata),
                         )
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp.get("id")],
+                                "id": memory_id,
                                 "memory": action_text,
                                 "event": event_type,
                                 "previous_memory": resp.get("old_memory"),
                             }
                         )
                     elif event_type == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "DELETE")
+                        if memory_id is None:
+                            continue
+                        self._delete_memory(memory_id=memory_id)
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp.get("id")],
+                                "id": memory_id,
                                 "memory": action_text,
                                 "event": event_type,
                             }
@@ -1371,6 +1407,12 @@ class Memory(MemoryBase):
             )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
+        if self.enable_graph:
+            try:
+                self.graph.reset()
+            except Exception:
+                logger.warning("Failed to reset graph store, continuing with reset")
+
     def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
 
@@ -1419,8 +1461,20 @@ class AsyncMemory(MemoryBase):
             self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
         capture_event("mem0.init", self, {"sync_type": "async"})
 
+    def close(self):
+        """Release resources held by this AsyncMemory instance."""
+        if hasattr(self, "db") and self.db is not None:
+            self.db.close()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     @classmethod
-    async def from_config(cls, config_dict: Dict[str, Any]):
+    def from_config(cls, config_dict: Dict[str, Any]):
         try:
             config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
@@ -1720,6 +1774,9 @@ class AsyncMemory(MemoryBase):
                         )
                         memory_tasks.append((task, resp, "ADD", None))
                     elif event_type == "UPDATE":
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "UPDATE")
+                        if memory_id is None:
+                            continue
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = await asyncio.to_thread(
@@ -1727,16 +1784,19 @@ class AsyncMemory(MemoryBase):
                             )
                         task = asyncio.create_task(
                             self._update_memory(
-                                memory_id=temp_uuid_mapping[resp["id"]],
+                                memory_id=memory_id,
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
                                 metadata=deepcopy(metadata),
                             )
                         )
-                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
+                        memory_tasks.append((task, resp, "UPDATE", memory_id))
                     elif event_type == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
-                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "DELETE")
+                        if memory_id is None:
+                            continue
+                        task = asyncio.create_task(self._delete_memory(memory_id=memory_id))
+                        memory_tasks.append((task, resp, "DELETE", memory_id))
                     elif event_type == "NONE":
                         # Even if content doesn't need updating, update session IDs if provided
                         memory_id = temp_uuid_mapping.get(resp.get("id"))
@@ -2526,6 +2586,12 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
         capture_event("mem0.reset", self, {"sync_type": "async"})
+
+        if self.enable_graph:
+            try:
+                await asyncio.to_thread(self.graph.reset)
+            except Exception:
+                logger.warning("Failed to reset graph store, continuing with reset")
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")

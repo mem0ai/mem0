@@ -309,8 +309,23 @@ class FAISS(VectorStoreBase):
                 break
 
         if index_to_delete is not None:
+            # Reconstruct remaining vectors and rebuild the FAISS index
+            remaining_vectors = []
+            new_index_to_id = {}
+            new_idx = 0
+            for old_idx in sorted(self.index_to_id.keys()):
+                if old_idx == index_to_delete:
+                    continue
+                remaining_vectors.append(self.index.reconstruct(int(old_idx)))
+                new_index_to_id[new_idx] = self.index_to_id[old_idx]
+                new_idx += 1
+
+            self.index.reset()
+            if remaining_vectors:
+                self.index.add(np.array(remaining_vectors, dtype=np.float32))
+
             self.docstore.pop(vector_id, None)
-            self.index_to_id.pop(index_to_delete, None)
+            self.index_to_id = new_index_to_id
 
             self._save()
 

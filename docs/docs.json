@@ -4,15 +4,15 @@
   "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
   "theme": "aspen",
   "colors": {
-    "primary": "#9C58FA",
-    "light": "#9C58FA",
-    "dark": "#9C58FA"
+    "primary": "#8F74E0",
+    "light": "#8F74E0",
+    "dark": "#8F74E0"
   },
   "favicon": "/logo/favicon.png",
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
-    "href": "https://app.mem0.ai/"
+    "href": "https://mem0.ai"
   },
   "navigation": {
     "anchors": [
@@ -42,6 +42,7 @@
                       "platform/overview",
                       "vibecoding",
                       "platform/mem0-mcp",
+                      "platform/cli",
                       "platform/platform-vs-oss",
                       "platform/quickstart"
                     ]
@@ -131,6 +132,29 @@
                     "icon": "clipboard-list",
                     "pages": [
                       "platform/contribute"
+                    ]
+                  },
+                  {
+                    "group": "Release Notes",
+                    "icon": "rocket",
+                    "pages": [
+                      "changelog/highlights",
+                      "changelog/sdk",
+                      "changelog/platform",
+                      "changelog/openclaw"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "OpenClaw",
+                "groups": [
+                  {
+                    "group": "Agent Harness",
+                    "icon": "robot",
+                    "pages": [
+                      "integrations/openclaw",
+                      "integrations/hermes"
                     ]
                   }
                 ]
@@ -392,11 +416,11 @@
                       "integrations/autogen",
                       "integrations/agno",
                       "integrations/camel-ai",
-                      "integrations/openclaw",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
-                      "integrations/vercel-ai-sdk"
+                      "integrations/vercel-ai-sdk",
+                      "integrations/chatdev"
                     ]
                   },
                   {
@@ -425,6 +449,28 @@
                       "integrations/agentops",
                       "integrations/keywords",
                       "integrations/raycast"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Agent Plugins",
+                "groups": [
+                  {
+                    "group": "Coding Agents",
+                    "icon": "terminal",
+                    "pages": [
+                      "integrations/claude-code",
+                      "integrations/cursor",
+                      "integrations/codex"
+                    ]
+                  },
+                  {
+                    "group": "Agent Harness",
+                    "icon": "robot",
+                    "pages": [
+                      "integrations/openclaw",
+                      "integrations/hermes"
                     ]
                   }
                 ]
@@ -516,18 +562,6 @@
                     ]
                   }
                 ]
-              },
-              {
-                "tab": "Release Notes",
-                "groups": [
-                  {
-                    "group": "Changelog",
-                    "icon": "rocket",
-                    "pages": [
-                      "changelog"
-                    ]
-                  }
-                ]
               }
             ]
           }
@@ -578,6 +612,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/changelog",
+      "destination": "/changelog/highlights"
+    },
     {
       "source": "/api-reference/memory/v2-search-memories",
       "destination": "/api-reference/memory/search-memories"

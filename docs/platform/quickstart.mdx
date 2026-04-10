@@ -9,8 +9,8 @@ Get started with Mem0 Platform's hosted API in under 5 minutes. This guide shows
 
 ## Prerequisites
 
-- Mem0 Platform account ([Sign up here](https://app.mem0.ai))
-- API key ([Get one from dashboard](https://app.mem0.ai/dashboard/settings?tab=api-keys&subtab=configuration))
+- Mem0 Platform account (<a href="https://app.mem0.ai" rel="nofollow">Sign up here</a>)
+- API key (<a href="https://app.mem0.ai/dashboard/settings?tab=api-keys&subtab=configuration" rel="nofollow">Get one from dashboard</a>)
 - Python 3.10+, Node.js 14+, or cURL
 
 ## Installation
@@ -44,6 +44,10 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 
 ```bash cURL
 export MEM0_API_KEY="your-api-key"
+```
+
+```bash CLI
+mem0 init --api-key "your-api-key"
 ```
 
 </CodeGroup>
@@ -80,6 +84,10 @@ curl -X POST https://api.mem0.ai/v1/memories/add \
   }'
 ```
 
+```bash CLI
+mem0 add "I'm a vegetarian and allergic to nuts." --user-id user123
+```
+
 </CodeGroup>
 </Step>
 
@@ -103,6 +111,10 @@ curl -X POST https://api.mem0.ai/v1/memories/search \
     "query": "What are my dietary restrictions?",
     "filters": {"user_id": "user123"}
   }'
+```
+
+```bash CLI
+mem0 search "What are my dietary restrictions?" --user-id user123
 ```
 
 </CodeGroup>

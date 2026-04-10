@@ -20,13 +20,37 @@ const NOISE_MESSAGE_PATTERNS: RegExp[] = [
 ];
 
 /** Content fragments that should be stripped from otherwise-valid messages. */
-const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> = [
-  { pattern: /Conversation info \(untrusted metadata\):\s*```json\s*\{[\s\S]*?\}\s*```/g, replacement: "" },
-  { pattern: /\[media attached:.*?\]/g, replacement: "" },
-  { pattern: /To send an image back, prefer the message tool[\s\S]*?Keep caption in the text body\./g, replacement: "" },
-  { pattern: /System: \[\d{4}-\d{2}-\d{2}.*?\] ⚠️ Post-Compaction Audit:[\s\S]*?after memory compaction\./g, replacement: "" },
-  { pattern: /Replied message \(untrusted, for context\):\s*```json[\s\S]*?```/g, replacement: "" },
-];
+const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> =
+  [
+    {
+      pattern:
+        /Conversation info \(untrusted metadata\):\s*```json\s*\{[\s\S]*?\}\s*```/g,
+      replacement: "",
+    },
+    {
+      // OpenClaw TUI sends "Sender (untrusted metadata)" with a JSON block
+      // containing label, id, name, username — strip to prevent storing as memory
+      pattern:
+        /Sender\s*\(untrusted metadata\):\s*```json[\s\S]*?```\s*/gi,
+      replacement: "",
+    },
+    { pattern: /\[media attached:.*?\]/g, replacement: "" },
+    {
+      pattern:
+        /To send an image back, prefer the message tool[\s\S]*?Keep caption in the text body\./g,
+      replacement: "",
+    },
+    {
+      pattern:
+        /System: \[\d{4}-\d{2}-\d{2}.*?\] ⚠️ Post-Compaction Audit:[\s\S]*?after memory compaction\./g,
+      replacement: "",
+    },
+    {
+      pattern:
+        /Replied message \(untrusted, for context\):\s*```json[\s\S]*?```/g,
+      replacement: "",
+    },
+  ];
 
 const MAX_MESSAGE_LENGTH = 2000;
 
@@ -105,11 +129,11 @@ export function filterMessagesForExtraction(
   for (const msg of messages) {
     if (isNoiseMessage(msg.content)) continue;
     // Drop generic assistant acknowledgments that contain no facts
-    if (msg.role === "assistant" && isGenericAssistantMessage(msg.content)) continue;
+    if (msg.role === "assistant" && isGenericAssistantMessage(msg.content))
+      continue;
     const cleaned = stripNoiseFromContent(msg.content);
     if (!cleaned) continue;
     filtered.push({ role: msg.role, content: truncateMessage(cleaned) });
   }
   return filtered;
 }
-

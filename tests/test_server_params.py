@@ -505,3 +505,59 @@ class TestCallSignatureMatch:
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
         assert kwargs["query"] == "food"
+
+
+# ===========================================================================
+# MemoryUpdate: text and metadata forwarding (fix for #3933)
+# ===========================================================================
+
+class TestUpdateMemory:
+    """Verify that PUT /memories/{id} extracts text and metadata from the
+    request body and forwards them correctly to Memory.update()."""
+
+    def test_text_forwarded_as_data(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["data"] == "Likes tennis"
+
+    def test_metadata_forwarded(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={
+            "text": "Likes tennis",
+            "metadata": {"category": "sports"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["metadata"] == {"category": "sports"}
+
+    def test_metadata_omitted_passes_none(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["metadata"] is None
+
+    def test_missing_text_returns_422(self, client):
+        """text is required — omitting it should fail validation."""
+        resp = client.put("/memories/mem-1", json={"metadata": {"k": "v"}})
+        assert resp.status_code == 422
+
+    def test_dict_not_passed_as_data(self, client, mock_memory):
+        """Regression test for #3933: the entire dict must NOT be passed as data."""
+        resp = client.put("/memories/mem-1", json={"text": "updated content"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert isinstance(kwargs["data"], str)
+
+
+class TestUpdateOpenAPISchema:
+    """Verify the MemoryUpdate schema appears in the OpenAPI docs."""
+
+    def test_update_schema_includes_text(self, client):
+        schema = client.get("/openapi.json").json()
+        update_props = schema["components"]["schemas"]["MemoryUpdate"]["properties"]
+        assert "text" in update_props
+
+    def test_update_schema_includes_metadata(self, client):
+        schema = client.get("/openapi.json").json()
+        update_props = schema["components"]["schemas"]["MemoryUpdate"]["properties"]
+        assert "metadata" in update_props

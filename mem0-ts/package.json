@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "2.4.3",
+  "version": "2.4.6",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -67,6 +67,11 @@
     "noExternal": [
       "!src/community/**"
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "mem0-ts"
   },
   "keywords": [
     "mem0",
