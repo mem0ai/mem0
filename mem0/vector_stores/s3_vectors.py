@@ -150,25 +150,33 @@ class S3Vectors(VectorStoreBase):
         return response.get("index", {})
 
     def list(self, filters=None, limit=None):
-        # Note: list_vectors does not support metadata filtering.
-        if filters:
-            logger.warning("S3 Vectors `list` does not support metadata filtering. Ignoring filters.")
-
         params = {
             "vectorBucketName": self.vector_bucket_name,
             "indexName": self.collection_name,
             "returnData": False,
             "returnMetadata": True,
         }
-        if limit:
-            params["maxResults"] = limit
 
         paginator = self.client.get_paginator("list_vectors")
         pages = paginator.paginate(**params)
         all_vectors = []
         for page in pages:
             all_vectors.extend(page.get("vectors", []))
-        return [self._parse_output(all_vectors)]
+
+        results = self._parse_output(all_vectors)
+
+        # Filters are not by S3 for this method, so we filter client side
+        if filters:
+            filtered = []
+            for r in results:
+                if all(r.payload.get(key) == value for key, value in filters.items()):
+                    filtered.append(r)
+            results = filtered
+
+        if limit:
+            results = results[:limit]
+
+        return [results]
 
     def reset(self):
         logger.warning(f"Resetting index {self.collection_name}...")
