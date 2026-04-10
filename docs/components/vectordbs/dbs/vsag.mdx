@@ -1,0 +1,85 @@
+---
+title: "VSAG"
+description: "Use VSAG as a high-performance vector store in Mem0, developed by Ant Group for efficient similarity search."
+---
+[VSAG](https://github.com/alipay/vsag) is a high-performance vector search library developed by Ant Group. It provides efficient similarity search and clustering of dense vectors, designed for large-scale production environments with support for various index types.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "vsag",
+        "config": {
+            "collection_name": "test",
+            "path": "/tmp/vsag_memories",
+            "dim": 1536,
+            "index_type": "hnsw",
+            "metric_type": "l2"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Installation
+
+To use VSAG in your mem0 project, install the pyvsag package:
+
+```bash
+pip install pyvsag
+```
+
+### Config
+
+Here are the parameters available for configuring VSAG:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection | `mem0` |
+| `path` | Path to store VSAG index and metadata | `/tmp/vsag/<collection_name>` |
+| `dim` | Dimension of the embedding vector | `1536` |
+| `index_type` | Type of VSAG index (options: 'hnsw', 'hgraph', 'diskann', 'ivf') | `hnsw` |
+| `metric_type` | Distance metric type (options: 'l2', 'ip', 'cosine') | `l2` |
+| `dtype` | Data type for vectors (options: 'float32', 'int8') | `float32` |
+| `index_params` | Additional index parameters (dict) | `{}` |
+| `search_params` | Default search parameters (dict) | `{}` |
+
+### Index Types
+
+VSAG supports multiple index types optimized for different use cases:
+
+- **HNSW**: Hierarchical Navigable Small World graph, excellent for high recall and fast search
+- **HGRAPH**: Hybrid graph index with quantization support, optimized for memory efficiency
+- **Diskann**: Disk-based index for very large datasets
+- **IVF**: Inverted File Index, suitable for moderate-sized datasets
+
+### Performance Considerations
+
+VSAG offers several advantages for vector search:
+
+1. **High Performance**: Optimized C++ implementation with Python bindings for fast similarity search
+2. **Flexible Index Types**: Multiple index algorithms to suit different scale and latency requirements
+3. **Disk Persistence**: Index and metadata can be persisted to disk for durability
+4. **Memory Efficient**: Supports quantization to reduce memory footprint
+
+### Distance Metrics
+
+VSAG in mem0 supports three distance metrics:
+
+- **l2**: Euclidean (L2) distance, suitable for most embedding models
+- **ip**: Inner product similarity, useful for normalized embeddings
+- **cosine**: Cosine similarity, best for comparing semantic similarity regardless of vector magnitude
