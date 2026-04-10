@@ -2,7 +2,7 @@ import hashlib
 import logging
 import os
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import httpx
 import requests
@@ -300,7 +300,6 @@ class MemoryClient:
         memory_id: str,
         text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[Union[int, float, str]] = None,
     ) -> Dict[str, Any]:
         """
         Update a memory by ID.
@@ -309,25 +308,22 @@ class MemoryClient:
             memory_id (str): Memory ID.
             text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update in the memory.
-            timestamp (int, float, or str, optional): Unix epoch timestamp or ISO 8601 string.
 
         Returns:
             Dict[str, Any]: The response from the server.
 
         Example:
             >>> client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
-            >>> client.update(memory_id="mem_123", timestamp="2025-01-15T12:00:00Z")
+            >>> client.update(memory_id="mem_123", metadata={"category": "sports"})
         """
-        if text is None and metadata is None and timestamp is None:
-            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
+        if text is None and metadata is None:
+            raise ValueError("At least one of text or metadata must be provided for update.")
 
         payload = {}
         if text is not None:
             payload["text"] = text
         if metadata is not None:
             payload["metadata"] = metadata
-        if timestamp is not None:
-            payload["timestamp"] = timestamp
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "sync"})
         params = self._prepare_params()
@@ -1210,7 +1206,6 @@ class AsyncMemoryClient:
         memory_id: str,
         text: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[Union[int, float, str]] = None,
     ) -> Dict[str, Any]:
         """
         Update a memory by ID asynchronously.
@@ -1219,25 +1214,22 @@ class AsyncMemoryClient:
             memory_id (str): Memory ID.
             text (str, optional): New content to update the memory with.
             metadata (dict, optional): Metadata to update in the memory.
-            timestamp (int, float, or str, optional): Unix epoch timestamp or ISO 8601 string.
 
         Returns:
             Dict[str, Any]: The response from the server.
 
         Example:
             >>> await client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
-            >>> await client.update(memory_id="mem_123", timestamp="2025-01-15T12:00:00Z")
+            >>> await client.update(memory_id="mem_123", metadata={"category": "sports"})
         """
-        if text is None and metadata is None and timestamp is None:
-            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
+        if text is None and metadata is None:
+            raise ValueError("At least one of text or metadata must be provided for update.")
 
         payload = {}
         if text is not None:
             payload["text"] = text
         if metadata is not None:
             payload["metadata"] = metadata
-        if timestamp is not None:
-            payload["timestamp"] = timestamp
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "async"})
         params = self._prepare_params()

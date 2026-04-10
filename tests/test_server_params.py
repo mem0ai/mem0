@@ -8,6 +8,8 @@ previously silently dropped by Pydantic v2's default extra='ignore' behavior.
 
 import importlib
 import os
+import sys
+from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -35,8 +37,13 @@ def _mock_memory():
     mock_instance.delete_all.return_value = {"message": "Memories deleted"}
     mock_instance.reset.return_value = None
 
+    memory_cls = MagicMock()
+    memory_cls.from_config.return_value = mock_instance
+    mem0_module = ModuleType("mem0")
+    mem0_module.Memory = memory_cls
+
     with patch.dict(os.environ, {"OPENAI_API_KEY": "fake-key", "ADMIN_API_KEY": ""}):
-        with patch("mem0.Memory.from_config", return_value=mock_instance):
+        with patch.dict(sys.modules, {"mem0": mem0_module}):
             yield mock_instance
 
 
@@ -536,9 +543,16 @@ class TestUpdateMemory:
         _, kwargs = mock_memory.update.call_args
         assert kwargs["metadata"] is None
 
-    def test_missing_text_returns_422(self, client):
-        """text is required — omitting it should fail validation."""
+    def test_metadata_only_uses_existing_memory_text(self, client, mock_memory):
         resp = client.put("/memories/mem-1", json={"metadata": {"k": "v"}})
+        assert resp.status_code == 200
+        mock_memory.get.assert_called_once_with("mem-1")
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["data"] == "test memory"
+        assert kwargs["metadata"] == {"k": "v"}
+
+    def test_empty_update_returns_422(self, client):
+        resp = client.put("/memories/mem-1", json={})
         assert resp.status_code == 422
 
     def test_dict_not_passed_as_data(self, client, mock_memory):
