@@ -26,7 +26,6 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
       modelProperties: undefined,
     },
   },
-  enableGraph: false,
   graphStore: {
     provider: "neo4j",
     config: {

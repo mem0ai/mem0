@@ -60,7 +60,7 @@ def memory_custom_instance():
 
         config = MemoryConfig(
             version="v1.1",
-            custom_fact_extraction_prompt="custom prompt extracting memory in json format",
+            custom_instructions="custom prompt extracting memory in json format",
             custom_update_memory_prompt="custom prompt determining memory update",
         )
         config.graph_store.config = {"some_config": "value"}
@@ -70,7 +70,8 @@ def memory_custom_instance():
 @pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
 def test_add(memory_instance, version, enable_graph):
     memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+    if not enable_graph:
+        memory_instance.graph = None
     memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
     memory_instance._add_to_graph = Mock(return_value=[])
 
@@ -123,7 +124,8 @@ def test_get(memory_instance):
 @pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
 def test_search(memory_instance, version, enable_graph):
     memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+    if not enable_graph:
+        memory_instance.graph = None
     mock_memories = [
         Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"}, score=0.9),
         Mock(id="2", payload={"data": "Memory 2", "user_id": "test_user"}, score=0.8),
@@ -224,7 +226,8 @@ def test_delete(memory_instance):
 @pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
 def test_delete_all(memory_instance, version, enable_graph):
     memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+    if not enable_graph:
+        memory_instance.graph = None
     mock_memories = [Mock(id="1"), Mock(id="2")]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
     memory_instance.vector_store.reset = Mock()
@@ -262,7 +265,8 @@ def test_delete_all(memory_instance, version, enable_graph):
 )
 def test_get_all(memory_instance, version, enable_graph, expected_result):
     memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+    if not enable_graph:
+        memory_instance.graph = None
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
     memory_instance.graph.get_all = Mock(
@@ -314,7 +318,7 @@ def test_custom_prompts(memory_custom_instance):
 
             memory_custom_instance.llm.generate_response.assert_any_call(
                 messages=[
-                    {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
+                    {"role": "system", "content": memory_custom_instance.config.custom_instructions},
                     {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
                 ],
                 response_format={"type": "json_object"},

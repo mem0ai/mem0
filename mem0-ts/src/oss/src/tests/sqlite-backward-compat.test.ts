@@ -38,7 +38,7 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
     expect(cfg.historyStore!.provider).toBe("sqlite");
     expect(cfg.historyStore!.config.historyDbPath).toBe("memory.db");
     expect(cfg.disableHistory).toBe(false);
-    expect(cfg.enableGraph).toBe(false);
+    expect(cfg.graphStore).toBeUndefined();
   });
 
   it("workaround: explicit historyStore still works (existing user pattern)", () => {
@@ -106,7 +106,6 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
 
   it("graphStore config passes through unchanged", () => {
     const cfg = ConfigManager.mergeConfig({
-      enableGraph: true,
       graphStore: {
         provider: "neo4j",
         config: {
@@ -116,15 +115,14 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
         },
       },
     });
-    expect(cfg.enableGraph).toBe(true);
     expect(cfg.graphStore!.config.url).toBe("neo4j://custom:7687");
   });
 
-  it("customPrompt passes through unchanged", () => {
+  it("customInstructions passes through unchanged", () => {
     const cfg = ConfigManager.mergeConfig({
-      customPrompt: "You are a helpful assistant",
+      customInstructions: "You are a helpful assistant",
     });
-    expect(cfg.customPrompt).toBe("You are a helpful assistant");
+    expect(cfg.customInstructions).toBe("You are a helpful assistant");
   });
 
   it("version override passes through unchanged", () => {

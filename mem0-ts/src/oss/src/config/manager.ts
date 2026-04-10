@@ -131,11 +131,13 @@ export class ConfigManager {
         userConfig.historyDbPath ||
         userConfig.historyStore?.config?.historyDbPath ||
         DEFAULT_MEMORY_CONFIG.historyStore?.config?.historyDbPath,
-      customPrompt: userConfig.customPrompt,
-      graphStore: {
-        ...DEFAULT_MEMORY_CONFIG.graphStore,
-        ...userConfig.graphStore,
-      },
+      customInstructions: userConfig.customInstructions,
+      graphStore: userConfig.graphStore
+        ? {
+            ...DEFAULT_MEMORY_CONFIG.graphStore,
+            ...userConfig.graphStore,
+          }
+        : undefined,
       historyStore: (() => {
         const defaultHistoryStore = DEFAULT_MEMORY_CONFIG.historyStore!;
         const historyProvider =
@@ -158,7 +160,6 @@ export class ConfigManager {
       })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
-      enableGraph: userConfig.enableGraph || DEFAULT_MEMORY_CONFIG.enableGraph,
     };
 
     // Validate the merged config

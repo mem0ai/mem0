@@ -549,7 +549,6 @@ class TestMemoryDeleteWithGraphE2E:
             graph.config.graph_store.custom_prompt = None
 
             memory.graph = graph
-            memory.enable_graph = True
 
             yield memory, mock_vector_store, mock_llm, conn
 

@@ -34,7 +34,6 @@ def test_delete_calls_graph_cleanup_when_graph_enabled(
     memory = Memory(config)
 
     # Enable graph with a mock
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     # Set up vector store to return a memory with graph-relevant data
@@ -78,7 +77,7 @@ def test_delete_skips_graph_when_not_enabled(
     config = MemoryConfig()
     memory = Memory(config)
 
-    assert memory.enable_graph is False
+    assert memory.graph is None
 
     mock_vector_store.get.return_value = MockVectorMemory(
         "mem-1", {"data": "Alice likes Bob", "user_id": "user-1", "hash": "abc"}
@@ -109,7 +108,6 @@ def test_delete_continues_if_graph_cleanup_fails(
     config = MemoryConfig()
     memory = Memory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
     memory.graph.delete.side_effect = RuntimeError("Neo4j connection lost")
 
@@ -144,7 +142,6 @@ def test_delete_skips_graph_when_no_user_id(
     config = MemoryConfig()
     memory = Memory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     # Memory with no user_id
@@ -178,7 +175,6 @@ def test_delete_skips_graph_when_no_memory_text(
     config = MemoryConfig()
     memory = Memory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     mock_vector_store.get.return_value = MockVectorMemory(
@@ -210,7 +206,6 @@ def test_delete_passes_all_filters_to_graph(
     config = MemoryConfig()
     memory = Memory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     mock_vector_store.get.return_value = MockVectorMemory(
@@ -252,7 +247,6 @@ async def test_async_delete_calls_graph_cleanup(
     config = MemoryConfig()
     memory = AsyncMemory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     mock_vector_store.get.return_value = MockVectorMemory(
@@ -291,7 +285,6 @@ async def test_async_delete_continues_if_graph_cleanup_fails(
     config = MemoryConfig()
     memory = AsyncMemory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
     memory.graph.delete.side_effect = RuntimeError("Graph error")
 
@@ -323,7 +316,6 @@ def test_delete_raises_for_nonexistent_memory_with_graph_enabled(
     config = MemoryConfig()
     memory = Memory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     mock_vector_store.get.return_value = None
@@ -356,7 +348,6 @@ async def test_async_delete_raises_for_nonexistent_memory_with_graph_enabled(
     config = MemoryConfig()
     memory = AsyncMemory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     with pytest.raises(ValueError, match="Memory with id non-existent not found"):
@@ -385,7 +376,6 @@ def test_delete_all_does_not_trigger_per_memory_graph_cleanup(
     config = MemoryConfig()
     memory = Memory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     mem1 = MockVectorMemory("mem-1", {"data": "Alice likes Bob", "user_id": "user-1"})
@@ -427,7 +417,6 @@ def test_internal_delete_memory_does_not_trigger_graph_cleanup(
     config = MemoryConfig()
     memory = Memory(config)
 
-    memory.enable_graph = True
     memory.graph = MagicMock()
 
     mock_vector_store.get.return_value = MockVectorMemory(
