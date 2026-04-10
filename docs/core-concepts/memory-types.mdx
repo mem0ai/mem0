@@ -52,7 +52,7 @@ Mem0 maps these classic categories onto its layered storage so you can decide wh
 Mem0 stores each layer separately and merges them when you query:
 
 1. **Capture** – Messages enter the conversation layer while the turn is active.
-2. **Promote** – Relevant details persist to session or user memory based on your `user_id`, `session_id`, and metadata.
+2. **Promote** – Relevant details persist to session or user memory based on your `user_id`, `run_id`, and metadata.
 3. **Retrieve** – The search pipeline pulls from all layers, ranking user memories first, then session notes, then raw history.
 
 ```python
@@ -66,19 +66,19 @@ memory = Memory(api_key=os.environ["MEM0_API_KEY"])
 memory.add(
     ["I'm Alex and I prefer boutique hotels."],
     user_id="alex",
-    session_id="trip-planning-2025",
+    run_id="trip-planning-2025",
 )
 
 # Later in the session, pull long-term + session context
 results = memory.search(
     "Any hotel preferences?",
     user_id="alex",
-    session_id="trip-planning-2025",
+    run_id="trip-planning-2025",
 )
 ```
 
 <Tip>
-  Use `session_id` when you want short-term context to expire automatically; rely on `user_id` for lasting personalization.
+  Use `run_id` when you want short-term context to expire automatically; rely on `user_id` for lasting personalization.
 </Tip>
 
 ## When should you use each layer?
