@@ -402,11 +402,8 @@ class FAISS(VectorStoreBase):
             return [self.collection_name] if self.index else []
 
         try:
-            collections = []
             path = Path(self.path).parent
-            for file in path.glob("*.faiss"):
-                collections.append(file.stem)
-            return collections
+            return [file.stem for file in path.glob("*.faiss")]
         except Exception as e:
             logger.warning(f"Failed to list collections: {e}")
             return [self.collection_name] if self.index else []

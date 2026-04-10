@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import concurrent
 import gc
 import hashlib
@@ -254,6 +255,10 @@ setup_config()
 logger = logging.getLogger(__name__)
 
 
+
+# A shared thread pool to prevent thread exhaustion overhead across repeated add/search calls
+_shared_executor = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="mem0-executor")
+
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
@@ -468,14 +473,13 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
-            future2 = executor.submit(self._add_to_graph, messages, effective_filters)
+        future1 = _shared_executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
+        future2 = _shared_executor.submit(self._add_to_graph, messages, effective_filters)
 
-            concurrent.futures.wait([future1, future2])
+        concurrent.futures.wait([future1, future2])
 
-            vector_store_result = future1.result()
-            graph_result = future2.result()
+        vector_store_result = future1.result()
+        graph_result = future2.result()
 
         if self.enable_graph:
             return {
@@ -818,18 +822,17 @@ class Memory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
-            )
+        future_memories = _shared_executor.submit(self._get_all_from_vector_store, effective_filters, limit)
+        future_graph_entities = (
+            _shared_executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
+        )
 
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
+        concurrent.futures.wait(
+            [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
+        )
 
-            all_memories_result = future_memories.result()
-            graph_entities_result = future_graph_entities.result() if future_graph_entities else None
+        all_memories_result = future_memories.result()
+        graph_entities_result = future_graph_entities.result() if future_graph_entities else None
 
         if self.enable_graph:
             return {"results": all_memories_result, "relations": graph_entities_result}
@@ -957,18 +960,17 @@ class Memory(MemoryBase):
             },
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
-            future_graph_entities = (
-                executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
-            )
+        future_memories = _shared_executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
+        future_graph_entities = (
+            _shared_executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
+        )
 
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
+        concurrent.futures.wait(
+            [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
+        )
 
-            original_memories = future_memories.result()
-            graph_entities = future_graph_entities.result() if future_graph_entities else None
+        original_memories = future_memories.result()
+        graph_entities = future_graph_entities.result() if future_graph_entities else None
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
