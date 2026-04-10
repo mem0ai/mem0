@@ -18,16 +18,14 @@ export default function DashboardLayout({
     <>
       <NavWrapper />
       <div
-        className={cn(
-          "mt-[48px] rounded-lg relative h-[calc(100vh-56px)] pt-[0] bg-surface-default-primary border border-memBorder-primary overflow-y-auto transition-all ease-in-out font-fustat"
-        )}
+        className="mt-[48px] rounded-tl-lg relative h-[calc(100vh-56px)] bg-surface-default-primary border border-memBorder-primary overflow-hidden transition-all duration-300 ease-in-out font-fustat"
         style={{
           left: `${isSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : SIDEBAR_WIDTH}px`,
-          width: `calc(100vw - ${isSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH + 8 : SIDEBAR_WIDTH + 8}px)`
+          width: `calc(100vw - ${isSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH + 8 : SIDEBAR_WIDTH + 8}px)`,
         }}
       >
         <ScrollArea type="scroll" className="h-[calc(100vh-70px)]">
-          <div className="mx-auto px-4 py-5 flex-1 flex-col space-y-4 rounded-tl-lg bg-transparent">{children}</div>
+          <div className="mx-auto px-6 py-6 flex-1 flex-col space-y-4">{children}</div>
         </ScrollArea>
       </div>
     </>
