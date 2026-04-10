@@ -241,7 +241,14 @@ class PGVector(VectorStoreBase):
             )
 
             results = cur.fetchall()
-        return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+        return [
+            OutputData(
+                id=str(r[0]),
+                score=max(0.0, 1.0 - float(r[1])),  # cosine distance → similarity
+                payload=r[2],
+            )
+            for r in results
+        ]
 
     def delete(self, vector_id: str) -> None:
         """

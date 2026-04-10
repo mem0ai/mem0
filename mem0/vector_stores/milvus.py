@@ -128,11 +128,17 @@ class MilvusDB(VectorStoreBase):
         memory = []
 
         for value in data:
-            uid, score, metadata = (
+            uid, raw_distance, metadata = (
                 value.get("id"),
                 value.get("distance"),
                 value.get("entity", {}).get("metadata"),
             )
+
+            # Normalize to similarity (higher = better)
+            if raw_distance is not None and self.metric_type == MetricType.L2:
+                score = 1.0 / (1.0 + raw_distance)  # L2 distance → similarity
+            else:
+                score = raw_distance  # COSINE / IP already returns similarity
 
             memory_obj = OutputData(id=uid, score=score, payload=metadata)
             memory.append(memory_obj)

@@ -75,7 +75,7 @@ def test_search_vectors(supabase_instance, mock_collection):
 
     assert len(results) == 2
     assert results[0].id == "id1"
-    assert results[0].score == 0.9
+    assert results[0].score == pytest.approx(0.1)  # cosine distance 0.9 → similarity 1-0.9=0.1
     assert results[0].payload == {"name": "vector1"}
 
 

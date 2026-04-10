@@ -146,7 +146,12 @@ class FAISS(VectorStoreBase):
 
             payload_copy = payload.copy()
 
-            score = float(scores[i])
+            raw_score = float(scores[i])
+            # Normalize to similarity (higher = better)
+            if self.distance_strategy.lower() == "euclidean":
+                score = 1.0 / (1.0 + raw_score)  # L2 distance → similarity
+            else:
+                score = raw_score  # inner_product / cosine already similarity
             entry = OutputData(
                 id=vector_id,
                 score=score,
