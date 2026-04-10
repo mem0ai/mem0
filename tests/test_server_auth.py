@@ -168,7 +168,15 @@ class TestAuthEnabled:
 
     def test_missing_key_detail_mentions_header(self):
         resp = self.client.get("/memories/mem-1")
-        assert "X-API-Key" in resp.json()["detail"]
+        detail = resp.json()["detail"]
+        assert "X-API-Key" in detail
+        assert "Bearer" in detail
+
+    def test_wrong_x_api_key_advertises_apikey_challenge(self):
+        """When only X-API-Key is sent (and wrong), the challenge echoes the scheme
+        the client actually used, not the default Bearer challenge."""
+        resp = self.client.get("/memories/mem-1", headers={"X-API-Key": "wrong"})
+        assert resp.headers.get("www-authenticate") == "ApiKey"
 
     def test_wrong_key_returns_401(self):
         resp = self.client.get("/memories/mem-1", headers={"X-API-Key": "wrong"})
@@ -184,7 +192,9 @@ class TestAuthEnabled:
 
     def test_401_includes_www_authenticate_header(self):
         resp = self.client.get("/memories/mem-1")
-        assert resp.headers.get("www-authenticate") == "ApiKey"
+        # Server advertises Bearer as the default challenge when no credentials
+        # are presented, since both X-API-Key and Authorization: Bearer are accepted.
+        assert resp.headers.get("www-authenticate") == "Bearer"
 
     def test_near_miss_key_rejected(self):
         """Key that differs by one character should be rejected."""
@@ -470,8 +480,213 @@ class TestAuthEdgeCases:
 
 
 # ---------------------------------------------------------------------------
+# Authorization: Bearer <token> support (issue #3846)
+# ---------------------------------------------------------------------------
+
+
+class TestBearerTokenAuth:
+    """The server must accept the standard Authorization: Bearer <token> header
+    in addition to the legacy X-API-Key header."""
+
+    API_KEY = "bearer-test-key-abcdef123456"
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, _mock_memory):
+        self.app = _load_app({"ADMIN_API_KEY": self.API_KEY})
+        self.client = TestClient(self.app)
+        self.mock = _mock_memory
+
+    # --- Acceptance cases ---
+
+    def test_get_memory_with_bearer_token(self):
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": f"Bearer {self.API_KEY}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["id"] == "mem-1"
+
+    def test_create_memory_with_bearer_token(self):
+        resp = self.client.post(
+            "/memories",
+            json={"messages": [{"role": "user", "content": "hi"}], "user_id": "alice"},
+            headers={"Authorization": f"Bearer {self.API_KEY}"},
+        )
+        assert resp.status_code == 200
+
+    def test_search_with_bearer_token(self):
+        resp = self.client.post(
+            "/search",
+            json={"query": "pizza", "user_id": "alice"},
+            headers={"Authorization": f"Bearer {self.API_KEY}"},
+        )
+        assert resp.status_code == 200
+
+    @pytest.mark.parametrize(
+        "method,path,body",
+        [
+            ("POST", "/configure", {"version": "v1.1"}),
+            ("POST", "/memories", {"messages": [{"role": "user", "content": "x"}], "user_id": "alice"}),
+            ("GET", "/memories?user_id=alice", None),
+            ("GET", "/memories/test-id", None),
+            ("POST", "/search", {"query": "q", "user_id": "alice"}),
+            ("PUT", "/memories/test-id", {"text": "updated"}),
+            ("GET", "/memories/test-id/history", None),
+            ("DELETE", "/memories/test-id", None),
+            ("DELETE", "/memories?user_id=alice", None),
+            ("POST", "/reset", None),
+        ],
+    )
+    def test_all_endpoints_accept_bearer_token(self, method, path, body):
+        kwargs = {"headers": {"Authorization": f"Bearer {self.API_KEY}"}}
+        if body is not None:
+            kwargs["json"] = body
+        resp = self.client.request(method, path, **kwargs)
+        assert resp.status_code == 200, f"{method} {path} should accept Bearer token"
+
+    # --- Rejection cases ---
+
+    def test_wrong_bearer_token_rejected(self):
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert resp.status_code == 401
+        assert "Invalid" in resp.json()["detail"]
+
+    def test_wrong_bearer_token_advertises_bearer_challenge(self):
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert resp.headers.get("www-authenticate") == "Bearer"
+
+    def test_empty_bearer_token_rejected(self):
+        """``Authorization: Bearer `` (trailing space, no credential) is treated
+        the same as no credentials at all, so the server returns the missing-
+        credentials detail rather than reaching compare_digest with an empty
+        string."""
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": "Bearer "},
+        )
+        assert resp.status_code == 401
+        assert "Authentication required" in resp.json()["detail"]
+
+    def test_bearer_scheme_without_token_rejected(self):
+        """``Authorization: Bearer`` (no space, no token) should also be rejected."""
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": "Bearer"},
+        )
+        assert resp.status_code == 401
+
+    def test_whitespace_only_bearer_token_rejected(self):
+        """``Authorization: Bearer    `` (multiple spaces -> whitespace credential)
+        must still be rejected. This exercises the compare_digest path rather
+        than the missing-credential path."""
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": "Bearer    "},
+        )
+        assert resp.status_code == 401
+
+    def test_malformed_authorization_header_rejected(self):
+        """Missing 'Bearer ' prefix should not be accepted; advertise Bearer challenge."""
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": self.API_KEY},
+        )
+        assert resp.status_code == 401
+        assert resp.headers.get("www-authenticate") == "Bearer"
+
+    def test_basic_auth_scheme_rejected(self):
+        """Basic auth scheme should not be accepted (only Bearer)."""
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": f"Basic {self.API_KEY}"},
+        )
+        assert resp.status_code == 401
+
+    def test_lowercase_bearer_scheme_accepted(self):
+        """RFC 7235 §2.1 — scheme names are case-insensitive. ``bearer`` should
+        work just like ``Bearer``."""
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": f"bearer {self.API_KEY}"},
+        )
+        assert resp.status_code == 200
+
+    # --- Precedence / interaction ---
+
+    def test_x_api_key_still_works_when_bearer_wrong(self):
+        """If a client sends both, a valid X-API-Key should still authorize."""
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={
+                "X-API-Key": self.API_KEY,
+                "Authorization": "Bearer wrong-token",
+            },
+        )
+        assert resp.status_code == 200
+
+    def test_bearer_works_when_x_api_key_wrong(self):
+        """If a client sends both, a valid Bearer token should still authorize."""
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={
+                "X-API-Key": "wrong-key",
+                "Authorization": f"Bearer {self.API_KEY}",
+            },
+        )
+        assert resp.status_code == 200
+
+    def test_both_wrong_rejected(self):
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={
+                "X-API-Key": "wrong-key",
+                "Authorization": "Bearer wrong-token",
+            },
+        )
+        assert resp.status_code == 401
+
+    def test_near_miss_bearer_rejected(self):
+        """Bearer token differing by one char should be rejected (timing-safe check)."""
+        near_miss = self.API_KEY[:-1] + ("6" if self.API_KEY[-1] != "6" else "7")
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": f"Bearer {near_miss}"},
+        )
+        assert resp.status_code == 401
+
+    def test_openapi_schema_mentions_bearer(self):
+        schema = self.client.get("/openapi.json").json()
+        description = schema.get("info", {}).get("description", "")
+        assert "Bearer" in description
+        assert "X-API-Key" in description
+
+
+class TestBearerTokenAuthDisabled:
+    """When ADMIN_API_KEY is unset, Bearer headers should be ignored (no 401)."""
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, _mock_memory):
+        self.app = _load_app({"ADMIN_API_KEY": ""})
+        self.client = TestClient(self.app)
+
+    def test_bearer_header_ignored_when_auth_disabled(self):
+        resp = self.client.get(
+            "/memories/mem-1",
+            headers={"Authorization": "Bearer anything"},
+        )
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
 # Startup logging
 # ---------------------------------------------------------------------------
+
 
 class TestStartupLogging:
     """Verify the server emits the correct log messages at import time."""

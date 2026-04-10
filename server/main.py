@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.security import APIKeyHeader
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from mem0 import Memory
@@ -82,30 +82,50 @@ app = FastAPI(
         "A REST API for managing and searching memories for your AI Agents and Apps.\n\n"
         "## Authentication\n"
         "When the ADMIN_API_KEY environment variable is set, all endpoints require "
-        "the `X-API-Key` header for authentication."
+        "authentication. Clients may supply the key using either of the following "
+        "standard headers:\n\n"
+        "- `X-API-Key: <key>`\n"
+        "- `Authorization: Bearer <key>`\n"
     ),
     version="1.0.0",
 )
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
-async def verify_api_key(api_key: Optional[str] = Depends(api_key_header)):
-    """Validate the API key when ADMIN_API_KEY is configured. No-op otherwise."""
-    if ADMIN_API_KEY:
-        if api_key is None:
-            raise HTTPException(
-                status_code=401,
-                detail="X-API-Key header is required.",
-                headers={"WWW-Authenticate": "ApiKey"},
-            )
-        if not secrets.compare_digest(api_key, ADMIN_API_KEY):
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid API key.",
-                headers={"WWW-Authenticate": "ApiKey"},
-            )
-    return api_key
+async def verify_api_key(
+    api_key: Optional[str] = Depends(api_key_header),
+    bearer: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+):
+    """Validate credentials when ADMIN_API_KEY is configured. No-op otherwise.
+
+    Accepts either ``X-API-Key: <key>`` or the standard ``Authorization: Bearer
+    <key>`` header. The X-API-Key header is checked first so that existing
+    clients continue to work unchanged.
+    """
+    if not ADMIN_API_KEY:
+        return api_key
+
+    bearer_token = bearer.credentials if bearer is not None else None
+
+    if api_key is None and bearer_token is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required: provide X-API-Key or Authorization: Bearer <token> header.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if api_key is not None and secrets.compare_digest(api_key, ADMIN_API_KEY):
+        return api_key
+    if bearer_token is not None and secrets.compare_digest(bearer_token, ADMIN_API_KEY):
+        return bearer_token
+
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid API key.",
+        headers={"WWW-Authenticate": "Bearer" if bearer_token is not None else "ApiKey"},
+    )
 
 
 class Message(BaseModel):
