@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -244,4 +245,98 @@ def test_get_all_handles_flat_list_from_postgres(mock_sqlite, mock_llm_factory, 
 
     assert len(result) == 2
     assert result[0]["memory"] == "Memory 1"
-    assert result[1]["memory"] == "Memory 2" 
+    assert result[1]["memory"] == "Memory 2"
+
+
+@patch("mem0.memory.main.capture_event", MagicMock())
+@patch("mem0.utils.factory.EmbedderFactory.create")
+@patch("mem0.utils.factory.VectorStoreFactory.create")
+@patch("mem0.utils.factory.LlmFactory.create")
+@patch("mem0.memory.storage.SQLiteManager")
+def test_reconciliation_cache_refreshes_after_update_before_none_same_batch(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """
+    Regression: id_to_mem_map must reflect post-UPDATE state before a later NONE
+    (session metadata refresh) for the same memory id in one reconciliation pass.
+    Otherwise NONE deep-copies a stale payload and can revert content from the UPDATE.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_embedder_factory.return_value.embed.return_value = [0.1, 0.2, 0.3]
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm = MagicMock()
+    mock_llm_factory.return_value = mock_llm
+    mock_sqlite.return_value = MagicMock()
+
+    mem_id = "mem-same-batch"
+    stored_payload = {
+        "data": "stale before update",
+        "user_id": "u1",
+        "agent_id": "agent_before",
+        "run_id": "run_before",
+        "created_at": "2020-01-01T00:00:00",
+    }
+
+    def search_impl(*args, **kwargs):
+        return [MockVectorMemory(mem_id, dict(stored_payload))]
+
+    def get_impl(vector_id=None, **kwargs):
+        vid = vector_id if vector_id is not None else kwargs.get("vector_id")
+        if vid == mem_id:
+            return MockVectorMemory(mem_id, dict(stored_payload))
+        return None
+
+    def update_impl(vector_id=None, vector=None, payload=None, **kwargs):
+        if payload is not None:
+            stored_payload.clear()
+            stored_payload.update(payload)
+
+    mock_vector_store.search.side_effect = search_impl
+    mock_vector_store.get.side_effect = get_impl
+    mock_vector_store.update.side_effect = update_impl
+
+    call_count = {"n": 0}
+
+    def llm_side_effect(*args, **kwargs):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return json.dumps({"facts": ["user likes pizza"]})
+        return json.dumps(
+            {
+                "memory": [
+                    {
+                        "id": "0",
+                        "text": "updated by reconciliation",
+                        "event": "UPDATE",
+                        "old_memory": "stale before update",
+                    },
+                    {
+                        "id": "0",
+                        "text": "updated by reconciliation",
+                        "event": "NONE",
+                    },
+                ]
+            }
+        )
+
+    mock_llm.generate_response.side_effect = llm_side_effect
+
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+    memory.embedding_model = mock_embedder_factory.return_value
+    memory.vector_store = mock_vector_store
+    memory.llm = mock_llm
+    memory.enable_graph = False
+
+    messages = [{"role": "user", "content": "I like pizza"}]
+    metadata = {"user_id": "u1", "agent_id": "agent_new", "run_id": "run_new"}
+    filters = {"user_id": "u1"}
+
+    memory._add_to_vector_store(messages, metadata, filters, infer=True)
+
+    assert stored_payload["data"] == "updated by reconciliation"
+    assert stored_payload["agent_id"] == "agent_new"
+    assert stored_payload["run_id"] == "run_new"

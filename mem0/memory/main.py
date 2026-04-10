@@ -549,6 +549,9 @@ class Memory(MemoryBase):
                             metadata=deepcopy(metadata),
                             existing_memory=id_to_mem_map.get(actual_id),
                         )
+                        fresh = self.vector_store.get(vector_id=actual_id)
+                        if fresh:
+                            id_to_mem_map[actual_id] = fresh
                         returned_memories.append(
                             {
                                 "id": temp_uuid_mapping[resp.get("id")],
@@ -563,6 +566,7 @@ class Memory(MemoryBase):
                             memory_id=actual_id,
                             existing_memory=id_to_mem_map.get(actual_id),
                         )
+                        id_to_mem_map.pop(actual_id, None)
                         returned_memories.append(
                             {
                                 "id": temp_uuid_mapping[resp.get("id")],
@@ -590,6 +594,9 @@ class Memory(MemoryBase):
                                 vector=None,  # Keep same embeddings
                                 payload=updated_metadata,
                             )
+                            fresh = self.vector_store.get(vector_id=memory_id)
+                            if fresh:
+                                id_to_mem_map[memory_id] = fresh
                             logger.info(f"Updated session IDs for memory {memory_id}")
                         else:
                             logger.info("NOOP for Memory.")
@@ -1566,7 +1573,6 @@ class AsyncMemory(MemoryBase):
 
         returned_memories = []
         try:
-            memory_tasks = []
             for resp in new_memories_with_actions.get("memory", []):
                 logger.info(resp)
                 try:
@@ -1576,84 +1582,68 @@ class AsyncMemory(MemoryBase):
                     event_type = resp.get("event")
 
                     if event_type == "ADD":
-                        task = asyncio.create_task(
-                            self._create_memory(
-                                data=action_text,
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
-                            )
+                        result_id = await self._create_memory(
+                            data=action_text,
+                            existing_embeddings=new_message_embeddings,
+                            metadata=deepcopy(metadata),
                         )
-                        memory_tasks.append((task, resp, "ADD", None))
-                    elif event_type == "UPDATE":
-                        actual_id = temp_uuid_mapping[resp.get("id")]
-                        task = asyncio.create_task(
-                            self._update_memory(
-                                memory_id=actual_id,
-                                data=action_text,
-                                existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
-                                existing_memory=id_to_mem_map.get(actual_id),
-                            )
-                        )
-                        memory_tasks.append((task, resp, "UPDATE", actual_id))
-                    elif event_type == "DELETE":
-                        actual_id = temp_uuid_mapping[resp.get("id")]
-                        task = asyncio.create_task(
-                            self._delete_memory(
-                                memory_id=actual_id,
-                                existing_memory=id_to_mem_map.get(actual_id),
-                            )
-                        )
-                        memory_tasks.append((task, resp, "DELETE", actual_id))
-                    elif event_type == "NONE":
-                        # Even if content doesn't need updating, update session IDs if provided
-                        memory_id = temp_uuid_mapping.get(resp.get("id"))
-                        if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
-                            # Create async task to update only the session identifiers
-                            async def update_session_ids(mem_id, meta):
-                                existing_memory = id_to_mem_map.get(mem_id)
-                                if not existing_memory:
-                                    existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=mem_id)
-                                updated_metadata = deepcopy(existing_memory.payload)
-                                if meta.get("agent_id"):
-                                    updated_metadata["agent_id"] = meta["agent_id"]
-                                if meta.get("run_id"):
-                                    updated_metadata["run_id"] = meta["run_id"]
-                                updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
-
-                                await asyncio.to_thread(
-                                    self.vector_store.update,
-                                    vector_id=mem_id,
-                                    vector=None,  # Keep same embeddings
-                                    payload=updated_metadata,
-                                )
-                                logger.info(f"Updated session IDs for memory {mem_id} (async)")
-
-                            task = asyncio.create_task(update_session_ids(memory_id, metadata))
-                            memory_tasks.append((task, resp, "NONE", memory_id))
-                        else:
-                            logger.info("NOOP for Memory (async).")
-                except Exception as e:
-                    logger.error(f"Error processing memory action (async): {resp}, Error: {e}")
-
-            for task, resp, event_type, mem_id in memory_tasks:
-                try:
-                    result_id = await task
-                    if event_type == "ADD":
                         returned_memories.append({"id": result_id, "memory": resp.get("text"), "event": event_type})
                     elif event_type == "UPDATE":
+                        actual_id = temp_uuid_mapping[resp.get("id")]
+                        await self._update_memory(
+                            memory_id=actual_id,
+                            data=action_text,
+                            existing_embeddings=new_message_embeddings,
+                            metadata=deepcopy(metadata),
+                            existing_memory=id_to_mem_map.get(actual_id),
+                        )
+                        fresh = await asyncio.to_thread(self.vector_store.get, vector_id=actual_id)
+                        if fresh:
+                            id_to_mem_map[actual_id] = fresh
                         returned_memories.append(
                             {
-                                "id": mem_id,
+                                "id": actual_id,
                                 "memory": resp.get("text"),
                                 "event": event_type,
                                 "previous_memory": resp.get("old_memory"),
                             }
                         )
                     elif event_type == "DELETE":
-                        returned_memories.append({"id": mem_id, "memory": resp.get("text"), "event": event_type})
+                        actual_id = temp_uuid_mapping[resp.get("id")]
+                        await self._delete_memory(
+                            memory_id=actual_id,
+                            existing_memory=id_to_mem_map.get(actual_id),
+                        )
+                        id_to_mem_map.pop(actual_id, None)
+                        returned_memories.append({"id": actual_id, "memory": resp.get("text"), "event": event_type})
+                    elif event_type == "NONE":
+                        # Even if content doesn't need updating, update session IDs if provided
+                        memory_id = temp_uuid_mapping.get(resp.get("id"))
+                        if memory_id and (metadata.get("agent_id") or metadata.get("run_id")):
+                            existing_memory = id_to_mem_map.get(memory_id)
+                            if not existing_memory:
+                                existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+                            updated_metadata = deepcopy(existing_memory.payload)
+                            if metadata.get("agent_id"):
+                                updated_metadata["agent_id"] = metadata["agent_id"]
+                            if metadata.get("run_id"):
+                                updated_metadata["run_id"] = metadata["run_id"]
+                            updated_metadata["updated_at"] = datetime.now(pytz.timezone("US/Pacific")).isoformat()
+
+                            await asyncio.to_thread(
+                                self.vector_store.update,
+                                vector_id=memory_id,
+                                vector=None,  # Keep same embeddings
+                                payload=updated_metadata,
+                            )
+                            fresh = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
+                            if fresh:
+                                id_to_mem_map[memory_id] = fresh
+                            logger.info(f"Updated session IDs for memory {memory_id} (async)")
+                        else:
+                            logger.info("NOOP for Memory (async).")
                 except Exception as e:
-                    logger.error(f"Error awaiting memory task (async): {e}")
+                    logger.error(f"Error processing memory action (async): {resp}, Error: {e}")
         except Exception as e:
             logger.error(f"Error in memory processing loop (async): {e}")
 
