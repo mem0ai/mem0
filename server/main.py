@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import APIKeyHeader
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mem0 import Memory
 
@@ -125,8 +125,15 @@ class MemoryCreate(BaseModel):
 
 
 class MemoryUpdate(BaseModel):
-    text: str = Field(..., description="New content to update the memory with.")
+    text: Optional[str] = Field(None, description="New content to update the memory with.")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata to update.")
+    timestamp: Optional[str] = Field(None, description="Timestamp to set on the memory (ISO 8601).")
+
+    @model_validator(mode="after")
+    def validate_at_least_one_field(self):
+        if self.text is None and self.metadata is None and self.timestamp is None:
+            raise ValueError("At least one of 'text', 'metadata', or 'timestamp' must be provided.")
+        return self
 
 
 class SearchRequest(BaseModel):
@@ -215,7 +222,14 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _api_key: Option
         dict: Success message indicating the memory was updated
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata)
+        kwargs = {"memory_id": memory_id}
+        if updated_memory.text is not None:
+            kwargs["data"] = updated_memory.text
+        if updated_memory.metadata is not None:
+            kwargs["metadata"] = updated_memory.metadata
+        if updated_memory.timestamp is not None:
+            kwargs["timestamp"] = updated_memory.timestamp
+        return MEMORY_INSTANCE.update(**kwargs)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
