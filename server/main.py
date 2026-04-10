@@ -108,6 +108,12 @@ async def verify_api_key(api_key: Optional[str] = Depends(api_key_header)):
     return api_key
 
 
+@app.get("/v1/ping/", include_in_schema=False)
+def ping(_api_key: Optional[str] = Depends(verify_api_key)):
+    """Health check used by the Python client."""
+    return {"status": "ok"}
+
+
 class Message(BaseModel):
     role: str = Field(..., description="Role of the message (user or assistant).")
     content: str = Field(..., description="Message content.")
@@ -139,6 +145,7 @@ class SearchRequest(BaseModel):
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
 
 
+@app.post("/v1/configure/", include_in_schema=False)
 @app.post("/configure", summary="Configure Mem0")
 def set_config(config: Dict[str, Any], _api_key: Optional[str] = Depends(verify_api_key)):
     """Set memory configuration."""
@@ -147,6 +154,7 @@ def set_config(config: Dict[str, Any], _api_key: Optional[str] = Depends(verify_
     return {"message": "Configuration set successfully"}
 
 
+@app.post("/v1/memories/", include_in_schema=False)
 @app.post("/memories", summary="Create memories")
 def add_memory(memory_create: MemoryCreate, _api_key: Optional[str] = Depends(verify_api_key)):
     """Store new memories."""
@@ -162,6 +170,7 @@ def add_memory(memory_create: MemoryCreate, _api_key: Optional[str] = Depends(ve
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/v1/memories/", include_in_schema=False)
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
     user_id: Optional[str] = None,
@@ -182,6 +191,7 @@ def get_all_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/v1/memories/{memory_id}/", include_in_schema=False)
 @app.get("/memories/{memory_id}", summary="Get a memory")
 def get_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
     """Retrieve a specific memory by ID."""
@@ -192,6 +202,7 @@ def get_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/v1/search/", include_in_schema=False)
 @app.post("/search", summary="Search memories")
 def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends(verify_api_key)):
     """Search for memories based on a query."""
@@ -203,6 +214,7 @@ def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.put("/v1/memories/{memory_id}/", include_in_schema=False)
 @app.put("/memories/{memory_id}", summary="Update a memory")
 def update_memory(memory_id: str, updated_memory: MemoryUpdate, _api_key: Optional[str] = Depends(verify_api_key)):
     """Update an existing memory with new content.
@@ -221,6 +233,7 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _api_key: Option
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/v1/memories/{memory_id}/history/", include_in_schema=False)
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
 def memory_history(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
     """Retrieve memory history."""
@@ -231,6 +244,7 @@ def memory_history(memory_id: str, _api_key: Optional[str] = Depends(verify_api_
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/v1/memories/{memory_id}/", include_in_schema=False)
 @app.delete("/memories/{memory_id}", summary="Delete a memory")
 def delete_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
     """Delete a specific memory by ID."""
@@ -242,6 +256,7 @@ def delete_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_k
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/v1/memories/", include_in_schema=False)
 @app.delete("/memories", summary="Delete all memories")
 def delete_all_memories(
     user_id: Optional[str] = None,
@@ -263,6 +278,7 @@ def delete_all_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/v1/reset/", include_in_schema=False)
 @app.post("/reset", summary="Reset all memories")
 def reset_memory(_api_key: Optional[str] = Depends(verify_api_key)):
     """Completely reset stored memories."""
