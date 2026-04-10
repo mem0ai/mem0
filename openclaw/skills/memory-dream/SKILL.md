@@ -7,7 +7,7 @@ description: >
   Also triggers automatically after sufficient activity (configurable).
 user-invocable: true
 metadata:
-  {"openclaw": {"emoji": "💤"}}
+  {"openclaw": {"emoji": "💤", "requires": {"env": ["MEM0_API_KEY"], "bins": []}}}
 ---
 
 # Memory Consolidation

@@ -29,11 +29,8 @@ export interface PluginAuthConfig {
   apiKey?: string;
   baseUrl?: string;
   userId?: string;
-  orgId?: string;
-  projectId?: string;
   userEmail?: string;
   mode?: string;
-  enableGraph?: boolean;
   autoRecall?: boolean;
   autoCapture?: boolean;
   topK?: number;
@@ -76,11 +73,8 @@ export function readPluginAuth(): PluginAuthConfig {
     apiKey: (cfg.apiKey ?? cfg.api_key) as string | undefined,
     baseUrl: (cfg.baseUrl ?? cfg.base_url) as string | undefined,
     userId: (cfg.userId ?? cfg.user_id) as string | undefined,
-    orgId: (cfg.orgId ?? cfg.org_id) as string | undefined,
-    projectId: (cfg.projectId ?? cfg.project_id) as string | undefined,
     userEmail: (cfg.userEmail ?? cfg.user_email) as string | undefined,
     mode: cfg.mode as string | undefined,
-    enableGraph: cfg.enableGraph as boolean | undefined,
     autoRecall: cfg.autoRecall as boolean | undefined,
     autoCapture: cfg.autoCapture as boolean | undefined,
     topK: cfg.topK as number | undefined,

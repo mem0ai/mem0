@@ -12,7 +12,7 @@
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
-    "href": "https://app.mem0.ai/"
+    "href": "https://mem0.ai"
   },
   "navigation": {
     "anchors": [
@@ -136,7 +136,10 @@
                     "group": "Release Notes",
                     "icon": "rocket",
                     "pages": [
-                      "changelog"
+                      "changelog/highlights",
+                      "changelog/sdk",
+                      "changelog/platform",
+                      "changelog/openclaw"
                     ]
                   }
                 ]
@@ -414,7 +417,8 @@
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
-                      "integrations/vercel-ai-sdk"
+                      "integrations/vercel-ai-sdk",
+                      "integrations/chatdev"
                     ]
                   },
                   {
@@ -606,6 +610,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/changelog",
+      "destination": "/changelog/highlights"
+    },
     {
       "source": "/api-reference/memory/v2-search-memories",
       "destination": "/api-reference/memory/search-memories"

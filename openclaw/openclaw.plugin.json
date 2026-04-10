@@ -1,7 +1,8 @@
 {
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
-  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
+  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. Injects recalled memories into agent context (auto-recall) and extracts facts after each turn (auto-capture). Both configurable via autoRecall/autoCapture settings.",
+  "version": "1.0.5",
   "kind": "memory",
   "skills": ["skills"],
   "contracts": {
@@ -12,9 +13,23 @@
   },
   "providerAuthEnvVars": {
     "mem0": ["MEM0_API_KEY"],
-    "mem0-oss-openai": ["OPENAI_API_KEY"],
-    "mem0-oss-anthropic": ["ANTHROPIC_API_KEY"]
+    "openclaw-mem0-oss": ["OPENAI_API_KEY"]
   },
+  "providerAuthChoices": [
+    {
+      "provider": "mem0",
+      "method": "api-key",
+      "choiceId": "mem0-api-key",
+      "choiceLabel": "Mem0 API key",
+      "choiceHint": "Required for platform mode. Get your key at https://app.mem0.ai/dashboard/api-keys",
+      "groupId": "mem0",
+      "groupLabel": "Mem0",
+      "optionKey": "apiKey",
+      "cliFlag": "--mem0-api-key",
+      "cliOption": "--mem0-api-key <key>",
+      "cliDescription": "Mem0 platform API key"
+    }
+  ],
   "uiHints": {
     "mode": {
       "label": "Mode",
@@ -30,16 +45,6 @@
       "label": "Default User ID",
       "placeholder": "default",
       "help": "User ID for scoping memories"
-    },
-    "orgId": {
-      "label": "Organization ID",
-      "placeholder": "org-...",
-      "advanced": true
-    },
-    "projectId": {
-      "label": "Project ID",
-      "placeholder": "proj-...",
-      "advanced": true
     },
     "autoCapture": {
       "label": "Auto-Capture",
@@ -63,10 +68,6 @@
       "label": "Custom Prompt (Open-Source)",
       "advanced": true,
       "help": "Custom prompt for open-source mode memory extraction."
-    },
-    "enableGraph": {
-      "label": "Enable Graph Memory",
-      "help": "Enable Mem0 graph memory for entity relationships (platform mode only)"
     },
     "searchThreshold": {
       "label": "Search Threshold",
@@ -109,12 +110,6 @@
       "userEmail": {
         "type": "string"
       },
-      "orgId": {
-        "type": "string"
-      },
-      "projectId": {
-        "type": "string"
-      },
       "autoCapture": {
         "type": "boolean"
       },
@@ -132,9 +127,6 @@
       },
       "customPrompt": {
         "type": "string"
-      },
-      "enableGraph": {
-        "type": "boolean"
       },
       "searchThreshold": {
         "type": "number"
@@ -191,7 +183,6 @@
             "properties": {
               "enabled": { "type": "boolean" },
               "importanceThreshold": { "type": "number" },
-              "enableGraph": { "type": "boolean" },
               "credentialPatterns": { "type": "array", "items": { "type": "string" } }
             }
           },

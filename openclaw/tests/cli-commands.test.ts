@@ -175,7 +175,6 @@ function createMockCfg() {
     apiKey: "m0-test-key-1234",
     baseUrl: "https://api.mem0.ai",
     topK: 5,
-    enableGraph: false,
     autoCapture: true,
     autoRecall: true,
     searchThreshold: 0.5,
@@ -967,7 +966,7 @@ describe("registerCliCommands", () => {
       const configCmd = findCommand(mem0, "config")!;
       const getCmd = findCommand(configCmd, "get")!;
 
-      getCmd._action!("org_id");
+      getCmd._action!("email");
 
       expect(consoleSpy.log).toHaveBeenCalledWith("(not set)");
     });
@@ -1033,18 +1032,6 @@ describe("registerCliCommands", () => {
       );
     });
 
-    it("coerces 'true' to boolean for boolean keys", () => {
-      const { mem0 } = setup();
-      const configCmd = findCommand(mem0, "config")!;
-      const setCmd = findCommand(configCmd, "set")!;
-
-      setCmd._action!("enable_graph", "true");
-
-      expect(writePluginAuth).toHaveBeenCalledWith(
-        expect.objectContaining({ enableGraph: true }),
-      );
-    });
-
     it("coerces 'false' to boolean false for boolean keys", () => {
       const { mem0 } = setup();
       const configCmd = findCommand(mem0, "config")!;
@@ -1066,18 +1053,6 @@ describe("registerCliCommands", () => {
 
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({ autoCapture: true }),
-      );
-    });
-
-    it("coerces 'yes' to boolean true for boolean keys", () => {
-      const { mem0 } = setup();
-      const configCmd = findCommand(mem0, "config")!;
-      const setCmd = findCommand(configCmd, "set")!;
-
-      setCmd._action!("enable_graph", "yes");
-
-      expect(writePluginAuth).toHaveBeenCalledWith(
-        expect.objectContaining({ enableGraph: true }),
       );
     });
 
@@ -1410,6 +1385,74 @@ describe("registerCliCommands", () => {
 
       expect(consoleSpy.error).toHaveBeenCalledWith(
         expect.stringContaining("Failed to get event"),
+      );
+    });
+
+    it("event list returns early in open-source mode", async () => {
+      const provider = createMockProvider();
+      const cfg = { ...createMockCfg(), mode: "open-source" as const };
+      const mockApi = {
+        registerCli: vi.fn((cb: any) => {
+          const root = createMockCommand("root");
+          cb({ program: root });
+          const mem0 = findCommand(root, "mem0")!;
+          const eventCmd = findCommand(mem0, "event")!;
+          const listCmd = findCommand(eventCmd, "list")!;
+          listCmd._action!();
+        }),
+        logger: { info: vi.fn(), warn: vi.fn() },
+      } as any;
+
+      registerCliCommands(
+        mockApi,
+        null as any,
+        provider as any,
+        cfg as any,
+        vi.fn().mockReturnValue("testuser"),
+        vi.fn((id: string) => `testuser:agent:${id}`),
+        vi.fn().mockReturnValue({ user_id: "testuser", top_k: 5 }),
+        vi.fn().mockReturnValue(undefined),
+      );
+
+      // Wait for async action
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        "Event tracking is only available in platform mode.",
+      );
+    });
+
+    it("event status returns early in open-source mode", async () => {
+      const provider = createMockProvider();
+      const cfg = { ...createMockCfg(), mode: "open-source" as const };
+      const mockApi = {
+        registerCli: vi.fn((cb: any) => {
+          const root = createMockCommand("root");
+          cb({ program: root });
+          const mem0 = findCommand(root, "mem0")!;
+          const eventCmd = findCommand(mem0, "event")!;
+          const statusCmd = findCommand(eventCmd, "status")!;
+          statusCmd._action!("evt-123");
+        }),
+        logger: { info: vi.fn(), warn: vi.fn() },
+      } as any;
+
+      registerCliCommands(
+        mockApi,
+        null as any,
+        provider as any,
+        cfg as any,
+        vi.fn().mockReturnValue("testuser"),
+        vi.fn((id: string) => `testuser:agent:${id}`),
+        vi.fn().mockReturnValue({ user_id: "testuser", top_k: 5 }),
+        vi.fn().mockReturnValue(undefined),
+      );
+
+      // Wait for async action
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        "Event tracking is only available in platform mode.",
       );
     });
   });
