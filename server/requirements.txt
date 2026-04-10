@@ -5,3 +5,9 @@ mem0ai>=0.1.48
 python-dotenv==1.0.1
 psycopg>=3.2.8
 psycopg-pool>=3.2.6,<4.0.0
+
+# Auth & database (Phase 1)
+sqlalchemy>=2.0,<3.0
+alembic>=1.13,<2.0
+passlib[bcrypt]>=1.7,<2.0
+python-jose[cryptography]>=3.3,<4.0

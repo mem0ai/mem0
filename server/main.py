@@ -1,15 +1,20 @@
 import logging
 import os
-import secrets
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
 from mem0 import Memory
+
+from auth import verify_auth
+from routers import auth as auth_router
+from routers import api_keys as api_keys_router
+from routers import team as team_router
+from routers import stats as stats_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -68,7 +73,10 @@ DEFAULT_CONFIG = {
         "provider": "neo4j",
         "config": {"url": NEO4J_URI, "username": NEO4J_USERNAME, "password": NEO4J_PASSWORD},
     },
-    "llm": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"}},
+    "llm": {
+        "provider": "openai",
+        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": "gpt-4.1-nano-2025-04-14"},
+    },
     "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": "text-embedding-3-small"}},
     "history_db_path": HISTORY_DB_PATH,
 }
@@ -81,31 +89,27 @@ app = FastAPI(
     description=(
         "A REST API for managing and searching memories for your AI Agents and Apps.\n\n"
         "## Authentication\n"
-        "When the ADMIN_API_KEY environment variable is set, all endpoints require "
-        "the `X-API-Key` header for authentication."
+        "Supports Bearer JWT tokens, per-user API keys via `X-API-Key` header, "
+        "or the legacy `ADMIN_API_KEY` environment variable."
     ),
     version="1.0.0",
 )
 
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+# CORS — allow the dashboard origin
+DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[DASHBOARD_URL],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-
-async def verify_api_key(api_key: Optional[str] = Depends(api_key_header)):
-    """Validate the API key when ADMIN_API_KEY is configured. No-op otherwise."""
-    if ADMIN_API_KEY:
-        if api_key is None:
-            raise HTTPException(
-                status_code=401,
-                detail="X-API-Key header is required.",
-                headers={"WWW-Authenticate": "ApiKey"},
-            )
-        if not secrets.compare_digest(api_key, ADMIN_API_KEY):
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid API key.",
-                headers={"WWW-Authenticate": "ApiKey"},
-            )
-    return api_key
+# Include auth & management routers
+app.include_router(auth_router.router)
+app.include_router(api_keys_router.router)
+app.include_router(team_router.router)
+app.include_router(stats_router.router)
 
 
 class Message(BaseModel):
@@ -140,7 +144,7 @@ class SearchRequest(BaseModel):
 
 
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any], _api_key: Optional[str] = Depends(verify_api_key)):
+def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
     """Set memory configuration."""
     global MEMORY_INSTANCE
     MEMORY_INSTANCE = Memory.from_config(config)
@@ -148,7 +152,7 @@ def set_config(config: Dict[str, Any], _api_key: Optional[str] = Depends(verify_
 
 
 @app.post("/memories", summary="Create memories")
-def add_memory(memory_create: MemoryCreate, _api_key: Optional[str] = Depends(verify_api_key)):
+def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
         raise HTTPException(status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required.")
@@ -167,7 +171,7 @@ def get_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
-    _api_key: Optional[str] = Depends(verify_api_key),
+    _auth=Depends(verify_auth),
 ):
     """Retrieve stored memories."""
     if not any([user_id, run_id, agent_id]):
@@ -183,7 +187,7 @@ def get_all_memories(
 
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
-def get_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
+def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
     try:
         return MEMORY_INSTANCE.get(memory_id)
@@ -193,7 +197,7 @@ def get_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)
 
 
 @app.post("/search", summary="Search memories")
-def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends(verify_api_key)):
+def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
@@ -204,7 +208,7 @@ def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends
 
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
-def update_memory(memory_id: str, updated_memory: MemoryUpdate, _api_key: Optional[str] = Depends(verify_api_key)):
+def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(verify_auth)):
     """Update an existing memory with new content.
 
     Args:
@@ -222,7 +226,7 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _api_key: Option
 
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
-def memory_history(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
+def memory_history(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve memory history."""
     try:
         return MEMORY_INSTANCE.history(memory_id=memory_id)
@@ -232,7 +236,7 @@ def memory_history(memory_id: str, _api_key: Optional[str] = Depends(verify_api_
 
 
 @app.delete("/memories/{memory_id}", summary="Delete a memory")
-def delete_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
+def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Delete a specific memory by ID."""
     try:
         MEMORY_INSTANCE.delete(memory_id=memory_id)
@@ -247,7 +251,7 @@ def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
-    _api_key: Optional[str] = Depends(verify_api_key),
+    _auth=Depends(verify_auth),
 ):
     """Delete all memories for a given identifier."""
     if not any([user_id, run_id, agent_id]):
@@ -264,7 +268,7 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory(_api_key: Optional[str] = Depends(verify_api_key)):
+def reset_memory(_auth=Depends(verify_auth)):
     """Completely reset stored memories."""
     try:
         MEMORY_INSTANCE.reset()

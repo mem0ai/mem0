@@ -1,0 +1,123 @@
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, EmailStr
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from auth import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_auth,
+    verify_password,
+)
+from db import get_db
+from models import User
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+class RegisterRequest(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class UserResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SetupStatusResponse(BaseModel):
+    needsSetup: bool
+
+
+@router.get("/setup-status", response_model=SetupStatusResponse)
+def setup_status(db: Session = Depends(get_db)):
+    count = db.scalar(select(func.count(User.id)))
+    return SetupStatusResponse(needsSetup=count == 0)
+
+
+@router.post("/register", response_model=TokenResponse)
+def register(body: RegisterRequest, db: Session = Depends(get_db)):
+    """Create the first admin account. Blocked once any user exists."""
+    if db.scalar(select(func.count(User.id))) > 0:
+        raise HTTPException(status_code=403, detail="Registration is closed. Use an invite link to join.")
+
+    if db.scalar(select(User).where(User.email == body.email)):
+        raise HTTPException(status_code=409, detail="Email already registered.")
+
+    user = User(
+        name=body.name,
+        email=body.email,
+        password_hash=hash_password(body.password),
+        role="admin",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return TokenResponse(
+        access_token=create_access_token(str(user.id), user.role),
+        refresh_token=create_refresh_token(str(user.id)),
+    )
+
+
+@router.post("/login", response_model=TokenResponse)
+def login(body: LoginRequest, db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(User.email == body.email))
+    if user is None or not verify_password(body.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return TokenResponse(
+        access_token=create_access_token(str(user.id), user.role),
+        refresh_token=create_refresh_token(str(user.id)),
+    )
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
+    payload = decode_token(body.refresh_token)
+    if payload.get("type") != "refresh":
+        raise HTTPException(status_code=401, detail="Invalid token type.")
+
+    user = db.get(User, payload["sub"])
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found.")
+
+    return TokenResponse(
+        access_token=create_access_token(str(user.id), user.role),
+        refresh_token=create_refresh_token(str(user.id)),
+    )
+
+
+@router.get("/me", response_model=UserResponse)
+def me(user: User = Depends(verify_auth)):
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    return user

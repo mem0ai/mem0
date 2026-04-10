@@ -20,10 +20,13 @@ services:
         condition: service_healthy
       neo4j:
         condition: service_healthy
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload  # Enable auto-reload
+    command: >
+      sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     environment:
       - PYTHONDONTWRITEBYTECODE=1  # Prevents Python from writing .pyc files
       - PYTHONUNBUFFERED=1  # Ensures Python output is sent straight to terminal
+      - DASHBOARD_URL=http://localhost:3000
+      - APP_DB_NAME=mem0_app
 
   postgres:
       image: ankane/pgvector:v0.5.1
@@ -41,8 +44,27 @@ services:
         retries: 5
       volumes:
         - postgres_db:/var/lib/postgresql/data
+        - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
       ports:
         - "8432:5432"
+  mem0-dashboard:
+    build: ./dashboard
+    ports:
+      - "3000:3000"
+    networks:
+      - mem0_network
+    environment:
+      - NEXT_PUBLIC_API_URL=http://mem0:8000
+      - NEXT_PUBLIC_INSTANCE_NAME=Mem0
+    depends_on:
+      mem0:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   neo4j:
     image: neo4j:5.26.4
     networks:

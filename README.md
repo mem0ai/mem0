@@ -71,27 +71,41 @@
 
 ## 🚀 Quickstart Guide <a name="quickstart"></a>
 
-Choose between our hosted platform or self-hosted package:
+| | Library | Self-Hosted Server | Cloud Platform |
+|---|---------|-------------------|----------------|
+| **Best for** | Testing, prototyping | Teams evaluating for production | Zero-ops production use |
+| **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai) |
+| **Dashboard** | -- | Yes | Yes |
+| **Auth & API Keys** | -- | Yes | Yes |
+| **Team Management** | -- | Basic | Full (orgs, projects, RBAC) |
+| **Advanced Features** | -- | Teasers | All included |
 
-### Hosted Platform
+Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? Cloud.
 
-Get up and running in minutes with automatic updates, analytics, and enterprise security.
-
-1. Sign up on [Mem0 Platform](https://app.mem0.ai)
-2. Embed the memory layer via SDK or API keys
-
-### Self-Hosted (Open Source)
-
-Install the sdk via pip:
+### Library (pip / npm)
 
 ```bash
 pip install mem0ai
 ```
 
-Install sdk via npm:
 ```bash
 npm install mem0ai
 ```
+
+### Self-Hosted Server
+
+```bash
+cd server && docker compose up -d
+# Dashboard: http://localhost:3000
+# API: http://localhost:8888
+```
+
+See the [self-hosted docs](https://docs.mem0.ai/self-hosted) for configuration and team setup.
+
+### Cloud Platform
+
+1. Sign up on [Mem0 Platform](https://app.mem0.ai)
+2. Embed the memory layer via SDK or API keys
 
 ### CLI
 

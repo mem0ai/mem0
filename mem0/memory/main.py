@@ -253,10 +253,20 @@ def _build_filters_and_metadata(
 setup_config()
 logger = logging.getLogger(__name__)
 
+_logged_self_hosted_hint = False
+
 
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
+        global _logged_self_hosted_hint
         self.config = config
+
+        if not _logged_self_hosted_hint and config.vector_store.provider in ("qdrant", None):
+            logger.info(
+                "Using local storage. For team use with dashboard + API auth, "
+                "see https://docs.mem0.ai/self-hosted"
+            )
+            _logged_self_hosted_hint = True
 
         self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
         self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
