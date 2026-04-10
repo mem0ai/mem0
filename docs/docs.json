@@ -138,7 +138,10 @@
                     "group": "Release Notes",
                     "icon": "rocket",
                     "pages": [
-                      "changelog"
+                      "changelog/highlights",
+                      "changelog/sdk",
+                      "changelog/platform",
+                      "changelog/openclaw"
                     ]
                   }
                 ]
@@ -609,6 +612,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/changelog",
+      "destination": "/changelog/highlights"
+    },
     {
       "source": "/api-reference/memory/v2-search-memories",
       "destination": "/api-reference/memory/search-memories"
