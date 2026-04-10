@@ -122,10 +122,4 @@ async function captureClientEvent(
   );
 }
 
-export {
-  telemetry,
-  captureClientEvent,
-  // Exported for tests only.
-  MEM0_TELEMETRY_SAMPLE_RATE,
-  LIFECYCLE_EVENTS,
-};
+export { telemetry, captureClientEvent };

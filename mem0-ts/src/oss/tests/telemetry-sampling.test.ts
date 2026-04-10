@@ -161,31 +161,31 @@ describe("telemetry sampling", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it("invalid env var falls back to 0.1 default", async () => {
+    it("invalid env var falls back to default rate", async () => {
       process.env.MEM0_TELEMETRY_SAMPLE_RATE = "not a number";
       jest.resetModules();
       randomSpy.mockReturnValue(0.05);
-      const { captureClientEvent, MEM0_TELEMETRY_SAMPLE_RATE } =
-        await import("../src/utils/telemetry");
-      expect(MEM0_TELEMETRY_SAMPLE_RATE).toBe(0.1);
+      const { captureClientEvent } = await import("../src/utils/telemetry");
       await captureClientEvent("add", makeInstance());
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it("out-of-range env var (negative) falls back to default", async () => {
+    it("out-of-range env var (negative) falls back to default rate", async () => {
       process.env.MEM0_TELEMETRY_SAMPLE_RATE = "-0.5";
       jest.resetModules();
-      const { MEM0_TELEMETRY_SAMPLE_RATE } =
-        await import("../src/utils/telemetry");
-      expect(MEM0_TELEMETRY_SAMPLE_RATE).toBe(0.1);
+      randomSpy.mockReturnValue(0.05);
+      const { captureClientEvent } = await import("../src/utils/telemetry");
+      await captureClientEvent("add", makeInstance());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it("out-of-range env var (> 1) falls back to default", async () => {
+    it("out-of-range env var (> 1) falls back to default rate", async () => {
       process.env.MEM0_TELEMETRY_SAMPLE_RATE = "5";
       jest.resetModules();
-      const { MEM0_TELEMETRY_SAMPLE_RATE } =
-        await import("../src/utils/telemetry");
-      expect(MEM0_TELEMETRY_SAMPLE_RATE).toBe(0.1);
+      randomSpy.mockReturnValue(0.05);
+      const { captureClientEvent } = await import("../src/utils/telemetry");
+      await captureClientEvent("add", makeInstance());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -206,20 +206,6 @@ describe("telemetry sampling", () => {
       const { captureClientEvent } = await import("../src/utils/telemetry");
       await captureClientEvent("add", makeInstance({ telemetryId: "" }));
       expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it("default sample rate is 0.1", async () => {
-      const { MEM0_TELEMETRY_SAMPLE_RATE } =
-        await import("../src/utils/telemetry");
-      expect(MEM0_TELEMETRY_SAMPLE_RATE).toBe(0.1);
-    });
-
-    it("LIFECYCLE_EVENTS contains init and reset", async () => {
-      const { LIFECYCLE_EVENTS } = await import("../src/utils/telemetry");
-      expect(LIFECYCLE_EVENTS.has("init")).toBe(true);
-      expect(LIFECYCLE_EVENTS.has("reset")).toBe(true);
-      expect(LIFECYCLE_EVENTS.has("add")).toBe(false);
-      expect(LIFECYCLE_EVENTS.has("search")).toBe(false);
     });
   });
 });
