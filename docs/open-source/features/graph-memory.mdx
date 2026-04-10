@@ -94,7 +94,7 @@ memory.add(conversation, user_id="demo-user")
 results = memory.search(
     "Who did Alice meet at GraphConf?",
     user_id="demo-user",
-    limit=3,
+    top_k=3,
     rerank=True,
 )
 

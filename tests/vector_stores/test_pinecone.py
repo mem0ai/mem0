@@ -80,7 +80,7 @@ def test_insert_vectors(pinecone_db):
 
 def test_search_vectors(pinecone_db):
     pinecone_db.index.query.return_value.matches = [{"id": "id1", "score": 0.9, "metadata": {"name": "vector1"}}]
-    results = pinecone_db.search("test query", [0.1] * 128, limit=1)
+    results = pinecone_db.search("test query", [0.1] * 128, top_k=1)
     pinecone_db.index.query.assert_called_with(
         vector=[0.1] * 128,
         top_k=1,

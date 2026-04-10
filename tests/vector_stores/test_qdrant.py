@@ -84,13 +84,13 @@ class TestQdrant(unittest.TestCase):
         mock_point = MagicMock(id=str(uuid.uuid4()), score=0.95, payload={"key": "value"})
         self.client_mock.query_points.return_value = MagicMock(points=[mock_point])
 
-        results = self.qdrant.search(query="", vectors=vectors, limit=1)
+        results = self.qdrant.search(query="", vectors=vectors, top_k=1)
 
         self.client_mock.query_points.assert_called_once_with(
             collection_name="test_collection",
             query=vectors,
             query_filter=None,
-            limit=1,
+            top_k=1,
         )
 
         self.assertEqual(len(results), 1)
@@ -108,7 +108,7 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.query_points.return_value = MagicMock(points=[mock_point])
 
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-        results = self.qdrant.search(query="", vectors=vectors, limit=1, filters=filters)
+        results = self.qdrant.search(query="", vectors=vectors, top_k=1, filters=filters)
 
         # Verify that _create_filter was called and query_filter was passed
         self.client_mock.query_points.assert_called_once()
@@ -138,7 +138,7 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.query_points.return_value = MagicMock(points=[mock_point])
 
         filters = {"user_id": "alice"}
-        results = self.qdrant.search(query="", vectors=vectors, limit=1, filters=filters)
+        results = self.qdrant.search(query="", vectors=vectors, top_k=1, filters=filters)
 
         # Verify that a Filter object was created with single condition
         call_args = self.client_mock.query_points.call_args[1]
@@ -155,7 +155,7 @@ class TestQdrant(unittest.TestCase):
         mock_point = MagicMock(id=str(uuid.uuid4()), score=0.95, payload={"key": "value"})
         self.client_mock.query_points.return_value = MagicMock(points=[mock_point])
 
-        results = self.qdrant.search(query="", vectors=vectors, limit=1, filters=None)
+        results = self.qdrant.search(query="", vectors=vectors, top_k=1, filters=None)
 
         call_args = self.client_mock.query_points.call_args[1]
         self.assertIsNone(call_args["query_filter"])
@@ -298,7 +298,7 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.scroll.return_value = [mock_point]
 
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-        results = self.qdrant.list(filters=filters, limit=10)
+        results = self.qdrant.list(filters=filters, top_k=10)
 
         # Verify that _create_filter was called and scroll_filter was passed
         self.client_mock.scroll.assert_called_once()
@@ -327,7 +327,7 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.scroll.return_value = [mock_point]
 
         filters = {"user_id": "alice"}
-        results = self.qdrant.list(filters=filters, limit=10)
+        results = self.qdrant.list(filters=filters, top_k=10)
 
         # Verify that a Filter object was created with single condition
         call_args = self.client_mock.scroll.call_args[1]
@@ -344,7 +344,7 @@ class TestQdrant(unittest.TestCase):
         mock_point = MagicMock(id=str(uuid.uuid4()), score=0.95, payload={"key": "value"})
         self.client_mock.scroll.return_value = [mock_point]
 
-        results = self.qdrant.list(filters=None, limit=10)
+        results = self.qdrant.list(filters=None, top_k=10)
 
         call_args = self.client_mock.scroll.call_args[1]
         self.assertIsNone(call_args["scroll_filter"])

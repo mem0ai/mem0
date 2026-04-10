@@ -16,10 +16,10 @@ Run:
 
 import json
 import os
-import pytest
 from unittest.mock import MagicMock, patch
 
 import age
+import pytest
 
 from mem0.memory.apache_age_memory import MemoryGraph  # noqa: E402
 
@@ -386,7 +386,7 @@ class TestPublicAPICRUD:
             )
         self.mg.ag.commit()
 
-        results = self.mg.get_all({"user_id": "u1"}, limit=3)
+        results = self.mg.get_all({"user_id": "u1"}, top_k=3)
         assert len(results) == 3
 
     def test_delete_all_removes_user_data(self):

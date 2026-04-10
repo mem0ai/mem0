@@ -48,7 +48,7 @@ def test_search_vectors(langchain_instance):
 
     # Test search without filters
     vectors = [[0.1, 0.2, 0.3]]
-    results = langchain_instance.search(query="", vectors=vectors, limit=2)
+    results = langchain_instance.search(query="", vectors=vectors, top_k=2)
 
     langchain_instance.client.similarity_search_by_vector.assert_called_once_with(embedding=vectors, k=2)
 
@@ -60,7 +60,7 @@ def test_search_vectors(langchain_instance):
 
     # Test search with filters
     filters = {"name": "vector1"}
-    langchain_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    langchain_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
     langchain_instance.client.similarity_search_by_vector.assert_called_with(embedding=vectors, k=2, filter=filters)
 
 
@@ -75,7 +75,7 @@ def test_search_vectors_with_agent_id_run_id_filters(langchain_instance):
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = langchain_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = langchain_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     # Verify that filters were passed to the underlying vector store
     langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
@@ -96,7 +96,7 @@ def test_search_vectors_with_single_filter(langchain_instance):
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "alice"}
-    results = langchain_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = langchain_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     # Verify that filters were passed to the underlying vector store
     langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
@@ -114,7 +114,7 @@ def test_search_vectors_with_no_filters(langchain_instance):
     langchain_instance.client.similarity_search_by_vector.return_value = mock_docs
 
     vectors = [[0.1, 0.2, 0.3]]
-    results = langchain_instance.search(query="", vectors=vectors, limit=2, filters=None)
+    results = langchain_instance.search(query="", vectors=vectors, top_k=2, filters=None)
 
     # Verify that no filters were passed to the underlying vector store
     langchain_instance.client.similarity_search_by_vector.assert_called_once_with(
@@ -155,10 +155,10 @@ def test_list_with_filters(langchain_instance):
     langchain_instance.client._collection = mock_collection
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = langchain_instance.list(filters=filters, limit=10)
+    results = langchain_instance.list(filters=filters, top_k=10)
 
     # Verify that the collection.get method was called with the correct filters
-    mock_collection.get.assert_called_once_with(where=filters, limit=10)
+    mock_collection.get.assert_called_once_with(where=filters, top_k=10)
 
     # Verify the results
     assert len(results) == 1
@@ -180,10 +180,10 @@ def test_list_with_single_filter(langchain_instance):
     langchain_instance.client._collection = mock_collection
 
     filters = {"user_id": "alice"}
-    results = langchain_instance.list(filters=filters, limit=10)
+    results = langchain_instance.list(filters=filters, top_k=10)
 
     # Verify that the collection.get method was called with the correct filter
-    mock_collection.get.assert_called_once_with(where=filters, limit=10)
+    mock_collection.get.assert_called_once_with(where=filters, top_k=10)
 
     # Verify the results
     assert len(results) == 1
@@ -202,10 +202,10 @@ def test_list_with_no_filters(langchain_instance):
     }
     langchain_instance.client._collection = mock_collection
 
-    results = langchain_instance.list(filters=None, limit=10)
+    results = langchain_instance.list(filters=None, top_k=10)
 
     # Verify that the collection.get method was called with no filters
-    mock_collection.get.assert_called_once_with(where=None, limit=10)
+    mock_collection.get.assert_called_once_with(where=None, top_k=10)
 
     # Verify the results
     assert len(results) == 1
@@ -220,7 +220,7 @@ def test_list_with_exception(langchain_instance):
     mock_collection.get.side_effect = Exception("Test exception")
     langchain_instance.client._collection = mock_collection
 
-    results = langchain_instance.list(filters={"user_id": "alice"}, limit=10)
+    results = langchain_instance.list(filters={"user_id": "alice"}, top_k=10)
 
     # Verify that an empty list is returned when an exception occurs
     assert results == []

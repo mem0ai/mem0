@@ -179,7 +179,7 @@ class Weaviate(VectorStoreBase):
                 batch.add_object(collection=self.collection_name, properties=data_object, uuid=object_id, vector=vector)
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -194,7 +194,7 @@ class Weaviate(VectorStoreBase):
         response = collection.query.hybrid(
             query="",
             vector=vectors,
-            limit=limit,
+            limit=top_k,
             filters=combined_filter,
             return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
             return_metadata=MetadataQuery(score=True),
@@ -313,7 +313,7 @@ class Weaviate(VectorStoreBase):
             return schema
         return None
 
-    def list(self, filters=None, limit=100) -> List[OutputData]:
+    def list(self, filters=None, top_k=100) -> List[OutputData]:
         """
         List all vectors in a collection.
         """
@@ -325,7 +325,7 @@ class Weaviate(VectorStoreBase):
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.fetch_objects(
-            limit=limit,
+            limit=top_k,
             filters=combined_filter,
             return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
         )

@@ -309,8 +309,8 @@ def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     memory.vector_store.list.return_value = [[mem_result]]
 
     # Step 3: Call search and get_all, compare timestamps
-    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
-    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, top_k=10, threshold=None)
+    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, top_k=100)
 
     search_item = search_results[0]
     get_all_item = get_all_results[0]
@@ -376,8 +376,8 @@ def test_search_and_get_all_consistent_after_update(mocker):
     memory.vector_store.search.return_value = [mem_result]
     memory.vector_store.list.return_value = [[mem_result]]
 
-    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
-    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, top_k=10, threshold=None)
+    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, top_k=100)
 
     assert search_results[0]["created_at"] == get_all_results[0]["created_at"]
     assert search_results[0]["updated_at"] == get_all_results[0]["updated_at"]

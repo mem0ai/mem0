@@ -432,7 +432,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -481,7 +481,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1031,7 +1031,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.list(limit=2)
+        results = pgvector.list(top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1079,7 +1079,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.list(limit=2)
+        results = pgvector.list(top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1127,7 +1127,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1177,7 +1177,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1227,7 +1227,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice"}
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1275,7 +1275,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice"}
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1323,7 +1323,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=None)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=None)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1372,7 +1372,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=None)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=None)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1421,7 +1421,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice", "agent_id": "agent1"}
-        results = pgvector.list(filters=filters, limit=2)
+        results = pgvector.list(filters=filters, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1470,7 +1470,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice", "agent_id": "agent1"}
-        results = pgvector.list(filters=filters, limit=2)
+        results = pgvector.list(filters=filters, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1519,7 +1519,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice"}
-        results = pgvector.list(filters=filters, limit=2)
+        results = pgvector.list(filters=filters, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1567,7 +1567,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice"}
-        results = pgvector.list(filters=filters, limit=2)
+        results = pgvector.list(filters=filters, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1615,7 +1615,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.list(filters=None, limit=2)
+        results = pgvector.list(filters=None, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1663,7 +1663,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.list(filters=None, limit=2)
+        results = pgvector.list(filters=None, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
