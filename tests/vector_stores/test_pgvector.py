@@ -417,7 +417,7 @@ class TestPGVector(unittest.TestCase):
             (self.test_ids[0], 0.1, {"key": "value1"}),
             (self.test_ids[1], 0.2, {"key": "value2"}),
         ]
-        
+
         pgvector = PGVector(
             dbname="test_db",
             collection_name="test_collection",
@@ -431,23 +431,23 @@ class TestPGVector(unittest.TestCase):
             minconn=1,
             maxconn=4
         )
-        
+
         results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2)
-        
+
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
-        
+
         # Verify search query was executed
-        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list
                        if "SELECT id, vector <=" in str(call)]
         self.assertTrue(len(search_calls) > 0)
-        
-        # Verify results
+
+        # Verify results — scores are converted from distance to similarity (1 - distance)
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertAlmostEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -457,16 +457,16 @@ class TestPGVector(unittest.TestCase):
         # Set up mock pool and cursor
         mock_pool = MagicMock()
         mock_connection_pool.return_value = mock_pool
-        
+
         # Configure the _get_cursor mock to return our mock cursor
         mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
         mock_get_cursor.return_value.__exit__.return_value = None
-        
+
         self.mock_cursor.fetchall.return_value = [
             (self.test_ids[0], 0.1, {"key": "value1"}),
             (self.test_ids[1], 0.2, {"key": "value2"}),
         ]
-        
+
         pgvector = PGVector(
             dbname="test_db",
             collection_name="test_collection",
@@ -480,23 +480,23 @@ class TestPGVector(unittest.TestCase):
             minconn=1,
             maxconn=4
         )
-        
+
         results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2)
-        
+
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
-        
+
         # Verify search query was executed
-        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list
                        if "SELECT id, vector <=" in str(call)]
         self.assertTrue(len(search_calls) > 0)
-        
-        # Verify results
+
+        # Verify results — scores are converted from distance to similarity (1 - distance)
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertAlmostEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1140,7 +1140,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1153,15 +1153,15 @@ class TestPGVector(unittest.TestCase):
         # Set up mock pool and cursor
         mock_pool = MagicMock()
         mock_connection_pool.return_value = mock_pool
-        
+
         # Configure the _get_cursor mock to return our mock cursor
         mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
         mock_get_cursor.return_value.__exit__.return_value = None
-        
+
         self.mock_cursor.fetchall.return_value = [
             (self.test_ids[0], 0.1, {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}),
         ]
-        
+
         pgvector = PGVector(
             dbname="test_db",
             collection_name="test_collection",
@@ -1175,22 +1175,22 @@ class TestPGVector(unittest.TestCase):
             minconn=1,
             maxconn=4
         )
-        
+
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
         results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
-        
+
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
-        
+
         # Verify search query was executed with filters
-        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list
                        if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
-        
+
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1240,7 +1240,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -1288,7 +1288,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -1336,9 +1336,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1385,9 +1385,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
