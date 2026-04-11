@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.security import APIKeyHeader
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mem0 import Memory
 
@@ -125,8 +125,14 @@ class MemoryCreate(BaseModel):
 
 
 class MemoryUpdate(BaseModel):
-    text: str = Field(..., description="New content to update the memory with.")
+    text: Optional[str] = Field(None, description="New content to update the memory with.")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata to update.")
+
+    @model_validator(mode="after")
+    def validate_non_empty_update(self):
+        if self.text is None and self.metadata is None:
+            raise ValueError("At least one of text or metadata must be provided.")
+        return self
 
 
 class SearchRequest(BaseModel):
@@ -215,7 +221,13 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _api_key: Option
         dict: Success message indicating the memory was updated
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata)
+        memory_text = updated_memory.text
+        if memory_text is None:
+            existing_memory = MEMORY_INSTANCE.get(memory_id)
+            if not isinstance(existing_memory, dict) or not isinstance(existing_memory.get("memory"), str):
+                raise ValueError("Cannot update metadata without existing memory text.")
+            memory_text = existing_memory["memory"]
+        return MEMORY_INSTANCE.update(memory_id=memory_id, data=memory_text, metadata=updated_memory.metadata)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
