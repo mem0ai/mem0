@@ -157,7 +157,6 @@ export class Memory {
         api_version: this.apiVersion,
         client_type: "Memory",
         collection_name: this.collectionName,
-        enable_graph: !!this.graphMemory,
       });
     } catch (error) {}
   }
