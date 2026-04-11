@@ -34,6 +34,7 @@ export interface PluginAuthConfig {
   autoRecall?: boolean;
   autoCapture?: boolean;
   topK?: number;
+  anonymousTelemetryId?: string;
 }
 
 // ============================================================================
@@ -78,6 +79,7 @@ export function readPluginAuth(): PluginAuthConfig {
     autoRecall: cfg.autoRecall as boolean | undefined,
     autoCapture: cfg.autoCapture as boolean | undefined,
     topK: cfg.topK as number | undefined,
+    anonymousTelemetryId: cfg.anonymousTelemetryId as string | undefined,
   };
 }
 

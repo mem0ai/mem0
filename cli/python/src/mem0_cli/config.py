@@ -40,10 +40,16 @@ class DefaultsConfig:
 
 
 @dataclass
+class TelemetryConfig:
+    anonymous_id: str = ""
+
+
+@dataclass
 class Mem0Config:
     version: int = CONFIG_VERSION
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
     platform: PlatformConfig = field(default_factory=PlatformConfig)
+    telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
 
 
 SHORT_KEY_ALIASES: dict[str, str] = {
@@ -86,6 +92,9 @@ def load_config() -> Mem0Config:
         config.defaults.app_id = defaults.get("app_id", "")
         config.defaults.run_id = defaults.get("run_id", "")
         config.defaults.enable_graph = defaults.get("enable_graph", False)
+
+        telemetry = data.get("telemetry", {})
+        config.telemetry.anonymous_id = telemetry.get("anonymous_id", "")
 
     # Environment variable overrides
     env_key = os.environ.get("MEM0_API_KEY")
@@ -136,6 +145,9 @@ def save_config(config: Mem0Config) -> None:
             "api_key": config.platform.api_key,
             "base_url": config.platform.base_url,
             "user_email": config.platform.user_email,
+        },
+        "telemetry": {
+            "anonymous_id": config.telemetry.anonymous_id,
         },
     }
 

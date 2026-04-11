@@ -31,10 +31,15 @@ export interface DefaultsConfig {
 	enableGraph: boolean;
 }
 
+export interface TelemetryConfig {
+	anonymousId: string;
+}
+
 export interface Mem0Config {
 	version: number;
 	defaults: DefaultsConfig;
 	platform: PlatformConfig;
+	telemetry: TelemetryConfig;
 }
 
 export function createDefaultConfig(): Mem0Config {
@@ -51,6 +56,9 @@ export function createDefaultConfig(): Mem0Config {
 			apiKey: "",
 			baseUrl: DEFAULT_BASE_URL,
 			userEmail: "",
+		},
+		telemetry: {
+			anonymousId: "",
 		},
 	};
 }
@@ -80,6 +88,9 @@ export function loadConfig(): Mem0Config {
 		config.defaults.appId = defaults.app_id ?? "";
 		config.defaults.runId = defaults.run_id ?? "";
 		config.defaults.enableGraph = defaults.enable_graph ?? false;
+
+		const telemetry = data.telemetry ?? {};
+		config.telemetry.anonymousId = telemetry.anonymous_id ?? "";
 	}
 
 	// Environment variable overrides
@@ -118,6 +129,9 @@ export function saveConfig(config: Mem0Config): void {
 			api_key: config.platform.apiKey,
 			base_url: config.platform.baseUrl,
 			user_email: config.platform.userEmail,
+		},
+		telemetry: {
+			anonymous_id: config.telemetry.anonymousId,
 		},
 	};
 
