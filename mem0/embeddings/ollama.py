@@ -28,7 +28,16 @@ class OllamaEmbedding(EmbeddingBase):
         self.config.model = self.config.model or "nomic-embed-text"
         self.config.embedding_dims = self.config.embedding_dims or 512
 
-        self.client = Client(host=self.config.ollama_base_url)
+        # Strip /v1 suffix if present — some users mistakenly set ollama_base_url
+        # to http://host:11434/v1 (OpenAI-style). The Ollama client appends its
+        # own path, so /v1 would result in incorrect endpoints like /v1/api/embed.
+        base_url = self.config.ollama_base_url
+        if base_url:
+            base_url = base_url.rstrip("/")
+            if base_url.endswith("/v1"):
+                base_url = base_url[:-3]
+
+        self.client = Client(host=base_url)
         self._ensure_model_exists()
 
     @staticmethod
