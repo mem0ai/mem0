@@ -98,14 +98,6 @@ describe("MemoryClient - createWebhook", () => {
     expect(body.eventTypes).toBeUndefined();
   });
 
-  test("body does not contain projectId", async () => {
-    const mock = await callCreate();
-    const body = getFetchBody(
-      findFetchCall(mock, "/api/v1/webhooks/", "POST")!,
-    );
-    expect(body.projectId).toBeUndefined();
-  });
-
   test("body does not contain webhookId", async () => {
     const mock = await callCreate();
     const body = getFetchBody(
@@ -171,21 +163,6 @@ describe("MemoryClient - updateWebhook", () => {
     expect(body.eventTypes).toBeUndefined();
   });
 
-  test("body does not contain project_id", async () => {
-    const mock = await callUpdate();
-    const body = getFetchBody(
-      findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT")!,
-    );
-    expect(body.project_id).toBeUndefined();
-  });
-
-  test("body does not contain projectId", async () => {
-    const mock = await callUpdate();
-    const body = getFetchBody(
-      findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT")!,
-    );
-    expect(body.projectId).toBeUndefined();
-  });
 
   test("body does not contain webhookId", async () => {
     const mock = await callUpdate();

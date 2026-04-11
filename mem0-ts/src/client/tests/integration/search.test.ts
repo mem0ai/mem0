@@ -43,7 +43,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       const results = await waitForSearchResults(
         client,
         "What is my favorite color?",
-        { user_id: TEST_USER_ID },
+        { filters: { user_id: TEST_USER_ID } },
       );
 
       expect(Array.isArray(results)).toBe(true);
@@ -109,7 +109,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   describe("edge cases", () => {
     test("search for non-existent user returns empty results", async () => {
       const results = await client.search("anything", {
-        user_id: `nonexistent-user-${randomUUID()}`,
+        filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
       expect(Array.isArray(results)).toBe(true);
@@ -120,7 +120,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       const results = await client.search(
         "Tell me about integration test user",
         {
-          user_id: TEST_USER_ID,
+          filters: { user_id: TEST_USER_ID },
           top_k: 1,
         },
       );

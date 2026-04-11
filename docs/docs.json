@@ -70,7 +70,6 @@
                           "platform/features/v2-memory-filters",
                           "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
-                          "platform/features/async-mode-default-change",
                           "platform/features/multimodal-support",
                           "platform/features/custom-categories"
                         ]
@@ -130,16 +129,6 @@
                     "icon": "clipboard-list",
                     "pages": [
                       "platform/contribute"
-                    ]
-                  },
-                  {
-                    "group": "Release Notes",
-                    "icon": "rocket",
-                    "pages": [
-                      "changelog/highlights",
-                      "changelog/sdk",
-                      "changelog/platform",
-                      "changelog/openclaw"
                     ]
                   }
                 ]
@@ -560,6 +549,21 @@
                     ]
                   }
                 ]
+              },
+              {
+                "tab": "Release Notes",
+                "groups": [
+                  {
+                    "group": "Release Notes",
+                    "icon": "rocket",
+                    "pages": [
+                      "changelog/highlights",
+                      "changelog/sdk",
+                      "changelog/platform",
+                      "changelog/openclaw"
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -610,6 +614,14 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/platform/features/async-mode-default-change",
+      "destination": "/"
+    },
+    {
+      "source": "/open-source/features/custom-fact-extraction-prompt",
+      "destination": "/open-source/features/custom-instructions"
+    },
     {
       "source": "/changelog",
       "destination": "/changelog/highlights"

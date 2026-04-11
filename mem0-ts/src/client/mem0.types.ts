@@ -1,15 +1,14 @@
-// ─── Base Options (shared across memory operations) ─────────
-export interface BaseMemoryOptions {
+// ─── Entity Options (for add/delete — top-level identity) ───
+export interface EntityOptions {
   user_id?: string;
   agent_id?: string;
   app_id?: string;
   run_id?: string;
-  metadata?: Record<string, any>;
-  filters?: Record<string, any>;
 }
 
 // ─── Per-Method Options ─────────────────────────────────────
-export interface AddMemoryOptions extends BaseMemoryOptions {
+export interface AddMemoryOptions extends EntityOptions {
+  metadata?: Record<string, any>;
   infer?: boolean;
   custom_categories?: custom_categories[];
   custom_instructions?: string;
@@ -18,17 +17,19 @@ export interface AddMemoryOptions extends BaseMemoryOptions {
   enable_graph?: boolean;
 }
 
-export interface SearchMemoryOptions extends BaseMemoryOptions {
+export interface SearchMemoryOptions {
+  filters?: Record<string, any>;
+  metadata?: Record<string, any>;
   top_k?: number;
   threshold?: number;
   rerank?: boolean;
   fields?: string[];
   categories?: string[];
-  only_metadata_based_search?: boolean;
   enable_graph?: boolean;
 }
 
-export interface GetAllMemoryOptions extends BaseMemoryOptions {
+export interface GetAllMemoryOptions {
+  filters?: Record<string, any>;
   page?: number;
   page_size?: number;
   start_date?: string;
@@ -37,12 +38,7 @@ export interface GetAllMemoryOptions extends BaseMemoryOptions {
   enable_graph?: boolean;
 }
 
-export interface DeleteAllMemoryOptions extends BaseMemoryOptions {}
-
-export interface GetUsersOptions {
-  page?: number;
-  page_size?: number;
-}
+export interface DeleteAllMemoryOptions extends EntityOptions {}
 
 // ─── Project Options ────────────────────────────────────────
 export interface ProjectOptions {
@@ -55,8 +51,6 @@ export interface PromptUpdatePayload {
   retrieval_criteria?: any[];
   enable_graph?: boolean;
   version?: string;
-  inclusion_prompt?: string;
-  exclusion_prompt?: string;
   memory_depth?: string | null;
   usecase_setting?: string | number;
   multilingual?: boolean;

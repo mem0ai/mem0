@@ -57,10 +57,6 @@ memories = client.get_all(
 
 To retrieve graph memory relationships between entities, pass `output_format="v1.1"` in your request. This will return memories with entity and relationship information from the knowledge graph.
 
-<Note>
-  The `output_format` parameter has been removed from the Python and TypeScript SDKs -- responses always use the `v1.1` format. This parameter only applies when calling the REST API directly.
-</Note>
-
 <CodeGroup>
 ```python Code
 memories = client.get_all(

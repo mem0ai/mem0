@@ -21,7 +21,9 @@ describe("MemoryClient - search()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.search("What is my name?", { user_id: "u1" });
+    await client.search("What is my name?", {
+      filters: { user_id: "u1" },
+    });
 
     expect(findFetchCall(mock, "/v2/memories/search/", "POST")).toBeDefined();
   });
@@ -32,25 +34,27 @@ describe("MemoryClient - search()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.search("What is my name?", { user_id: "u1" });
+    await client.search("What is my name?", {
+      filters: { user_id: "u1" },
+    });
 
     const call = findFetchCall(mock, "/v2/memories/search/", "POST");
     expect(getFetchBody(call!).query).toBe("What is my name?");
   });
 
-  test("wraps user_id into filters for v2 API", async () => {
+  test("passes filters through to the API body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v2/memories/search/", { status: 200, body: [] });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.search("test", { user_id: "u1" });
+    await client.search("test", { filters: { user_id: "u1" } });
 
     const call = findFetchCall(mock, "/v2/memories/search/", "POST");
     expect(getFetchBody(call!).filters).toEqual({ user_id: "u1" });
   });
 
-  test("passes filters through to the API body", async () => {
+  test("passes complex OR filters through to the API body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v2/memories/search/", { status: 200, body: [] });
     const mock = setupMockFetch(extra);
@@ -84,7 +88,7 @@ describe("MemoryClient - search()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const result: Memory[] = await client.search("nonexistent query", {
-      user_id: "u1",
+      filters: { user_id: "u1" },
     });
     expect(result).toHaveLength(0);
   });

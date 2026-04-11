@@ -81,6 +81,10 @@ client = MemoryClient(api_key="m0-...")
   **Critical Change**: Platform uses v2 endpoints that require filtering parameters to be nested inside a `filters` dictionary.
 </Warning>
 
+<Note>
+  The `limit` parameter has been removed in favor of `top_k` across all SDKs. Update any code using `limit=` to use `top_k=` instead.
+</Note>
+
 | Method | Open Source | Platform |
 | ------ | ----------- | -------- |
 | `search()` | `m.search(query, user_id="alex")` | `client.search(query, filters={"user_id": "alex"})` |

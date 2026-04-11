@@ -4,12 +4,7 @@
  */
 import { MemoryClient } from "../mem0";
 import { Feedback } from "../mem0.types";
-import {
-  createMockFetch,
-  TEST_API_KEY,
-  TEST_ORG_ID,
-  TEST_PROJECT_ID,
-} from "./helpers";
+import { createMockFetch, TEST_API_KEY } from "./helpers";
 import {
   setupMockFetch,
   findFetchCall,
@@ -177,26 +172,6 @@ describe("MemoryClient - Memory Exports", () => {
     });
 
     expect(findFetchCall(mock, "/v1/exports/", "POST")).toBeDefined();
-  });
-
-  test("createMemoryExport does not attach org_id/project_id to body", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/exports/", {
-      status: 200,
-      body: { message: "Created", id: "exp_1" },
-    });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.createMemoryExport({
-      schema: { fields: ["memory"] },
-      filters: { user_id: "u1" },
-    });
-
-    const call = findFetchCall(mock, "/v1/exports/", "POST");
-    const body = getFetchBody(call!);
-    expect(body.org_id).toBeUndefined();
-    expect(body.project_id).toBeUndefined();
   });
 
   test("getMemoryExport throws when missing both id and filters", async () => {

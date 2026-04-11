@@ -8,7 +8,6 @@ import {
   SearchMemoryOptions,
   GetAllMemoryOptions,
   DeleteAllMemoryOptions,
-  GetUsersOptions,
   MemoryUpdateBody,
   ProjectResponse,
   PromptUpdatePayload,
@@ -142,29 +141,6 @@ export default class MemoryClient {
     );
   }
 
-  _resolveFilters(options: Record<string, any>): {
-    filters?: Record<string, any>;
-    rest: Record<string, any>;
-  } {
-    const { user_id, agent_id, app_id, run_id, metadata, filters, ...rest } =
-      options;
-
-    let resolved: Record<string, any> | undefined = filters;
-    if (!resolved && (user_id || agent_id || app_id || run_id)) {
-      resolved = {};
-      if (user_id) resolved.user_id = user_id;
-      if (agent_id) resolved.agent_id = agent_id;
-      if (app_id) resolved.app_id = app_id;
-      if (run_id) resolved.run_id = run_id;
-    }
-
-    const body: Record<string, any> = { ...rest };
-    if (resolved) body.filters = resolved;
-    if (metadata) body.metadata = metadata;
-
-    return { filters: resolved, rest: body };
-  }
-
   async ping(): Promise<void> {
     try {
       const response = await this._fetchWithErrorHandling(
@@ -280,36 +256,38 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { page, page_size, ...filterableOptions } = options ?? {};
-    const { rest: body } = this._resolveFilters(filterableOptions);
+    const { page, page_size, ...rest } = options ?? {};
+    const body: Record<string, any> = {
+      output_format: "v1.1",
+      ...rest,
+    };
 
-    let appendedParams = "";
-    let paginated_response = false;
-
+    let url = `${this.host}/v2/memories/`;
     if (page && page_size) {
-      appendedParams += `page=${page}&page_size=${page_size}`;
-      paginated_response = true;
+      url += `?page=${page}&page_size=${page_size}`;
     }
 
-    let url = paginated_response
-      ? `${this.host}/v2/memories/?${appendedParams}`
-      : `${this.host}/v2/memories/`;
-    return this._fetchWithErrorHandling(url, {
+    const response = await this._fetchWithErrorHandling(url, {
       method: "POST",
       headers: this.headers,
       body: JSON.stringify(body),
     });
+    // Unwrap v1.1 format: { results: [...] } → [...]
+    return Array.isArray(response) ? response : (response?.results ?? response);
   }
 
   async search(
     query: string,
-    options?: SearchMemoryOptions & Record<string, any>,
+    options?: SearchMemoryOptions,
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
-    const { rest: searchBody } = this._resolveFilters(options ?? {});
-    const payload: Record<string, any> = { query, ...searchBody };
+    const payload: Record<string, any> = {
+      query,
+      output_format: "v1.1",
+      ...(options ?? {}),
+    };
 
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v2/memories/search/`,
@@ -319,7 +297,8 @@ export default class MemoryClient {
         body: JSON.stringify(payload),
       },
     );
-    return response;
+    // Unwrap v1.1 format: { results: [...] } → [...]
+    return Array.isArray(response) ? response : (response?.results ?? response);
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
@@ -364,19 +343,17 @@ export default class MemoryClient {
     return response;
   }
 
-  async users(options?: GetUsersOptions): Promise<AllUsers> {
+  async users(options?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<AllUsers> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("users", []);
-    const params = options
-      ? new URLSearchParams(
-          Object.entries(options)
-            .filter(([_, v]) => v != null)
-            .map(([k, v]) => [k, String(v)]),
-        )
-      : null;
-    const url = params
-      ? `${this.host}/v1/entities/?${params}`
-      : `${this.host}/v1/entities/`;
+    let url = `${this.host}/v1/entities/`;
+    const params: string[] = [];
+    if (options?.page) params.push(`page=${options.page}`);
+    if (options?.page_size) params.push(`page_size=${options.page_size}`);
+    if (params.length) url += `?${params.join("&")}`;
     const response = await this._fetchWithErrorHandling(url, {
       headers: this.headers,
     });
