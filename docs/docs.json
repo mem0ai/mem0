@@ -614,6 +614,14 @@
   },
   "redirects": [
     {
+      "source": "/migration/breaking-changes",
+      "destination": "/"
+    },
+    {
+      "source": "/migration/v0-to-v1",
+      "destination": "/"
+    },
+    {
       "source": "/platform/features/expiration-date",
       "destination": "/"
     },
