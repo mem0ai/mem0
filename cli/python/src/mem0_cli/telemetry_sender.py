@@ -27,7 +27,29 @@ def main() -> None:
     if ctx.get("needs_email") and ctx.get("mem0_api_key"):
         _resolve_and_cache_email(ctx, payload)
 
+    # Fire $identify *after* email resolution so PostHog links the stored
+    # anonymous id directly to the final identity (email, not the api-key
+    # hash). The regular event is sent next so it lands under the merged
+    # profile.
+    anon_id = ctx.get("anon_distinct_id_to_alias")
+    if anon_id:
+        _send_identify_event(ctx, payload, anon_id)
+
     _send_posthog_event(ctx["posthog_host"], payload)
+
+
+def _send_identify_event(ctx: dict, payload: dict, anon_id: str) -> None:
+    """Send a PostHog $identify event aliasing anon_id → payload['distinct_id']."""
+    identify_payload = {
+        "api_key": payload["api_key"],
+        "event": "$identify",
+        "distinct_id": payload["distinct_id"],
+        "properties": {
+            "$anon_distinct_id": anon_id,
+            "$lib": payload.get("properties", {}).get("$lib", "posthog-python"),
+        },
+    }
+    _send_posthog_event(ctx["posthog_host"], identify_payload)
 
 
 def _resolve_and_cache_email(ctx: dict, payload: dict) -> None:
