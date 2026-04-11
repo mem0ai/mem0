@@ -1160,6 +1160,17 @@ mode: "wide"
 
 <Tab title="CLI">
 
+<Update label="2026-04-11" description="Python v0.2.3 / Node v0.2.3">
+
+**Bug Fixes:**
+- **Telemetry:** Replaced shared `"anonymous-cli"` fallback with a persistent per-machine random hash (`cli-anon-<uuid>`), so anonymous CLI users are counted individually in PostHog instead of collapsing into one identity ([#4789](https://github.com/mem0ai/mem0/pull/4789))
+- **Telemetry:** Added PostHog `$identify` event on first authenticated run to stitch pre-signup anonymous history onto the authenticated user profile ([#4789](https://github.com/mem0ai/mem0/pull/4789))
+
+**Improvements:**
+- **API:** All API calls now include `source=CLI` in request bodies (POST/PUT) and query params (GET/DELETE) for server-side attribution ([#4789](https://github.com/mem0ai/mem0/pull/4789))
+
+</Update>
+
 <Update label="2026-04-06" description="Python v0.2.2 / Node v0.2.2">
 
 **New Features:**
