@@ -9,7 +9,7 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
-import { readPluginAuth, writePluginAuth } from "./cli/config-file.ts";
+import { readPluginAuth, writePluginAuth, getBaseUrl } from "./cli/config-file.ts";
 
 export const PLUGIN_VERSION = "1.0.4";
 
@@ -95,6 +95,58 @@ function maybeBuildIdentifyEvent(
   } catch {
     return null;
   }
+}
+
+let _emailResolutionAttempted = false;
+
+/**
+ * If we have an apiKey but no cached userEmail, do a one-shot /v1/ping/
+ * call to resolve the email and cache it. This runs async as a side-effect;
+ * the current event ships with md5(apiKey) but subsequent events (including
+ * those flushed by the beforeExit handler in the same process) will use
+ * the resolved email.
+ */
+function maybeResolveEmail(apiKey: string): void {
+  if (_emailResolutionAttempted) return;
+  _emailResolutionAttempted = true;
+
+  const baseUrl = getBaseUrl().replace(/\/+$/, "");
+  fetch(`${baseUrl}/v1/ping/`, {
+    method: "GET",
+    headers: {
+      Authorization: `Token ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    signal: AbortSignal.timeout(5_000),
+  })
+    .then((res) => res.json())
+    .then((data: any) => {
+      const email = data?.user_email;
+      if (email) {
+        try {
+          writePluginAuth({ userEmail: email });
+        } catch {
+          /* ignore */
+        }
+        // Upgrade any already-queued events from md5(apiKey) to email
+        const oldId = createHash("md5").update(apiKey).digest("hex");
+        for (const ev of eventQueue) {
+          if (ev.distinct_id === oldId) {
+            ev.distinct_id = email;
+          }
+          // Also upgrade $identify's distinct_id if present
+          if (
+            ev.event === "$identify" &&
+            ev.distinct_id === oldId
+          ) {
+            ev.distinct_id = email;
+          }
+        }
+      }
+    })
+    .catch(() => {
+      /* silently swallow — md5(apiKey) is used as fallback */
+    });
 }
 
 let _telemetryEnabled: boolean | undefined;
@@ -208,6 +260,14 @@ export function captureEvent(
 
   try {
     const distinctId = getDistinctId(ctx?.apiKey);
+
+    // If we resolved to md5(apiKey) instead of email, kick off a background
+    // /v1/ping/ to resolve and cache the email. The current event ships with
+    // the hash, but the async resolution upgrades any still-queued events
+    // (including this one) before the beforeExit flush fires.
+    if (ctx?.apiKey && distinctId && !distinctId.includes("@") && !distinctId.startsWith("openclaw-anon-")) {
+      maybeResolveEmail(ctx.apiKey);
+    }
 
     // First authenticated event after a previous anonymous session: queue a
     // $identify ahead of the regular event so PostHog merges the anonymous
