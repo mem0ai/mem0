@@ -359,7 +359,8 @@ def get_default_memory_config():
     )
     print(f"Auto-detected embedder provider: {embedder_provider}")
 
-    return {
+    # Graph store auto-detection via NEO4J_URL
+    result = {
         "vector_store": {
             "provider": vector_store_provider,
             "config": vector_store_config
@@ -374,6 +375,17 @@ def get_default_memory_config():
         },
         "version": "v1.1"
     }
+    if os.environ.get("NEO4J_URL"):
+        result["graph_store"] = {
+            "provider": "neo4j",
+            "config": {
+                "url": os.environ.get("NEO4J_URL"),
+                "username": os.environ.get("NEO4J_USERNAME", "neo4j"),
+                "password": os.environ.get("NEO4J_PASSWORD", ""),
+            },
+        }
+        print(f"Auto-detected graph store: neo4j at {os.environ.get('NEO4J_URL')}")
+    return result
 
 
 def _parse_environment_variables(config_dict):
@@ -449,6 +461,8 @@ def get_memory_client(custom_instructions: str = None):
 
                     if "vector_store" in mem0_config and mem0_config["vector_store"] is not None:
                         config["vector_store"] = mem0_config["vector_store"]
+                    if "graph_store" in mem0_config and mem0_config["graph_store"] is not None:
+                        config["graph_store"] = mem0_config["graph_store"]
             else:
                 print("No configuration found in database, using defaults")
                     

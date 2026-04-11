@@ -443,6 +443,187 @@ async def delete_all_memories() -> str:
         return f"Error deleting memories: {e}"
 
 
+# ---------------------------------------------------------------------------
+# MCP Resources — discoverable via resources/list, readable via resources/read
+# ---------------------------------------------------------------------------
+
+@mcp.resource("mem0://memory-stats", description="Current memory statistics — total memories, categories, and recent activity")
+async def memory_stats() -> str:
+    """Return a formatted summary of the user's memory store."""
+    uid = user_id_var.get(None) or _DEFAULT_USER_ID
+    memory_client = get_memory_client_safe()
+    if not memory_client:
+        return "Memory system is currently unavailable."
+
+    try:
+        db = SessionLocal()
+        try:
+            user, _ = get_user_and_app(db, user_id=uid, app_id="openmemory")
+
+            total_active = db.query(Memory).filter(
+                Memory.user_id == user.id,
+                Memory.state == MemoryState.active,
+            ).count()
+            total_deleted = db.query(Memory).filter(
+                Memory.user_id == user.id,
+                Memory.state == MemoryState.deleted,
+            ).count()
+
+            # Recent activity — last 10 access log entries
+            recent_logs = (
+                db.query(MemoryAccessLog)
+                .filter(MemoryAccessLog.app_id == _.id)
+                .order_by(MemoryAccessLog.accessed_at.desc())
+                .limit(10)
+                .all()
+            )
+            activity_lines = []
+            for log in recent_logs:
+                activity_lines.append(
+                    f"  - [{log.accessed_at.isoformat()}] {log.access_type} (memory {log.memory_id})"
+                )
+
+            # Top categories from memory metadata (best-effort)
+            recent_memories = (
+                db.query(Memory)
+                .filter(Memory.user_id == user.id, Memory.state == MemoryState.active)
+                .order_by(Memory.created_at.desc())
+                .limit(20)
+                .all()
+            )
+
+            lines = [
+                f"Memory Statistics for user '{uid}'",
+                f"========================================",
+                f"Active memories:   {total_active}",
+                f"Deleted memories:  {total_deleted}",
+                f"",
+                f"Recent activity (last {len(recent_logs)} entries):",
+            ]
+            if activity_lines:
+                lines.extend(activity_lines)
+            else:
+                lines.append("  (no recent activity)")
+
+            lines.append("")
+            lines.append(f"Latest memories (up to 20):")
+            for mem in recent_memories:
+                preview = mem.content[:100] + ("…" if len(mem.content) > 100 else "")
+                lines.append(f"  - [{mem.created_at.isoformat()}] {preview}")
+
+            return "\n".join(lines)
+        finally:
+            db.close()
+    except Exception as e:
+        logging.exception(f"Error building memory-stats resource: {e}")
+        return f"Error retrieving memory stats: {e}"
+
+
+@mcp.resource("mem0://user-context", description="Stored user context and preferences for the current user")
+async def user_context() -> str:
+    """Retrieve stored user context, preferences, and key facts from the database."""
+    uid = user_id_var.get(None) or _DEFAULT_USER_ID
+
+    try:
+        db = SessionLocal()
+        try:
+            user, _ = get_user_and_app(db, user_id=uid, app_id="openmemory")
+
+            # Fetch all active memories for this user
+            memories = (
+                db.query(Memory)
+                .filter(Memory.user_id == user.id, Memory.state == MemoryState.active)
+                .order_by(Memory.updated_at.desc())
+                .all()
+            )
+
+            lines = [
+                f"User Context for '{uid}'",
+                f"========================================",
+                f"Total active memories: {len(memories)}",
+                "",
+            ]
+
+            if not memories:
+                lines.append("No stored context found. Memories will accumulate as you use the system.")
+            else:
+                # Simple keyword-based categorisation
+                categories = {
+                    "preferences": [],
+                    "projects/tools": [],
+                    "personal facts": [],
+                    "other": [],
+                }
+                pref_kw = {"prefer", "like", "dislike", "favourite", "favorite", "always", "never", "uses", "uses "}
+                proj_kw = {"project", "repo", "build", "deploy", "server", "docker", "vps", "rust", "python", "mcp", "android", "kernel"}
+                for mem in memories:
+                    lower = mem.content.lower()
+                    if any(kw in lower for kw in pref_kw):
+                        categories["preferences"].append(mem)
+                    elif any(kw in lower for kw in proj_kw):
+                        categories["projects/tools"].append(mem)
+                    elif any(kw in lower for kw in ["name is", "lives", "age", "work", "job", "clinical", "nhs"]):
+                        categories["personal facts"].append(mem)
+                    else:
+                        categories["other"].append(mem)
+
+                for cat_name, cat_mems in categories.items():
+                    if not cat_mems:
+                        continue
+                    lines.append(f"--- {cat_name.title()} ({len(cat_mems)}) ---")
+                    for mem in cat_mems[:10]:
+                        preview = mem.content[:120] + ("…" if len(mem.content) > 120 else "")
+                        lines.append(f"  • {preview}")
+                    if len(cat_mems) > 10:
+                        lines.append(f"  ... and {len(cat_mems) - 10} more")
+                    lines.append("")
+
+            return "\n".join(lines)
+        finally:
+            db.close()
+    except Exception as e:
+        logging.exception(f"Error building user-context resource: {e}")
+        return f"Error retrieving user context: {e}"
+
+
+@mcp.resource("mem0://available-tools", description="Available Mem0 tools and their capabilities")
+async def available_tools() -> str:
+    """Static reference listing all Mem0 MCP tools."""
+    return """\
+Mem0 OpenMemory — Available MCP Tools
+========================================
+
+1. add_memories(text, infer=True)
+   Add a new memory. Called whenever the user shares personal information,
+   preferences, or anything useful for future conversations. Also used when
+   the user explicitly asks to remember something.
+   - text (str): The content to store.
+   - infer (bool): If True, the server extracts structured facts via LLM.
+     Set to False to store verbatim.
+
+2. search_memory(query)
+   Search through stored memories. Called EVERY time the user asks a
+   question to provide relevant context from past interactions.
+   - query (str): Natural-language search query.
+
+3. list_memories()
+   List all memories accessible to the current user/client. Returns full
+   memory objects with IDs, content, hashes, and timestamps.
+
+4. delete_memories(memory_ids)
+   Delete specific memories by their IDs.
+   - memory_ids (list[str]): UUIDs of memories to delete.
+
+5. delete_all_memories()
+   Delete all memories for the current user. Use with caution.
+
+Usage Notes:
+- All tools are scoped to the authenticated user (user_id from path).
+- Per-app access control (ACL) determines which memories are visible.
+- The memory client initialises lazily; tools return errors if unavailable.
+"""
+
+
 # Register synaptic MCP tools (fork-only, no-op if SYNAPTIC_ENABLED is unset)
 mcp_synaptic.register_tools(mcp)
 
@@ -616,7 +797,7 @@ async def handle_streamable_http(request: Request):
 
             await tg.start(run_server)
             await transport.handle_request(request.scope, request.receive, capture_send)
-            await transport.terminate()
+            await transport._terminate_session()
             tg.cancel_scope.cancel()
     finally:
         user_id_var.reset(user_token)

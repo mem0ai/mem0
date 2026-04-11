@@ -382,7 +382,7 @@ def _format_memory_result(mem, include_score=False):
         created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
         updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
         **({"score": mem.score} if include_score else {}),
-    ).model_dump(exclude=set() if include_score else {"score"})
+    ).model_dump(exclude=None if include_score else {"score"})
 
     for key in _PROMOTED_PAYLOAD_KEYS:
         if key in mem.payload:
@@ -487,6 +487,9 @@ class Memory(MemoryBase):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
         return False
+
+    def __del__(self):
+        self.close()
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -624,7 +627,7 @@ class Memory(MemoryBase):
                 if message_dict["role"] == "system":
                     continue
 
-                per_msg_meta = metadata.copy()
+                per_msg_meta = deepcopy(metadata)
                 per_msg_meta["role"] = message_dict["role"]
 
                 actor_name = message_dict.get("name")
@@ -704,22 +707,16 @@ class Memory(MemoryBase):
         for new_mem in new_retrieved_facts:
             new_message_embeddings[new_mem] = self.embedding_model.embed(new_mem, "add")
 
-        # Then search for all facts concurrently
-        with concurrent.futures.ThreadPoolExecutor() as search_executor:
-            search_futures = {}
-            for new_mem in new_retrieved_facts:
-                future = search_executor.submit(
-                    self.vector_store.search,
-                    query=new_mem,
-                    vectors=new_message_embeddings[new_mem],
-                    limit=5,
-                    filters=search_filters,
-                )
-                search_futures[future] = new_mem
-
-            for future in concurrent.futures.as_completed(search_futures):
-                for mem in future.result():
-                    retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
+        # Then search for all facts sequentially
+        for new_mem in new_retrieved_facts:
+            messages = self.vector_store.search(
+                query=new_mem,
+                vectors=new_message_embeddings[new_mem],
+                limit=5,
+                filters=search_filters,
+            )
+            for mem in messages:
+                retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
 
         unique_data = {}
         for item in retrieved_old_memory:
@@ -781,7 +778,7 @@ class Memory(MemoryBase):
                         memory_id = self._create_memory(
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
-                            metadata=metadata.copy(),
+                            metadata=deepcopy(metadata),
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
@@ -795,7 +792,7 @@ class Memory(MemoryBase):
                             memory_id=memory_id,
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
-                            metadata=metadata.copy(),
+                            metadata=deepcopy(metadata),
                         )
                         returned_memories.append(
                             {
@@ -1433,16 +1430,18 @@ class AsyncMemory(MemoryBase):
             )
         capture_event("mem0.init", self, {"sync_type": "async"})
 
-    def close(self):
+    async def close(self):
         """Release resources held by this AsyncMemory instance."""
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
+        if self._synaptic:
+            await self._synaptic.close()
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self.close()
+        await self.close()
         return False
 
     @classmethod
@@ -1560,7 +1559,7 @@ class AsyncMemory(MemoryBase):
                 if message_dict["role"] == "system":
                     continue
 
-                per_msg_meta = metadata.copy()
+                per_msg_meta = deepcopy(metadata)
                 per_msg_meta["role"] = message_dict["role"]
 
                 actor_name = message_dict.get("name")
@@ -1715,7 +1714,7 @@ class AsyncMemory(MemoryBase):
                             self._create_memory(
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
-                                metadata=metadata.copy(),
+                                metadata=deepcopy(metadata),
                             )
                         )
                         memory_tasks.append((task, resp, "ADD", None))
@@ -1733,7 +1732,7 @@ class AsyncMemory(MemoryBase):
                                 memory_id=memory_id,
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
-                                metadata=metadata.copy(),
+                                metadata=deepcopy(metadata),
                             )
                         )
                         memory_tasks.append((task, resp, "UPDATE", memory_id))
@@ -2152,11 +2151,6 @@ class AsyncMemory(MemoryBase):
             await asyncio.to_thread(self.graph.delete_all, filters)
 
         return {"message": "Memories deleted successfully!"}
-
-    async def close(self) -> None:
-        """Release resources including synaptic connections."""
-        if self._synaptic:
-            await self._synaptic.close()
 
     async def history(self, memory_id):
         """

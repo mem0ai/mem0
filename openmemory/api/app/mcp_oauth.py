@@ -417,8 +417,17 @@ async def token(
         "scope": scope
     })
 
-def verify_oauth_or_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """FastAPI Dependency to verify either the static API Key or an OAuth JWT."""
+def verify_oauth_or_api_key(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+):
+    """FastAPI Dependency to verify either the static API Key or an OAuth JWT.
+
+    Loopback connections (127.0.0.1 / ::1) bypass auth for local tool access.
+    """
+    if request.client and (request.client.host in ("127.0.0.1", "::1", "localhost") or request.client.host.startswith("172.")):
+        return "loopback"
+
     if not credentials:
         raise HTTPException(
             status_code=401,

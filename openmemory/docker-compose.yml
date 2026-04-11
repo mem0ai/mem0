@@ -3,30 +3,33 @@ services:
     image: qdrant/qdrant
     restart: unless-stopped
     ports:
-      - "6333:6333"
+    - 6333:6333
     volumes:
-      - mem0_storage:/mem0/storage
+    - mem0_storage:/mem0/storage
   openmemory-mcp:
     image: mem0/openmemory-mcp
     restart: unless-stopped
     build: api/
     environment:
-      - USER
-      - MEM0_DEFAULT_USER_ID=${USER}
-      - SYNAPTIC_ENABLED=${SYNAPTIC_ENABLED:-}
-      - SYNAPTIC_DB_DIR=/usr/src/openmemory/synaptic_data
-      - PYTHONPATH=/usr/src/synaptic
+    - USER
+    - MEM0_DEFAULT_USER_ID=${USER}
+    - SYNAPTIC_ENABLED=${SYNAPTIC_ENABLED:-}
+    - SYNAPTIC_DB_DIR=/usr/src/openmemory/synaptic_data
+    - PYTHONPATH=/usr/src/synaptic
     env_file:
-      - api/.env
+    - api/.env
     depends_on:
-      - mem0_store
+    - mem0_store
+    - neo4j
     ports:
-      - "8765:8765"
+    - 8765:8765
     volumes:
-      - ./api:/usr/src/openmemory
-      - ../synaptic_memory:/usr/src/synaptic/synaptic_memory
-    command: >
-      sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 1 --proxy-headers --forwarded-allow-ips=\"*\" --timeout-keep-alive 120"
+    - ./api:/usr/src/openmemory
+    - ../synaptic_memory:/usr/src/synaptic/synaptic_memory
+    command: 'sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers
+      1 --proxy-headers --forwarded-allow-ips=\"*\" --timeout-keep-alive 120"
+
+      '
   openmemory-ui:
     restart: unless-stopped
     init: true
@@ -35,10 +38,28 @@ services:
       dockerfile: Dockerfile
     image: mem0/openmemory-ui:latest
     ports:
-      - "3012:3000"
+    - 3012:3000
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-      - NEXT_PUBLIC_USER_ID=${USER}
-
+    - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    - NEXT_PUBLIC_USER_ID=${USER}
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    environment:
+    - NEO4J_AUTH=neo4j/LhsfQo7wn1C-Ce-aQq-WI3Ch8Wozh-E
+    - NEO4J_server_memory_pagecache_size=256M
+    - NEO4J_server_memory_heap_initial__size=256M
+    - NEO4J_server_memory_heap_max__size=512M
+    volumes:
+    - neo4j_data:/data
+    - neo4j_logs:/logs
 volumes:
-  mem0_storage:
+  mem0_storage: null
+  neo4j_data: null
+  neo4j_logs: null
+networks:
+  default:
+    ipam:
+      config:
+      - subnet: 172.28.0.0/16
+        gateway: 172.28.0.1
