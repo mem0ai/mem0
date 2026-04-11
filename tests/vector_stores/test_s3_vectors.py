@@ -157,7 +157,7 @@ def test_search(mock_boto_client):
     mock_boto_client.query_vectors.assert_called_once()
     assert len(results) == 1
     assert results[0].id == "id1"
-    assert results[0].score == 0.9
+    assert abs(results[0].score - 0.1) < 1e-9  # distance 0.9 -> similarity 0.1
 
 
 def test_get(mock_boto_client):

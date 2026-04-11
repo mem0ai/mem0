@@ -158,7 +158,7 @@ class RedisDB(VectorStoreBase):
         return [
             MemoryResult(
                 id=result["memory_id"],
-                score=float(result["vector_distance"]),
+                score=max(0.0, 1.0 - float(result["vector_distance"])),
                 payload={
                     "hash": result["hash"],
                     "data": result["memory"],
