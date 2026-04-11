@@ -140,7 +140,7 @@ const memoryPlugin = definePluginEntry({
         (id: string) => `${cfg.userId}:agent:${id}`,
         () => ({ user_id: cfg.userId, top_k: cfg.topK }),
         () => undefined,
-        (cmd: string) => _captureEvent(`openclaw.${cmd}`, { command: cmd }),
+        (cmd: string) => _captureEvent(`openclaw.cli.${cmd}`, { command: cmd }),
       );
 
       api.registerService({

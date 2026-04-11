@@ -4,6 +4,20 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-04-11" description="v1.0.6">
+
+**Bug Fixes:**
+- **Telemetry:** Replaced shared `"anonymous-openclaw"` fallback with a persistent per-machine random hash (`openclaw-anon-<uuid>`), so anonymous plugin users are counted individually in PostHog ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Added PostHog `$identify` event on first authenticated run to stitch anonymous history onto the authenticated profile ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Fixed event loss on short-lived CLI invocations — added `beforeExit` handler to flush queued events before the process exits ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Added lazy `/v1/ping/` email resolution so users who configure API key outside `mem0 init` show as their email in PostHog, not an md5 hash ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Unified CLI event prefix from `openclaw.<cmd>` to `openclaw.cli.<cmd>` on the needsSetup branch to match the authenticated branch ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+
+**Improvements:**
+- **API:** Added `source: "OPENCLAW"` to all provider calls (`add`, `search`, `getAll`) across tools, CLI commands, recall, and the OSS backend adapter ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+
+</Update>
+
 <Update label="2026-04-07" description="v1.0.5">
 
 **Bug Fixes:**

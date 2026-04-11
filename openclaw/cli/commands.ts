@@ -621,7 +621,6 @@ export function registerCliCommands(
                 runId?: string,
               ): SearchOptions => {
                 const base = buildSearchOptions(userIdOverride, lim, runId);
-                delete (base as any).source;
                 base.threshold = 0.3;
                 return base;
               };
@@ -718,7 +717,7 @@ export function registerCliCommands(
                   : effectiveUserId(getCurrentSessionId());
               const result = await provider.add(
                 [{ role: "user", content: text }],
-                { user_id: uid },
+                { user_id: uid, source: "OPENCLAW" },
               );
               const count = result.results?.length ?? 0;
               if (count > 0) {
