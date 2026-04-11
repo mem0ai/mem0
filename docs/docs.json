@@ -70,7 +70,6 @@
                           "platform/features/v2-memory-filters",
                           "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
-                          "platform/features/async-mode-default-change",
                           "platform/features/multimodal-support",
                           "platform/features/custom-categories"
                         ]
@@ -94,8 +93,7 @@
                         "pages": [
                           "platform/features/direct-import",
                           "platform/features/memory-export",
-                          "platform/features/timestamp",
-                          "platform/features/expiration-date"
+                          "platform/features/timestamp"
                         ]
                       },
                       {
@@ -122,8 +120,6 @@
                     "icon": "arrow-right",
                     "pages": [
                       "migration/oss-to-platform",
-                      "migration/v0-to-v1",
-                      "migration/breaking-changes",
                       "migration/api-changes"
                     ]
                   },
@@ -132,16 +128,6 @@
                     "icon": "clipboard-list",
                     "pages": [
                       "platform/contribute"
-                    ]
-                  },
-                  {
-                    "group": "Release Notes",
-                    "icon": "rocket",
-                    "pages": [
-                      "changelog/highlights",
-                      "changelog/sdk",
-                      "changelog/platform",
-                      "changelog/openclaw"
                     ]
                   }
                 ]
@@ -182,7 +168,7 @@
                       "open-source/features/reranker-search",
                       "open-source/features/async-memory",
                       "open-source/features/multimodal-support",
-                      "open-source/features/custom-fact-extraction-prompt",
+                      "open-source/features/custom-instructions",
                       "open-source/features/custom-update-memory-prompt",
                       "open-source/features/rest-api",
                       "open-source/features/openai_compatibility"
@@ -562,6 +548,21 @@
                     ]
                   }
                 ]
+              },
+              {
+                "tab": "Release Notes",
+                "groups": [
+                  {
+                    "group": "Release Notes",
+                    "icon": "rocket",
+                    "pages": [
+                      "changelog/highlights",
+                      "changelog/sdk",
+                      "changelog/platform",
+                      "changelog/openclaw"
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -612,6 +613,26 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/migration/breaking-changes",
+      "destination": "/"
+    },
+    {
+      "source": "/migration/v0-to-v1",
+      "destination": "/"
+    },
+    {
+      "source": "/platform/features/expiration-date",
+      "destination": "/"
+    },
+    {
+      "source": "/platform/features/async-mode-default-change",
+      "destination": "/"
+    },
+    {
+      "source": "/open-source/features/custom-fact-extraction-prompt",
+      "destination": "/open-source/features/custom-instructions"
+    },
     {
       "source": "/changelog",
       "destination": "/changelog/highlights"

@@ -190,7 +190,7 @@ class TestNeptuneMemory(unittest.TestCase):
             mock_bm25_instance.get_top_n.return_value = reranked_results
 
             # Call the search method
-            result = self.memory_graph.search("Find Alice", self.test_filters, limit=5)
+            result = self.memory_graph.search("Find Alice", self.test_filters, top_k=5)
 
             # Verify the method calls
             self.memory_graph._retrieve_nodes_from_data.assert_called_once_with("Find Alice", self.test_filters)
@@ -218,7 +218,7 @@ class TestNeptuneMemory(unittest.TestCase):
         self.mock_graph.query.return_value = mock_query_result
 
         # Call the get_all method
-        result = self.memory_graph.get_all(self.test_filters, limit=10)
+        result = self.memory_graph.get_all(self.test_filters, top_k=10)
 
         # Verify the method calls
         self.memory_graph._get_all_cypher.assert_called_once_with(self.test_filters, 10)
@@ -331,7 +331,7 @@ class TestNeptuneMemory(unittest.TestCase):
         self.mock_graph.query.side_effect = [mock_query_result1, mock_query_result2]
 
         # Call the _search_graph_db method
-        result = self.memory_graph._search_graph_db(node_list, self.test_filters, limit=10)
+        result = self.memory_graph._search_graph_db(node_list, self.test_filters, top_k=10)
 
         # Verify the method calls
         self.assertEqual(self.mock_embedding_model.embed.call_count, 2)

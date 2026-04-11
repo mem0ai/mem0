@@ -5,7 +5,7 @@
  */
 import { MemoryClient } from "../mem0";
 import { WebhookEvent } from "../mem0.types";
-import { TEST_API_KEY, TEST_ORG_ID, TEST_PROJECT_ID } from "./helpers";
+import { TEST_API_KEY } from "./helpers";
 import {
   setupMockFetch,
   findFetchCall,
@@ -23,8 +23,6 @@ function webhookMock(extra?: Map<string, { status: number; body: unknown }>) {
 function createClient() {
   return new MemoryClient({
     apiKey: TEST_API_KEY,
-    organizationId: TEST_ORG_ID,
-    projectId: TEST_PROJECT_ID,
   });
 }
 
@@ -100,14 +98,6 @@ describe("MemoryClient - createWebhook", () => {
     expect(body.eventTypes).toBeUndefined();
   });
 
-  test("body does not contain projectId", async () => {
-    const mock = await callCreate();
-    const body = getFetchBody(
-      findFetchCall(mock, "/api/v1/webhooks/", "POST")!,
-    );
-    expect(body.projectId).toBeUndefined();
-  });
-
   test("body does not contain webhookId", async () => {
     const mock = await callCreate();
     const body = getFetchBody(
@@ -171,22 +161,6 @@ describe("MemoryClient - updateWebhook", () => {
       findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT")!,
     );
     expect(body.eventTypes).toBeUndefined();
-  });
-
-  test("body does not contain project_id", async () => {
-    const mock = await callUpdate();
-    const body = getFetchBody(
-      findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT")!,
-    );
-    expect(body.project_id).toBeUndefined();
-  });
-
-  test("body does not contain projectId", async () => {
-    const mock = await callUpdate();
-    const body = getFetchBody(
-      findFetchCall(mock, "/api/v1/webhooks/wh_1/", "PUT")!,
-    );
-    expect(body.projectId).toBeUndefined();
   });
 
   test("body does not contain webhookId", async () => {

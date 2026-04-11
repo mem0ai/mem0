@@ -1,6 +1,7 @@
 import json
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from mem0.vector_stores.azure_mysql import AzureMySQL, OutputData
 
@@ -118,7 +119,7 @@ def test_search(azure_mysql_instance):
     ])
 
     query_vector = [0.2, 0.3, 0.4]
-    results = azure_mysql_instance.search(query="test", vectors=query_vector, limit=5)
+    results = azure_mysql_instance.search(query="test", vectors=query_vector, top_k=5)
 
     assert isinstance(results, list)
     assert cursor.execute.called
@@ -218,7 +219,7 @@ def test_list(azure_mysql_instance):
         }
     ])
 
-    results = azure_mysql_instance.list(limit=10)
+    results = azure_mysql_instance.list(top_k=10)
 
     assert isinstance(results, list)
     assert len(results) > 0

@@ -5,9 +5,15 @@ import pytest
 
 pytest.importorskip("databricks", reason="databricks-sdk package not installed")
 
-from databricks.sdk.service.vectorsearch import VectorIndexType, QueryVectorIndexResponse, ResultManifest, ResultData, ColumnInfo
-from mem0.vector_stores.databricks import Databricks
+from databricks.sdk.service.vectorsearch import (
+    ColumnInfo,
+    QueryVectorIndexResponse,
+    ResultData,
+    ResultManifest,
+    VectorIndexType,
+)
 
+from mem0.vector_stores.databricks import Databricks
 
 # ---------------------- Fixtures ---------------------- #
 
@@ -185,7 +191,7 @@ def test_search_delta_sync_text(db_instance_delta, mock_workspace_client):
     mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
         result=SimpleNamespace(data_array=[row])
     )
-    results = db_instance_delta.search(query="hello", vectors=None, limit=1)
+    results = db_instance_delta.search(query="hello", vectors=None, top_k=1)
     mock_workspace_client.vector_search_indexes.query_index.assert_called_once()
     assert len(results) == 1
     assert results[0].id == "id1"
@@ -210,7 +216,7 @@ def test_search_direct_access_vector(db_instance_direct, mock_workspace_client):
     mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
         result=SimpleNamespace(data_array=[row])
     )
-    results = db_instance_direct.search(query="", vectors=[0.1, 0.2, 0.3, 0.4], limit=1)
+    results = db_instance_direct.search(query="", vectors=[0.1, 0.2, 0.3, 0.4], top_k=1)
     assert len(results) == 1
     assert results[0].id == "id2"
     assert results[0].score == 0.77
@@ -235,7 +241,7 @@ def test_search_delta_sync_self_managed_vectors(mock_workspace_client):
     mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
         result=SimpleNamespace(data_array=[])
     )
-    inst.search(query="ignored", vectors=[0.1, 0.2, 0.3, 0.4], limit=5)
+    inst.search(query="ignored", vectors=[0.1, 0.2, 0.3, 0.4], top_k=5)
     call_kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
     assert "query_vector" in call_kwargs
     assert "query_text" not in call_kwargs
@@ -423,7 +429,7 @@ def test_list_memories(db_instance_delta, mock_workspace_client):
             ]
         )
     )
-    res = db_instance_delta.list(limit=1)
+    res = db_instance_delta.list(top_k=1)
     assert isinstance(res, list)
     assert len(res[0]) == 1
     assert res[0][0].id == "id-get"
@@ -453,7 +459,7 @@ def test_list_memories_direct_access(db_instance_direct, mock_workspace_client):
             ]
         )
     )
-    res = db_instance_direct.list(limit=5)
+    res = db_instance_direct.list(top_k=5)
     assert isinstance(res, list)
     assert len(res[0]) == 1
     assert res[0][0].id == "id-da-list"
@@ -516,7 +522,7 @@ def test_list_memories_delta_sync_self_managed(mock_workspace_client):
     mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
         result=SimpleNamespace(data_array=[])
     )
-    inst.list(limit=5)
+    inst.list(top_k=5)
     call_kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
     assert "query_vector" in call_kwargs
     assert "query_text" not in call_kwargs
@@ -527,7 +533,7 @@ def test_list_memories_default_limit(db_instance_delta, mock_workspace_client):
     mock_workspace_client.vector_search_indexes.query_index.return_value = SimpleNamespace(
         result=SimpleNamespace(data_array=[])
     )
-    db_instance_delta.list(limit=None)
+    db_instance_delta.list(top_k=None)
     call_kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
     assert call_kwargs["num_results"] == 100
 
@@ -624,8 +630,8 @@ def test_reset(db_instance_delta, mock_workspace_client):
 
 def test_e2e_config_to_factory_delta_sync(mock_workspace_client):
     """End-to-end: VectorStoreConfig validates docs-correct params, factory creates Databricks instance."""
-    from mem0.vector_stores.configs import VectorStoreConfig
     from mem0.utils.factory import VectorStoreFactory
+    from mem0.vector_stores.configs import VectorStoreConfig
 
     # Step 1: Config validation (simulates what Memory.from_config does)
     vs_config = VectorStoreConfig(
@@ -655,8 +661,8 @@ def test_e2e_config_to_factory_delta_sync(mock_workspace_client):
 
 def test_e2e_config_to_factory_direct_access(mock_workspace_client):
     """End-to-end: DIRECT_ACCESS via config → factory creates correct instance."""
-    from mem0.vector_stores.configs import VectorStoreConfig
     from mem0.utils.factory import VectorStoreFactory
+    from mem0.vector_stores.configs import VectorStoreConfig
 
     mock_workspace_client.tables.exists.return_value = SimpleNamespace(table_exists=True)
 
@@ -699,8 +705,8 @@ def test_e2e_old_docs_config_rejected():
 
 def test_e2e_crud_lifecycle_delta_sync(mock_workspace_client):
     """End-to-end CRUD lifecycle: insert → search → get → list → update → delete."""
-    from mem0.vector_stores.configs import VectorStoreConfig
     from mem0.utils.factory import VectorStoreFactory
+    from mem0.vector_stores.configs import VectorStoreConfig
 
     vs_config = VectorStoreConfig(
         provider="databricks",
@@ -736,7 +742,7 @@ def test_e2e_crud_lifecycle_delta_sync(mock_workspace_client):
             data_array=[["mem-001", "h1", None, None, "u1", "test memory", None, None, None, 0.95]]
         )
     )
-    results = db.search(query="test", vectors=None, limit=5)
+    results = db.search(query="test", vectors=None, top_k=5)
     assert len(results) == 1
     assert results[0].id == "mem-001"
     assert results[0].payload["data"] == "test memory"
@@ -767,7 +773,7 @@ def test_e2e_crud_lifecycle_delta_sync(mock_workspace_client):
             data_array=[["mem-001", "h1", None, None, "u1", "test memory", None, None, None]]
         )
     )
-    listed = db.list(filters={"user_id": "u1"}, limit=10)
+    listed = db.list(filters={"user_id": "u1"}, top_k=10)
     assert len(listed[0]) == 1
     assert listed[0][0].id == "mem-001"
     list_kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
@@ -797,8 +803,8 @@ def test_e2e_crud_lifecycle_delta_sync(mock_workspace_client):
 
 def test_e2e_crud_lifecycle_direct_access(mock_workspace_client):
     """End-to-end CRUD lifecycle for DIRECT_ACCESS: insert → search → get → list."""
-    from mem0.vector_stores.configs import VectorStoreConfig
     from mem0.utils.factory import VectorStoreFactory
+    from mem0.vector_stores.configs import VectorStoreConfig
 
     mock_workspace_client.tables.exists.return_value = SimpleNamespace(table_exists=True)
 
@@ -838,7 +844,7 @@ def test_e2e_crud_lifecycle_direct_access(mock_workspace_client):
             data_array=[["mem-da-001", "h1", None, None, "u1", "direct memory", None, None, None, [0.1, 0.2, 0.3, 0.4], 0.9]]
         )
     )
-    results = db.search(query="", vectors=[0.1, 0.2, 0.3, 0.4], limit=5)
+    results = db.search(query="", vectors=[0.1, 0.2, 0.3, 0.4], top_k=5)
     assert len(results) == 1
     search_kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
     assert "query_vector" in search_kwargs
@@ -867,7 +873,7 @@ def test_e2e_crud_lifecycle_direct_access(mock_workspace_client):
             data_array=[["mem-da-001", "h1", None, None, "u1", "direct memory", None, None, None, [0.1, 0.2, 0.3, 0.4]]]
         )
     )
-    db.list(limit=5)
+    db.list(top_k=5)
     list_kwargs = mock_workspace_client.vector_search_indexes.query_index.call_args.kwargs
     assert "query_vector" in list_kwargs
     assert "query_text" not in list_kwargs

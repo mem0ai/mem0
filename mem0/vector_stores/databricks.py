@@ -2,20 +2,28 @@ import json
 import logging
 import re
 import uuid
-from typing import Optional, List
-from datetime import datetime, date
-from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName, TableType, DataSourceFormat
-from databricks.sdk.service.catalog import TableConstraint, PrimaryKeyConstraint
+from datetime import date, datetime
+from typing import List, Optional
+
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import (
+    ColumnInfo,
+    ColumnTypeName,
+    DataSourceFormat,
+    PrimaryKeyConstraint,
+    TableConstraint,
+    TableType,
+)
 from databricks.sdk.service.sql import StatementParameterListItem
 from databricks.sdk.service.vectorsearch import (
-    VectorIndexType,
     DeltaSyncVectorIndexSpecRequest,
     DirectAccessVectorIndexSpec,
     EmbeddingSourceColumn,
     EmbeddingVectorColumn,
+    VectorIndexType,
 )
 from pydantic import BaseModel
+
 from mem0.memory.utils import extract_json
 from mem0.vector_stores.base import VectorStoreBase
 
@@ -446,14 +454,14 @@ class Databricks(VectorStoreBase):
             logger.error(f"Insert operation failed: {e}")
             raise
 
-    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> List[MemoryResult]:
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None) -> List[MemoryResult]:
         """
         Search for similar vectors or text using the Databricks Vector Search index.
 
         Args:
             query (str): Search query text (for text-based search).
             vectors (list): Query vector (for vector-based search).
-            limit (int): Maximum number of results.
+            top_k (int): Maximum number of results.
             filters (dict): Filters to apply.
 
         Returns:
@@ -468,7 +476,7 @@ class Databricks(VectorStoreBase):
             query_kwargs = {
                 "index_name": self.fully_qualified_index_name,
                 "columns": self.column_names,
-                "num_results": limit,
+                "num_results": top_k,
                 "query_type": self.query_type,
                 "filters_json": filters_json,
             }
@@ -719,20 +727,20 @@ class Databricks(VectorStoreBase):
             logger.error(f"Failed to get info for index '{name or self.index_name}': {e}")
             raise
 
-    def list(self, filters: dict = None, limit: int = None) -> list[MemoryResult]:
+    def list(self, filters: dict = None, top_k: int = None) -> list[MemoryResult]:
         """
         List all recent created memories from the vector store.
 
         Args:
             filters (dict, optional): Filters to apply.
-            limit (int, optional): Maximum number of results.
+            top_k (int, optional): Maximum number of results.
 
         Returns:
             List containing list of MemoryResult objects.
         """
         try:
             filters_json = json.dumps(filters) if filters else None
-            num_results = limit or 100
+            num_results = top_k or 100
             columns = self.column_names
             # Use query_text for Delta Sync with model endpoint, query_vector otherwise
             query_kwargs = {

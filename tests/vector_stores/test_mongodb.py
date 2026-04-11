@@ -86,7 +86,7 @@ def test_search(mongo_vector_fixture):
     ]
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
-    results = mongo_vector.search("query_str", query_vector, limit=2)
+    results = mongo_vector.search("query_str", query_vector, top_k=2)
     mock_collection.list_search_indexes.assert_called_with(name="test_collection_vector_index")
     mock_collection.aggregate.assert_called_once_with(
         [
@@ -119,7 +119,7 @@ def test_search_with_filters(mongo_vector_fixture):
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = mongo_vector.search("query_str", query_vector, limit=2, filters=filters)
+    results = mongo_vector.search("query_str", query_vector, top_k=2, filters=filters)
     
     # Verify that the aggregation pipeline includes the filter stage
     mock_collection.aggregate.assert_called_once()
@@ -153,7 +153,7 @@ def test_search_with_single_filter(mongo_vector_fixture):
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
     filters = {"user_id": "alice"}
-    results = mongo_vector.search("query_str", query_vector, limit=2, filters=filters)
+    results = mongo_vector.search("query_str", query_vector, top_k=2, filters=filters)
     
     # Verify that the aggregation pipeline includes the filter stage
     mock_collection.aggregate.assert_called_once()
@@ -177,7 +177,7 @@ def test_search_with_no_filters(mongo_vector_fixture):
     ]
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
-    results = mongo_vector.search("query_str", query_vector, limit=2, filters=None)
+    results = mongo_vector.search("query_str", query_vector, top_k=2, filters=None)
     
     # Verify that the aggregation pipeline does not include the filter stage
     mock_collection.aggregate.assert_called_once()
@@ -315,7 +315,7 @@ def test_list(mongo_vector_fixture):
         {"_id": "id2", "payload": {"key": "value2"}},
     ]
 
-    results = mongo_vector.list(limit=2)
+    results = mongo_vector.list(top_k=2)
 
     mock_collection.find.assert_called_once_with({})
     mock_cursor.limit.assert_called_once_with(2)
@@ -334,7 +334,7 @@ def test_list_with_filters(mongo_vector_fixture):
     ]
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = mongo_vector.list(filters=filters, limit=2)
+    results = mongo_vector.list(filters=filters, top_k=2)
     
     # Verify that the find method was called with the correct query
     expected_query = {
@@ -363,7 +363,7 @@ def test_list_with_single_filter(mongo_vector_fixture):
     ]
 
     filters = {"user_id": "alice"}
-    results = mongo_vector.list(filters=filters, limit=2)
+    results = mongo_vector.list(filters=filters, top_k=2)
     
     # Verify that the find method was called with the correct query
     expected_query = {
@@ -387,7 +387,7 @@ def test_list_with_no_filters(mongo_vector_fixture):
         {"_id": "id1", "payload": {"key": "value1"}},
     ]
 
-    results = mongo_vector.list(filters=None, limit=2)
+    results = mongo_vector.list(filters=None, top_k=2)
     
     # Verify that the find method was called with empty query
     mock_collection.find.assert_called_once_with({})

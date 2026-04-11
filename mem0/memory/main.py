@@ -258,7 +258,7 @@ class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
-        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
+        self.custom_instructions = self.config.custom_instructions
         self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
@@ -525,8 +525,8 @@ class Memory(MemoryBase):
 
         parsed_messages = parse_messages(messages)
 
-        if self.config.custom_fact_extraction_prompt:
-            system_prompt = self.config.custom_fact_extraction_prompt
+        if self.config.custom_instructions:
+            system_prompt = self.config.custom_instructions
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             # Determine if this should use agent memory extraction based on agent_id presence
@@ -582,7 +582,7 @@ class Memory(MemoryBase):
             existing_memories = self.vector_store.search(
                 query=new_mem,
                 vectors=messages_embeddings,
-                limit=5,
+                top_k=5,
                 filters=search_filters,
             )
             for mem in existing_memories:
@@ -785,7 +785,7 @@ class Memory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
-        limit: int = 100,
+        top_k: int = 100,
     ):
         """
         List all memories.
@@ -797,7 +797,7 @@ class Memory(MemoryBase):
             filters (dict, optional): Additional custom key-value filters to apply to the search.
                 These are merged with the ID-based scoping filters. For example,
                 `filters={"actor_id": "some_user"}`.
-            limit (int, optional): The maximum number of memories to return. Defaults to 100.
+            top_k (int, optional): The maximum number of memories to return. Defaults to 100.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key,
@@ -815,13 +815,13 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
-            "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
+            "mem0.get_all", self, {"top_k": top_k, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
+            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, top_k)
             future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
+                executor.submit(self.graph.get_all, effective_filters, top_k) if self.enable_graph else None
             )
 
             concurrent.futures.wait(
@@ -836,8 +836,8 @@ class Memory(MemoryBase):
 
         return {"results": all_memories_result}
 
-    def _get_all_from_vector_store(self, filters, limit):
-        memories_result = self.vector_store.list(filters=filters, limit=limit)
+    def _get_all_from_vector_store(self, filters, top_k):
+        memories_result = self.vector_store.list(filters=filters, top_k=top_k)
 
         # Handle different vector store return formats by inspecting first element
         if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
@@ -890,7 +890,7 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        limit: int = 100,
+        top_k: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
         rerank: bool = True,
@@ -902,7 +902,7 @@ class Memory(MemoryBase):
             user_id (str, optional): ID of the user to search for. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 100.
             filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
             filters (dict, optional): Enhanced metadata filtering with operators:
@@ -947,7 +947,7 @@ class Memory(MemoryBase):
             "mem0.search",
             self,
             {
-                "limit": limit,
+                "top_k": top_k,
                 "version": self.api_version,
                 "keys": keys,
                 "encoded_ids": encoded_ids,
@@ -958,9 +958,9 @@ class Memory(MemoryBase):
         )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
+            future_memories = executor.submit(self._search_vector_store, query, effective_filters, top_k, threshold)
             future_graph_entities = (
-                executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
+                executor.submit(self.graph.search, query, effective_filters, top_k) if self.enable_graph else None
             )
 
             concurrent.futures.wait(
@@ -973,7 +973,7 @@ class Memory(MemoryBase):
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
             try:
-                reranked_memories = self.reranker.rerank(query, original_memories, limit)
+                reranked_memories = self.reranker.rerank(query, original_memories, top_k)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
@@ -1079,9 +1079,9 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
+    def _search_vector_store(self, query, filters, top_k, threshold: Optional[float] = None):
         embeddings = self.embedding_model.embed(query, "search")
-        memories = self.vector_store.search(query=query, vectors=embeddings, limit=limit, filters=filters)
+        memories = self.vector_store.search(query=query, vectors=embeddings, top_k=top_k, filters=filters)
 
         promoted_payload_keys = [
             "user_id",
@@ -1643,8 +1643,8 @@ class AsyncMemory(MemoryBase):
             return returned_memories
 
         parsed_messages = parse_messages(messages)
-        if self.config.custom_fact_extraction_prompt:
-            system_prompt = self.config.custom_fact_extraction_prompt
+        if self.config.custom_instructions:
+            system_prompt = self.config.custom_instructions
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             # Determine if this should use agent memory extraction based on agent_id presence
@@ -1699,7 +1699,7 @@ class AsyncMemory(MemoryBase):
                 self.vector_store.search,
                 query=new_mem_content,
                 vectors=embeddings,
-                limit=5,
+                top_k=5,
                 filters=search_filters,
             )
             return [{"id": mem.id, "text": mem.payload.get("data", "")} for mem in existing_mems]
@@ -1922,7 +1922,7 @@ class AsyncMemory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
-        limit: int = 100,
+        top_k: int = 100,
     ):
         """
         List all memories.
@@ -1934,7 +1934,7 @@ class AsyncMemory(MemoryBase):
              filters (dict, optional): Additional custom key-value filters to apply to the search.
                  These are merged with the ID-based scoping filters. For example,
                  `filters={"actor_id": "some_user"}`.
-             limit (int, optional): The maximum number of memories to return. Defaults to 100.
+             top_k (int, optional): The maximum number of memories to return. Defaults to 100.
 
          Returns:
              dict: A dictionary containing a list of memories under the "results" key,
@@ -1955,19 +1955,19 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
-            "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
+            "mem0.get_all", self, {"top_k": top_k, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
-        vector_store_task = asyncio.create_task(self._get_all_from_vector_store(effective_filters, limit))
+        vector_store_task = asyncio.create_task(self._get_all_from_vector_store(effective_filters, top_k))
 
         graph_task = None
         if self.enable_graph:
             graph_get_all = getattr(self.graph, "get_all", None)
             if callable(graph_get_all):
                 if asyncio.iscoroutinefunction(graph_get_all):
-                    graph_task = asyncio.create_task(graph_get_all(effective_filters, limit))
+                    graph_task = asyncio.create_task(graph_get_all(effective_filters, top_k))
                 else:
-                    graph_task = asyncio.create_task(asyncio.to_thread(graph_get_all, effective_filters, limit))
+                    graph_task = asyncio.create_task(asyncio.to_thread(graph_get_all, effective_filters, top_k))
 
         results_dict = {}
         if graph_task:
@@ -1978,8 +1978,8 @@ class AsyncMemory(MemoryBase):
 
         return results_dict
 
-    async def _get_all_from_vector_store(self, filters, limit):
-        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
+    async def _get_all_from_vector_store(self, filters, top_k):
+        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=top_k)
 
         # Handle different vector store return formats by inspecting first element
         if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
@@ -2032,7 +2032,7 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        limit: int = 100,
+        top_k: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
         metadata_filters: Optional[Dict[str, Any]] = None,
@@ -2045,7 +2045,7 @@ class AsyncMemory(MemoryBase):
             user_id (str, optional): ID of the user to search for. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 100.
             filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
             filters (dict, optional): Enhanced metadata filtering with operators:
@@ -2091,7 +2091,7 @@ class AsyncMemory(MemoryBase):
             "mem0.search",
             self,
             {
-                "limit": limit,
+                "top_k": top_k,
                 "version": self.api_version,
                 "keys": keys,
                 "encoded_ids": encoded_ids,
@@ -2101,14 +2101,14 @@ class AsyncMemory(MemoryBase):
             },
         )
 
-        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, limit, threshold))
+        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, top_k, threshold))
 
         graph_task = None
         if self.enable_graph:
             if hasattr(self.graph.search, "__await__"):  # Check if graph search is async
-                graph_task = asyncio.create_task(self.graph.search(query, effective_filters, limit))
+                graph_task = asyncio.create_task(self.graph.search(query, effective_filters, top_k))
             else:
-                graph_task = asyncio.create_task(asyncio.to_thread(self.graph.search, query, effective_filters, limit))
+                graph_task = asyncio.create_task(asyncio.to_thread(self.graph.search, query, effective_filters, top_k))
 
         if graph_task:
             original_memories, graph_entities = await asyncio.gather(vector_store_task, graph_task)
@@ -2121,7 +2121,7 @@ class AsyncMemory(MemoryBase):
             try:
                 # Run reranking in thread pool to avoid blocking async loop
                 reranked_memories = await asyncio.to_thread(
-                    self.reranker.rerank, query, original_memories, limit
+                    self.reranker.rerank, query, original_memories, top_k
                 )
                 original_memories = reranked_memories
             except Exception as e:
@@ -2228,10 +2228,10 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
+    async def _search_vector_store(self, query, filters, top_k, threshold: Optional[float] = None):
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
         memories = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, limit=limit, filters=filters
+            self.vector_store.search, query=query, vectors=embeddings, top_k=top_k, filters=filters
         )
 
         promoted_payload_keys = [

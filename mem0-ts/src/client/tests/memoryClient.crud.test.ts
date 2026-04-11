@@ -1,15 +1,13 @@
 /**
- * MemoryClient unit tests — add, get, getAll, update, delete, deleteAll, history.
+ * MemoryClient unit tests — add, get, update, delete, deleteAll, history.
  * Tests verify request construction, not mock response echo.
  */
 import { MemoryClient } from "../mem0";
-import type { Memory, MemoryHistory } from "../mem0.types";
+import type { MemoryHistory } from "../mem0.types";
 import {
   createMockMemory,
   createMockMemoryHistory,
   TEST_API_KEY,
-  TEST_ORG_ID,
-  TEST_PROJECT_ID,
 } from "./helpers";
 import {
   setupMockFetch,
@@ -61,40 +59,6 @@ describe("MemoryClient - add()", () => {
     expect(getFetchBody(call!).user_id).toBe("user_1");
   });
 
-  test("attaches org_id from constructor to payload", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: [createMockMemory()] });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    await client.add([{ role: "user", content: "test" }], { user_id: "u1" });
-
-    const call = findFetchCall(mock, "/v1/memories/", "POST");
-    const body = getFetchBody(call!);
-    expect(body.org_id).toBe(TEST_ORG_ID);
-  });
-
-  test("attaches project_id from constructor to payload", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: [createMockMemory()] });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({
-      apiKey: TEST_API_KEY,
-      organizationId: TEST_ORG_ID,
-      projectId: TEST_PROJECT_ID,
-    });
-    await client.add([{ role: "user", content: "test" }], { user_id: "u1" });
-
-    const call = findFetchCall(mock, "/v1/memories/", "POST");
-    const body = getFetchBody(call!);
-    expect(body.project_id).toBe(TEST_PROJECT_ID);
-  });
-
   test("sends empty messages array without crashing", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v1/memories/", { status: 200, body: [] });
@@ -139,67 +103,6 @@ describe("MemoryClient - get()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await expect(client.get("nonexistent")).rejects.toThrow("Memory not found");
-  });
-});
-
-// ─── getAll() ────────────────────────────────────────────
-
-describe("MemoryClient - getAll()", () => {
-  test("uses v2 POST endpoint when api_version=v2", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/memories/", { status: 200, body: [] });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.getAll({ user_id: "u1", api_version: "v2" });
-
-    expect(findFetchCall(mock, "/v2/memories/", "POST")).toBeDefined();
-  });
-
-  test("uses v1 GET endpoint by default with user_id as query param", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: [] });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.getAll({ user_id: "u1" });
-
-    const call = mock.mock.calls.find(
-      (c: [string, RequestInit]) =>
-        c[0].includes("/v1/memories/?") && !c[1]?.method,
-    );
-    expect(call).toBeDefined();
-    expect(call![0]).toContain("user_id=u1");
-  });
-
-  test("appends page and page_size to URL as query params", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/memories/", { status: 200, body: [] });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.getAll({
-      user_id: "u1",
-      api_version: "v2",
-      page: 2,
-      page_size: 25,
-    });
-
-    const call = mock.mock.calls.find((c: [string, RequestInit]) =>
-      c[0].includes("page="),
-    );
-    expect(call![0]).toContain("page=2");
-    expect(call![0]).toContain("page_size=25");
-  });
-
-  test("does not crash when called without options", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/", { status: 200, body: [] });
-    setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result: Memory[] = await client.getAll();
-    expect(Array.isArray(result)).toBe(true);
   });
 });
 

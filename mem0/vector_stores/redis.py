@@ -141,7 +141,7 @@ class RedisDB(VectorStoreBase):
             data.append(entry)
         self.index.load(data, id_field="memory_id")
 
-    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None):
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None):
         conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
         filter = reduce(lambda x, y: x & y, conditions)
 
@@ -150,7 +150,7 @@ class RedisDB(VectorStoreBase):
             vector_field_name="embedding",
             return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
             filter_expression=filter,
-            num_results=limit,
+            num_results=top_k,
         )
 
         results = self.index.query(v)
@@ -254,15 +254,15 @@ class RedisDB(VectorStoreBase):
         # Recreate the index with the same parameters
         self.create_col(collection_name, self.embedding_model_dims)
 
-    def list(self, filters: dict = None, limit: int = None) -> list:
+    def list(self, filters: dict = None, top_k: int = None) -> list:
         """
         List all recent created memories from the vector store.
         """
         conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
         filter = reduce(lambda x, y: x & y, conditions)
         query = Query(str(filter)).sort_by("created_at", asc=False)
-        if limit is not None:
-            query = Query(str(filter)).sort_by("created_at", asc=False).paging(0, limit)
+        if top_k is not None:
+            query = Query(str(filter)).sort_by("created_at", asc=False).paging(0, top_k)
 
         results = self.index.search(query)
         return [

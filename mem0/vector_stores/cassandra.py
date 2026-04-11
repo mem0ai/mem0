@@ -7,8 +7,8 @@ import numpy as np
 from pydantic import BaseModel
 
 try:
-    from cassandra.cluster import Cluster
     from cassandra.auth import PlainTextAuthProvider
+    from cassandra.cluster import Cluster
 except ImportError:
     raise ImportError(
         "Apache Cassandra vector store requires cassandra-driver. "
@@ -214,7 +214,7 @@ class CassandraDB(VectorStoreBase):
         self,
         query: str,
         vectors: List[float],
-        limit: int = 5,
+        top_k: int = 5,
         filters: Optional[Dict] = None,
     ) -> List[OutputData]:
         """
@@ -223,7 +223,7 @@ class CassandraDB(VectorStoreBase):
         Args:
             query (str): Query string (not used in vector search)
             vectors (List[float]): Query vector
-            limit (int): Number of results to return
+            top_k (int): Number of results to return
             filters (Dict, optional): Filters to apply to the search
 
         Returns:
@@ -263,9 +263,9 @@ class CassandraDB(VectorStoreBase):
 
                 scored_results.append((row.id, distance, row.payload))
 
-            # Sort by distance and limit
+            # Sort by distance and apply limit
             scored_results.sort(key=lambda x: x[1])
-            scored_results = scored_results[:limit]
+            scored_results = scored_results[:top_k]
 
             return [
                 OutputData(
@@ -427,14 +427,14 @@ class CassandraDB(VectorStoreBase):
     def list(
         self,
         filters: Optional[Dict] = None,
-        limit: int = 100
+        top_k: int = 100
     ) -> List[List[OutputData]]:
         """
         List all vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply
-            limit (int): Number of vectors to return
+            top_k (int): Number of vectors to return
 
         Returns:
             List[List[OutputData]]: List of vectors
@@ -443,7 +443,7 @@ class CassandraDB(VectorStoreBase):
             query = f"""
                 SELECT id, vector, payload
                 FROM {self.keyspace}.{self.collection_name}
-                LIMIT {limit}
+                LIMIT {top_k}
             """
             rows = self.session.execute(query)
 

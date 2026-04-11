@@ -94,7 +94,7 @@ memory.add(conversation, user_id="demo-user")
 results = memory.search(
     "Who did Alice meet at GraphConf?",
     user_id="demo-user",
-    limit=3,
+    top_k=3,
     rerank=True,
 )
 
@@ -146,7 +146,7 @@ await memory.add(conversation, { userId: "demo-user" });
 
 const results = await memory.search(
   "Who did Alice meet at GraphConf?",
-  { userId: "demo-user", limit: 3, rerank: true }
+  { userId: "demo-user", topK: 3, rerank: true }
 );
 
 results.results.forEach((hit) => {
@@ -204,7 +204,7 @@ const config = {
       username: process.env.NEO4J_USERNAME!,
       password: process.env.NEO4J_PASSWORD!,
     },
-    customPrompt: "Please only capture people, organisations, and project links.",
+    customInstructions: "Please only capture people, organisations, and project links.",
   }
 };
 
@@ -265,7 +265,7 @@ Monitor graph growth, especially on free tiers, by periodically cleaning dormant
 ## Decision Points
 
 - Select the graph store that fits your deployment (managed Aura vs. self-hosted Neo4j vs. AWS Neptune vs. local Kuzu vs. Apache AGE on PostgreSQL).
-- Decide when to enable graph writes per request; routine conversations may stay vector-only to save latency.
+- Decide whether to include a graph store in your config; routine conversations may stay vector-only to save latency.
 - Set a policy for pruning stale relationships so your graph stays fast and affordable.
 
 ## Provider setup

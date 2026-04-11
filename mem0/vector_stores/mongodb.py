@@ -113,14 +113,14 @@ class MongoDB(VectorStoreBase):
         except PyMongoError as e:
             logger.error(f"Error inserting data: {e}")
 
-    def search(self, query: str, vectors: List[float], limit=5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(self, query: str, vectors: List[float], top_k=5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors using the vector search index.
 
         Args:
             query (str): Query string
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -139,8 +139,8 @@ class MongoDB(VectorStoreBase):
                 {
                     "$vectorSearch": {
                         "index": self.index_name,
-                        "limit": limit,
-                        "numCandidates": min(limit * 20, 10000),
+                        "limit": top_k,
+                        "numCandidates": min(top_k * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
                     }
@@ -271,13 +271,13 @@ class MongoDB(VectorStoreBase):
             logger.error(f"Error getting collection info: {e}")
             return {}
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return.
+            top_k (int, optional): Number of vectors to return.
 
         Returns:
             List[OutputData]: List of vectors.
@@ -292,7 +292,7 @@ class MongoDB(VectorStoreBase):
                 if filter_conditions:
                     query = {"$and": filter_conditions}
 
-            cursor = self.collection.find(query).limit(limit)
+            cursor = self.collection.find(query).limit(top_k)
             results = [OutputData(id=str(doc["_id"]), score=None, payload=doc.get("payload")) for doc in cursor]
             logger.info(f"Retrieved {len(results)} documents from collection '{self.collection_name}'.")
             return results

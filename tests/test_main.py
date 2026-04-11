@@ -60,7 +60,7 @@ def memory_custom_instance():
 
         config = MemoryConfig(
             version="v1.1",
-            custom_fact_extraction_prompt="custom prompt extracting memory in json format",
+            custom_instructions="custom prompt extracting memory in json format",
             custom_update_memory_prompt="custom prompt determining memory update",
         )
         config.graph_store.config = {"some_config": "value"}
@@ -156,7 +156,7 @@ def test_search(memory_instance, version, enable_graph):
         assert result["results"][0]["score"] == 0.9
 
     memory_instance.vector_store.search.assert_called_once_with(
-        query="test query", vectors=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
+        query="test query", vectors=[0.1, 0.2, 0.3], top_k=100, filters={"user_id": "test_user"}
     )
     memory_instance.embedding_model.embed.assert_called_once_with("test query", "search")
 
@@ -286,7 +286,7 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
     else:
         assert "relations" not in result
 
-    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, limit=100)
+    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=100)
 
     if enable_graph:
         memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"}, 100)
@@ -314,7 +314,7 @@ def test_custom_prompts(memory_custom_instance):
 
             memory_custom_instance.llm.generate_response.assert_any_call(
                 messages=[
-                    {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
+                    {"role": "system", "content": memory_custom_instance.config.custom_instructions},
                     {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
                 ],
                 response_format={"type": "json_object"},
