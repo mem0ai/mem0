@@ -93,8 +93,7 @@
                         "pages": [
                           "platform/features/direct-import",
                           "platform/features/memory-export",
-                          "platform/features/timestamp",
-                          "platform/features/expiration-date"
+                          "platform/features/timestamp"
                         ]
                       },
                       {
@@ -614,6 +613,10 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/platform/features/expiration-date",
+      "destination": "/"
+    },
     {
       "source": "/platform/features/async-mode-default-change",
       "destination": "/"
