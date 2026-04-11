@@ -157,7 +157,6 @@ export class ConfigManager {
       })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
-      enableGraph: userConfig.enableGraph || DEFAULT_MEMORY_CONFIG.enableGraph,
     };
 
     // Validate the merged config

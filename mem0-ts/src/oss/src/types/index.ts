@@ -82,7 +82,6 @@ export interface MemoryConfig {
   historyDbPath?: string;
   customInstructions?: string;
   graphStore?: GraphStoreConfig;
-  enableGraph?: boolean;
 }
 
 export interface MemoryItem {
@@ -149,7 +148,6 @@ export const MemoryConfigSchema = z.object({
   }),
   historyDbPath: z.string().optional(),
   customInstructions: z.string().optional(),
-  enableGraph: z.boolean().optional(),
   graphStore: z
     .object({
       provider: z.string(),
