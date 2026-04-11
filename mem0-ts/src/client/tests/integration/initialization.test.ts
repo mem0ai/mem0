@@ -31,10 +31,10 @@ describeIntegration("MemoryClient Integration — Initialization", () => {
 
   afterAll(() => cleanup());
 
-  test("client pings successfully and resolves org/project", async () => {
+  test("client pings successfully", async () => {
     await client.ping();
-    expect(client.organizationId).toBeTruthy();
-    expect(client.projectId).toBeTruthy();
+    // org/project are now resolved internally from the API key
+    expect(client.telemetryId).toBeTruthy();
   });
 
   test("get with invalid ID throws ValidationError", async () => {

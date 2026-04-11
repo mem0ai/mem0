@@ -59,7 +59,7 @@ def test_search_filter_syntax(valkey_db, mock_valkey_client):
     valkey_db.search(
         query="test query",
         vectors=np.random.rand(1536).tolist(),
-        limit=5,
+        top_k=5,
         filters={"user_id": "test_user"},
     )
 
@@ -72,7 +72,7 @@ def test_search_filter_syntax(valkey_db, mock_valkey_client):
     valkey_db.search(
         query="test query",
         vectors=np.random.rand(1536).tolist(),
-        limit=5,
+        top_k=5,
         filters={"user_id": "test_user", "agent_id": "test_agent"},
     )
 
@@ -104,7 +104,7 @@ def test_search_without_filters(valkey_db, mock_valkey_client):
     results = valkey_db.search(
         query="test query",
         vectors=np.random.rand(1536).tolist(),
-        limit=5,
+        top_k=5,
     )
 
     # Check that the search was called with the correct syntax
@@ -405,7 +405,7 @@ def test_list(valkey_db, mock_valkey_client):
     mock_ft.search.return_value = mock_results
 
     # Call list
-    results = valkey_db.list(filters={"user_id": "test_user"}, limit=10)
+    results = valkey_db.list(filters={"user_id": "test_user"}, top_k=10)
 
     # Check that search was called with the correct arguments
     mock_ft.search.assert_called_once()
@@ -437,7 +437,7 @@ def test_search_error_handling(valkey_db, mock_valkey_client):
         valkey_db.search(
             query="test query",
             vectors=np.random.rand(1536).tolist(),
-            limit=5,
+            top_k=5,
             filters={"user_id": "test_user"},
         )
 
@@ -776,7 +776,7 @@ def test_search_with_invalid_metadata(valkey_db, mock_valkey_client):
     mock_valkey_client.ft.return_value.search.return_value = mock_result
 
     # Should handle invalid JSON gracefully
-    results = valkey_db.search(query="test query", vectors=np.random.rand(1536).tolist(), limit=5)
+    results = valkey_db.search(query="test query", vectors=np.random.rand(1536).tolist(), top_k=5)
 
     assert len(results) == 1
 
@@ -790,7 +790,7 @@ def test_search_with_hnsw_ef_runtime(valkey_db, mock_valkey_client):
     mock_result.docs = []
     mock_valkey_client.ft.return_value.search.return_value = mock_result
 
-    valkey_db.search(query="test query", vectors=np.random.rand(1536).tolist(), limit=5)
+    valkey_db.search(query="test query", vectors=np.random.rand(1536).tolist(), top_k=5)
 
     # Verify the search was called
     assert mock_valkey_client.ft.return_value.search.called

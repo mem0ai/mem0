@@ -60,7 +60,7 @@ def test_search_vectors(upstash_instance, mock_index):
     results = upstash_instance.search(
         query="hello world",
         vectors=vectors,
-        limit=2,
+        top_k=2,
         filters={"age": 30, "name": "John"},
     )
 
@@ -132,7 +132,7 @@ def test_list_vectors(upstash_instance):
 
     filters = {"age": 30, "name": "John"}
     print("filters", filters)
-    [results] = upstash_instance.list(filters=filters, limit=15)
+    [results] = upstash_instance.list(filters=filters, top_k=15)
 
     upstash_instance.client.info.return_value = {
         "dimension": 10,
@@ -193,7 +193,7 @@ def test_search_vectors_with_embeddings(upstash_instance_with_embeddings, mock_i
     results = upstash_instance_with_embeddings.search(
         query="hello world",
         vectors=[],
-        limit=2,
+        top_k=2,
         filters={"age": 30, "name": "John"},
     )
 
@@ -302,7 +302,7 @@ def test_search_vectors_empty_filters(upstash_instance):
     results = upstash_instance.search(
         query="hello world",
         vectors=vectors,
-        limit=1,
+        top_k=1,
         filters=None,
     )
 

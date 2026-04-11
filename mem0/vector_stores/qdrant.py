@@ -308,14 +308,14 @@ class Qdrant(VectorStoreBase):
             must_not=must_not or None,
         )
 
-    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None) -> list:
         """
         Search for similar vectors.
 
         Args:
             query (str): Query.
             vectors (list): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -326,7 +326,7 @@ class Qdrant(VectorStoreBase):
             collection_name=self.collection_name,
             query=vectors,
             query_filter=query_filter,
-            limit=limit,
+            limit=top_k,
         )
         return hits.points
 
@@ -404,13 +404,13 @@ class Qdrant(VectorStoreBase):
         """
         return self.client.get_collection(collection_name=self.collection_name)
 
-    def list(self, filters: dict = None, limit: int = 100) -> list:
+    def list(self, filters: dict = None, top_k: int = 100) -> list:
         """
         List all vectors in a collection.
 
         Args:
             filters (dict, optional): Filters to apply to the list. Defaults to None.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             list: List of vectors.
@@ -419,7 +419,7 @@ class Qdrant(VectorStoreBase):
         result = self.client.scroll(
             collection_name=self.collection_name,
             scroll_filter=query_filter,
-            limit=limit,
+            limit=top_k,
             with_payload=True,
             with_vectors=False,
         )

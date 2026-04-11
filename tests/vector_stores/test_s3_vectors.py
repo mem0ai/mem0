@@ -1,7 +1,7 @@
-from mem0.configs.vector_stores.s3_vectors import S3VectorsConfig
 import pytest
 from botocore.exceptions import ClientError
 
+from mem0.configs.vector_stores.s3_vectors import S3VectorsConfig
 from mem0.memory.main import Memory
 from mem0.vector_stores.s3_vectors import S3Vectors
 
@@ -152,7 +152,7 @@ def test_search(mock_boto_client):
         embedding_model_dims=EMBEDDING_DIMS,
     )
     query_vector = [0.1, 0.2]
-    results = store.search(query="test", vectors=query_vector, limit=1)
+    results = store.search(query="test", vectors=query_vector, top_k=1)
 
     mock_boto_client.query_vectors.assert_called_once()
     assert len(results) == 1

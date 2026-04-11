@@ -240,7 +240,7 @@ async_openai_client = AsyncOpenAI()
 async_memory = AsyncMemory()
 
 async def chat_with_memories(message: str, user_id: str = "default_user") -> str:
-    search_result = await async_memory.search(query=message, user_id=user_id, limit=3)
+    search_result = await async_memory.search(query=message, user_id=user_id, top_k=3)
     relevant_memories = search_result["results"]
     memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories)
 
@@ -326,7 +326,7 @@ async def add_memory(messages: list, user_id: str):
 @app.get("/memories/search")
 async def search_memories(query: str, user_id: str, limit: int = 10):
     try:
-        result = await memory.search(query=query, user_id=user_id, limit=limit)
+        result = await memory.search(query=query, user_id=user_id, top_k=limit)
         return {"status": "success", "data": result}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

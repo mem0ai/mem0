@@ -305,13 +305,15 @@ describe("_establishNodesRelationsFromData", () => {
     expect(systemContent).toContain("test-user");
     expect(systemContent).not.toContain("USER_ID");
     // CUSTOM_PROMPT placeholder stays when no custom prompt is configured
-    // (only replaced when config.graphStore.customPrompt is set)
+    // (only replaced when config.graphStore.customInstructions is set)
   });
 
   it("appends JSON format suffix and custom prompt when configured", async () => {
     mockGenerateResponse.mockResolvedValueOnce({ toolCalls: [] });
 
-    const mg = graph({ customPrompt: "Focus on food relationships only." });
+    const mg = graph({
+      customInstructions: "Focus on food relationships only.",
+    });
     await mg._establishNodesRelationsFromData("data", FILTERS, {});
 
     const [messages] = mockGenerateResponse.mock.calls[0];

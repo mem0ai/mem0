@@ -98,14 +98,14 @@ class MemoryGraph:
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
-    def search(self, query, filters, limit=100):
+    def search(self, query, filters, top_k=100):
         """
         Search for memories and related graph data.
 
         Args:
             query (str): Query to search for.
             filters (dict): A dictionary containing filters to be applied during the search.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
 
         Returns:
             dict: A dictionary containing:
@@ -172,14 +172,14 @@ class MemoryGraph:
             params = {"user_id": filters["user_id"]}
         self.graph.query(cypher, params=params)
 
-    def get_all(self, filters, limit=100):
+    def get_all(self, filters, top_k=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
         Args:
             filters (dict): A dictionary containing filters to be applied during the retrieval.
                 Supports 'user_id' (required) and 'agent_id' (optional).
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
         Returns:
             list: A list of dictionaries, each containing:
                 - 'source': The source node name.
@@ -193,14 +193,14 @@ class MemoryGraph:
             RETURN n.name AS source, type(r) AS relationship, m.name AS target
             LIMIT $limit
             """
-            params = {"user_id": filters["user_id"], "agent_id": filters["agent_id"], "limit": limit}
+            params = {"user_id": filters["user_id"], "agent_id": filters["agent_id"], "limit": top_k}
         else:
             query = """
             MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity {user_id: $user_id})
             RETURN n.name AS source, type(r) AS relationship, m.name AS target
             LIMIT $limit
             """
-            params = {"user_id": filters["user_id"], "limit": limit}
+            params = {"user_id": filters["user_id"], "limit": top_k}
 
         results = self.graph.query(query, params=params)
 
@@ -293,7 +293,7 @@ class MemoryGraph:
         logger.debug(f"Extracted entities: {entities}")
         return entities
 
-    def _search_graph_db(self, node_list, filters, limit=100):
+    def _search_graph_db(self, node_list, filters, top_k=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
 
@@ -324,7 +324,7 @@ class MemoryGraph:
                     "threshold": self.threshold,
                     "user_id": filters["user_id"],
                     "agent_id": filters["agent_id"],
-                    "limit": limit,
+                    "limit": top_k,
                 }
             else:
                 cypher_query = """
@@ -348,7 +348,7 @@ class MemoryGraph:
                     "n_embedding": n_embedding,
                     "threshold": self.threshold,
                     "user_id": filters["user_id"],
-                    "limit": limit,
+                    "limit": top_k,
                 }
 
             ans = self.graph.query(cypher_query, params=params)

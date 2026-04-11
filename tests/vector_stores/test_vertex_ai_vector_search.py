@@ -100,7 +100,7 @@ def test_search_vectors(vector_store, mock_vertex_ai):
 
     mock_vertex_ai["endpoint"].find_neighbors.return_value = [[mock_neighbor]]
 
-    results = vector_store.search(query="", vectors=vectors, filters=filters, limit=1)
+    results = vector_store.search(query="", vectors=vectors, filters=filters, top_k=1)
 
     mock_vertex_ai["endpoint"].find_neighbors.assert_called_once_with(
         deployed_index_id=vector_store.deployment_index_id,

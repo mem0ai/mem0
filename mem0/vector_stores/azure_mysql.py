@@ -7,8 +7,8 @@ from pydantic import BaseModel
 
 try:
     import pymysql
-    from pymysql.cursors import DictCursor
     from dbutils.pooled_db import PooledDB
+    from pymysql.cursors import DictCursor
 except ImportError:
     raise ImportError(
         "Azure MySQL vector store requires PyMySQL and DBUtils. "
@@ -243,7 +243,7 @@ class AzureMySQL(VectorStoreBase):
         self,
         query: str,
         vectors: List[float],
-        limit: int = 5,
+        top_k: int = 5,
         filters: Optional[Dict] = None,
     ) -> List[OutputData]:
         """
@@ -252,7 +252,7 @@ class AzureMySQL(VectorStoreBase):
         Args:
             query (str): Query string (not used in vector search)
             vectors (List[float]): Query vector
-            limit (int): Number of results to return
+            top_k (int): Number of results to return
             filters (Dict, optional): Filters to apply to the search
 
         Returns:
@@ -291,9 +291,9 @@ class AzureMySQL(VectorStoreBase):
             distance = 1 - similarity
             scored_results.append((row['id'], distance, row['payload']))
 
-        # Sort by distance and limit
+        # Sort by distance and apply limit
         scored_results.sort(key=lambda x: x[1])
-        scored_results = scored_results[:limit]
+        scored_results = scored_results[:top_k]
 
         return [
             OutputData(id=r[0], score=float(r[1]), payload=json.loads(r[2]) if isinstance(r[2], str) else r[2])
@@ -406,14 +406,14 @@ class AzureMySQL(VectorStoreBase):
     def list(
         self,
         filters: Optional[Dict] = None,
-        limit: int = 100
+        top_k: int = 100
     ) -> List[List[OutputData]]:
         """
         List all vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply
-            limit (int): Number of vectors to return
+            top_k (int): Number of vectors to return
 
         Returns:
             List[List[OutputData]]: List of vectors
@@ -436,7 +436,7 @@ class AzureMySQL(VectorStoreBase):
                 {filter_clause}
                 LIMIT %s
                 """,
-                (*filter_params, limit)
+                (*filter_params, top_k)
             )
             results = cur.fetchall()
 

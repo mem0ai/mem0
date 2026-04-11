@@ -30,11 +30,7 @@ When adding new memories, enable Graph Memory to automatically build relationshi
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(
-    api_key="your-api-key",
-    org_id="your-org-id",
-    project_id="your-project-id"
-)
+client = MemoryClient(api_key="your-api-key")
 
 messages = [
     {"role": "user", "content": "My name is Joseph"},
@@ -53,11 +49,7 @@ client.add(
 ```javascript JavaScript
 import { MemoryClient } from "mem0";
 
-const client = new MemoryClient({
-  apiKey: "your-api-key",
-  org_id: "your-org-id",
-  project_id: "your-project-id"
-});
+const client = new MemoryClient({ apiKey: "your-api-key" });
 
 const messages = [
   { role: "user", content: "My name is Joseph" },
@@ -284,11 +276,7 @@ Instead of passing `enable_graph=True` to every add call, you can enable it once
 ```python Python
 from mem0 import MemoryClient
 
-client = MemoryClient(
-    api_key="your-api-key",
-    org_id="your-org-id",
-    project_id="your-project-id"
-)
+client = MemoryClient(api_key="your-api-key")
 
 # Enable graph memory for all operations in this project
 client.project.update(enable_graph=True)
@@ -309,11 +297,7 @@ client.add(
 ```javascript JavaScript
 import { MemoryClient } from "mem0";
 
-const client = new MemoryClient({
-  apiKey: "your-api-key",
-  org_id: "your-org-id",
-  project_id: "your-project-id"
-});
+const client = new MemoryClient({ apiKey: "your-api-key" });
 
 // Enable graph memory for all operations in this project
 await client.project.update({ enable_graph: true });

@@ -14,12 +14,12 @@ export interface AddMemoryOptions extends Entity {
 }
 
 export interface SearchMemoryOptions extends Entity {
-  limit?: number;
+  topK?: number;
   filters?: SearchFilters;
 }
 
 export interface GetAllMemoryOptions extends Entity {
-  limit?: number;
+  topK?: number;
 }
 
 export interface DeleteAllMemoryOptions extends Entity {}

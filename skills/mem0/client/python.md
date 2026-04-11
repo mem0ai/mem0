@@ -390,7 +390,7 @@ config = {
         }
     },
     "history_db_path": "history.db",              # SQLite path for change history
-    "custom_fact_extraction_prompt": "...",        # Custom LLM prompt for extraction
+    "custom_instructions": "...",        # Custom LLM prompt for extraction
     "custom_update_memory_prompt": "...",          # Custom LLM prompt for updates
     "enable_graph": False,                         # Enable graph memory
 }

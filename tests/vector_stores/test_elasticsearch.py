@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("Elasticsearch requires extra dependencies. Install with `pip install elasticsearch`") from None
 
-from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
 from mem0.configs.vector_stores.elasticsearch import ElasticsearchConfig
+from mem0.vector_stores.elasticsearch import ElasticsearchDB, OutputData
 
 
 class TestElasticsearchDB(unittest.TestCase):
@@ -189,7 +189,7 @@ class TestElasticsearchDB(unittest.TestCase):
 
         # Perform search
         vectors = [[0.1] * 1536]
-        results = self.es_db.search(query="", vectors=vectors, limit=5)
+        results = self.es_db.search(query="", vectors=vectors, top_k=5)
 
         # Verify search call
         self.client_mock.search.assert_called_once()
@@ -221,7 +221,7 @@ class TestElasticsearchDB(unittest.TestCase):
         vectors = [[0.1] * 1536]
         limit = 5
         filters = {"key1": "value1"}
-        self.es_db.search(query="", vectors=vectors, limit=limit, filters=filters)
+        self.es_db.search(query="", vectors=vectors, top_k=limit, filters=filters)
 
         # Verify custom search query function was called
         self.es_db.custom_search_query.assert_called_once_with(vectors, limit, filters)
@@ -272,7 +272,7 @@ class TestElasticsearchDB(unittest.TestCase):
         self.client_mock.search.return_value = mock_response
 
         # Perform list operation
-        results = self.es_db.list(limit=10)
+        results = self.es_db.list(top_k=10)
 
         # Verify search call
         self.client_mock.search.assert_called_once()

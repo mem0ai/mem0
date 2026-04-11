@@ -158,7 +158,7 @@ class OpenSearchDB(VectorStoreBase):
         return results
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """Search for similar vectors using OpenSearch k-NN search with optional filters."""
 
@@ -167,13 +167,13 @@ class OpenSearchDB(VectorStoreBase):
             "knn": {
                 "vector_field": {
                     "vector": vectors,
-                    "k": limit * 2,
+                    "k": top_k * 2,
                 }
             }
         }
 
         # Start building the full query
-        query_body = {"size": limit * 2, "query": None}
+        query_body = {"size": top_k * 2, "query": None}
 
         # Prepare filter conditions if applicable
         filter_clauses = []
@@ -196,7 +196,7 @@ class OpenSearchDB(VectorStoreBase):
             hits = response["hits"]["hits"]
             results = [
                 OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
-                for hit in hits[:limit]  # Ensure we don't exceed limit
+                for hit in hits[:top_k]  # Ensure we don't exceed top_k
             ]
             return results
         except Exception as e:
@@ -284,7 +284,7 @@ class OpenSearchDB(VectorStoreBase):
         """Get information about a collection (index)."""
         return self.client.indices.get(index=name)
 
-    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[OutputData]:
         try:
             """List all memories with optional filters."""
             query: Dict = {"query": {"match_all": {}}}
@@ -299,8 +299,8 @@ class OpenSearchDB(VectorStoreBase):
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
 
-            if limit:
-                query["size"] = limit
+            if top_k:
+                query["size"] = top_k
 
             response = self.client.search(index=self.collection_name, body=query)
             hits = response["hits"]["hits"]

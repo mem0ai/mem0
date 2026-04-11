@@ -76,7 +76,7 @@ export class VectorizeDB implements VectorStore {
 
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     try {
@@ -87,7 +87,7 @@ export class VectorizeDB implements VectorStore {
           vector: query,
           filter: filters,
           returnMetadata: "all",
-          topK: limit,
+          topK: topK,
         },
       );
 
@@ -197,7 +197,7 @@ export class VectorizeDB implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 20,
+    topK: number = 20,
   ): Promise<[VectorStoreResult[], number]> {
     try {
       const result = await this.client?.vectorize.indexes.query(
@@ -206,7 +206,7 @@ export class VectorizeDB implements VectorStore {
           account_id: this.accountId,
           vector: Array(this.dimensions).fill(0), // Dummy vector for listing
           filter: filters,
-          topK: limit,
+          topK: topK,
           returnMetadata: "all",
         },
       );

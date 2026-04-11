@@ -99,7 +99,7 @@ These methods exist in Python but not TypeScript:
 | `vector_store` | `vectorStore` |
 | `graph_store` | `graphStore` |
 | `history_db_path` | `historyDbPath` |
-| `custom_fact_extraction_prompt` | `customPrompt` |
+| `custom_instructions` | `customInstructions` |
 | `enable_graph` | `enableGraph` |
 
 ## OSS Scope Parameter Naming

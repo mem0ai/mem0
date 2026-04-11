@@ -346,14 +346,14 @@ class NeptuneBase(ABC):
     ):
         pass
 
-    def search(self, query, filters, limit=100):
+    def search(self, query, filters, top_k=100):
         """
         Search for memories and related graph data.
 
         Args:
             query (str): Query to search for.
             filters (dict): A dictionary containing filters to be applied during the search.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
 
         Returns:
             dict: A dictionary containing:
@@ -438,13 +438,13 @@ class NeptuneBase(ABC):
         """
         pass
 
-    def get_all(self, filters, limit=100):
+    def get_all(self, filters, top_k=100):
         """
         Retrieves all nodes and relationships from the graph database based on filtering criteria.
 
         Args:
             filters (dict): A dictionary containing filters to be applied during the retrieval.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
         Returns:
             list: A list of dictionaries, each containing:
                 - 'contexts': The base data store response for each memory.
@@ -452,7 +452,7 @@ class NeptuneBase(ABC):
         """
 
         # return all nodes and relationships
-        query, params = self._get_all_cypher(filters, limit)
+        query, params = self._get_all_cypher(filters, top_k)
         results = self.graph.query(query, params=params)
 
         final_results = []
@@ -470,13 +470,13 @@ class NeptuneBase(ABC):
         return final_results
 
     @abstractmethod
-    def _get_all_cypher(self, filters, limit):
+    def _get_all_cypher(self, filters, top_k):
         """
         Returns the OpenCypher query and parameters to get all edges/nodes in the memory store
         """
         pass
 
-    def _search_graph_db(self, node_list, filters, limit=100):
+    def _search_graph_db(self, node_list, filters, top_k=100):
         """
         Search similar nodes among and their respective incoming and outgoing relations.
         """
@@ -484,14 +484,14 @@ class NeptuneBase(ABC):
 
         for node in node_list:
             n_embedding = self.embedding_model.embed(node)
-            cypher_query, params = self._search_graph_db_cypher(n_embedding, filters, limit)
+            cypher_query, params = self._search_graph_db_cypher(n_embedding, filters, top_k)
             ans = self.graph.query(cypher_query, params=params)
             result_relations.extend(ans)
 
         return result_relations
 
     @abstractmethod
-    def _search_graph_db_cypher(self, n_embedding, filters, limit):
+    def _search_graph_db_cypher(self, n_embedding, filters, top_k):
         """
         Returns the OpenCypher query and parameters to search for similar nodes in the memory store
         """

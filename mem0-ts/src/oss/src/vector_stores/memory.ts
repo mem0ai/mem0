@@ -100,7 +100,7 @@ export class MemoryVectorStore implements VectorStore {
 
   async search(
     query: number[],
-    limit: number = 10,
+    topK: number = 10,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     if (query.length !== this.dimension) {
@@ -136,7 +136,7 @@ export class MemoryVectorStore implements VectorStore {
     }
 
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
-    return results.slice(0, limit);
+    return results.slice(0, topK);
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
@@ -179,7 +179,7 @@ export class MemoryVectorStore implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const rows = this.db.prepare(`SELECT * FROM vectors`).all() as any[];
     const results: VectorStoreResult[] = [];
@@ -206,7 +206,7 @@ export class MemoryVectorStore implements VectorStore {
       }
     }
 
-    return [results.slice(0, limit), results.length];
+    return [results.slice(0, topK), results.length];
   }
 
   async getUserId(): Promise<string> {

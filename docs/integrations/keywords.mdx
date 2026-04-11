@@ -16,7 +16,7 @@ Combining Mem0 with Keywords AI allows you to:
 4. Optimize token usage and reduce costs
 
 <Note>
-You can get your Mem0 API key, user_id, and org_id from the <a href="https://app.mem0.ai/" rel="nofollow">Mem0 dashboard</a>. These are required for proper integration.
+You can get your Mem0 API key from the <a href="https://app.mem0.ai/" rel="nofollow">Mem0 dashboard</a>.
 </Note>
 
 ## Setup and Configuration
@@ -107,7 +107,6 @@ response = client.chat.completions.create(
     extra_body={
         "mem0_params": {
             "user_id": "test_user",
-            "org_id": "org_1",
             "api_key": os.environ.get("MEM0_API_KEY"),
             "add_memories": {
                 "messages": messages,

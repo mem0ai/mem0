@@ -101,7 +101,7 @@ def test_search(faiss_instance, mock_faiss_index):
 
         with patch.object(faiss_instance, "_parse_output", return_value=expected_results):
             # Call search
-            results = faiss_instance.search(query="test query", vectors=query_vector, limit=2)
+            results = faiss_instance.search(query="test query", vectors=query_vector, top_k=2)
 
             # Verify numpy.array was called (but we don't check exact call arguments since it's complex)
             assert mock_np_array.called
@@ -148,7 +148,7 @@ def test_search_with_filters(faiss_instance, mock_faiss_index):
             with patch.object(faiss_instance, "_apply_filters", side_effect=lambda p, f: p.get("category") == "A"):
                 # Call search with filters
                 results = faiss_instance.search(
-                    query="test query", vectors=query_vector, limit=2, filters={"category": "A"}
+                    query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
                 )
 
                 # Verify numpy.array was called
@@ -241,7 +241,7 @@ def test_list(faiss_instance):
     assert len(results[0]) == 3
 
     # Test listing with a limit
-    results = faiss_instance.list(limit=2)
+    results = faiss_instance.list(top_k=2)
     assert len(results[0]) == 2
 
     # Test listing with filters

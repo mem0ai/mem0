@@ -88,7 +88,7 @@ class TestSearchExcludesSoftDeleted:
 
     def test_get_all_filters_soft_deleted(self):
         mg = _create_graph_memory()
-        mg.get_all(filters={"user_id": "user1"}, limit=10)
+        mg.get_all(filters={"user_id": "user1"}, top_k=10)
 
         cypher = mg.graph.query.call_args[0][0]
         assert "r.valid IS NULL OR r.valid = true" in cypher
@@ -271,7 +271,7 @@ class TestSoftDeleteWithFilters:
 
     def test_get_all_with_agent_id_filters_soft_deleted(self):
         mg = _create_graph_memory()
-        mg.get_all(filters={"user_id": "user1", "agent_id": "agent1"}, limit=10)
+        mg.get_all(filters={"user_id": "user1", "agent_id": "agent1"}, top_k=10)
 
         cypher = mg.graph.query.call_args[0][0]
         assert "r.valid IS NULL OR r.valid = true" in cypher

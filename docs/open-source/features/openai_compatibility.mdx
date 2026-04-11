@@ -131,7 +131,7 @@ print(response.choices[0].message.content)
 | `run_id` | `str` | Optional session/run identifier for short-lived flows. |
 | `metadata` | `dict` | Store extra fields alongside each memory entry. |
 | `filters` | `dict` | Restrict retrieval to specific memories while responding. |
-| `limit` | `int` | Cap how many memories Mem0 pulls into the context (default 10). |
+| `top_k` | `int` | Cap how many memories Mem0 pulls into the context (default 10). |
 
 Other request fields mirror OpenAI’s chat completion API.
 

@@ -203,7 +203,7 @@ class PGVector(VectorStoreBase):
         self,
         query: str,
         vectors: list[float],
-        limit: Optional[int] = 5,
+        top_k: Optional[int] = 5,
         filters: Optional[dict] = None,
     ) -> List[OutputData]:
         """
@@ -212,7 +212,7 @@ class PGVector(VectorStoreBase):
         Args:
             query (str): Query.
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -237,7 +237,7 @@ class PGVector(VectorStoreBase):
                 ORDER BY distance
                 LIMIT %s
                 """,
-                (vectors, *filter_params, limit),
+                (vectors, *filter_params, top_k),
             )
 
             results = cur.fetchall()
@@ -350,14 +350,14 @@ class PGVector(VectorStoreBase):
     def list(
         self,
         filters: Optional[dict] = None,
-        limit: Optional[int] = 100
+        top_k: Optional[int] = 100
     ) -> List[OutputData]:
         """
         List all vectors in a collection.
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors.
@@ -380,7 +380,7 @@ class PGVector(VectorStoreBase):
         """
 
         with self._get_cursor() as cur:
-            cur.execute(query, (*filter_params, limit))
+            cur.execute(query, (*filter_params, top_k))
             results = cur.fetchall()
         return [[OutputData(id=str(r[0]), score=None, payload=r[2]) for r in results]]
 

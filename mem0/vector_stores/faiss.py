@@ -2,13 +2,12 @@ import logging
 import os
 import pickle
 import uuid
+import warnings
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
 from pydantic import BaseModel
-
-import warnings
 
 try:
     # Suppress SWIG deprecation warnings from FAISS
@@ -115,23 +114,23 @@ class FAISS(VectorStoreBase):
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
 
-    def _parse_output(self, scores, ids, limit=None) -> List[OutputData]:
+    def _parse_output(self, scores, ids, top_k=None) -> List[OutputData]:
         """
         Parse the output data.
 
         Args:
             scores: Similarity scores from FAISS.
             ids: Indices from FAISS.
-            limit: Maximum number of results to return.
+            top_k: Maximum number of results to return.
 
         Returns:
             List[OutputData]: Parsed output data.
         """
-        if limit is None:
-            limit = len(ids)
+        if top_k is None:
+            top_k = len(ids)
 
         results = []
-        for i in range(min(len(ids), limit)):
+        for i in range(min(len(ids), top_k)):
             if ids[i] == -1:  # FAISS returns -1 for empty results
                 continue
 
@@ -225,7 +224,7 @@ class FAISS(VectorStoreBase):
         logger.info(f"Inserted {len(vectors)} vectors into collection {self.collection_name}")
 
     def search(
-        self, query: str, vectors: List[list], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[list], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -233,7 +232,7 @@ class FAISS(VectorStoreBase):
         Args:
             query (str): Query (not used, kept for API compatibility).
             vectors (List[list]): List of vectors to search.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Optional[Dict], optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -250,19 +249,19 @@ class FAISS(VectorStoreBase):
         if self.normalize_L2 and self.distance_strategy.lower() == "euclidean":
             faiss.normalize_L2(query_vectors)
 
-        fetch_k = limit * 2 if filters else limit
+        fetch_k = top_k * 2 if filters else top_k
         scores, indices = self.index.search(query_vectors, fetch_k)
 
-        results = self._parse_output(scores[0], indices[0], limit)
+        results = self._parse_output(scores[0], indices[0], top_k)
 
         if filters:
             filtered_results = []
             for result in results:
                 if self._apply_filters(result.payload, filters):
                     filtered_results.append(result)
-                    if len(filtered_results) >= limit:
+                    if len(filtered_results) >= top_k:
                         break
-            results = filtered_results[:limit]
+            results = filtered_results[:top_k]
 
         return results
 
@@ -450,13 +449,13 @@ class FAISS(VectorStoreBase):
             "distance": self.distance_strategy,
         }
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List all vectors in a collection.
 
         Args:
             filters (Optional[Dict], optional): Filters to apply to the list. Defaults to None.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors.
@@ -482,7 +481,7 @@ class FAISS(VectorStoreBase):
             )
 
             count += 1
-            if count >= limit:
+            if count >= top_k:
                 break
 
         return [results]

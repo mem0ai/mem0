@@ -175,7 +175,7 @@ class TestGetAll:
             {"source": "alice", "relationship": "KNOWS", "target": "bob"},
             {"source": "alice", "relationship": "LIKES", "target": "hiking"},
         ])
-        results = instance.get_all({"user_id": "u1"}, limit=10)
+        results = instance.get_all({"user_id": "u1"}, top_k=10)
         assert len(results) == 2
         assert results[0]["source"] == "alice"
         assert results[0]["relationship"] == "KNOWS"
@@ -187,7 +187,7 @@ class TestGetAll:
         instance._exec_cypher = MagicMock(return_value=[
             {"source": "n0", "relationship": "R", "target": "m0"},
         ])
-        instance.get_all({"user_id": "u1"}, limit=3)
+        instance.get_all({"user_id": "u1"}, top_k=3)
         # Verify limit was passed as a parameter to the query
         cypher_stmt = instance._exec_cypher.call_args[0][0]
         assert "LIMIT %s" in cypher_stmt

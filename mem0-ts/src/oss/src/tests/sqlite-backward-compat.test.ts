@@ -120,11 +120,11 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
     expect(cfg.graphStore!.config.url).toBe("neo4j://custom:7687");
   });
 
-  it("customPrompt passes through unchanged", () => {
+  it("customInstructions passes through unchanged", () => {
     const cfg = ConfigManager.mergeConfig({
-      customPrompt: "You are a helpful assistant",
+      customInstructions: "You are a helpful assistant",
     });
-    expect(cfg.customPrompt).toBe("You are a helpful assistant");
+    expect(cfg.customInstructions).toBe("You are a helpful assistant");
   });
 
   it("version override passes through unchanged", () => {

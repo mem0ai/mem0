@@ -99,12 +99,12 @@ class S3Vectors(VectorStoreBase):
             vectors=vectors_to_put,
         )
 
-    def search(self, query, vectors, limit=5, filters=None):
+    def search(self, query, vectors, top_k=5, filters=None):
         params = {
             "vectorBucketName": self.vector_bucket_name,
             "indexName": self.collection_name,
             "queryVector": {"float32": vectors},
-            "topK": limit,
+            "topK": top_k,
             "returnMetadata": True,
             "returnDistance": True,
         }
@@ -149,7 +149,7 @@ class S3Vectors(VectorStoreBase):
         response = self.client.get_index(vectorBucketName=self.vector_bucket_name, indexName=self.collection_name)
         return response.get("index", {})
 
-    def list(self, filters=None, limit=None):
+    def list(self, filters=None, top_k=None):
         # Note: list_vectors does not support metadata filtering.
         if filters:
             logger.warning("S3 Vectors `list` does not support metadata filtering. Ignoring filters.")
@@ -160,8 +160,8 @@ class S3Vectors(VectorStoreBase):
             "returnData": False,
             "returnMetadata": True,
         }
-        if limit:
-            params["maxResults"] = limit
+        if top_k:
+            params["maxResults"] = top_k
 
         paginator = self.client.get_paginator("list_vectors")
         pages = paginator.paginate(**params)

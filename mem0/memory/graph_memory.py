@@ -93,14 +93,14 @@ class MemoryGraph:
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
-    def search(self, query, filters, limit=100):
+    def search(self, query, filters, top_k=100):
         """
         Search for memories and related graph data.
 
         Args:
             query (str): Query to search for.
             filters (dict): A dictionary containing filters to be applied during the search.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
 
         Returns:
             dict: A dictionary containing:
@@ -171,18 +171,18 @@ class MemoryGraph:
             params["run_id"] = filters["run_id"]
         self.graph.query(cypher, params=params)
 
-    def get_all(self, filters, limit=100):
+    def get_all(self, filters, top_k=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
          Args:
             filters (dict): A dictionary containing filters to be applied during the retrieval.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
         Returns:
             list: A list of dictionaries, each containing:
                 - 'contexts': The base data store response for each memory.
                 - 'entities': A list of strings representing the nodes and relationships
         """
-        params = {"user_id": filters["user_id"], "limit": limit}
+        params = {"user_id": filters["user_id"], "limit": top_k}
 
         # Build node properties based on filters
         node_props = ["user_id: $user_id"]
@@ -291,7 +291,7 @@ class MemoryGraph:
         logger.debug(f"Extracted entities: {entities}")
         return entities
 
-    def _search_graph_db(self, node_list, filters, limit=100):
+    def _search_graph_db(self, node_list, filters, top_k=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
 
@@ -332,7 +332,7 @@ class MemoryGraph:
                 "n_embedding": n_embedding,
                 "threshold": self.threshold,
                 "user_id": filters["user_id"],
-                "limit": limit,
+                "limit": top_k,
             }
             if filters.get("agent_id"):
                 params["agent_id"] = filters["agent_id"]

@@ -131,7 +131,7 @@ export class ConfigManager {
         userConfig.historyDbPath ||
         userConfig.historyStore?.config?.historyDbPath ||
         DEFAULT_MEMORY_CONFIG.historyStore?.config?.historyDbPath,
-      customPrompt: userConfig.customPrompt,
+      customInstructions: userConfig.customInstructions,
       graphStore: {
         ...DEFAULT_MEMORY_CONFIG.graphStore,
         ...userConfig.graphStore,

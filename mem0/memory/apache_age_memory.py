@@ -213,14 +213,14 @@ class MemoryGraph:
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
-    def search(self, query, filters, limit=100):
+    def search(self, query, filters, top_k=100):
         """
         Search for memories and related graph data.
 
         Args:
             query (str): Query to search for.
             filters (dict): A dictionary containing filters to be applied during the search.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
 
         Returns:
             list: A list of dicts with keys "source", "relationship", "destination".
@@ -286,13 +286,13 @@ class MemoryGraph:
         )
         self.ag.commit()
 
-    def get_all(self, filters, limit=100):
+    def get_all(self, filters, top_k=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
         Args:
             filters (dict): A dictionary containing filters to be applied during the retrieval.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
         Returns:
             list: A list of dictionaries, each containing:
                 - 'source': The source node name.
@@ -308,7 +308,7 @@ class MemoryGraph:
             where_parts.extend(["n.run_id = %s", "m.run_id = %s"])
             params.extend([filters["run_id"], filters["run_id"]])
         where_clause = " AND ".join(where_parts)
-        params.append(limit)
+        params.append(top_k)
 
         results = self._exec_cypher(
             f"MATCH (n)-[r]->(m) WHERE {where_clause} "
@@ -408,7 +408,7 @@ class MemoryGraph:
 
     # -- graph DB operations ---------------------------------------------------
 
-    def _search_graph_db(self, node_list, filters, limit=100):
+    def _search_graph_db(self, node_list, filters, top_k=100):
         """Search similar nodes and their respective incoming and outgoing relations."""
         result_relations = []
 
@@ -430,7 +430,7 @@ class MemoryGraph:
             rel_where = " AND ".join(rel_where_parts)
 
             # For each similar node, fetch its relationships
-            for sn in similar_nodes[:limit]:
+            for sn in similar_nodes[:top_k]:
                 node_name = sn["name"]
                 similarity = sn["similarity"]
 

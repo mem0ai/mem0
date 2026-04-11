@@ -410,14 +410,14 @@ class ValkeyDB(VectorStoreBase):
 
         return memory_results
 
-    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None, ef_runtime: int = None):
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None, ef_runtime: int = None):
         """
         Search for similar vectors in the index.
 
         Args:
             query (str): The search query.
             vectors (list): The vector to search for.
-            limit (int, optional): Maximum number of results to return. Defaults to 5.
+            top_k (int, optional): Maximum number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
             ef_runtime (int, optional): HNSW ef_runtime parameter for this query. Only used with HNSW index. Defaults to None.
 
@@ -429,10 +429,10 @@ class ValkeyDB(VectorStoreBase):
 
         # Build the KNN part with optional EF_RUNTIME for HNSW
         if self.index_type == "hnsw" and ef_runtime is not None:
-            knn_part = f"[KNN {limit} @embedding $vec_param EF_RUNTIME {ef_runtime} AS vector_score]"
+            knn_part = f"[KNN {top_k} @embedding $vec_param EF_RUNTIME {ef_runtime} AS vector_score]"
         else:
             # For FLAT indexes or when ef_runtime is None, use basic KNN
-            knn_part = f"[KNN {limit} @embedding $vec_param AS vector_score]"
+            knn_part = f"[KNN {top_k} @embedding $vec_param AS vector_score]"
 
         # Build the complete query
         q = self._build_search_query(knn_part, filters)
@@ -768,7 +768,7 @@ class ValkeyDB(VectorStoreBase):
 
         return q
 
-    def list(self, filters: dict = None, limit: int = None) -> list:
+    def list(self, filters: dict = None, top_k: int = None) -> list:
         """
         List all recent created memories from the vector store.
 
@@ -778,7 +778,7 @@ class ValkeyDB(VectorStoreBase):
                 Values are used as-is without validation - wildcards, special characters,
                 lists, etc. are passed through literally to Valkey search.
                 Multiple filters are combined with AND logic.
-            limit (int, optional): Maximum number of results to return. Defaults to 1000
+            top_k (int, optional): Maximum number of results to return. Defaults to 1000
                 if not specified.
 
         Returns:
@@ -789,10 +789,10 @@ class ValkeyDB(VectorStoreBase):
             # Since Valkey search requires vector format, use a dummy vector search
             # that returns all documents by using a zero vector and large K
             dummy_vector = [0.0] * self.embedding_model_dims
-            search_limit = limit if limit is not None else 1000  # Large default
+            search_limit = top_k if top_k is not None else 1000  # Large default
 
             # Use the existing search method which handles filters properly
-            search_results = self.search("", dummy_vector, limit=search_limit, filters=filters)
+            search_results = self.search("", dummy_vector, top_k=search_limit, filters=filters)
 
             # Convert search results to list format (match Redis format)
             class MemoryResult:

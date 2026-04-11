@@ -116,7 +116,7 @@ class Supabase(VectorStoreBase):
         self.collection.upsert(records)
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -124,7 +124,7 @@ class Supabase(VectorStoreBase):
         Args:
             query (str): Query.
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -132,7 +132,7 @@ class Supabase(VectorStoreBase):
         """
         filters = self._preprocess_filters(filters)
         results = self.collection.query(
-            data=vectors, limit=limit, filters=filters, include_metadata=True, include_value=True
+            data=vectors, limit=top_k, filters=filters, include_metadata=True, include_value=True
         )
 
         return [OutputData(id=str(result[0]), score=float(result[1]), payload=result[2]) for result in results]
@@ -209,13 +209,13 @@ class Supabase(VectorStoreBase):
             "index": {"method": info.index_method, "metric": info.distance_metric},
         }
 
-    def list(self, filters: Optional[dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply
-            limit (int, optional): Maximum number of results to return. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors
@@ -223,7 +223,7 @@ class Supabase(VectorStoreBase):
         filters = self._preprocess_filters(filters)
         query = [0] * self.embedding_model_dims
         ids = self.collection.query(
-            data=query, limit=limit, filters=filters, include_metadata=True, include_value=False
+            data=query, limit=top_k, filters=filters, include_metadata=True, include_value=False
         )
         ids = [id[0] for id in ids]
         records = self.collection.fetch(ids=ids)
