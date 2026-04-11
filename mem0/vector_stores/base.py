@@ -13,7 +13,7 @@ class VectorStoreBase(ABC):
         pass
 
     @abstractmethod
-    def search(self, query, vectors, limit=5, filters=None):
+    def search(self, query, vectors, top_k=5, filters=None):
         """Search for similar vectors."""
         pass
 
@@ -48,7 +48,7 @@ class VectorStoreBase(ABC):
         pass
 
     @abstractmethod
-    def list(self, filters=None, limit=None):
+    def list(self, filters=None, top_k=None):
         """List all memories."""
         pass
 

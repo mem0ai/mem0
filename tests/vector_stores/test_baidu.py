@@ -112,7 +112,7 @@ def test_search(mochow_instance, mock_mochow_client):
     mochow_instance._table.vector_search.return_value = mock_search_results
 
     vectors = [0.1, 0.2, 0.3]
-    results = mochow_instance.search(query="test", vectors=vectors, limit=2)
+    results = mochow_instance.search(query="test", vectors=vectors, top_k=2)
 
     # Verify search was called with correct parameters
     mochow_instance._table.vector_search.assert_called_once()
@@ -143,7 +143,7 @@ def test_search_with_filters(mochow_instance, mock_mochow_client):
     vectors = [0.1, 0.2, 0.3]
     filters = {"user_id": "user123", "agent_id": "agent456"}
 
-    mochow_instance.search(query="test", vectors=vectors, limit=2, filters=filters)
+    mochow_instance.search(query="test", vectors=vectors, top_k=2, filters=filters)
 
     # Verify search was called with filter
     call_args = mochow_instance._table.vector_search.call_args
@@ -196,7 +196,7 @@ def test_list(mochow_instance, mock_mochow_client):
     mock_result.rows = [{"id": "id1", "metadata": {"name": "vector1"}}, {"id": "id2", "metadata": {"name": "vector2"}}]
     mochow_instance._table.select.return_value = mock_result
 
-    results = mochow_instance.list(limit=2)
+    results = mochow_instance.list(top_k=2)
 
     mochow_instance._table.select.assert_called_once_with(filter=None, projections=["id", "metadata"], limit=2)
 

@@ -3,11 +3,11 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from mem0.configs.rerankers.config import RerankerConfig
 from mem0.embeddings.configs import EmbedderConfig
 from mem0.graphs.configs import GraphStoreConfig
 from mem0.llms.configs import LlmConfig
 from mem0.vector_stores.configs import VectorStoreConfig
-from mem0.configs.rerankers.config import RerankerConfig
 
 # Set up the directory path
 home_dir = os.path.expanduser("~")
@@ -56,8 +56,8 @@ class MemoryConfig(BaseModel):
         description="The version of the API",
         default="v1.1",
     )
-    custom_fact_extraction_prompt: Optional[str] = Field(
-        description="Custom prompt for the fact extraction",
+    custom_instructions: Optional[str] = Field(
+        description="Custom instructions for fact extraction",
         default=None,
     )
     custom_update_memory_prompt: Optional[str] = Field(

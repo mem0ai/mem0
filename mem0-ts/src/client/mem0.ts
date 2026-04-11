@@ -8,7 +8,6 @@ import {
   SearchMemoryOptions,
   GetAllMemoryOptions,
   DeleteAllMemoryOptions,
-  GetUsersOptions,
   MemoryUpdateBody,
   ProjectResponse,
   PromptUpdatePayload,
@@ -22,7 +21,6 @@ import {
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
 import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
-import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
 
 class APIError extends Error {
   constructor(message: string) {
@@ -125,7 +123,7 @@ export default class MemoryClient {
       throw createExceptionFromResponse(response.status, errorData);
     }
     const jsonResponse = await response.json();
-    return snakeToCamelKeys(jsonResponse);
+    return jsonResponse;
   }
 
   _preparePayload(
@@ -134,36 +132,13 @@ export default class MemoryClient {
   ): object {
     const payload: any = {};
     payload.messages = messages;
-    return camelToSnakeKeys({ ...payload, ...options });
+    return { ...payload, ...options };
   }
 
   _prepareParams(options: Record<string, any>): object {
     return Object.fromEntries(
       Object.entries(options).filter(([_, v]) => v != null),
     );
-  }
-
-  _resolveFilters(options: Record<string, any>): {
-    filters?: Record<string, any>;
-    rest: Record<string, any>;
-  } {
-    const { userId, agentId, appId, runId, metadata, filters, ...rest } =
-      options;
-
-    let resolved: Record<string, any> | undefined = filters;
-    if (!resolved && (userId || agentId || appId || runId)) {
-      resolved = {};
-      if (userId) resolved.user_id = userId;
-      if (agentId) resolved.agent_id = agentId;
-      if (appId) resolved.app_id = appId;
-      if (runId) resolved.run_id = runId;
-    }
-
-    const body: Record<string, any> = { ...camelToSnakeKeys(rest) };
-    if (resolved) body.filters = resolved;
-    if (metadata) body.metadata = metadata;
-
-    return { filters: resolved, rest: body };
   }
 
   async ping(): Promise<void> {
@@ -186,11 +161,11 @@ export default class MemoryClient {
         throw new APIError(response.message || "API Key is invalid");
       }
 
-      const { orgId, projectId, userEmail } = response;
+      const { org_id, project_id, user_email } = response;
 
-      if (orgId) this.organizationId = orgId;
-      if (projectId) this.projectId = projectId;
-      if (userEmail) this.telemetryId = userEmail;
+      if (org_id) this.organizationId = org_id;
+      if (project_id) this.projectId = project_id;
+      if (user_email) this.telemetryId = user_email;
     } catch (error: any) {
       // Pass through structured exceptions and APIError
       if (error instanceof MemoryError || error instanceof APIError) {
@@ -281,36 +256,38 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { page, pageSize, ...filterableOptions } = options ?? {};
-    const { rest: body } = this._resolveFilters(filterableOptions);
+    const { page, page_size, ...rest } = options ?? {};
+    const body: Record<string, any> = {
+      output_format: "v1.1",
+      ...rest,
+    };
 
-    let appendedParams = "";
-    let paginated_response = false;
-
-    if (page && pageSize) {
-      appendedParams += `page=${page}&page_size=${pageSize}`;
-      paginated_response = true;
+    let url = `${this.host}/v2/memories/`;
+    if (page && page_size) {
+      url += `?page=${page}&page_size=${page_size}`;
     }
 
-    let url = paginated_response
-      ? `${this.host}/v2/memories/?${appendedParams}`
-      : `${this.host}/v2/memories/`;
-    return this._fetchWithErrorHandling(url, {
+    const response = await this._fetchWithErrorHandling(url, {
       method: "POST",
       headers: this.headers,
       body: JSON.stringify(body),
     });
+    // Unwrap v1.1 format: { results: [...] } → [...]
+    return Array.isArray(response) ? response : (response?.results ?? response);
   }
 
   async search(
     query: string,
-    options?: SearchMemoryOptions & Record<string, any>,
+    options?: SearchMemoryOptions,
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
-    const { rest: searchBody } = this._resolveFilters(options ?? {});
-    const payload: Record<string, any> = { query, ...searchBody };
+    const payload: Record<string, any> = {
+      query,
+      output_format: "v1.1",
+      ...(options ?? {}),
+    };
 
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v2/memories/search/`,
@@ -320,7 +297,8 @@ export default class MemoryClient {
         body: JSON.stringify(payload),
       },
     );
-    return response;
+    // Unwrap v1.1 format: { results: [...] } → [...]
+    return Array.isArray(response) ? response : (response?.results ?? response);
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
@@ -341,9 +319,8 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("delete_all", [payloadKeys]);
-    const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
     // @ts-ignore
-    const params = new URLSearchParams(snakeOptions);
+    const params = new URLSearchParams(this._prepareParams(options));
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/?${params}`,
       {
@@ -366,19 +343,17 @@ export default class MemoryClient {
     return response;
   }
 
-  async users(options?: GetUsersOptions): Promise<AllUsers> {
+  async users(options?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<AllUsers> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("users", []);
-    const params = options
-      ? new URLSearchParams(
-          Object.entries(camelToSnakeKeys(options))
-            .filter(([_, v]) => v != null)
-            .map(([k, v]) => [k, String(v)]),
-        )
-      : null;
-    const url = params
-      ? `${this.host}/v1/entities/?${params}`
-      : `${this.host}/v1/entities/`;
+    let url = `${this.host}/v1/entities/`;
+    const params: string[] = [];
+    if (options?.page) params.push(`page=${options.page}`);
+    if (options?.page_size) params.push(`page_size=${options.page_size}`);
+    if (params.length) url += `?${params.join("&")}`;
     const response = await this._fetchWithErrorHandling(url, {
       headers: this.headers,
     });
@@ -389,16 +364,16 @@ export default class MemoryClient {
    * @deprecated The method should not be used, use `deleteUsers` instead. This will be removed in version 2.2.0.
    */
   async deleteUser(data: {
-    entityId: number;
-    entityType: string;
+    entity_id: number;
+    entity_type: string;
   }): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("delete_user", []);
-    if (!data.entityType) {
-      data.entityType = "user";
+    if (!data.entity_type) {
+      data.entity_type = "user";
     }
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/entities/${data.entityType}/${data.entityId}/`,
+      `${this.host}/v1/entities/${data.entity_type}/${data.entity_id}/`,
       {
         method: "DELETE",
         headers: this.headers,
@@ -409,25 +384,25 @@ export default class MemoryClient {
 
   async deleteUsers(
     params: {
-      userId?: string;
-      agentId?: string;
-      appId?: string;
-      runId?: string;
+      user_id?: string;
+      agent_id?: string;
+      app_id?: string;
+      run_id?: string;
     } = {},
   ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
 
     let to_delete: Array<{ type: string; name: string }> = [];
-    const { userId, agentId, appId, runId } = params;
+    const { user_id, agent_id, app_id, run_id } = params;
 
-    if (userId) {
-      to_delete = [{ type: "user", name: userId }];
-    } else if (agentId) {
-      to_delete = [{ type: "agent", name: agentId }];
-    } else if (appId) {
-      to_delete = [{ type: "app", name: appId }];
-    } else if (runId) {
-      to_delete = [{ type: "run", name: runId }];
+    if (user_id) {
+      to_delete = [{ type: "user", name: user_id }];
+    } else if (agent_id) {
+      to_delete = [{ type: "agent", name: agent_id }];
+    } else if (app_id) {
+      to_delete = [{ type: "app", name: app_id }];
+    } else if (run_id) {
+      to_delete = [{ type: "run", name: run_id }];
     } else {
       const entities = await this.users();
       to_delete = entities.results.map((entity) => ({
@@ -451,12 +426,12 @@ export default class MemoryClient {
     }
 
     this._captureEvent("delete_users", [
-      { userId, agentId, appId, runId, sync_type: "sync" },
+      { user_id, agent_id, app_id, run_id, sync_type: "sync" },
     ]);
 
     return {
       message:
-        userId || agentId || appId || runId
+        user_id || agent_id || app_id || run_id
           ? "Entity deleted successfully."
           : "All users, agents, apps and runs deleted.",
     };
@@ -510,7 +485,7 @@ export default class MemoryClient {
     }
 
     const params = new URLSearchParams();
-    fields?.forEach((field) => params.append("fields", camelToSnake(field)));
+    fields?.forEach((field) => params.append("fields", field));
 
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/orgs/organizations/${this.organizationId}/projects/${this.projectId}/?${params.toString()}`,
@@ -537,7 +512,7 @@ export default class MemoryClient {
       {
         method: "PATCH",
         headers: this.headers,
-        body: JSON.stringify(camelToSnakeKeys(prompts)),
+        body: JSON.stringify(prompts),
       },
     );
     return response;
@@ -621,7 +596,7 @@ export default class MemoryClient {
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(camelToSnakeKeys(data)),
+        body: JSON.stringify(data),
       },
     );
     return response;
@@ -642,7 +617,7 @@ export default class MemoryClient {
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(camelToSnakeKeys(data)),
+        body: JSON.stringify(data),
       },
     );
 
@@ -655,8 +630,8 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("get_memory_export", []);
 
-    if (!data.memoryExportId && !data.filters) {
-      throw new Error("Missing memoryExportId or filters");
+    if (!data.memory_export_id && !data.filters) {
+      throw new Error("Missing memory_export_id or filters");
     }
 
     const response = await this._fetchWithErrorHandling(
@@ -664,7 +639,7 @@ export default class MemoryClient {
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(camelToSnakeKeys(data)),
+        body: JSON.stringify(data),
       },
     );
     return response;

@@ -1,45 +1,44 @@
-// ─── Base Options (shared across memory operations) ─────────
-export interface BaseMemoryOptions {
-  userId?: string;
-  agentId?: string;
-  appId?: string;
-  runId?: string;
-  metadata?: Record<string, any>;
-  filters?: Record<string, any>;
+// ─── Entity Options (for add/delete — top-level identity) ───
+export interface EntityOptions {
+  user_id?: string;
+  agent_id?: string;
+  app_id?: string;
+  run_id?: string;
 }
 
 // ─── Per-Method Options ─────────────────────────────────────
-export interface AddMemoryOptions extends BaseMemoryOptions {
+export interface AddMemoryOptions extends EntityOptions {
+  metadata?: Record<string, any>;
   infer?: boolean;
-  customCategories?: CustomCategories[];
-  customInstructions?: string;
+  custom_categories?: custom_categories[];
+  custom_instructions?: string;
   timestamp?: number;
-  structuredDataSchema?: Record<string, any>;
+  structured_data_schema?: Record<string, any>;
+  enable_graph?: boolean;
 }
 
-export interface SearchMemoryOptions extends BaseMemoryOptions {
-  topK?: number;
+export interface SearchMemoryOptions {
+  filters?: Record<string, any>;
+  metadata?: Record<string, any>;
+  top_k?: number;
   threshold?: number;
   rerank?: boolean;
   fields?: string[];
   categories?: string[];
-  onlyMetadataBasedSearch?: boolean;
+  enable_graph?: boolean;
 }
 
-export interface GetAllMemoryOptions extends BaseMemoryOptions {
+export interface GetAllMemoryOptions {
+  filters?: Record<string, any>;
   page?: number;
-  pageSize?: number;
-  startDate?: string;
-  endDate?: string;
+  page_size?: number;
+  start_date?: string;
+  end_date?: string;
   categories?: string[];
+  enable_graph?: boolean;
 }
 
-export interface DeleteAllMemoryOptions extends BaseMemoryOptions {}
-
-export interface GetUsersOptions {
-  page?: number;
-  pageSize?: number;
-}
+export interface DeleteAllMemoryOptions extends EntityOptions {}
 
 // ─── Project Options ────────────────────────────────────────
 export interface ProjectOptions {
@@ -47,14 +46,13 @@ export interface ProjectOptions {
 }
 
 export interface PromptUpdatePayload {
-  customInstructions?: string;
-  customCategories?: CustomCategories[];
-  retrievalCriteria?: any[];
+  custom_instructions?: string;
+  custom_categories?: custom_categories[];
+  retrieval_criteria?: any[];
+  enable_graph?: boolean;
   version?: string;
-  inclusionPrompt?: string;
-  exclusionPrompt?: string;
-  memoryDepth?: string | null;
-  usecaseSetting?: string | number;
+  memory_depth?: string | null;
+  usecase_setting?: string | number;
   multilingual?: boolean;
   [key: string]: any;
 }
@@ -81,7 +79,7 @@ export interface Messages {
 
 export interface Message extends Messages {}
 
-// ─── Response Types (API responses mapped to camelCase) ─────
+// ─── Response Types (reflect API shapes, unchanged) ─────────
 export interface MemoryData {
   memory: string;
 }
@@ -99,31 +97,31 @@ export interface Memory {
   event?: Event | string;
   data?: MemoryData | null;
   memory?: string;
-  userId?: string;
+  user_id?: string;
   hash?: string;
   categories?: Array<string>;
-  createdAt?: Date;
-  updatedAt?: Date;
-  memoryType?: string;
+  created_at?: Date;
+  updated_at?: Date;
+  memory_type?: string;
   score?: number;
   metadata?: any | null;
   owner?: string | null;
-  agentId?: string | null;
-  appId?: string | null;
-  runId?: string | null;
+  agent_id?: string | null;
+  app_id?: string | null;
+  run_id?: string | null;
 }
 
 export interface MemoryHistory {
   id: string;
-  memoryId: string;
+  memory_id: string;
   input: Array<Messages>;
-  oldMemory: string | null;
-  newMemory: string | null;
-  userId: string;
+  old_memory: string | null;
+  new_memory: string | null;
+  user_id: string;
   categories: Array<string>;
   event: Event | string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
 }
 
 export interface MemoryUpdateBody {
@@ -134,9 +132,9 @@ export interface MemoryUpdateBody {
 export interface User {
   id: string;
   name: string;
-  createdAt: Date;
-  updatedAt: Date;
-  totalMemories: number;
+  created_at: Date;
+  updated_at: Date;
+  total_memories: number;
   owner: string;
   type: string;
 }
@@ -149,12 +147,12 @@ export interface AllUsers {
 }
 
 export interface ProjectResponse {
-  customInstructions?: string;
-  customCategories?: string[];
+  custom_instructions?: string;
+  custom_categories?: string[];
   [key: string]: any;
 }
 
-interface CustomCategories {
+interface custom_categories {
   [key: string]: any;
 }
 
@@ -167,14 +165,14 @@ export enum WebhookEvent {
 }
 
 export interface Webhook {
-  webhookId?: string;
+  webhook_id?: string;
   name: string;
   url: string;
   project?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-  isActive?: boolean;
-  eventTypes?: WebhookEvent[];
+  created_at?: Date;
+  updated_at?: Date;
+  is_active?: boolean;
+  event_types?: WebhookEvent[];
 }
 
 export interface WebhookCreatePayload {
@@ -192,18 +190,18 @@ export interface WebhookUpdatePayload {
 
 // ─── Feedback & Export Types ────────────────────────────────
 export interface FeedbackPayload {
-  memoryId: string;
+  memory_id: string;
   feedback?: Feedback | null;
-  feedbackReason?: string | null;
+  feedback_reason?: string | null;
 }
 
 export interface CreateMemoryExportPayload {
   schema: Record<string, any>;
   filters: Record<string, any>;
-  exportInstructions?: string;
+  export_instructions?: string;
 }
 
 export interface GetMemoryExportPayload {
   filters?: Record<string, any>;
-  memoryExportId?: string;
+  memory_export_id?: string;
 }

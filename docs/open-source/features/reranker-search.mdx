@@ -321,7 +321,7 @@ results = m.search(
         ]
     },
     rerank=True,
-    limit=20
+    top_k=20
 )
 ```
 
@@ -366,7 +366,7 @@ results = m.search(
     user_id="reader123",
     filters={"content_type": "book_recommendation"},
     rerank=True,
-    limit=10
+    top_k=10
 )
 
 for result in results["results"]:

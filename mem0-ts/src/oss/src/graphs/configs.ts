@@ -10,7 +10,7 @@ export interface GraphStoreConfig {
   provider: string;
   config: Neo4jConfig;
   llm?: LLMConfig;
-  customPrompt?: string;
+  customInstructions?: string;
 }
 
 export function validateNeo4jConfig(config: Neo4jConfig): void {

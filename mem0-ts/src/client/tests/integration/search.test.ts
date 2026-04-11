@@ -38,12 +38,12 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
 
   // ─── Search ─────────────────────────────────────────────
   describe("search", () => {
-    test("searches memories by userId and returns results with scores", async () => {
+    test("searches memories by user_id and returns results with scores", async () => {
       // Search index may lag behind listing index — poll until ready
       const results = await waitForSearchResults(
         client,
         "What is my favorite color?",
-        { userId: TEST_USER_ID },
+        { filters: { user_id: TEST_USER_ID } },
       );
 
       expect(Array.isArray(results)).toBe(true);
@@ -89,15 +89,15 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
 
       const entry = history[0];
       expect(typeof entry.id).toBe("string");
-      expect(typeof entry.memoryId).toBe("string");
+      expect(typeof entry.memory_id).toBe("string");
       expect(["ADD", "UPDATE", "DELETE", "NOOP"]).toContain(entry.event);
-      expect(new Date(entry.createdAt).toString()).not.toBe("Invalid Date");
-      expect(new Date(entry.updatedAt).toString()).not.toBe("Invalid Date");
+      expect(new Date(entry.created_at).toString()).not.toBe("Invalid Date");
+      expect(new Date(entry.updated_at).toString()).not.toBe("Invalid Date");
       expect(
-        entry.newMemory === null || typeof entry.newMemory === "string",
+        entry.new_memory === null || typeof entry.new_memory === "string",
       ).toBe(true);
       expect(
-        entry.oldMemory === null || typeof entry.oldMemory === "string",
+        entry.old_memory === null || typeof entry.old_memory === "string",
       ).toBe(true);
 
       const events = history.map((h) => h.event);
@@ -109,19 +109,19 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   describe("edge cases", () => {
     test("search for non-existent user returns empty results", async () => {
       const results = await client.search("anything", {
-        userId: `nonexistent-user-${randomUUID()}`,
+        filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
       expect(Array.isArray(results)).toBe(true);
       expect(results.length).toBe(0);
     });
 
-    test("search with topK param does not throw", async () => {
+    test("search with top_k param does not throw", async () => {
       const results = await client.search(
         "Tell me about integration test user",
         {
-          userId: TEST_USER_ID,
-          topK: 1,
+          filters: { user_id: TEST_USER_ID },
+          top_k: 1,
         },
       );
 

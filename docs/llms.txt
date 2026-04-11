@@ -86,7 +86,7 @@ Key differentiators:
 - [Reranker Search](https://docs.mem0.ai/open-source/features/reranker-search): Enhanced search results with reranking models
 - [Async Memory](https://docs.mem0.ai/open-source/features/async-memory): Asynchronous memory operations for better performance
 - [Multimodal Support](https://docs.mem0.ai/open-source/features/multimodal-support): Handle text, images, and documents in self-hosted setup
-- [Custom Fact Extraction](https://docs.mem0.ai/open-source/features/custom-fact-extraction-prompt): Tailor information extraction for specific use cases
+- [Custom Instructions](https://docs.mem0.ai/open-source/features/custom-instructions): Tailor information extraction for specific use cases
 - [Custom Memory Update Prompt](https://docs.mem0.ai/open-source/features/custom-update-memory-prompt): Customize how memories are updated and merged
 - [REST API Server](https://docs.mem0.ai/open-source/features/rest-api): FastAPI-based server with core operations and OpenAPI documentation
 - [OpenAI Compatibility](https://docs.mem0.ai/open-source/features/openai_compatibility): Seamless integration with OpenAI-compatible APIs
