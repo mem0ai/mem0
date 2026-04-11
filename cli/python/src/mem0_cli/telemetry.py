@@ -9,12 +9,14 @@ Disable with: MEM0_TELEMETRY=false
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import platform
 import subprocess
 import sys
+import uuid
 from typing import Any
 
 POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
@@ -26,11 +28,31 @@ def _is_telemetry_enabled() -> bool:
     return val not in ("false", "0", "no")
 
 
+def _get_or_create_anonymous_id() -> str:
+    """Return a persistent per-machine anonymous ID, generating one if needed.
+
+    Stored in ~/.mem0/config.json under `telemetry.anonymous_id` so that
+    repeat runs on the same machine share one PostHog identity instead of
+    collapsing into a single shared fallback string.
+    """
+    from mem0_cli.config import load_config, save_config
+
+    config = load_config()
+    if config.telemetry.anonymous_id:
+        return config.telemetry.anonymous_id
+
+    new_id = f"cli-anon-{uuid.uuid4().hex}"
+    config.telemetry.anonymous_id = new_id
+    with contextlib.suppress(Exception):
+        save_config(config)
+    return new_id
+
+
 def _get_distinct_id() -> str:
     """Return a stable anonymous identifier for the current user.
 
-    Priority: cached user_email (from /v1/ping/) > MD5(api_key) > fallback.
-    Matches the SDK pattern in mem0/client/main.py.
+    Priority: cached user_email (from /v1/ping/) > MD5(api_key) >
+    persistent per-machine anonymous ID.
     """
     try:
         from mem0_cli.config import load_config
@@ -42,7 +64,10 @@ def _get_distinct_id() -> str:
             return hashlib.md5(config.platform.api_key.encode()).hexdigest()
     except Exception:
         pass
-    return "anonymous-cli"
+    try:
+        return _get_or_create_anonymous_id()
+    except Exception:
+        return f"cli-anon-{uuid.uuid4().hex}"
 
 
 def capture_event(
