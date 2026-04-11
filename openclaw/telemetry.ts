@@ -141,6 +141,42 @@ function ensureFlushTimer(): void {
   }
 }
 
+let _exitHandlerInstalled = false;
+
+/**
+ * Install a one-time `beforeExit` handler that drains queued events on
+ * process exit. Without this, short-lived CLI invocations (e.g. one
+ * `openclaw mem0 status` call) exit before the unref'd flushTimer fires
+ * and before FLUSH_THRESHOLD is hit, dropping every queued event silently.
+ *
+ * Returning a Promise from a `beforeExit` handler keeps the event loop
+ * alive until that Promise resolves, so the awaited fetch actually has
+ * time to land at PostHog.
+ */
+function ensureExitHandler(): void {
+  if (_exitHandlerInstalled) return;
+  _exitHandlerInstalled = true;
+  process.on("beforeExit", async () => {
+    if (eventQueue.length === 0) return;
+    const batch = eventQueue;
+    eventQueue = [];
+    const body = JSON.stringify({ api_key: POSTHOG_API_KEY, batch });
+    try {
+      await fetch(POSTHOG_HOST, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": String(Buffer.byteLength(body)),
+        },
+        body,
+        signal: AbortSignal.timeout(3_000),
+      });
+    } catch {
+      /* silently swallow */
+    }
+  });
+}
+
 function flushEvents(): void {
   if (eventQueue.length === 0) return;
   const batch = eventQueue;
@@ -199,6 +235,7 @@ export function captureEvent(
     });
 
     ensureFlushTimer();
+    ensureExitHandler();
 
     if (eventQueue.length >= FLUSH_THRESHOLD) {
       flushEvents();
