@@ -2,7 +2,7 @@ import importlib
 import os
 import sys
 from types import ModuleType
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -58,6 +58,8 @@ def test_v1_memory_routes_reuse_oss_handlers(oss_server_client):
     get_all_response = client.get("/v1/memories/", params={"user_id": "user-1"})
     get_response = client.get("/v1/memories/mem-1/")
     search_response = client.post("/v1/search/", json={"query": "tennis", "user_id": "user-1"})
+    v2_get_all_response = client.post("/v2/memories/", json={"user_id": "user-1"})
+    v2_search_response = client.post("/v2/memories/search/", json={"query": "tennis", "user_id": "user-1"})
     update_response = client.put("/v1/memories/mem-1/", json={"text": "I like squash"})
     history_response = client.get("/v1/memories/mem-1/history/")
     delete_response = client.delete("/v1/memories/mem-1/")
@@ -67,15 +69,19 @@ def test_v1_memory_routes_reuse_oss_handlers(oss_server_client):
     assert get_all_response.status_code == 200
     assert get_response.status_code == 200
     assert search_response.status_code == 200
+    assert v2_get_all_response.status_code == 200
+    assert v2_search_response.status_code == 200
     assert update_response.status_code == 200
     assert history_response.status_code == 200
     assert delete_response.status_code == 200
     assert delete_all_response.status_code == 200
 
     mock_memory.add.assert_called_once()
-    mock_memory.get_all.assert_called_once_with(user_id="user-1")
+    mock_memory.get_all.assert_has_calls([call(user_id="user-1"), call(user_id="user-1")])
     mock_memory.get.assert_called_once_with("mem-1")
-    mock_memory.search.assert_called_once_with(query="tennis", user_id="user-1")
+    mock_memory.search.assert_has_calls(
+        [call(query="tennis", user_id="user-1"), call(query="tennis", user_id="user-1")]
+    )
     mock_memory.update.assert_called_once_with(memory_id="mem-1", data="I like squash", metadata=None)
     mock_memory.history.assert_called_once_with(memory_id="mem-1")
     mock_memory.delete.assert_called_once_with(memory_id="mem-1")

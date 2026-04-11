@@ -191,6 +191,26 @@ def get_all_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/v2/memories/", include_in_schema=False)
+def get_all_memories_v2(
+    body: Dict[str, Any],
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
+    _api_key: Optional[str] = Depends(verify_api_key),
+):
+    """Retrieve stored memories using the Python client's v2 body format."""
+    try:
+        params = {k: v for k, v in body.items() if v is not None}
+        if page is not None:
+            params["page"] = page
+        if page_size is not None:
+            params["page_size"] = page_size
+        return MEMORY_INSTANCE.get_all(**params)
+    except Exception as e:
+        logging.exception("Error in get_all_memories_v2:")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/v1/memories/{memory_id}/", include_in_schema=False)
 @app.get("/memories/{memory_id}", summary="Get a memory")
 def get_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
@@ -202,6 +222,7 @@ def get_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/v2/memories/search/", include_in_schema=False)
 @app.post("/v1/search/", include_in_schema=False)
 @app.post("/search", summary="Search memories")
 def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends(verify_api_key)):
