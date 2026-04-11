@@ -79,35 +79,39 @@ def _resolve_mapped_id(temp_uuid_mapping, resp, event_type):
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
-_RUNTIME_FIELDS = frozenset({
-    "http_auth",
-    "auth",
-    "connection_class",
-    "ssl_context",
-    "use_azure_credential",
-})
+_RUNTIME_FIELDS = frozenset(
+    {
+        "http_auth",
+        "auth",
+        "connection_class",
+        "ssl_context",
+        "use_azure_credential",
+    }
+)
 
 # Fields that are known to contain sensitive secrets and must be redacted.
-_SENSITIVE_FIELDS_EXACT = frozenset({
-    "api_key",
-    "secret_key",
-    "private_key",
-    "access_key",
-    "password",
-    "credentials",
-    "credential",
-    "secret",
-    "token",
-    "access_token",
-    "refresh_token",
-    "auth_token",
-    "session_token",
-    "client_secret",
-    "auth_client_secret",
-    "azure_client_secret",
-    "service_account_json",
-    "aws_session_token",
-})
+_SENSITIVE_FIELDS_EXACT = frozenset(
+    {
+        "api_key",
+        "secret_key",
+        "private_key",
+        "access_key",
+        "password",
+        "credentials",
+        "credential",
+        "secret",
+        "token",
+        "access_token",
+        "refresh_token",
+        "auth_token",
+        "session_token",
+        "client_secret",
+        "auth_client_secret",
+        "azure_client_secret",
+        "service_account_json",
+        "aws_session_token",
+    }
+)
 
 # Suffixes that indicate a field likely holds a secret value.
 _SENSITIVE_SUFFIXES = (
@@ -151,6 +155,7 @@ def _safe_deepcopy_config(config):
                 clone_dict = {k: v for k, v in config.__dict__.items()}
         elif hasattr(config, "__dataclass_fields__"):
             from dataclasses import asdict
+
             clone_dict = asdict(config)
         else:
             clone_dict = {k: v for k, v in config.__dict__.items()}
@@ -162,10 +167,7 @@ def _safe_deepcopy_config(config):
         try:
             return config_class(**clone_dict)
         except Exception as reconstruction_error:
-            logger.warning(
-                f"Failed to reconstruct config: {reconstruction_error}. "
-                f"Telemetry may be affected."
-            )
+            logger.warning(f"Failed to reconstruct config: {reconstruction_error}. Telemetry may be affected.")
             raise
 
 
@@ -239,7 +241,7 @@ def _build_filters_and_metadata(
             message="At least one of 'user_id', 'agent_id', or 'run_id' must be provided.",
             error_code="VALIDATION_001",
             details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
-            suggestion="Please provide at least one identifier to scope the memory operation."
+            suggestion="Please provide at least one identifier to scope the memory operation.",
         )
 
     # ---------- optional actor filter ----------
@@ -248,6 +250,149 @@ def _build_filters_and_metadata(
         effective_query_filters["actor_id"] = resolved_actor_id
 
     return base_metadata_template, effective_query_filters
+
+
+# ---------------------------------------------------------------------------
+# Shared constants and helpers used by both Memory and AsyncMemory
+# ---------------------------------------------------------------------------
+
+_PROMOTED_PAYLOAD_KEYS = ("user_id", "agent_id", "run_id", "actor_id", "role")
+_CORE_AND_PROMOTED_KEYS = {"data", "hash", "created_at", "updated_at", "id", *_PROMOTED_PAYLOAD_KEYS}
+
+
+def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Process a raw config dict before passing it to MemoryConfig."""
+    if "graph_store" in config_dict:
+        if "vector_store" not in config_dict and "embedder" in config_dict:
+            config_dict["vector_store"] = {}
+            config_dict["vector_store"]["config"] = {}
+            config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"][
+                "embedding_dims"
+            ]
+    try:
+        return config_dict
+    except ValidationError as e:
+        logger.error(f"Configuration validation error: {e}")
+        raise
+
+
+def _should_use_agent_memory_extraction(messages, metadata):
+    """Determine whether to use agent memory extraction.
+
+    Returns True when agent_id is present AND messages contain an assistant role.
+    """
+    has_agent_id = metadata.get("agent_id") is not None
+    has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
+    return has_agent_id and has_assistant_messages
+
+
+def _process_metadata_filters(metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
+    """Process enhanced metadata filters and convert them to vector store compatible format."""
+    processed_filters = {}
+
+    def process_condition(key: str, condition: Any) -> Dict[str, Any]:
+        if not isinstance(condition, dict):
+            if condition == "*":
+                return {key: "*"}
+            return {key: condition}
+
+        result = {}
+        for operator, value in condition.items():
+            operator_map = {
+                "eq": "eq",
+                "ne": "ne",
+                "gt": "gt",
+                "gte": "gte",
+                "lt": "lt",
+                "lte": "lte",
+                "in": "in",
+                "nin": "nin",
+                "contains": "contains",
+                "icontains": "icontains",
+            }
+
+            if operator in operator_map:
+                result.setdefault(key, {})[operator_map[operator]] = value
+            else:
+                raise ValueError(f"Unsupported metadata filter operator: {operator}")
+        return result
+
+    for key, value in metadata_filters.items():
+        if key == "AND":
+            if not isinstance(value, list):
+                raise ValueError("AND operator requires a list of conditions")
+            for condition in value:
+                for sub_key, sub_value in condition.items():
+                    processed_filters.update(process_condition(sub_key, sub_value))
+        elif key == "OR":
+            if not isinstance(value, list) or not value:
+                raise ValueError("OR operator requires a non-empty list of conditions")
+            processed_filters["$or"] = []
+            for condition in value:
+                or_condition = {}
+                for sub_key, sub_value in condition.items():
+                    or_condition.update(process_condition(sub_key, sub_value))
+                processed_filters["$or"].append(or_condition)
+        elif key == "NOT":
+            if not isinstance(value, list) or not value:
+                raise ValueError("NOT operator requires a non-empty list of conditions")
+            processed_filters["$not"] = []
+            for condition in value:
+                not_condition = {}
+                for sub_key, sub_value in condition.items():
+                    not_condition.update(process_condition(sub_key, sub_value))
+            processed_filters["$not"].append(not_condition)
+        else:
+            processed_filters.update(process_condition(key, value))
+
+    return processed_filters
+
+
+def _has_advanced_operators(filters: Dict[str, Any]) -> bool:
+    """Check if filters contain advanced operators that need special processing."""
+    if not isinstance(filters, dict):
+        return False
+
+    for key, value in filters.items():
+        if key in ["AND", "OR", "NOT"]:
+            return True
+        if isinstance(value, dict):
+            for op in value.keys():
+                if op in ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"]:
+                    return True
+        if value == "*":
+            return True
+    return False
+
+
+def _format_memory_result(mem, include_score=False):
+    """Format a vector store result into a standardized dict.
+
+    Args:
+        mem: A vector store memory result object with .id, .payload, and optionally .score.
+        include_score: If True, include the score field in the output.
+
+    Returns:
+        dict: A formatted memory item dictionary.
+    """
+    item = MemoryItem(
+        id=mem.id,
+        memory=mem.payload.get("data", ""),
+        hash=mem.payload.get("hash"),
+        created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
+        updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
+        **({"score": mem.score} if include_score else {}),
+    ).model_dump(exclude=set() if include_score else {"score"})
+
+    for key in _PROMOTED_PAYLOAD_KEYS:
+        if key in mem.payload:
+            item[key] = mem.payload[key]
+
+    additional = {k: v for k, v in mem.payload.items() if k not in _CORE_AND_PROMOTED_KEYS}
+    if additional:
+        item["metadata"] = additional
+
+    return item
 
 
 setup_config()
@@ -273,14 +418,11 @@ class Memory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
-        
+
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
-            self.reranker = RerankerFactory.create(
-                config.reranker.provider, 
-                config.reranker.config
-            )
+            self.reranker = RerankerFactory.create(config.reranker.provider, config.reranker.config)
 
         self.enable_graph = False
 
@@ -291,6 +433,8 @@ class Memory(MemoryBase):
         else:
             self.graph = None
 
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+
         if self.config.enable_synaptic:
             logger.warning(
                 "enable_synaptic=True has no effect on the sync Memory class. "
@@ -300,23 +444,23 @@ class Memory(MemoryBase):
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
             telemetry_config_dict = {}
-            if hasattr(self.config.vector_store.config, 'model_dump'):
+            if hasattr(self.config.vector_store.config, "model_dump"):
                 # For pydantic models
                 telemetry_config_dict = self.config.vector_store.config.model_dump()
             else:
                 # For other objects, manually copy common attributes
-                for attr in ['host', 'port', 'path', 'api_key', 'index_name', 'dimension', 'metric']:
+                for attr in ["host", "port", "path", "api_key", "index_name", "dimension", "metric"]:
                     if hasattr(self.config.vector_store.config, attr):
                         telemetry_config_dict[attr] = getattr(self.config.vector_store.config, attr)
 
             # Override collection name for telemetry
-            telemetry_config_dict['collection_name'] = "mem0migrations"
+            telemetry_config_dict["collection_name"] = "mem0migrations"
 
             # Set path for file-based vector stores
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
-                telemetry_config_dict['path'] = os.path.join(mem0_dir, provider_path)
-                os.makedirs(telemetry_config_dict['path'], exist_ok=True)
+                telemetry_config_dict["path"] = os.path.join(mem0_dir, provider_path)
+                os.makedirs(telemetry_config_dict["path"], exist_ok=True)
 
             # Create the config object using the same class as the original
             telemetry_config = self.config.vector_store.config.__class__(**telemetry_config_dict)
@@ -332,6 +476,8 @@ class Memory(MemoryBase):
         because it is shared across all Memory instances in the process.  It is
         cleaned up automatically at process exit via an ``atexit`` handler.
         """
+        if hasattr(self, "_executor"):
+            self._executor.shutdown(wait=False)
         if hasattr(self, "db") and self.db is not None:
             self.db.close()
 
@@ -345,48 +491,15 @@ class Memory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
+            config = _process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
 
-    @staticmethod
-    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        if "graph_store" in config_dict:
-            if "vector_store" not in config_dict and "embedder" in config_dict:
-                config_dict["vector_store"] = {}
-                config_dict["vector_store"]["config"] = {}
-                config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"][
-                    "embedding_dims"
-                ]
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
-
     def _should_use_agent_memory_extraction(self, messages, metadata):
-        """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
-        
-        Args:
-            messages: List of message dictionaries
-            metadata: Metadata containing user_id, agent_id, etc.
-            
-        Returns:
-            bool: True if should use agent memory extraction, False for user memory extraction
-        """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-        
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-        
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
+        return _should_use_agent_memory_extraction(messages, metadata)
 
     def add(
         self,
@@ -452,7 +565,7 @@ class Memory(MemoryBase):
                 message=f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories.",
                 error_code="VALIDATION_002",
                 details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
-                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
+                suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories.",
             )
 
         if isinstance(messages, str):
@@ -466,7 +579,7 @@ class Memory(MemoryBase):
                 message="messages must be str, dict, or list[dict]",
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
-                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries.",
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
@@ -478,14 +591,15 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
-            future2 = executor.submit(self._add_to_graph, messages, effective_filters)
+        future1 = self._executor.submit(
+            self._add_to_vector_store, messages, processed_metadata, effective_filters, infer
+        )
+        future2 = self._executor.submit(self._add_to_graph, messages, effective_filters)
 
-            concurrent.futures.wait([future1, future2])
+        concurrent.futures.wait([future1, future2])
 
-            vector_store_result = future1.result()
-            graph_result = future2.result()
+        vector_store_result = future1.result()
+        graph_result = future2.result()
 
         if self.enable_graph:
             return {
@@ -510,7 +624,7 @@ class Memory(MemoryBase):
                 if message_dict["role"] == "system":
                     continue
 
-                per_msg_meta = deepcopy(metadata)
+                per_msg_meta = metadata.copy()
                 per_msg_meta["role"] = message_dict["role"]
 
                 actor_name = message_dict.get("name")
@@ -586,17 +700,26 @@ class Memory(MemoryBase):
             search_filters["agent_id"] = filters["agent_id"]
         if filters.get("run_id"):
             search_filters["run_id"] = filters["run_id"]
+        # Batch all embeddings first
         for new_mem in new_retrieved_facts:
-            messages_embeddings = self.embedding_model.embed(new_mem, "add")
-            new_message_embeddings[new_mem] = messages_embeddings
-            existing_memories = self.vector_store.search(
-                query=new_mem,
-                vectors=messages_embeddings,
-                limit=5,
-                filters=search_filters,
-            )
-            for mem in existing_memories:
-                retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
+            new_message_embeddings[new_mem] = self.embedding_model.embed(new_mem, "add")
+
+        # Then search for all facts concurrently
+        with concurrent.futures.ThreadPoolExecutor() as search_executor:
+            search_futures = {}
+            for new_mem in new_retrieved_facts:
+                future = search_executor.submit(
+                    self.vector_store.search,
+                    query=new_mem,
+                    vectors=new_message_embeddings[new_mem],
+                    limit=5,
+                    filters=search_filters,
+                )
+                search_futures[future] = new_mem
+
+            for future in concurrent.futures.as_completed(search_futures):
+                for mem in future.result():
+                    retrieved_old_memory.append({"id": mem.id, "text": mem.payload.get("data", "")})
 
         unique_data = {}
         for item in retrieved_old_memory:
@@ -658,7 +781,7 @@ class Memory(MemoryBase):
                         memory_id = self._create_memory(
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
-                            metadata=deepcopy(metadata),
+                            metadata=metadata.copy(),
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
@@ -672,7 +795,7 @@ class Memory(MemoryBase):
                             memory_id=memory_id,
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
-                            metadata=deepcopy(metadata),
+                            metadata=metadata.copy(),
                         )
                         returned_memories.append(
                             {
@@ -760,33 +883,7 @@ class Memory(MemoryBase):
         if not memory:
             return None
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
-
-        result_item = MemoryItem(
-            id=memory.id,
-            memory=memory.payload.get("data", ""),
-            hash=memory.payload.get("hash"),
-            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
-            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
-        ).model_dump()
-
-        for key in promoted_payload_keys:
-            if key in memory.payload:
-                result_item[key] = memory.payload[key]
-
-        additional_metadata = {k: v for k, v in memory.payload.items() if k not in core_and_promoted_keys}
-        if additional_metadata:
-            result_item["metadata"] = additional_metadata
-
-        return result_item
+        return _format_memory_result(memory, include_score=True)
 
     def get_all(
         self,
@@ -829,18 +926,17 @@ class Memory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
-            )
+        future_memories = self._executor.submit(self._get_all_from_vector_store, effective_filters, limit)
+        future_graph_entities = (
+            self._executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
+        )
 
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
+        concurrent.futures.wait(
+            [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
+        )
 
-            all_memories_result = future_memories.result()
-            graph_entities_result = future_graph_entities.result() if future_graph_entities else None
+        all_memories_result = future_memories.result()
+        graph_entities_result = future_graph_entities.result() if future_graph_entities else None
 
         if self.enable_graph:
             return {"results": all_memories_result, "relations": graph_entities_result}
@@ -863,36 +959,7 @@ class Memory(MemoryBase):
         else:
             actual_memories = memories_result
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
-
-        formatted_memories = []
-        for mem in actual_memories:
-            memory_item_dict = MemoryItem(
-                id=mem.id,
-                memory=mem.payload.get("data", ""),
-                hash=mem.payload.get("hash"),
-                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
-                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
-            ).model_dump(exclude={"score"})
-
-            for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
-
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                memory_item_dict["metadata"] = additional_metadata
-
-            formatted_memories.append(memory_item_dict)
-
-        return formatted_memories
+        return [_format_memory_result(mem) for mem in actual_memories]
 
     def search(
         self,
@@ -919,7 +986,7 @@ class Memory(MemoryBase):
             filters (dict, optional): Enhanced metadata filtering with operators:
                 - {"key": "value"} - exact match
                 - {"key": {"eq": "value"}} - equals
-                - {"key": {"ne": "value"}} - not equals  
+                - {"key": {"ne": "value"}} - not equals
                 - {"key": {"in": ["val1", "val2"]}} - in list
                 - {"key": {"nin": ["val1", "val2"]}} - not in list
                 - {"key": {"gt": 10}} - greater than
@@ -970,18 +1037,17 @@ class Memory(MemoryBase):
             },
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
-            future_graph_entities = (
-                executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
-            )
+        future_memories = self._executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
+        future_graph_entities = (
+            self._executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
+        )
 
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
+        concurrent.futures.wait(
+            [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
+        )
 
-            original_memories = future_memories.result()
-            graph_entities = future_graph_entities.result() if future_graph_entities else None
+        original_memories = future_memories.result()
+        graph_entities = future_graph_entities.result() if future_graph_entities else None
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -997,134 +1063,18 @@ class Memory(MemoryBase):
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Process enhanced metadata filters and convert them to vector store compatible format.
-        
-        Args:
-            metadata_filters: Enhanced metadata filters with operators
-            
-        Returns:
-            Dict of processed filters compatible with vector store
-        """
-        processed_filters = {}
-        
-        def process_condition(key: str, condition: Any) -> Dict[str, Any]:
-            if not isinstance(condition, dict):
-                # Simple equality: {"key": "value"}
-                if condition == "*":
-                    # Wildcard: match everything for this field (implementation depends on vector store)
-                    return {key: "*"}
-                return {key: condition}
-            
-            result = {}
-            for operator, value in condition.items():
-                # Map platform operators to universal format that can be translated by each vector store
-                operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte", 
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
-                }
-                
-                if operator in operator_map:
-                    result.setdefault(key, {})[operator_map[operator]] = value
-                else:
-                    raise ValueError(f"Unsupported metadata filter operator: {operator}")
-            return result
-
-        for key, value in metadata_filters.items():
-            if key == "AND":
-                # Logical AND: combine multiple conditions
-                if not isinstance(value, list):
-                    raise ValueError("AND operator requires a list of conditions")
-                for condition in value:
-                    for sub_key, sub_value in condition.items():
-                        processed_filters.update(process_condition(sub_key, sub_value))
-            elif key == "OR":
-                # Logical OR: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("OR operator requires a non-empty list of conditions")
-                # Store OR conditions in a way that vector stores can interpret
-                processed_filters["$or"] = []
-                for condition in value:
-                    or_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        or_condition.update(process_condition(sub_key, sub_value))
-                    processed_filters["$or"].append(or_condition)
-            elif key == "NOT":
-                # Logical NOT: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("NOT operator requires a non-empty list of conditions")
-                processed_filters["$not"] = []
-                for condition in value:
-                    not_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        not_condition.update(process_condition(sub_key, sub_value))
-                    processed_filters["$not"].append(not_condition)
-            else:
-                processed_filters.update(process_condition(key, value))
-        
-        return processed_filters
+        return _process_metadata_filters(metadata_filters)
 
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
-        """
-        Check if filters contain advanced operators that need special processing.
-        
-        Args:
-            filters: Dictionary of filters to check
-            
-        Returns:
-            bool: True if advanced operators are detected
-        """
-        if not isinstance(filters, dict):
-            return False
-            
-        for key, value in filters.items():
-            # Check for platform-style logical operators
-            if key in ["AND", "OR", "NOT"]:
-                return True
-            # Check for comparison operators (without $ prefix for universal compatibility)
-            if isinstance(value, dict):
-                for op in value.keys():
-                    if op in ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"]:
-                        return True
-            # Check for wildcard values
-            if value == "*":
-                return True
-        return False
+        return _has_advanced_operators(filters)
 
     def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
         embeddings = self.embedding_model.embed(query, "search")
         memories = self.vector_store.search(query=query, vectors=embeddings, limit=limit, filters=filters)
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
-
         original_memories = []
         for mem in memories:
-            memory_item_dict = MemoryItem(
-                id=mem.id,
-                memory=mem.payload.get("data", ""),
-                hash=mem.payload.get("hash"),
-                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
-                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
-                score=mem.score,
-            ).model_dump()
-
-            for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
-
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                memory_item_dict["metadata"] = additional_metadata
-
+            memory_item_dict = _format_memory_result(mem, include_score=True)
             if threshold is None or mem.score >= threshold:
                 original_memories.append(memory_item_dict)
 
@@ -1311,7 +1261,9 @@ class Memory(MemoryBase):
 
         return result
 
-    def _update_memory(self, memory_id, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
+    def _update_memory(
+        self, memory_id, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None
+    ):
         logger.info(f"Updating memory with {data=}")
 
         try:
@@ -1448,14 +1400,11 @@ class AsyncMemory(MemoryBase):
         self.db = SQLiteManager(self.config.history_db_path)
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
-        
+
         # Initialize reranker if configured
         self.reranker = None
         if config.reranker:
-            self.reranker = RerankerFactory.create(
-                config.reranker.provider, 
-                config.reranker.config
-            )
+            self.reranker = RerankerFactory.create(config.reranker.provider, config.reranker.config)
 
         self.enable_graph = False
 
@@ -1469,6 +1418,7 @@ class AsyncMemory(MemoryBase):
         self._synaptic = None
         if self.config.enable_synaptic:
             from mem0.memory.synaptic_bridge import SynapticBridge
+
             self._synaptic = SynapticBridge(db_dir=self.config.synaptic_db_dir)
 
         if MEM0_TELEMETRY:
@@ -1478,7 +1428,9 @@ class AsyncMemory(MemoryBase):
                 provider_path = f"migrations_{self.config.vector_store.provider}"
                 telemetry_config.path = os.path.join(mem0_dir, provider_path)
                 os.makedirs(telemetry_config.path, exist_ok=True)
-            self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
+            self._telemetry_vector_store = VectorStoreFactory.create(
+                self.config.vector_store.provider, telemetry_config
+            )
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     def close(self):
@@ -1496,48 +1448,15 @@ class AsyncMemory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
+            config = _process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
 
-    @staticmethod
-    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        if "graph_store" in config_dict:
-            if "vector_store" not in config_dict and "embedder" in config_dict:
-                config_dict["vector_store"] = {}
-                config_dict["vector_store"]["config"] = {}
-                config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"][
-                    "embedding_dims"
-                ]
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
-
     def _should_use_agent_memory_extraction(self, messages, metadata):
-        """Determine whether to use agent memory extraction based on the logic:
-        - If agent_id is present and messages contain assistant role -> True
-        - Otherwise -> False
-        
-        Args:
-            messages: List of message dictionaries
-            metadata: Metadata containing user_id, agent_id, etc.
-            
-        Returns:
-            bool: True if should use agent memory extraction, False for user memory extraction
-        """
-        # Check if agent_id is present in metadata
-        has_agent_id = metadata.get("agent_id") is not None
-        
-        # Check if there are assistant role messages
-        has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-        
-        # Use agent memory extraction if agent_id is present and there are assistant messages
-        return has_agent_id and has_assistant_messages
+        return _should_use_agent_memory_extraction(messages, metadata)
 
     async def add(
         self,
@@ -1591,7 +1510,7 @@ class AsyncMemory(MemoryBase):
                 message="messages must be str, dict, or list[dict]",
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
-                suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+                suggestion="Convert your input to a string, dictionary, or list of dictionaries.",
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
@@ -1641,7 +1560,7 @@ class AsyncMemory(MemoryBase):
                 if message_dict["role"] == "system":
                     continue
 
-                per_msg_meta = deepcopy(metadata)
+                per_msg_meta = metadata.copy()
                 per_msg_meta["role"] = message_dict["role"]
 
                 actor_name = message_dict.get("name")
@@ -1736,7 +1655,11 @@ class AsyncMemory(MemoryBase):
             unique_data[item["id"]] = item
         retrieved_old_memory = list(unique_data.values())
         logger.info(f"Total existing memories: {len(retrieved_old_memory)}")
-        _context_for_synaptic = [{"id": item["id"], "text": item.get("text", "")} for item in retrieved_old_memory] if self._synaptic else None
+        _context_for_synaptic = (
+            [{"id": item["id"], "text": item.get("text", "")} for item in retrieved_old_memory]
+            if self._synaptic
+            else None
+        )
         temp_uuid_mapping = {}
         for idx, item in enumerate(retrieved_old_memory):
             temp_uuid_mapping[str(idx)] = item["id"]
@@ -1792,7 +1715,7 @@ class AsyncMemory(MemoryBase):
                             self._create_memory(
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
+                                metadata=metadata.copy(),
                             )
                         )
                         memory_tasks.append((task, resp, "ADD", None))
@@ -1810,7 +1733,7 @@ class AsyncMemory(MemoryBase):
                                 memory_id=memory_id,
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
-                                metadata=deepcopy(metadata),
+                                metadata=metadata.copy(),
                             )
                         )
                         memory_tasks.append((task, resp, "UPDATE", memory_id))
@@ -1919,33 +1842,7 @@ class AsyncMemory(MemoryBase):
         if not memory:
             return None
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
-
-        result_item = MemoryItem(
-            id=memory.id,
-            memory=memory.payload.get("data", ""),
-            hash=memory.payload.get("hash"),
-            created_at=_normalize_iso_timestamp_to_utc(memory.payload.get("created_at")),
-            updated_at=_normalize_iso_timestamp_to_utc(memory.payload.get("updated_at")),
-        ).model_dump()
-
-        for key in promoted_payload_keys:
-            if key in memory.payload:
-                result_item[key] = memory.payload[key]
-
-        additional_metadata = {k: v for k, v in memory.payload.items() if k not in core_and_promoted_keys}
-        if additional_metadata:
-            result_item["metadata"] = additional_metadata
-
-        return result_item
+        return _format_memory_result(memory, include_score=True)
 
     async def get_all(
         self,
@@ -2027,36 +1924,7 @@ class AsyncMemory(MemoryBase):
         else:
             actual_memories = memories_result
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
-
-        formatted_memories = []
-        for mem in actual_memories:
-            memory_item_dict = MemoryItem(
-                id=mem.id,
-                memory=mem.payload.get("data", ""),
-                hash=mem.payload.get("hash"),
-                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
-                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
-            ).model_dump(exclude={"score"})
-
-            for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
-
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                memory_item_dict["metadata"] = additional_metadata
-
-            formatted_memories.append(memory_item_dict)
-
-        return formatted_memories
+        return [_format_memory_result(mem) for mem in actual_memories]
 
     async def search(
         self,
@@ -2084,7 +1952,7 @@ class AsyncMemory(MemoryBase):
             filters (dict, optional): Enhanced metadata filtering with operators:
                 - {"key": "value"} - exact match
                 - {"key": {"eq": "value"}} - equals
-                - {"key": {"ne": "value"}} - not equals  
+                - {"key": {"ne": "value"}} - not equals
                 - {"key": {"in": ["val1", "val2"]}} - in list
                 - {"key": {"nin": ["val1", "val2"]}} - not in list
                 - {"key": {"gt": 10}} - greater than
@@ -2154,9 +2022,7 @@ class AsyncMemory(MemoryBase):
         if rerank and self.reranker and original_memories:
             try:
                 # Run reranking in thread pool to avoid blocking async loop
-                reranked_memories = await asyncio.to_thread(
-                    self.reranker.rerank, query, original_memories, limit
-                )
+                reranked_memories = await asyncio.to_thread(self.reranker.rerank, query, original_memories, limit)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
@@ -2170,100 +2036,10 @@ class AsyncMemory(MemoryBase):
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Process enhanced metadata filters and convert them to vector store compatible format.
-
-        Args:
-            metadata_filters: Enhanced metadata filters with operators
-
-        Returns:
-            Dict of processed filters compatible with vector store
-        """
-        processed_filters = {}
-
-        def process_condition(key: str, condition: Any) -> Dict[str, Any]:
-            if not isinstance(condition, dict):
-                # Simple equality: {"key": "value"}
-                if condition == "*":
-                    # Wildcard: match everything for this field (implementation depends on vector store)
-                    return {key: "*"}
-                return {key: condition}
-
-            result = {}
-            for operator, value in condition.items():
-                # Map platform operators to universal format that can be translated by each vector store
-                operator_map = {
-                    "eq": "eq", "ne": "ne", "gt": "gt", "gte": "gte",
-                    "lt": "lt", "lte": "lte", "in": "in", "nin": "nin",
-                    "contains": "contains", "icontains": "icontains"
-                }
-
-                if operator in operator_map:
-                    result.setdefault(key, {})[operator_map[operator]] = value
-                else:
-                    raise ValueError(f"Unsupported metadata filter operator: {operator}")
-            return result
-
-        for key, value in metadata_filters.items():
-            if key == "AND":
-                # Logical AND: combine multiple conditions
-                if not isinstance(value, list):
-                    raise ValueError("AND operator requires a list of conditions")
-                for condition in value:
-                    for sub_key, sub_value in condition.items():
-                        processed_filters.update(process_condition(sub_key, sub_value))
-            elif key == "OR":
-                # Logical OR: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("OR operator requires a non-empty list of conditions")
-                # Store OR conditions in a way that vector stores can interpret
-                processed_filters["$or"] = []
-                for condition in value:
-                    or_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        or_condition.update(process_condition(sub_key, sub_value))
-                    processed_filters["$or"].append(or_condition)
-            elif key == "NOT":
-                # Logical NOT: Pass through to vector store for implementation-specific handling
-                if not isinstance(value, list) or not value:
-                    raise ValueError("NOT operator requires a non-empty list of conditions")
-                processed_filters["$not"] = []
-                for condition in value:
-                    not_condition = {}
-                    for sub_key, sub_value in condition.items():
-                        not_condition.update(process_condition(sub_key, sub_value))
-                    processed_filters["$not"].append(not_condition)
-            else:
-                processed_filters.update(process_condition(key, value))
-
-        return processed_filters
+        return _process_metadata_filters(metadata_filters)
 
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
-        """
-        Check if filters contain advanced operators that need special processing.
-
-        Args:
-            filters: Dictionary of filters to check
-
-        Returns:
-            bool: True if advanced operators are detected
-        """
-        if not isinstance(filters, dict):
-            return False
-
-        for key, value in filters.items():
-            # Check for platform-style logical operators
-            if key in ["AND", "OR", "NOT"]:
-                return True
-            # Check for comparison operators (without $ prefix for universal compatibility)
-            if isinstance(value, dict):
-                for op in value.keys():
-                    if op in ["eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"]:
-                        return True
-            # Check for wildcard values
-            if value == "*":
-                return True
-        return False
+        return _has_advanced_operators(filters)
 
     async def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
@@ -2271,35 +2047,9 @@ class AsyncMemory(MemoryBase):
             self.vector_store.search, query=query, vectors=embeddings, limit=limit, filters=filters
         )
 
-        promoted_payload_keys = [
-            "user_id",
-            "agent_id",
-            "run_id",
-            "actor_id",
-            "role",
-        ]
-
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", *promoted_payload_keys}
-
         original_memories = []
         for mem in memories:
-            memory_item_dict = MemoryItem(
-                id=mem.id,
-                memory=mem.payload.get("data", ""),
-                hash=mem.payload.get("hash"),
-                created_at=_normalize_iso_timestamp_to_utc(mem.payload.get("created_at")),
-                updated_at=_normalize_iso_timestamp_to_utc(mem.payload.get("updated_at")),
-                score=mem.score,
-            ).model_dump()
-
-            for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
-
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
-            if additional_metadata:
-                memory_item_dict["metadata"] = additional_metadata
-
+            memory_item_dict = _format_memory_result(mem, include_score=True)
             if threshold is None or mem.score >= threshold:
                 original_memories.append(memory_item_dict)
 
@@ -2421,7 +2171,9 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
         return await asyncio.to_thread(self.db.get_history, memory_id)
 
-    async def _create_memory(self, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
+    async def _create_memory(
+        self, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None
+    ):
         logger.debug(f"Creating memory with {data=}")
         # existing_embeddings may be a dict (preferred) or a precomputed vector
         if isinstance(existing_embeddings, dict) and data in existing_embeddings:
@@ -2496,7 +2248,7 @@ class AsyncMemory(MemoryBase):
             else:
                 procedural_memory = await asyncio.to_thread(self.llm.generate_response, messages=parsed_messages)
                 procedural_memory = remove_code_blocks(procedural_memory)
-        
+
         except Exception as e:
             logger.error(f"Error generating procedural memory summary: {e}")
             raise
@@ -2514,7 +2266,9 @@ class AsyncMemory(MemoryBase):
 
         return result
 
-    async def _update_memory(self, memory_id, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None):
+    async def _update_memory(
+        self, memory_id, data: str, existing_embeddings: Union[Dict[str, List[float]], List[float]], metadata=None
+    ):
         logger.info(f"Updating memory with {data=}")
 
         try:
