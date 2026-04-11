@@ -665,7 +665,6 @@ class MemoryClient:
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
-        enable_graph: Optional[bool] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
@@ -677,7 +676,6 @@ class MemoryClient:
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
             retrieval_criteria: New retrieval criteria for the project.
-            enable_graph: Enable or disable the graph for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
@@ -703,7 +701,6 @@ class MemoryClient:
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
                     "retrieval_criteria": retrieval_criteria,
-                    "enable_graph": enable_graph,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,
@@ -1549,7 +1546,6 @@ class AsyncMemoryClient:
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
-        enable_graph: Optional[bool] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
@@ -1561,7 +1557,6 @@ class AsyncMemoryClient:
             custom_instructions: New instructions for the project.
             custom_categories: New categories for the project.
             retrieval_criteria: New retrieval criteria for the project.
-            enable_graph: Enable or disable the graph for the project.
             memory_depth: Memory depth for the project.
             usecase_setting: Usecase setting for the project.
             multilingual: Whether to use the input language for memory storage and retrieval.
@@ -1587,7 +1582,6 @@ class AsyncMemoryClient:
                     "custom_instructions": custom_instructions,
                     "custom_categories": custom_categories,
                     "retrieval_criteria": retrieval_criteria,
-                    "enable_graph": enable_graph,
                     "memory_depth": memory_depth,
                     "usecase_setting": usecase_setting,
                     "multilingual": multilingual,

@@ -123,7 +123,6 @@ export NEO4J_PASSWORD="your-password"
 import { Memory } from "mem0ai/oss";
 
 const config = {
-  enableGraph: true,
   graphStore: {
     provider: "neo4j",
     config: {
@@ -196,7 +195,6 @@ memory = Memory.from_config(config_dict=config)
 import { Memory } from "mem0ai/oss";
 
 const config = {
-  enableGraph: true,
   graphStore: {
     provider: "neo4j",
     config: {
@@ -217,14 +215,6 @@ const memory = new Memory(config);
 
 ```python
 config["graph_store"]["config"]["threshold"] = 0.75
-```
-  </Accordion>
-  <Accordion title="Toggle graph writes per request">
-    Disable graph writes or reads when you only want vector behaviour.
-
-```python
-memory.add(messages, user_id="demo-user", enable_graph=False)
-results = memory.search("marketing partners", user_id="demo-user", enable_graph=False)
 ```
   </Accordion>
   <Accordion title="Organize multi-agent graphs">
@@ -257,9 +247,6 @@ Monitor graph growth, especially on free tiers, by periodically cleaning dormant
   <Accordion title="Neptune Analytics rejects requests">
     Ensure the graph identifier matches the vector dimension used by your embedder and that the IAM role allows `neptune-graph:*DataViaQuery` actions.
   </Accordion>
-  <Accordion title="Graph store outage fallback">
-    Catch the provider error and retry with `enable_graph=False` so vector-only search keeps serving responses while the graph backend recovers.
-  </Accordion>
 </AccordionGroup>
 
 ## Decision Points
@@ -280,7 +267,6 @@ Choose your backend and expand the matching panel for configuration details and 
 import { Memory } from "mem0ai/oss";
 
 const config = {
-    enableGraph: true,
     graphStore: {
         provider: "neo4j",
         config: {

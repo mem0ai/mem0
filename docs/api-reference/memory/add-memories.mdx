@@ -47,7 +47,6 @@ Provide at least one message or direct memory string. Most callers supply `messa
 | `messages` | array | No* | Conversation turns for Mem0 to infer memories from. Each object should include `role` and `content`. |
 | `metadata` | object | Optional | Custom key/value metadata (e.g., `{"topic": "preferences"}`). |
 | `infer` | boolean (default `true`) | Optional | Set to `false` to skip inference and store the provided text as-is. |
-| `enable_graph` | boolean (default `false`) | Optional | Set to `true` to create entity nodes and relationships for knowledge graph. |
 
 > \* Provide at least one `messages` entry to describe what you are storing. For scoped memories, include `user_id`. You can also attach `agent_id`, `app_id`, `run_id`, `project_id`, or `org_id` to refine ownership.
 
@@ -82,20 +81,3 @@ Successful requests return an array of events queued for processing. Each event 
 ```
 </CodeGroup>
 
-## Graph relationships
-
-Add Memories can enrich the knowledge graph on write. Set `enable_graph: true` to create entity nodes and relationships for the stored memory. Use this when you want downstream `get_all` or search calls to traverse connected entities.
-
-<CodeGroup>
-```json Graph-aware request
-{
-  "user_id": "alice",
-  "messages": [
-    { "role": "user", "content": "I met with Dr. Lee at General Hospital." }
-  ],
-  "enable_graph": true
-}
-```
-</CodeGroup>
-
-The response follows the same format, and related entities become available in [Graph Memory](/platform/features/graph-memory) queries.

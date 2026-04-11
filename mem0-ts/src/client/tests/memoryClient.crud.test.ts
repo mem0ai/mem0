@@ -27,7 +27,7 @@ describe("MemoryClient - add()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.add([{ role: "user", content: "Hello" }], { user_id: "u1" });
+    await client.add([{ role: "user", content: "Hello" }], { userId: "u1" });
 
     expect(findFetchCall(mock, "/v1/memories/", "POST")).toBeDefined();
   });
@@ -39,7 +39,7 @@ describe("MemoryClient - add()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.add(messages, { user_id: "u1" });
+    await client.add(messages, { userId: "u1" });
 
     const call = findFetchCall(mock, "/v1/memories/", "POST");
     expect(getFetchBody(call!).messages).toEqual(messages);
@@ -65,7 +65,7 @@ describe("MemoryClient - add()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.add([], { user_id: "u1" });
+    await client.add([], { userId: "u1" });
 
     const call = findFetchCall(mock, "/v1/memories/", "POST");
     expect(getFetchBody(call!).messages).toEqual([]);
@@ -215,7 +215,7 @@ describe("MemoryClient - deleteAll()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.deleteAll({ user_id: "u1" });
+    await client.deleteAll({ userId: "u1" });
 
     const call = mock.mock.calls.find(
       (c: [string, RequestInit]) =>
@@ -231,7 +231,7 @@ describe("MemoryClient - deleteAll()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.deleteAll({ user_id: "user@email.com" });
+    await client.deleteAll({ userId: "user@email.com" });
 
     const call = mock.mock.calls.find(
       (c: [string, RequestInit]) =>

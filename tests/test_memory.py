@@ -776,8 +776,7 @@ def test_reset_calls_graph_reset_when_graph_enabled(mock_sqlite, mock_llm_factor
     config = MemoryConfig()
     memory = Memory(config)
 
-    # Simulate graph being enabled
-    memory.enable_graph = True
+    # Simulate graph being enabled by setting graph instance
     mock_graph = MagicMock()
     memory.graph = mock_graph
 
@@ -801,13 +800,13 @@ def test_reset_skips_graph_when_graph_disabled(mock_sqlite, mock_llm_factory, mo
     config = MemoryConfig()
     memory = Memory(config)
 
-    # Graph is disabled by default
-    memory.enable_graph = False
+    # Graph is disabled by default (graph is None)
+    memory.graph = None
 
     memory.reset()
 
-    # graph attribute may not even exist, but reset should not fail
-    assert not hasattr(memory, 'graph') or not memory.enable_graph
+    # graph should remain None after reset
+    assert memory.graph is None
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -825,7 +824,6 @@ def test_reset_continues_if_graph_reset_fails(mock_sqlite, mock_llm_factory, moc
     config = MemoryConfig()
     memory = Memory(config)
 
-    memory.enable_graph = True
     mock_graph = MagicMock()
     mock_graph.reset.side_effect = Exception("Neo4j connection failed")
     memory.graph = mock_graph

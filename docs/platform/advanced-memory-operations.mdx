@@ -81,7 +81,6 @@ result = await memory.add(
     conversation,
     user_id="traveler-42",
     metadata={"trip": "japan-2025", "preferences": ["boutique", "no-shellfish"]},
-    enable_graph=True,
     run_id="planning-call-1",
 )
 ```
@@ -101,7 +100,6 @@ const conversation = [
 const result = await memory.add(conversation, {
   userId: "traveler-42",
   metadata: { trip: "japan-2025", preferences: ["boutique", "no-shellfish"] },
-  enableGraph: true,
   runId: "planning-call-1",
 });
 ```
@@ -163,10 +161,6 @@ await memory.update(matches.results[0].id, {
   </Tab>
 </Tabs>
 
-<Tip>
-  Need to pause graph writes on a per-request basis? Pass `enableGraph: false` (TypeScript) or `enable_graph=False` (Python) when latency matters more than relationship building.
-</Tip>
-
 ## Clean up
 
 <Tabs>
@@ -192,8 +186,6 @@ await memory.deleteAll({ userId: "traveler-42", runId: "planning-call-1" });
 
 ## Quick recovery
 
-- `Missing required key enableGraph`: update the SDK to `mem0ai>=0.4.0`.
-- `Graph backend unavailable`: retry with `enableGraph=False` and inspect your graph provider status.
 - Empty results with filters: log `filters` values and confirm metadata keys match (case-sensitive).
 
 <Warning>

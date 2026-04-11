@@ -22,7 +22,7 @@ describe("MemoryClient - search()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.search("What is my name?", {
-      filters: { user_id: "u1" },
+      filters: { userId: "u1" },
     });
 
     expect(findFetchCall(mock, "/v2/memories/search/", "POST")).toBeDefined();
@@ -35,7 +35,7 @@ describe("MemoryClient - search()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.search("What is my name?", {
-      filters: { user_id: "u1" },
+      filters: { userId: "u1" },
     });
 
     const call = findFetchCall(mock, "/v2/memories/search/", "POST");
@@ -48,7 +48,7 @@ describe("MemoryClient - search()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.search("test", { filters: { user_id: "u1" } });
+    await client.search("test", { filters: { userId: "u1" } });
 
     const call = findFetchCall(mock, "/v2/memories/search/", "POST");
     expect(getFetchBody(call!).filters).toEqual({ user_id: "u1" });
@@ -88,7 +88,7 @@ describe("MemoryClient - search()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const result: Memory[] = await client.search("nonexistent query", {
-      filters: { user_id: "u1" },
+      filters: { userId: "u1" },
     });
     expect(result).toHaveLength(0);
   });

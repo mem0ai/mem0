@@ -281,12 +281,9 @@ class Memory(MemoryBase):
                 config.reranker.config
             )
 
-        self.enable_graph = False
-
         if self.config.graph_store.config:
             provider = self.config.graph_store.provider
             self.graph = GraphStoreFactory.create(provider, self.config)
-            self.enable_graph = True
         else:
             self.graph = None
         if MEM0_TELEMETRY:
@@ -477,7 +474,7 @@ class Memory(MemoryBase):
             vector_store_result = future1.result()
             graph_result = future2.result()
 
-        if self.enable_graph:
+        if self.graph:
             return {
                 "results": vector_store_result,
                 "relations": graph_result,
@@ -726,7 +723,7 @@ class Memory(MemoryBase):
 
     def _add_to_graph(self, messages, filters):
         added_entities = []
-        if self.enable_graph:
+        if self.graph:
             if filters.get("user_id") is None:
                 filters["user_id"] = "user"
 
@@ -821,7 +818,7 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, top_k)
             future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, top_k) if self.enable_graph else None
+                executor.submit(self.graph.get_all, effective_filters, top_k) if self.graph else None
             )
 
             concurrent.futures.wait(
@@ -831,7 +828,7 @@ class Memory(MemoryBase):
             all_memories_result = future_memories.result()
             graph_entities_result = future_graph_entities.result() if future_graph_entities else None
 
-        if self.enable_graph:
+        if self.graph:
             return {"results": all_memories_result, "relations": graph_entities_result}
 
         return {"results": all_memories_result}
@@ -960,7 +957,7 @@ class Memory(MemoryBase):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future_memories = executor.submit(self._search_vector_store, query, effective_filters, top_k, threshold)
             future_graph_entities = (
-                executor.submit(self.graph.search, query, effective_filters, top_k) if self.enable_graph else None
+                executor.submit(self.graph.search, query, effective_filters, top_k) if self.graph else None
             )
 
             concurrent.futures.wait(
@@ -978,7 +975,7 @@ class Memory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
-        if self.enable_graph:
+        if self.graph:
             return {"results": original_memories, "relations": graph_entities}
 
         return {"results": original_memories}
@@ -1157,7 +1154,7 @@ class Memory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         # Clean up graph entities before deleting from vector store
-        if self.enable_graph:
+        if self.graph:
             try:
                 memory_text = existing_memory.payload.get("data", "")
                 if memory_text:
@@ -1205,7 +1202,7 @@ class Memory(MemoryBase):
 
         logger.info(f"Deleted {len(memories)} memories")
 
-        if self.enable_graph:
+        if self.graph:
             self.graph.delete_all(filters)
 
         return {"message": "Memories deleted successfully!"}
@@ -1407,7 +1404,7 @@ class Memory(MemoryBase):
             )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
-        if self.enable_graph:
+        if self.graph:
             try:
                 self.graph.reset()
             except Exception:
@@ -1442,12 +1439,9 @@ class AsyncMemory(MemoryBase):
                 config.reranker.config
             )
 
-        self.enable_graph = False
-
         if self.config.graph_store.config:
             provider = self.config.graph_store.provider
             self.graph = GraphStoreFactory.create(provider, self.config)
-            self.enable_graph = True
         else:
             self.graph = None
 
@@ -1590,7 +1584,7 @@ class AsyncMemory(MemoryBase):
 
         vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
 
-        if self.enable_graph:
+        if self.graph:
             return {
                 "results": vector_store_result,
                 "relations": graph_result,
@@ -1863,7 +1857,7 @@ class AsyncMemory(MemoryBase):
 
     async def _add_to_graph(self, messages, filters):
         added_entities = []
-        if self.enable_graph:
+        if self.graph:
             if filters.get("user_id") is None:
                 filters["user_id"] = "user"
 
@@ -1961,7 +1955,7 @@ class AsyncMemory(MemoryBase):
         vector_store_task = asyncio.create_task(self._get_all_from_vector_store(effective_filters, top_k))
 
         graph_task = None
-        if self.enable_graph:
+        if self.graph:
             graph_get_all = getattr(self.graph, "get_all", None)
             if callable(graph_get_all):
                 if asyncio.iscoroutinefunction(graph_get_all):
@@ -2104,7 +2098,7 @@ class AsyncMemory(MemoryBase):
         vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, top_k, threshold))
 
         graph_task = None
-        if self.enable_graph:
+        if self.graph:
             if hasattr(self.graph.search, "__await__"):  # Check if graph search is async
                 graph_task = asyncio.create_task(self.graph.search(query, effective_filters, top_k))
             else:
@@ -2127,7 +2121,7 @@ class AsyncMemory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
-        if self.enable_graph:
+        if self.graph:
             return {"results": original_memories, "relations": graph_entities}
 
         return {"results": original_memories}
@@ -2309,7 +2303,7 @@ class AsyncMemory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         # Clean up graph entities before deleting from vector store
-        if self.enable_graph:
+        if self.graph:
             try:
                 memory_text = existing_memory.payload.get("data", "")
                 if memory_text:
@@ -2360,7 +2354,7 @@ class AsyncMemory(MemoryBase):
 
         logger.info(f"Deleted {len(memories[0])} memories")
 
-        if self.enable_graph:
+        if self.graph:
             await asyncio.to_thread(self.graph.delete_all, filters)
 
         return {"message": "Memories deleted successfully!"}
@@ -2587,7 +2581,7 @@ class AsyncMemory(MemoryBase):
         )
         capture_event("mem0.reset", self, {"sync_type": "async"})
 
-        if self.enable_graph:
+        if self.graph:
             try:
                 await asyncio.to_thread(self.graph.reset)
             except Exception:
