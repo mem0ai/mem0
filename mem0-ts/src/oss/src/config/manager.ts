@@ -132,7 +132,9 @@ export class ConfigManager {
         userConfig.historyStore?.config?.historyDbPath ||
         DEFAULT_MEMORY_CONFIG.historyStore?.config?.historyDbPath,
       customInstructions: userConfig.customInstructions,
-      graphStore: userConfig.graphStore ? { ...userConfig.graphStore } : undefined,
+      graphStore: userConfig.graphStore
+        ? { ...userConfig.graphStore }
+        : undefined,
       historyStore: (() => {
         const defaultHistoryStore = DEFAULT_MEMORY_CONFIG.historyStore!;
         const historyProvider =
