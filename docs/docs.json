@@ -79,7 +79,6 @@
                         "group": "Advanced Features",
                         "icon": "bolt",
                         "pages": [
-                          "platform/features/graph-memory",
                           "platform/features/graph-threshold",
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
@@ -610,6 +609,10 @@
   },
   "redirects": [
     {
+      "source": "/platform/features/graph-memory",
+      "destination": "/open-source/features/graph-memory"
+    },
+    {
       "source": "/api-reference/memory/v2-search-memories",
       "destination": "/api-reference/memory/search-memories"
     },
@@ -959,7 +962,7 @@
     },
     {
       "source": "/features/graph-memory",
-      "destination": "/platform/features/graph-memory"
+      "destination": "/open-source/features/graph-memory"
     },
     {
       "source": "/features/:slug",
