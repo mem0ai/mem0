@@ -163,7 +163,6 @@ describe("MemoryClient - updateWebhook", () => {
     expect(body.eventTypes).toBeUndefined();
   });
 
-
   test("body does not contain webhookId", async () => {
     const mock = await callUpdate();
     const body = getFetchBody(
