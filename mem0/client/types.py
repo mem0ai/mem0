@@ -31,7 +31,6 @@ class AddMemoryOptions(EntityOptions):
     structured_data_schema: Optional[Dict[str, Any]] = Field(
         default=None, description="Schema for structured data extraction"
     )
-    enable_graph: Optional[bool] = Field(default=None, description="Whether to enable graph memory for this operation")
 
 
 class SearchMemoryOptions(BaseModel):
@@ -50,7 +49,6 @@ class SearchMemoryOptions(BaseModel):
     threshold: Optional[float] = Field(default=None, description="Minimum similarity score threshold")
     fields: Optional[List[str]] = Field(default=None, description="Fields to include in the response")
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
-    enable_graph: Optional[bool] = Field(default=None, description="Whether to enable graph memory for this search")
 
 
 class GetAllMemoryOptions(BaseModel):
@@ -72,7 +70,6 @@ class GetAllMemoryOptions(BaseModel):
         default=None, description="Filter memories created on or before this date (ISO 8601)"
     )
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
-    enable_graph: Optional[bool] = Field(default=None, description="Whether to enable graph memory for retrieval")
 
 
 class DeleteAllMemoryOptions(EntityOptions):
@@ -96,7 +93,6 @@ class ProjectUpdateOptions(BaseModel):
     custom_categories: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Custom categories for classification"
     )
-    enable_graph: Optional[bool] = Field(default=None, description="Whether to enable graph memory")
     memory_depth: Optional[str] = Field(default=None, description="Memory depth configuration")
     usecase_setting: Optional[Any] = Field(default=None, description="Use case specific settings")
     multilingual: Optional[bool] = Field(default=None, description="Whether to enable multilingual support")

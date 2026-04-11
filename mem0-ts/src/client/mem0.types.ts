@@ -14,7 +14,6 @@ export interface AddMemoryOptions extends EntityOptions {
   customInstructions?: string;
   timestamp?: number;
   structuredDataSchema?: Record<string, any>;
-  enableGraph?: boolean;
 }
 
 export interface SearchMemoryOptions {
@@ -25,7 +24,6 @@ export interface SearchMemoryOptions {
   rerank?: boolean;
   fields?: string[];
   categories?: string[];
-  enableGraph?: boolean;
 }
 
 export interface GetAllMemoryOptions {
@@ -35,7 +33,6 @@ export interface GetAllMemoryOptions {
   startDate?: string;
   endDate?: string;
   categories?: string[];
-  enableGraph?: boolean;
 }
 
 export interface DeleteAllMemoryOptions extends EntityOptions {}
@@ -49,7 +46,6 @@ export interface PromptUpdatePayload {
   customInstructions?: string;
   customCategories?: custom_categories[];
   retrievalCriteria?: any[];
-  enableGraph?: boolean;
   version?: string;
   memoryDepth?: string | null;
   usecaseSetting?: string | number;
