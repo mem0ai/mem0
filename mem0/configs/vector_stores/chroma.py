@@ -2,6 +2,8 @@ from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from mem0.vector_stores.configs import get_default_vector_store_path
+
 
 class ChromaDbConfig(BaseModel):
     try:
@@ -23,24 +25,25 @@ class ChromaDbConfig(BaseModel):
     def check_connection_config(cls, values):
         host, port, path = values.get("host"), values.get("port"), values.get("path")
         api_key, tenant = values.get("api_key"), values.get("tenant")
-        
+        default_path = get_default_vector_store_path("chroma")
+
         # Check if cloud configuration is provided
         cloud_config = bool(api_key and tenant)
-        
+
         # If cloud configuration is provided, remove any default path that might have been added
-        if cloud_config and path == "/tmp/chroma":
+        if cloud_config and path == default_path:
             values.pop("path", None)
             return values
-        
+
         # Check if local/server configuration is provided
         local_config = bool(path) or bool(host and port)
-        
+
         if not cloud_config and not local_config:
             raise ValueError("Either ChromaDB Cloud configuration (api_key, tenant) or local configuration (path or host/port) must be provided.")
-        
+
         if cloud_config and local_config:
             raise ValueError("Cannot specify both cloud configuration and local configuration. Choose one.")
-            
+
         return values
 
     @model_validator(mode="before")
