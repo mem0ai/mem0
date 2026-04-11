@@ -94,12 +94,33 @@ async function sendPosthogEvent(posthogHost, payload) {
 	}
 }
 
+async function sendIdentifyEvent(ctx, payload, anonId) {
+	const identifyPayload = {
+		api_key: payload.api_key,
+		event: "$identify",
+		distinct_id: payload.distinct_id,
+		properties: {
+			$anon_distinct_id: anonId,
+			$lib: (payload.properties && payload.properties.$lib) || "posthog-node",
+		},
+	};
+	await sendPosthogEvent(ctx.posthogHost, identifyPayload);
+}
+
 async function main() {
 	const ctx = JSON.parse(process.argv[2]);
 	const payload = ctx.payload;
 
 	if (ctx.needsEmail && ctx.mem0ApiKey) {
 		await resolveAndCacheEmail(ctx, payload);
+	}
+
+	// Fire $identify *after* email resolution so PostHog links the stored
+	// anonymous id directly to the final identity (email, not the api-key
+	// hash). The regular event is sent next so it lands under the merged
+	// profile.
+	if (ctx.anonDistinctIdToAlias) {
+		await sendIdentifyEvent(ctx, payload, ctx.anonDistinctIdToAlias);
 	}
 
 	await sendPosthogEvent(ctx.posthogHost, payload);
