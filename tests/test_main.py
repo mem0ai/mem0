@@ -132,7 +132,8 @@ def test_search(memory_instance, version, enable_graph):
     ]
     memory_instance.vector_store.search = Mock(return_value=mock_memories)
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-    memory_instance.graph.search = Mock(return_value=[{"relation": "test_relation"}])
+    if memory_instance.graph:
+        memory_instance.graph.search = Mock(return_value=[{"relation": "test_relation"}])
 
     result = memory_instance.search("test query", user_id="test_user")
 
@@ -164,8 +165,6 @@ def test_search(memory_instance, version, enable_graph):
 
     if enable_graph:
         memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"}, 100)
-    else:
-        memory_instance.graph.search.assert_not_called()
 
 
 def test_update(memory_instance):
@@ -232,7 +231,8 @@ def test_delete_all(memory_instance, version, enable_graph):
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
-    memory_instance.graph.delete_all = Mock()
+    if memory_instance.graph:
+        memory_instance.graph.delete_all = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
@@ -242,8 +242,6 @@ def test_delete_all(memory_instance, version, enable_graph):
 
     if enable_graph:
         memory_instance.graph.delete_all.assert_called_once_with({"user_id": "test_user"})
-    else:
-        memory_instance.graph.delete_all.assert_not_called()
 
     assert result["message"] == "Memories deleted successfully!"
 
@@ -269,9 +267,10 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
         memory_instance.graph = None
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
-    memory_instance.graph.get_all = Mock(
-        return_value=[{"source": "entity1", "relationship": "rel", "target": "entity2"}]
-    )
+    if memory_instance.graph:
+        memory_instance.graph.get_all = Mock(
+            return_value=[{"source": "entity1", "relationship": "rel", "target": "entity2"}]
+        )
 
     result = memory_instance.get_all(user_id="test_user")
 
@@ -294,8 +293,6 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
 
     if enable_graph:
         memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"}, 100)
-    else:
-        memory_instance.graph.get_all.assert_not_called()
 
 
 def test_custom_prompts(memory_custom_instance):
