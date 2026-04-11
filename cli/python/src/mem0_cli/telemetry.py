@@ -86,11 +86,26 @@ def capture_event(
 
     try:
         from mem0_cli import __version__
-        from mem0_cli.config import CONFIG_FILE, load_config
+        from mem0_cli.config import CONFIG_FILE, load_config, save_config
         from mem0_cli.state import is_agent_mode
 
         config = load_config()
         distinct_id = pre_resolved_email or _get_distinct_id()
+
+        # Detect anonymous → identified transition. If a stored anonymous_id
+        # exists and we just resolved to a real identity, fire a one-shot
+        # $identify event so PostHog stitches the pre-signup history onto
+        # the authenticated profile. Clear the stored id so we don't re-alias.
+        anon_id_to_alias: str | None = None
+        if (
+            distinct_id
+            and not distinct_id.startswith("cli-anon-")
+            and config.telemetry.anonymous_id
+        ):
+            anon_id_to_alias = config.telemetry.anonymous_id
+            config.telemetry.anonymous_id = ""
+            with contextlib.suppress(Exception):
+                save_config(config)
 
         payload = {
             "api_key": POSTHOG_API_KEY,
@@ -117,6 +132,7 @@ def capture_event(
             "mem0_api_key": config.platform.api_key or "",
             "mem0_base_url": config.platform.base_url or "https://api.mem0.ai",
             "config_path": str(CONFIG_FILE),
+            "anon_distinct_id_to_alias": anon_id_to_alias,
         }
 
         subprocess.Popen(

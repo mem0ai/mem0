@@ -96,6 +96,25 @@ export function captureEvent(
 		const config = loadConfig();
 		const distinctId = preResolvedEmail || getDistinctId();
 
+		// Detect anonymous → identified transition. If a stored anonymous_id
+		// exists and we just resolved to a real identity, fire a one-shot
+		// $identify event so PostHog stitches the pre-signup history onto
+		// the authenticated profile. Clear the stored id so we don't re-alias.
+		let anonIdToAlias: string | null = null;
+		if (
+			distinctId &&
+			!distinctId.startsWith("cli-anon-") &&
+			config.telemetry.anonymousId
+		) {
+			anonIdToAlias = config.telemetry.anonymousId;
+			config.telemetry.anonymousId = "";
+			try {
+				saveConfig(config);
+			} catch {
+				/* ignore — alias may double-fire next run, harmless */
+			}
+		}
+
 		const payload = {
 			api_key: POSTHOG_API_KEY,
 			distinct_id: distinctId,
@@ -119,6 +138,7 @@ export function captureEvent(
 			mem0ApiKey: config.platform.apiKey || "",
 			mem0BaseUrl: config.platform.baseUrl || "https://api.mem0.ai",
 			configPath: CONFIG_FILE,
+			anonDistinctIdToAlias: anonIdToAlias,
 		};
 
 		const child = spawn(
