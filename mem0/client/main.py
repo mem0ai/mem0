@@ -219,15 +219,16 @@ class MemoryClient:
         """
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
+        body = self._resolve_filters(params)
 
-        if "page" in params and "page_size" in params:
+        if "page" in body and "page_size" in body:
             query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
+                "page": body.pop("page"),
+                "page_size": body.pop("page_size"),
             }
-            response = self.client.post("/v2/memories/", json=params, params=query_params)
+            response = self.client.post("/v2/memories/", json=body, params=query_params)
         else:
-            response = self.client.post("/v2/memories/", json=params)
+            response = self.client.post("/v2/memories/", json=body)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -268,10 +269,9 @@ class MemoryClient:
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
-        payload = {"query": query}
         params = self._prepare_params(kwargs)
-
-        payload.update(params)
+        body = self._resolve_filters(params)
+        payload = {"query": query, **body}
 
         response = self.client.post("/v2/memories/search/", json=payload)
         response.raise_for_status()
@@ -932,6 +932,32 @@ class MemoryClient:
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
+    @staticmethod
+    def _resolve_filters(params: Dict[str, Any]) -> Dict[str, Any]:
+        """Wrap identity params (user_id, agent_id, etc.) into a filters dict.
+
+        The v2 API endpoints (/v2/memories/, /v2/memories/search/) expect
+        identity parameters inside a ``filters`` object.  This method moves
+        them there automatically so callers can pass ``user_id="x"`` as a
+        convenience — matching the TypeScript SDK's _resolveFilters behavior.
+
+        If an explicit ``filters`` dict is already present it is used as-is;
+        top-level identity keys are **not** merged into it to avoid conflicts.
+        """
+        _FILTER_KEYS = {"user_id", "agent_id", "app_id", "run_id"}
+
+        filters = params.pop("filters", None)
+        if filters is None:
+            # Build filters from top-level identity keys
+            extracted = {k: params.pop(k) for k in list(params) if k in _FILTER_KEYS}
+            if extracted:
+                filters = extracted
+
+        body: Dict[str, Any] = {k: v for k, v in params.items() if v is not None}
+        if filters:
+            body["filters"] = filters
+        return body
+
 
 class AsyncMemoryClient:
     """Asynchronous client for interacting with the Mem0 API.
@@ -1068,6 +1094,25 @@ class AsyncMemoryClient:
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
+    @staticmethod
+    def _resolve_filters(params: Dict[str, Any]) -> Dict[str, Any]:
+        """Wrap identity params (user_id, agent_id, etc.) into a filters dict.
+
+        See MemoryClient._resolve_filters for full documentation.
+        """
+        _FILTER_KEYS = {"user_id", "agent_id", "app_id", "run_id"}
+
+        filters = params.pop("filters", None)
+        if filters is None:
+            extracted = {k: params.pop(k) for k in list(params) if k in _FILTER_KEYS}
+            if extracted:
+                filters = extracted
+
+        body: Dict[str, Any] = {k: v for k, v in params.items() if v is not None}
+        if filters:
+            body["filters"] = filters
+        return body
+
     async def __aenter__(self):
         return self
 
@@ -1108,15 +1153,16 @@ class AsyncMemoryClient:
     async def get_all(self, options: Optional[GetAllMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
+        body = self._resolve_filters(params)
 
-        if "page" in params and "page_size" in params:
+        if "page" in body and "page_size" in body:
             query_params = {
-                "page": params.pop("page"),
-                "page_size": params.pop("page_size"),
+                "page": body.pop("page"),
+                "page_size": body.pop("page_size"),
             }
-            response = await self.async_client.post("/v2/memories/", json=params, params=query_params)
+            response = await self.async_client.post("/v2/memories/", json=body, params=query_params)
         else:
-            response = await self.async_client.post("/v2/memories/", json=params)
+            response = await self.async_client.post("/v2/memories/", json=body)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1138,10 +1184,9 @@ class AsyncMemoryClient:
     @api_error_handler
     async def search(self, query: str, options: Optional[SearchMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
-        payload = {"query": query}
         params = self._prepare_params(kwargs)
-
-        payload.update(params)
+        body = self._resolve_filters(params)
+        payload = {"query": query, **body}
 
         response = await self.async_client.post("/v2/memories/search/", json=payload)
         response.raise_for_status()
