@@ -47,7 +47,6 @@ export class Memory {
   private collectionName: string | undefined;
   private apiVersion: string;
   private graphMemory?: MemoryGraph;
-  private enableGraph: boolean;
   telemetryId: string;
   private _initPromise: Promise<void>;
   private _initError?: Error;
@@ -79,11 +78,10 @@ export class Memory {
 
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
-    this.enableGraph = this.config.enableGraph || false;
     this.telemetryId = "anonymous";
 
-    // Initialize graph memory if configured
-    if (this.enableGraph && this.config.graphStore) {
+    // Initialize graph memory if graphStore is configured
+    if (this.config.graphStore) {
       this.graphMemory = new MemoryGraph(this.config);
     }
 
@@ -159,7 +157,6 @@ export class Memory {
         api_version: this.apiVersion,
         client_type: "Memory",
         collection_name: this.collectionName,
-        enable_graph: this.enableGraph,
       });
     } catch (error) {}
   }

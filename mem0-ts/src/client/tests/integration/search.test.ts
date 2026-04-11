@@ -43,7 +43,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       const results = await waitForSearchResults(
         client,
         "What is my favorite color?",
-        { filters: { user_id: TEST_USER_ID } },
+        { filters: { userId: TEST_USER_ID } },
       );
 
       expect(Array.isArray(results)).toBe(true);
@@ -64,7 +64,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
         client,
         "What do you know about me?",
         {
-          filters: { OR: [{ user_id: TEST_USER_ID }] },
+          filters: { OR: [{ userId: TEST_USER_ID }] },
         },
       );
 
@@ -89,15 +89,15 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
 
       const entry = history[0];
       expect(typeof entry.id).toBe("string");
-      expect(typeof entry.memory_id).toBe("string");
+      expect(typeof entry.memoryId).toBe("string");
       expect(["ADD", "UPDATE", "DELETE", "NOOP"]).toContain(entry.event);
-      expect(new Date(entry.created_at).toString()).not.toBe("Invalid Date");
-      expect(new Date(entry.updated_at).toString()).not.toBe("Invalid Date");
+      expect(new Date(entry.createdAt).toString()).not.toBe("Invalid Date");
+      expect(new Date(entry.updatedAt).toString()).not.toBe("Invalid Date");
       expect(
-        entry.new_memory === null || typeof entry.new_memory === "string",
+        entry.newMemory === null || typeof entry.newMemory === "string",
       ).toBe(true);
       expect(
-        entry.old_memory === null || typeof entry.old_memory === "string",
+        entry.oldMemory === null || typeof entry.oldMemory === "string",
       ).toBe(true);
 
       const events = history.map((h) => h.event);
@@ -109,7 +109,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   describe("edge cases", () => {
     test("search for non-existent user returns empty results", async () => {
       const results = await client.search("anything", {
-        filters: { user_id: `nonexistent-user-${randomUUID()}` },
+        filters: { userId: `nonexistent-user-${randomUUID()}` },
       });
 
       expect(Array.isArray(results)).toBe(true);
@@ -120,8 +120,8 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       const results = await client.search(
         "Tell me about integration test user",
         {
-          filters: { user_id: TEST_USER_ID },
-          top_k: 1,
+          filters: { userId: TEST_USER_ID },
+          topK: 1,
         },
       );
 
