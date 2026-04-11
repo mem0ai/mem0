@@ -2,6 +2,8 @@
  * Converts a camelCase string to snake_case.
  */
 export function camelToSnake(str: string): string {
+  // Skip all-uppercase keys (e.g. OR, AND, NOT — logical operators)
+  if (str === str.toUpperCase()) return str;
   return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 

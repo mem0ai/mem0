@@ -72,7 +72,7 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
       originalInstructions = project.customInstructions;
     });
 
-    test("updates project customInstructions via updateProject()", async () => {
+    test("updates project custom_instructions via updateProject()", async () => {
       const testInstruction = `integration-test-${randomUUID().slice(0, 8)}`;
 
       const result = await client.updateProject({
@@ -112,7 +112,7 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
     });
 
     // ─── Create ────────────────────────────────────────────
-    test("createWebhook returns a webhookId", async () => {
+    test("createWebhook returns a webhook_id", async () => {
       const result = await withRetry(() =>
         client.createWebhook({
           name: hookName,
@@ -136,7 +136,7 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
       expect(wh!.url).toBe(hookUrl);
     });
 
-    test("createWebhook returns the correct eventTypes", async () => {
+    test("createWebhook returns the correct event_types", async () => {
       const webhooks = await withRetry(() => client.getWebhooks());
       const wh = webhooks.find((w) => w.webhookId === createdWebhookId);
       expect(wh!.eventTypes?.sort()).toStrictEqual(
@@ -181,7 +181,7 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
       expect(updated!.name).toBe(updatedName);
     });
 
-    test("updateWebhook persists the new eventTypes", async () => {
+    test("updateWebhook persists the new event_types", async () => {
       const webhooks = await withRetry(() => client.getWebhooks());
       const updated = webhooks.find((w) => w.webhookId === createdWebhookId);
       expect(updated!.eventTypes?.sort()).toStrictEqual(

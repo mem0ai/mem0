@@ -111,9 +111,9 @@ describe("MemoryClient - feedback()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.feedback({
-      memory_id: "mem_123",
+      memoryId: "mem_123",
       feedback: Feedback.POSITIVE,
-      feedback_reason: "Very helpful",
+      feedbackReason: "Very helpful",
     });
 
     const call = findFetchCall(mock, "/v1/feedback/", "POST");
@@ -130,9 +130,9 @@ describe("MemoryClient - feedback()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.feedback({
-      memory_id: "mem_123",
+      memoryId: "mem_123",
       feedback: Feedback.POSITIVE,
-      feedback_reason: "Very helpful",
+      feedbackReason: "Very helpful",
     });
 
     const call = findFetchCall(mock, "/v1/feedback/", "POST");
@@ -178,7 +178,7 @@ describe("MemoryClient - Memory Exports", () => {
     setupMockFetch();
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await expect(client.getMemoryExport({} as never)).rejects.toThrow(
-      "Missing memory_export_id or filters",
+      "Missing memoryExportId or filters",
     );
   });
 
@@ -191,7 +191,7 @@ describe("MemoryClient - Memory Exports", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.getMemoryExport({ memory_export_id: "exp_123" });
+    await client.getMemoryExport({ memoryExportId: "exp_123" });
 
     expect(findFetchCall(mock, "/v1/exports/get/", "POST")).toBeDefined();
   });
