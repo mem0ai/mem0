@@ -9,10 +9,10 @@
  */
 
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { CONFIG_FILE, loadConfig } from "./config.js";
+import { CONFIG_FILE, loadConfig, saveConfig } from "./config.js";
 import { CLI_VERSION } from "./version.js";
 
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
@@ -30,10 +30,33 @@ function isTelemetryEnabled(): boolean {
 }
 
 /**
+ * Return a persistent per-machine anonymous ID, generating one if needed.
+ *
+ * Stored in ~/.mem0/config.json under `telemetry.anonymous_id` so that
+ * repeat runs on the same machine share one PostHog identity instead of
+ * collapsing into a single shared fallback string.
+ */
+function getOrCreateAnonymousId(): string {
+	const config = loadConfig();
+	if (config.telemetry.anonymousId) {
+		return config.telemetry.anonymousId;
+	}
+
+	const newId = `cli-anon-${randomUUID().replace(/-/g, "")}`;
+	config.telemetry.anonymousId = newId;
+	try {
+		saveConfig(config);
+	} catch {
+		/* ignore persistence failure — still return the generated ID */
+	}
+	return newId;
+}
+
+/**
  * Return a stable anonymous identifier for the current user.
  *
- * Priority: cached user_email (from /v1/ping/) > MD5(api_key) > fallback.
- * Matches the SDK pattern in mem0-ts/src/client/mem0.ts.
+ * Priority: cached user_email (from /v1/ping/) > MD5(api_key) >
+ * persistent per-machine anonymous ID.
  */
 function getDistinctId(): string {
 	try {
@@ -47,7 +70,11 @@ function getDistinctId(): string {
 	} catch {
 		/* ignore */
 	}
-	return "anonymous-cli";
+	try {
+		return getOrCreateAnonymousId();
+	} catch {
+		return `cli-anon-${randomUUID().replace(/-/g, "")}`;
+	}
 }
 
 /**
