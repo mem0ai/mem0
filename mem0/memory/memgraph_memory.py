@@ -87,6 +87,9 @@ class MemoryGraph:
             filters (dict): A dictionary containing filters to be applied during the addition.
         """
         entity_type_map = self._retrieve_nodes_from_data(data, filters)
+        if not entity_type_map:
+            return {"deleted_entities": [], "added_entities": []}
+
         to_be_added = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
         search_output = self._search_graph_db(node_list=list(entity_type_map.keys()), filters=filters)
         to_be_deleted = self._get_delete_entities_from_search_output(search_output, data, filters)
@@ -358,6 +361,8 @@ class MemoryGraph:
 
     def _get_delete_entities_from_search_output(self, search_output, data, filters):
         """Get the entities to be deleted from the search output."""
+        if not search_output:
+            return []
         search_output_string = format_entities(search_output)
         system_prompt, user_prompt = get_delete_messages(search_output_string, data, filters["user_id"])
 

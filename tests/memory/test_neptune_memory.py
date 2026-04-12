@@ -168,6 +168,31 @@ class TestNeptuneMemory(unittest.TestCase):
         self.assertIn("deleted_entities", result)
         self.assertIn("added_entities", result)
 
+    def test_add_skips_pipeline_when_entity_type_map_is_empty(self):
+        """When _retrieve_nodes_from_data returns empty dict, add() should
+        skip all subsequent steps and return empty results."""
+        self.memory_graph._retrieve_nodes_from_data = MagicMock(return_value={})
+        self.memory_graph._establish_nodes_relations_from_data = MagicMock()
+        self.memory_graph._search_graph_db = MagicMock()
+        self.memory_graph._get_delete_entities_from_search_output = MagicMock()
+
+        result = self.memory_graph.add("hello world", self.test_filters)
+
+        self.assertEqual(result, {"deleted_entities": [], "added_entities": []})
+        self.memory_graph._establish_nodes_relations_from_data.assert_not_called()
+        self.memory_graph._search_graph_db.assert_not_called()
+        self.memory_graph._get_delete_entities_from_search_output.assert_not_called()
+
+    def test_get_delete_entities_skips_llm_when_search_output_is_empty(self):
+        """When search_output is empty, _get_delete_entities_from_search_output
+        should return [] without calling LLM."""
+        result = self.memory_graph._get_delete_entities_from_search_output(
+            [], "some data", self.test_filters
+        )
+
+        self.assertEqual(result, [])
+        self.mock_llm.generate_response.assert_not_called()
+
     def test_search_method(self):
         """Test the search method with mocked components."""
         # Mock the necessary methods that search() calls
