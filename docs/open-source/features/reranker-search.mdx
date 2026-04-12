@@ -123,13 +123,9 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-openai-api-key"
-                }
-            },
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "api_key": "your-openai-api-key",
             "top_k": 5
         }
     }
@@ -325,7 +321,7 @@ results = m.search(
         ]
     },
     rerank=True,
-    limit=20
+    top_k=20
 )
 ```
 
@@ -370,7 +366,7 @@ results = m.search(
     user_id="reader123",
     filters={"content_type": "book_recommendation"},
     rerank=True,
-    limit=10
+    top_k=10
 )
 
 for result in results["results"]:

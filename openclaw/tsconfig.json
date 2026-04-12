@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "strict": false,
+    "noImplicitAny": false,
+    "types": ["node"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["index.ts", "types.ts", "providers.ts", "config.ts", "filtering.ts", "isolation.ts", "openclaw-plugin-sdk.d.ts", "backend/**/*.ts", "tools/**/*.ts", "cli/**/*.ts", "skill-loader.ts", "recall.ts", "dream-gate.ts", "telemetry.ts", "fs-safe.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

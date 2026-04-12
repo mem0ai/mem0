@@ -28,7 +28,7 @@ Move your Mem0 implementation to managed infrastructure with enterprise features
 
 ## Plan
 
-1. **Sign up**: Create an account on [Mem0 Platform](https://app.mem0.ai).
+1. **Sign up**: Create an account on <a href="https://app.mem0.ai" rel="nofollow">Mem0 Platform</a>.
 2. **Get API Key**: Navigate to **Settings > API Keys** and generate a new key.
 3. **Review Usage**: Identify where you instantiate `Memory` and where you call `search` or `get_all`.
 
@@ -81,6 +81,10 @@ client = MemoryClient(api_key="m0-...")
   **Critical Change**: Platform uses v2 endpoints that require filtering parameters to be nested inside a `filters` dictionary.
 </Warning>
 
+<Note>
+  The `limit` parameter has been removed in favor of `top_k` across all SDKs. Update any code using `limit=` to use `top_k=` instead.
+</Note>
+
 | Method | Open Source | Platform |
 | ------ | ----------- | -------- |
 | `search()` | `m.search(query, user_id="alex")` | `client.search(query, filters={"user_id": "alex"})` |
@@ -121,18 +125,18 @@ Note: `add()` and `delete()` methods remain unchanged. The `update()` method is 
     <CodeGroup>
     ```python Open Source (Old)
     # Get all memories for a user
-    memories = m.get_all(user_id="alex", limit=10)
+    memories = m.get_all(user_id="alex", top_k=10)
 
     # Get memories with pagination
-    memories = m.get_all(user_id="alex", limit=5, offset=10)
+    memories = m.get_all(user_id="alex", top_k=5, offset=10)
     ```
 
     ```python Platform (New)
     # Get all memories for a user
-    memories = client.get_all(filters={"user_id": "alex"}, limit=10)
+    memories = client.get_all(filters={"user_id": "alex"}, top_k=10)
 
     # Get memories with pagination
-    memories = client.get_all(filters={"user_id": "alex"}, limit=5, offset=10)
+    memories = client.get_all(filters={"user_id": "alex"}, top_k=5, offset=10)
     ```
     </CodeGroup>
   </Accordion>
@@ -283,7 +287,7 @@ The Platform introduces powerful capabilities not available in OSS:
         "user preferences",
         filters={"user_id": "alex"},
         rerank=True,  # Platform exclusive
-        limit=5
+        top_k=5
     )
 
     # Search with keyword expansion
@@ -335,7 +339,7 @@ The Platform introduces powerful capabilities not available in OSS:
                 {"timestamp": {"gte": "2024-01-01"}}
             ]
         },
-        limit=100
+        top_k=100
     )
 
     # Monitor usage patterns
@@ -368,9 +372,9 @@ If you encounter issues, you can revert immediately by switching your import bac
 
 ## Next Steps
 
-- [Platform Dashboard](https://app.mem0.ai) - Monitor usage and manage settings.
+- <a href="https://app.mem0.ai" rel="nofollow">Platform Dashboard</a> - Monitor usage and manage settings.
 - [Webhooks Setup](/platform/features/webhooks) - Configure real-time event notifications.
-- [Organizations & Projects](/platform/features/organizations-projects) - Set up multi-tenancy for your team.
+- [Organizations & Projects](/api-reference/organizations-projects) - Set up multi-tenancy for your team.
 
 <CardGroup cols={2}>
   <Card

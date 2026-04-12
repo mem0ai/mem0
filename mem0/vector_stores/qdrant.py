@@ -1,15 +1,20 @@
 import logging
-import os
-import shutil
+import re
+from typing import Optional
 
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import (
+    DatetimeRange,
     Distance,
     FieldCondition,
     Filter,
+    MatchAny,
+    MatchExcept,
+    MatchText,
     MatchValue,
     PointIdsList,
     PointStruct,
+    PointVectors,
     Range,
     SparseVector,
     SparseVectorParams,
@@ -46,7 +51,8 @@ class Qdrant(VectorStoreBase):
             path (str, optional): Path for local Qdrant database. Defaults to None.
             url (str, optional): Full URL for Qdrant server. Defaults to None.
             api_key (str, optional): API key for Qdrant server. Defaults to None.
-            on_disk (bool, optional): Enables persistent storage. Defaults to False.
+            on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
+                Does not delete the local database path. Defaults to False.
         """
         if client:
             self.client = client
@@ -64,9 +70,6 @@ class Qdrant(VectorStoreBase):
             if not params:
                 params["path"] = path
                 self.is_local = True
-                if not on_disk:
-                    if os.path.exists(path) and os.path.isdir(path):
-                        shutil.rmtree(path)
             else:
                 self.is_local = False
 
@@ -186,35 +189,181 @@ class Qdrant(VectorStoreBase):
 
         self.client.upsert(collection_name=self.collection_name, points=points)
 
-    def _create_filter(self, filters: dict) -> Filter:
+    # ISO 8601 datetime pattern for detecting datetime strings in range filters
+    _ISO_DATETIME_RE = re.compile(
+        r"^\d{4}-\d{2}-\d{2}"  # date part
+        r"([T ]\d{2}:\d{2}(:\d{2})?"  # optional time part
+        r"(\.\d+)?"  # optional fractional seconds
+        r"(Z|[+-]\d{2}:?\d{2})?"  # optional timezone
+        r")?$"
+    )
+
+    @staticmethod
+    def _is_datetime_range(range_kwargs: dict) -> bool:
+        """Check if all values in range kwargs are ISO datetime strings."""
+        return all(
+            isinstance(v, str) and Qdrant._ISO_DATETIME_RE.match(v)
+            for v in range_kwargs.values()
+        )
+
+    def _build_field_condition(self, key: str, value) -> Optional[FieldCondition]:
+        """
+        Build a single FieldCondition from a key-value filter pair.
+
+        Supports the enhanced filter syntax documented at
+        https://docs.mem0.ai/open-source/features/metadata-filtering
+
+        Args:
+            key (str): The payload field name.
+            value: A scalar for simple equality, or a dict with one operator key.
+
+        Returns:
+            Optional[FieldCondition]: The Qdrant field condition, or None if the
+            value is the wildcard '*' (match any / field exists — skip filter).
+        """
+        if not isinstance(value, dict):
+            if value == "*":
+                # Wildcard: match any value. Qdrant has no direct "field exists"
+                # condition via FieldCondition, so we skip this filter (match all).
+                return None
+            if isinstance(value, list):
+                # List shorthand: {"field": ["a", "b"]} treated as in-operator.
+                return FieldCondition(key=key, match=MatchAny(any=value))
+            # Simple equality: {"field": "value"}
+            return FieldCondition(key=key, match=MatchValue(value=value))
+
+        ops = set(value.keys())
+        range_ops = {"gt", "gte", "lt", "lte"}
+        non_range_ops = ops - range_ops
+
+        if ops & range_ops:
+            if non_range_ops:
+                raise ValueError(
+                    f"Cannot mix range operators ({ops & range_ops}) with "
+                    f"non-range operators ({non_range_ops}) for field '{key}'. "
+                    f"Use AND to combine them as separate conditions."
+                )
+            range_kwargs = {op: value[op] for op in range_ops if op in value}
+            if self._is_datetime_range(range_kwargs):
+                try:
+                    return FieldCondition(key=key, range=DatetimeRange(**range_kwargs))
+                except (ValueError, TypeError) as e:
+                    raise ValueError(
+                        f"Invalid datetime value in range filter for field '{key}': {e}"
+                    ) from e
+            return FieldCondition(key=key, range=Range(**range_kwargs))
+        elif "eq" in value:
+            return FieldCondition(key=key, match=MatchValue(value=value["eq"]))
+        elif "ne" in value:
+            return FieldCondition(key=key, match=MatchExcept(**{"except": [value["ne"]]}))
+        elif "in" in value:
+            return FieldCondition(key=key, match=MatchAny(any=value["in"]))
+        elif "nin" in value:
+            return FieldCondition(key=key, match=MatchExcept(**{"except": value["nin"]}))
+        elif "contains" in value or "icontains" in value:
+            # MatchText: with a full-text index, tokenized matching (all words must appear).
+            # Without a full-text index, exact substring match.
+            op = "icontains" if "icontains" in value else "contains"
+            text = value[op]
+            if op == "icontains":
+                logger.debug(
+                    "icontains on field '%s': Qdrant MatchText case sensitivity depends on "
+                    "full-text index configuration. Without a full-text index this behaves "
+                    "as a case-sensitive substring match (same as 'contains').",
+                    key,
+                )
+            return FieldCondition(key=key, match=MatchText(text=text))
+        else:
+            supported = {"eq", "ne", "gt", "gte", "lt", "lte", "in", "nin", "contains", "icontains"}
+            raise ValueError(
+                f"Unsupported filter operator(s) for field '{key}': {ops}. "
+                f"Supported operators: {supported}"
+            )
+
+    def _create_filter(self, filters: dict) -> Optional[Filter]:
         """
         Create a Filter object from the provided filters.
+
+        Supports the enhanced filter syntax with comparison operators (eq, ne,
+        gt, gte, lt, lte), list operators (in, nin), string operators (contains,
+        icontains), and logical operators (AND, OR, NOT).
 
         Args:
             filters (dict): Filters to apply.
 
         Returns:
-            Filter: The created Filter object.
+            Filter: The created Filter object, or None if filters is empty.
         """
         if not filters:
             return None
 
-        conditions = []
+        # Normalize $or/$not/$and → OR/NOT/AND and deduplicate.
+        # Memory._process_metadata_filters() renames OR→$or and NOT→$not,
+        # but effective_filters retains the original OR/NOT keys from
+        # deepcopy(input_filters).  Without dedup the same sub-conditions
+        # would be evaluated twice.
+        key_map = {"$or": "OR", "$not": "NOT", "$and": "AND"}
+        normalized = {}
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                conditions.append(FieldCondition(key=key, range=Range(gte=value["gte"], lte=value["lte"])))
-            else:
-                conditions.append(FieldCondition(key=key, match=MatchValue(value=value)))
-        return Filter(must=conditions) if conditions else None
+            norm_key = key_map.get(key, key)
+            if norm_key not in normalized:
+                normalized[norm_key] = value
 
-    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None) -> list:
+        must = []
+        should = []
+        must_not = []
+
+        for key, value in normalized.items():
+            if key in ("AND", "OR", "NOT"):
+                if not isinstance(value, list):
+                    raise ValueError(
+                        f"{key} filter value must be a list of filter dicts, "
+                        f"got {type(value).__name__}"
+                    )
+                for i, item in enumerate(value):
+                    if not isinstance(item, dict):
+                        raise ValueError(
+                            f"{key} filter list item at index {i} must be a dict, "
+                            f"got {type(item).__name__}: {item!r}"
+                        )
+
+            if key == "AND":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        must.append(built)
+            elif key == "OR":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        should.append(built)
+            elif key == "NOT":
+                for sub in value:
+                    built = self._create_filter(sub)
+                    if built:
+                        must_not.append(built)
+            else:
+                condition = self._build_field_condition(key, value)
+                if condition is not None:
+                    must.append(condition)
+
+        if not any([must, should, must_not]):
+            return None
+
+        return Filter(
+            must=must or None,
+            should=should or None,
+            must_not=must_not or None,
+        )
+
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None) -> list:
         """
         Search for similar vectors.
 
         Args:
             query (str): Query.
             vectors (list): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -225,15 +374,15 @@ class Qdrant(VectorStoreBase):
             collection_name=self.collection_name,
             query=vectors,
             query_filter=query_filter,
-            limit=limit,
+            limit=top_k,
         )
         return hits.points
 
-    def search_batch(self, queries: list, vectors_list: list, limit: int = 1, filters: dict = None):
+    def search_batch(self, queries: list, vectors_list: list, top_k: int = 1, filters: dict = None):
         """Batch search using Qdrant's query_batch_points for efficiency."""
         query_filter = self._create_filter(filters) if filters else None
         requests = [
-            models.QueryRequest(query=vec, filter=query_filter, limit=limit)
+            models.QueryRequest(query=vec, filter=query_filter, limit=top_k)
             for vec in vectors_list
         ]
         try:
@@ -244,15 +393,15 @@ class Qdrant(VectorStoreBase):
             return [r.points for r in results]
         except Exception as e:
             logger.warning(f"Batch search failed, falling back to sequential: {e}")
-            return [self.search(q, v, limit=limit, filters=filters) for q, v in zip(queries, vectors_list)]
+            return [self.search(q, v, top_k=top_k, filters=filters) for q, v in zip(queries, vectors_list)]
 
-    def keyword_search(self, query, limit=5, filters=None):
+    def keyword_search(self, query, top_k=5, filters=None):
         """
         Search using BM25 sparse vectors for keyword-based retrieval.
 
         Args:
             query (str): The search query text.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -269,7 +418,7 @@ class Qdrant(VectorStoreBase):
                 query=sparse_query,
                 using="bm25",
                 query_filter=query_filter,
-                limit=limit,
+                limit=top_k,
             )
             return hits.points
         except Exception as e:
@@ -299,17 +448,32 @@ class Qdrant(VectorStoreBase):
             vector (list, optional): Updated vector. Defaults to None.
             payload (dict, optional): Updated payload. Defaults to None.
         """
-        # Build named vectors with BM25 if payload has text
-        named_vectors = {"": vector} if vector else vector
-        if payload and vector:
+        if vector is not None and payload is not None:
+            # Full update: attach BM25 sparse vector alongside dense vector
+            named_vectors = {"": vector}
             text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
             if text_for_bm25:
                 sparse = self._encode_bm25(text_for_bm25)
                 if sparse is not None:
                     named_vectors["bm25"] = sparse
-
-        point = PointStruct(id=vector_id, vector=named_vectors, payload=payload)
-        self.client.upsert(collection_name=self.collection_name, points=[point])
+            point = PointStruct(id=vector_id, vector=named_vectors, payload=payload)
+            self.client.upsert(collection_name=self.collection_name, points=[point])
+        else:
+            # Partial update: use Qdrant's dedicated endpoints.
+            # Note: BM25 sparse vector cannot be refreshed via set_payload alone;
+            # payload-only updates will leave any existing BM25 vector stale. In
+            # practice v3 re-embeds on memory text change, so this is acceptable.
+            if payload is not None:
+                self.client.set_payload(
+                    collection_name=self.collection_name,
+                    payload=payload,
+                    points=[vector_id],
+                )
+            if vector is not None:
+                self.client.update_vectors(
+                    collection_name=self.collection_name,
+                    points=[PointVectors(id=vector_id, vector=vector)],
+                )
 
     def get(self, vector_id: int) -> dict:
         """
@@ -346,13 +510,13 @@ class Qdrant(VectorStoreBase):
         """
         return self.client.get_collection(collection_name=self.collection_name)
 
-    def list(self, filters: dict = None, limit: int = 100) -> list:
+    def list(self, filters: dict = None, top_k: int = 100) -> list:
         """
         List all vectors in a collection.
 
         Args:
             filters (dict, optional): Filters to apply to the list. Defaults to None.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             list: List of vectors.
@@ -361,7 +525,7 @@ class Qdrant(VectorStoreBase):
         result = self.client.scroll(
             collection_name=self.collection_name,
             scroll_filter=query_filter,
-            limit=limit,
+            limit=top_k,
             with_payload=True,
             with_vectors=False,
         )

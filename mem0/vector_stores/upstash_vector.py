@@ -98,7 +98,7 @@ class UpstashVector(VectorStoreBase):
         self,
         query: str,
         vectors: List[list],
-        limit: int = 5,
+        top_k: int = 5,
         filters: Optional[Dict] = None,
     ) -> List[OutputData]:
         """
@@ -106,7 +106,7 @@ class UpstashVector(VectorStoreBase):
 
         Args:
             query (list): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -120,7 +120,7 @@ class UpstashVector(VectorStoreBase):
         if self.enable_embeddings:
             response = self.client.query(
                 data=query,
-                top_k=limit,
+                top_k=top_k,
                 filter=filters_str or "",
                 include_metadata=True,
                 namespace=self.collection_name,
@@ -129,7 +129,7 @@ class UpstashVector(VectorStoreBase):
             queries = [
                 {
                     "vector": v,
-                    "top_k": limit,
+                    "top_k": top_k,
                     "filter": filters_str or "",
                     "include_metadata": True,
                     "namespace": self.collection_name,
@@ -149,13 +149,13 @@ class UpstashVector(VectorStoreBase):
             for res in response
         ]
 
-    def keyword_search(self, query, limit=5, filters=None):
+    def keyword_search(self, query, top_k=5, filters=None):
         """
         Perform keyword-based search using Upstash's BM25 sparse search.
 
         Args:
             query (str): The text query to search for.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -170,7 +170,7 @@ class UpstashVector(VectorStoreBase):
 
             response = self.client.query(
                 data=query,
-                top_k=limit,
+                top_k=top_k,
                 filter=filters_str or "",
                 include_metadata=True,
                 namespace=self.collection_name,
@@ -244,12 +244,12 @@ class UpstashVector(VectorStoreBase):
             return None
         return OutputData(id=vector.id, score=None, payload=vector.metadata)
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[List[OutputData]]:
         """
         List all memories.
         Args:
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
-            limit (int, optional): Number of results to return. Defaults to 100.
+            top_k (int, optional): Number of results to return. Defaults to 100.
         Returns:
             List[OutputData]: Search results.
         """
@@ -272,7 +272,7 @@ class UpstashVector(VectorStoreBase):
         )
         with query:
             while True:
-                if len(results) >= limit:
+                if len(results) >= top_k:
                     break
                 res = query.fetch_next(100)
                 if not res:

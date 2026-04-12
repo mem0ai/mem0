@@ -4,7 +4,7 @@
 		"title": "Mem0 API Docs",
 		"description": "mem0.ai API Docs",
 		"contact": {
-			"email": "deshraj@mem0.ai"
+			"email": "support@mem0.ai"
 		},
 		"license": {
 			"name": "Apache 2.0"
@@ -183,7 +183,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\nusers = client.users()\nprint(users)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\nusers = client.users()\nprint(users)"
 					},
 					{
 						"lang": "JavaScript",
@@ -457,7 +457,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+					{
+						"lang": "Python",
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/events/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "const options = {method: 'GET', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/events/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+					},
+					{
+						"lang": "cURL",
+						"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/events/ \\\n  --header 'Authorization: Token <api-key>'"
+					},
+					{
+						"lang": "Go",
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/events/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+					},
+					{
+						"lang": "PHP",
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/events/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+					},
+					{
+						"lang": "Java",
+						"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/events/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					}
+				]
 			}
 		},
 		"/v1/event/{event_id}/": {
@@ -563,7 +589,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+					{
+						"lang": "Python",
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/event/{event_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "const options = {method: 'GET', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/event/{event_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+					},
+					{
+						"lang": "cURL",
+						"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/event/{event_id}/ \\\n  --header 'Authorization: Token <api-key>'"
+					},
+					{
+						"lang": "Go",
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/event/{event_id}/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+					},
+					{
+						"lang": "PHP",
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/event/{event_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+					},
+					{
+						"lang": "Java",
+						"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/event/{event_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					}
+				]
 			}
 		},
 		"/v1/exports/": {
@@ -665,7 +717,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\njson_schema = {pydantic_json_schema}\nfilters = {\n    \"AND\": [\n        {\"user_id\": \"alex\"}\n    ]\n}\n\nresponse = client.create_memory_export(\n    schema=json_schema,\n    filters=filters\n)\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\njson_schema = {pydantic_json_schema}\nfilters = {\n    \"AND\": [\n        {\"user_id\": \"alex\"}\n    ]\n}\n\nresponse = client.create_memory_export(\n    schema=json_schema,\n    filters=filters\n)\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -793,7 +845,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"project_id\")\n\nmemory_export_id = \"<memory_export_id>\"\n\nresponse = client.get_memory_export(memory_export_id=memory_export_id)\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\nmemory_export_id = \"<memory_export_id>\"\n\nresponse = client.get_memory_export(memory_export_id=memory_export_id)\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -1044,7 +1096,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(user_id=\"<user_id>\")\n\nprint(user_memories)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(user_id=\"<user_id>\")\n\nprint(user_memories)"
 					},
 					{
 						"lang": "JavaScript",
@@ -1151,11 +1203,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"<user-message>\"},\n    {\"role\": \"assistant\", \"content\": \"<assistant-response>\"}\n]\n\nclient.add(messages, user_id=\"<user-id>\", version=\"v2\")"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"<user-message>\"},\n    {\"role\": \"assistant\", \"content\": \"<assistant-response>\"}\n]\n\nclient.add(messages, user_id=\"<user-id>\")"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst messages = [\n  { role: \"user\", content: \"Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts.\" },\n  { role: \"assistant\", content: \"Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions.\" }\n];\n\nclient.add(messages, { user_id: \"<user_id>\", version: \"v2\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst messages = [\n  { role: \"user\", content: \"Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts.\" },\n  { role: \"assistant\", content: \"Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions.\" }\n];\n\nclient.add(messages, { user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1180,7 +1232,7 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Delete memories by filter. At least one filter is required — previously omitting all filters silently deleted everything; now it returns a validation error.",
+				"description": "Delete memories by filter. At least one filter is required \u2014 previously omitting all filters silently deleted everything; now it returns a validation error.",
 				"operationId": "memories_delete",
 				"parameters": [
 					{
@@ -1263,15 +1315,15 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")\n\n# Delete all memories for every user in the project (wildcard)\nclient.delete_all(user_id=\"*\")\n\n# Full project wipe — all four filters must be explicitly set to \"*\"\nclient.delete_all(user_id=\"*\", agent_id=\"*\", app_id=\"*\", run_id=\"*\")\n\n# NOTE: Calling delete_all() with no filters raises a validation error.\n# At least one filter is required to prevent accidental data loss."
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")\n\n# Delete all memories for every user in the project (wildcard)\nclient.delete_all(user_id=\"*\")\n\n# Full project wipe \u2014 all four filters must be explicitly set to \"*\"\nclient.delete_all(user_id=\"*\", agent_id=\"*\", app_id=\"*\", run_id=\"*\")\n\n# NOTE: Calling delete_all() with no filters raises a validation error.\n# At least one filter is required to prevent accidental data loss."
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Delete all memories for every user in the project (wildcard)\nclient.deleteAll({ user_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Full project wipe — all four filters must be explicitly set to \"*\"\nclient.deleteAll({ user_id: \"*\", agent_id: \"*\", app_id: \"*\", run_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Delete all memories for every user in the project (wildcard)\nclient.deleteAll({ user_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Full project wipe \u2014 all four filters must be explicitly set to \"*\"\nclient.deleteAll({ user_id: \"*\", agent_id: \"*\", app_id: \"*\", run_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
-						"source": "# Delete memories for a specific user\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=<user_id>' \\\n  --header 'Authorization: Token <api-key>'\n\n# Delete memories for all users (wildcard)\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*' \\\n  --header 'Authorization: Token <api-key>'\n\n# Full project wipe — all four filters must be set to *\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*&agent_id=*&app_id=*&run_id=*' \\\n  --header 'Authorization: Token <api-key>'"
+						"source": "# Delete memories for a specific user\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=<user_id>' \\\n  --header 'Authorization: Token <api-key>'\n\n# Delete memories for all users (wildcard)\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*' \\\n  --header 'Authorization: Token <api-key>'\n\n# Full project wipe \u2014 all four filters must be set to *\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*&agent_id=*&app_id=*&run_id=*' \\\n  --header 'Authorization: Token <api-key>'"
 					},
 					{
 						"lang": "Go",
@@ -1389,11 +1441,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Retrieve memories with filters\nmemories = client.get_all(\n    filters={\n        \"AND\": [\n            {\n                \"user_id\": \"alex\"\n            },\n            {\n                \"created_at\": {\n                    \"gte\": \"2024-07-01\",\n                    \"lte\": \"2024-07-31\"\n                }\n            }\n        ]\n    },\n    version=\"v2\"\n)\n\nprint(memories)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Retrieve memories with filters\nmemories = client.get_all(\n    filters={\n        \"AND\": [\n            {\n                \"user_id\": \"alex\"\n            },\n            {\n                \"created_at\": {\n                    \"gte\": \"2024-07-01\",\n                    \"lte\": \"2024-07-31\"\n                }\n            }\n        ]\n    }\n)\n\nprint(memories)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst filters = {\n  AND: [\n    { user_id: 'alex' },\n    { created_at: { gte: '2024-07-01', lte: '2024-07-31' } }\n  ]\n};\n\nclient.getAll({ filters, api_version: 'v2' })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst filters = {\n  AND: [\n    { user_id: 'alex' },\n    { created_at: { gte: '2024-07-01', lte: '2024-07-31' } }\n  ]\n};\n\nclient.getAll({ filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1537,11 +1589,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.1\")\nprint(results)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\")\nprint(results)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.1\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1656,11 +1708,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"What do you know about me?\"\nfilters = {\n   \"OR\":[\n      {\n         \"user_id\":\"alex\"\n      },\n      {\n         \"agent_id\":{\n            \"in\":[\n               \"travel-assistant\",\n               \"customer-support\"\n            ]\n         }\n      }\n   ]\n}\nclient.search(query, version=\"v2\", filters=filters)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nquery = \"What do you know about me?\"\nfilters = {\n   \"OR\":[\n      {\n         \"user_id\":\"alex\"\n      },\n      {\n         \"agent_id\":{\n            \"in\":[\n               \"travel-assistant\",\n               \"customer-support\"\n            ]\n         }\n      }\n   ]\n}\nclient.search(query, filters=filters)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"What do you know about me?\";\nconst filters = {\n  OR: [\n    { user_id: \"alex\" },\n    { agent_id: { in: [\"travel-assistant\", \"customer-support\"] } }\n  ]\n};\n\nclient.search(query, { api_version: \"v2\", filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"What do you know about me?\";\nconst filters = {\n  OR: [\n    { user_id: \"alex\" },\n    { agent_id: { in: [\"travel-assistant\", \"customer-support\"] } }\n  ]\n};\n\nclient.search(query, { filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1812,7 +1864,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nmemory = client.get(memory_id=\"<memory_id>\")"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nmemory = client.get(memory_id=\"<memory_id>\")"
 					},
 					{
 						"lang": "JavaScript",
@@ -1937,7 +1989,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Update a memory\nmemory_id = \"<memory_id>\"\nclient.update(\n    memory_id=memory_id,\n    text=\"Your updated memory message here\",\n    metadata={\"category\": \"example\"}\n)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Update a memory\nmemory_id = \"<memory_id>\"\nclient.update(\n    memory_id=memory_id,\n    text=\"Your updated memory message here\",\n    metadata={\"category\": \"example\"}\n)"
 					},
 					{
 						"lang": "JavaScript",
@@ -2001,7 +2053,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nmemory_id = \"<memory_id>\"\nclient.delete(memory_id=memory_id)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nmemory_id = \"<memory_id>\"\nclient.delete(memory_id=memory_id)"
 					},
 					{
 						"lang": "JavaScript",
@@ -2147,7 +2199,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Add some message to create history\nmessages = [{\"role\": \"user\", \"content\": \"<user-message>\"}]\nclient.add(messages, user_id=\"<user-id>\")\n\n# Add second message to update history\nmessages.append({\"role\": \"user\", \"content\": \"<user-message>\"})\nclient.add(messages, user_id=\"<user-id>\")\n\n# Get history of how memory changed over time\nmemory_id = \"<memory-id-here>\"\nhistory = client.history(memory_id)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Add some message to create history\nmessages = [{\"role\": \"user\", \"content\": \"<user-message>\"}]\nclient.add(messages, user_id=\"<user-id>\")\n\n# Add second message to update history\nmessages.append({\"role\": \"user\", \"content\": \"<user-message>\"})\nclient.add(messages, user_id=\"<user-id>\")\n\n# Get history of how memory changed over time\nmemory_id = \"<memory-id-here>\"\nhistory = client.history(memory_id)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3556,7 +3608,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nresponse = client.get_project()\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\nresponse = client.get_project()\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3634,6 +3686,10 @@
 											"type": "object"
 										},
 										"description": "List of custom categories to be used for memory categorization."
+									},
+									"multilingual": {
+										"type": "boolean",
+										"description": "Whether to use the input language for memory storage and retrieval."
 									}
 								}
 							}
@@ -4355,7 +4411,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nupdate_memories = [\n    {\n        \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n        \"text\": \"Watches football\"\n    },\n    {\n        \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n        \"text\": \"Likes to travel\"\n    }\n]\n\nresponse = client.batch_update(update_memories)\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nupdate_memories = [\n    {\n        \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n        \"text\": \"Watches football\"\n    },\n    {\n        \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n        \"text\": \"Likes to travel\"\n    }\n]\n\nresponse = client.batch_update(update_memories)\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4434,7 +4490,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\ndelete_memories = [\n    {\"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"},\n    {\"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"}\n]\n\nresponse = client.batch_delete(delete_memories)\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\ndelete_memories = [\n    {\"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"},\n    {\"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"}\n]\n\nresponse = client.batch_delete(delete_memories)\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4702,7 +4758,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\", \"memory:categorize\"]\n)\nprint(webhook)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\", \"memory:categorize\"]\n)\nprint(webhook)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4942,7 +4998,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",

@@ -13,7 +13,7 @@ class VectorStoreBase(ABC):
         pass
 
     @abstractmethod
-    def search(self, query, vectors, limit=5, filters=None):
+    def search(self, query, vectors, top_k=5, filters=None):
         """Search for similar vectors."""
         pass
 
@@ -48,7 +48,7 @@ class VectorStoreBase(ABC):
         pass
 
     @abstractmethod
-    def list(self, filters=None, limit=None):
+    def list(self, filters=None, top_k=None):
         """List all memories."""
         pass
 
@@ -57,7 +57,7 @@ class VectorStoreBase(ABC):
         """Reset by delete the collection and recreate it."""
         pass
 
-    def keyword_search(self, query: str, limit: int = 5, filters: dict = None):
+    def keyword_search(self, query: str, top_k: int = 5, filters: dict = None):
         """Keyword/BM25 full-text search. Returns None if not supported by this store.
 
         Override in subclasses that support native keyword/BM25 search.
@@ -66,7 +66,7 @@ class VectorStoreBase(ABC):
 
         Args:
             query: The search query text (should be lemmatized for best results).
-            limit: Maximum number of results to return.
+            top_k: Maximum number of results to return.
             filters: Optional metadata filters (same format as search filters).
 
         Returns:
@@ -74,7 +74,7 @@ class VectorStoreBase(ABC):
         """
         return None
 
-    def search_batch(self, queries: list, vectors_list: list, limit: int = 1, filters: dict = None):
+    def search_batch(self, queries: list, vectors_list: list, top_k: int = 1, filters: dict = None):
         """Batch search for multiple queries at once.
 
         Default implementation calls search() sequentially. Override in subclasses
@@ -83,10 +83,10 @@ class VectorStoreBase(ABC):
         Args:
             queries: List of query texts.
             vectors_list: List of query vectors (one per query).
-            limit: Maximum results per query.
+            top_k: Maximum results per query.
             filters: Optional metadata filters applied to all queries.
 
         Returns:
             List of result lists, one per query.
         """
-        return [self.search(q, v, limit=limit, filters=filters) for q, v in zip(queries, vectors_list)]
+        return [self.search(q, v, top_k=top_k, filters=filters) for q, v in zip(queries, vectors_list)]

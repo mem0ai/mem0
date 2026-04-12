@@ -59,7 +59,7 @@ def test_search_filter_syntax(valkey_db, mock_valkey_client):
     valkey_db.search(
         query="test query",
         vectors=np.random.rand(1536).tolist(),
-        limit=5,
+        top_k=5,
         filters={"user_id": "test_user"},
     )
 
@@ -72,7 +72,7 @@ def test_search_filter_syntax(valkey_db, mock_valkey_client):
     valkey_db.search(
         query="test query",
         vectors=np.random.rand(1536).tolist(),
-        limit=5,
+        top_k=5,
         filters={"user_id": "test_user", "agent_id": "test_agent"},
     )
 
@@ -104,7 +104,7 @@ def test_search_without_filters(valkey_db, mock_valkey_client):
     results = valkey_db.search(
         query="test query",
         vectors=np.random.rand(1536).tolist(),
-        limit=5,
+        top_k=5,
     )
 
     # Check that the search was called with the correct syntax
@@ -202,6 +202,52 @@ def test_update_handles_missing_created_at(valkey_db, mock_valkey_client):
     mock_valkey_client.hset.assert_called_once()
     args, kwargs = mock_valkey_client.hset.call_args
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
+
+
+def test_update_with_none_vector_preserves_embedding(valkey_db, mock_valkey_client):
+    """Test that update with vector=None does not corrupt the stored embedding.
+
+    Regression test for #4336: when vector=None is passed (metadata-only update),
+    np.array(None) silently creates a 4-byte scalar, overwriting the real embedding.
+    The fix skips the embedding field entirely so the existing value is preserved.
+    """
+    payload = {
+        "hash": "test_hash",
+        "data": "updated_data",
+        "created_at": datetime.now(pytz.timezone("UTC")).isoformat(),
+        "user_id": "test_user",
+    }
+
+    valkey_db.update(vector_id="test_id", vector=None, payload=payload)
+
+    mock_valkey_client.hset.assert_called_once()
+    args, kwargs = mock_valkey_client.hset.call_args
+    assert "embedding" not in kwargs["mapping"], (
+        "embedding should not be in hash_data when vector is None"
+    )
+    assert kwargs["mapping"]["memory_id"] == "test_id"
+    assert kwargs["mapping"]["memory"] == "updated_data"
+
+
+def test_update_with_vector_includes_embedding(valkey_db, mock_valkey_client):
+    """Test that update with a real vector includes the embedding in hash_data."""
+    vector = np.random.rand(1536).tolist()
+    payload = {
+        "hash": "test_hash",
+        "data": "updated_data",
+        "created_at": datetime.now(pytz.timezone("UTC")).isoformat(),
+        "user_id": "test_user",
+    }
+
+    valkey_db.update(vector_id="test_id", vector=vector, payload=payload)
+
+    mock_valkey_client.hset.assert_called_once()
+    args, kwargs = mock_valkey_client.hset.call_args
+    assert "embedding" in kwargs["mapping"], (
+        "embedding should be in hash_data when vector is provided"
+    )
+    expected_bytes = np.array(vector, dtype=np.float32).tobytes()
+    assert kwargs["mapping"]["embedding"] == expected_bytes
 
 
 def test_get(valkey_db, mock_valkey_client):
@@ -359,7 +405,7 @@ def test_list(valkey_db, mock_valkey_client):
     mock_ft.search.return_value = mock_results
 
     # Call list
-    results = valkey_db.list(filters={"user_id": "test_user"}, limit=10)
+    results = valkey_db.list(filters={"user_id": "test_user"}, top_k=10)
 
     # Check that search was called with the correct arguments
     mock_ft.search.assert_called_once()
@@ -391,7 +437,7 @@ def test_search_error_handling(valkey_db, mock_valkey_client):
         valkey_db.search(
             query="test query",
             vectors=np.random.rand(1536).tolist(),
-            limit=5,
+            top_k=5,
             filters={"user_id": "test_user"},
         )
 
@@ -730,7 +776,7 @@ def test_search_with_invalid_metadata(valkey_db, mock_valkey_client):
     mock_valkey_client.ft.return_value.search.return_value = mock_result
 
     # Should handle invalid JSON gracefully
-    results = valkey_db.search(query="test query", vectors=np.random.rand(1536).tolist(), limit=5)
+    results = valkey_db.search(query="test query", vectors=np.random.rand(1536).tolist(), top_k=5)
 
     assert len(results) == 1
 
@@ -744,7 +790,7 @@ def test_search_with_hnsw_ef_runtime(valkey_db, mock_valkey_client):
     mock_result.docs = []
     mock_valkey_client.ft.return_value.search.return_value = mock_result
 
-    valkey_db.search(query="test query", vectors=np.random.rand(1536).tolist(), limit=5)
+    valkey_db.search(query="test query", vectors=np.random.rand(1536).tolist(), top_k=5)
 
     # Verify the search was called
     assert mock_valkey_client.ft.return_value.search.called

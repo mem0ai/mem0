@@ -1,6 +1,6 @@
 import logging
 
-from mem0.memory.utils import format_entities
+from mem0.memory.utils import format_entities, remove_spaces_from_entities
 
 try:
     import kuzu
@@ -113,14 +113,14 @@ class MemoryGraph:
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
-    def search(self, query, filters, limit=5):
+    def search(self, query, filters, top_k=5):
         """
         Search for memories and related graph data.
 
         Args:
             query (str): Query to search for.
             filters (dict): A dictionary containing filters to be applied during the search.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
 
         Returns:
             dict: A dictionary containing:
@@ -139,7 +139,7 @@ class MemoryGraph:
         bm25 = BM25Okapi(search_outputs_sequence)
 
         tokenized_query = query.split(" ")
-        reranked_results = bm25.get_top_n(tokenized_query, search_outputs_sequence, n=limit)
+        reranked_results = bm25.get_top_n(tokenized_query, search_outputs_sequence, n=top_k)
 
         search_results = []
         for item in reranked_results:
@@ -148,6 +148,28 @@ class MemoryGraph:
         logger.info(f"Returned {len(search_results)} search results")
 
         return search_results
+
+    def delete(self, data, filters):
+        """
+        Delete graph entities associated with the given memory text.
+
+        Extracts entities and relationships from the memory text using the same
+        pipeline as add(), then deletes the matching relationships in the graph.
+
+        Args:
+            data (str): The memory text whose graph entities should be removed.
+            filters (dict): Scope filters (user_id, agent_id, run_id).
+        """
+        try:
+            entity_type_map = self._retrieve_nodes_from_data(data, filters)
+            if not entity_type_map:
+                logger.debug("No entities found in memory text, skipping graph cleanup")
+                return
+            to_be_deleted = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+            if to_be_deleted:
+                self._delete_entities(to_be_deleted, filters)
+        except Exception as e:
+            logger.error(f"Error during graph cleanup for memory delete: {e}")
 
     def delete_all(self, filters):
         # Build node properties for filtering
@@ -169,12 +191,12 @@ class MemoryGraph:
             params["run_id"] = filters["run_id"]
         self.kuzu_execute(cypher, parameters=params)
 
-    def get_all(self, filters, limit=100):
+    def get_all(self, filters, top_k=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
          Args:
             filters (dict): A dictionary containing filters to be applied during the retrieval.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
         Returns:
             list: A list of dictionaries, each containing:
                 - 'contexts': The base data store response for each memory.
@@ -183,7 +205,7 @@ class MemoryGraph:
 
         params = {
             "user_id": filters["user_id"],
-            "limit": limit,
+            "limit": top_k,
         }
         # Build node properties based on filters
         node_props = ["user_id: $user_id"]
@@ -241,7 +263,7 @@ class MemoryGraph:
             for tool_call in search_results["tool_calls"]:
                 if tool_call["name"] != "extract_entities":
                     continue
-                for item in tool_call["arguments"]["entities"]:
+                for item in tool_call.get("arguments", {}).get("entities", []):
                     entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
             logger.exception(
@@ -294,14 +316,14 @@ class MemoryGraph:
         logger.debug(f"Extracted entities: {entities}")
         return entities
 
-    def _search_graph_db(self, node_list, filters, limit=100, threshold=None):
+    def _search_graph_db(self, node_list, filters, top_k=100, threshold=None):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
 
         params = {
             "threshold": threshold if threshold else self.threshold,
             "user_id": filters["user_id"],
-            "limit": limit,
+            "limit": top_k,
         }
         # Build node properties for filtering
         node_props = ["user_id: $user_id"]
@@ -342,7 +364,7 @@ class MemoryGraph:
                     parameters=params))
 
             # Kuzu does not support sort/limit over unions. Do it manually for now.
-            result_relations.extend(sorted(results, key=lambda x: x["similarity"], reverse=True)[:limit])
+            result_relations.extend(sorted(results, key=lambda x: x["similarity"], reverse=True)[:top_k])
 
         return result_relations
 
@@ -632,11 +654,7 @@ class MemoryGraph:
         return results
 
     def _remove_spaces_from_entities(self, entity_list):
-        for item in entity_list:
-            item["source"] = item["source"].lower().replace(" ", "_")
-            item["relationship"] = item["relationship"].lower().replace(" ", "_")
-            item["destination"] = item["destination"].lower().replace(" ", "_")
-        return entity_list
+        return remove_spaces_from_entities(entity_list, sanitize_relationship=False)
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
         params = {

@@ -266,14 +266,14 @@ config = MemoryConfig(
     graph_store=GraphStoreConfig(provider="neo4j", config={...}),  # optional
     history_db_path="~/.mem0/history.db",
     version="v1.1",
-    custom_fact_extraction_prompt="Custom prompt...",
+    custom_instructions="Custom prompt...",
     custom_update_memory_prompt="Custom prompt..."
 )
 ```
 
 ### Supported Providers
 
-#### LLM Providers (19 supported)
+#### LLM Providers (20 supported)
 - **openai** - OpenAI GPT models (default)
 - **anthropic** - Claude models
 - **gemini** - Google Gemini
@@ -284,6 +284,7 @@ config = MemoryConfig(
 - **azure_openai** - Azure OpenAI
 - **litellm** - LiteLLM proxy
 - **deepseek** - DeepSeek models
+- **minimax** - MiniMax models
 - **xai** - xAI models
 - **sarvam** - Sarvam AI
 - **lmstudio** - LM Studio local server
@@ -683,7 +684,7 @@ Conversation: {messages}
 """
 
 config = MemoryConfig(
-    custom_fact_extraction_prompt=custom_extraction_prompt
+    custom_instructions=custom_extraction_prompt
 )
 memory = Memory(config)
 ```

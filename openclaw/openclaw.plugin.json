@@ -1,6 +1,35 @@
 {
   "id": "openclaw-mem0",
+  "name": "Memory (Mem0)",
+  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. Injects recalled memories into agent context (auto-recall) and extracts facts after each turn (auto-capture). Both configurable via autoRecall/autoCapture settings.",
+  "version": "1.0.5",
   "kind": "memory",
+  "skills": ["skills"],
+  "contracts": {
+    "tools": [
+      "memory_search", "memory_add", "memory_get", "memory_list",
+      "memory_update", "memory_delete", "memory_event_list", "memory_event_status"
+    ]
+  },
+  "providerAuthEnvVars": {
+    "mem0": ["MEM0_API_KEY"],
+    "openclaw-mem0-oss": ["OPENAI_API_KEY"]
+  },
+  "providerAuthChoices": [
+    {
+      "provider": "mem0",
+      "method": "api-key",
+      "choiceId": "mem0-api-key",
+      "choiceLabel": "Mem0 API key",
+      "choiceHint": "Required for platform mode. Get your key at https://app.mem0.ai/dashboard/api-keys",
+      "groupId": "mem0",
+      "groupLabel": "Mem0",
+      "optionKey": "apiKey",
+      "cliFlag": "--mem0-api-key",
+      "cliOption": "--mem0-api-key <key>",
+      "cliDescription": "Mem0 platform API key"
+    }
+  ],
   "uiHints": {
     "mode": {
       "label": "Mode",
@@ -10,22 +39,12 @@
       "label": "Mem0 API Key",
       "sensitive": true,
       "placeholder": "m0-...",
-      "help": "API key from app.mem0.ai (or use ${MEM0_API_KEY}). Only needed for platform mode."
+      "help": "Platform mode only. Use a SecretRef ({\"source\":\"env\",\"provider\":\"default\",\"id\":\"MEM0_API_KEY\"}) or ${MEM0_API_KEY} instead of storing the key directly."
     },
     "userId": {
       "label": "Default User ID",
       "placeholder": "default",
       "help": "User ID for scoping memories"
-    },
-    "orgId": {
-      "label": "Organization ID",
-      "placeholder": "org-...",
-      "advanced": true
-    },
-    "projectId": {
-      "label": "Project ID",
-      "placeholder": "proj-...",
-      "advanced": true
     },
     "autoCapture": {
       "label": "Auto-Capture",
@@ -50,10 +69,6 @@
       "advanced": true,
       "help": "Custom prompt for open-source mode memory extraction."
     },
-    "enableGraph": {
-      "label": "Enable Graph Memory",
-      "help": "Enable Mem0 graph memory for entity relationships (platform mode only)"
-    },
     "searchThreshold": {
       "label": "Search Threshold",
       "placeholder": "0.5",
@@ -67,7 +82,12 @@
     "oss": {
       "label": "Open-Source Configuration",
       "advanced": true,
-      "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. Has sensible defaults — only override what you need."
+      "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. For API keys in sub-provider configs, use SecretRef objects or ${VAR} syntax instead of plaintext values."
+    },
+    "skills": {
+      "label": "Agentic Memory Skills",
+      "advanced": true,
+      "help": "Enable skills-based memory extraction. The agent controls what to remember (triage), how to recall (recall), and periodic cleanup (dream). Disables auto-capture when active."
     }
   },
   "configSchema": {
@@ -78,8 +98,7 @@
         "type": "string",
         "enum": [
           "platform",
-          "open-source",
-          "oss"
+          "open-source"
         ]
       },
       "apiKey": {
@@ -88,10 +107,7 @@
       "userId": {
         "type": "string"
       },
-      "orgId": {
-        "type": "string"
-      },
-      "projectId": {
+      "userEmail": {
         "type": "string"
       },
       "autoCapture": {
@@ -111,9 +127,6 @@
       },
       "customPrompt": {
         "type": "string"
-      },
-      "enableGraph": {
-        "type": "boolean"
       },
       "searchThreshold": {
         "type": "number"
@@ -160,6 +173,53 @@
           "historyDbPath": {
             "type": "string"
           }
+        }
+      },
+      "skills": {
+        "type": "object",
+        "properties": {
+          "triage": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "importanceThreshold": { "type": "number" },
+              "credentialPatterns": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "recall": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "strategy": { "type": "string", "enum": ["always", "smart", "manual"] },
+              "tokenBudget": { "type": "number" },
+              "maxMemories": { "type": "number" },
+              "rerank": { "type": "boolean" },
+              "keywordSearch": { "type": "boolean" },
+              "filterMemories": { "type": "boolean" },
+              "threshold": { "type": "number" },
+              "identityAlwaysInclude": { "type": "boolean" },
+              "categoryOrder": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "dream": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "auto": { "type": "boolean" },
+              "minHours": { "type": "number" },
+              "minSessions": { "type": "number" },
+              "minMemories": { "type": "number" }
+            }
+          },
+          "domain": { "type": "string" },
+          "customRules": {
+            "type": "object",
+            "properties": {
+              "include": { "type": "array", "items": { "type": "string" } },
+              "exclude": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "categories": { "type": "object" }
         }
       }
     },

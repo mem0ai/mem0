@@ -43,7 +43,7 @@ SECTION_MAP = {
         "/platform/features/v2-memory-filters",
         "/platform/features/async-client",
         "/platform/features/webhooks",
-        "/platform/features/multimodal",
+        "/platform/features/multimodal-support",
     ],
     "api": [
         "/api-reference/memory/add-memories",
@@ -61,10 +61,6 @@ SECTION_MAP = {
         "/open-source/features/graph-memory",
         "/open-source/features/rest-api",
         "/open-source/configure-components",
-    ],
-    "openmemory": [
-        "/openmemory/overview",
-        "/openmemory/quickstart",
     ],
     "sdks": [
         "/sdks/python",

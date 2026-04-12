@@ -60,7 +60,7 @@ def memory_custom_instance():
 
         config = MemoryConfig(
             version="v1.1",
-            custom_fact_extraction_prompt="custom prompt extracting memory",
+            custom_instructions="custom prompt extracting memory in json format",
             custom_update_memory_prompt="custom prompt determining memory update",
         )
         config.graph_store.config = {"some_config": "value"}
@@ -70,7 +70,8 @@ def memory_custom_instance():
 @pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
 def test_add(memory_instance, version, enable_graph):
     memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+    if not enable_graph:
+        memory_instance.graph = None
     memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
     memory_instance._add_to_graph = Mock(return_value=[])
 
@@ -123,7 +124,8 @@ def test_get(memory_instance):
 @pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
 def test_search(memory_instance, version, enable_graph):
     memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+    if not enable_graph:
+        memory_instance.graph = None
     mock_memories = [
         Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"}, score=0.9),
         Mock(id="2", payload={"data": "Memory 2", "user_id": "test_user"}, score=0.8),
@@ -131,7 +133,8 @@ def test_search(memory_instance, version, enable_graph):
     memory_instance.vector_store.search = Mock(return_value=mock_memories)
     memory_instance.vector_store.keyword_search = Mock(return_value=None)  # No BM25
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-    memory_instance.graph.search = Mock(return_value=[{"relation": "test_relation"}])
+    if memory_instance.graph:
+        memory_instance.graph.search = Mock(return_value=[{"relation": "test_relation"}])
 
     with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
          patch("mem0.memory.main.extract_entities", return_value=[]):
@@ -154,13 +157,11 @@ def test_search(memory_instance, version, enable_graph):
 
     # Hybrid pipeline over-fetches: max(100*4, 60) = 400
     memory_instance.vector_store.search.assert_called_once_with(
-        query="test query", vectors=[0.1, 0.2, 0.3], limit=400, filters={"user_id": "test_user"}
+        query="test query", vectors=[0.1, 0.2, 0.3], top_k=400, filters={"user_id": "test_user"}
     )
 
     if enable_graph:
         memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"}, 100)
-    else:
-        memory_instance.graph.search.assert_not_called()
 
 
 def test_update(memory_instance):
@@ -172,10 +173,39 @@ def test_update(memory_instance):
     result = memory_instance.update("test_id", "Updated memory")
 
     memory_instance._update_memory.assert_called_once_with(
-        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}
+        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, None
     )
 
     assert result["message"] == "Memory updated successfully!"
+
+
+def test_update_with_metadata(memory_instance):
+    memory_instance.embedding_model = Mock()
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    memory_instance._update_memory = Mock()
+    metadata = {"category": "sports", "priority": "high"}
+
+    result = memory_instance.update("test_id", "Updated memory", metadata=metadata)
+
+    memory_instance._update_memory.assert_called_once_with(
+        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, metadata
+    )
+
+    assert result["message"] == "Memory updated successfully!"
+
+
+def test_update_with_empty_metadata(memory_instance):
+    memory_instance.embedding_model = Mock()
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+    memory_instance._update_memory = Mock()
+
+    memory_instance.update("test_id", "Updated memory", metadata={})
+
+    memory_instance._update_memory.assert_called_once_with(
+        "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
+    )
 
 
 def test_delete(memory_instance):
@@ -183,27 +213,32 @@ def test_delete(memory_instance):
 
     result = memory_instance.delete("test_id")
 
-    memory_instance._delete_memory.assert_called_once_with("test_id")
+    # delete() now fetches the memory first and passes it to _delete_memory
+    existing_memory = memory_instance.vector_store.get.return_value
+    memory_instance._delete_memory.assert_called_once_with("test_id", existing_memory)
     assert result["message"] == "Memory deleted successfully!"
 
 
 @pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
 def test_delete_all(memory_instance, version, enable_graph):
     memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+    if not enable_graph:
+        memory_instance.graph = None
     mock_memories = [Mock(id="1"), Mock(id="2")]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
-    memory_instance.graph.delete_all = Mock()
+    if memory_instance.graph:
+        memory_instance.graph.delete_all = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
+    # Ensure the collection is NOT dropped — only matched memories should be removed
+    memory_instance.vector_store.reset.assert_not_called()
 
     if enable_graph:
         memory_instance.graph.delete_all.assert_called_once_with({"user_id": "test_user"})
-    else:
-        memory_instance.graph.delete_all.assert_not_called()
 
     assert result["message"] == "Memories deleted successfully!"
 
@@ -225,12 +260,14 @@ def test_delete_all(memory_instance, version, enable_graph):
 )
 def test_get_all(memory_instance, version, enable_graph, expected_result):
     memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+    if not enable_graph:
+        memory_instance.graph = None
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
-    memory_instance.graph.get_all = Mock(
-        return_value=[{"source": "entity1", "relationship": "rel", "target": "entity2"}]
-    )
+    if memory_instance.graph:
+        memory_instance.graph.get_all = Mock(
+            return_value=[{"source": "entity1", "relationship": "rel", "target": "entity2"}]
+        )
 
     result = memory_instance.get_all(user_id="test_user")
 
@@ -249,35 +286,47 @@ def test_get_all(memory_instance, version, enable_graph, expected_result):
     else:
         assert "relations" not in result
 
-    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, limit=100)
+    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=100)
 
     if enable_graph:
         memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"}, 100)
-    else:
-        memory_instance.graph.get_all.assert_not_called()
 
 
-def test_custom_prompts(memory_custom_instance):
-    """Test that custom_fact_extraction_prompt is passed as custom_instructions in v3 pipeline."""
-    messages = [{"role": "user", "content": "Test message"}]
-    from mem0.embeddings.mock import MockEmbeddings
+def test_no_telemetry_vector_store_when_disabled():
+    """VectorStoreFactory should only be called once (for user data) when telemetry is disabled."""
+    with (
+        patch("mem0.memory.main.MEM0_TELEMETRY", False),
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
 
-    # V3 pipeline returns {"memory": [...]} format (single LLM call)
-    memory_custom_instance.llm.generate_response = Mock()
-    memory_custom_instance.llm.generate_response.return_value = '{"memory": []}'
-    memory_custom_instance.embedding_model = MockEmbeddings()
-    memory_custom_instance.vector_store.search = Mock(return_value=[])
+        config = MemoryConfig(version="v1.1")
+        Memory(config)
 
-    with patch("mem0.memory.main.parse_messages", return_value="Test message") as mock_parse_messages:
-        memory_custom_instance.add(messages=messages, user_id="test_user")
+        # VectorStoreFactory.create should be called exactly once — for user data only, not telemetry
+        assert mock_vector_store.create.call_count == 1
 
-        mock_parse_messages.assert_called_once_with(messages)
 
-        # V3 pipeline makes exactly ONE LLM call (not two)
-        assert memory_custom_instance.llm.generate_response.call_count == 1
+def test_telemetry_vector_store_created_when_enabled():
+    """VectorStoreFactory should be called twice (user data + telemetry) when telemetry is enabled."""
+    with (
+        patch("mem0.memory.main.MEM0_TELEMETRY", True),
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
 
-        # The system prompt should be ADDITIVE_EXTRACTION_PROMPT
-        call_args = memory_custom_instance.llm.generate_response.call_args
-        llm_messages = call_args[1]["messages"] if "messages" in call_args[1] else call_args[0][0]
-        assert llm_messages[0]["role"] == "system"
-        assert "Memory Extractor" in llm_messages[0]["content"]  # From ADDITIVE_EXTRACTION_PROMPT
+        config = MemoryConfig(version="v1.1")
+        Memory(config)
+
+        # VectorStoreFactory.create should be called twice — user data + telemetry
+        assert mock_vector_store.create.call_count == 2

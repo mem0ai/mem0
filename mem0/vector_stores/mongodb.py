@@ -26,7 +26,7 @@ class OutputData(BaseModel):
 
 
 class MongoDB(VectorStoreBase):
-    VECTOR_TYPE = "knnVector"
+    VECTOR_TYPE = "vector"
     SIMILARITY_METRIC = "cosine"
 
     def __init__(self, db_name: str, collection_name: str, embedding_model_dims: int, mongo_uri: str):
@@ -51,7 +51,7 @@ class MongoDB(VectorStoreBase):
         """Create new collection with vector search index."""
         try:
             database = self.client[self.db_name]
-            collection_names = database.list_collection_names()
+            collection_names = database.list_collection_names(authorizedCollections=True)
             if self.collection_name not in collection_names:
                 logger.info(f"Collection '{self.collection_name}' does not exist. Creating it now.")
                 collection = database[self.collection_name]
@@ -69,17 +69,16 @@ class MongoDB(VectorStoreBase):
             else:
                 search_index_model = SearchIndexModel(
                     name=self.index_name,
+                    type="vectorSearch",
                     definition={
-                        "mappings": {
-                            "dynamic": False,
-                            "fields": {
-                                "embedding": {
-                                    "type": self.VECTOR_TYPE,
-                                    "dimensions": self.embedding_model_dims,
-                                    "similarity": self.SIMILARITY_METRIC,
-                                }
-                            },
-                        }
+                        "fields": [
+                            {
+                                "type": self.VECTOR_TYPE,
+                                "path": "embedding",
+                                "numDimensions": self.embedding_model_dims,
+                                "similarity": self.SIMILARITY_METRIC,
+                            }
+                        ]
                     },
                 )
                 collection.create_search_index(search_index_model)
@@ -149,14 +148,14 @@ class MongoDB(VectorStoreBase):
         except PyMongoError as e:
             logger.error(f"Error inserting data: {e}")
 
-    def search(self, query: str, vectors: List[float], limit=5, filters: Optional[Dict] = None) -> List[OutputData]:
+    def search(self, query: str, vectors: List[float], top_k=5, filters: Optional[Dict] = None) -> List[OutputData]:
         """
         Search for similar vectors using the vector search index.
 
         Args:
             query (str): Query string
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -175,8 +174,8 @@ class MongoDB(VectorStoreBase):
                 {
                     "$vectorSearch": {
                         "index": self.index_name,
-                        "limit": limit,
-                        "numCandidates": limit,
+                        "limit": top_k,
+                        "numCandidates": min(top_k * 20, 10000),
                         "queryVector": vectors,
                         "path": "embedding",
                     }
@@ -204,13 +203,13 @@ class MongoDB(VectorStoreBase):
         output = [OutputData(id=str(doc["_id"]), score=doc.get("score"), payload=doc.get("payload")) for doc in results]
         return output
 
-    def keyword_search(self, query, limit=5, filters=None):
+    def keyword_search(self, query, top_k=5, filters=None):
         """
         Perform keyword-based search using MongoDB Atlas Search.
 
         Args:
             query (str): The text query to search for.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -242,7 +241,7 @@ class MongoDB(VectorStoreBase):
                 if filter_conditions:
                     pipeline.insert(1, {"$match": {"$and": filter_conditions}})
 
-            pipeline.append({"$limit": limit})
+            pipeline.append({"$limit": top_k})
 
             results = list(collection.aggregate(pipeline))
             logger.info(f"Keyword search completed. Found {len(results)} documents.")
@@ -285,7 +284,8 @@ class MongoDB(VectorStoreBase):
         if vector is not None:
             update_fields["embedding"] = vector
         if payload is not None:
-            update_fields["payload"] = payload
+            for key, value in payload.items():
+                update_fields[f"payload.{key}"] = value
 
         if update_fields:
             try:
@@ -327,7 +327,7 @@ class MongoDB(VectorStoreBase):
             List[str]: List of collection names.
         """
         try:
-            collections = self.db.list_collection_names()
+            collections = self.db.list_collection_names(authorizedCollections=True)
             logger.info(f"Listing collections in database '{self.db_name}': {collections}")
             return collections
         except PyMongoError as e:
@@ -358,13 +358,13 @@ class MongoDB(VectorStoreBase):
             logger.error(f"Error getting collection info: {e}")
             return {}
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return.
+            top_k (int, optional): Number of vectors to return.
 
         Returns:
             List[OutputData]: List of vectors.
@@ -379,7 +379,7 @@ class MongoDB(VectorStoreBase):
                 if filter_conditions:
                     query = {"$and": filter_conditions}
 
-            cursor = self.collection.find(query).limit(limit)
+            cursor = self.collection.find(query).limit(top_k)
             results = [OutputData(id=str(doc["_id"]), score=None, payload=doc.get("payload")) for doc in cursor]
             logger.info(f"Retrieved {len(results)} documents from collection '{self.collection_name}'.")
             return results

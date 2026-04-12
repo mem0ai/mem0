@@ -1,5 +1,6 @@
 ---
 title: "Get Memories"
+description: "Retrieve memories with advanced filtering using logical operators like AND, OR, NOT, and comparison queries."
 openapi: post /v2/memories/
 ---
 
@@ -61,8 +62,7 @@ To retrieve graph memory relationships between entities, pass `output_format="v1
 memories = client.get_all(
     filters={
         "user_id": "alex"
-    },
-    output_format="v1.1"
+    }
 )
 ```
 

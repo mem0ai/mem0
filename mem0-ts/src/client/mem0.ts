@@ -4,19 +4,24 @@ import {
   ProjectOptions,
   Memory,
   MemoryHistory,
-  MemoryOptions,
+  AddMemoryOptions,
+  SearchMemoryOptions,
+  GetAllMemoryOptions,
+  DeleteAllMemoryOptions,
   MemoryUpdateBody,
   ProjectResponse,
   PromptUpdatePayload,
-  SearchOptions,
   Webhook,
-  WebhookPayload,
+  WebhookCreatePayload,
+  WebhookUpdatePayload,
   Message,
   FeedbackPayload,
   CreateMemoryExportPayload,
   GetMemoryExportPayload,
 } from "./mem0.types";
 import { captureClientEvent, generateHash } from "./telemetry";
+import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
+import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
 
 class APIError extends Error {
   constructor(message: string) {
@@ -28,19 +33,13 @@ class APIError extends Error {
 interface ClientOptions {
   apiKey: string;
   host?: string;
-  organizationName?: string;
-  projectName?: string;
-  organizationId?: string;
-  projectId?: string;
 }
 
 export default class MemoryClient {
   apiKey: string;
   host: string;
-  organizationName: string | null;
-  projectName: string | null;
-  organizationId: string | number | null;
-  projectId: string | number | null;
+  private organizationId: string | number | null;
+  private projectId: string | number | null;
   headers: Record<string, string>;
   client: any;
   telemetryId: string;
@@ -57,35 +56,11 @@ export default class MemoryClient {
     }
   }
 
-  _validateOrgProject(): void {
-    // Check for organizationName/projectName pair
-    if (
-      (this.organizationName === null && this.projectName !== null) ||
-      (this.organizationName !== null && this.projectName === null)
-    ) {
-      console.warn(
-        "Warning: Both organizationName and projectName must be provided together when using either. This will be removed from version 1.0.40. Note that organizationName/projectName are being deprecated in favor of organizationId/projectId.",
-      );
-    }
-
-    // Check for organizationId/projectId pair
-    if (
-      (this.organizationId === null && this.projectId !== null) ||
-      (this.organizationId !== null && this.projectId === null)
-    ) {
-      console.warn(
-        "Warning: Both organizationId and projectId must be provided together when using either. This will be removed from version 1.0.40.",
-      );
-    }
-  }
-
   constructor(options: ClientOptions) {
     this.apiKey = options.apiKey;
     this.host = options.host || "https://api.mem0.ai";
-    this.organizationName = options.organizationName || null;
-    this.projectName = options.projectName || null;
-    this.organizationId = options.organizationId || null;
-    this.projectId = options.projectId || null;
+    this.organizationId = null;
+    this.projectId = null;
 
     this.headers = {
       Authorization: `Token ${this.apiKey}`,
@@ -99,28 +74,19 @@ export default class MemoryClient {
     });
 
     this._validateApiKey();
-
-    // Initialize with a temporary ID that will be updated
     this.telemetryId = "";
-
-    // Initialize the client
     this._initializeClient();
   }
 
   private async _initializeClient() {
     try {
-      // Generate telemetry ID
       await this.ping();
 
       if (!this.telemetryId) {
         this.telemetryId = generateHash(this.apiKey);
       }
 
-      this._validateOrgProject();
-
-      // Capture initialization event
       captureClientEvent("init", this, {
-        api_version: "v1",
         client_type: "MemoryClient",
       }).catch((error: any) => {
         console.error("Failed to capture event:", error);
@@ -155,19 +121,22 @@ export default class MemoryClient {
     });
     if (!response.ok) {
       const errorData = await response.text();
-      throw new APIError(`API request failed: ${errorData}`);
+      throw createExceptionFromResponse(response.status, errorData);
     }
     const jsonResponse = await response.json();
-    return jsonResponse;
+    return snakeToCamelKeys(jsonResponse);
   }
 
-  _preparePayload(messages: Array<Message>, options: MemoryOptions): object {
+  _preparePayload(
+    messages: Array<Message>,
+    options: Record<string, any>,
+  ): object {
     const payload: any = {};
     payload.messages = messages;
-    return { ...payload, ...options };
+    return camelToSnakeKeys({ ...payload, ...options });
   }
 
-  _prepareParams(options: MemoryOptions): object {
+  _prepareParams(options: Record<string, any>): object {
     return Object.fromEntries(
       Object.entries(options).filter(([_, v]) => v != null),
     );
@@ -193,15 +162,14 @@ export default class MemoryClient {
         throw new APIError(response.message || "API Key is invalid");
       }
 
-      const { org_id, project_id, user_email } = response;
+      const { orgId, projectId, userEmail } = response;
 
-      // Only update if values are actually present
-      if (org_id && !this.organizationId) this.organizationId = org_id;
-      if (project_id && !this.projectId) this.projectId = project_id;
-      if (user_email) this.telemetryId = user_email;
+      if (orgId) this.organizationId = orgId;
+      if (projectId) this.projectId = projectId;
+      if (userEmail) this.telemetryId = userEmail;
     } catch (error: any) {
-      // Convert generic errors to APIError with meaningful messages
-      if (error instanceof APIError) {
+      // Pass through structured exceptions and APIError
+      if (error instanceof MemoryError || error instanceof APIError) {
         throw error;
       } else {
         throw new APIError(
@@ -213,30 +181,11 @@ export default class MemoryClient {
 
   async add(
     messages: Array<Message>,
-    options: MemoryOptions & Record<string, any> = {},
+    options: AddMemoryOptions & Record<string, any> = {},
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
-    if (this.organizationName != null && this.projectName != null) {
-      options.org_name = this.organizationName;
-      options.project_name = this.projectName;
-    }
-
-    if (this.organizationId != null && this.projectId != null) {
-      options.org_id = this.organizationId;
-      options.project_id = this.projectId;
-
-      if (options.org_name) delete options.org_name;
-      if (options.project_name) delete options.project_name;
-    }
-
-    if (options.api_version) {
-      options.version = options.api_version.toString() || "v2";
-    }
 
     const payload = this._preparePayload(messages, options);
-
-    // get payload keys whose value is not null or undefined
     const payloadKeys = Object.keys(payload);
     this._captureEvent("add", [payloadKeys]);
 
@@ -274,7 +223,6 @@ export default class MemoryClient {
     }
 
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
     const payload: Record<string, any> = {};
     if (text !== undefined) payload.text = text;
     if (metadata !== undefined) payload.metadata = metadata;
@@ -305,87 +253,53 @@ export default class MemoryClient {
     );
   }
 
-  async getAll(options?: SearchOptions): Promise<Array<Memory>> {
+  async getAll(options?: GetAllMemoryOptions): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { api_version, page, page_size, ...otherOptions } = options!;
-    if (this.organizationName != null && this.projectName != null) {
-      otherOptions.org_name = this.organizationName;
-      otherOptions.project_name = this.projectName;
+    const { page, pageSize, ...rest } = options ?? {};
+    const body: Record<string, any> = {
+      output_format: "v1.1",
+      ...camelToSnakeKeys(rest),
+    };
+
+    let url = `${this.host}/v2/memories/`;
+    if (page && pageSize) {
+      url += `?page=${page}&page_size=${pageSize}`;
     }
 
-    let appendedParams = "";
-    let paginated_response = false;
-
-    if (page && page_size) {
-      appendedParams += `page=${page}&page_size=${page_size}`;
-      paginated_response = true;
-    }
-
-    if (this.organizationId != null && this.projectId != null) {
-      otherOptions.org_id = this.organizationId;
-      otherOptions.project_id = this.projectId;
-
-      if (otherOptions.org_name) delete otherOptions.org_name;
-      if (otherOptions.project_name) delete otherOptions.project_name;
-    }
-
-    if (api_version === "v2") {
-      let url = paginated_response
-        ? `${this.host}/v2/memories/?${appendedParams}`
-        : `${this.host}/v2/memories/`;
-      return this._fetchWithErrorHandling(url, {
-        method: "POST",
-        headers: this.headers,
-        body: JSON.stringify(otherOptions),
-      });
-    } else {
-      // @ts-ignore
-      const params = new URLSearchParams(this._prepareParams(otherOptions));
-      const url = paginated_response
-        ? `${this.host}/v1/memories/?${params}&${appendedParams}`
-        : `${this.host}/v1/memories/?${params}`;
-      return this._fetchWithErrorHandling(url, {
-        headers: this.headers,
-      });
-    }
+    const response = await this._fetchWithErrorHandling(url, {
+      method: "POST",
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+    // Unwrap v1.1 format: { results: [...] } → [...]
+    return Array.isArray(response) ? response : (response?.results ?? response);
   }
 
   async search(
     query: string,
-    options?: SearchOptions & Record<string, any>,
+    options?: SearchMemoryOptions,
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
-    const { api_version, ...otherOptions } = options!;
-    const payload = { query, ...otherOptions };
-    if (this.organizationName != null && this.projectName != null) {
-      payload.org_name = this.organizationName;
-      payload.project_name = this.projectName;
-    }
+    const payload: Record<string, any> = {
+      query,
+      output_format: "v1.1",
+      ...camelToSnakeKeys(options ?? {}),
+    };
 
-    if (this.organizationId != null && this.projectId != null) {
-      payload.org_id = this.organizationId;
-      payload.project_id = this.projectId;
-
-      if (payload.org_name) delete payload.org_name;
-      if (payload.project_name) delete payload.project_name;
-    }
-    const endpoint =
-      api_version === "v2" ? "/v2/memories/search/" : "/v1/memories/search/";
     const response = await this._fetchWithErrorHandling(
-      `${this.host}${endpoint}`,
+      `${this.host}/v2/memories/search/`,
       {
         method: "POST",
         headers: this.headers,
         body: JSON.stringify(payload),
       },
     );
-    return response;
+    // Unwrap v1.1 format: { results: [...] } → [...]
+    return Array.isArray(response) ? response : (response?.results ?? response);
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
@@ -400,25 +314,15 @@ export default class MemoryClient {
     );
   }
 
-  async deleteAll(options: MemoryOptions = {}): Promise<{ message: string }> {
+  async deleteAll(
+    options: DeleteAllMemoryOptions = {},
+  ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("delete_all", [payloadKeys]);
-    if (this.organizationName != null && this.projectName != null) {
-      options.org_name = this.organizationName;
-      options.project_name = this.projectName;
-    }
-
-    if (this.organizationId != null && this.projectId != null) {
-      options.org_id = this.organizationId;
-      options.project_id = this.projectId;
-
-      if (options.org_name) delete options.org_name;
-      if (options.project_name) delete options.project_name;
-    }
+    const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
     // @ts-ignore
-    const params = new URLSearchParams(this._prepareParams(options));
+    const params = new URLSearchParams(snakeOptions);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/?${params}`,
       {
@@ -441,31 +345,20 @@ export default class MemoryClient {
     return response;
   }
 
-  async users(): Promise<AllUsers> {
+  async users(options?: {
+    page?: number;
+    pageSize?: number;
+  }): Promise<AllUsers> {
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
     this._captureEvent("users", []);
-    const options: MemoryOptions = {};
-    if (this.organizationName != null && this.projectName != null) {
-      options.org_name = this.organizationName;
-      options.project_name = this.projectName;
-    }
-
-    if (this.organizationId != null && this.projectId != null) {
-      options.org_id = this.organizationId;
-      options.project_id = this.projectId;
-
-      if (options.org_name) delete options.org_name;
-      if (options.project_name) delete options.project_name;
-    }
-    // @ts-ignore
-    const params = new URLSearchParams(options);
-    const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/entities/?${params}`,
-      {
-        headers: this.headers,
-      },
-    );
+    let url = `${this.host}/v1/entities/`;
+    const params: string[] = [];
+    if (options?.page) params.push(`page=${options.page}`);
+    if (options?.pageSize) params.push(`page_size=${options.pageSize}`);
+    if (params.length) url += `?${params.join("&")}`;
+    const response = await this._fetchWithErrorHandling(url, {
+      headers: this.headers,
+    });
     return response;
   }
 
@@ -493,26 +386,25 @@ export default class MemoryClient {
 
   async deleteUsers(
     params: {
-      user_id?: string;
-      agent_id?: string;
-      app_id?: string;
-      run_id?: string;
+      userId?: string;
+      agentId?: string;
+      appId?: string;
+      runId?: string;
     } = {},
   ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
 
     let to_delete: Array<{ type: string; name: string }> = [];
-    const { user_id, agent_id, app_id, run_id } = params;
+    const { userId, agentId, appId, runId } = params;
 
-    if (user_id) {
-      to_delete = [{ type: "user", name: user_id }];
-    } else if (agent_id) {
-      to_delete = [{ type: "agent", name: agent_id }];
-    } else if (app_id) {
-      to_delete = [{ type: "app", name: app_id }];
-    } else if (run_id) {
-      to_delete = [{ type: "run", name: run_id }];
+    if (userId) {
+      to_delete = [{ type: "user", name: userId }];
+    } else if (agentId) {
+      to_delete = [{ type: "agent", name: agentId }];
+    } else if (appId) {
+      to_delete = [{ type: "app", name: appId }];
+    } else if (runId) {
+      to_delete = [{ type: "run", name: runId }];
     } else {
       const entities = await this.users();
       to_delete = entities.results.map((entity) => ({
@@ -525,29 +417,9 @@ export default class MemoryClient {
       throw new Error("No entities to delete");
     }
 
-    const requestOptions: MemoryOptions = {};
-    if (this.organizationName != null && this.projectName != null) {
-      requestOptions.org_name = this.organizationName;
-      requestOptions.project_name = this.projectName;
-    }
-
-    if (this.organizationId != null && this.projectId != null) {
-      requestOptions.org_id = this.organizationId;
-      requestOptions.project_id = this.projectId;
-
-      if (requestOptions.org_name) delete requestOptions.org_name;
-      if (requestOptions.project_name) delete requestOptions.project_name;
-    }
-
-    // Delete each entity and handle errors
     for (const entity of to_delete) {
       try {
-        await this.client.delete(
-          `/v2/entities/${entity.type}/${entity.name}/`,
-          {
-            params: requestOptions,
-          },
-        );
+        await this.client.delete(`/v2/entities/${entity.type}/${entity.name}/`);
       } catch (error: any) {
         throw new APIError(
           `Failed to delete ${entity.type} ${entity.name}: ${error.message}`,
@@ -556,18 +428,12 @@ export default class MemoryClient {
     }
 
     this._captureEvent("delete_users", [
-      {
-        user_id: user_id,
-        agent_id: agent_id,
-        app_id: app_id,
-        run_id: run_id,
-        sync_type: "sync",
-      },
+      { userId, agentId, appId, runId, sync_type: "sync" },
     ]);
 
     return {
       message:
-        user_id || agent_id || app_id || run_id
+        userId || agentId || appId || runId
           ? "Entity deleted successfully."
           : "All users, agents, apps and runs deleted.",
     };
@@ -610,7 +476,6 @@ export default class MemoryClient {
 
   async getProject(options: ProjectOptions): Promise<ProjectResponse> {
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_project", [payloadKeys]);
     const { fields } = options;
@@ -622,7 +487,7 @@ export default class MemoryClient {
     }
 
     const params = new URLSearchParams();
-    fields?.forEach((field) => params.append("fields", field));
+    fields?.forEach((field) => params.append("fields", camelToSnake(field)));
 
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/orgs/organizations/${this.organizationId}/projects/${this.projectId}/?${params.toString()}`,
@@ -637,7 +502,6 @@ export default class MemoryClient {
     prompts: PromptUpdatePayload,
   ): Promise<Record<string, any>> {
     if (this.telemetryId === "") await this.ping();
-    this._validateOrgProject();
     this._captureEvent("update_project", []);
     if (!(this.organizationId && this.projectId)) {
       throw new Error(
@@ -650,7 +514,7 @@ export default class MemoryClient {
       {
         method: "PATCH",
         headers: this.headers,
-        body: JSON.stringify(prompts),
+        body: JSON.stringify(camelToSnakeKeys(prompts)),
       },
     );
     return response;
@@ -670,33 +534,40 @@ export default class MemoryClient {
     return response;
   }
 
-  async createWebhook(webhook: WebhookPayload): Promise<Webhook> {
+  async createWebhook(webhook: WebhookCreatePayload): Promise<Webhook> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_webhook", []);
+    const body = {
+      name: webhook.name,
+      url: webhook.url,
+      event_types: webhook.eventTypes,
+    };
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/projects/${this.projectId}/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(webhook),
+        body: JSON.stringify(body),
       },
     );
     return response;
   }
 
-  async updateWebhook(webhook: WebhookPayload): Promise<{ message: string }> {
+  async updateWebhook(
+    webhook: WebhookUpdatePayload,
+  ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("update_webhook", []);
-    const project_id = webhook.projectId || this.projectId;
+    const body: Record<string, any> = {};
+    if (webhook.name != null) body.name = webhook.name;
+    if (webhook.url != null) body.url = webhook.url;
+    if (webhook.eventTypes != null) body.event_types = webhook.eventTypes;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/api/v1/webhooks/${webhook.webhookId}/`,
       {
         method: "PUT",
         headers: this.headers,
-        body: JSON.stringify({
-          ...webhook,
-          projectId: project_id,
-        }),
+        body: JSON.stringify(body),
       },
     );
     return response;
@@ -727,7 +598,7 @@ export default class MemoryClient {
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify(camelToSnakeKeys(data)),
       },
     );
     return response;
@@ -739,21 +610,16 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("create_memory_export", []);
 
-    // Return if missing filters or schema
     if (!data.filters || !data.schema) {
       throw new Error("Missing filters or schema");
     }
-
-    // Add Org and Project ID
-    data.org_id = this.organizationId?.toString() || null;
-    data.project_id = this.projectId?.toString() || null;
 
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify(camelToSnakeKeys(data)),
       },
     );
 
@@ -766,19 +632,16 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     this._captureEvent("get_memory_export", []);
 
-    if (!data.memory_export_id && !data.filters) {
-      throw new Error("Missing memory_export_id or filters");
+    if (!data.memoryExportId && !data.filters) {
+      throw new Error("Missing memoryExportId or filters");
     }
-
-    data.org_id = this.organizationId?.toString() || "";
-    data.project_id = this.projectId?.toString() || "";
 
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/get/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify(camelToSnakeKeys(data)),
       },
     );
     return response;

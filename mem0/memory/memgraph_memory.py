@@ -1,6 +1,6 @@
 import logging
 
-from mem0.memory.utils import format_entities, sanitize_relationship_for_cypher
+from mem0.memory.utils import format_entities, remove_spaces_from_entities
 
 try:
     from langchain_memgraph.graphs.memgraph import Memgraph
@@ -98,14 +98,14 @@ class MemoryGraph:
 
         return {"deleted_entities": deleted_entities, "added_entities": added_entities}
 
-    def search(self, query, filters, limit=100):
+    def search(self, query, filters, top_k=100):
         """
         Search for memories and related graph data.
 
         Args:
             query (str): Query to search for.
             filters (dict): A dictionary containing filters to be applied during the search.
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
 
         Returns:
             dict: A dictionary containing:
@@ -134,6 +134,28 @@ class MemoryGraph:
 
         return search_results
 
+    def delete(self, data, filters):
+        """
+        Delete graph entities associated with the given memory text.
+
+        Extracts entities and relationships from the memory text using the same
+        pipeline as add(), then deletes the matching relationships in the graph.
+
+        Args:
+            data (str): The memory text whose graph entities should be removed.
+            filters (dict): Scope filters (user_id, agent_id).
+        """
+        try:
+            entity_type_map = self._retrieve_nodes_from_data(data, filters)
+            if not entity_type_map:
+                logger.debug("No entities found in memory text, skipping graph cleanup")
+                return
+            to_be_deleted = self._establish_nodes_relations_from_data(data, filters, entity_type_map)
+            if to_be_deleted:
+                self._delete_entities(to_be_deleted, filters)
+        except Exception as e:
+            logger.error(f"Error during graph cleanup for memory delete: {e}")
+
     def delete_all(self, filters):
         """Delete all nodes and relationships for a user or specific agent."""
         if filters.get("agent_id"):
@@ -150,14 +172,14 @@ class MemoryGraph:
             params = {"user_id": filters["user_id"]}
         self.graph.query(cypher, params=params)
 
-    def get_all(self, filters, limit=100):
+    def get_all(self, filters, top_k=100):
         """
         Retrieves all nodes and relationships from the graph database based on optional filtering criteria.
 
         Args:
             filters (dict): A dictionary containing filters to be applied during the retrieval.
                 Supports 'user_id' (required) and 'agent_id' (optional).
-            limit (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
+            top_k (int): The maximum number of nodes and relationships to retrieve. Defaults to 100.
         Returns:
             list: A list of dictionaries, each containing:
                 - 'source': The source node name.
@@ -171,14 +193,14 @@ class MemoryGraph:
             RETURN n.name AS source, type(r) AS relationship, m.name AS target
             LIMIT $limit
             """
-            params = {"user_id": filters["user_id"], "agent_id": filters["agent_id"], "limit": limit}
+            params = {"user_id": filters["user_id"], "agent_id": filters["agent_id"], "limit": top_k}
         else:
             query = """
             MATCH (n:Entity {user_id: $user_id})-[r]->(m:Entity {user_id: $user_id})
             RETURN n.name AS source, type(r) AS relationship, m.name AS target
             LIMIT $limit
             """
-            params = {"user_id": filters["user_id"], "limit": limit}
+            params = {"user_id": filters["user_id"], "limit": top_k}
 
         results = self.graph.query(query, params=params)
 
@@ -218,7 +240,7 @@ class MemoryGraph:
             for tool_call in search_results["tool_calls"]:
                 if tool_call["name"] != "extract_entities":
                     continue
-                for item in tool_call["arguments"]["entities"]:
+                for item in tool_call.get("arguments", {}).get("entities", []):
                     if "entity" in item and "entity_type" in item:
                         entity_type_map[item["entity"]] = item["entity_type"]
         except Exception as e:
@@ -271,7 +293,7 @@ class MemoryGraph:
         logger.debug(f"Extracted entities: {entities}")
         return entities
 
-    def _search_graph_db(self, node_list, filters, limit=100):
+    def _search_graph_db(self, node_list, filters, top_k=100):
         """Search similar nodes among and their respective incoming and outgoing relations."""
         result_relations = []
 
@@ -302,7 +324,7 @@ class MemoryGraph:
                     "threshold": self.threshold,
                     "user_id": filters["user_id"],
                     "agent_id": filters["agent_id"],
-                    "limit": limit,
+                    "limit": top_k,
                 }
             else:
                 cypher_query = """
@@ -326,7 +348,7 @@ class MemoryGraph:
                     "n_embedding": n_embedding,
                     "threshold": self.threshold,
                     "user_id": filters["user_id"],
-                    "limit": limit,
+                    "limit": top_k,
                 }
 
             ans = self.graph.query(cypher_query, params=params)
@@ -528,12 +550,7 @@ class MemoryGraph:
         return results
 
     def _remove_spaces_from_entities(self, entity_list):
-        for item in entity_list:
-            item["source"] = item["source"].lower().replace(" ", "_")
-            # Use the sanitization function for relationships to handle special characters
-            item["relationship"] = sanitize_relationship_for_cypher(item["relationship"].lower().replace(" ", "_"))
-            item["destination"] = item["destination"].lower().replace(" ", "_")
-        return entity_list
+        return remove_spaces_from_entities(entity_list, sanitize_relationship=True)
 
     def _search_source_node(self, source_embedding, filters, threshold=0.9):
         """Search for source nodes with similar embeddings."""

@@ -205,14 +205,14 @@ class AzureAISearch(VectorStoreBase):
         filter_expression = " and ".join(filter_conditions)
         return filter_expression
 
-    def search(self, query, vectors, limit=5, filters=None):
+    def search(self, query, vectors, top_k=5, filters=None):
         """
         Search for similar vectors.
 
         Args:
             query (str): Query.
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -222,13 +222,13 @@ class AzureAISearch(VectorStoreBase):
         if filters:
             filter_expression = self._build_filter_expression(filters)
 
-        vector_query = VectorizedQuery(vector=vectors, k_nearest_neighbors=limit, fields="vector")
+        vector_query = VectorizedQuery(vector=vectors, k_nearest_neighbors=top_k, fields="vector")
         if self.hybrid_search:
             search_results = self.search_client.search(
                 search_text=query,
                 vector_queries=[vector_query],
                 filter=filter_expression,
-                top=limit,
+                top=top_k,
                 vector_filter_mode=self.vector_filter_mode,
                 search_fields=["payload"],
             )
@@ -236,7 +236,7 @@ class AzureAISearch(VectorStoreBase):
             search_results = self.search_client.search(
                 vector_queries=[vector_query],
                 filter=filter_expression,
-                top=limit,
+                top=top_k,
                 vector_filter_mode=self.vector_filter_mode,
             )
 
@@ -246,12 +246,12 @@ class AzureAISearch(VectorStoreBase):
             results.append(OutputData(id=result["id"], score=result["@search.score"], payload=payload))
         return results
 
-    def keyword_search(self, query, limit=5, filters=None):
+    def keyword_search(self, query, top_k=5, filters=None):
         """Search for memories using keyword/BM25 text matching (no vector queries).
 
         Args:
             query (str): The text query to search for.
-            limit (int): Maximum number of results to return. Defaults to 5.
+            top_k (int): Maximum number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -264,7 +264,7 @@ class AzureAISearch(VectorStoreBase):
         search_results = self.search_client.search(
             search_text=query,
             filter=filter_expression,
-            top=limit,
+            top=top_k,
             search_fields=["payload"],
         )
 
@@ -355,13 +355,13 @@ class AzureAISearch(VectorStoreBase):
         index = self.index_client.get_index(self.index_name)
         return {"name": index.name, "fields": index.fields}
 
-    def list(self, filters=None, limit=100):
+    def list(self, filters=None, top_k=100):
         """
         List all vectors in the index.
 
         Args:
             filters (dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors.
@@ -370,7 +370,7 @@ class AzureAISearch(VectorStoreBase):
         if filters:
             filter_expression = self._build_filter_expression(filters)
 
-        search_results = self.search_client.search(search_text="*", filter=filter_expression, top=limit)
+        search_results = self.search_client.search(search_text="*", filter=filter_expression, top=top_k)
         results = []
         for result in search_results:
             payload = json.loads(extract_json(result["payload"]))

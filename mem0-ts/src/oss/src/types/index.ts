@@ -15,6 +15,7 @@ export interface Message {
 export interface EmbeddingConfig {
   apiKey?: string;
   model?: string | any;
+  baseURL?: string;
   url?: string;
   embeddingDims?: number;
   modelProperties?: Record<string, any>;
@@ -42,6 +43,7 @@ export interface HistoryStoreConfig {
 export interface LLMConfig {
   provider?: string;
   baseURL?: string;
+  url?: string;
   config?: Record<string, any>;
   apiKey?: string;
   model?: string | any;
@@ -58,7 +60,7 @@ export interface GraphStoreConfig {
   provider: string;
   config: Neo4jConfig;
   llm?: LLMConfig;
-  customPrompt?: string;
+  customInstructions?: string;
 }
 
 export interface MemoryConfig {
@@ -78,9 +80,8 @@ export interface MemoryConfig {
   historyStore?: HistoryStoreConfig;
   disableHistory?: boolean;
   historyDbPath?: string;
-  customPrompt?: string;
+  customInstructions?: string;
   graphStore?: GraphStoreConfig;
-  enableGraph?: boolean;
 }
 
 export interface MemoryItem {
@@ -142,11 +143,11 @@ export const MemoryConfigSchema = z.object({
       model: z.union([z.string(), z.any()]).optional(),
       modelProperties: z.record(z.string(), z.any()).optional(),
       baseURL: z.string().optional(),
+      url: z.string().optional(),
     }),
   }),
   historyDbPath: z.string().optional(),
-  customPrompt: z.string().optional(),
-  enableGraph: z.boolean().optional(),
+  customInstructions: z.string().optional(),
   graphStore: z
     .object({
       provider: z.string(),
@@ -161,7 +162,7 @@ export const MemoryConfigSchema = z.object({
           config: z.record(z.string(), z.any()),
         })
         .optional(),
-      customPrompt: z.string().optional(),
+      customInstructions: z.string().optional(),
     })
     .optional(),
   historyStore: z

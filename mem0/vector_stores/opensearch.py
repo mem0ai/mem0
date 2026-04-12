@@ -113,6 +113,25 @@ class OpenSearchDB(VectorStoreBase):
         if payloads is None:
             payloads = [{} for _ in range(len(vectors))]
 
+        for idx, vec in enumerate(vectors):
+            if vec is None:
+                raise ValueError(
+                    f"Vector at index {idx} is null. "
+                    f"This usually means the embedding model failed to generate an embedding. "
+                    f"Check that your embedding model is configured correctly and returning valid vectors."
+                )
+            if len(vec) == 0:
+                raise ValueError(
+                    f"Vector at index {idx} is empty. "
+                    f"Expected a vector of dimension {self.embedding_model_dims}, got an empty vector."
+                )
+            if len(vec) != self.embedding_model_dims:
+                raise ValueError(
+                    f"Vector at index {idx} has dimension {len(vec)}, "
+                    f"but the index '{self.collection_name}' expects dimension {self.embedding_model_dims}. "
+                    f"Ensure your embedding model's output dimensions match the vector store configuration."
+                )
+
         results = []
         for i, (vec, id_) in enumerate(zip(vectors, ids)):
             body = {
@@ -124,20 +143,22 @@ class OpenSearchDB(VectorStoreBase):
                 self.client.index(index=self.collection_name, body=body)
                 # Force refresh to make documents immediately searchable for tests
                 self.client.indices.refresh(index=self.collection_name)
-                
-                results.append(OutputData(
-                    id=id_,
-                    score=1.0,  # No score for inserts
-                    payload=payloads[i]
-                ))
+
+                results.append(
+                    OutputData(
+                        id=id_,
+                        score=1.0,  # No score for inserts
+                        payload=payloads[i],
+                    )
+                )
             except Exception as e:
-                logger.error(f"Error inserting vector {id_}: {e}")
+                logger.error(f"Error inserting vector {id_}: {e}", exc_info=True)
                 raise
 
         return results
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """Search for similar vectors using OpenSearch k-NN search with optional filters."""
 
@@ -146,13 +167,13 @@ class OpenSearchDB(VectorStoreBase):
             "knn": {
                 "vector_field": {
                     "vector": vectors,
-                    "k": limit * 2,
+                    "k": top_k * 2,
                 }
             }
         }
 
         # Start building the full query
-        query_body = {"size": limit * 2, "query": None}
+        query_body = {"size": top_k * 2, "query": None}
 
         # Prepare filter conditions if applicable
         filter_clauses = []
@@ -175,19 +196,19 @@ class OpenSearchDB(VectorStoreBase):
             hits = response["hits"]["hits"]
             results = [
                 OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
-                for hit in hits[:limit]  # Ensure we don't exceed limit
+                for hit in hits[:top_k]  # Ensure we don't exceed top_k
             ]
             return results
         except Exception as e:
-            logger.error(f"Error during search: {e}")
+            logger.error(f"Error during search: {e}", exc_info=True)
             return []
 
-    def keyword_search(self, query, limit=5, filters=None):
+    def keyword_search(self, query, top_k=5, filters=None):
         """Search for memories using BM25 keyword matching.
 
         Args:
             query (str): The text query to search for.
-            limit (int): Maximum number of results to return. Defaults to 5.
+            top_k (int): Maximum number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search.
 
         Returns:
@@ -216,7 +237,7 @@ class OpenSearchDB(VectorStoreBase):
             bool_query["filter"] = filter_clauses
 
         query_body = {
-            "size": limit,
+            "size": top_k,
             "query": {"bool": bool_query},
         }
 
@@ -226,7 +247,7 @@ class OpenSearchDB(VectorStoreBase):
             hits = response["hits"]["hits"]
             results = [
                 OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
-                for hit in hits[:limit]
+                for hit in hits[:top_k]
             ]
             return results
         except Exception as e:
@@ -251,6 +272,15 @@ class OpenSearchDB(VectorStoreBase):
 
     def update(self, vector_id: str, vector: Optional[List[float]] = None, payload: Optional[Dict] = None) -> None:
         """Update a vector and its payload using the custom 'id' field."""
+        if vector is not None:
+            if len(vector) == 0:
+                raise ValueError("Cannot update with an empty vector.")
+            if len(vector) != self.embedding_model_dims:
+                raise ValueError(
+                    f"Update vector has dimension {len(vector)}, "
+                    f"but the index '{self.collection_name}' expects dimension {self.embedding_model_dims}. "
+                    f"Ensure your embedding model's output dimensions match the vector store configuration."
+                )
 
         # First, find the document by custom ID
         search_query = {"query": {"term": {"id": vector_id}}}
@@ -273,8 +303,9 @@ class OpenSearchDB(VectorStoreBase):
         if doc:
             try:
                 response = self.client.update(index=self.collection_name, id=opensearch_id, body={"doc": doc})
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Error updating vector {vector_id}: {e}", exc_info=True)
+                raise
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a vector by ID."""
@@ -289,7 +320,7 @@ class OpenSearchDB(VectorStoreBase):
 
             return OutputData(id=hits[0]["_source"].get("id"), score=1.0, payload=hits[0]["_source"].get("payload", {}))
         except Exception as e:
-            logger.error(f"Error retrieving vector {vector_id}: {str(e)}")
+            logger.error(f"Error retrieving vector {vector_id}: {str(e)}", exc_info=True)
             return None
 
     def list_cols(self) -> List[str]:
@@ -304,7 +335,7 @@ class OpenSearchDB(VectorStoreBase):
         """Get information about a collection (index)."""
         return self.client.indices.get(index=name)
 
-    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[OutputData]:
         try:
             """List all memories with optional filters."""
             query: Dict = {"query": {"match_all": {}}}
@@ -319,8 +350,8 @@ class OpenSearchDB(VectorStoreBase):
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
 
-            if limit:
-                query["size"] = limit
+            if top_k:
+                query["size"] = top_k
 
             response = self.client.search(index=self.collection_name, body=query)
             hits = response["hits"]["hits"]
@@ -332,9 +363,8 @@ class OpenSearchDB(VectorStoreBase):
             ]
             return [results]  # VectorStore expects tuple/list format
         except Exception as e:
-            logger.error(f"Error listing vectors: {e}")
+            logger.error(f"Error listing vectors: {e}", exc_info=True)
             return []
-        
 
     def reset(self):
         """Reset the index by deleting and recreating it."""

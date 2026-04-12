@@ -1,17 +1,25 @@
 # Mem0 Skill for Claude
 
-Add persistent memory to any AI application in minutes using [Mem0 Platform](https://app.mem0.ai).
+Add persistent memory to any AI application in minutes using [Mem0 Platform](https://app.mem0.ai) or the open-source self-hosted SDK.
+
+> **Part of the Mem0 Skill Graph:** See also [mem0-cli](../mem0-cli/SKILL.md) (terminal) and [mem0-vercel-ai-sdk](../mem0-vercel-ai-sdk/SKILL.md) (Vercel AI SDK).
 
 ## What This Skill Does
 
 When installed, Claude can:
 
-- **Set up Mem0** in your Python or TypeScript project
-- **Integrate memory** into your existing AI app (LangChain, CrewAI, Vercel AI, OpenAI Agents, LangGraph, LlamaIndex, etc.)
+- **Set up Mem0** in your Python or TypeScript project (Platform or OSS)
+- **Integrate memory** into your existing AI app (LangChain, CrewAI, OpenAI Agents, LangGraph, LlamaIndex, etc.)
 - **Generate working code** using real API references and tested patterns
 - **Search live docs** on demand for the latest Mem0 documentation
 
 ## Installation
+
+### CLI (Claude Code, OpenCode, OpenClaw, or any tool that supports skills)
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0
+```
 
 ### Claude.ai
 
@@ -55,6 +63,10 @@ skills/mem0/
 ├── SKILL.md                    # Skill definition and instructions
 ├── README.md                   # This file
 ├── LICENSE                     # Apache-2.0
+├── client/                     # Language-specific SDK references (Platform + OSS)
+│   ├── python.md               # Python SDK (MemoryClient + Memory OSS)
+│   ├── node.md                 # TypeScript SDK (MemoryClient + Memory OSS)
+│   └── differences.md          # Python vs TypeScript comparison
 ├── scripts/
 │   └── mem0_doc_search.py      # Search live Mem0 docs on demand
 └── references/                 # Documentation (loaded on demand)
@@ -63,7 +75,7 @@ skills/mem0/
     ├── api-reference.md        # REST endpoints, filters, memory object
     ├── architecture.md         # Processing pipeline, lifecycle, scoping, performance
     ├── features.md             # Retrieval, graph, categories, MCP, webhooks, multimodal
-    ├── integration-patterns.md # LangChain, CrewAI, Vercel AI, LangGraph, LlamaIndex, etc.
+    ├── integration-patterns.md # LangChain, CrewAI, OpenAI Agents, LangGraph, LlamaIndex, etc.
     └── use-cases.md            # 7 real-world patterns with Python + TypeScript code
 ```
 

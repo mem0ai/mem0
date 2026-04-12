@@ -1,10 +1,12 @@
 import logging
 import os
+import secrets
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 
 from mem0 import Memory
@@ -14,6 +16,22 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Load environment variables
 load_dotenv()
 
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
+
+MIN_KEY_LENGTH = 16
+
+if not ADMIN_API_KEY:
+    logging.warning(
+        "ADMIN_API_KEY not set - API endpoints are UNSECURED! "
+        "Set ADMIN_API_KEY environment variable for production use."
+    )
+else:
+    if len(ADMIN_API_KEY) < MIN_KEY_LENGTH:
+        logging.warning(
+            "ADMIN_API_KEY is shorter than %d characters - consider using a longer key for production.",
+            MIN_KEY_LENGTH,
+        )
+    logging.info("API key authentication enabled")
 
 POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
 POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
@@ -60,9 +78,34 @@ MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
 
 app = FastAPI(
     title="Mem0 REST APIs",
-    description="A REST API for managing and searching memories for your AI Agents and Apps.",
+    description=(
+        "A REST API for managing and searching memories for your AI Agents and Apps.\n\n"
+        "## Authentication\n"
+        "When the ADMIN_API_KEY environment variable is set, all endpoints require "
+        "the `X-API-Key` header for authentication."
+    ),
     version="1.0.0",
 )
+
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def verify_api_key(api_key: Optional[str] = Depends(api_key_header)):
+    """Validate the API key when ADMIN_API_KEY is configured. No-op otherwise."""
+    if ADMIN_API_KEY:
+        if api_key is None:
+            raise HTTPException(
+                status_code=401,
+                detail="X-API-Key header is required.",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
+        if not secrets.compare_digest(api_key, ADMIN_API_KEY):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid API key.",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
+    return api_key
 
 
 class Message(BaseModel):
@@ -76,6 +119,14 @@ class MemoryCreate(BaseModel):
     agent_id: Optional[str] = None
     run_id: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    infer: Optional[bool] = Field(None, description="Whether to extract facts from messages. Defaults to True.")
+    memory_type: Optional[str] = Field(None, description="Type of memory to store (e.g. 'core').")
+    prompt: Optional[str] = Field(None, description="Custom prompt to use for fact extraction.")
+
+
+class MemoryUpdate(BaseModel):
+    text: str = Field(..., description="New content to update the memory with.")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Metadata to update.")
 
 
 class SearchRequest(BaseModel):
@@ -84,10 +135,12 @@ class SearchRequest(BaseModel):
     run_id: Optional[str] = None
     agent_id: Optional[str] = None
     filters: Optional[Dict[str, Any]] = None
+    top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
+    threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
 
 
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any]):
+def set_config(config: Dict[str, Any], _api_key: Optional[str] = Depends(verify_api_key)):
     """Set memory configuration."""
     global MEMORY_INSTANCE
     MEMORY_INSTANCE = Memory.from_config(config)
@@ -95,7 +148,7 @@ def set_config(config: Dict[str, Any]):
 
 
 @app.post("/memories", summary="Create memories")
-def add_memory(memory_create: MemoryCreate):
+def add_memory(memory_create: MemoryCreate, _api_key: Optional[str] = Depends(verify_api_key)):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
         raise HTTPException(status_code=400, detail="At least one identifier (user_id, agent_id, run_id) is required.")
@@ -114,6 +167,7 @@ def get_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    _api_key: Optional[str] = Depends(verify_api_key),
 ):
     """Retrieve stored memories."""
     if not any([user_id, run_id, agent_id]):
@@ -129,7 +183,7 @@ def get_all_memories(
 
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
-def get_memory(memory_id: str):
+def get_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
     """Retrieve a specific memory by ID."""
     try:
         return MEMORY_INSTANCE.get(memory_id)
@@ -139,7 +193,7 @@ def get_memory(memory_id: str):
 
 
 @app.post("/search", summary="Search memories")
-def search_memories(search_req: SearchRequest):
+def search_memories(search_req: SearchRequest, _api_key: Optional[str] = Depends(verify_api_key)):
     """Search for memories based on a query."""
     try:
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
@@ -150,25 +204,25 @@ def search_memories(search_req: SearchRequest):
 
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
-def update_memory(memory_id: str, updated_memory: Dict[str, Any]):
+def update_memory(memory_id: str, updated_memory: MemoryUpdate, _api_key: Optional[str] = Depends(verify_api_key)):
     """Update an existing memory with new content.
-    
+
     Args:
         memory_id (str): ID of the memory to update
-        updated_memory (str): New content to update the memory with
-        
+        updated_memory (MemoryUpdate): New content and optional metadata to update the memory with
+
     Returns:
         dict: Success message indicating the memory was updated
     """
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory)
+        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata)
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
-def memory_history(memory_id: str):
+def memory_history(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
     """Retrieve memory history."""
     try:
         return MEMORY_INSTANCE.history(memory_id=memory_id)
@@ -178,7 +232,7 @@ def memory_history(memory_id: str):
 
 
 @app.delete("/memories/{memory_id}", summary="Delete a memory")
-def delete_memory(memory_id: str):
+def delete_memory(memory_id: str, _api_key: Optional[str] = Depends(verify_api_key)):
     """Delete a specific memory by ID."""
     try:
         MEMORY_INSTANCE.delete(memory_id=memory_id)
@@ -193,6 +247,7 @@ def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
+    _api_key: Optional[str] = Depends(verify_api_key),
 ):
     """Delete all memories for a given identifier."""
     if not any([user_id, run_id, agent_id]):
@@ -209,7 +264,7 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory():
+def reset_memory(_api_key: Optional[str] = Depends(verify_api_key)):
     """Completely reset stored memories."""
     try:
         MEMORY_INSTANCE.reset()

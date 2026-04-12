@@ -4,6 +4,20 @@ import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 import * as fs from "fs";
 
 interface QdrantConfig extends VectorStoreConfig {
+  /**
+   * Pre-configured QdrantClient instance. If using Qdrant Cloud, you must pass
+   * `port` explicitly when constructing the client to avoid "Illegal host" errors
+   * caused by a known upstream bug (qdrant/qdrant-js#59).
+   *
+   * @example
+   * ```typescript
+   * const client = new QdrantClient({
+   *   url: "https://xxx.cloud.qdrant.io:6333",
+   *   port: 6333,
+   *   apiKey: "xxx",
+   * });
+   * ```
+   */
   client?: QdrantClient;
   host?: string;
   port?: number;
@@ -44,6 +58,13 @@ export class Qdrant implements VectorStore {
       }
       if (config.url) {
         params.url = config.url;
+        // Workaround for qdrant/qdrant-js#59: explicitly pass port to avoid "Illegal host" error
+        try {
+          const parsedUrl = new URL(config.url);
+          params.port = parsedUrl.port ? parseInt(parsedUrl.port, 10) : 6333;
+        } catch (_) {
+          params.port = 6333;
+        }
       }
       if (config.host && config.port) {
         params.host = config.host;
@@ -118,14 +139,14 @@ export class Qdrant implements VectorStore {
 
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const queryFilter = this.createFilter(filters);
     const results = await this.client.search(this.collectionName, {
       vector: query,
       filter: queryFilter,
-      limit,
+      limit: topK,
     });
 
     return results.map((hit) => ({
@@ -177,10 +198,10 @@ export class Qdrant implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const scrollRequest = {
-      limit,
+      limit: topK,
       filter: this.createFilter(filters),
       with_payload: true,
       with_vectors: false,
@@ -273,10 +294,7 @@ export class Qdrant implements VectorStore {
     }
   }
 
-  private async ensureCollection(
-    name: string,
-    size: number,
-  ): Promise<void> {
+  private async ensureCollection(name: string, size: number): Promise<void> {
     try {
       await this.client.createCollection(name, {
         vectors: {
@@ -285,7 +303,11 @@ export class Qdrant implements VectorStore {
         },
       });
     } catch (error: any) {
-      if (error?.status === 409) {
+      if (
+        error?.status === 409 ||
+        error?.status === 401 ||
+        error?.status === 403
+      ) {
         // Collection already exists — verify configuration for the main collection
         if (name === this.collectionName) {
           try {

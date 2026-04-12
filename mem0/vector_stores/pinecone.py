@@ -204,7 +204,7 @@ class PineconeDB(VectorStoreBase):
         return pinecone_filter
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -212,7 +212,7 @@ class PineconeDB(VectorStoreBase):
         Args:
             query (str): Query.
             vectors (list): List of vectors to search.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -222,7 +222,7 @@ class PineconeDB(VectorStoreBase):
 
         query_params = {
             "vector": vectors,
-            "top_k": limit,
+            "top_k": top_k,
             "include_metadata": True,
             "include_values": False,
         }
@@ -241,13 +241,13 @@ class PineconeDB(VectorStoreBase):
         results = self._parse_output(response.matches)
         return results
 
-    def keyword_search(self, query, limit=5, filters=None):
+    def keyword_search(self, query, top_k=5, filters=None):
         """
         Search using BM25 sparse vectors for keyword-based retrieval.
 
         Args:
             query (str): The search query text.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -263,7 +263,7 @@ class PineconeDB(VectorStoreBase):
 
             query_params = {
                 "sparse_vector": sparse_vector,
-                "top_k": limit,
+                "top_k": top_k,
                 "include_metadata": True,
                 "include_values": False,
             }
@@ -356,13 +356,13 @@ class PineconeDB(VectorStoreBase):
         """
         return self.client.describe_index(self.collection_name)
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List vectors in an index with optional filtering.
 
         Args:
             filters (dict, optional): Filters to apply to the list. Defaults to None.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             dict: List of vectors with their metadata.
@@ -376,7 +376,7 @@ class PineconeDB(VectorStoreBase):
 
         query_params = {
             "vector": zero_vector,
-            "top_k": limit,
+            "top_k": top_k,
             "include_metadata": True,
             "include_values": True,
         }

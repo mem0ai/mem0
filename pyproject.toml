@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "1.0.5"
+version = "1.0.11"
 description = "Long-term memory for AI Agents"
 authors = [
-    { name = "Mem0", email = "founders@mem0.ai" }
+    { name = "Mem0", email = "support@mem0.ai" }
 ]
 readme = "README.md"
 license = "Apache-2.0"
@@ -17,10 +17,10 @@ dependencies = [
     "qdrant-client>=1.12.0",
     "pydantic>=2.7.3",
     "openai>=1.90.0",
-    "posthog>=3.5.0",
+    "posthog>=4.5.0",
     "pytz>=2024.1",
     "sqlalchemy>=2.0.31",
-    "protobuf>=5.29.0,<6.0.0",
+    "protobuf>=5.29.6,<7.0.0",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +34,7 @@ graph = [
     "neo4j>=5.23.1",
     "rank-bm25>=0.2.2",
     "kuzu>=0.11.0",
+    "apache-age-python>=0.0.6",
 ]
 vector_stores = [
     "vecs>=0.4.0",
@@ -65,7 +66,7 @@ llms = [
     "together>=0.2.10",
     "litellm>=1.74.0",
     "openai>=1.90.0",
-    "ollama>=0.1.0",
+    "ollama>=0.3.0",
     "vertexai>=0.1.0",
     "google-generativeai>=0.3.0",
     "google-genai>=1.0.0",
@@ -104,9 +105,6 @@ exclude = [
 [tool.hatch.build.targets.wheel]
 packages = ["mem0"]
 only-include = ["mem0"]
-
-[tool.hatch.build.targets.wheel.shared-data]
-"README.md" = "README.md"
 
 [tool.hatch.envs.dev_py_3_9]
 python = "3.9"
@@ -168,3 +166,10 @@ test = [
 [tool.ruff]
 line-length = 120
 exclude = ["embedchain/", "openmemory/"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mem0", "mem0_cli"]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["mem0", "mem0_cli"]

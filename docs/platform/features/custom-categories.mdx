@@ -1,6 +1,6 @@
 ---
 title: Custom Categories
-description: "Teach Mem0 the labels that matter to your team."
+description: "Replace default memory tags with custom category labels that match your product terminology at the project level."
 ---
 
 # Custom Categories
@@ -98,7 +98,7 @@ messages = [
 ]
 
 # Add memories with project-level custom categories
-client.add(messages, user_id="alice", async_mode=False)
+client.add(messages, user_id="alice")
 ```
 </CodeGroup>
 
@@ -187,7 +187,7 @@ messages = [
 ]
 
 # Add memories with default categories
-client.add(messages, user_id='alice', async_mode=False)
+client.add(messages, user_id='alice')
 ```
 
 ```python Memories with categories

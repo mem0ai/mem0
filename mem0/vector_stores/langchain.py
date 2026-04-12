@@ -91,15 +91,15 @@ class Langchain(VectorStoreBase):
             texts = [payload.get("data", "") for payload in payloads] if payloads else [""] * len(vectors)
             self.client.add_texts(texts=texts, metadatas=payloads, ids=ids)
 
-    def search(self, query: str, vectors: List[List[float]], limit: int = 5, filters: Optional[Dict] = None):
+    def search(self, query: str, vectors: List[List[float]], top_k: int = 5, filters: Optional[Dict] = None):
         """
         Search for similar vectors in LangChain.
         """
         # For each vector, perform a similarity search
         if filters:
-            results = self.client.similarity_search_by_vector(embedding=vectors, k=limit, filter=filters)
+            results = self.client.similarity_search_by_vector(embedding=vectors, k=top_k, filter=filters)
         else:
-            results = self.client.similarity_search_by_vector(embedding=vectors, k=limit)
+            results = self.client.similarity_search_by_vector(embedding=vectors, k=top_k)
 
         final_results = self._parse_output(results)
         return final_results
@@ -115,7 +115,7 @@ class Langchain(VectorStoreBase):
         Update a vector and its payload.
         """
         self.delete(vector_id)
-        self.insert(vector, payload, [vector_id])
+        self.insert([vector], [payload], [vector_id])
 
     def get(self, vector_id):
         """
@@ -152,7 +152,7 @@ class Langchain(VectorStoreBase):
         """
         return {"name": self.collection_name}
 
-    def list(self, filters=None, limit=None):
+    def list(self, filters=None, top_k=None):
         """
         List all vectors in a collection.
         """
@@ -164,7 +164,7 @@ class Langchain(VectorStoreBase):
                     # Handle all filters, not just user_id
                     where_clause = filters
 
-                result = self.client._collection.get(where=where_clause, limit=limit)
+                result = self.client._collection.get(where=where_clause, limit=top_k)
 
                 # Convert the result to the expected format
                 if result and isinstance(result, dict):

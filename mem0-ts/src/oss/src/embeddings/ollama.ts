@@ -12,7 +12,7 @@ export class OllamaEmbedder implements Embedder {
 
   constructor(config: EmbeddingConfig) {
     this.ollama = new Ollama({
-      host: config.url || "http://localhost:11434",
+      host: config.url || config.baseURL || "http://localhost:11434",
     });
     this.model = config.model || "nomic-embed-text:latest";
     this.embeddingDims = config.embeddingDims || 768;
@@ -27,14 +27,18 @@ export class OllamaEmbedder implements Embedder {
     } catch (err) {
       logger.error(`Error ensuring model exists: ${err}`);
     }
-    // Ollama's Go server requires prompt to be a string. Coerce defensively
-    // since callers may pass values parsed from untrusted LLM JSON output.
-    const prompt = typeof text === "string" ? text : JSON.stringify(text);
-    const response = await this.ollama.embeddings({
+    // Coerce defensively since callers may pass values parsed from untrusted LLM JSON output.
+    const input = typeof text === "string" ? text : JSON.stringify(text);
+    const response = await this.ollama.embed({
       model: this.model,
-      prompt,
+      input,
     });
-    return response.embedding;
+    if (!response.embeddings || response.embeddings.length === 0) {
+      throw new Error(
+        `Ollama embed() returned no embeddings for model '${this.model}'`,
+      );
+    }
+    return response.embeddings[0];
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
@@ -42,12 +46,21 @@ export class OllamaEmbedder implements Embedder {
     return response;
   }
 
+  private static normalizeModelName(name: string): string {
+    return name.includes(":") ? name : `${name}:latest`;
+  }
+
   private async ensureModelExists(): Promise<boolean> {
     if (this.initialized) {
       return true;
     }
     const local_models = await this.ollama.list();
-    if (!local_models.models.find((m: any) => m.name === this.model)) {
+    const target = OllamaEmbedder.normalizeModelName(this.model);
+    if (
+      !local_models.models.find(
+        (m: any) => OllamaEmbedder.normalizeModelName(m.name) === target,
+      )
+    ) {
       logger.info(`Pulling model ${this.model}...`);
       await this.ollama.pull({ model: this.model });
     }

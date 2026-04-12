@@ -15,8 +15,6 @@
   <a href="https://mem0.dev/DiG">Join Discord</a>
   ·
   <a href="https://mem0.dev/demo">Demo</a>
-  ·
-  <a href="https://mem0.dev/openmemory">OpenMemory</a>
 </p>
 
 <p align="center">
@@ -102,6 +100,20 @@ Install sdk via npm:
 npm install mem0ai
 ```
 
+### CLI
+
+Manage memories from your terminal:
+
+```bash
+npm install -g @mem0/cli   # or: pip install mem0-cli
+
+mem0 init
+mem0 add "Prefers dark mode and vim keybindings" --user-id alice
+mem0 search "What does Alice prefer?" --user-id alice
+```
+
+See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
+
 ### Basic Usage
 
 Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
@@ -159,7 +171,7 @@ For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quicks
 ## 📚 Documentation & Support
 
 - Full docs: https://docs.mem0.ai
-- Community: [Discord](https://mem0.dev/DiG) · [Twitter](https://x.com/mem0ai)
+- Community: [Discord](https://mem0.dev/DiG) · [X (formerly Twitter)](https://x.com/mem0ai)
 - Contact: founders@mem0.ai
 
 ## Citation

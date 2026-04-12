@@ -17,7 +17,7 @@ class GroqLLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "llama3-70b-8192"
+            self.config.model = "llama-3.3-70b-versatile"
 
         api_key = self.config.api_key or os.getenv("GROQ_API_KEY")
         self.client = Groq(api_key=api_key)

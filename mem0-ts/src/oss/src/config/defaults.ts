@@ -26,21 +26,6 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
       modelProperties: undefined,
     },
   },
-  enableGraph: false,
-  graphStore: {
-    provider: "neo4j",
-    config: {
-      url: process.env.NEO4J_URL || "neo4j://localhost:7687",
-      username: process.env.NEO4J_USERNAME || "neo4j",
-      password: process.env.NEO4J_PASSWORD || "password",
-    },
-    llm: {
-      provider: "openai",
-      config: {
-        model: "gpt-4-turbo-preview",
-      },
-    },
-  },
   historyStore: {
     provider: "sqlite",
     config: {

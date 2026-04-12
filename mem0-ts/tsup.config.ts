@@ -10,6 +10,16 @@ const external = [
   "better-sqlite3",
   "@qdrant/js-client-rest",
   "redis",
+  "ollama",
+  "@google/genai",
+  "@mistralai/mistralai",
+  "neo4j-driver",
+  "@supabase/supabase-js",
+  "@azure/search-documents",
+  "@azure/identity",
+  "cloudflare",
+  "@cloudflare/workers-types",
+  "@langchain/core",
 ];
 
 export default defineConfig([

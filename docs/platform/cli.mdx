@@ -1,0 +1,375 @@
+---
+title: CLI
+description: "Manage memories from your terminal — built for both humans and AI agents."
+icon: "terminal"
+iconType: "solid"
+---
+
+The mem0 CLI lets you add, search, list, update, and delete memories directly from the terminal. It works with the Mem0 Platform API and is available as both an npm package and a Python package.
+
+Both implementations provide identical behavior — same commands, same options, same output formats.
+
+<Tip>
+**Built for AI agents.** Pass `--agent` (or `--json`) as a global flag on any command to get structured JSON output optimized for programmatic consumption — sanitized fields, no colors or spinners, and errors as JSON too. Drop it into any agent tool loop with zero extra parsing.
+</Tip>
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install -g @mem0/cli
+```
+
+```bash pip
+pip install mem0-cli
+```
+</CodeGroup>
+
+## Authentication
+
+Run the interactive setup wizard to configure your API key:
+
+```bash
+mem0 init
+```
+
+This prompts for your API key and a default user ID, validates the connection, and saves the configuration locally.
+
+For CI/CD or non-interactive environments, pass both values as flags:
+
+```bash
+mem0 init --api-key m0-xxx --user-id alice
+```
+
+You can also set your API key via environment variable:
+
+```bash
+export MEM0_API_KEY="m0-xxx"
+```
+
+## Quick start
+
+```bash
+# Add a memory
+mem0 add "I prefer dark mode and use vim keybindings" --user-id alice
+
+# Search memories
+mem0 search "What are Alice's preferences?" --user-id alice
+
+# List all memories for a user
+mem0 list --user-id alice
+
+# Get a specific memory
+mem0 get <memory-id>
+
+# Update a memory
+mem0 update <memory-id> "I prefer light mode now"
+
+# Delete a memory
+mem0 delete <memory-id>
+```
+
+## Commands
+
+### `mem0 init`
+
+Interactive setup wizard. Prompts for your API key and default user ID.
+
+```bash
+mem0 init
+mem0 init --api-key m0-xxx --user-id alice
+mem0 init --email alice@company.com
+```
+
+If an existing configuration is detected, the CLI will ask for confirmation before overwriting. Use `--force` to skip the prompt (useful in CI/CD pipelines).
+
+```bash
+mem0 init --api-key m0-xxx --user-id alice --force
+```
+
+| Flag | Description |
+|------|-------------|
+| `--api-key` | API key (skip prompt) |
+| `-u, --user-id` | Default user ID (skip prompt) |
+| `--email` | Login via email verification code |
+| `--code` | Verification code (use with `--email` for non-interactive login) |
+| `--force` | Overwrite existing config without confirmation |
+
+### `mem0 add`
+
+Add a memory from text, a JSON messages array, a file, or stdin.
+
+```bash
+mem0 add "I prefer dark mode" --user-id alice
+mem0 add --file conversation.json --user-id alice
+echo "Loves hiking on weekends" | mem0 add --user-id alice
+```
+
+| Flag | Description |
+|------|-------------|
+| `-u, --user-id` | Scope to a user |
+| `--agent-id` | Scope to an agent |
+| `--messages` | Conversation messages as JSON |
+| `-f, --file` | Read messages from a JSON file |
+| `-m, --metadata` | Custom metadata as JSON |
+| `--categories` | Categories (JSON array or comma-separated) |
+| `--graph / --no-graph` | Enable or disable graph memory extraction |
+| `-o, --output` | Output format: `text`, `json`, `quiet` |
+
+### `mem0 search`
+
+Search memories using natural language.
+
+```bash
+mem0 search "dietary restrictions" --user-id alice
+mem0 search "preferred tools" --user-id alice --output json --top-k 5
+```
+
+| Flag | Description |
+|------|-------------|
+| `-u, --user-id` | Filter by user |
+| `-k, --top-k` | Number of results (default: 10) |
+| `--threshold` | Minimum similarity score (default: 0.3) |
+| `--rerank` | Enable reranking |
+| `--keyword` | Use keyword search instead of semantic |
+| `--filter` | Advanced filter expression (JSON) |
+| `--graph / --no-graph` | Enable or disable graph in search |
+| `-o, --output` | Output format: `text`, `json`, `table` |
+
+### `mem0 list`
+
+List memories with optional filters and pagination.
+
+```bash
+mem0 list --user-id alice
+mem0 list --user-id alice --category preferences --output json
+mem0 list --user-id alice --after 2024-01-01 --page-size 50
+```
+
+| Flag | Description |
+|------|-------------|
+| `-u, --user-id` | Filter by user |
+| `--page` | Page number (default: 1) |
+| `--page-size` | Results per page (default: 100) |
+| `--category` | Filter by category |
+| `--after` | Created after date (YYYY-MM-DD) |
+| `--before` | Created before date (YYYY-MM-DD) |
+| `-o, --output` | Output format: `text`, `json`, `table` |
+
+### `mem0 get`
+
+Retrieve a specific memory by ID.
+
+```bash
+mem0 get 7b3c1a2e-4d5f-6789-abcd-ef0123456789
+mem0 get 7b3c1a2e-4d5f-6789-abcd-ef0123456789 --output json
+```
+
+### `mem0 update`
+
+Update the text or metadata of an existing memory.
+
+```bash
+mem0 update <memory-id> "Updated preference text"
+mem0 update <memory-id> --metadata '{"priority": "high"}'
+echo "new text" | mem0 update <memory-id>
+```
+
+### `mem0 delete`
+
+Delete a single memory, all memories for a scope, or an entire entity.
+
+```bash
+# Delete a single memory
+mem0 delete <memory-id>
+
+# Delete all memories for a user
+mem0 delete --all --user-id alice --force
+
+# Delete all memories project-wide
+mem0 delete --all --project --force
+
+# Preview what would be deleted
+mem0 delete --all --user-id alice --dry-run
+```
+
+| Flag | Description |
+|------|-------------|
+| `--all` | Delete all memories matching scope filters |
+| `--entity` | Delete the entity and all its memories |
+| `--project` | With `--all`: delete all memories project-wide |
+| `--dry-run` | Preview without deleting |
+| `--force` | Skip confirmation prompt |
+
+### `mem0 import`
+
+Bulk import memories from a JSON file.
+
+```bash
+mem0 import data.json --user-id alice
+```
+
+The file should be a JSON array where each item has a `memory` (or `text` or `content`) field and optional `user_id`, `agent_id`, and `metadata` fields.
+
+### `mem0 config`
+
+View or modify the local CLI configuration.
+
+```bash
+mem0 config show              # Display current config (secrets redacted)
+mem0 config get api_key       # Get a specific value
+mem0 config set user_id bob   # Set a value
+```
+
+### `mem0 entity`
+
+List or delete entities (users, agents, apps, runs).
+
+```bash
+mem0 entity list users
+mem0 entity list agents --output json
+mem0 entity delete --user-id alice --force
+```
+
+### `mem0 event`
+
+Inspect background processing events created by async operations (e.g. bulk deletes, large add jobs).
+
+```bash
+# List recent events
+mem0 event list
+
+# Check the status of a specific event
+mem0 event status <event-id>
+```
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output` | Output format: `text`, `json` |
+
+### `mem0 status`
+
+Verify your API connection and display the current project.
+
+```bash
+mem0 status
+```
+
+### `mem0 version`
+
+Print the CLI version.
+
+```bash
+mem0 version
+```
+
+## Output formats
+
+All commands support the `--output` flag to control how results are displayed:
+
+| Format | Description |
+|--------|-------------|
+| `text` | Human-readable output with colors and formatting (default for most commands) |
+| `json` | Structured JSON, suitable for piping to `jq` or consumption by AI agents |
+| `table` | Tabular format (default for `list`) |
+| `quiet` | Minimal output — just IDs or status codes |
+| `agent` | Structured JSON envelope with sanitized fields — set automatically by `--json`/`--agent` |
+
+Example with JSON output:
+
+```bash
+mem0 search "user preferences" --user-id alice --output json | jq '.data.results[].memory'
+```
+
+## Use with AI agents
+
+The CLI is purpose-built for use inside AI agent tool loops. Pass `--agent` or `--json` as a global flag on **any** command to activate agent mode:
+
+- Every command outputs a consistent JSON envelope: `{"status", "command", "duration_ms", "scope", "count", "data"}`
+- The `data` field contains only the fields that matter — IDs, memory text, scores, categories. Noisy API fields are stripped.
+- All human-readable output is suppressed: no spinners, no colors, no banners.
+- Errors are returned as JSON to stdout with a non-zero exit code, so your agent can catch them the same way as successes.
+
+```bash
+# Drop --agent on any command and get clean, parseable JSON
+mem0 --agent search "response preferences" --user-id user-42
+mem0 --agent add "User prefers concise responses" --user-id user-42
+mem0 --agent list --user-id user-42
+mem0 --agent delete --all --user-id user-42 --force
+```
+
+<CodeGroup>
+```json Output: mem0 --agent search "dark mode" --user-id alice
+{
+  "status": "success",
+  "command": "search",
+  "duration_ms": 134,
+  "scope": { "user_id": "alice" },
+  "count": 2,
+  "data": [
+    { "id": "abc-123", "memory": "User prefers dark mode", "score": 0.97, "created_at": "2026-01-15", "categories": ["preferences"] },
+    { "id": "def-456", "memory": "User uses vim keybindings", "score": 0.81, "created_at": "2026-01-10", "categories": ["tools"] }
+  ]
+}
+```
+
+```json Output: mem0 --agent add "Likes concise answers" --user-id alice
+{
+  "status": "success",
+  "command": "add",
+  "duration_ms": 210,
+  "data": [
+    { "id": "ghi-789", "memory": "Likes concise answers", "event": "ADD" }
+  ]
+}
+```
+</CodeGroup>
+
+Two other agent-friendly features:
+
+- **`--output json`** returns structured data without sanitization — useful when you want the full raw API response
+- **`mem0 help --json`** returns the complete command tree as JSON, so agents can self-discover available commands and options
+
+For non-interactive environments (CI, agent runtimes), set credentials via `mem0 init --api-key m0-xxx --user-id alice --force` or the `MEM0_API_KEY` environment variable.
+
+## Environment variables
+
+| Variable | Description |
+|----------|-------------|
+| `MEM0_API_KEY` | API key (overrides config file) |
+| `MEM0_BASE_URL` | API base URL |
+| `MEM0_USER_ID` | Default user ID |
+| `MEM0_AGENT_ID` | Default agent ID |
+| `MEM0_APP_ID` | Default app ID |
+| `MEM0_RUN_ID` | Default run ID |
+| `MEM0_ENABLE_GRAPH` | Enable graph memory (`true` / `false`) |
+
+Environment variables take precedence over values in the config file, which take precedence over defaults.
+
+## Global flags
+
+These flags are available on all commands:
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Enable agent mode: structured JSON envelope output, no colors or spinners |
+| `--agent` | Alias for `--json` |
+| `--api-key` | Override the configured API key for this request |
+| `--base-url` | Override the configured API base URL for this request |
+| `-o, --output` | Set the output format |
+
+## What's next
+
+<CardGroup cols={3}>
+<Card title="Quickstart" icon="bolt" href="/platform/quickstart">
+Store your first memory in under five minutes using the SDK or CLI
+</Card>
+
+<Card title="Memory Operations" icon="database" href="/core-concepts/memory-operations/add">
+Learn about add, search, update, and delete operations in depth
+</Card>
+
+<Card title="API Reference" icon="code" href="/api-reference/memory/add-memories">
+See the complete REST API documentation
+</Card>
+</CardGroup>

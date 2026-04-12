@@ -170,6 +170,67 @@ def test_callback_exception_handling(mock_openai_client):
     assert llm.config.response_callback is faulty_callback
 
 
+def test_reasoning_model_with_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort is passed to the API for reasoning models."""
+    config = OpenAIConfig(model="o3-mini", reasoning_effort="low")
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response from o3-mini"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert call_kwargs[1]["reasoning_effort"] == "low"
+    assert "temperature" not in call_kwargs[1]  # reasoning models don't get temperature
+    assert response == "Response from o3-mini"
+
+
+def test_reasoning_model_without_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort is not passed when not configured."""
+    config = OpenAIConfig(model="o3-mini")
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert "reasoning_effort" not in call_kwargs[1]
+
+
+def test_non_reasoning_model_ignores_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort is not passed for non-reasoning models."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", reasoning_effort="high")
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    # Non-reasoning models use common params path, reasoning_effort not added there
+    assert "reasoning_effort" not in call_kwargs[1]
+
+
+def test_reasoning_effort_config_values():
+    """Test that reasoning_effort can be set to all valid values."""
+    for effort in ["low", "medium", "high"]:
+        config = OpenAIConfig(model="o3", reasoning_effort=effort)
+        assert config.reasoning_effort == effort
+
+    config = OpenAIConfig(model="o3")
+    assert config.reasoning_effort is None
+
+
 def test_callback_with_tools(mock_openai_client):
     mock_callback = Mock()
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)

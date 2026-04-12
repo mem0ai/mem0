@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ElasticsearchConfig(BaseModel):
@@ -17,7 +17,7 @@ class ElasticsearchConfig(BaseModel):
     use_ssl: bool = Field(True, description="Use SSL for connection")
     auto_create_index: bool = Field(True, description="Automatically create index during initialization")
     custom_search_query: Optional[Callable[[List[float], int, Optional[Dict]], Dict]] = Field(
-        None, description="Custom search query function. Parameters: (query, limit, filters) -> Dict"
+        None, description="Custom search query function. Parameters: (query, top_k, filters) -> Dict"
     )
     headers: Optional[Dict[str, str]] = Field(None, description="Custom headers to include in requests")
 
@@ -63,3 +63,5 @@ class ElasticsearchConfig(BaseModel):
                 f"Please input only the following fields: {', '.join(allowed_fields)}"
             )
         return values
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
