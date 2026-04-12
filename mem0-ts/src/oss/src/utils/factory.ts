@@ -1,6 +1,5 @@
 import { OpenAIEmbedder } from "../embeddings/openai";
 import { OllamaEmbedder } from "../embeddings/ollama";
-import { LMStudioEmbedder } from "../embeddings/lmstudio";
 import { OpenAILLM } from "../llms/openai";
 import { OpenAIStructuredLLM } from "../llms/openai_structured";
 import { AnthropicLLM } from "../llms/anthropic";
@@ -20,7 +19,6 @@ import { Qdrant } from "../vector_stores/qdrant";
 import { VectorizeDB } from "../vector_stores/vectorize";
 import { RedisDB } from "../vector_stores/redis";
 import { OllamaLLM } from "../llms/ollama";
-import { LMStudioLLM } from "../llms/lmstudio";
 import { SupabaseDB } from "../vector_stores/supabase";
 import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryHistoryManager } from "../storage/MemoryHistoryManager";
@@ -35,7 +33,6 @@ import { LangchainEmbedder } from "../embeddings/langchain";
 import { LangchainVectorStore } from "../vector_stores/langchain";
 import { AzureAISearch } from "../vector_stores/azure_ai_search";
 import { PGVector } from "../vector_stores/pgvector";
-import { DeepSeekLLM } from "../llms/deepseek";
 
 export class EmbedderFactory {
   static create(provider: string, config: EmbeddingConfig): Embedder {
@@ -44,8 +41,6 @@ export class EmbedderFactory {
         return new OpenAIEmbedder(config);
       case "ollama":
         return new OllamaEmbedder(config);
-      case "lmstudio":
-        return new LMStudioEmbedder(config);
       case "google":
       case "gemini":
         return new GoogleEmbedder(config);
@@ -72,8 +67,6 @@ export class LLMFactory {
         return new GroqLLM(config);
       case "ollama":
         return new OllamaLLM(config);
-      case "lmstudio":
-        return new LMStudioLLM(config);
       case "google":
       case "gemini":
         return new GoogleLLM(config);
@@ -83,8 +76,6 @@ export class LLMFactory {
         return new MistralLLM(config);
       case "langchain":
         return new LangchainLLM(config);
-      case "deepseek":
-        return new DeepSeekLLM(config);
       default:
         throw new Error(`Unsupported LLM provider: ${provider}`);
     }

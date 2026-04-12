@@ -995,6 +995,13 @@ class Memory(MemoryBase):
         # Apply enhanced metadata filtering if advanced operators are detected
         if filters and self._has_advanced_operators(filters):
             processed_filters = self._process_metadata_filters(filters)
+            # Remove original logical/operator keys that _build_filters_and_metadata
+            # copied verbatim from input_filters — they have now been reprocessed.
+            for logical_key in ("AND", "OR", "NOT"):
+                effective_filters.pop(logical_key, None)
+            for fk in list(filters.keys()):
+                if fk not in ("AND", "OR", "NOT") and fk in effective_filters and isinstance(filters[fk], dict):
+                    effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
         elif filters:
             # Simple filters, merge directly
@@ -1235,7 +1242,7 @@ class Memory(MemoryBase):
 
             additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
             if additional_metadata:
-                if "metadata" not in memory_item_dict:
+                if not memory_item_dict.get("metadata"):
                     memory_item_dict["metadata"] = {}
                 memory_item_dict["metadata"].update(additional_metadata)
 
@@ -2332,6 +2339,13 @@ class AsyncMemory(MemoryBase):
         # Apply enhanced metadata filtering if advanced operators are detected
         if filters and self._has_advanced_operators(filters):
             processed_filters = self._process_metadata_filters(filters)
+            # Remove original logical/operator keys that _build_filters_and_metadata
+            # copied verbatim from input_filters — they have now been reprocessed.
+            for logical_key in ("AND", "OR", "NOT"):
+                effective_filters.pop(logical_key, None)
+            for fk in list(filters.keys()):
+                if fk not in ("AND", "OR", "NOT") and fk in effective_filters and isinstance(filters[fk], dict):
+                    effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
         elif filters:
             # Simple filters, merge directly
@@ -2572,7 +2586,7 @@ class AsyncMemory(MemoryBase):
 
             additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
             if additional_metadata:
-                if "metadata" not in memory_item_dict:
+                if not memory_item_dict.get("metadata"):
                     memory_item_dict["metadata"] = {}
                 memory_item_dict["metadata"].update(additional_metadata)
 
