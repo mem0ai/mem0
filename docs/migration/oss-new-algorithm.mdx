@@ -26,7 +26,6 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 
 | Change | Old | New | Migration |
 |---|---|---|---|
-| Search parameter | `search(top_k=10)` | `search(limit=10)` | Rename `top_k` → `limit` |
 | `threshold` default | `None` (no filtering) | `0.1` (filters low-relevance) | Pass `threshold=0.0` for old behavior |
 | `rerank` default | `True` | `False` | Pass `rerank=True` to restore |
 | `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
@@ -154,7 +153,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     results = m.search(
         "what meetings did I attend?",
         user_id="alice",
-        top_k=20          # [REMOVED] Renamed to 'limit'
+        top_k=20
     )
     for r in results:
         print(r["score"])  # Was raw cosine similarity
@@ -163,7 +162,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     results = m.search(
         "what meetings did I attend?",
         user_id="alice",
-        limit=20,           # [OK] Renamed from 'top_k'
+        top_k=20,           # Unchanged
         threshold=0.1,      # New default (pass 0.0 to disable)
         rerank=False         # New default (pass True to restore)
     )
@@ -179,7 +178,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     // Before
     const results = await m.search("what meetings did I attend?", {
       userId: "alice",
-      limit: 20          // [REMOVED] Renamed to 'topK'
+      limit: 20          // [REMOVED] Renamed to 'topK' for consistency
     });
 
     // After
@@ -419,8 +418,6 @@ These parameters have been removed across all SDKs. Remove them from your code:
     **Config:** `custom_update_memory_prompt` → deprecated, use `custom_instructions`
 
     **Config:** `enable_graph` → removed (graph activates when `graph_store` config is present)
-
-    **search():** `top_k` → renamed to `limit`
   </Accordion>
   <Accordion title="TypeScript OSS — Removed/renamed parameters">
     **Config:** `customPrompt` → renamed to `customInstructions`
@@ -436,16 +433,6 @@ These parameters have been removed across all SDKs. Remove them from your code:
 ## Common Issues
 
 <AccordionGroup>
-  <Accordion title="Python: 'top_k' is not a valid parameter">
-    The `top_k` parameter has been renamed to `limit` in the Python OSS Memory class:
-    ```python
-    # Before
-    results = m.search("query", user_id="alice", top_k=20)
-
-    # After
-    results = m.search("query", user_id="alice", limit=20)
-    ```
-  </Accordion>
   <Accordion title="TypeScript: 'limit' is not a valid parameter">
     The `limit` parameter has been renamed to `topK` in the TypeScript OSS:
     ```typescript
