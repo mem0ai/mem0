@@ -1,0 +1,345 @@
+---
+title: "Memory Evaluation"
+description: "Understand how Mem0's memory system is evaluated, benchmark results, and how to run evaluations on your own data."
+icon: "chart-bar"
+iconType: "solid"
+---
+
+## Why Memory Evaluation Matters
+
+Evaluating a memory system at scale requires balancing three parameters: **accuracy** (does it retrieve the right memories?), **performance** (how fast and how many tokens?), and **cost** (what models does it require?). Optimizing one is easy. Balancing all three at the scale of billions of interactions is the actual problem.
+
+Most memory benchmarks today are small enough to be saturated with brute force — aggressive retrieval, bigger context windows, and frontier models can push scores up without meaningfully improving the memory system underneath. That's why we evaluate with deliberate constraints:
+
+- **Two retrieval configurations**: `top200` (maximum recall) and `top50` (production constraints), with tokens and latency disclosed for each
+- **A smaller model, by choice**: All benchmarks use `gpt-oss-120B` as the extraction model — roughly 2.6x faster and 18x cheaper than frontier-model stacks
+
+## Architecture Overview
+
+Mem0's memory system operates across two phases — **extraction** (writing) and **retrieval** (reading) — with an entity linking layer connecting them.
+
+### Memory Extraction (Distillation)
+
+When new conversations arrive, the extraction pipeline processes them through five stages:
+
+1. **Store New Memories** — Conversation enters the pipeline asynchronously (after the agent responds)
+2. **Context Lookup** — Find related existing memories to avoid duplicates
+3. **Distill Memories** — Single-pass LLM extraction produces ADD-only facts from input + context
+4. **Deduplicate + Embed** — Hash-based deduplication, then vectorize new memories
+5. **Entity Linking** — Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories
+
+All extracted facts are written to three storage layers:
+
+| Store | Contents | Purpose |
+|---|---|---|
+| **SQL Database** | Facts + metadata (timestamps, entities, categories) | Structured queries, audit trail |
+| **Vector Database** | Embeddings + similarity indexes | Semantic retrieval |
+| **Entity Store** | Entities + relationships + linked memory IDs | Entity-based retrieval boost |
+
+<Info>
+The key architectural decision is **ADD-only extraction**. New facts are stored alongside old ones — nothing is overwritten or deleted. When information changes, both the old and new facts survive. This preserves temporal context and eliminates information loss from premature consolidation.
+</Info>
+
+### Multi-Signal Retrieval
+
+When a query arrives, the retrieval pipeline scores candidates across three signals in parallel:
+
+1. **Semantic Search** — Vector similarity scoring against memory embeddings
+2. **Keyword Search** — Normalized term matching via BM25 with verb-form lemmatization
+3. **Entity Search** — Entity graph matching boosts memories linked to query entities
+
+Results are fused via rank scoring into a final top-K set. Different query types lean on different signals:
+
+| Query Type | Primary Signal | Example |
+|---|---|---|
+| Conceptual | Semantic | "What does the user think about remote work?" |
+| Factual/exact | BM25 keyword | "What meetings did I attend last week?" |
+| Entity-centric | Entity matching | "What do we know about Alice?" |
+| Temporal | Semantic + keyword | "When did the user first mention the project?" |
+
+The combined score outperformed every individual signal across every category tested.
+
+## Benchmarks
+
+### LoCoMo
+
+[LoCoMo](https://github.com/snap-stanford/locomo) tests single-hop, multi-hop, open-domain, and temporal memory recall across conversational sessions.
+
+| Category | Previous | New (top200) | New (top50) | Delta |
+|---|---|---|---|---|
+| **Overall** | 71.4 | **91.6** | 82.7 | **+20.2** |
+| Single-hop | 76.6 | 92.3 | 82.8 | +15.7 |
+| Multi-hop | 70.2 | 93.3 | 82.3 | +23.1 |
+| Open-domain | 57.3 | 76.0 | 70.8 | +18.7 |
+| Temporal | 63.2 | 92.8 | 86.3 | +29.6 |
+
+*Mean tokens: 6,956 (top200) / 1,711 (top50). Median latency: 0.880s (top200) / 0.861s (top50).*
+
+The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning (+23.1)**. Both categories directly test the ADD-only architecture (preserving temporal context) and entity linking (connecting facts across memories).
+
+### LongMemEval
+
+[LongMemEval](https://github.com/xiaowu0162/LongMemEval) evaluates memory across single-session and multi-session contexts, including knowledge updates and temporal reasoning.
+
+| Category | Previous | New (top200) | New (top50) | Delta |
+|---|---|---|---|---|
+| **Overall** | 67.8 | **93.4** | 90.4 | **+25.6** |
+| Single-session (user) | 94.3 | 97.1 | 95.7 | +2.8 |
+| Single-session (assistant) | 46.4 | 100.0 | 92.9 | +53.6 |
+| Single-session (preference) | 76.7 | 96.7 | 86.7 | +20.0 |
+| Knowledge update | 79.5 | 96.2 | 96.2 | +16.7 |
+| Temporal reasoning | 51.1 | 93.2 | 92.5 | +42.1 |
+| Multi-session | 70.7 | 86.5 | 82.0 | +15.8 |
+
+*Mean tokens: 6,787 (top200) / 1,851 (top50). Median latency: 1.091s (top200) / 0.558s (top50).*
+
+The biggest gain is **single-session assistant (+53.6)** — the previous algorithm had a blind spot for agent-generated facts. The new algorithm treats them as first-class memories.
+
+The **+42.1 on temporal reasoning** reflects the ADD-only architecture preserving chronological context that the previous UPDATE/DELETE model would destroy.
+
+### BEAM
+
+[BEAM](https://github.com/stanford-crfm/helm) evaluates memory systems at 1M and 10M token scales across ten task categories. It is the only public benchmark that operates at context volumes production AI agents actually encounter.
+
+| Category | 1M (top200) | 1M (top50) | 10M (top200) | 10M (top50) |
+|---|---|---|---|---|
+| **Overall** | **0.64** | 0.60 | **0.48** | 0.41 |
+| preference_following | 0.88 | 0.84 | 0.90 | 0.79 |
+| instruction_following | 0.85 | 0.76 | 0.83 | 0.59 |
+| information_extraction | 0.70 | 0.66 | 0.56 | 0.49 |
+| knowledge_update | 0.65 | 0.59 | **0.75** | 0.70 |
+| multi_session_reasoning | 0.65 | 0.63 | 0.26 | 0.26 |
+| summarization | 0.64 | 0.54 | 0.47 | 0.24 |
+| temporal_reasoning | 0.62 | 0.59 | 0.16 | 0.23 |
+| event_ordering | 0.54 | 0.54 | 0.20 | 0.07 |
+| abstention | 0.53 | 0.54 | 0.40 | 0.45 |
+| contradiction_resolution | 0.36 | 0.37 | 0.33 | 0.32 |
+
+*Mean tokens (1M): 6,719 (top200) / 1,647 (top50). Mean tokens (10M): 6,914 (top200) / 1,679 (top50). Median latency (1M): 1.00s (top200) / 0.872s (top50). Median latency (10M): 1.053s (top200) / 1.086s (top50).*
+
+<Info>
+**BEAM is the most important benchmark in this list.** It operates at scales that cannot be brute-forced with current context windows. The system holds up well on preference following, instruction following, and knowledge updates at both 1M and 10M scales. Weaker categories at 10M (temporal reasoning, event ordering) are open problems for the field — they require higher-order temporal representations beyond fact-level and entity-level matching.
+</Info>
+
+### Performance Summary
+
+| Benchmark | Score | Tokens | Latency p50 |
+|---|---|---|---|
+| **LoCoMo** | **91.6** | 7.0K | 0.88s |
+| **LongMemEval** | **93.4** | 6.8K | 1.09s |
+| **BEAM (1M)** | **0.64** | 6.7K | 1.00s |
+| **BEAM (10M)** | **0.48** | 6.9K | 1.05s |
+
+All benchmarks run on `gpt-oss-120B`. Scores carry a +/-1 point confidence interval due to judge inconsistency.
+
+## Running Evaluations
+
+The full evaluation framework is [open-sourced](https://github.com/mem0ai/memory-benchmarks) so anyone can reproduce the numbers independently. It supports both Mem0 Cloud and self-hosted OSS backends.
+
+### Setup
+
+<Tabs>
+  <Tab title="Mem0 Cloud">
+    ```bash
+    git clone https://github.com/mem0ai/memory-benchmarks.git
+    cd memory-benchmarks
+    pip install -r requirements.txt
+
+    # Set your API keys
+    export MEM0_API_KEY=m0-your-key
+    export OPENAI_API_KEY=sk-your-key
+    ```
+  </Tab>
+  <Tab title="Mem0 OSS (Docker)">
+    ```bash
+    git clone https://github.com/mem0ai/memory-benchmarks.git
+    cd memory-benchmarks
+    pip install -r requirements.txt
+
+    # Copy and configure environment
+    cp .env.example .env
+    # Edit .env to add OPENAI_API_KEY
+
+    # Start local Mem0 server + Qdrant
+    docker compose up -d
+    # Mem0 server: http://localhost:8888
+    # Qdrant:      http://localhost:6333
+    ```
+  </Tab>
+</Tabs>
+
+### Running a Benchmark
+
+Each benchmark is a Python module with its own runner. All share common CLI options:
+
+| Option | Default | Description |
+|---|---|---|
+| `--project-name` | (required) | Run identifier for tracking results |
+| `--backend` | `oss` | `oss` (self-hosted) or `cloud` (Mem0 Platform) |
+| `--top-k` | `200` | Number of memories to retrieve per query |
+| `--top-k-cutoffs` | `10,20,50,200` | Evaluate accuracy at multiple retrieval depths |
+| `--answerer-model` | `gpt-4o` | LLM for generating answers from retrieved memories |
+| `--judge-model` | `gpt-4o` | LLM for judging answer correctness |
+| `--max-workers` | `10` | Parallel workers for evaluation |
+| `--predict-only` | — | Stop after search, skip answer + judge phases |
+| `--evaluate-only` | — | Skip ingest + search, evaluate existing results |
+| `--resume` | — | Resume from checkpoint (BEAM and LongMemEval) |
+
+<CodeGroup>
+```bash LoCoMo
+# ~300 questions across 10 conversations (fastest benchmark)
+python -m benchmarks.locomo.run \
+  --project-name my-eval \
+  --backend cloud \
+  --mem0-api-key $MEM0_API_KEY \
+  --top-k 200
+
+# Self-hosted
+python -m benchmarks.locomo.run \
+  --project-name my-eval \
+  --top-k 200
+```
+
+```bash LongMemEval
+# 500 questions across 6 categories
+python -m benchmarks.longmemeval.run \
+  --project-name my-eval \
+  --backend cloud \
+  --mem0-api-key $MEM0_API_KEY \
+  --all-questions \
+  --top-k 200
+
+# Self-hosted
+python -m benchmarks.longmemeval.run \
+  --project-name my-eval \
+  --all-questions \
+  --top-k 200
+```
+
+```bash BEAM
+# 1M token scale (100 conversations)
+python -m benchmarks.beam.run \
+  --project-name my-eval \
+  --backend cloud \
+  --mem0-api-key $MEM0_API_KEY \
+  --chat-sizes 1M \
+  --conversations 0-99 \
+  --top-k 200
+
+# 10M token scale
+python -m benchmarks.beam.run \
+  --project-name my-eval \
+  --backend cloud \
+  --mem0-api-key $MEM0_API_KEY \
+  --chat-sizes 10M \
+  --conversations 0-99 \
+  --top-k 200
+```
+</CodeGroup>
+
+### Custom Model Configuration
+
+To run evaluations with custom models (Azure OpenAI, Ollama, etc.), copy one of the provided configs:
+
+```bash
+# Available configs: openai.yaml, azure-openai.yaml, ollama.yaml
+cp configs/azure-openai.yaml mem0-config.yaml
+# Edit mem0-config.yaml with your model details
+
+# Uncomment the volume mount in docker-compose.yml, then restart:
+docker compose down && docker compose up -d
+```
+
+### Viewing Results
+
+Results are saved to `results/[benchmark]/` and can be explored through the built-in web UI:
+
+```bash
+npm install
+npm run dev -- -p 3001
+# Open http://localhost:3001
+```
+
+The UI lets you browse per-question results, inspect retrieval details, and compare multiple runs.
+
+### Result Format
+
+Each evaluated question produces a structured result:
+
+```json
+{
+  "id": "locomo_q_001",
+  "group": "temporal",
+  "question": "When did the user first mention moving?",
+  "ground_truth": "During the March 3rd conversation",
+  "retrieval": {
+    "search_query": "when did user mention moving",
+    "search_results": ["..."],
+    "search_latency_ms": 123.4,
+    "total_results": 42
+  },
+  "generation": {
+    "generated_answer": "The user first mentioned moving on March 3rd",
+    "model": "gpt-4o",
+    "prompt_tokens": 500,
+    "completion_tokens": 100
+  },
+  "judgment": {
+    "judgment": "CORRECT",
+    "score": 0.85,
+    "reason": "Answer correctly identifies the date",
+    "model": "gpt-4o"
+  },
+  "cutoff_results": {
+    "top-10": { "score": 0.75, "judgment": "CORRECT" },
+    "top-50": { "score": 0.85, "judgment": "CORRECT" },
+    "top-200": { "score": 0.90, "judgment": "CORRECT" }
+  }
+}
+```
+
+## Interpreting Results
+
+When evaluating memory systems, keep these considerations in mind:
+
+- **Saturating a small benchmark is not the same as building a memory system that works at scale.** Small benchmarks can be brute-forced with aggressive retrieval and frontier models.
+- **Compare at equal constraints.** Always compare systems using the same `top_k`, the same model, and the same latency budget. A system scoring 95% with top200 and GPT-5 is not comparable to one scoring 90% with top50 and a 120B model.
+- **Watch for score ceiling effects.** Categories like "single-session user" are already near-saturated (97%+). Improvements in these categories are less meaningful than gains in harder categories like temporal reasoning or multi-session.
+- **BEAM at 10M is the real test.** Any system can look good at small scale. The 10M-token BEAM benchmark reveals whether the retrieval system actually scales.
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="What judge model is used for evaluation?">
+    The default judge model is `gpt-4o`. You can override it with `--judge-model` and `--judge-provider` flags. Scores carry a +/-1 point confidence interval due to judge inconsistency.
+  </Accordion>
+  <Accordion title="Can I evaluate with a different extraction model?">
+    Yes. For self-hosted, configure the extraction model in your `mem0-config.yaml` (see configs/ for examples with Azure OpenAI, Ollama, etc.). For Mem0 Cloud, extraction uses the platform's default model. The published benchmark numbers use `gpt-oss-120B` specifically — using a frontier model will likely produce higher scores but at higher cost and latency.
+  </Accordion>
+  <Accordion title="What's the difference between top200 and top50?">
+    `top200` retrieves up to 200 memories per query (maximum recall), while `top50` retrieves up to 50 (production-realistic constraints). The gap between them shows how much retrieval precision matters — a small gap means the system is good at ranking, a large gap means it depends on casting a wide net.
+  </Accordion>
+  <Accordion title="Why are BEAM scores lower than LoCoMo/LongMemEval?">
+    BEAM operates at 1M and 10M token scales — orders of magnitude larger than LoCoMo or LongMemEval. At these scales, similar content appears multiple times across the window, and the memory system must surface the exact correct memory over many close matches. The scores reflect the genuine difficulty of the task, not a regression in the algorithm.
+  </Accordion>
+  <Accordion title="How do I contribute a new benchmark?">
+    Open a pull request to the [memory-benchmarks repository](https://github.com/mem0ai/memory-benchmarks) with your benchmark implementation. See the repository README for the expected interface and format.
+  </Accordion>
+</AccordionGroup>
+
+## Resources
+
+<CardGroup cols={2}>
+  <Card title="Evaluation Repository" icon="github" href="https://github.com/mem0ai/memory-benchmarks">
+    Open-source evaluation framework for reproducing all benchmark results
+  </Card>
+  <Card title="Research" icon="flask" href="https://mem0.ai/research">
+    Published research papers and technical reports
+  </Card>
+  <Card title="Blog Post" icon="newspaper" href="https://mem0.ai/blog/new-algorithm">
+    Detailed writeup of the new algorithm design and results
+  </Card>
+  <Card title="Platform Migration" icon="arrow-right" href="/migration/platform-new-algorithm">
+    Guide for migrating your Platform integration
+  </Card>
+</CardGroup>

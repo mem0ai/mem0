@@ -1,0 +1,317 @@
+---
+title: "Open Source: Migrating to the New Memory Algorithm"
+description: "Guide for self-hosted Mem0 users to upgrade to the new memory algorithm with ADD-only extraction, hybrid search, and entity linking."
+icon: "arrow-right"
+iconType: "solid"
+---
+
+<Warning>
+**Breaking changes ahead.** This release includes renamed parameters, changed defaults, and a fundamentally different extraction model. Read this guide before upgrading.
+</Warning>
+
+## Overview
+
+The new Mem0 open-source algorithm redesigns both extraction and retrieval:
+
+- **Extraction**: Single-pass ADD-only (one LLM call, no UPDATE/DELETE)
+- **Retrieval**: Multi-signal hybrid search (semantic + BM25 keyword + entity matching)
+- **Entity linking**: Automatic entity extraction and cross-memory linking
+
+These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and **+26 point improvement on LongMemEval** (67.8 → 93.4), while cutting extraction latency roughly in half.
+
+## Breaking Changes
+
+| Change | Old Behavior | New Behavior | Migration |
+|---|---|---|---|
+| `top_k` → `limit` | `search(top_k=10)` | `search(limit=10)` | Rename parameter |
+| `threshold` default | `None` (no filtering) | `0.1` (filters low-relevance) | Pass `threshold=0.0` for old behavior |
+| `rerank` default | `True` | `False` | Pass `rerank=True` to restore |
+| `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update client code expecting UPDATE/DELETE |
+| `score` meaning | Raw cosine similarity | Combined hybrid score | Use `score_breakdown.semantic` for raw cosine |
+| Qdrant client | `>=1.9.1` | `>=1.12.0` | Update dependency |
+| Upstash client | `>=0.1.0` | `>=0.6.0` | Update dependency |
+
+## Step-by-Step Migration
+
+### 1. Update Installation
+
+```bash
+# Basic upgrade
+pip install --upgrade mem0ai
+
+# For hybrid search + entity extraction (recommended)
+pip install --upgrade "mem0ai[nlp]"
+python -m spacy download en_core_web_sm
+```
+
+<Info>
+The `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity linking, no BM25 lemmatization).
+</Info>
+
+### 2. Update Search Calls
+
+#### Before
+
+```python
+from mem0 import Memory
+
+m = Memory()
+
+# Old parameter name and defaults
+results = m.search(
+    "what meetings did I attend?",
+    user_id="alice",
+    top_k=20          # ❌ Renamed to 'limit'
+)
+
+for r in results:
+    print(r["score"])  # Was raw cosine similarity
+```
+
+#### After
+
+```python
+from mem0 import Memory
+
+m = Memory()
+
+# New parameter name and explicit defaults
+results = m.search(
+    "what meetings did I attend?",
+    user_id="alice",
+    limit=20,           # ✅ Renamed from 'top_k'
+    threshold=0.1,      # New default (pass 0.0 to disable)
+    rerank=False         # New default (pass True to restore)
+)
+
+for r in results:
+    print(r["score"])                         # Combined hybrid score
+    print(r["score_breakdown"]["semantic"])    # Raw cosine similarity
+    print(r["score_breakdown"]["bm25"])        # Normalized keyword score
+    print(r["score_breakdown"]["entity_boost"])# Entity linking boost
+```
+
+### 3. Update Add Result Handling
+
+#### Before
+
+```python
+result = m.add("I love hiking and my dog's name is Max", user_id="alice")
+
+for item in result["results"]:
+    if item["event"] == "ADD":
+        print("New memory:", item["memory"])
+    elif item["event"] == "UPDATE":
+        print("Updated memory:", item["memory"])  # ❌ No longer returned
+    elif item["event"] == "DELETE":
+        print("Deleted memory:", item["memory"])   # ❌ No longer returned
+```
+
+#### After
+
+```python
+result = m.add("I love hiking and my dog's name is Max", user_id="alice")
+
+for item in result["results"]:
+    # Only ADD events are returned
+    print("New memory:", item["memory"])
+```
+
+<Tip>
+The ADD-only model means memories accumulate over time. When information changes, the new fact is stored alongside the old one. Retrieval handles ranking — the most relevant, current information surfaces first.
+</Tip>
+
+### 4. Update Vector Store Dependencies
+
+If you're using Qdrant or Upstash, update your client libraries:
+
+```bash
+# Qdrant users
+pip install "qdrant-client>=1.12.0"
+
+# Upstash users
+pip install "upstash-vector>=0.6.0"
+```
+
+### 5. Entity Store Setup
+
+The new algorithm automatically creates a parallel entity store collection named `{your_collection}_entities`. No manual setup is required — it's created on first use.
+
+<Warning>
+Make sure your vector store user/credentials have permission to create new collections. If you're using a managed vector database with restricted permissions, pre-create the `{collection_name}_entities` collection.
+</Warning>
+
+**What gets stored in the entity store:**
+
+```json
+{
+  "data": "Alice",
+  "entity_type": "PERSON",
+  "linked_memory_ids": ["mem-uuid-1", "mem-uuid-2"],
+  "user_id": "alice"
+}
+```
+
+Entities are automatically extracted from memory text (proper nouns, quoted text, compound noun phrases) and linked back to the memories they appear in. At search time, entities from the query are matched against this store and used to boost relevant memories.
+
+## Vector Store Compatibility
+
+All 15 supported vector stores have been enhanced with two new capabilities:
+
+| Capability | Purpose | Fallback if Unsupported |
+|---|---|---|
+| `keyword_search()` | BM25/full-text keyword matching | Falls back to semantic-only search |
+| `search_batch()` | Batch search for entity matching | Falls back to sequential search |
+
+**Qdrant-specific changes:**
+- Now uses sparse vectors (BM25) alongside dense vectors in the same collection
+- Requires `fastembed` library for BM25 encoding (lazy-loaded, gracefully degrades)
+- Install: `pip install fastembed`
+
+**All other vector stores:**
+- Enhanced with `keyword_search()` methods using their native full-text capabilities
+- No additional dependencies required
+
+## How the New Algorithm Works
+
+### Extraction: Single-Pass ADD-Only
+
+```
+Input conversation
+    → Retrieve top-10 related existing memories (for deduplication context)
+    → Single LLM call: extract all distinct new facts
+    → Batch embed extracted memories
+    → Hash-based deduplication (MD5, prevents exact duplicates)
+    → Batch insert into vector store
+    → Entity extraction + linking
+```
+
+The previous algorithm used two LLM calls — one to extract candidate facts, one to decide ADD/UPDATE/DELETE actions against existing memories. The new algorithm collapses this into a single call that only adds. The model spends its capacity on understanding the input rather than diffing against existing state.
+
+### Retrieval: Multi-Signal Hybrid Search
+
+```
+Query
+    → Preprocess (lemmatize keywords, extract entities)
+    → Parallel scoring:
+        1. Semantic search (vector similarity)
+        2. BM25 keyword search (normalized term matching)
+        3. Entity matching (entity graph boost)
+    → Score fusion → Top-K selection
+```
+
+**Scoring formula:**
+
+```
+combined = (semantic + bm25 + entity_boost) / max_possible
+```
+
+Where `max_possible` adapts based on which signals are available (1.0 for semantic-only, 2.0 with BM25, 2.5 with all three).
+
+**BM25 is a boost signal, not a recall expander.** Only semantic search results are candidates — BM25 and entity scores boost ranking but don't add new candidates.
+
+## Configuration
+
+No configuration changes are required. The new algorithm activates automatically on upgrade. To take full advantage of hybrid search:
+
+```python
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "host": "localhost",
+            "port": 6333,
+            "collection_name": "my_memories"
+            # Entity store auto-created as "my_memories_entities"
+        }
+    },
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-4o-mini",
+            "temperature": 0
+        }
+    },
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "model": "text-embedding-3-small"
+        }
+    }
+}
+
+m = Memory.from_config(config)
+```
+
+<Info>
+For best hybrid search results, we recommend using at least a Qwen 600M or comparable embedding model. The default `text-embedding-3-small` from OpenAI works well.
+</Info>
+
+## Graceful Degradation
+
+The new features degrade gracefully when optional dependencies are missing:
+
+| Missing Dependency | Impact | Search Still Works? |
+|---|---|---|
+| spaCy (`mem0ai[nlp]`) | No entity extraction, no BM25 lemmatization | Yes (semantic-only) |
+| `fastembed` (Qdrant) | No BM25 keyword search | Yes (semantic + entity) |
+| Entity store unavailable | No entity boosting | Yes (semantic + BM25) |
+
+You always get semantic search. Hybrid search features layer on top when available.
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="NameError: 'top_k' is not a valid parameter">
+    The `top_k` parameter has been renamed to `limit`. Update your search calls:
+    ```python
+    # Before
+    results = m.search("query", user_id="alice", top_k=20)
+    
+    # After
+    results = m.search("query", user_id="alice", limit=20)
+    ```
+  </Accordion>
+  <Accordion title="Search returns fewer results than before">
+    The default `threshold` changed from `None` to `0.1`. Low-relevance results that were previously included are now filtered out. To restore the old behavior:
+    ```python
+    results = m.search("query", user_id="alice", threshold=0.0)
+    ```
+  </Accordion>
+  <Accordion title="spaCy model not found">
+    If you see errors about missing spaCy models, download the required model:
+    ```bash
+    python -m spacy download en_core_web_sm
+    ```
+    If spaCy is not installed at all, install the NLP extras:
+    ```bash
+    pip install "mem0ai[nlp]"
+    ```
+  </Accordion>
+  <Accordion title="Entity store collection creation fails">
+    The entity store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
+  </Accordion>
+  <Accordion title="Score values are different from before">
+    The top-level `score` is now a combined hybrid score (0-1), not raw cosine similarity. To get the raw cosine similarity, use `score_breakdown.semantic`. The combined score factors in keyword matching and entity linking, which generally produces better ranking.
+  </Accordion>
+</AccordionGroup>
+
+## Rollback
+
+To revert to the previous algorithm, pin the version before this release:
+
+```bash
+pip install mem0ai==<previous-version>
+```
+
+<Warning>
+Memories added with the new algorithm are forward-compatible — they're stored as standard vector entries. However, the entity store collection (`{collection}_entities`) will not be used by the old version and can be safely ignored or deleted if rolling back.
+</Warning>
+
+## Need Help?
+
+- Join our [Discord community](https://mem0.ai/discord) for real-time support
+- Open an issue on [GitHub](https://github.com/mem0ai/mem0/issues)
+- Check the [evaluation docs](/core-concepts/memory-evaluation) to benchmark the new algorithm on your data

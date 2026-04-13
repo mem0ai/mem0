@@ -55,7 +55,8 @@
                       "core-concepts/memory-operations/add",
                       "core-concepts/memory-operations/search",
                       "core-concepts/memory-operations/update",
-                      "core-concepts/memory-operations/delete"
+                      "core-concepts/memory-operations/delete",
+                      "core-concepts/memory-evaluation"
                     ]
                   },
                   {
@@ -118,6 +119,7 @@
                     "group": "Migration Guide",
                     "icon": "arrow-right",
                     "pages": [
+                      "migration/platform-new-algorithm",
                       "migration/oss-to-platform",
                       "migration/api-changes"
                     ]
@@ -293,6 +295,13 @@
                           }
                         ]
                       }
+                    ]
+                  },
+                  {
+                    "group": "Migration",
+                    "icon": "arrow-right",
+                    "pages": [
+                      "migration/oss-new-algorithm"
                     ]
                   },
                   {
