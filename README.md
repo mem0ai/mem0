@@ -59,7 +59,7 @@ All benchmarks run on `gpt-oss-120B`. Single-pass retrieval (one call, no agenti
 - **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
 - **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
 
-See the [migration guide](https://docs.mem0.ai/migration/oss-new-algorithm) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
+See the [migration guide](https://docs.mem0.ai/migration/oss-v1-to-v2) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
 
 ## Research Highlights
 - **91.6 on LoCoMo** -- +20 points over the previous algorithm

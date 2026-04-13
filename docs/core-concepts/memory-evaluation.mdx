@@ -101,6 +101,10 @@ The **+42.1 on temporal reasoning** reflects the ADD-only architecture preservin
 
 [BEAM](https://github.com/mem0ai/memory-benchmarks) evaluates memory systems at 1M and 10M token scales across ten task categories. It is the only public benchmark that operates at context volumes production AI agents actually encounter.
 
+<Warning>
+BEAM reports scores as a **pass rate (0-1 scale)**, not percentage accuracy (0-100) like LoCoMo and LongMemEval. A BEAM score of 0.64 means 64% of questions were answered correctly at that scale. The different scale reflects BEAM's stricter evaluation methodology for large-context memory tasks.
+</Warning>
+
 | Category | 1M (top200) | 1M (top50) | 10M (top200) | 10M (top50) |
 |---|---|---|---|---|
 | **Overall** | **0.64** | 0.60 | **0.48** | 0.41 |
@@ -132,7 +136,7 @@ All results use a single-pass retrieval setup: one retrieval call, one answer, n
 | **BEAM (1M)** | — | **0.64** | 6.7K | 1.00s |
 | **BEAM (10M)** | — | **0.48** | 6.9K | 1.05s |
 
-All benchmarks run on `gpt-oss-120B`. Scores carry a ±1 point confidence interval due to judge inconsistency.
+LoCoMo and LongMemEval scores are accuracy percentages (0-100). BEAM scores are pass rates (0-1 scale) -- 0.64 = 64% pass rate. All benchmarks run on `gpt-oss-120B`. Scores carry a ±1 point confidence interval due to judge inconsistency.
 
 ## Running Evaluations
 
@@ -172,7 +176,7 @@ The full evaluation framework is [open-sourced](https://github.com/mem0ai/memory
 
 ### Running a Benchmark
 
-Each benchmark is a Python module with its own runner. All share common CLI options:
+Each benchmark is a Python module with its own runner ([source code](https://github.com/mem0ai/memory-benchmarks/tree/main/benchmarks)). All share common CLI options:
 
 | Option | Default | Description |
 |---|---|---|
@@ -345,7 +349,7 @@ When evaluating memory systems, keep these considerations in mind:
   <Card title="Blog Post" icon="newspaper" href="https://mem0.ai/blog/new-algorithm">
     Detailed writeup of the new algorithm design and results
   </Card>
-  <Card title="Platform Migration" icon="arrow-right" href="/migration/platform-new-algorithm">
+  <Card title="Platform Migration" icon="arrow-right" href="/migration/platform-v1-to-v2">
     Guide for migrating your Platform integration
   </Card>
 </CardGroup>
