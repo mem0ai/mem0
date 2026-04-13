@@ -273,7 +273,6 @@ export default class MemoryClient {
       headers: this.headers,
       body: JSON.stringify(body),
     });
-    // Unwrap v1.1 format: { results: [...] } → [...]
     return Array.isArray(response) ? response : (response?.results ?? response);
   }
 
