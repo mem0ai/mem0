@@ -38,7 +38,7 @@ export function UpgradeBanner({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 px-4 py-2.5 rounded-md text-[13px] font-fustat",
+        "flex items-center gap-3 px-4 py-2.5 rounded-md typo-body-xs font-fustat",
         variant === "cloud"
           ? "bg-memGold-100 border-l-2 border-memGold-500"
           : "bg-memRed-100 border-l-2 border-memRed-400"

@@ -211,7 +211,7 @@ export function MainNav({
                           {!isSidebarCollapsed && (
                             <>
                               <span>{item.title}</span>
-                              <Badge variant="outline" className="ml-auto text-memGold-600 border-memGold-300 text-[10px] px-1.5 py-0">
+                              <Badge variant="outline" className="ml-auto text-memGold-600 border-memGold-300 typo-caption-sm px-1.5 py-0">
                                 PRO
                               </Badge>
                             </>
