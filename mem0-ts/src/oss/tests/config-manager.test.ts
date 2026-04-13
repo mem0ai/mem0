@@ -127,6 +127,20 @@ describe("ConfigManager", () => {
       expect(config.llm.config.url).toBe("http://fallback:11434");
     });
 
+    it("should use url as baseURL fallback when no baseURL provided (issue #4715)", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "ollama",
+          config: { model: "llama3.1:8b", url: "http://my-ollama-host:11434" },
+        },
+      });
+
+      expect(config.llm.config.baseURL).toBe("http://my-ollama-host:11434");
+      expect(config.llm.config.url).toBe("http://my-ollama-host:11434");
+    });
+
     it("should use default baseURL when no url or baseURL provided", () => {
       const config = ConfigManager.mergeConfig({
         embedder: baseEmbedder,
