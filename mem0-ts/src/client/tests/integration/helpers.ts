@@ -7,7 +7,7 @@
  * All helpers use only the SDK's public API — no internal method access.
  */
 import { MemoryClient } from "../../mem0";
-import type { Memory } from "../../mem0.types";
+import type { Memory, SearchMemoryOptions } from "../../mem0.types";
 import { NetworkError, RateLimitError } from "../../../common/exceptions";
 
 // ─── Environment gate ────────────────────────────────────
@@ -88,7 +88,7 @@ export async function waitForMemories(
 export async function waitForSearchResults(
   client: MemoryClient,
   query: string,
-  options: Record<string, any>,
+  options: SearchMemoryOptions,
   maxRetries = 4,
 ): Promise<Memory[]> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
