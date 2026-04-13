@@ -119,7 +119,7 @@
                     "group": "Migration Guide",
                     "icon": "arrow-right",
                     "pages": [
-                      "migration/platform-v1-to-v2",
+                      "migration/platform-v2-to-v3",
                       "migration/oss-to-platform",
                       "migration/api-changes"
                     ]
@@ -301,7 +301,7 @@
                     "group": "Migration",
                     "icon": "arrow-right",
                     "pages": [
-                      "migration/oss-v1-to-v2"
+                      "migration/oss-v2-to-v3"
                     ]
                   },
                   {

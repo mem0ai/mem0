@@ -48,8 +48,8 @@
 | --- | --- | --- | --- | --- |
 | **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
 | **LongMemEval** | 67.8 | **93.4** | 6.8K  | 1.09s  |
-| **BEAM (1M)** | — | **0.64** | 6.7K  | 1.00s  |
-| **BEAM (10M)** | — | **0.48** | 6.9K  | 1.05s  |
+| **BEAM (1M)** | — | **64%** | 6.7K  | 1.00s  |
+| **BEAM (10M)** | — | **48%** | 6.9K  | 1.05s  |
 
 All benchmarks run on `gpt-oss-120B`. Single-pass retrieval (one call, no agentic loops).
 
@@ -59,7 +59,7 @@ All benchmarks run on `gpt-oss-120B`. Single-pass retrieval (one call, no agenti
 - **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
 - **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
 
-See the [migration guide](https://docs.mem0.ai/migration/oss-v1-to-v2) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
+See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
 
 ## Research Highlights
 - **91.6 on LoCoMo** -- +20 points over the previous algorithm
