@@ -112,19 +112,17 @@ Let's add the same information with graph memory enabled:
 ```python
 client.add(
     "Emma works with David on the mobile app redesign",
-    user_id="company_kb",
-    enable_graph=True
+    user_id="company_kb"
 )
 
 client.add(
     "David reports to Rachel, who manages the design team",
-    user_id="company_kb",
-    enable_graph=True
+    user_id="company_kb"
 )
 
 ```
 
-When you set `enable_graph=True`, Mem0 extracts entities and relationships:
+When graph memory is enabled, Mem0 extracts entities and relationships:
 
 - `emma --[works_with]--> david`
 - `david --[reports_to]--> rachel`
@@ -135,8 +133,7 @@ Now the same query works differently:
 ```python
 results = client.search(
     "Who is Emma's teammate's manager?",
-    filters={"user_id": "company_kb"},
-    enable_graph=True
+    filters={"user_id": "company_kb"}
 )
 
 print(results['results'][0]['memory'])
@@ -209,30 +206,27 @@ For our company knowledge base, we'll use both:
 
 ## Putting It Together
 
-Let's build a small company knowledge base with both approaches:
+Let's build a small company knowledge base:
 
 ```python
-# Facts about individuals - vector store is fine
+# Facts about individuals
 client.add("Emma specializes in React and TypeScript", user_id="company_kb")
 client.add("David has 5 years of product management experience", user_id="company_kb")
 
-# Relationships - use graph memory
+# Relationships
 client.add(
     "Emma and David work together on the mobile app",
-    user_id="company_kb",
-    enable_graph=True
+    user_id="company_kb"
 )
 
 client.add(
     "David reports to Rachel",
-    user_id="company_kb",
-    enable_graph=True
+    user_id="company_kb"
 )
 
 client.add(
     "Rachel runs weekly team syncs every Tuesday",
-    user_id="company_kb",
-    enable_graph=True
+    user_id="company_kb"
 )
 
 ```
@@ -257,8 +251,7 @@ Emma specializes in React and TypeScript
 # Multi-hop relationship - graph search
 results = client.search(
     "What meetings does Emma's project manager's boss run?",
-    filters={"user_id": "company_kb"},
-    enable_graph=True
+    filters={"user_id": "company_kb"}
 )
 print(results['results'][0]['memory'])
 
@@ -281,52 +274,27 @@ Enable graph memory when your queries need multi-hop traversal: org charts (who 
 
 ## The Tradeoff
 
-Graph memory adds processing time and cost. When you call `client.add()` with `enable_graph=True`, Mem0 makes extra LLM calls to extract entities and relationships.
+Graph memory adds processing time and cost. Mem0 makes extra LLM calls to extract entities and relationships from each memory.
 
 <Note>
-**Cost consideration:** Graph memory extraction adds ~2-3 extra LLM calls per `add()` operation to identify entities and relationships. Use it selectively—enable graph for organizational structure and long-term relationships, skip it for temporary notes and simple facts.
+**Cost consideration:** Graph memory extraction adds ~2-3 extra LLM calls per `add()` operation to identify entities and relationships. Use it when your use case benefits from relationship traversal—organizational structures, team hierarchies, and long-term connections.
 </Note>
 
 Use graph memory when the relationship traversal adds real value. For most use cases, vector search is sufficient and faster.
 
 ```python
-# Long-term organizational structure - worth using graph
+# Long-term organizational structure - benefits from graph
 client.add(
     "Emma mentors two junior engineers on the frontend team",
-    user_id="company_kb",
-    enable_graph=True
+    user_id="company_kb"
 )
 
-# Temporary notes - skip graph, not worth the cost
+# Temporary notes stored with a run_id for session isolation
 client.add(
     "Emma is out sick today",
     user_id="company_kb",
     run_id="daily_notes"
 )
-
-```
-
----
-
-## Enabling Graph Memory
-
-You can enable graph memory in two ways:
-
-**Per-call** (recommended to start):
-
-```python
-client.add("Emma works with David", user_id="company_kb", enable_graph=True)
-client.search("team structure", filters={"user_id": "company_kb"}, enable_graph=True)
-
-```
-
-**Project-wide** (if most of your data has relationships):
-
-```python
-client.project.update(enable_graph=True)
-
-# Now every add uses graph automatically
-client.add("Emma mentors Jordan", user_id="company_kb")
 
 ```
 
@@ -338,8 +306,7 @@ A hybrid company knowledge base that combines both architectures:
 
 - **Vector search** - Fast semantic lookups for individual facts (Emma's skills, David's experience)
 - **Graph memory** - Multi-hop relationship traversal (Emma's teammate's manager, project hierarchies)
-- **Selective enablement** - Graph only for long-term organizational structure, vector for everything else
-- **Cost optimization** - Skip graph extraction for temporary notes and simple facts
+- **Cost optimization** - Use graph for long-term organizational structure, vector for temporary notes and simple facts
 
 This pattern scales from 10-person startups to enterprise org charts with thousands of employees.
 

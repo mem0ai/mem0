@@ -210,7 +210,6 @@ Key differentiators:
 - [Building AI Companion](https://docs.mem0.ai/cookbooks/essentials/building-ai-companion): Core patterns for building AI agents with memory
 - [Partition Memories by Entity](https://docs.mem0.ai/cookbooks/essentials/entity-partitioning-playbook): Keep multi-tenant assistants isolated by tagging user, agent, app, and session identifiers
 - [Controlling Memory Ingestion](https://docs.mem0.ai/cookbooks/essentials/controlling-memory-ingestion): Fine-tune what gets stored in memory and when
-- [Memory Expiration](https://docs.mem0.ai/cookbooks/essentials/memory-expiration-short-and-long-term): Implement short-term and long-term memory strategies
 - [Tagging and Organizing Memories](https://docs.mem0.ai/cookbooks/essentials/tagging-and-organizing-memories): Advanced memory organization and categorization
 - [Exporting Memories](https://docs.mem0.ai/cookbooks/essentials/exporting-memories): Backup and transfer memory data between systems
 - [Choosing Memory Architecture](https://docs.mem0.ai/cookbooks/essentials/choosing-memory-architecture-vector-vs-graph): Vector vs Graph memory architectures comparison

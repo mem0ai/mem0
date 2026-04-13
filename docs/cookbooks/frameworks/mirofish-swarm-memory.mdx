@@ -241,7 +241,7 @@ class MiroFishSimulation:
         results = self.memory.search(
             persona_query,
             user_id=self.project_id,
-            limit=10
+            top_k=10
         )
         facts = [r["memory"] for r in results.get("results", [])]
         relations = results.get("relations", [])
@@ -294,7 +294,7 @@ class MiroFishSimulation:
         results = self.memory.search(
             query,
             run_id=agent_id,
-            limit=5
+            top_k=5
         )
         return {
             "memories": [r["memory"] for r in results.get("results", [])],
@@ -305,7 +305,7 @@ class MiroFishSimulation:
     # Stage 4: Report Generation — Semantic + Graph Retrieval
     # ------------------------------------------------------------------
 
-    def quick_search(self, query: str, limit: int = 10) -> dict:
+    def quick_search(self, query: str, top_k: int = 10) -> dict:
         """Semantic search + graph relations across all agents.
 
         MiroFish equivalent: ZepToolsService.quick_search()
@@ -314,7 +314,7 @@ class MiroFishSimulation:
         results = self.memory.search(
             query,
             user_id=self.project_id,
-            limit=limit
+            top_k=top_k
         )
         return {
             "memories": [r["memory"] for r in results.get("results", [])],
@@ -333,12 +333,12 @@ class MiroFishSimulation:
             "relations": results.get("relations", []),
         }
 
-    def agent_search(self, agent_id: str, query: str, limit: int = 10) -> dict:
+    def agent_search(self, agent_id: str, query: str, top_k: int = 10) -> dict:
         """Search within a single agent's memory space."""
         results = self.memory.search(
             query,
             run_id=agent_id,
-            limit=limit
+            top_k=top_k
         )
         return {
             "memories": [r["memory"] for r in results.get("results", [])],
@@ -511,7 +511,7 @@ def main():
 
     # Quick search: targeted query
     print("\n  Quick Search: 'opposition to housing reform'")
-    opposition = sim.quick_search("opposition to housing reform", limit=5)
+    opposition = sim.quick_search("opposition to housing reform", top_k=5)
     for mem in opposition["memories"]:
         print(f"    Memory: {mem}")
     for rel in opposition["relations"][:3]:
@@ -556,7 +556,7 @@ def main():
 
     for query in queries:
         print(f"\n  Query: '{query}'")
-        results = sim.quick_search(query, limit=3)
+        results = sim.quick_search(query, top_k=3)
         for mem in results["memories"][:2]:
             print(f"    Memory: {mem}")
         for rel in results["relations"][:2]:

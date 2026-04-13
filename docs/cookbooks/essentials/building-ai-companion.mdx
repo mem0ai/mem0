@@ -62,7 +62,7 @@ mem0_client = MemoryClient(api_key="your-mem0-key")
 
 def chat(user_input, user_id):
     # Retrieve relevant memories
-    memories = mem0_client.search(user_input, user_id=user_id, limit=5)
+    memories = mem0_client.search(user_input, user_id=user_id, top_k=5)
     context = "\\n".join(m["memory"] for m in memories["results"])
 
     # Call LLM with memory context
@@ -123,7 +123,7 @@ ollama_chat = OpenAI(base_url=f"{OLLAMA_URL}/v1", api_key="ollama")
 
 def chat(user_input, user_id):
     # Retrieve relevant memories
-    memories = memory.search(user_input, user_id=user_id, limit=5)
+    memories = memory.search(user_input, user_id=user_id, top_k=5)
     context = "\n".join(m["memory"] for m in memories["results"])
 
     # Call LLM with memory context (Ollama via OpenAI-compatible API)
@@ -354,10 +354,10 @@ Exclude:
 ```
   </Tab>
   <Tab title="Open Source">
-Tell Mem0 what matters by including `custom_fact_extraction_prompt` in the config dict:
+Tell Mem0 what matters by including `custom_instructions` in the config dict:
 
 ```python
-MEMORY_CONFIG["custom_fact_extraction_prompt"] = """
+MEMORY_CONFIG["custom_instructions"] = """
 Extract from running coach conversations:
 - Training goals and race targets
 - Physical constraints or injuries
@@ -375,7 +375,7 @@ Return JSON with key "facts" as a list of strings (use [] if nothing to store).
 memory = Memory.from_config(MEMORY_CONFIG)
 ```
 
-<Note>`custom_fact_extraction_prompt` is a top-level key in the config dictionary passed to `Memory.from_config()`. Make sure it's set before creating the Memory instance — not after.</Note>
+<Note>`custom_instructions` is a top-level key in the config dictionary passed to `Memory.from_config()`. Make sure it's set before creating the Memory instance — not after.</Note>
   </Tab>
 </Tabs>
 
@@ -520,7 +520,7 @@ memory.add(
 # "hey" → don't store
 # "cool thanks" → don't store
 
-# Or rely on custom_fact_extraction_prompt to filter automatically
+# Or rely on custom_instructions to filter automatically
 ```
   </Tab>
 </Tabs>
@@ -545,11 +545,11 @@ expiration = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
 mem0_client.add(
     [{"role": "user", "content": "Rolled my left ankle, needs rest"}],
     user_id="max",
-    expiration_date=expiration
+    metadata={"memory_bucket": "constraints", "expires_on": expiration}
 )
 ```
 
-In 14 days, this memory disappears automatically. Ray stops asking about the ankle.
+Store `expires_on` in metadata and periodically clean up expired memories. Ray stops asking about the ankle once it's removed.
   </Tab>
   <Tab title="Open Source">
 ```python
@@ -627,7 +627,7 @@ MEMORY_CONFIG = {
             "ollama_base_url": "http://localhost:11434",
         },
     },
-    "custom_fact_extraction_prompt": """
+    "custom_instructions": """
     Extract: goals, constraints, preferences, progress
     Exclude: greetings, filler, casual chat
     Return JSON with key "facts" as a list of strings.
@@ -684,8 +684,7 @@ expiration = (datetime.now() + timedelta(days=14)).strftime("%Y-%m-%d")
 mem0_client.add(
     [{"role": "user", "content": "Rolled ankle, need light workouts"}],
     user_id="max",
-    categories=["constraints"],
-    expiration_date=expiration
+    metadata={"memory_bucket": "constraints", "expires_on": expiration}
 )
 ```
   </Tab>
@@ -706,13 +705,13 @@ memory.add(
 <Tabs>
   <Tab title="Platform">
 ```python
-memories = mem0_client.search("training plan", user_id="max", limit=5)
+memories = mem0_client.search("training plan", user_id="max", top_k=5)
 # Gets: marathon goal, trail preference, ankle injury (if still valid)
 ```
   </Tab>
   <Tab title="Open Source">
 ```python
-memories = memory.search("training plan", user_id="max", limit=5)
+memories = memory.search("training plan", user_id="max", top_k=5)
 # Gets: marathon goal, trail preference, ankle injury (if still valid / not pruned)
 ```
   </Tab>

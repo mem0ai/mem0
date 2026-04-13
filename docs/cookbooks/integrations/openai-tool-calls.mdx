@@ -28,13 +28,10 @@ Get your Mem0 API key from the <a href="https://app.mem0.ai/dashboard/api-keys" 
 ### Configuration
 
 ```javascript
-const mem0Config = {
-    apiKey: process.env.MEM0_API_KEY,
-    user_id: "sample-user",
-};
+const USER_ID = "sample-user";
 
 const openAIClient = new OpenAI();
-const mem0Client = new MemoryClient(mem0Config);
+const mem0Client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
 ```
 
 ## Adding Memories
@@ -43,14 +40,14 @@ Store user preferences, past interactions, or any relevant information:
 <CodeGroup>
 ```javascript JavaScript
 async function addUserPreferences() {
-    const mem0Client = new MemoryClient(mem0Config);
+    const mem0Client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
     
     const userPreferences = "I Love BMW, Audi and Porsche. I Hate Mercedes. I love Red cars and Maroon cars. I have a budget of 120K to 150K USD. I like Audi the most.";
     
     await mem0Client.add([{
         role: "user",
         content: userPreferences,
-    }], mem0Config);
+    }], { userId: "sample-user" });
 }
 
 await addUserPreferences();
@@ -91,7 +88,7 @@ await addUserPreferences();
 Search for relevant memories based on the current user input:
 
 ```javascript
-const relevantMemories = await mem0Client.search(userInput, mem0Config);
+const relevantMemories = await mem0Client.search(userInput, { userId: USER_ID });
 ```
 
 ## Structured Responses with Zod
@@ -152,10 +149,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const mem0Config = {
-    apiKey: process.env.MEM0_API_KEY,
-    user_id: "sample-user",
-};
+const USER_ID = "sample-user";
 
 async function run() {
     // Responses without memories
@@ -185,7 +179,7 @@ const Cars = z.object({
 
 async function main(memory = false) {
   const openAIClient = new OpenAI();
-  const mem0Client = new MemoryClient(mem0Config);
+  const mem0Client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
 
   const input = "Suggest me some cars that I can buy today.";
 
@@ -195,12 +189,12 @@ async function main(memory = false) {
   await mem0Client.add([{
     role: "user",
     content: input,
-  }], mem0Config);
+  }], { userId: USER_ID });
 
   // Search for relevant memories
   let relevantMemories = []
   if (memory) {
-    relevantMemories = await mem0Client.search(input, mem0Config);
+    relevantMemories = await mem0Client.search(input, { userId: USER_ID });
   }
 
   const response = await openAIClient.responses.create({
@@ -213,14 +207,14 @@ async function main(memory = false) {
 }
 
 async function addSampleMemories() {
-  const mem0Client = new MemoryClient(mem0Config);
+  const mem0Client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
 
   const myInterests = "I Love BMW, Audi and Porsche. I Hate Mercedes. I love Red cars and Maroon cars. I have a budget of 120K to 150K USD. I like Audi the most.";
   
   await mem0Client.add([{
     role: "user",
     content: myInterests,
-  }], mem0Config);
+  }], { userId: USER_ID });
 }
 
 const getMemoryString = (memories) => {
