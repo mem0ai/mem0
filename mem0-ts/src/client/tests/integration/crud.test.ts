@@ -53,15 +53,9 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
 
       const result = await client.add(messages, { userId: TEST_USER_ID });
 
-      // API processes memories asynchronously — returns PENDING
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBeGreaterThan(0);
-
-      // Validate response shape
-      for (const item of result) {
-        expect(item).toHaveProperty("status");
-        expect(item).toHaveProperty("eventId");
-      }
+      // v3 API processes memories asynchronously — returns PENDING
+      expect(result).toHaveProperty("event_id");
+      expect(result).toHaveProperty("status");
     });
 
     test("adds a second batch of messages", async () => {
@@ -77,7 +71,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
       ];
 
       const result = await client.add(messages, { userId: TEST_USER_ID });
-      expect(Array.isArray(result)).toBe(true);
+      expect(result).toHaveProperty("event_id");
     });
 
     test("memories become available after async processing", async () => {
@@ -196,8 +190,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
         },
       );
 
-      expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBeGreaterThan(0);
+      expect(result).toHaveProperty("event_id");
     });
 
     test("getAll for non-existent user returns empty array", async () => {

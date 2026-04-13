@@ -109,7 +109,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   describe("edge cases", () => {
     test("search for non-existent user returns empty results", async () => {
       const response = await client.search("anything", {
-        filters: { userId: `nonexistent-user-${randomUUID()}` },
+        filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
       expect(response).toHaveProperty("results");
