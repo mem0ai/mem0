@@ -12,20 +12,19 @@ services:
     networks:
       - mem0_network
     volumes:
-      - ./history:/app/history      # History db location. By default, it creates a history.db file on the server folder
-      - .:/app                      # Server code. This allows to reload the app when the server code is updated
-      - ../mem0:/app/packages/mem0  # Mem0 library. This allows to reload the app when the library code is updated
+      - ./history:/app/history
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy
       neo4j:
         condition: service_healthy
     command: >
-      sh -c "pip install -q mem0ai && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "rm -rf /app/packages && pip install -q --force-reinstall --no-deps mem0ai && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/app:/app/packages
+      - PYTHONPATH=
       - DASHBOARD_URL=http://localhost:3000
       - APP_DB_NAME=mem0_app
       - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret}
