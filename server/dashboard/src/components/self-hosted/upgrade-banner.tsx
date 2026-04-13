@@ -59,7 +59,7 @@ export function UpgradeBanner({
       {dismissible && (
         <button
           onClick={handleDismiss}
-          className="p-0.5 rounded hover:bg-black/5 text-onSurface-default-tertiary"
+          className="p-0.5 rounded hover:bg-surface-default-secondary-hover text-onSurface-default-tertiary"
         >
           <X className="size-3.5" />
         </button>

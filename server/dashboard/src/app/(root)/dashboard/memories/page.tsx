@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/data-table";
+import { TableSkeleton } from "@/components/shared/table-skeleton";
+import { EmptyState } from "@/components/self-hosted/empty-state";
 import { api } from "@/utils/api";
 import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
 import { toast } from "@/components/ui/use-toast";
@@ -45,9 +47,7 @@ export default function MemoriesPage() {
       key: "memory" as keyof Memory,
       label: "Content",
       width: 400,
-      render: (value: string) => (
-        <span className="line-clamp-2 text-sm">{value}</span>
-      ),
+      render: (value: string) => <span className="line-clamp-2 text-sm">{value}</span>,
     },
     { key: "user_id" as keyof Memory, label: "User", width: 100 },
     { key: "agent_id" as keyof Memory, label: "Agent", width: 100 },
@@ -61,36 +61,23 @@ export default function MemoriesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold font-fustat">Memories</h1>
-      </div>
+      <h1 className="text-xl font-semibold font-fustat">Memories</h1>
 
       {memories.length >= 1000 && (
-        <UpgradeBanner
-          id="memories-1k"
-          message="1,000+ memories stored. Categories can help organize them."
-          ctaLabel="Explore Cloud"
-          ctaUrl="https://app.mem0.ai"
-          variant="cloud"
-        />
+        <UpgradeBanner id="memories-1k" message="1,000+ memories stored. Categories can help organize them." ctaLabel="Explore Cloud" ctaUrl="https://app.mem0.ai" variant="cloud" />
       )}
 
       <div className="flex gap-3">
-        <Input
-          placeholder="User ID"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && fetchMemories()}
-          className="w-48"
-        />
+        <Input placeholder="User ID" value={userId} onChange={(e) => setUserId(e.target.value)} onKeyDown={(e) => e.key === "Enter" && fetchMemories()} className="w-48" />
       </div>
 
-      <DataTable
-        data={memories}
-        columns={columns}
-        getRowKey={(row) => row.id}
-        onRowClick={(row) => setSelectedMemory(row)}
-      />
+      {isLoading ? (
+        <TableSkeleton rows={5} columns={4} />
+      ) : memories.length === 0 ? (
+        <EmptyState title="No memories yet" description="Add memories via the API to see them here." />
+      ) : (
+        <DataTable data={memories} columns={columns} getRowKey={(row) => row.id} onRowClick={(row) => setSelectedMemory(row)} />
+      )}
 
       {selectedMemory && (
         <Card className="border-memBorder-primary">

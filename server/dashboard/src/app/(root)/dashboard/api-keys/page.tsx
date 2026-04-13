@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DataTable } from "@/components/shared/data-table";
+import { TableSkeleton } from "@/components/shared/table-skeleton";
+import { EmptyState } from "@/components/self-hosted/empty-state";
 import { api } from "@/utils/api";
 import { API_KEY_ENDPOINTS } from "@/utils/api-endpoints";
 import { toast } from "@/components/ui/use-toast";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { Plus, Copy, Check, Trash2 } from "lucide-react";
 import { CopyToClipboard } from "react-copy-to-clipboard";
-import { DataTable } from "@/components/shared/data-table";
 
 interface ApiKey {
   id: string;
@@ -114,7 +116,13 @@ export default function ApiKeysPage() {
         <UpgradeBanner id="api-keys-3" message="Managing multiple apps? Cloud offers project-based isolation." ctaLabel="Explore Cloud" ctaUrl="https://app.mem0.ai" variant="cloud" />
       )}
 
-      <DataTable data={keys} columns={columns} getRowKey={(row) => row.id} />
+      {isLoading ? (
+        <TableSkeleton rows={3} columns={4} />
+      ) : keys.length === 0 ? (
+        <EmptyState title="No API keys yet" description="Create your first API key to start using the Mem0 API." />
+      ) : (
+        <DataTable data={keys} columns={columns} getRowKey={(row) => row.id} />
+      )}
     </div>
   );
 }

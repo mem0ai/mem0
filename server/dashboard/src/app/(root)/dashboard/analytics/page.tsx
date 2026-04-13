@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 function AnalyticsMockup() {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { label: "Total Operations", value: "12,847" },
           { label: "Avg Latency", value: "142ms" },
@@ -29,7 +29,7 @@ function AnalyticsMockup() {
             {[40, 65, 45, 80, 55, 90, 70, 85, 60, 95, 75, 50].map((h, i) => (
               <div
                 key={i}
-                className="flex-1 bg-memPurple-200 rounded-t"
+                className="flex-1 bg-surface-default-brand rounded-t"
                 style={{ height: `${h}%` }}
               />
             ))}

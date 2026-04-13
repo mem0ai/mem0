@@ -144,6 +144,9 @@ export default function SetupPage() {
 
         <Card className="border-memBorder-primary">
           <CardContent className="p-6 space-y-4">
+            <h2 className="text-base font-semibold font-fustat">
+              {["Create your admin account", "Configure LLM provider", "Your API key", "Test your setup"][step]}
+            </h2>
             {error && <p className="text-sm text-onSurface-danger-primary">{error}</p>}
 
             {step === 0 && (
