@@ -253,7 +253,7 @@ def test_gpt5_mini_not_classified_as_reasoning(mock_openai_client):
     assert call_kwargs[1].get("temperature") == 0.1
 
 
-def test_is_reasoning_model_classification():
+def test_is_reasoning_model_classification(mock_openai_client):
     """Test _is_reasoning_model correctly classifies known models."""
     config = OpenAIConfig(model="gpt-4.1")
     llm = OpenAILLM(config)
