@@ -52,6 +52,7 @@ class ValkeyDB(VectorStoreBase):
         hnsw_m: int = 16,
         hnsw_ef_construction: int = 200,
         hnsw_ef_runtime: int = 10,
+        cluster_mode: bool = False,
     ):
         """
         Initialize the Valkey vector store.
@@ -65,6 +66,7 @@ class ValkeyDB(VectorStoreBase):
             hnsw_m (int, optional): HNSW M parameter (connections per node). Defaults to 16.
             hnsw_ef_construction (int, optional): HNSW ef_construction parameter. Defaults to 200.
             hnsw_ef_runtime (int, optional): HNSW ef_runtime parameter. Defaults to 10.
+            cluster_mode (bool, optional): Enable cluster mode for Valkey cluster (CME) deployments. Defaults to False.
         """
         self.embedding_model_dims = embedding_model_dims
         self.collection_name = collection_name
@@ -74,6 +76,7 @@ class ValkeyDB(VectorStoreBase):
         self.hnsw_m = hnsw_m
         self.hnsw_ef_construction = hnsw_ef_construction
         self.hnsw_ef_runtime = hnsw_ef_runtime
+        self.cluster_mode = cluster_mode
 
         # Validate index type
         if self.index_type not in ["hnsw", "flat"]:
@@ -81,8 +84,13 @@ class ValkeyDB(VectorStoreBase):
 
         # Connect to Valkey
         try:
-            self.client = valkey.from_url(valkey_url)
-            logger.debug(f"Successfully connected to Valkey at {valkey_url}")
+            if self.cluster_mode:
+                from valkey.cluster import ValkeyCluster
+
+                self.client = ValkeyCluster.from_url(valkey_url)
+            else:
+                self.client = valkey.from_url(valkey_url)
+            logger.debug(f"Successfully connected to Valkey at {valkey_url} (cluster_mode={cluster_mode})")
         except Exception as e:
             logger.exception(f"Failed to connect to Valkey at {valkey_url}: {e}")
             raise
@@ -185,7 +193,6 @@ class ValkeyDB(VectorStoreBase):
         """
         # Check if the search module is available
         try:
-            # Try to execute a search command
             self.client.execute_command("FT._LIST")
         except ResponseError as e:
             if "unknown command" in str(e).lower():
@@ -352,6 +359,9 @@ class ValkeyDB(VectorStoreBase):
     def _execute_search(self, query, params):
         """
         Execute a search query.
+
+        In cluster mode, the valkey-search module's built-in coordinator handles
+        fan-out across all shards and aggregates results server-side.
 
         Args:
             query (str): The search query to execute.
