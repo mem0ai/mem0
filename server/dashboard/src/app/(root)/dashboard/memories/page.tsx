@@ -23,16 +23,14 @@ interface Memory {
 export default function MemoriesPage() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState("default_user");
+  const [userId, setUserId] = useState("");
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
 
   const fetchMemories = useCallback(async () => {
-    if (!userId.trim()) return;
     setIsLoading(true);
     try {
-      const res = await api.get(MEMORY_ENDPOINTS.BASE, {
-        params: { user_id: userId },
-      });
+      const params = userId.trim() ? { user_id: userId.trim() } : undefined;
+      const res = await api.get(MEMORY_ENDPOINTS.BASE, { params });
       const data = res.data?.results || res.data || [];
       setMemories(Array.isArray(data) ? data : []);
     } catch {
@@ -82,11 +80,11 @@ export default function MemoriesPage() {
 
       <div className="flex gap-3">
         <Input
-          placeholder="User ID"
+          placeholder="Filter by User ID (optional)"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && fetchMemories()}
-          className="w-48"
+          className="w-64"
         />
       </div>
 

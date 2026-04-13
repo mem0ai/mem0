@@ -15,7 +15,6 @@ import {
   WebhookIcon,
   ChartLine,
   FolderInput,
-  GitBranch,
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
@@ -262,11 +261,6 @@ export function MainNav({
                       title: "Analytics",
                       url: "/dashboard/analytics",
                       icon: ChartLine,
-                    },
-                    {
-                      title: "Graph Memory",
-                      url: "/dashboard/graph-memory",
-                      icon: GitBranch,
                     },
                     {
                       title: "Export",

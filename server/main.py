@@ -34,6 +34,7 @@ SENSITIVE_CONFIG_KEYS = {
     "token",
 }
 SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
+SKIPPED_REQUEST_LOG_PREFIXES = ("/auth/", "/stats/", "/api-keys", "/requests", "/configure")
 
 if AUTH_DISABLED:
     logging.warning("AUTH_DISABLED is enabled. Protected endpoints are open for local development only.")
@@ -145,7 +146,12 @@ def _redact_config(value: Any, key: str | None = None) -> Any:
 
 
 def _should_log_request(request: Request) -> bool:
-    return request.method != "OPTIONS" and request.url.path not in SKIPPED_REQUEST_LOG_PATHS
+    if request.method == "OPTIONS":
+        return False
+    path = request.url.path
+    if path in SKIPPED_REQUEST_LOG_PATHS:
+        return False
+    return not path.startswith(SKIPPED_REQUEST_LOG_PREFIXES)
 
 
 def _persist_request_log(request: Request, status_code: int, latency_ms: float) -> None:
@@ -214,6 +220,31 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+ALL_MEMORIES_LIMIT = 1000
+_RESERVED_PAYLOAD_KEYS = {"data", "user_id", "agent_id", "run_id", "hash", "created_at", "updated_at"}
+
+
+def _serialize_memory(row: Any) -> Dict[str, Any]:
+    payload = getattr(row, "payload", None) or {}
+    return {
+        "id": getattr(row, "id", None),
+        "memory": payload.get("data"),
+        "user_id": payload.get("user_id"),
+        "agent_id": payload.get("agent_id"),
+        "run_id": payload.get("run_id"),
+        "hash": payload.get("hash"),
+        "metadata": {k: v for k, v in payload.items() if k not in _RESERVED_PAYLOAD_KEYS},
+        "created_at": payload.get("created_at"),
+        "updated_at": payload.get("updated_at"),
+    }
+
+
+def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
+    results = get_memory_instance().vector_store.list(limit=limit)
+    rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
+    return {"results": [_serialize_memory(row) for row in rows]}
+
+
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
     user_id: Optional[str] = None,
@@ -221,10 +252,10 @@ def get_all_memories(
     agent_id: Optional[str] = None,
     _auth=Depends(verify_auth),
 ):
-    """Retrieve stored memories."""
-    if not any([user_id, run_id, agent_id]):
-        raise HTTPException(status_code=400, detail="At least one identifier is required.")
+    """Retrieve stored memories. Lists all memories when no identifier is provided."""
     try:
+        if not any([user_id, run_id, agent_id]):
+            return _list_all_memories()
         params = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
