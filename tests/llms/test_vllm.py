@@ -144,6 +144,7 @@ def create_mocked_memory():
 
         mock_embedder = MagicMock()
         mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
         mock_embedder_factory.return_value = mock_embedder
 
         mock_vector_store = MagicMock()
@@ -151,9 +152,12 @@ def create_mocked_memory():
         mock_vector_store.add.return_value = None
         mock_vector_factory.return_value = mock_vector_store
 
-        mock_sqlite.return_value = MagicMock()
+        mock_db = MagicMock()
+        mock_db.get_last_messages.return_value = []
+        mock_sqlite.return_value = mock_db
 
         memory = Memory()
+        memory.custom_instructions = None
         memory.api_version = "v1.0"
         return memory, mock_llm, mock_vector_store
 
@@ -170,6 +174,7 @@ def create_mocked_async_memory():
 
         mock_embedder = MagicMock()
         mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
         mock_embedder_factory.return_value = mock_embedder
 
         mock_vector_store = MagicMock()
@@ -177,9 +182,12 @@ def create_mocked_async_memory():
         mock_vector_store.add.return_value = None
         mock_vector_factory.return_value = mock_vector_store
 
-        mock_sqlite.return_value = MagicMock()
+        mock_db = MagicMock()
+        mock_db.get_last_messages.return_value = []
+        mock_sqlite.return_value = mock_db
 
         memory = AsyncMemory()
+        memory.custom_instructions = None
         memory.api_version = "v1.0"
         return memory, mock_llm, mock_vector_store
 
