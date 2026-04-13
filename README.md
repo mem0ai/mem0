@@ -41,16 +41,30 @@
 <p align="center">
   <a href="https://mem0.ai/research"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
 </p>
-<p align="center">
-  <strong>⚡ +26% Accuracy vs. OpenAI Memory • 🚀 91% Faster • 💰 90% Fewer Tokens</strong>
-</p>
 
-> **🎉 mem0ai v1.0.0 is now available!** This major release includes API modernization, improved vector store support, and enhanced GCP integration. [See migration guide →](MIGRATION_GUIDE_v1.0.md)
+## New Memory Algorithm (April 2026)
 
-##  🔥 Research Highlights
-- **+26% Accuracy** over OpenAI Memory on the LOCOMO benchmark
-- **91% Faster Responses** than full-context, ensuring low-latency at scale
-- **90% Lower Token Usage** than full-context, cutting costs without compromise
+| Benchmark | Old | New  | Tokens  | Latency p50  |
+| --- | --- | --- | --- | --- |
+| **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
+| **LongMemEval** | 67.8 | **93.4** | 6.8K  | 1.09s  |
+| **BEAM (1M)** | — | **0.64** | 6.7K  | 1.00s  |
+| **BEAM (10M)** | — | **0.48** | 6.9K  | 1.05s  |
+
+All benchmarks run on `gpt-oss-120B`. Single-pass retrieval (one call, no agentic loops).
+
+**What changed:**
+- **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.
+- **Agent-generated facts are first-class** -- when an agent confirms an action, that information is now stored with equal weight.
+- **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
+- **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
+
+See the [migration guide](https://docs.mem0.ai/migration/oss-new-algorithm) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
+
+## Research Highlights
+- **91.6 on LoCoMo** -- +20 points over the previous algorithm
+- **93.4 on LongMemEval** -- +26 points, with +53.6 on assistant memory recall
+- **0.64 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
 - [Read the full paper](https://mem0.ai/research)
 
 # Introduction
@@ -122,7 +136,7 @@ memory = Memory()
 
 def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Retrieve relevant memories
-    relevant_memories = memory.search(query=message, user_id=user_id, limit=3)
+    relevant_memories = memory.search(query=message, user_id=user_id, top_k=3)
     memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
 
     # Generate Assistant response
