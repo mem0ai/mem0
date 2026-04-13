@@ -1,5 +1,5 @@
 /**
- * MemoryClient unit tests — search (v2 default, filters).
+ * MemoryClient unit tests — search (v3 endpoint, filters).
  * Tests verify request construction, not mock response echo.
  */
 import { MemoryClient } from "../mem0";
@@ -17,7 +17,10 @@ installConsoleSuppression();
 describe("MemoryClient - search()", () => {
   test("sends POST to /v3/memories/search/ by default", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -30,7 +33,10 @@ describe("MemoryClient - search()", () => {
 
   test("includes query in request body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -44,7 +50,10 @@ describe("MemoryClient - search()", () => {
 
   test("passes filters through to the API body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -56,7 +65,10 @@ describe("MemoryClient - search()", () => {
 
   test("passes complex OR filters through to the API body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -73,23 +85,29 @@ describe("MemoryClient - search()", () => {
 
   test("does not crash when called without options", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result: Memory[] = await client.search("query");
-    expect(Array.isArray(result)).toBe(true);
+    const result = await client.search("query");
+    expect(result).toHaveProperty("results");
   });
 
   test("handles empty results array", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result: Memory[] = await client.search("nonexistent query", {
+    const result = await client.search("nonexistent query", {
       filters: { userId: "u1" },
     });
-    expect(result).toHaveLength(0);
+    expect(result.results).toHaveLength(0);
   });
 });

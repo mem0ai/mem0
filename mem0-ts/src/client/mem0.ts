@@ -280,7 +280,7 @@ export default class MemoryClient {
   async search(
     query: string,
     options?: SearchMemoryOptions,
-  ): Promise<Array<Memory>> {
+  ): Promise<{ results: Array<Memory> }> {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
