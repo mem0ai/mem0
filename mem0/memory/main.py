@@ -517,7 +517,7 @@ class Memory(MemoryBase):
 
                 msg_content = message_dict["content"]
                 msg_embeddings = self.embedding_model.embed(msg_content, "add")
-                mem_id = self._create_memory(msg_content, msg_embeddings, per_msg_meta)
+                mem_id = self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
                 returned_memories.append(
                     {
@@ -1434,7 +1434,7 @@ class Memory(MemoryBase):
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
-        metadata["memory_type"] = MemoryType.PROCEDURAL.value
+        metadata = {**metadata, "memory_type": MemoryType.PROCEDURAL.value}
         embeddings = self.embedding_model.embed(procedural_memory, memory_action="add")
         memory_id = self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
@@ -1756,7 +1756,7 @@ class AsyncMemory(MemoryBase):
 
                 msg_content = message_dict["content"]
                 msg_embeddings = await asyncio.to_thread(self.embedding_model.embed, msg_content, "add")
-                mem_id = await self._create_memory(msg_content, msg_embeddings, per_msg_meta)
+                mem_id = await self._create_memory(msg_content, {msg_content: msg_embeddings}, per_msg_meta)
 
                 returned_memories.append(
                     {
@@ -2688,7 +2688,7 @@ class AsyncMemory(MemoryBase):
         if metadata is None:
             raise ValueError("Metadata cannot be done for procedural memory.")
 
-        metadata["memory_type"] = MemoryType.PROCEDURAL.value
+        metadata = {**metadata, "memory_type": MemoryType.PROCEDURAL.value}
         embeddings = await asyncio.to_thread(self.embedding_model.embed, procedural_memory, memory_action="add")
         memory_id = await self._create_memory(procedural_memory, {procedural_memory: embeddings}, metadata=metadata)
         capture_event("mem0._create_procedural_memory", self, {"memory_id": memory_id, "sync_type": "async"})

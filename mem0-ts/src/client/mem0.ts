@@ -286,6 +286,7 @@ export default class MemoryClient {
     this._captureEvent("search", [payloadKeys]);
     const payload: Record<string, any> = {
       query,
+      output_format: "v1.1",
       ...camelToSnakeKeys(options ?? {}),
     };
 
