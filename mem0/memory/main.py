@@ -70,6 +70,19 @@ _SENSITIVE_FIELDS_EXACT = frozenset({
     "private_key",
     "access_key",
     "password",
+    "credentials",
+    "credential",
+    "secret",
+    "token",
+    "access_token",
+    "refresh_token",
+    "auth_token",
+    "session_token",
+    "client_secret",
+    "auth_client_secret",
+    "azure_client_secret",
+    "service_account_json",
+    "aws_session_token",
 })
 
 # Suffixes that indicate a field likely holds a secret value.
