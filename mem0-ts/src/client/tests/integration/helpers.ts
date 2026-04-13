@@ -64,7 +64,7 @@ export async function waitForMemories(
 ): Promise<Memory[]> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     const memories = await withRetry(() =>
-      client.getAll({ filters: { userId } }),
+      client.getAll({ filters: { user_id: userId } }),
     );
     if (Array.isArray(memories) && memories.length >= minCount) {
       return memories;

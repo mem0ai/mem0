@@ -257,10 +257,11 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { page, pageSize, ...rest } = options ?? {};
+    const { page, pageSize, filters, ...rest } = options ?? {};
     const body: Record<string, any> = {
       output_format: "v1.1",
       ...camelToSnakeKeys(rest),
+      ...(filters && { filters }),
     };
 
     let url = `${this.host}/v2/memories/`;
@@ -283,10 +284,12 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
+    const { filters, ...rest } = options ?? {};
     const payload: Record<string, any> = {
       query,
       output_format: "v1.1",
-      ...camelToSnakeKeys(options ?? {}),
+      ...camelToSnakeKeys(rest),
+      ...(filters && { filters }),
     };
 
     const response = await this._fetchWithErrorHandling(
@@ -612,12 +615,16 @@ export default class MemoryClient {
       throw new Error("Missing filters or schema");
     }
 
+    const { filters, ...rest } = data;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(camelToSnakeKeys(data)),
+        body: JSON.stringify({
+          ...camelToSnakeKeys(rest),
+          filters,
+        }),
       },
     );
 
@@ -634,12 +641,16 @@ export default class MemoryClient {
       throw new Error("Missing memoryExportId or filters");
     }
 
+    const { filters, ...rest } = data;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/get/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(camelToSnakeKeys(data)),
+        body: JSON.stringify({
+          ...camelToSnakeKeys(rest),
+          ...(filters && { filters }),
+        }),
       },
     );
     return response;

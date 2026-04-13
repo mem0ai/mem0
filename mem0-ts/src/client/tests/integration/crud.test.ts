@@ -117,7 +117,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
   describe("get all memories", () => {
     test("returns all memories for test user", async () => {
       const memories = await client.getAll({
-        filters: { userId: TEST_USER_ID },
+        filters: { user_id: TEST_USER_ID },
       });
 
       expect(Array.isArray(memories)).toBe(true);
@@ -131,7 +131,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
 
     test("returns paginated results with page and page_size", async () => {
       const page1 = await client.getAll({
-        filters: { userId: TEST_USER_ID },
+        filters: { user_id: TEST_USER_ID },
         page: 1,
         pageSize: 1,
       });
@@ -195,7 +195,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
 
     test("getAll for non-existent user returns empty array", async () => {
       const memories = await client.getAll({
-        filters: { userId: `nonexistent-user-${randomUUID()}` },
+        filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
       expect(Array.isArray(memories)).toBe(true);

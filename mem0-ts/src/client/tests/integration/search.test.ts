@@ -43,7 +43,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       const results = await waitForSearchResults(
         client,
         "What is my favorite color?",
-        { filters: { userId: TEST_USER_ID } },
+        { filters: { user_id: TEST_USER_ID } },
       );
 
       expect(Array.isArray(results)).toBe(true);
@@ -64,7 +64,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
         client,
         "What do you know about me?",
         {
-          filters: { OR: [{ userId: TEST_USER_ID }] },
+          filters: { OR: [{ user_id: TEST_USER_ID }] },
         },
       );
 
@@ -120,7 +120,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       const response = await client.search(
         "Tell me about integration test user",
         {
-          filters: { userId: TEST_USER_ID },
+          filters: { user_id: TEST_USER_ID },
           topK: 1,
         },
       );
