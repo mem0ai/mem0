@@ -110,6 +110,7 @@ export class ConfigManager {
             ((userConf as Record<string, unknown>)?.lmstudio_base_url as
               | string
               | undefined) ??
+            userConf?.url ??
             defaultConf.baseURL;
 
           return {
