@@ -217,12 +217,12 @@ class RedisDB(VectorStoreBase):
                     "hash": result["hash"],
                     "data": result["memory"],
                     "created_at": datetime.fromtimestamp(
-                        int(result["created_at"]), tz=pytz.timezone("US/Pacific")
+                        int(result["created_at"]), tz=timezone.utc
                     ).isoformat(timespec="microseconds"),
                     **(
                         {
                             "updated_at": datetime.fromtimestamp(
-                                int(result["updated_at"]), tz=pytz.timezone("US/Pacific")
+                                int(result["updated_at"]), tz=timezone.utc
                             ).isoformat(timespec="microseconds")
                         }
                         if "updated_at" in result

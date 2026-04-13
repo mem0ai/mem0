@@ -17,7 +17,6 @@ class TestExtractEntities:
 
         entities = extract_entities("John Smith works at Google on machine learning projects")
         entity_texts = [e[1] for e in entities]
-        entity_types = [e[0] for e in entities]
         # Should extract proper nouns
         found_proper = any("John" in t or "Google" in t for t in entity_texts)
         assert found_proper, f"Expected proper nouns, got {entities}"

@@ -20,7 +20,6 @@ from mem0.configs.prompts import (
     AGENT_CONTEXT_SUFFIX,
     generate_additive_extraction_prompt,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
-    get_update_memory_messages,
 )
 from mem0.utils.lemmatization import lemmatize_for_bm25
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
@@ -32,7 +31,6 @@ from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.utils import (
     extract_json,
-    get_fact_retrieval_messages,
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
