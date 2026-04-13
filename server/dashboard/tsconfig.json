@@ -1,10 +1,6 @@
 {
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -17,35 +13,12 @@
     "jsx": "preserve",
     "incremental": true,
     "baseUrl": ".",
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
-      // ---------------------------------------------------------------------------------------------------- //
-      // WARNING: The following lines are critical for enabling the unsafe-onprem login functionality.  
-      // Uncomment these lines ONLY if you fully understand the implications and need this feature.  
-      // DO NOT REMOVE OR COMMENT OUT THESE LINES unless absolutely necessary and you're certain of the impact.
-      // ---------------------------------------------------------------------------------------------------- //
-      // "@/auth": ["./src/mock-auth/auth-unsafe.ts"],
-      // "next-auth": ["./src/mock-auth/auth-react.tsx"],
-      // "next-auth/react": ["./src/mock-auth/auth-react.tsx"],
+      "@/*": ["./src/*"]
     },
     "target": "ES2017"
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    "src/types"
-  ],
-  "exclude": [
-    "node_modules",
-    "stories"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/types"],
+  "exclude": ["node_modules"]
 }

@@ -19,6 +19,7 @@ import {
   FolderInput,
 } from "lucide-react";
 import { useSelector } from "react-redux";
+import { RootState } from "@/store/store";
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,7 +45,7 @@ export function MainNav({
 }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname();
   const isSidebarCollapsed = useSelector(
-    (state: any) => state.layout.isSidebarCollapsed
+    (state: RootState) => state.layout.isSidebarCollapsed
   );
   const [isSetupOpen, setIsSetupOpen] = React.useState(true);
   const [isCloudOpen, setIsCloudOpen] = React.useState(true);

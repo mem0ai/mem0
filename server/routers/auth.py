@@ -11,7 +11,7 @@ from auth import (
     create_refresh_token,
     decode_token,
     hash_password,
-    verify_auth,
+    require_auth,
     verify_password,
 )
 from db import get_db
@@ -118,7 +118,5 @@ def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserResponse)
-def me(user: User = Depends(verify_auth)):
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required.")
+def me(user: User = Depends(require_auth)):
     return user

@@ -1,16 +1,10 @@
-import { combineReducers } from 'redux';
-import { layoutReducer } from './reducers/layoutReducer';
-import { memoryReducer } from './reducers/memoryReducer';
-import { settingsReducer } from './reducers/settingsReducer';
-import { statsReducer } from './reducers/statsReducer';
-import { filterReducer } from './reducers/filterReducer';
+import { combineReducers } from "redux";
+import { layoutReducer } from "./reducers/layoutReducer";
+import { statsReducer } from "./reducers/statsReducer";
 
 const rootReducer = combineReducers({
-    layout: layoutReducer,
-    memory: memoryReducer,
-    settings: settingsReducer,
-    stats: statsReducer,
-    filter: filterReducer,
-})
+  layout: layoutReducer,
+  stats: statsReducer,
+});
 
 export default rootReducer;

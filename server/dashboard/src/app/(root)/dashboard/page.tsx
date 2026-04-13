@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useSelector } from "react-redux";
@@ -21,7 +20,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-semibold font-fustat">Dashboard</h1>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {cards.map((card) => (
           <Card key={card.label} className="border-memBorder-primary">
             <CardContent className="p-5">

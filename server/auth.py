@@ -1,7 +1,6 @@
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from fastapi import Depends, HTTPException
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
@@ -101,10 +100,10 @@ def _resolve_user_from_api_key(key: str, db: Session) -> User:
 
 
 async def verify_auth(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    x_api_key: Optional[str] = Depends(api_key_header),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    x_api_key: str | None = Depends(api_key_header),
     db: Session = Depends(get_db),
-) -> Optional[User]:
+) -> User | None:
     """Authenticate via JWT, X-API-Key, or legacy ADMIN_API_KEY. Returns User or None."""
     if credentials is not None:
         return _resolve_user_from_jwt(credentials.credentials, db)
@@ -120,5 +119,14 @@ async def verify_auth(
             detail="Authentication required. Provide a Bearer token or X-API-Key header.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    return None
+
+
+async def require_auth(user: User | None = Depends(verify_auth)) -> User:
+    """Like verify_auth but guarantees a non-None User. Use for endpoints that require auth."""
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    return user
 
     return None

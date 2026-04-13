@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,20 +13,12 @@ import { useAuth } from "@/hooks/use-auth";
 
 export default function ConfigurationPage() {
   const { isAdmin } = useAuth();
-  const [config, setConfig] = useState<Record<string, any>>({});
   const [isSaving, setIsSaving] = useState(false);
-
-  // Flat fields for the form
   const [llmProvider, setLlmProvider] = useState("");
   const [llmModel, setLlmModel] = useState("");
   const [llmApiKey, setLlmApiKey] = useState("");
   const [embedderProvider, setEmbedderProvider] = useState("");
   const [embedderModel, setEmbedderModel] = useState("");
-
-  useEffect(() => {
-    // Pre-fill would come from a GET /config endpoint.
-    // For now, leave empty — fields show placeholder text.
-  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);

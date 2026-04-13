@@ -1,6 +1,6 @@
 "use client";
 
-import NavWrapper from "./components/navWrapper";
+import NavWrapper from "./components/nav-wrapper";
 import { cn } from "@/lib/utils";
 import { SIDEBAR_WIDTH, COLLAPSED_SIDEBAR_WIDTH } from "../clientLayout";
 import { useSelector } from "react-redux";

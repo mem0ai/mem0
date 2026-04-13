@@ -1,12 +1,13 @@
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from auth import hash_password, verify_auth
+from auth import hash_password, require_auth
 from db import get_db
 from models import APIKey, Invite, User
 
@@ -17,7 +18,7 @@ INVITE_EXPIRE_DAYS = 7
 
 class InviteRequest(BaseModel):
     email: EmailStr
-    role: str = "member"
+    role: Literal["admin", "member"] = "member"
 
 
 class AcceptInviteRequest(BaseModel):
@@ -47,22 +48,17 @@ class InviteResponse(BaseModel):
 
 
 @router.get("/", response_model=list[MemberResponse])
-def list_members(user: User = Depends(verify_auth), db: Session = Depends(get_db)):
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required.")
+def list_members(user: User = Depends(require_auth), db: Session = Depends(get_db)):
     members = db.execute(select(User).order_by(User.created_at)).scalars().all()
     return [
         MemberResponse(id=str(m.id), name=m.name, email=m.email, role=m.role, created_at=m.created_at) for m in members
     ]
 
 
-@router.post("/invite/", response_model=InviteResponse, status_code=201)
-def invite_member(body: InviteRequest, user: User = Depends(verify_auth), db: Session = Depends(get_db)):
-    """Admin only."""
-    if user is None or user.role != "admin":
+@router.post("/invite", response_model=InviteResponse, status_code=201)
+def invite_member(body: InviteRequest, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required.")
-    if body.role not in ("admin", "member"):
-        raise HTTPException(status_code=400, detail="Role must be 'admin' or 'member'.")
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status_code=409, detail="User with this email already exists.")
 
@@ -92,7 +88,7 @@ def invite_member(body: InviteRequest, user: User = Depends(verify_auth), db: Se
     )
 
 
-@router.post("/accept-invite/", response_model=MemberResponse, status_code=201)
+@router.post("/accept-invite", response_model=MemberResponse, status_code=201)
 def accept_invite(body: AcceptInviteRequest, db: Session = Depends(get_db)):
     invite = db.scalar(select(Invite).where(Invite.token == body.token))
     if invite is None:
@@ -113,10 +109,9 @@ def accept_invite(body: AcceptInviteRequest, db: Session = Depends(get_db)):
     return MemberResponse(id=str(user.id), name=user.name, email=user.email, role=user.role, created_at=user.created_at)
 
 
-@router.delete("/{user_id}/")
-def remove_member(user_id: str, user: User = Depends(verify_auth), db: Session = Depends(get_db)):
-    """Admin only. Cannot remove yourself. Revokes the member's API keys."""
-    if user is None or user.role != "admin":
+@router.delete("/{user_id}")
+def remove_member(user_id: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
+    if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required.")
     if str(user.id) == user_id:
         raise HTTPException(status_code=400, detail="Cannot remove yourself.")

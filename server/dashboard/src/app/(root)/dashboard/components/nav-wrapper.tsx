@@ -6,6 +6,7 @@ import { useCallback } from "react";
 import { COLLAPSED_SIDEBAR_WIDTH, COLLAPSED_SIDEBAR_WIDTH_WITHOUT_PADDING, SIDEBAR_WIDTH } from "../../clientLayout";
 import { useDispatch, useSelector } from "react-redux";
 import { cn } from "@/lib/utils";
+import { RootState } from "@/store/store";
 import { toggleSidebar } from "@/store/reducers/layoutReducer";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -21,7 +22,7 @@ import { Building2 } from "lucide-react";
 
 export default function NavWrapper() {
   const dispatch = useDispatch();
-  const isSidebarCollapsed = useSelector((state: any) => state.layout.isSidebarCollapsed);
+  const isSidebarCollapsed = useSelector((state: RootState) => state.layout.isSidebarCollapsed);
   const { user, logout } = useAuth();
 
   const instanceName = process.env.NEXT_PUBLIC_INSTANCE_NAME || "Mem0";

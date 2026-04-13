@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from auth import generate_api_key, verify_auth
+from auth import generate_api_key, require_auth
 from db import get_db
 from models import APIKey, User
 
@@ -35,10 +35,7 @@ class KeyListItem(BaseModel):
 
 
 @router.get("/", response_model=list[KeyListItem])
-def list_keys(user: User = Depends(verify_auth), db: Session = Depends(get_db)):
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-
+def list_keys(user: User = Depends(require_auth), db: Session = Depends(get_db)):
     keys = (
         db.execute(
             select(APIKey)
@@ -61,10 +58,7 @@ def list_keys(user: User = Depends(verify_auth), db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=CreateKeyResponse, status_code=201)
-def create_key(body: CreateKeyRequest, user: User = Depends(verify_auth), db: Session = Depends(get_db)):
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-
+def create_key(body: CreateKeyRequest, user: User = Depends(require_auth), db: Session = Depends(get_db)):
     full_key, prefix, key_hash = generate_api_key()
     api_key = APIKey(key_prefix=prefix, key_hash=key_hash, label=body.label, created_by=user.id)
     db.add(api_key)
@@ -80,11 +74,8 @@ def create_key(body: CreateKeyRequest, user: User = Depends(verify_auth), db: Se
     )
 
 
-@router.delete("/{key_id}/")
-def revoke_key(key_id: str, user: User = Depends(verify_auth), db: Session = Depends(get_db)):
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required.")
-
+@router.delete("/{key_id}")
+def revoke_key(key_id: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
     api_key = db.get(APIKey, key_id)
     if api_key is None or api_key.created_by != user.id:
         raise HTTPException(status_code=404, detail="API key not found.")

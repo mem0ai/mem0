@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from mem0 import Memory
 
-from auth import verify_auth
+from auth import ADMIN_API_KEY, verify_auth
 from routers import auth as auth_router
 from routers import api_keys as api_keys_router
 from routers import team as team_router
@@ -20,8 +20,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # Load environment variables
 load_dotenv()
-
-ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
 
 MIN_KEY_LENGTH = 16
 
