@@ -380,7 +380,7 @@ class MemoryGraph(NeptuneBase):
         source_nodes = self.vector_store.search(
             query="",
             vectors=source_embedding,
-            limit=self.vector_store_limit,
+            top_k=self.vector_store_limit,
             filters={"user_id": user_id},
         )
 
@@ -413,7 +413,7 @@ class MemoryGraph(NeptuneBase):
         destination_nodes = self.vector_store.search(
             query="",
             vectors=destination_embedding,
-            limit=self.vector_store_limit,
+            top_k=self.vector_store_limit,
             filters={"user_id": user_id},
         )
 
@@ -455,12 +455,12 @@ class MemoryGraph(NeptuneBase):
         logger.debug(f"delete_all query={cypher}")
         return cypher, params
 
-    def _get_all_cypher(self, filters, limit):
+    def _get_all_cypher(self, filters, top_k):
         """
         Returns the OpenCypher query and parameters to get all edges/nodes in the memory store
 
         :param filters: search filters
-        :param limit: return limit
+        :param top_k: return limit
         :return: str, dict
         """
 
@@ -469,16 +469,16 @@ class MemoryGraph(NeptuneBase):
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT $limit
         """
-        params = {"user_id": filters["user_id"], "limit": limit}
+        params = {"user_id": filters["user_id"], "limit": top_k}
         return cypher, params
 
-    def _search_graph_db_cypher(self, n_embedding, filters, limit):
+    def _search_graph_db_cypher(self, n_embedding, filters, top_k):
         """
         Returns the OpenCypher query and parameters to search for similar nodes in the memory store
 
         :param n_embedding: node vector
         :param filters: search filters
-        :param limit: return limit
+        :param top_k: return limit
         :return: str, dict
         """
 
@@ -486,7 +486,7 @@ class MemoryGraph(NeptuneBase):
         search_nodes = self.vector_store.search(
             query="",
             vectors=n_embedding,
-            limit=self.vector_store_limit,
+            top_k=self.vector_store_limit,
             filters=filters,
         )
 
@@ -504,7 +504,7 @@ class MemoryGraph(NeptuneBase):
         params = {
             "n_ids": ids,
             "user_id": filters["user_id"],
-            "limit": limit,
+            "limit": top_k,
         }
         logger.debug(f"_search_graph_db\n  query={cypher_query}")
 

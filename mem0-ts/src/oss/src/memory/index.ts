@@ -39,7 +39,7 @@ import { captureClientEvent } from "../utils/telemetry";
 
 export class Memory {
   private config: MemoryConfig;
-  private customPrompt: string | undefined;
+  private customInstructions: string | undefined;
   private embedder: Embedder;
   private vectorStore!: VectorStore;
   private llm: LLM;
@@ -47,7 +47,6 @@ export class Memory {
   private collectionName: string | undefined;
   private apiVersion: string;
   private graphMemory?: MemoryGraph;
-  private enableGraph: boolean;
   telemetryId: string;
   private _initPromise: Promise<void>;
   private _initError?: Error;
@@ -56,7 +55,7 @@ export class Memory {
     // Merge and validate config
     this.config = ConfigManager.mergeConfig(config);
 
-    this.customPrompt = this.config.customPrompt;
+    this.customInstructions = this.config.customInstructions;
     this.embedder = EmbedderFactory.create(
       this.config.embedder.provider,
       this.config.embedder.config,
@@ -79,11 +78,10 @@ export class Memory {
 
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
-    this.enableGraph = this.config.enableGraph || false;
     this.telemetryId = "anonymous";
 
-    // Initialize graph memory if configured
-    if (this.enableGraph && this.config.graphStore) {
+    // Initialize graph memory if graphStore is configured
+    if (this.config.graphStore) {
       this.graphMemory = new MemoryGraph(this.config);
     }
 
@@ -159,7 +157,6 @@ export class Memory {
         api_version: this.apiVersion,
         client_type: "Memory",
         collection_name: this.collectionName,
-        enable_graph: this.enableGraph,
       });
     } catch (error) {}
   }
@@ -293,11 +290,11 @@ export class Memory {
     }
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
-    const [systemPrompt, userPrompt] = this.customPrompt
+    const [systemPrompt, userPrompt] = this.customInstructions
       ? [
-          this.customPrompt.toLowerCase().includes("json")
-            ? this.customPrompt
-            : `${this.customPrompt}\n\nYou MUST return a valid JSON object with a 'facts' key containing an array of strings.`,
+          this.customInstructions.toLowerCase().includes("json")
+            ? this.customInstructions
+            : `${this.customInstructions}\n\nYou MUST return a valid JSON object with a 'facts' key containing an array of strings.`,
           `Input:\n${parsedMessages}`,
         ]
       : getFactRetrievalMessages(parsedMessages);
@@ -478,10 +475,10 @@ export class Memory {
     await this._ensureInitialized();
     await this._captureEvent("search", {
       query_length: query.length,
-      limit: config.limit,
+      topK: config.topK,
       has_filters: !!config.filters,
     });
-    const { userId, agentId, runId, limit = 100, filters = {} } = config;
+    const { userId, agentId, runId, topK = 100, filters = {} } = config;
 
     if (userId) filters.userId = userId;
     if (agentId) filters.agentId = agentId;
@@ -497,7 +494,7 @@ export class Memory {
     const queryEmbedding = await this.embedder.embed(query);
     const memories = await this.vectorStore.search(
       queryEmbedding,
-      limit,
+      topK,
       filters,
     );
 
@@ -642,19 +639,19 @@ export class Memory {
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
     await this._ensureInitialized();
     await this._captureEvent("get_all", {
-      limit: config.limit,
+      topK: config.topK,
       has_user_id: !!config.userId,
       has_agent_id: !!config.agentId,
       has_run_id: !!config.runId,
     });
-    const { userId, agentId, runId, limit = 100 } = config;
+    const { userId, agentId, runId, topK = 100 } = config;
 
     const filters: SearchFilters = {};
     if (userId) filters.userId = userId;
     if (agentId) filters.agentId = agentId;
     if (runId) filters.runId = runId;
 
-    const [memories] = await this.vectorStore.list(filters, limit);
+    const [memories] = await this.vectorStore.list(filters, topK);
 
     const excludedKeys = new Set([
       "userId",

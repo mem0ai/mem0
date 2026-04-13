@@ -35,7 +35,7 @@ class TestAddToVectorStoreErrors:
 
         memory = Memory()
         memory.config = mocker.MagicMock()
-        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
         memory.api_version = "v1.1"
 
@@ -139,7 +139,7 @@ class TestAsyncAddToVectorStoreErrors:
 
         memory = AsyncMemory()
         memory.config = mocker.MagicMock()
-        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
         memory.api_version = "v1.1"
 
@@ -187,7 +187,7 @@ def _build_memory_instance(mocker, memory_cls):
     mocker.patch("mem0.memory.main.MEM0_TELEMETRY", False)
     memory = memory_cls()
     memory.config = mocker.MagicMock()
-    memory.config.custom_fact_extraction_prompt = None
+    memory.config.custom_instructions = None
     memory.config.custom_update_memory_prompt = None
     memory.api_version = "v1.1"
     memory.vector_store = mocker.MagicMock()
@@ -309,8 +309,8 @@ def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     memory.vector_store.list.return_value = [[mem_result]]
 
     # Step 3: Call search and get_all, compare timestamps
-    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
-    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, top_k=10, threshold=None)
+    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, top_k=100)
 
     search_item = search_results[0]
     get_all_item = get_all_results[0]
@@ -376,8 +376,8 @@ def test_search_and_get_all_consistent_after_update(mocker):
     memory.vector_store.search.return_value = [mem_result]
     memory.vector_store.list.return_value = [[mem_result]]
 
-    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
-    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, top_k=10, threshold=None)
+    get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, top_k=100)
 
     assert search_results[0]["created_at"] == get_all_results[0]["created_at"]
     assert search_results[0]["updated_at"] == get_all_results[0]["updated_at"]
@@ -625,6 +625,228 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
 
     stored = memory.vector_store.update.call_args.kwargs["payload"]
     assert stored["actor_id"] == "Alice"
+
+
+class TestHallucinatedIdGuard:
+    """Tests for temp_uuid_mapping guard against LLM-hallucinated IDs (issue #3931).
+
+    When the LLM returns an UPDATE or DELETE with an ID that doesn't exist in
+    temp_uuid_mapping, the code should skip gracefully instead of raising KeyError.
+    """
+
+    def test_sync_update_with_hallucinated_id_skips_gracefully(self, mocker, caplog):
+        """Sync UPDATE with an out-of-range ID should be skipped with a warning."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        # Simulate: 2 existing memories (IDs "0" and "1"), but LLM returns UPDATE for ID "12"
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-aaa"
+        existing_mem.payload = {"data": "User likes coffee"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        # First LLM call: fact extraction → returns one fact
+        # Second LLM call: memory update actions → returns UPDATE with hallucinated ID "12"
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User likes tea"]}',
+            '{"memory": [{"id": "12", "text": "User likes tea", "event": "UPDATE", "old_memory": "User likes coffee"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like tea"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        # Should not crash, should return empty (the hallucinated UPDATE was skipped)
+        assert result == []
+        assert "UPDATE skipped: LLM returned unknown id" in caplog.text
+        # _update_memory should NOT have been called
+        memory.vector_store.update.assert_not_called()
+
+    def test_sync_delete_with_hallucinated_id_skips_gracefully(self, mocker, caplog):
+        """Sync DELETE with an out-of-range ID should be skipped with a warning."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-aaa"
+        existing_mem.payload = {"data": "User likes coffee"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["Remove coffee preference"]}',
+            '{"memory": [{"id": "9", "text": "User likes coffee", "event": "DELETE"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I no longer like coffee"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        assert result == []
+        assert "DELETE skipped: LLM returned unknown id" in caplog.text
+        memory.vector_store.delete.assert_not_called()
+
+    def test_sync_valid_id_still_processes_normally(self, mocker, caplog):
+        """A valid ID should still be processed — the guard must not block legitimate operations."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-aaa"
+        existing_mem.payload = {"data": "User likes coffee"}
+        memory.vector_store.search.return_value = [existing_mem]
+        memory.vector_store.get.return_value = MagicMock(
+            payload={"data": "User likes coffee", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+
+        # ID "0" is valid since there's exactly 1 existing memory
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User likes tea now"]}',
+            '{"memory": [{"id": "0", "text": "User likes tea now", "event": "UPDATE", "old_memory": "User likes coffee"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like tea now"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        assert len(result) == 1
+        assert result[0]["event"] == "UPDATE"
+        assert result[0]["memory"] == "User likes tea now"
+        assert result[0]["id"] == "uuid-aaa"
+        assert "skipped" not in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_async_update_with_hallucinated_id_skips_gracefully(self, mocker, caplog):
+        """Async UPDATE with an out-of-range ID should be skipped with a warning."""
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-bbb"
+        existing_mem.payload = {"data": "User works at Acme"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User works at Globex"]}',
+            '{"memory": [{"id": "7", "text": "User works at Globex", "event": "UPDATE", "old_memory": "User works at Acme"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = await memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I now work at Globex"}],
+                metadata={},
+                effective_filters={},
+                infer=True,
+            )
+
+        assert result == []
+        assert "UPDATE skipped: LLM returned unknown id" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_async_delete_with_hallucinated_id_skips_gracefully(self, mocker, caplog):
+        """Async DELETE with an out-of-range ID should be skipped with a warning."""
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-ccc"
+        existing_mem.payload = {"data": "User lives in SF"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["Remove SF reference"]}',
+            '{"memory": [{"id": "16", "text": "User lives in SF", "event": "DELETE"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = await memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I moved away from SF"}],
+                metadata={},
+                effective_filters={},
+                infer=True,
+            )
+
+        assert result == []
+        assert "DELETE skipped: LLM returned unknown id" in caplog.text
+
+    def test_sync_update_with_missing_id_key_skips_gracefully(self, mocker, caplog):
+        """UPDATE where the LLM omits the 'id' field entirely should be skipped."""
+        memory = _build_memory_instance(mocker, Memory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-aaa"
+        existing_mem.payload = {"data": "User likes coffee"}
+        memory.vector_store.search.return_value = [existing_mem]
+
+        # LLM response has no "id" key at all
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User likes tea"]}',
+            '{"memory": [{"text": "User likes tea", "event": "UPDATE", "old_memory": "User likes coffee"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like tea"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        assert result == []
+        assert "UPDATE skipped: LLM returned unknown id" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_async_valid_id_still_processes_normally(self, mocker, caplog):
+        """Async path: a valid ID should process normally — no false positives from the guard."""
+        memory = _build_memory_instance(mocker, AsyncMemory)
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mocker.patch("mem0.memory.main.capture_event")
+
+        existing_mem = MagicMock()
+        existing_mem.id = "uuid-bbb"
+        existing_mem.payload = {"data": "User works at Acme"}
+        memory.vector_store.search.return_value = [existing_mem]
+        memory.vector_store.get.return_value = MagicMock(
+            payload={"data": "User works at Acme", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+
+        # ID "0" is valid since there's exactly 1 existing memory
+        memory.llm.generate_response.side_effect = [
+            '{"facts": ["User works at Globex now"]}',
+            '{"memory": [{"id": "0", "text": "User works at Globex now", "event": "UPDATE", "old_memory": "User works at Acme"}]}',
+        ]
+
+        with caplog.at_level(logging.WARNING):
+            result = await memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I now work at Globex"}],
+                metadata={},
+                effective_filters={},
+                infer=True,
+            )
+
+        assert len(result) == 1
+        assert result[0]["event"] == "UPDATE"
+        assert result[0]["memory"] == "User works at Globex now"
+        assert result[0]["id"] == "uuid-bbb"
+        assert "skipped" not in caplog.text
 
 
 def test_normalize_iso_timestamp_to_utc_preserves_naive_values():

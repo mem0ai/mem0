@@ -116,6 +116,7 @@ export class PlatformBackend implements Backend {
 		if (opts.expires) payload.expiration_date = opts.expires;
 		if (opts.categories) payload.categories = opts.categories;
 		if (opts.enableGraph) payload.enable_graph = true;
+		payload.source = "CLI";
 
 		return (await this._request("POST", "/v1/memories/", {
 			json: payload,
@@ -176,6 +177,7 @@ export class PlatformBackend implements Backend {
 		if (opts.keyword) payload.keyword_search = true;
 		if (opts.fields) payload.fields = opts.fields;
 		if (opts.enableGraph) payload.enable_graph = true;
+		payload.source = "CLI";
 
 		const result = (await this._request("POST", "/v2/memories/search/", {
 			json: payload,
@@ -186,10 +188,9 @@ export class PlatformBackend implements Backend {
 	}
 
 	async get(memoryId: string): Promise<Record<string, unknown>> {
-		return (await this._request("GET", `/v1/memories/${memoryId}/`)) as Record<
-			string,
-			unknown
-		>;
+		return (await this._request("GET", `/v1/memories/${memoryId}/`, {
+			params: { source: "CLI" },
+		})) as Record<string, unknown>;
 	}
 
 	async listMemories(
@@ -227,6 +228,7 @@ export class PlatformBackend implements Backend {
 		});
 		if (apiFilters) payload.filters = apiFilters;
 		if (opts.enableGraph) payload.enable_graph = true;
+		payload.source = "CLI";
 
 		const result = (await this._request("POST", "/v2/memories/", {
 			json: payload,
@@ -245,6 +247,7 @@ export class PlatformBackend implements Backend {
 		const payload: Record<string, unknown> = {};
 		if (content) payload.text = content;
 		if (metadata) payload.metadata = metadata;
+		payload.source = "CLI";
 		return (await this._request("PUT", `/v1/memories/${memoryId}/`, {
 			json: payload,
 		})) as Record<string, unknown>;
@@ -255,7 +258,7 @@ export class PlatformBackend implements Backend {
 		opts: DeleteOptions = {},
 	): Promise<Record<string, unknown>> {
 		if (opts.all) {
-			const params: Record<string, string> = {};
+			const params: Record<string, string> = { source: "CLI" };
 			if (opts.userId) params.user_id = opts.userId;
 			if (opts.agentId) params.agent_id = opts.agentId;
 			if (opts.appId) params.app_id = opts.appId;
@@ -265,10 +268,9 @@ export class PlatformBackend implements Backend {
 			})) as Record<string, unknown>;
 		}
 		if (memoryId) {
-			return (await this._request(
-				"DELETE",
-				`/v1/memories/${memoryId}/`,
-			)) as Record<string, unknown>;
+			return (await this._request("DELETE", `/v1/memories/${memoryId}/`, {
+				params: { source: "CLI" },
+			})) as Record<string, unknown>;
 		}
 		throw new Error("Either memoryId or --all is required");
 	}
@@ -291,6 +293,7 @@ export class PlatformBackend implements Backend {
 			result = (await this._request(
 				"DELETE",
 				`/v2/entities/${entityType}/${entityId}/`,
+				{ params: { source: "CLI" } },
 			)) as Record<string, unknown>;
 		}
 		return result;

@@ -111,7 +111,6 @@ export class PlatformBackend implements Backend {
     if (opts.infer === false) payload.infer = false;
     if (opts.expires) payload.expiration_date = opts.expires;
     if (opts.categories) payload.categories = opts.categories;
-    if (opts.enableGraph) payload.enable_graph = true;
 
     return (await this._request("POST", "/v1/memories/", {
       json: payload,
@@ -171,7 +170,6 @@ export class PlatformBackend implements Backend {
     if (opts.rerank) payload.rerank = true;
     if (opts.keyword) payload.keyword_search = true;
     if (opts.fields) payload.fields = opts.fields;
-    if (opts.enableGraph) payload.enable_graph = true;
 
     const result = (await this._request("POST", "/v2/memories/search/", {
       json: payload,
@@ -222,7 +220,6 @@ export class PlatformBackend implements Backend {
       extraFilters: Object.keys(extra).length > 0 ? extra : undefined,
     });
     if (apiFilters) payload.filters = apiFilters;
-    if (opts.enableGraph) payload.enable_graph = true;
 
     const result = (await this._request("POST", "/v2/memories/", {
       json: payload,

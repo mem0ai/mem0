@@ -136,7 +136,7 @@ export class MemoryGraph {
     };
   }
 
-  async search(query: string, filters: Record<string, any>, limit = 100) {
+  async search(query: string, filters: Record<string, any>, topK = 100) {
     const entityTypeMap = await this._retrieveNodesFromData(query, filters);
     const searchOutput = await this._searchGraphDb(
       Object.keys(entityTypeMap),
@@ -178,7 +178,7 @@ export class MemoryGraph {
     }
   }
 
-  async getAll(filters: Record<string, any>, limit = 100) {
+  async getAll(filters: Record<string, any>, topK = 100) {
     const session = this.graph.session();
     try {
       const result = await session.run(
@@ -187,7 +187,7 @@ export class MemoryGraph {
         RETURN n.name AS source, type(r) AS relationship, m.name AS target
         LIMIT toInteger($limit)
         `,
-        { user_id: filters["userId"], limit: Math.floor(Number(limit)) },
+        { user_id: filters["userId"], limit: Math.floor(Number(topK)) },
       );
 
       const finalResults = result.records.map((record) => ({
@@ -253,7 +253,7 @@ export class MemoryGraph {
     entityTypeMap: Record<string, string>,
   ) {
     let messages;
-    if (this.config.graphStore?.customPrompt) {
+    if (this.config.graphStore?.customInstructions) {
       messages = [
         {
           role: "system",
@@ -263,7 +263,7 @@ export class MemoryGraph {
               filters["userId"],
             ).replace(
               "CUSTOM_PROMPT",
-              `4. ${this.config.graphStore.customPrompt}`,
+              `4. ${this.config.graphStore.customInstructions}`,
             ) + "\nPlease provide your response in JSON format.",
         },
         { role: "user", content: data },
@@ -307,7 +307,7 @@ export class MemoryGraph {
   private async _searchGraphDb(
     nodeList: string[],
     filters: Record<string, any>,
-    limit = 100,
+    topK = 100,
   ): Promise<SearchOutput[]> {
     const resultRelations: SearchOutput[] = [];
     const session = this.graph.session();
@@ -344,7 +344,7 @@ export class MemoryGraph {
           n_embedding: nEmbedding,
           threshold: this.threshold,
           user_id: filters["userId"],
-          limit: Math.floor(Number(limit)),
+          limit: Math.floor(Number(topK)),
         });
 
         resultRelations.push(

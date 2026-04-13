@@ -55,7 +55,7 @@ def test_generate_response_without_tools(mock_openai_client):
     response = llm.generate_response(messages)
 
     mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, store=False
+        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
@@ -97,7 +97,7 @@ def test_generate_response_with_tools(mock_openai_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto", store=False
+        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto"
     )
 
     assert response["content"] == "I've added the memory for you."
@@ -229,6 +229,60 @@ def test_reasoning_effort_config_values():
 
     config = OpenAIConfig(model="o3")
     assert config.reasoning_effort is None
+
+
+def test_store_not_sent_by_default(mock_openai_client):
+    """`store` must NOT be injected into requests when the user has not
+    explicitly configured it. Regression test for issue #4709, where
+    `store=False` was unconditionally sent and rejected by OpenAI-compatible
+    backends such as Google Gemini."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.1)
+    assert config.store is None  # new opt-in default
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert "store" not in call_kwargs
+
+
+def test_store_sent_when_explicitly_true(mock_openai_client):
+    """When the user explicitly sets `store=True`, the field must be forwarded."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", store=True)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["store"] is True
+
+
+def test_store_sent_when_explicitly_false(mock_openai_client):
+    """When the user explicitly sets `store=False`, the field must still be
+    forwarded — explicit opt-out is a valid configuration for users who rely on
+    it for OpenAI's zero-data-retention behavior."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", store=False)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["store"] is False
 
 
 def test_gpt5_mini_not_classified_as_reasoning(mock_openai_client):

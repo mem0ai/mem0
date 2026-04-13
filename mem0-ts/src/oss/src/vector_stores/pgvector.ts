@@ -164,12 +164,12 @@ export class PGVector implements VectorStore {
 
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const filterConditions: string[] = [];
     const queryVector = `[${query.join(",")}]`; // Format query vector as string with square brackets
-    const filterValues: any[] = [queryVector, limit];
+    const filterValues: any[] = [queryVector, topK];
     let filterIndex = 3;
 
     if (filters) {
@@ -254,7 +254,7 @@ export class PGVector implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const filterConditions: string[] = [];
     const filterValues: any[] = [];
@@ -286,7 +286,7 @@ export class PGVector implements VectorStore {
       ${filterClause}
     `;
 
-    filterValues.push(limit); // Add limit as the last parameter
+    filterValues.push(topK); // Add limit as the last parameter
 
     const [listResult, countResult] = await Promise.all([
       this.client.query(listQuery, filterValues),

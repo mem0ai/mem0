@@ -50,7 +50,7 @@ const messages = [
     {"role": "user", "content": "Alice loves playing badminton"},
     {"role": "assistant", "content": "That's great! Alice is a fitness freak"},
 ];
-await client.add(messages, { user_id: "alice" });
+await client.add(messages, { userId: "alice" });
 ```
 
 </CodeGroup>
@@ -66,7 +66,7 @@ await client.search("What is Alice's favorite sport?", user_id="alice")
 ```
 
 ```javascript JavaScript
-await client.search("What is Alice's favorite sport?", { user_id: "alice" });
+await client.search("What is Alice's favorite sport?", { userId: "alice" });
 ```
 
 </CodeGroup>
@@ -118,7 +118,7 @@ await client.delete_all(user_id="alice")
 ```
 
 ```javascript JavaScript
-await client.deleteAll({ user_id: "alice" });
+await client.deleteAll({ userId: "alice" });
 ```
 
 </CodeGroup>

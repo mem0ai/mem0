@@ -384,10 +384,6 @@ export function registerCliCommands(
                   console.log(`    User ID:  ${existingAuth.userId}`);
                 if (existingAuth.mode)
                   console.log(`    Mode:     ${existingAuth.mode}`);
-                if (existingAuth.orgId)
-                  console.log(`    Org ID:   ${existingAuth.orgId}`);
-                if (existingAuth.projectId)
-                  console.log(`    Project:  ${existingAuth.projectId}`);
                 console.log("");
 
                 // Validate existing key before asking
@@ -408,7 +404,7 @@ export function registerCliCommands(
                 }
 
                 const reuse = await promptInput(
-                  "  Keep existing configuration? (Y/n): ",
+                  "  Keep existing configuration? (y/n): ",
                 );
                 if (
                   reuse === "" ||
@@ -432,7 +428,7 @@ export function registerCliCommands(
               console.log("  2. Enter API key manually");
               console.log("  3. Open-source mode (self-hosted)\n");
 
-              const choice = (await promptInput("  Choice: ", "1")) || "1";
+              const choice = (await promptInput("  Choice (1/2/3): ")) || "1";
 
               if (choice === "1") {
                 // --- Email interactive flow ---
@@ -625,7 +621,6 @@ export function registerCliCommands(
                 runId?: string,
               ): SearchOptions => {
                 const base = buildSearchOptions(userIdOverride, lim, runId);
-                delete (base as any).source;
                 base.threshold = 0.3;
                 return base;
               };
@@ -722,7 +717,7 @@ export function registerCliCommands(
                   : effectiveUserId(getCurrentSessionId());
               const result = await provider.add(
                 [{ role: "user", content: text }],
-                { user_id: uid },
+                { user_id: uid, source: "OPENCLAW" },
               );
               const count = result.results?.length ?? 0;
               if (count > 0) {
@@ -952,9 +947,6 @@ export function registerCliCommands(
         email: "userEmail",
         base_url: "baseUrl",
         user_id: "userId",
-        org_id: "orgId",
-        project_id: "projectId",
-        enable_graph: "enableGraph",
         auto_recall: "autoRecall",
         auto_capture: "autoCapture",
         top_k: "topK",
@@ -969,6 +961,8 @@ export function registerCliCommands(
         vector_host: "oss.vectorStore.config.host",
         vector_port: "oss.vectorStore.config.port",
         collection_name: "oss.vectorStore.config.collectionName",
+        vector_db_name: "oss.vectorStore.config.dbname",
+        vector_db_user: "oss.vectorStore.config.user",
         vector_db_path: "oss.vectorStore.config.dbPath",
         history_db_path: "oss.historyDbPath",
         disable_history: "oss.disableHistory",
@@ -979,7 +973,6 @@ export function registerCliCommands(
 
       // Boolean config fields — coerce "true"/"1"/"yes" on set
       const BOOLEAN_KEYS = new Set([
-        "enableGraph",
         "autoRecall",
         "autoCapture",
         "oss.disableHistory",
@@ -1009,11 +1002,8 @@ export function registerCliCommands(
           apiKey: auth.apiKey ?? cfg.apiKey,
           baseUrl: auth.baseUrl ?? cfg.baseUrl ?? "https://api.mem0.ai",
           userId: auth.userId ?? cfg.userId,
-          orgId: auth.orgId ?? cfg.orgId,
-          projectId: auth.projectId ?? cfg.projectId,
           mode: auth.mode ?? cfg.mode,
           userEmail: auth.userEmail,
-          enableGraph: cfg.enableGraph,
           autoRecall: cfg.autoRecall,
           autoCapture: cfg.autoCapture,
           topK: cfg.topK,
@@ -1055,9 +1045,6 @@ export function registerCliCommands(
             entries.push(
               ["api_key", "apiKey"],
               ["email", "userEmail"],
-              ["org_id", "orgId"],
-              ["project_id", "projectId"],
-              ["enable_graph", "enableGraph"],
             );
           } else {
             entries.push(
@@ -1238,6 +1225,10 @@ export function registerCliCommands(
         .description("List recent background events")
         .action(async () => {
           try {
+            if (!backend || cfg.mode === "open-source") {
+              console.log("Event tracking is only available in platform mode.");
+              return;
+            }
             const results = await backend.listEvents();
             if (!results.length) {
               console.log("No events found.");
@@ -1282,6 +1273,10 @@ export function registerCliCommands(
         .argument("<event_id>", "Event ID to check")
         .action(async (eventId: string) => {
           try {
+            if (!backend || cfg.mode === "open-source") {
+              console.log("Event tracking is only available in platform mode.");
+              return;
+            }
             const ev = await backend.getEvent(eventId);
 
             const status = String(ev.status ?? "—");

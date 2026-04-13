@@ -135,7 +135,7 @@ class SearchRequest(BaseModel):
     run_id: Optional[str] = None
     agent_id: Optional[str] = None
     filters: Optional[Dict[str, Any]] = None
-    limit: Optional[int] = Field(None, description="Maximum number of results to return.")
+    top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
 
 

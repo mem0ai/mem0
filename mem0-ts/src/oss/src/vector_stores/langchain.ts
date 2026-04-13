@@ -101,7 +101,7 @@ export class LangchainVectorStore implements VectorStore {
 
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters, // filters parameter is received but will be ignored
   ): Promise<VectorStoreResult[]> {
     if (this.dimension && query.length !== this.dimension) {
@@ -119,7 +119,7 @@ export class LangchainVectorStore implements VectorStore {
     // Call similaritySearchVectorWithScore WITHOUT the filter argument
     const results = await this.lcStore.similaritySearchVectorWithScore(
       query,
-      limit,
+      topK,
       // Do not pass lcFilter here
     );
 
@@ -192,7 +192,7 @@ export class LangchainVectorStore implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     // No standard list method in Langchain core interface.
     console.error(

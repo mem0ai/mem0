@@ -139,14 +139,14 @@ export class Qdrant implements VectorStore {
 
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const queryFilter = this.createFilter(filters);
     const results = await this.client.search(this.collectionName, {
       vector: query,
       filter: queryFilter,
-      limit,
+      limit: topK,
     });
 
     return results.map((hit) => ({
@@ -198,10 +198,10 @@ export class Qdrant implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const scrollRequest = {
-      limit,
+      limit: topK,
       filter: this.createFilter(filters),
       with_payload: true,
       with_vectors: false,

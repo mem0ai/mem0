@@ -63,6 +63,19 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
+def _resolve_mapped_id(temp_uuid_mapping, resp, event_type):
+    """Resolve a temp integer ID from the LLM response to a real UUID.
+
+    Returns the UUID if found, or None (with a warning log) if the LLM
+    hallucinated an ID that doesn't exist in the mapping.
+    """
+    raw_id = resp.get("id")
+    memory_id = temp_uuid_mapping.get(raw_id)
+    if memory_id is None:
+        logger.warning(f"{event_type} skipped: LLM returned unknown id {raw_id!r}")
+    return memory_id
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -245,7 +258,7 @@ class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
-        self.custom_fact_extraction_prompt = self.config.custom_fact_extraction_prompt
+        self.custom_instructions = self.config.custom_instructions
         self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
@@ -268,12 +281,9 @@ class Memory(MemoryBase):
                 config.reranker.config
             )
 
-        self.enable_graph = False
-
         if self.config.graph_store.config:
             provider = self.config.graph_store.provider
             self.graph = GraphStoreFactory.create(provider, self.config)
-            self.enable_graph = True
         else:
             self.graph = None
         if MEM0_TELEMETRY:
@@ -464,7 +474,7 @@ class Memory(MemoryBase):
             vector_store_result = future1.result()
             graph_result = future2.result()
 
-        if self.enable_graph:
+        if self.graph:
             return {
                 "results": vector_store_result,
                 "relations": graph_result,
@@ -512,8 +522,8 @@ class Memory(MemoryBase):
 
         parsed_messages = parse_messages(messages)
 
-        if self.config.custom_fact_extraction_prompt:
-            system_prompt = self.config.custom_fact_extraction_prompt
+        if self.config.custom_instructions:
+            system_prompt = self.config.custom_instructions
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             # Determine if this should use agent memory extraction based on agent_id presence
@@ -569,7 +579,7 @@ class Memory(MemoryBase):
             existing_memories = self.vector_store.search(
                 query=new_mem,
                 vectors=messages_embeddings,
-                limit=5,
+                top_k=5,
                 filters=search_filters,
             )
             for mem in existing_memories:
@@ -639,28 +649,34 @@ class Memory(MemoryBase):
                         )
                         returned_memories.append({"id": memory_id, "memory": action_text, "event": event_type})
                     elif event_type == "UPDATE":
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "UPDATE")
+                        if memory_id is None:
+                            continue
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = self.embedding_model.embed(action_text, "update")
                         self._update_memory(
-                            memory_id=temp_uuid_mapping[resp.get("id")],
+                            memory_id=memory_id,
                             data=action_text,
                             existing_embeddings=new_message_embeddings,
                             metadata=deepcopy(metadata),
                         )
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp.get("id")],
+                                "id": memory_id,
                                 "memory": action_text,
                                 "event": event_type,
                                 "previous_memory": resp.get("old_memory"),
                             }
                         )
                     elif event_type == "DELETE":
-                        self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")])
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "DELETE")
+                        if memory_id is None:
+                            continue
+                        self._delete_memory(memory_id=memory_id)
                         returned_memories.append(
                             {
-                                "id": temp_uuid_mapping[resp.get("id")],
+                                "id": memory_id,
                                 "memory": action_text,
                                 "event": event_type,
                             }
@@ -707,7 +723,7 @@ class Memory(MemoryBase):
 
     def _add_to_graph(self, messages, filters):
         added_entities = []
-        if self.enable_graph:
+        if self.graph:
             if filters.get("user_id") is None:
                 filters["user_id"] = "user"
 
@@ -766,7 +782,7 @@ class Memory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
-        limit: int = 100,
+        top_k: int = 100,
     ):
         """
         List all memories.
@@ -778,7 +794,7 @@ class Memory(MemoryBase):
             filters (dict, optional): Additional custom key-value filters to apply to the search.
                 These are merged with the ID-based scoping filters. For example,
                 `filters={"actor_id": "some_user"}`.
-            limit (int, optional): The maximum number of memories to return. Defaults to 100.
+            top_k (int, optional): The maximum number of memories to return. Defaults to 100.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key,
@@ -796,13 +812,13 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
-            "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
+            "mem0.get_all", self, {"top_k": top_k, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
+            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, top_k)
             future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, limit) if self.enable_graph else None
+                executor.submit(self.graph.get_all, effective_filters, top_k) if self.graph else None
             )
 
             concurrent.futures.wait(
@@ -812,13 +828,13 @@ class Memory(MemoryBase):
             all_memories_result = future_memories.result()
             graph_entities_result = future_graph_entities.result() if future_graph_entities else None
 
-        if self.enable_graph:
+        if self.graph:
             return {"results": all_memories_result, "relations": graph_entities_result}
 
         return {"results": all_memories_result}
 
-    def _get_all_from_vector_store(self, filters, limit):
-        memories_result = self.vector_store.list(filters=filters, limit=limit)
+    def _get_all_from_vector_store(self, filters, top_k):
+        memories_result = self.vector_store.list(filters=filters, top_k=top_k)
 
         # Handle different vector store return formats by inspecting first element
         if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
@@ -871,7 +887,7 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        limit: int = 100,
+        top_k: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
         rerank: bool = True,
@@ -883,7 +899,7 @@ class Memory(MemoryBase):
             user_id (str, optional): ID of the user to search for. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 100.
             filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
             filters (dict, optional): Enhanced metadata filtering with operators:
@@ -928,7 +944,7 @@ class Memory(MemoryBase):
             "mem0.search",
             self,
             {
-                "limit": limit,
+                "top_k": top_k,
                 "version": self.api_version,
                 "keys": keys,
                 "encoded_ids": encoded_ids,
@@ -939,9 +955,9 @@ class Memory(MemoryBase):
         )
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
+            future_memories = executor.submit(self._search_vector_store, query, effective_filters, top_k, threshold)
             future_graph_entities = (
-                executor.submit(self.graph.search, query, effective_filters, limit) if self.enable_graph else None
+                executor.submit(self.graph.search, query, effective_filters, top_k) if self.graph else None
             )
 
             concurrent.futures.wait(
@@ -954,12 +970,12 @@ class Memory(MemoryBase):
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
             try:
-                reranked_memories = self.reranker.rerank(query, original_memories, limit)
+                reranked_memories = self.reranker.rerank(query, original_memories, top_k)
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
-        if self.enable_graph:
+        if self.graph:
             return {"results": original_memories, "relations": graph_entities}
 
         return {"results": original_memories}
@@ -1060,9 +1076,9 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
+    def _search_vector_store(self, query, filters, top_k, threshold: Optional[float] = None):
         embeddings = self.embedding_model.embed(query, "search")
-        memories = self.vector_store.search(query=query, vectors=embeddings, limit=limit, filters=filters)
+        memories = self.vector_store.search(query=query, vectors=embeddings, top_k=top_k, filters=filters)
 
         promoted_payload_keys = [
             "user_id",
@@ -1138,7 +1154,7 @@ class Memory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         # Clean up graph entities before deleting from vector store
-        if self.enable_graph:
+        if self.graph:
             try:
                 memory_text = existing_memory.payload.get("data", "")
                 if memory_text:
@@ -1186,7 +1202,7 @@ class Memory(MemoryBase):
 
         logger.info(f"Deleted {len(memories)} memories")
 
-        if self.enable_graph:
+        if self.graph:
             self.graph.delete_all(filters)
 
         return {"message": "Memories deleted successfully!"}
@@ -1388,7 +1404,7 @@ class Memory(MemoryBase):
             )
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
-        if self.enable_graph:
+        if self.graph:
             try:
                 self.graph.reset()
             except Exception:
@@ -1423,12 +1439,9 @@ class AsyncMemory(MemoryBase):
                 config.reranker.config
             )
 
-        self.enable_graph = False
-
         if self.config.graph_store.config:
             provider = self.config.graph_store.provider
             self.graph = GraphStoreFactory.create(provider, self.config)
-            self.enable_graph = True
         else:
             self.graph = None
 
@@ -1571,7 +1584,7 @@ class AsyncMemory(MemoryBase):
 
         vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
 
-        if self.enable_graph:
+        if self.graph:
             return {
                 "results": vector_store_result,
                 "relations": graph_result,
@@ -1624,8 +1637,8 @@ class AsyncMemory(MemoryBase):
             return returned_memories
 
         parsed_messages = parse_messages(messages)
-        if self.config.custom_fact_extraction_prompt:
-            system_prompt = self.config.custom_fact_extraction_prompt
+        if self.config.custom_instructions:
+            system_prompt = self.config.custom_instructions
             user_prompt = f"Input:\n{parsed_messages}"
         else:
             # Determine if this should use agent memory extraction based on agent_id presence
@@ -1680,7 +1693,7 @@ class AsyncMemory(MemoryBase):
                 self.vector_store.search,
                 query=new_mem_content,
                 vectors=embeddings,
-                limit=5,
+                top_k=5,
                 filters=search_filters,
             )
             return [{"id": mem.id, "text": mem.payload.get("data", "")} for mem in existing_mems]
@@ -1755,6 +1768,9 @@ class AsyncMemory(MemoryBase):
                         )
                         memory_tasks.append((task, resp, "ADD", None))
                     elif event_type == "UPDATE":
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "UPDATE")
+                        if memory_id is None:
+                            continue
                         # Ensure action_text has an embedding cached to avoid redundant API calls
                         if action_text not in new_message_embeddings:
                             new_message_embeddings[action_text] = await asyncio.to_thread(
@@ -1762,16 +1778,19 @@ class AsyncMemory(MemoryBase):
                             )
                         task = asyncio.create_task(
                             self._update_memory(
-                                memory_id=temp_uuid_mapping[resp["id"]],
+                                memory_id=memory_id,
                                 data=action_text,
                                 existing_embeddings=new_message_embeddings,
                                 metadata=deepcopy(metadata),
                             )
                         )
-                        memory_tasks.append((task, resp, "UPDATE", temp_uuid_mapping[resp["id"]]))
+                        memory_tasks.append((task, resp, "UPDATE", memory_id))
                     elif event_type == "DELETE":
-                        task = asyncio.create_task(self._delete_memory(memory_id=temp_uuid_mapping[resp.get("id")]))
-                        memory_tasks.append((task, resp, "DELETE", temp_uuid_mapping[resp.get("id")]))
+                        memory_id = _resolve_mapped_id(temp_uuid_mapping, resp, "DELETE")
+                        if memory_id is None:
+                            continue
+                        task = asyncio.create_task(self._delete_memory(memory_id=memory_id))
+                        memory_tasks.append((task, resp, "DELETE", memory_id))
                     elif event_type == "NONE":
                         # Even if content doesn't need updating, update session IDs if provided
                         memory_id = temp_uuid_mapping.get(resp.get("id"))
@@ -1838,7 +1857,7 @@ class AsyncMemory(MemoryBase):
 
     async def _add_to_graph(self, messages, filters):
         added_entities = []
-        if self.enable_graph:
+        if self.graph:
             if filters.get("user_id") is None:
                 filters["user_id"] = "user"
 
@@ -1897,7 +1916,7 @@ class AsyncMemory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
-        limit: int = 100,
+        top_k: int = 100,
     ):
         """
         List all memories.
@@ -1909,7 +1928,7 @@ class AsyncMemory(MemoryBase):
              filters (dict, optional): Additional custom key-value filters to apply to the search.
                  These are merged with the ID-based scoping filters. For example,
                  `filters={"actor_id": "some_user"}`.
-             limit (int, optional): The maximum number of memories to return. Defaults to 100.
+             top_k (int, optional): The maximum number of memories to return. Defaults to 100.
 
          Returns:
              dict: A dictionary containing a list of memories under the "results" key,
@@ -1930,19 +1949,19 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
-            "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
+            "mem0.get_all", self, {"top_k": top_k, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
-        vector_store_task = asyncio.create_task(self._get_all_from_vector_store(effective_filters, limit))
+        vector_store_task = asyncio.create_task(self._get_all_from_vector_store(effective_filters, top_k))
 
         graph_task = None
-        if self.enable_graph:
+        if self.graph:
             graph_get_all = getattr(self.graph, "get_all", None)
             if callable(graph_get_all):
                 if asyncio.iscoroutinefunction(graph_get_all):
-                    graph_task = asyncio.create_task(graph_get_all(effective_filters, limit))
+                    graph_task = asyncio.create_task(graph_get_all(effective_filters, top_k))
                 else:
-                    graph_task = asyncio.create_task(asyncio.to_thread(graph_get_all, effective_filters, limit))
+                    graph_task = asyncio.create_task(asyncio.to_thread(graph_get_all, effective_filters, top_k))
 
         results_dict = {}
         if graph_task:
@@ -1953,8 +1972,8 @@ class AsyncMemory(MemoryBase):
 
         return results_dict
 
-    async def _get_all_from_vector_store(self, filters, limit):
-        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, limit=limit)
+    async def _get_all_from_vector_store(self, filters, top_k):
+        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=top_k)
 
         # Handle different vector store return formats by inspecting first element
         if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
@@ -2007,7 +2026,7 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        limit: int = 100,
+        top_k: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: Optional[float] = None,
         metadata_filters: Optional[Dict[str, Any]] = None,
@@ -2020,7 +2039,7 @@ class AsyncMemory(MemoryBase):
             user_id (str, optional): ID of the user to search for. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 100.
             filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
             threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
             filters (dict, optional): Enhanced metadata filtering with operators:
@@ -2066,7 +2085,7 @@ class AsyncMemory(MemoryBase):
             "mem0.search",
             self,
             {
-                "limit": limit,
+                "top_k": top_k,
                 "version": self.api_version,
                 "keys": keys,
                 "encoded_ids": encoded_ids,
@@ -2076,14 +2095,14 @@ class AsyncMemory(MemoryBase):
             },
         )
 
-        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, limit, threshold))
+        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, top_k, threshold))
 
         graph_task = None
-        if self.enable_graph:
+        if self.graph:
             if hasattr(self.graph.search, "__await__"):  # Check if graph search is async
-                graph_task = asyncio.create_task(self.graph.search(query, effective_filters, limit))
+                graph_task = asyncio.create_task(self.graph.search(query, effective_filters, top_k))
             else:
-                graph_task = asyncio.create_task(asyncio.to_thread(self.graph.search, query, effective_filters, limit))
+                graph_task = asyncio.create_task(asyncio.to_thread(self.graph.search, query, effective_filters, top_k))
 
         if graph_task:
             original_memories, graph_entities = await asyncio.gather(vector_store_task, graph_task)
@@ -2096,13 +2115,13 @@ class AsyncMemory(MemoryBase):
             try:
                 # Run reranking in thread pool to avoid blocking async loop
                 reranked_memories = await asyncio.to_thread(
-                    self.reranker.rerank, query, original_memories, limit
+                    self.reranker.rerank, query, original_memories, top_k
                 )
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
-        if self.enable_graph:
+        if self.graph:
             return {"results": original_memories, "relations": graph_entities}
 
         return {"results": original_memories}
@@ -2203,10 +2222,10 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold: Optional[float] = None):
+    async def _search_vector_store(self, query, filters, top_k, threshold: Optional[float] = None):
         embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
         memories = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, limit=limit, filters=filters
+            self.vector_store.search, query=query, vectors=embeddings, top_k=top_k, filters=filters
         )
 
         promoted_payload_keys = [
@@ -2284,7 +2303,7 @@ class AsyncMemory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         # Clean up graph entities before deleting from vector store
-        if self.enable_graph:
+        if self.graph:
             try:
                 memory_text = existing_memory.payload.get("data", "")
                 if memory_text:
@@ -2335,7 +2354,7 @@ class AsyncMemory(MemoryBase):
 
         logger.info(f"Deleted {len(memories[0])} memories")
 
-        if self.enable_graph:
+        if self.graph:
             await asyncio.to_thread(self.graph.delete_all, filters)
 
         return {"message": "Memories deleted successfully!"}
@@ -2562,7 +2581,7 @@ class AsyncMemory(MemoryBase):
         )
         capture_event("mem0.reset", self, {"sync_type": "async"})
 
-        if self.enable_graph:
+        if self.graph:
             try:
                 await asyncio.to_thread(self.graph.reset)
             except Exception:

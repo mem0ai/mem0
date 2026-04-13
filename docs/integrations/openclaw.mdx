@@ -42,7 +42,7 @@ All memories are scoped to this `userId` — different values create separate me
 
 ### Platform Mode (Mem0 Cloud)
 
-<Note>Get your API key from [app.mem0.ai](https://app.mem0.ai).</Note>
+<Note>Get your API key from <a href="https://app.mem0.ai" rel="nofollow">app.mem0.ai</a>.</Note>
 
 Add to your `openclaw.json`:
 
@@ -155,7 +155,7 @@ openclaw mem0 stats
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `customPrompt` | `string` | *(built-in)* | Extraction prompt for memory processing |
+| `customInstructions` | `string` | *(built-in)* | Extraction prompt for memory processing |
 | `oss.embedder.provider` | `string` | `"openai"` | Embedding provider (`"openai"`, `"ollama"`, etc.) |
 | `oss.embedder.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL` |
 | `oss.vectorStore.provider` | `string` | `"memory"` | Vector store (`"memory"`, `"qdrant"`, `"chroma"`, etc.) |

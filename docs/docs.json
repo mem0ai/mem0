@@ -12,7 +12,7 @@
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
-    "href": "https://app.mem0.ai/"
+    "href": "https://mem0.ai"
   },
   "navigation": {
     "anchors": [
@@ -70,7 +70,6 @@
                           "platform/features/v2-memory-filters",
                           "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
-                          "platform/features/async-mode-default-change",
                           "platform/features/multimodal-support",
                           "platform/features/custom-categories"
                         ]
@@ -79,7 +78,6 @@
                         "group": "Advanced Features",
                         "icon": "bolt",
                         "pages": [
-                          "platform/features/graph-memory",
                           "platform/features/graph-threshold",
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
@@ -94,8 +92,7 @@
                         "pages": [
                           "platform/features/direct-import",
                           "platform/features/memory-export",
-                          "platform/features/timestamp",
-                          "platform/features/expiration-date"
+                          "platform/features/timestamp"
                         ]
                       },
                       {
@@ -122,8 +119,6 @@
                     "icon": "arrow-right",
                     "pages": [
                       "migration/oss-to-platform",
-                      "migration/v0-to-v1",
-                      "migration/breaking-changes",
                       "migration/api-changes"
                     ]
                   },
@@ -132,13 +127,6 @@
                     "icon": "clipboard-list",
                     "pages": [
                       "platform/contribute"
-                    ]
-                  },
-                  {
-                    "group": "Release Notes",
-                    "icon": "rocket",
-                    "pages": [
-                      "changelog"
                     ]
                   }
                 ]
@@ -179,7 +167,7 @@
                       "open-source/features/reranker-search",
                       "open-source/features/async-memory",
                       "open-source/features/multimodal-support",
-                      "open-source/features/custom-fact-extraction-prompt",
+                      "open-source/features/custom-instructions",
                       "open-source/features/custom-update-memory-prompt",
                       "open-source/features/rest-api",
                       "open-source/features/openai_compatibility"
@@ -385,7 +373,6 @@
                       "cookbooks/frameworks/llamaindex-multiagent",
                       "cookbooks/frameworks/multimodal-retrieval",
                       "cookbooks/frameworks/eliza-os-character",
-                      "cookbooks/frameworks/chrome-extension",
                       "cookbooks/frameworks/gemini-3-with-mem0-mcp",
                       "cookbooks/frameworks/mirofish-swarm-memory"
                     ]
@@ -416,7 +403,8 @@
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
-                      "integrations/vercel-ai-sdk"
+                      "integrations/vercel-ai-sdk",
+                      "integrations/chatdev"
                     ]
                   },
                   {
@@ -558,6 +546,21 @@
                     ]
                   }
                 ]
+              },
+              {
+                "tab": "Release Notes",
+                "groups": [
+                  {
+                    "group": "Release Notes",
+                    "icon": "rocket",
+                    "pages": [
+                      "changelog/highlights",
+                      "changelog/sdk",
+                      "changelog/platform",
+                      "changelog/openclaw"
+                    ]
+                  }
+                ]
               }
             ]
           }
@@ -608,6 +611,34 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/migration/breaking-changes",
+      "destination": "/"
+    },
+    {
+      "source": "/migration/v0-to-v1",
+      "destination": "/"
+    },
+    {
+      "source": "/platform/features/expiration-date",
+      "destination": "/"
+    },
+    {
+      "source": "/platform/features/async-mode-default-change",
+      "destination": "/"
+    },
+    {
+      "source": "/open-source/features/custom-fact-extraction-prompt",
+      "destination": "/open-source/features/custom-instructions"
+    },
+    {
+      "source": "/platform/features/graph-memory",
+      "destination": "/open-source/features/graph-memory"
+    },
+    {
+      "source": "/changelog",
+      "destination": "/changelog/highlights"
+    },
     {
       "source": "/api-reference/memory/v2-search-memories",
       "destination": "/api-reference/memory/search-memories"
@@ -766,7 +797,11 @@
     },
     {
       "source": "/examples/chrome-extension",
-      "destination": "/cookbooks/frameworks/chrome-extension"
+      "destination": "/cookbooks/overview"
+    },
+    {
+      "source": "/cookbooks/frameworks/chrome-extension",
+      "destination": "/cookbooks/overview"
     },
     {
       "source": "/examples",
@@ -806,7 +841,7 @@
     },
     {
       "source": "/v0x/examples/chrome-extension",
-      "destination": "/cookbooks/frameworks/chrome-extension"
+      "destination": "/cookbooks/overview"
     },
     {
       "source": "/v0x/examples/youtube-assistant",
@@ -958,7 +993,7 @@
     },
     {
       "source": "/features/graph-memory",
-      "destination": "/platform/features/graph-memory"
+      "destination": "/open-source/features/graph-memory"
     },
     {
       "source": "/features/:slug",
