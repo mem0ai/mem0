@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { AUTH_ENDPOINTS } from "@/utils/api-endpoints";
 import { getServerApiUrl } from "@/lib/server-api-url";
 
-const PUBLIC_PATHS = ["/_next", "/api/auth", "/fonts", "/favicon"];
+const PUBLIC_PATHS = [
+  "/_next",
+  "/api/auth",
+  "/api/health",
+  "/fonts",
+  "/favicon",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
