@@ -12,7 +12,6 @@ import {
   Search,
   Wrench,
   Tags,
-  Waypoints,
   WebhookIcon,
   ChartLine,
   FolderInput,
@@ -186,7 +185,6 @@ export function MainNav({
                 <CollapsibleContent className="flex flex-col gap-0">
                   {[
                     { title: "Categories", url: "/dashboard/categories", icon: Tags },
-                    { title: "Graph Memory", url: "/dashboard/graph-memory", icon: Waypoints },
                     { title: "Webhooks", url: "/dashboard/webhooks", icon: WebhookIcon },
                     { title: "Analytics", url: "/dashboard/analytics", icon: ChartLine },
                     { title: "Export", url: "/dashboard/export", icon: FolderInput },

@@ -3,7 +3,7 @@ name: mem0-dev
 services:
   mem0:
     build:
-      context: ..  # Set context to parent directory
+      context: ..
       dockerfile: server/dev.Dockerfile
     ports:
       - "8888:8000"
@@ -16,8 +16,6 @@ services:
       - .:/app
     depends_on:
       postgres:
-        condition: service_healthy
-      neo4j:
         condition: service_healthy
     command: >
       sh -c "rm -rf /app/packages && pip install -q --force-reinstall --no-deps mem0ai && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
@@ -32,7 +30,7 @@ services:
   postgres:
       image: ankane/pgvector:v0.5.1
       restart: on-failure
-      shm_size: "128mb" # Increase this if vacuuming fails with a "no space left on device" error
+      shm_size: "128mb"
       networks:
         - mem0_network
       environment:
@@ -48,6 +46,7 @@ services:
         - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
       ports:
         - "8432:5432"
+
   mem0-dashboard:
     build: ./dashboard
     ports:
@@ -67,30 +66,7 @@ services:
       timeout: 5s
       retries: 3
 
-  neo4j:
-    image: neo4j:5.26.4
-    networks:
-      - mem0_network
-    healthcheck:
-      test: wget http://localhost:7687 || exit 1
-      interval: 1s
-      timeout: 10s
-      retries: 20
-      start_period: 90s
-    ports:
-      - "8474:7474" # HTTP
-      - "8687:7687" # Bolt
-    volumes:
-      - neo4j_data:/data
-    environment:
-      - NEO4J_AUTH=neo4j/mem0graph
-      - NEO4J_PLUGINS=["apoc"]
-      - NEO4J_apoc_export_file_enabled=true
-      - NEO4J_apoc_import_file_enabled=true
-      - NEO4J_apoc_import_file_use__neo4j__config=true
-
 volumes:
-  neo4j_data:
   postgres_db:
 
 networks:
