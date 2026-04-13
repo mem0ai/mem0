@@ -77,7 +77,6 @@
 | **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai) |
 | **Dashboard** | -- | Yes | Yes |
 | **Auth & API Keys** | -- | Yes | Yes |
-| **Team Management** | -- | Basic | Full (orgs, projects, RBAC) |
 | **Advanced Features** | -- | Teasers | All included |
 
 Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? Cloud.
@@ -100,7 +99,7 @@ cd server && docker compose up -d
 # API: http://localhost:8888
 ```
 
-See the [self-hosted docs](https://docs.mem0.ai/self-hosted) for configuration and team setup.
+See the [self-hosted docs](https://docs.mem0.ai/self-hosted) for configuration.
 
 ### Cloud Platform
 
