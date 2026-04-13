@@ -65,7 +65,7 @@ def setup_status(db: Session = Depends(get_db)):
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     """Create the first admin account. Blocked once any user exists."""
     if db.scalar(select(func.count(User.id))) > 0:
-        raise HTTPException(status_code=403, detail="Registration is closed. Use an invite link to join.")
+        raise HTTPException(status_code=403, detail="Registration is closed. An admin account already exists.")
 
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status_code=409, detail="Email already registered.")

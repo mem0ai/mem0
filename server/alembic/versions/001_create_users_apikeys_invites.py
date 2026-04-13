@@ -1,4 +1,4 @@
-"""Create users, api_keys, and invites tables
+"""Create users and api_keys tables
 
 Revision ID: 001
 Revises: None
@@ -24,7 +24,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("email", sa.String(255), nullable=False),
         sa.Column("password_hash", sa.Text(), nullable=False),
-        sa.Column("role", sa.String(20), nullable=False, server_default="member"),
+        sa.Column("role", sa.String(20), nullable=False, server_default="admin"),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
         sa.UniqueConstraint("email"),
@@ -43,23 +43,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
 
-    op.create_table(
-        "invites",
-        sa.Column("id", sa.Uuid(), primary_key=True),
-        sa.Column("email", sa.String(255), nullable=False),
-        sa.Column("token", sa.String(255), nullable=False),
-        sa.Column("invited_by", sa.Uuid(), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("role", sa.String(20), nullable=False, server_default="member"),
-        sa.Column("accepted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.UniqueConstraint("token"),
-        sa.UniqueConstraint("email", "accepted_at", name="uq_invite_email_pending"),
-    )
-    op.create_index("ix_invites_token", "invites", ["token"])
-
 
 def downgrade() -> None:
-    op.drop_table("invites")
     op.drop_table("api_keys")
     op.drop_table("users")
