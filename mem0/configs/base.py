@@ -60,10 +60,6 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
-    custom_update_memory_prompt: Optional[str] = Field(
-        description="Custom prompt for the update memory (deprecated: use custom_instructions)",
-        default=None,
-    )
 
 
 class AzureConfig(BaseModel):

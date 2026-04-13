@@ -24,7 +24,8 @@ from mem0.configs.prompts import (
     get_update_memory_messages,
 )
 from mem0.utils.lemmatization import lemmatize_for_bm25
-from mem0.utils.entity_extraction import extract_entities_batch
+from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
+from mem0.utils.scoring import ENTITY_BOOST_WEIGHT, get_bm25_params, normalize_bm25, score_and_rank
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
@@ -191,7 +192,6 @@ class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
 
-        self.custom_update_memory_prompt = self.config.custom_update_memory_prompt
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
@@ -216,15 +216,6 @@ class Memory(MemoryBase):
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
-
-        if self.config.custom_update_memory_prompt:
-            import warnings
-            warnings.warn(
-                "custom_update_memory_prompt is deprecated and has no effect in the v3 pipeline. "
-                "Use custom_instructions instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
 
         if self.config.graph_store.config:
             provider = self.config.graph_store.provider
@@ -1145,10 +1136,6 @@ class Memory(MemoryBase):
         return False
 
     def _search_vector_store(self, query, filters, limit, threshold=0.1):
-        from mem0.utils.lemmatization import lemmatize_for_bm25
-        from mem0.utils.entity_extraction import extract_entities
-        from mem0.utils.scoring import get_bm25_params, normalize_bm25, score_and_rank, ENTITY_BOOST_WEIGHT
-
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
@@ -1261,8 +1248,6 @@ class Memory(MemoryBase):
         Returns:
             Dict mapping memory_id (str) -> max entity boost [0, 0.5].
         """
-        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
-
         # Deduplicate entities (max 8)
         seen = set()
         deduped = []
@@ -2494,10 +2479,6 @@ class AsyncMemory(MemoryBase):
         return False
 
     async def _search_vector_store(self, query, filters, limit, threshold=0.1):
-        from mem0.utils.lemmatization import lemmatize_for_bm25
-        from mem0.utils.entity_extraction import extract_entities
-        from mem0.utils.scoring import get_bm25_params, normalize_bm25, score_and_rank, ENTITY_BOOST_WEIGHT
-
         if threshold is None:
             threshold = 0.1
 
@@ -2596,8 +2577,6 @@ class AsyncMemory(MemoryBase):
 
     async def _compute_entity_boosts_async(self, query_entities, filters):
         """Async version of entity boost computation."""
-        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
-
         seen = set()
         deduped = []
         for entity_type, entity_text in query_entities[:8]:
