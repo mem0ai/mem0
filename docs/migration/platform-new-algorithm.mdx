@@ -167,6 +167,62 @@ Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `F
 
 The `memory_version` parameter (`"v3"`, `"v4"`) is **deprecated and has no effect**. The new algorithm is now the default for all requests. The parameter is still accepted for backward compatibility but can be safely removed from your code.
 
+## SDK Breaking Changes
+
+Alongside the algorithm update, the Python and TypeScript client SDKs have been cleaned up. These changes affect how you initialize and call the client.
+
+### Python Client SDK
+
+```python
+from mem0 import MemoryClient
+
+# Before
+client = MemoryClient(
+    api_key="...",
+    org_id="org-1",       # ❌ Removed
+    project_id="proj-1"   # ❌ Removed
+)
+client.add(messages, user_id="alice", async_mode=True, output_format="v1.1")
+
+# After
+client = MemoryClient(api_key="...")
+client.add(messages, user_id="alice")
+# async_mode and output_format removed (async by default, v1.1 always)
+```
+
+**Removed parameters:** `org_id`, `project_id`, `api_version`, `output_format`, `async_mode`, `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`, `org_name`, `project_name`
+
+### TypeScript Client SDK
+
+All parameters now use **camelCase** (the SDK handles conversion to/from the API automatically):
+
+```typescript
+// Before
+const client = new MemoryClient({
+  apiKey: "...",
+  organizationId: "org-1",  // ❌ Removed
+  projectId: "proj-1"       // ❌ Removed
+});
+await client.search("query", {
+  user_id: "alice",          // ❌ snake_case
+  top_k: 20,                 // ❌ snake_case
+  enable_graph: true          // ❌ Removed
+});
+
+// After
+const client = new MemoryClient({ apiKey: "..." });
+await client.search("query", {
+  userId: "alice",           // ✅ camelCase
+  topK: 20                   // ✅ camelCase
+});
+```
+
+**Removed:** `OutputFormat` enum, `API_VERSION` enum, `organizationId`, `projectId`, `organizationName`, `projectName`, `enableGraph`, `asyncMode`, `outputFormat`, `immutable`, `expirationDate`, `filterMemories`, `batchSize`, `forceAddOnly`, `includes`, `excludes`, `keywordSearch`
+
+<Info>
+For the full list of parameter changes across all SDKs, see the [OSS migration guide](/migration/oss-new-algorithm#removed-parameters-reference).
+</Info>
+
 ## Migration Checklist
 
 <Steps>

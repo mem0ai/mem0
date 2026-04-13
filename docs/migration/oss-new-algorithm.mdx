@@ -6,122 +6,297 @@ iconType: "solid"
 ---
 
 <Warning>
-**Breaking changes ahead.** This release includes renamed parameters, changed defaults, and a fundamentally different extraction model. Read this guide before upgrading.
+**Breaking changes ahead.** This release includes renamed parameters, removed parameters, changed defaults, and a fundamentally different extraction model. Read this guide before upgrading.
 </Warning>
 
 ## Overview
 
-The new Mem0 open-source algorithm redesigns both extraction and retrieval:
+The new Mem0 release redesigns both extraction and retrieval, and cleans up the SDK surface across Python and TypeScript:
 
 - **Extraction**: Single-pass ADD-only (one LLM call, no UPDATE/DELETE)
 - **Retrieval**: Multi-signal hybrid search (semantic + BM25 keyword + entity matching)
 - **Entity linking**: Automatic entity extraction and cross-memory linking
+- **SDK cleanup**: Deprecated parameters removed, naming conventions standardized
 
 These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and **+26 point improvement on LongMemEval** (67.8 → 93.4), while cutting extraction latency roughly in half.
 
 ## Breaking Changes
 
-| Change | Old Behavior | New Behavior | Migration |
+### Python Open Source
+
+| Change | Old | New | Migration |
 |---|---|---|---|
-| `top_k` → `limit` | `search(top_k=10)` | `search(limit=10)` | Rename parameter |
+| Search parameter | `search(top_k=10)` | `search(limit=10)` | Rename `top_k` → `limit` |
 | `threshold` default | `None` (no filtering) | `0.1` (filters low-relevance) | Pass `threshold=0.0` for old behavior |
 | `rerank` default | `True` | `False` | Pass `rerank=True` to restore |
-| `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update client code expecting UPDATE/DELETE |
-| `score` meaning | Raw cosine similarity | Combined hybrid score | Use `score_breakdown.semantic` for raw cosine |
+| `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
+| `score` meaning | Raw cosine similarity | Combined hybrid score | Use `score_breakdown["semantic"]` for raw cosine |
+| Custom extraction prompt | `custom_fact_extraction_prompt` | `custom_instructions` | Rename in config |
+| Custom update prompt | `custom_update_memory_prompt` | Deprecated | Use `custom_instructions` instead |
+| Graph toggle | `enable_graph=True` in config | Removed | Graph activates automatically when `graph_store` config is present |
 | Qdrant client | `>=1.9.1` | `>=1.12.0` | Update dependency |
 | Upstash client | `>=0.1.0` | `>=0.6.0` | Update dependency |
+
+### TypeScript Open Source
+
+| Change | Old | New | Migration |
+|---|---|---|---|
+| Search parameter | `search(query, { limit: 10 })` | `search(query, { topK: 10 })` | Rename `limit` → `topK` |
+| Custom prompt | `customPrompt` | `customInstructions` | Rename in config |
+| Graph toggle | `enableGraph: true` in config | Removed | Graph activates when `graphStore` config is present |
+| Default graph config | Neo4j default config applied | No default graph config | Explicitly provide `graphStore` if needed |
+| LMStudio provider | Supported | Removed | Migrate to another supported provider |
+| DeepSeek provider | Supported | Removed | Migrate to another supported provider |
+
+### Python Client SDK
+
+| Change | Old | New | Migration |
+|---|---|---|---|
+| Constructor | `MemoryClient(api_key, org_id, project_id)` | `MemoryClient(api_key)` | Remove `org_id`, `project_id` from constructor |
+| Method options | `client.add(messages, **kwargs)` | `client.add(messages, options=AddMemoryOptions(...))` | Use typed option classes (or `**kwargs` still works) |
+| Removed params | `api_version`, `output_format`, `async_mode`, `filter_memories`, `expiration_date`, `keyword_search`, `force_add_only`, `batch_size`, `immutable`, `includes`, `excludes`, `enable_graph`, `org_name`, `project_name` | — | Remove from all calls |
+
+### TypeScript Client SDK
+
+| Change | Old | New | Migration |
+|---|---|---|---|
+| Constructor | `new MemoryClient({ apiKey, organizationId, projectId })` | `new MemoryClient({ apiKey })` | Remove `organizationId`, `projectId`, `organizationName`, `projectName` |
+| All params | snake_case: `user_id`, `agent_id`, `top_k` | camelCase: `userId`, `agentId`, `topK` | Rename all params to camelCase |
+| Removed params | `api_version`, `output_format`, `async_mode`, `enable_graph`, `org_id`, `project_id`, `org_name`, `project_name`, `filter_memories`, `batch_size`, `force_add_only`, `immutable`, `expiration_date`, `includes`, `excludes`, `keyword_search` | — | Remove from all calls |
+| Output format enum | `OutputFormat.V1`, `OutputFormat.V1_1` | Removed | v1.1 is now always used |
+| API version enum | `API_VERSION.V1`, `API_VERSION.V2` | Removed | Handled internally |
 
 ## Step-by-Step Migration
 
 ### 1. Update Installation
 
-```bash
-# Basic upgrade
-pip install --upgrade mem0ai
+<Tabs>
+  <Tab title="Python">
+    ```bash
+    # Basic upgrade
+    pip install --upgrade mem0ai
 
-# For hybrid search + entity extraction (recommended)
-pip install --upgrade "mem0ai[nlp]"
-python -m spacy download en_core_web_sm
-```
+    # For hybrid search + entity extraction (recommended)
+    pip install --upgrade "mem0ai[nlp]"
+    python -m spacy download en_core_web_sm
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```bash
+    npm install mem0ai@latest
+    ```
+  </Tab>
+</Tabs>
 
 <Info>
-The `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity linking, no BM25 lemmatization).
+The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity linking, no BM25 lemmatization).
 </Info>
 
-### 2. Update Search Calls
+### 2. Update Configuration
 
-#### Before
+<Tabs>
+  <Tab title="Python OSS">
+    ```python
+    # Before
+    config = {
+        "custom_fact_extraction_prompt": "Focus on user preferences",  # ❌ Renamed
+        "custom_update_memory_prompt": "Be concise when updating",      # ❌ Deprecated
+        "graph_store": {
+            "provider": "neo4j",
+            "config": { "url": "...", "username": "...", "password": "..." }
+        },
+        "enable_graph": True,  # ❌ Removed
+    }
 
-```python
-from mem0 import Memory
+    # After
+    config = {
+        "custom_instructions": "Focus on user preferences",  # ✅ New name
+        # custom_update_memory_prompt removed — use custom_instructions
+        "graph_store": {
+            "provider": "neo4j",
+            "config": { "url": "...", "username": "...", "password": "..." }
+        },
+        # enable_graph removed — graph activates automatically when graph_store is present
+    }
+    ```
+  </Tab>
+  <Tab title="TypeScript OSS">
+    ```typescript
+    // Before
+    const config = {
+      customPrompt: "Focus on user preferences",  // ❌ Renamed
+      enableGraph: true,                            // ❌ Removed
+      graphStore: {
+        provider: "neo4j",
+        config: { url: "...", username: "...", password: "..." }
+      }
+    };
 
-m = Memory()
+    // After
+    const config = {
+      customInstructions: "Focus on user preferences",  // ✅ New name
+      // enableGraph removed — graph activates when graphStore is present
+      graphStore: {
+        provider: "neo4j",
+        config: { url: "...", username: "...", password: "..." }
+      }
+    };
+    ```
+  </Tab>
+</Tabs>
 
-# Old parameter name and defaults
-results = m.search(
-    "what meetings did I attend?",
-    user_id="alice",
-    top_k=20          # ❌ Renamed to 'limit'
-)
+### 3. Update Search Calls
 
-for r in results:
-    print(r["score"])  # Was raw cosine similarity
-```
+<Tabs>
+  <Tab title="Python OSS">
+    ```python
+    # Before
+    results = m.search(
+        "what meetings did I attend?",
+        user_id="alice",
+        top_k=20          # ❌ Renamed to 'limit'
+    )
+    for r in results:
+        print(r["score"])  # Was raw cosine similarity
 
-#### After
+    # After
+    results = m.search(
+        "what meetings did I attend?",
+        user_id="alice",
+        limit=20,           # ✅ Renamed from 'top_k'
+        threshold=0.1,      # New default (pass 0.0 to disable)
+        rerank=False         # New default (pass True to restore)
+    )
+    for r in results:
+        print(r["score"])                         # Combined hybrid score
+        print(r["score_breakdown"]["semantic"])    # Raw cosine similarity
+        print(r["score_breakdown"]["bm25"])        # Normalized keyword score
+        print(r["score_breakdown"]["entity_boost"])# Entity linking boost
+    ```
+  </Tab>
+  <Tab title="TypeScript OSS">
+    ```typescript
+    // Before
+    const results = await m.search("what meetings did I attend?", {
+      userId: "alice",
+      limit: 20          // ❌ Renamed to 'topK'
+    });
 
-```python
-from mem0 import Memory
+    // After
+    const results = await m.search("what meetings did I attend?", {
+      userId: "alice",
+      topK: 20            // ✅ Renamed from 'limit'
+    });
+    ```
+  </Tab>
+  <Tab title="Python Client SDK">
+    ```python
+    from mem0 import MemoryClient
+    from mem0.client.types import SearchMemoryOptions
 
-m = Memory()
+    # Before
+    client = MemoryClient(api_key="...", org_id="org-1", project_id="proj-1")
+    results = client.search("query", user_id="alice", top_k=20, enable_graph=True)
 
-# New parameter name and explicit defaults
-results = m.search(
-    "what meetings did I attend?",
-    user_id="alice",
-    limit=20,           # ✅ Renamed from 'top_k'
-    threshold=0.1,      # New default (pass 0.0 to disable)
-    rerank=False         # New default (pass True to restore)
-)
+    # After
+    client = MemoryClient(api_key="...")  # org_id, project_id removed
+    results = client.search(
+        "query",
+        options=SearchMemoryOptions(
+            filters={"user_id": "alice"},
+            top_k=20
+            # enable_graph removed — configured at project level
+        )
+    )
+    # Or using **kwargs (still works)
+    results = client.search("query", user_id="alice", top_k=20)
+    ```
+  </Tab>
+  <Tab title="TypeScript Client SDK">
+    ```typescript
+    // Before
+    const client = new MemoryClient({
+      apiKey: "...",
+      organizationId: "org-1",  // ❌ Removed
+      projectId: "proj-1"       // ❌ Removed
+    });
+    const results = await client.search("query", {
+      user_id: "alice",         // ❌ snake_case
+      top_k: 20,                // ❌ snake_case
+      enable_graph: true        // ❌ Removed
+    });
 
-for r in results:
-    print(r["score"])                         # Combined hybrid score
-    print(r["score_breakdown"]["semantic"])    # Raw cosine similarity
-    print(r["score_breakdown"]["bm25"])        # Normalized keyword score
-    print(r["score_breakdown"]["entity_boost"])# Entity linking boost
-```
+    // After
+    const client = new MemoryClient({ apiKey: "..." });
+    const results = await client.search("query", {
+      userId: "alice",          // ✅ camelCase
+      topK: 20                  // ✅ camelCase
+      // enable_graph removed — configured at project level
+    });
+    ```
+  </Tab>
+</Tabs>
 
-### 3. Update Add Result Handling
+### 4. Update Add Calls
 
-#### Before
+<Tabs>
+  <Tab title="Python OSS">
+    ```python
+    # Before — could return ADD, UPDATE, DELETE events
+    result = m.add("I love hiking and my dog's name is Max", user_id="alice")
+    for item in result["results"]:
+        if item["event"] == "ADD":
+            print("New memory:", item["memory"])
+        elif item["event"] == "UPDATE":
+            print("Updated:", item["memory"])     # ❌ No longer returned
+        elif item["event"] == "DELETE":
+            print("Deleted:", item["memory"])      # ❌ No longer returned
 
-```python
-result = m.add("I love hiking and my dog's name is Max", user_id="alice")
+    # After — only ADD events
+    result = m.add("I love hiking and my dog's name is Max", user_id="alice")
+    for item in result["results"]:
+        print("New memory:", item["memory"])  # Only ADD events
+    ```
+  </Tab>
+  <Tab title="Python Client SDK">
+    ```python
+    from mem0.client.types import AddMemoryOptions
 
-for item in result["results"]:
-    if item["event"] == "ADD":
-        print("New memory:", item["memory"])
-    elif item["event"] == "UPDATE":
-        print("Updated memory:", item["memory"])  # ❌ No longer returned
-    elif item["event"] == "DELETE":
-        print("Deleted memory:", item["memory"])   # ❌ No longer returned
-```
+    # Before
+    client.add(messages, user_id="alice", async_mode=True, output_format="v1.1")
 
-#### After
+    # After — async_mode and output_format removed (async by default, v1.1 always)
+    client.add(
+        messages,
+        options=AddMemoryOptions(user_id="alice")
+    )
+    # Or using **kwargs
+    client.add(messages, user_id="alice")
+    ```
+  </Tab>
+  <Tab title="TypeScript Client SDK">
+    ```typescript
+    // Before
+    await client.add(messages, {
+      user_id: "alice",       // ❌ snake_case
+      async_mode: true,       // ❌ Removed
+      output_format: "v1.1",  // ❌ Removed
+      enable_graph: true      // ❌ Removed
+    });
 
-```python
-result = m.add("I love hiking and my dog's name is Max", user_id="alice")
-
-for item in result["results"]:
-    # Only ADD events are returned
-    print("New memory:", item["memory"])
-```
+    // After
+    await client.add(messages, {
+      userId: "alice"         // ✅ camelCase
+    });
+    ```
+  </Tab>
+</Tabs>
 
 <Tip>
 The ADD-only model means memories accumulate over time. When information changes, the new fact is stored alongside the old one. Retrieval handles ranking — the most relevant, current information surfaces first.
 </Tip>
 
-### 4. Update Vector Store Dependencies
+### 5. Update Vector Store Dependencies
 
 If you're using Qdrant or Upstash, update your client libraries:
 
@@ -133,44 +308,13 @@ pip install "qdrant-client>=1.12.0"
 pip install "upstash-vector>=0.6.0"
 ```
 
-### 5. Entity Store Setup
+### 6. Entity Store Setup
 
 The new algorithm automatically creates a parallel entity store collection named `{your_collection}_entities`. No manual setup is required — it's created on first use.
 
 <Warning>
-Make sure your vector store user/credentials have permission to create new collections. If you're using a managed vector database with restricted permissions, pre-create the `{collection_name}_entities` collection.
+Make sure your vector store user/credentials have permission to create new collections. If you're using a managed vector database with restricted permissions, pre-create the `{collection_name}_entities` collection with the same embedding dimensions as your main collection.
 </Warning>
-
-**What gets stored in the entity store:**
-
-```json
-{
-  "data": "Alice",
-  "entity_type": "PERSON",
-  "linked_memory_ids": ["mem-uuid-1", "mem-uuid-2"],
-  "user_id": "alice"
-}
-```
-
-Entities are automatically extracted from memory text (proper nouns, quoted text, compound noun phrases) and linked back to the memories they appear in. At search time, entities from the query are matched against this store and used to boost relevant memories.
-
-## Vector Store Compatibility
-
-All 15 supported vector stores have been enhanced with two new capabilities:
-
-| Capability | Purpose | Fallback if Unsupported |
-|---|---|---|
-| `keyword_search()` | BM25/full-text keyword matching | Falls back to semantic-only search |
-| `search_batch()` | Batch search for entity matching | Falls back to sequential search |
-
-**Qdrant-specific changes:**
-- Now uses sparse vectors (BM25) alongside dense vectors in the same collection
-- Requires `fastembed` library for BM25 encoding (lazy-loaded, gracefully degrades)
-- Install: `pip install fastembed`
-
-**All other vector stores:**
-- Enhanced with `keyword_search()` methods using their native full-text capabilities
-- No additional dependencies required
 
 ## How the New Algorithm Works
 
@@ -210,44 +354,23 @@ Where `max_possible` adapts based on which signals are available (1.0 for semant
 
 **BM25 is a boost signal, not a recall expander.** Only semantic search results are candidates — BM25 and entity scores boost ranking but don't add new candidates.
 
-## Configuration
+## Vector Store Compatibility
 
-No configuration changes are required. The new algorithm activates automatically on upgrade. To take full advantage of hybrid search:
+All 15 supported vector stores have been enhanced with two new capabilities:
 
-```python
-from mem0 import Memory
+| Capability | Purpose | Fallback if Unsupported |
+|---|---|---|
+| `keyword_search()` | BM25/full-text keyword matching | Falls back to semantic-only search |
+| `search_batch()` | Batch search for entity matching | Falls back to sequential search |
 
-config = {
-    "vector_store": {
-        "provider": "qdrant",
-        "config": {
-            "host": "localhost",
-            "port": 6333,
-            "collection_name": "my_memories"
-            # Entity store auto-created as "my_memories_entities"
-        }
-    },
-    "llm": {
-        "provider": "openai",
-        "config": {
-            "model": "gpt-4o-mini",
-            "temperature": 0
-        }
-    },
-    "embedder": {
-        "provider": "openai",
-        "config": {
-            "model": "text-embedding-3-small"
-        }
-    }
-}
+**Qdrant-specific changes:**
+- Now uses sparse vectors (BM25) alongside dense vectors in the same collection
+- Requires `fastembed` library for BM25 encoding (lazy-loaded, gracefully degrades)
+- Install: `pip install fastembed`
 
-m = Memory.from_config(config)
-```
-
-<Info>
-For best hybrid search results, we recommend using at least a Qwen 600M or comparable embedding model. The default `text-embedding-3-small` from OpenAI works well.
-</Info>
+**All other vector stores:**
+- Enhanced with `keyword_search()` methods using their native full-text capabilities
+- No additional dependencies required
 
 ## Graceful Degradation
 
@@ -261,17 +384,86 @@ The new features degrade gracefully when optional dependencies are missing:
 
 You always get semantic search. Hybrid search features layer on top when available.
 
+## Removed Parameters Reference
+
+These parameters have been removed across all SDKs. Remove them from your code:
+
+<AccordionGroup>
+  <Accordion title="Python Client SDK — Removed parameters">
+    **Constructor:** `org_id`, `project_id`
+
+    **All methods:** `api_version`, `output_format`, `async_mode`, `org_name`, `project_name`, `org_id`, `project_id`
+
+    **add():** `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
+
+    **search():** `enable_graph`
+
+    **get_all():** `enable_graph`
+
+    **project.update():** `enable_graph`
+  </Accordion>
+  <Accordion title="TypeScript Client SDK — Removed parameters">
+    **Constructor:** `organizationId`, `projectId`, `organizationName`, `projectName`
+
+    **All methods:** `OutputFormat` enum, `API_VERSION` enum
+
+    **add():** `enable_graph` / `enableGraph`, `async_mode` / `asyncMode`, `output_format` / `outputFormat`, `immutable`, `expiration_date` / `expirationDate`, `filter_memories` / `filterMemories`, `batch_size` / `batchSize`, `force_add_only` / `forceAddOnly`, `includes`, `excludes`, `keyword_search` / `keywordSearch`
+
+    **search():** `enable_graph` / `enableGraph`
+
+    **get_all():** `enable_graph` / `enableGraph`
+  </Accordion>
+  <Accordion title="Python OSS — Removed/renamed parameters">
+    **Config:** `custom_fact_extraction_prompt` → renamed to `custom_instructions`
+
+    **Config:** `custom_update_memory_prompt` → deprecated, use `custom_instructions`
+
+    **Config:** `enable_graph` → removed (graph activates when `graph_store` config is present)
+
+    **search():** `top_k` → renamed to `limit`
+  </Accordion>
+  <Accordion title="TypeScript OSS — Removed/renamed parameters">
+    **Config:** `customPrompt` → renamed to `customInstructions`
+
+    **Config:** `enableGraph` → removed (graph activates when `graphStore` config is present)
+
+    **search():** `limit` → renamed to `topK`
+
+    **Providers removed:** LMStudio (LLM + Embedder), DeepSeek (LLM)
+  </Accordion>
+</AccordionGroup>
+
 ## Common Issues
 
 <AccordionGroup>
-  <Accordion title="NameError: 'top_k' is not a valid parameter">
-    The `top_k` parameter has been renamed to `limit`. Update your search calls:
+  <Accordion title="Python: 'top_k' is not a valid parameter">
+    The `top_k` parameter has been renamed to `limit` in the Python OSS Memory class:
     ```python
     # Before
     results = m.search("query", user_id="alice", top_k=20)
-    
+
     # After
     results = m.search("query", user_id="alice", limit=20)
+    ```
+  </Accordion>
+  <Accordion title="TypeScript: 'limit' is not a valid parameter">
+    The `limit` parameter has been renamed to `topK` in the TypeScript OSS:
+    ```typescript
+    // Before
+    const results = await m.search("query", { userId: "alice", limit: 20 });
+
+    // After
+    const results = await m.search("query", { userId: "alice", topK: 20 });
+    ```
+  </Accordion>
+  <Accordion title="TypeScript Client: snake_case params no longer work">
+    All TypeScript Client SDK parameters now use camelCase. The SDK handles conversion to/from the API automatically:
+    ```typescript
+    // Before
+    await client.search("query", { user_id: "alice", top_k: 20 });
+
+    // After
+    await client.search("query", { userId: "alice", topK: 20 });
     ```
   </Accordion>
   <Accordion title="Search returns fewer results than before">
@@ -294,17 +486,37 @@ You always get semantic search. Hybrid search features layer on top when availab
     The entity store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
   </Accordion>
   <Accordion title="Score values are different from before">
-    The top-level `score` is now a combined hybrid score (0-1), not raw cosine similarity. To get the raw cosine similarity, use `score_breakdown.semantic`. The combined score factors in keyword matching and entity linking, which generally produces better ranking.
+    The top-level `score` is now a combined hybrid score (0-1), not raw cosine similarity. To get the raw cosine similarity, use `score_breakdown["semantic"]`. The combined score factors in keyword matching and entity linking, which generally produces better ranking.
+  </Accordion>
+  <Accordion title="Graph memory not activating">
+    The `enable_graph` / `enableGraph` flag has been removed. Graph memory now activates automatically when a `graph_store` / `graphStore` configuration is present. Make sure your config includes the graph store section:
+    ```python
+    config = {
+        "graph_store": {
+            "provider": "neo4j",
+            "config": { "url": "...", "username": "...", "password": "..." }
+        }
+    }
+    ```
   </Accordion>
 </AccordionGroup>
 
 ## Rollback
 
-To revert to the previous algorithm, pin the version before this release:
+To revert to the previous version, pin the version before this release:
 
-```bash
-pip install mem0ai==<previous-version>
-```
+<Tabs>
+  <Tab title="Python">
+    ```bash
+    pip install mem0ai==<previous-version>
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```bash
+    npm install mem0ai@<previous-version>
+    ```
+  </Tab>
+</Tabs>
 
 <Warning>
 Memories added with the new algorithm are forward-compatible — they're stored as standard vector entries. However, the entity store collection (`{collection}_entities`) will not be used by the old version and can be safely ignored or deleted if rolling back.
