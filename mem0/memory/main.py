@@ -854,7 +854,7 @@ class Memory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
-        limit: int = 100,
+        top_k: int = 100,
     ):
         """
         List all memories.
@@ -872,6 +872,8 @@ class Memory(MemoryBase):
             dict: A dictionary containing a list of memories under the "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
         """
+
+        limit = top_k
 
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
@@ -943,7 +945,7 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        limit: int = 100,
+        top_k: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
@@ -979,6 +981,8 @@ class Memory(MemoryBase):
             dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
+        limit = top_k
+        
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
         )
@@ -2093,7 +2097,7 @@ class AsyncMemory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
-        limit: int = 100,
+        top_k: int = 100,
     ):
         """
         List all memories.
@@ -2111,6 +2115,8 @@ class AsyncMemory(MemoryBase):
              dict: A dictionary containing a list of memories under the "results" key.
                    Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
         """
+
+        limit = top_k
 
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
@@ -2185,7 +2191,7 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
-        limit: int = 100,
+        top_k: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         metadata_filters: Optional[Dict[str, Any]] = None,
@@ -2222,6 +2228,8 @@ class AsyncMemory(MemoryBase):
             dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
+
+        limit = top_k
 
         _, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
