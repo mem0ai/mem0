@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AUTH_ENDPOINTS } from "@/utils/api-endpoints";
+import { getServerApiUrl } from "@/lib/server-api-url";
 
 const PUBLIC_PATHS = ["/_next", "/api/auth", "/fonts", "/favicon"];
 
@@ -14,7 +16,7 @@ export async function middleware(request: NextRequest) {
   // Check setup status for root, login, and setup pages
   if (pathname === "/" || pathname === "/login" || pathname === "/setup") {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/setup-status`);
+      const res = await fetch(`${getServerApiUrl()}${AUTH_ENDPOINTS.SETUP_STATUS}`);
       if (res.ok) {
         const { needsSetup } = await res.json();
 

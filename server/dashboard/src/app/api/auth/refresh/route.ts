@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { AUTH_ENDPOINTS } from "@/utils/api-endpoints";
+import { getServerApiUrl } from "@/lib/server-api-url";
 
 const COOKIE_NAME = "mem0_refresh_token";
 const COOKIE_OPTIONS = {
@@ -19,7 +21,7 @@ export async function POST() {
     return NextResponse.json({ error: "No refresh token" }, { status: 401 });
   }
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, {
+  const res = await fetch(`${getServerApiUrl()}${AUTH_ENDPOINTS.REFRESH}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh_token: refreshToken }),

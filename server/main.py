@@ -1,3 +1,4 @@
+from copy import deepcopy
 import logging
 import os
 from typing import Any, Dict, List, Optional
@@ -80,7 +81,20 @@ DEFAULT_CONFIG = {
 }
 
 
-MEMORY_INSTANCE = Memory.from_config(DEFAULT_CONFIG)
+CURRENT_CONFIG = deepcopy(DEFAULT_CONFIG)
+MEMORY_INSTANCE = Memory.from_config(CURRENT_CONFIG)
+
+
+def _merge_config(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    merged = deepcopy(base)
+
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_config(merged[key], value)
+        else:
+            merged[key] = value
+
+    return merged
 
 app = FastAPI(
     title="Mem0 REST APIs",
@@ -144,8 +158,11 @@ class SearchRequest(BaseModel):
 @app.post("/configure", summary="Configure Mem0")
 def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
     """Set memory configuration."""
-    global MEMORY_INSTANCE
-    MEMORY_INSTANCE = Memory.from_config(config)
+    global CURRENT_CONFIG, MEMORY_INSTANCE
+    next_config = _merge_config(CURRENT_CONFIG, config)
+    memory_instance = Memory.from_config(next_config)
+    CURRENT_CONFIG = next_config
+    MEMORY_INSTANCE = memory_instance
     return {"message": "Configuration set successfully"}
 
 

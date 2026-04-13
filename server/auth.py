@@ -128,5 +128,3 @@ async def require_auth(user: User | None = Depends(verify_auth)) -> User:
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required.")
     return user
-
-    return None
