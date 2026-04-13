@@ -32,7 +32,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | `score` meaning | Raw cosine similarity | Combined hybrid score | Use `score_breakdown["semantic"]` for raw cosine |
 | Custom extraction prompt | `custom_fact_extraction_prompt` | `custom_instructions` | Rename in config |
 | Custom update prompt | `custom_update_memory_prompt` | Deprecated | Use `custom_instructions` instead |
-| Graph toggle | `enable_graph=True` in config | Removed | Graph activates automatically when `graph_store` config is present |
+| Graph memory | `enable_graph` + `graph_store` in config | Removed | Graph store support has been removed entirely |
 | Qdrant client | `>=1.9.1` | `>=1.12.0` | Update dependency |
 | Upstash client | `>=0.1.0` | `>=0.6.0` | Update dependency |
 
@@ -42,10 +42,8 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 |---|---|---|---|
 | Search parameter | `search(query, { limit: 10 })` | `search(query, { topK: 10 })` | Rename `limit` → `topK` |
 | Custom prompt | `customPrompt` | `customInstructions` | Rename in config |
-| Graph toggle | `enableGraph: true` in config | Removed | Graph activates when `graphStore` config is present |
-| Default graph config | Neo4j default config applied | No default graph config | Explicitly provide `graphStore` if needed |
-| LMStudio provider | Supported | Removed | Migrate to another supported provider |
-| DeepSeek provider | Supported | Removed | Migrate to another supported provider |
+| Graph memory | `enableGraph` + `graphStore` in config | Removed | Graph store support has been removed entirely |
+| Default graph config | Neo4j default config applied | No default graph config | Graph store config is no longer used |
 
 ### Python Client SDK
 
@@ -111,11 +109,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     config = {
         "custom_instructions": "Focus on user preferences",  # [OK] New name
         # custom_update_memory_prompt removed — use custom_instructions
-        "graph_store": {
-            "provider": "neo4j",
-            "config": { "url": "...", "username": "...", "password": "..." }
-        },
-        # enable_graph removed — graph activates automatically when graph_store is present
+        # enable_graph and graph_store removed — graph store support has been removed
     }
     ```
   </Tab>
@@ -134,11 +128,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     // After
     const config = {
       customInstructions: "Focus on user preferences",  // [OK] New name
-      // enableGraph removed — graph activates when graphStore is present
-      graphStore: {
-        provider: "neo4j",
-        config: { url: "...", username: "...", password: "..." }
-      }
+      // enableGraph and graphStore removed — graph store support has been removed
     };
     ```
   </Tab>
@@ -417,16 +407,14 @@ These parameters have been removed across all SDKs. Remove them from your code:
 
     **Config:** `custom_update_memory_prompt` → deprecated, use `custom_instructions`
 
-    **Config:** `enable_graph` → removed (graph activates when `graph_store` config is present)
+    **Config:** `enable_graph` + `graph_store` → removed (graph store support removed entirely)
   </Accordion>
   <Accordion title="TypeScript OSS — Removed/renamed parameters">
     **Config:** `customPrompt` → renamed to `customInstructions`
 
-    **Config:** `enableGraph` → removed (graph activates when `graphStore` config is present)
+    **Config:** `enableGraph` + `graphStore` → removed (graph store support removed entirely)
 
     **search():** `limit` → renamed to `topK`
-
-    **Providers removed:** LMStudio (LLM + Embedder), DeepSeek (LLM)
   </Accordion>
 </AccordionGroup>
 
@@ -475,16 +463,8 @@ These parameters have been removed across all SDKs. Remove them from your code:
   <Accordion title="Score values are different from before">
     The top-level `score` is now a combined hybrid score (0-1), not raw cosine similarity. To get the raw cosine similarity, use `score_breakdown["semantic"]`. The combined score factors in keyword matching and entity linking, which generally produces better ranking.
   </Accordion>
-  <Accordion title="Graph memory not activating">
-    The `enable_graph` / `enableGraph` flag has been removed. Graph memory now activates automatically when a `graph_store` / `graphStore` configuration is present. Make sure your config includes the graph store section:
-    ```python
-    config = {
-        "graph_store": {
-            "provider": "neo4j",
-            "config": { "url": "...", "username": "...", "password": "..." }
-        }
-    }
-    ```
+  <Accordion title="Graph memory no longer available">
+    Graph store support (`enable_graph`, `graph_store`, `enableGraph`, `graphStore`) has been removed entirely in this release. If your application relied on graph memory (Neo4j, Memgraph, etc.), this functionality is no longer available in the SDK. Entity linking provides some of the same cross-memory relationship capabilities through a different mechanism.
   </Accordion>
 </AccordionGroup>
 
