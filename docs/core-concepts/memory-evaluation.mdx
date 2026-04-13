@@ -103,17 +103,17 @@ The **+42.1 on temporal reasoning** reflects the ADD-only architecture preservin
 
 | Category | 1M (top200) | 1M (top50) | 10M (top200) | 10M (top50) |
 |---|---|---|---|---|
-| **Overall** | **64%** | 60% | **48%** | 41% |
-| preference_following | 88% | 84% | 90% | 79% |
-| instruction_following | 85% | 76% | 83% | 59% |
-| information_extraction | 70% | 66% | 56% | 49% |
-| knowledge_update | 65% | 59% | 75% | 70% |
-| multi_session_reasoning | 65% | 63% | 26% | 26% |
-| summarization | 64% | 54% | 47% | 24% |
-| temporal_reasoning | 62% | 59% | 16% | 23% |
-| event_ordering | 54% | 54% | 20% | 7% |
-| abstention | 53% | 54% | 40% | 45% |
-| contradiction_resolution | 36% | 37% | 33% | 32% |
+| **Overall** | **64.0** | 60.0 | **48.0** | 41.0 |
+| preference_following | 88.0 | 84.0 | 90.0 | 79.0 |
+| instruction_following | 85.0 | 76.0 | 83.0 | 59.0 |
+| information_extraction | 70.0 | 66.0 | 56.0 | 49.0 |
+| knowledge_update | 65.0 | 59.0 | 75.0 | 70.0 |
+| multi_session_reasoning | 65.0 | 63.0 | 26.0 | 26.0 |
+| summarization | 64.0 | 54.0 | 47.0 | 24.0 |
+| temporal_reasoning | 62.0 | 59.0 | 16.0 | 23.0 |
+| event_ordering | 54.0 | 54.0 | 20.0 | 7.0 |
+| abstention | 53.0 | 54.0 | 40.0 | 45.0 |
+| contradiction_resolution | 36.0 | 37.0 | 33.0 | 32.0 |
 
 *Mean tokens (1M): 6,719 (top200) / 1,647 (top50). Mean tokens (10M): 6,914 (top200) / 1,679 (top50). Median latency (1M): 1.00s (top200) / 0.872s (top50). Median latency (10M): 1.053s (top200) / 1.086s (top50).*
 
@@ -129,10 +129,10 @@ All results use a single-pass retrieval setup: one retrieval call, one answer, n
 |---|---|---|---|---|
 | **LoCoMo** | 71.4 | **91.6** | 7.0K | 0.88s |
 | **LongMemEval** | 67.8 | **93.4** | 6.8K | 1.09s |
-| **BEAM (1M)** | — | **64%** | 6.7K | 1.00s |
-| **BEAM (10M)** | — | **48%** | 6.9K | 1.05s |
+| **BEAM (1M)** | — | **64.0** | 6.7K | 1.00s |
+| **BEAM (10M)** | — | **48.0** | 6.9K | 1.05s |
 
-All scores are percentages. All benchmarks run on `gpt-oss-120B`. Scores carry a ±1 point confidence interval due to judge inconsistency.
+All benchmarks run on `gpt-oss-120B`. Scores carry a ±1 point confidence interval due to judge inconsistency.
 
 ## Running Evaluations
 
