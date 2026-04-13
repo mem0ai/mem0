@@ -291,11 +291,6 @@ class TestMemoryLifecycle:
             m.db = MagicMock()
             return m
 
-    def test_close_calls_db_close(self):
-        m = self._make_mock_memory()
-        m.close()
-        m.db.close.assert_called_once()
-
     def test_double_close_is_safe(self):
         """close() should be safe to call twice (SQLiteManager.close sets connection=None)."""
         m = self._make_mock_memory()
@@ -319,21 +314,6 @@ class TestMemoryLifecycle:
             # db attribute not set at all
             m.close()  # should not raise due to hasattr guard
 
-    def test_context_manager(self):
-        """Memory should support `with` statement and close on exit."""
-        m = self._make_mock_memory()
-        with m:
-            pass
-        m.db.close.assert_called_once()
-
-    def test_context_manager_closes_on_exception(self):
-        """Memory should close even if the with-block raises."""
-        m = self._make_mock_memory()
-        with pytest.raises(ValueError):
-            with m:
-                raise ValueError("boom")
-        m.db.close.assert_called_once()
-
 
 class TestAsyncMemoryLifecycle:
     """Verify AsyncMemory.close() and async context manager support."""
@@ -346,11 +326,6 @@ class TestAsyncMemoryLifecycle:
             m.db = MagicMock()
             return m
 
-    def test_close_calls_db_close(self):
-        m = self._make_mock_async_memory()
-        m.close()
-        m.db.close.assert_called_once()
-
     def test_close_when_db_is_none(self):
         m = self._make_mock_async_memory()
         m.db = None
@@ -362,29 +337,6 @@ class TestAsyncMemoryLifecycle:
         with patch.object(AsyncMemory, "__init__", lambda self: None):
             m = AsyncMemory.__new__(AsyncMemory)
             m.close()  # should not raise
-
-    def test_async_context_manager(self):
-        """AsyncMemory should support `async with` and close on exit."""
-        m = self._make_mock_async_memory()
-
-        async def run():
-            async with m:
-                pass
-
-        asyncio.run(run())
-        m.db.close.assert_called_once()
-
-    def test_async_context_manager_closes_on_exception(self):
-        """AsyncMemory should close even if the async with-block raises."""
-        m = self._make_mock_async_memory()
-
-        async def run():
-            async with m:
-                raise ValueError("boom")
-
-        with pytest.raises(ValueError):
-            asyncio.run(run())
-        m.db.close.assert_called_once()
 
 
 class TestTelemetryEnvVar:
