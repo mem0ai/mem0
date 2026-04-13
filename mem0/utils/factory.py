@@ -209,30 +209,6 @@ class VectorStoreFactory:
         return instance
 
 
-class GraphStoreFactory:
-    """
-    Factory for creating MemoryGraph instances for different graph store providers.
-    Usage: GraphStoreFactory.create(provider_name, config)
-    """
-
-    provider_to_class = {
-        "memgraph": "mem0.memory.memgraph_memory.MemoryGraph",
-        "neptune": "mem0.graphs.neptune.neptunegraph.MemoryGraph",
-        "neptunedb": "mem0.graphs.neptune.neptunedb.MemoryGraph",
-        "kuzu": "mem0.memory.kuzu_memory.MemoryGraph",
-        "apache_age": "mem0.memory.apache_age_memory.MemoryGraph",
-        "default": "mem0.memory.graph_memory.MemoryGraph",
-    }
-
-    @classmethod
-    def create(cls, provider_name, config):
-        class_type = cls.provider_to_class.get(provider_name, cls.provider_to_class["default"])
-        try:
-            GraphClass = load_class(class_type)
-        except (ImportError, AttributeError) as e:
-            raise ImportError(f"Could not import MemoryGraph for provider '{provider_name}': {e}")
-        return GraphClass(config)
-
 
 class RerankerFactory:
     """

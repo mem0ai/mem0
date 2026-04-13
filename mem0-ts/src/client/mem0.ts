@@ -190,7 +190,7 @@ export default class MemoryClient {
     this._captureEvent("add", [payloadKeys]);
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/`,
+      `${this.host}/v3/memories/`,
       {
         method: "POST",
         headers: this.headers,
@@ -286,20 +286,18 @@ export default class MemoryClient {
     this._captureEvent("search", [payloadKeys]);
     const payload: Record<string, any> = {
       query,
-      output_format: "v1.1",
       ...camelToSnakeKeys(options ?? {}),
     };
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v2/memories/search/`,
+      `${this.host}/v3/memories/search/`,
       {
         method: "POST",
         headers: this.headers,
         body: JSON.stringify(payload),
       },
     );
-    // Unwrap v1.1 format: { results: [...] } → [...]
-    return Array.isArray(response) ? response : (response?.results ?? response);
+    return response;
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {

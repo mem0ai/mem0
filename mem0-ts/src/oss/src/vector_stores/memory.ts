@@ -98,6 +98,111 @@ export class MemoryVectorStore implements VectorStore {
     insertMany(vectors, ids, payloads);
   }
 
+  private tokenize(text: string): string[] {
+    return text.toLowerCase().split(/\s+/).filter(Boolean);
+  }
+
+  async keywordSearch(
+    query: string,
+    topK: number = 10,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    try {
+      const rows = this.db.prepare(`SELECT * FROM vectors`).all() as any[];
+
+      // Collect documents that pass the filter
+      const candidates: {
+        id: string;
+        payload: Record<string, any>;
+        tokens: string[];
+      }[] = [];
+
+      for (const row of rows) {
+        const payload = JSON.parse(row.payload);
+        const memoryVector: MemoryVector = {
+          id: row.id,
+          vector: Array.from(
+            new Float32Array(
+              row.vector.buffer,
+              row.vector.byteOffset,
+              row.vector.byteLength / 4,
+            ),
+          ),
+          payload,
+        };
+
+        if (this.filterVector(memoryVector, filters)) {
+          const text = payload.text_lemmatized || payload.data || "";
+          candidates.push({ id: row.id, payload, tokens: this.tokenize(text) });
+        }
+      }
+
+      if (candidates.length === 0) {
+        return [];
+      }
+
+      const tokenizedQuery = this.tokenize(query);
+      if (tokenizedQuery.length === 0) {
+        return [];
+      }
+
+      // Compute BM25 scores inline
+      const k1 = 1.5;
+      const b = 0.75;
+      const N = candidates.length;
+      const avgDocLength =
+        candidates.reduce((sum, c) => sum + c.tokens.length, 0) / N;
+
+      // Compute document frequency for query terms
+      const docFreq = new Map<string, number>();
+      for (const term of tokenizedQuery) {
+        if (!docFreq.has(term)) {
+          let count = 0;
+          for (const c of candidates) {
+            if (c.tokens.includes(term)) count++;
+          }
+          docFreq.set(term, count);
+        }
+      }
+
+      // Compute IDF for query terms
+      const idf = new Map<string, number>();
+      for (const [term, freq] of docFreq) {
+        idf.set(term, Math.log((N - freq + 0.5) / (freq + 0.5) + 1));
+      }
+
+      // Score each candidate
+      const scored = candidates.map((candidate) => {
+        let score = 0;
+        const docLength = candidate.tokens.length;
+        for (const term of tokenizedQuery) {
+          const tf = candidate.tokens.filter((t) => t === term).length;
+          const termIdf = idf.get(term) || 0;
+          score +=
+            (termIdf * tf * (k1 + 1)) /
+            (tf + k1 * (1 - b + (b * docLength) / avgDocLength));
+        }
+        return { ...candidate, score };
+      });
+
+      // Filter out zero-score documents and sort descending
+      const results = scored
+        .filter((s) => s.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK)
+        .map((s) => ({
+          id: s.id,
+          payload: s.payload,
+          score: s.score,
+        }));
+
+      return results;
+    } catch (error) {
+      console.error("Error during keyword search:", error);
+      return null;
+    }
+  }
+
   async search(
     query: number[],
     topK: number = 10,

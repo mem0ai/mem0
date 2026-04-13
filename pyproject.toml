@@ -27,15 +27,6 @@ dependencies = [
 nlp = [
     "spacy>=3.7.0",
 ]
-graph = [
-    "langchain-neo4j>=0.4.0",
-    "langchain-aws>=0.2.23",
-    "langchain-memgraph>=0.1.0",
-    "neo4j>=5.23.1",
-    "rank-bm25>=0.2.2",
-    "kuzu>=0.11.0",
-    "apache-age-python>=0.0.6",
-]
 vector_stores = [
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
@@ -110,7 +101,6 @@ only-include = ["mem0"]
 python = "3.9"
 features = [
   "test",
-  "graph",
   "vector_stores",
   "llms",
   "extras",
@@ -120,7 +110,6 @@ features = [
 python = "3.10"
 features = [
   "test",
-  "graph",
   "vector_stores",
   "llms",
   "extras",
@@ -130,7 +119,6 @@ features = [
 python = "3.11"
 features = [
   "test",
-  "graph",
   "vector_stores",
   "llms",
   "extras",
@@ -140,7 +128,6 @@ features = [
 python = "3.12"
 features = [
   "test",
-  "graph",
   "vector_stores",
   "llms",
   "extras",

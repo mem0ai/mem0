@@ -1,5 +1,4 @@
 import asyncio
-import concurrent
 import gc
 import hashlib
 import json
@@ -41,7 +40,6 @@ from mem0.memory.utils import (
 )
 from mem0.utils.factory import (
     EmbedderFactory,
-    GraphStoreFactory,
     LlmFactory,
     VectorStoreFactory,
     RerankerFactory,
@@ -217,11 +215,6 @@ class Memory(MemoryBase):
         # Entity store is initialized lazily on first use
         self._entity_store = None
 
-        if self.config.graph_store.config:
-            provider = self.config.graph_store.provider
-            self.graph = GraphStoreFactory.create(provider, self.config)
-        else:
-            self.graph = None
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
             telemetry_config_dict = {}
@@ -322,13 +315,6 @@ class Memory(MemoryBase):
 
     @staticmethod
     def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        if "graph_store" in config_dict:
-            if "vector_store" not in config_dict and "embedder" in config_dict:
-                config_dict["vector_store"] = {}
-                config_dict["vector_store"]["config"] = {}
-                config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"][
-                    "embedding_dims"
-                ]
         try:
             return config_dict
         except ValidationError as e:
@@ -339,20 +325,20 @@ class Memory(MemoryBase):
         """Determine whether to use agent memory extraction based on the logic:
         - If agent_id is present and messages contain assistant role -> True
         - Otherwise -> False
-        
+
         Args:
             messages: List of message dictionaries
             metadata: Metadata containing user_id, agent_id, etc.
-            
+
         Returns:
             bool: True if should use agent memory extraction, False for user memory extraction
         """
         # Check if agent_id is present in metadata
         has_agent_id = metadata.get("agent_id") is not None
-        
+
         # Check if there are assistant role messages
         has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-        
+
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
@@ -393,14 +379,12 @@ class Memory(MemoryBase):
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation, typically
-                  including a list of memory items affected (added, updated) under a "results" key,
-                  and potentially "relations" if graph store is enabled.
+                  including a list of memory items affected (added, updated) under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "event": "ADD"}]}`
 
         Raises:
             Mem0ValidationError: If input validation fails (invalid memory_type, messages format, etc.).
             VectorStoreError: If vector store operations fail.
-            GraphStoreError: If graph store operations fail.
             EmbeddingError: If embedding generation fails.
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
@@ -443,21 +427,6 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
         else:
             messages = parse_vision_messages(messages)
-
-        if self.graph:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future1 = executor.submit(self._add_to_vector_store, messages, processed_metadata, effective_filters, infer)
-                future2 = executor.submit(self._add_to_graph, messages, effective_filters)
-
-                concurrent.futures.wait([future1, future2])
-
-                vector_store_result = future1.result()
-                graph_result = future2.result()
-
-            return {
-                "results": vector_store_result,
-                "relations": graph_result,
-            }
 
         vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
         return {"results": vector_store_result}
@@ -773,17 +742,6 @@ class Memory(MemoryBase):
         )
         return returned_memories
 
-    def _add_to_graph(self, messages, filters):
-        added_entities = []
-        if self.graph:
-            if filters.get("user_id") is None:
-                filters["user_id"] = "user"
-
-            data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
-            added_entities = self.graph.add(data, filters)
-
-        return added_entities
-
     def get(self, memory_id):
         """
         Retrieve a memory by ID.
@@ -849,9 +807,7 @@ class Memory(MemoryBase):
             limit (int, optional): The maximum number of memories to return. Defaults to 100.
 
         Returns:
-            dict: A dictionary containing a list of memories under the "results" key,
-                  and potentially "relations" if graph store is enabled. For API v1.0,
-                  it might return a direct list (see deprecation warning).
+            dict: A dictionary containing a list of memories under the "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
         """
 
@@ -867,21 +823,7 @@ class Memory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._get_all_from_vector_store, effective_filters, limit)
-            future_graph_entities = (
-                executor.submit(self.graph.get_all, effective_filters, limit) if self.graph else None
-            )
-
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
-
-            all_memories_result = future_memories.result()
-            graph_entities_result = future_graph_entities.result() if future_graph_entities else None
-
-        if self.graph:
-            return {"results": all_memories_result, "relations": graph_entities_result}
+        all_memories_result = self._get_all_from_vector_store(effective_filters, limit)
 
         return {"results": all_memories_result}
 
@@ -972,8 +914,7 @@ class Memory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
 
         Returns:
-            dict: A dictionary containing the search results, typically under a "results" key,
-                  and potentially "relations" if graph store is enabled.
+            dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
         _, effective_filters = _build_filters_and_metadata(
@@ -1013,18 +954,7 @@ class Memory(MemoryBase):
             },
         )
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_memories = executor.submit(self._search_vector_store, query, effective_filters, limit, threshold)
-            future_graph_entities = (
-                executor.submit(self.graph.search, query, effective_filters, limit) if self.graph else None
-            )
-
-            concurrent.futures.wait(
-                [future_memories, future_graph_entities] if future_graph_entities else [future_memories]
-            )
-
-            original_memories = future_memories.result()
-            graph_entities = future_graph_entities.result() if future_graph_entities else None
+        original_memories = self._search_vector_store(query, effective_filters, limit, threshold)
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -1033,9 +963,6 @@ class Memory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
-
-        if self.graph:
-            return {"results": original_memories, "relations": graph_entities}
 
         return {"results": original_memories}
 
@@ -1334,21 +1261,6 @@ class Memory(MemoryBase):
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found")
 
-        # Clean up graph entities before deleting from vector store
-        if self.graph:
-            try:
-                memory_text = existing_memory.payload.get("data", "")
-                if memory_text:
-                    filters = {}
-                    for key in ("user_id", "agent_id", "run_id"):
-                        val = existing_memory.payload.get(key)
-                        if val:
-                            filters[key] = val
-                    if filters.get("user_id"):
-                        self.graph.delete(memory_text, filters)
-            except Exception as e:
-                logger.error(f"Error cleaning up graph for memory {memory_id}: {e}")
-
         self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
@@ -1382,9 +1294,6 @@ class Memory(MemoryBase):
             self._delete_memory(memory.id)
 
         logger.info(f"Deleted {len(memories)} memories")
-
-        if self.graph:
-            self.graph.delete_all(filters)
 
         return {"message": "Memories deleted successfully!"}
 
@@ -1584,12 +1493,6 @@ class Memory(MemoryBase):
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None
 
-        if self.graph:
-            try:
-                self.graph.reset()
-            except Exception:
-                logger.warning("Failed to reset graph store, continuing with reset")
-
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
     def close(self):
@@ -1629,12 +1532,6 @@ class AsyncMemory(MemoryBase):
                 config.reranker.config
             )
 
-        if self.config.graph_store.config:
-            provider = self.config.graph_store.provider
-            self.graph = GraphStoreFactory.create(provider, self.config)
-        else:
-            self.graph = None
-
         if MEM0_TELEMETRY:
             telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
             telemetry_config.collection_name = "mem0migrations"
@@ -1673,13 +1570,6 @@ class AsyncMemory(MemoryBase):
 
     @staticmethod
     def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        if "graph_store" in config_dict:
-            if "vector_store" not in config_dict and "embedder" in config_dict:
-                config_dict["vector_store"] = {}
-                config_dict["vector_store"]["config"] = {}
-                config_dict["vector_store"]["config"]["embedding_model_dims"] = config_dict["embedder"]["config"][
-                    "embedding_dims"
-                ]
         try:
             return config_dict
         except ValidationError as e:
@@ -1690,20 +1580,20 @@ class AsyncMemory(MemoryBase):
         """Determine whether to use agent memory extraction based on the logic:
         - If agent_id is present and messages contain assistant role -> True
         - Otherwise -> False
-        
+
         Args:
             messages: List of message dictionaries
             metadata: Metadata containing user_id, agent_id, etc.
-            
+
         Returns:
             bool: True if should use agent memory extraction, False for user memory extraction
         """
         # Check if agent_id is present in metadata
         has_agent_id = metadata.get("agent_id") is not None
-        
+
         # Check if there are assistant role messages
         has_assistant_messages = any(msg.get("role") == "assistant" for msg in messages)
-        
+
         # Use agent memory extraction if agent_id is present and there are assistant messages
         return has_agent_id and has_assistant_messages
 
@@ -1770,19 +1660,6 @@ class AsyncMemory(MemoryBase):
             messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
         else:
             messages = parse_vision_messages(messages)
-
-        if self.graph:
-            vector_store_task = asyncio.create_task(
-                self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
-            )
-            graph_task = asyncio.create_task(self._add_to_graph(messages, effective_filters))
-
-            vector_store_result, graph_result = await asyncio.gather(vector_store_task, graph_task)
-
-            return {
-                "results": vector_store_result,
-                "relations": graph_result,
-            }
 
         vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
         return {"results": vector_store_result}
@@ -2104,17 +1981,6 @@ class AsyncMemory(MemoryBase):
         )
         return returned_memories
 
-    async def _add_to_graph(self, messages, filters):
-        added_entities = []
-        if self.graph:
-            if filters.get("user_id") is None:
-                filters["user_id"] = "user"
-
-            data = "\n".join([msg["content"] for msg in messages if "content" in msg and msg["role"] != "system"])
-            added_entities = await asyncio.to_thread(self.graph.add, data, filters)
-
-        return added_entities
-
     async def get(self, memory_id):
         """
         Retrieve a memory by ID asynchronously.
@@ -2180,9 +2046,7 @@ class AsyncMemory(MemoryBase):
              limit (int, optional): The maximum number of memories to return. Defaults to 100.
 
          Returns:
-             dict: A dictionary containing a list of memories under the "results" key,
-                   and potentially "relations" if graph store is enabled. For API v1.0,
-                   it might return a direct list (see deprecation warning).
+             dict: A dictionary containing a list of memories under the "results" key.
                    Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
         """
 
@@ -2201,25 +2065,9 @@ class AsyncMemory(MemoryBase):
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"}
         )
 
-        vector_store_task = asyncio.create_task(self._get_all_from_vector_store(effective_filters, limit))
+        all_memories_result = await self._get_all_from_vector_store(effective_filters, limit)
 
-        graph_task = None
-        if self.graph:
-            graph_get_all = getattr(self.graph, "get_all", None)
-            if callable(graph_get_all):
-                if asyncio.iscoroutinefunction(graph_get_all):
-                    graph_task = asyncio.create_task(graph_get_all(effective_filters, limit))
-                else:
-                    graph_task = asyncio.create_task(asyncio.to_thread(graph_get_all, effective_filters, limit))
-
-        results_dict = {}
-        if graph_task:
-            vector_store_result, graph_entities_result = await asyncio.gather(vector_store_task, graph_task)
-            results_dict.update({"results": vector_store_result, "relations": graph_entities_result})
-        else:
-            results_dict.update({"results": await vector_store_task})
-
-        return results_dict
+        return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
@@ -2309,8 +2157,7 @@ class AsyncMemory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
 
         Returns:
-            dict: A dictionary containing the search results, typically under a "results" key,
-                  and potentially "relations" if graph store is enabled.
+            dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
         """
 
@@ -2351,20 +2198,7 @@ class AsyncMemory(MemoryBase):
             },
         )
 
-        vector_store_task = asyncio.create_task(self._search_vector_store(query, effective_filters, limit, threshold))
-
-        graph_task = None
-        if self.graph:
-            if hasattr(self.graph.search, "__await__"):  # Check if graph search is async
-                graph_task = asyncio.create_task(self.graph.search(query, effective_filters, limit))
-            else:
-                graph_task = asyncio.create_task(asyncio.to_thread(self.graph.search, query, effective_filters, limit))
-
-        if graph_task:
-            original_memories, graph_entities = await asyncio.gather(vector_store_task, graph_task)
-        else:
-            original_memories = await vector_store_task
-            graph_entities = None
+        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold)
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -2376,9 +2210,6 @@ class AsyncMemory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
-
-        if self.graph:
-            return {"results": original_memories, "relations": graph_entities}
 
         return {"results": original_memories}
 
@@ -2663,21 +2494,6 @@ class AsyncMemory(MemoryBase):
         if existing_memory is None:
             raise ValueError(f"Memory with id {memory_id} not found")
 
-        # Clean up graph entities before deleting from vector store
-        if self.graph:
-            try:
-                memory_text = existing_memory.payload.get("data", "")
-                if memory_text:
-                    filters = {}
-                    for key in ("user_id", "agent_id", "run_id"):
-                        val = existing_memory.payload.get(key)
-                        if val:
-                            filters[key] = val
-                    if filters.get("user_id"):
-                        await asyncio.to_thread(self.graph.delete, memory_text, filters)
-            except Exception as e:
-                logger.error(f"Error cleaning up graph for memory {memory_id}: {e}")
-
         await self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
@@ -2714,9 +2530,6 @@ class AsyncMemory(MemoryBase):
         await asyncio.gather(*delete_tasks)
 
         logger.info(f"Deleted {len(memories[0])} memories")
-
-        if self.graph:
-            await asyncio.to_thread(self.graph.delete_all, filters)
 
         return {"message": "Memories deleted successfully!"}
 
@@ -2933,12 +2746,6 @@ class AsyncMemory(MemoryBase):
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
-
-        if self.graph:
-            try:
-                await asyncio.to_thread(self.graph.reset)
-            except Exception:
-                logger.warning("Failed to reset graph store, continuing with reset")
 
         capture_event("mem0.reset", self, {"sync_type": "async"})
 

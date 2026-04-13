@@ -162,12 +162,9 @@ class MemoryClient:
         elif not isinstance(messages, list):
             raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
-        # Force v1.1 format for all add operations
-        kwargs["output_format"] = "v1.1"
-
         kwargs = self._prepare_params(kwargs)
         payload = self._prepare_payload(messages, kwargs)
-        response = self.client.post("/v1/memories/", json=payload)
+        response = self.client.post("/v3/memories/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -271,7 +268,7 @@ class MemoryClient:
         params = self._prepare_params(kwargs)
         payload = {"query": query, **params}
 
-        response = self.client.post("/v2/memories/search/", json=payload)
+        response = self.client.post("/v3/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -283,12 +280,7 @@ class MemoryClient:
                 "sync_type": "sync",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     def update(
@@ -1083,12 +1075,9 @@ class AsyncMemoryClient:
         elif not isinstance(messages, list):
             raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
-        # Force v1.1 format for all add operations
-        kwargs["output_format"] = "v1.1"
-
         kwargs = self._prepare_params(kwargs)
         payload = self._prepare_payload(messages, kwargs)
-        response = await self.async_client.post("/v1/memories/", json=payload)
+        response = await self.async_client.post("/v3/memories/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1175,7 +1164,7 @@ class AsyncMemoryClient:
         params = self._prepare_params(kwargs)
         payload = {"query": query, **params}
 
-        response = await self.async_client.post("/v2/memories/search/", json=payload)
+        response = await self.async_client.post("/v3/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1187,12 +1176,7 @@ class AsyncMemoryClient:
                 "sync_type": "async",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     async def update(

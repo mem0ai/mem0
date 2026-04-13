@@ -16,26 +16,27 @@ jest.mock("../src/llms/google", () => ({
   GoogleLLM: jest.fn(),
 }));
 
-// ─── Content-based LLM mock (reviewer #9) ────────────────
-// Returns facts for system-prompt calls, memory actions for user-only calls.
+// ─── Content-based LLM mock (V3 additive extraction pipeline) ─────────
 jest.mock("../src/llms/openai", () => ({
   OpenAILLM: jest.fn().mockImplementation(() => ({
     generateResponse: jest
       .fn()
       .mockImplementation(
         (messages: Array<{ role: string; content: string }>) => {
-          const hasSystemRole = messages.some((m) => m.role === "system");
-          if (hasSystemRole) {
-            return JSON.stringify({ facts: ["test fact"] });
-          }
+          const userMsg = messages.find((m) => m.role === "user");
+          const content = userMsg?.content ?? "";
+          const newMsgMatch = content.match(
+            /## New Messages\n([\s\S]*?)(?=\n##|$)/,
+          );
+          const extracted = newMsgMatch
+            ? newMsgMatch[1].trim()
+            : "test fact";
           return JSON.stringify({
             memory: [
               {
-                id: "new",
-                event: "ADD",
-                text: "test fact",
-                old_memory: "",
-                new_memory: "test fact",
+                id: "0",
+                text: extracted,
+                attributed_to: "user",
               },
             ],
           });
@@ -44,9 +45,15 @@ jest.mock("../src/llms/openai", () => ({
   })),
 }));
 
+const mockEmbedding = new Array(1536).fill(0.1);
 jest.mock("../src/embeddings/openai", () => ({
   OpenAIEmbedder: jest.fn().mockImplementation(() => ({
-    embed: jest.fn().mockResolvedValue(new Array(1536).fill(0.1)),
+    embed: jest.fn().mockResolvedValue(mockEmbedding),
+    embedBatch: jest
+      .fn()
+      .mockImplementation((texts: string[]) =>
+        Promise.resolve(texts.map(() => mockEmbedding)),
+      ),
     embeddingDims: 1536,
   })),
 }));

@@ -229,6 +229,10 @@ See the SQL migration instructions in the code comments.`,
     }
   }
 
+  async keywordSearch(): Promise<null> {
+    return null;
+  }
+
   async search(
     query: number[],
     topK: number = 5,
