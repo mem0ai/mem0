@@ -65,7 +65,7 @@ The combined score outperformed every individual signal across every category te
 
 [LoCoMo](https://github.com/snap-stanford/locomo) tests single-hop, multi-hop, open-domain, and temporal memory recall across conversational sessions.
 
-| Category | Previous | New (top200) | New (top50) | Delta |
+| Category | Previous | New (top200) | New (top50) | Delta (top200) |
 |---|---|---|---|---|
 | **Overall** | 71.4 | **91.6** | 82.7 | **+20.2** |
 | Single-hop | 76.6 | 92.3 | 82.8 | +15.7 |
@@ -81,7 +81,7 @@ The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning
 
 [LongMemEval](https://github.com/xiaowu0162/LongMemEval) evaluates memory across single-session and multi-session contexts, including knowledge updates and temporal reasoning.
 
-| Category | Previous | New (top200) | New (top50) | Delta |
+| Category | Previous | New (top200) | New (top50) | Delta (top200) |
 |---|---|---|---|---|
 | **Overall** | 67.8 | **93.4** | 90.4 | **+25.6** |
 | Single-session (user) | 94.3 | 97.1 | 95.7 | +2.8 |
@@ -99,7 +99,7 @@ The **+42.1 on temporal reasoning** reflects the ADD-only architecture preservin
 
 ### BEAM
 
-[BEAM](https://github.com/stanford-crfm/helm) evaluates memory systems at 1M and 10M token scales across ten task categories. It is the only public benchmark that operates at context volumes production AI agents actually encounter.
+[BEAM](https://github.com/mem0ai/memory-benchmarks) evaluates memory systems at 1M and 10M token scales across ten task categories. It is the only public benchmark that operates at context volumes production AI agents actually encounter.
 
 | Category | 1M (top200) | 1M (top50) | 10M (top200) | 10M (top50) |
 |---|---|---|---|---|
@@ -107,7 +107,7 @@ The **+42.1 on temporal reasoning** reflects the ADD-only architecture preservin
 | preference_following | 0.88 | 0.84 | 0.90 | 0.79 |
 | instruction_following | 0.85 | 0.76 | 0.83 | 0.59 |
 | information_extraction | 0.70 | 0.66 | 0.56 | 0.49 |
-| knowledge_update | 0.65 | 0.59 | **0.75** | 0.70 |
+| knowledge_update | 0.65 | 0.59 | 0.75 | 0.70 |
 | multi_session_reasoning | 0.65 | 0.63 | 0.26 | 0.26 |
 | summarization | 0.64 | 0.54 | 0.47 | 0.24 |
 | temporal_reasoning | 0.62 | 0.59 | 0.16 | 0.23 |
@@ -123,14 +123,16 @@ The **+42.1 on temporal reasoning** reflects the ADD-only architecture preservin
 
 ### Performance Summary
 
-| Benchmark | Score | Tokens | Latency p50 |
-|---|---|---|---|
-| **LoCoMo** | **91.6** | 7.0K | 0.88s |
-| **LongMemEval** | **93.4** | 6.8K | 1.09s |
-| **BEAM (1M)** | **0.64** | 6.7K | 1.00s |
-| **BEAM (10M)** | **0.48** | 6.9K | 1.05s |
+All results use a single-pass retrieval setup: one retrieval call, one answer, no agentic loops.
 
-All benchmarks run on `gpt-oss-120B`. Scores carry a +/-1 point confidence interval due to judge inconsistency.
+| Benchmark | Old | New | Tokens | Latency p50 |
+|---|---|---|---|---|
+| **LoCoMo** | 71.4 | **91.6** | 7.0K | 0.88s |
+| **LongMemEval** | 67.8 | **93.4** | 6.8K | 1.09s |
+| **BEAM (1M)** | — | **0.64** | 6.7K | 1.00s |
+| **BEAM (10M)** | — | **0.48** | 6.9K | 1.05s |
+
+All benchmarks run on `gpt-oss-120B`. Scores carry a ±1 point confidence interval due to judge inconsistency.
 
 ## Running Evaluations
 
@@ -176,14 +178,18 @@ Each benchmark is a Python module with its own runner. All share common CLI opti
 |---|---|---|
 | `--project-name` | (required) | Run identifier for tracking results |
 | `--backend` | `oss` | `oss` (self-hosted) or `cloud` (Mem0 Platform) |
+| `--mem0-api-key` | — | Mem0 API key (required for `cloud` backend) |
+| `--mem0-host` | `http://localhost:8888` | Mem0 server URL (for `oss` backend) |
 | `--top-k` | `200` | Number of memories to retrieve per query |
-| `--top-k-cutoffs` | `10,20,50,200` | Evaluate accuracy at multiple retrieval depths |
-| `--answerer-model` | `gpt-4o` | LLM for generating answers from retrieved memories |
-| `--judge-model` | `gpt-4o` | LLM for judging answer correctness |
+| `--top-k-cutoffs` | `10,20,50,200` | Evaluate accuracy at multiple retrieval depths (BEAM default: `100`) |
+| `--answerer-model` | `gpt-5` | LLM for generating answers from retrieved memories |
+| `--judge-model` | `gpt-5` | LLM for judging answer correctness |
+| `--provider` | `openai` | LLM provider: `openai`, `anthropic`, `azure` |
+| `--judge-provider` | (same as `--provider`) | Override provider for the judge model |
 | `--max-workers` | `10` | Parallel workers for evaluation |
 | `--predict-only` | — | Stop after search, skip answer + judge phases |
 | `--evaluate-only` | — | Skip ingest + search, evaluate existing results |
-| `--resume` | — | Resume from checkpoint (BEAM and LongMemEval) |
+| `--resume` | — | Resume from checkpoint (BEAM and LongMemEval; on by default for LongMemEval) |
 
 <CodeGroup>
 ```bash LoCoMo
@@ -280,7 +286,7 @@ Each evaluated question produces a structured result:
   },
   "generation": {
     "generated_answer": "The user first mentioned moving on March 3rd",
-    "model": "gpt-4o",
+    "model": "gpt-5",
     "prompt_tokens": 500,
     "completion_tokens": 100
   },
@@ -288,12 +294,12 @@ Each evaluated question produces a structured result:
     "judgment": "CORRECT",
     "score": 0.85,
     "reason": "Answer correctly identifies the date",
-    "model": "gpt-4o"
+    "model": "gpt-5"
   },
   "cutoff_results": {
-    "top-10": { "score": 0.75, "judgment": "CORRECT" },
-    "top-50": { "score": 0.85, "judgment": "CORRECT" },
-    "top-200": { "score": 0.90, "judgment": "CORRECT" }
+    "top_10": { "score": 0.75, "judgment": "CORRECT" },
+    "top_50": { "score": 0.85, "judgment": "CORRECT" },
+    "top_200": { "score": 0.90, "judgment": "CORRECT" }
   }
 }
 ```
@@ -311,7 +317,7 @@ When evaluating memory systems, keep these considerations in mind:
 
 <AccordionGroup>
   <Accordion title="What judge model is used for evaluation?">
-    The default judge model is `gpt-4o`. You can override it with `--judge-model` and `--judge-provider` flags. Scores carry a +/-1 point confidence interval due to judge inconsistency.
+    The default judge model is `gpt-5`. You can override it with `--judge-model` and `--judge-provider` flags. Scores carry a ±1 point confidence interval due to judge inconsistency.
   </Accordion>
   <Accordion title="Can I evaluate with a different extraction model?">
     Yes. For self-hosted, configure the extraction model in your `mem0-config.yaml` (see configs/ for examples with Azure OpenAI, Ollama, etc.). For Mem0 Cloud, extraction uses the platform's default model. The published benchmark numbers use `gpt-oss-120B` specifically — using a frontier model will likely produce higher scores but at higher cost and latency.
