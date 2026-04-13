@@ -151,7 +151,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     # After
     results = m.search(
         "what meetings did I attend?",
-        user_id="alice",
+        filters={"user_id": "alice"},
         top_k=20,           # Unchanged
         threshold=0.1,      # New default (pass 0.0 to disable)
         rerank=False         # New default (pass True to restore)
@@ -173,7 +173,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
 
     // After
     const results = await m.search("what meetings did I attend?", {
-      userId: "alice",
+      filters: { userId: "alice" },
       topK: 20            // [OK] Renamed from 'limit'
     });
     ```
@@ -194,11 +194,8 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
         options=SearchMemoryOptions(
             filters={"user_id": "alice"},
             top_k=20
-            # enable_graph removed — configured at project level
         )
     )
-    # Or using **kwargs (still works)
-    results = client.search("query", user_id="alice", top_k=20)
     ```
   </Tab>
   <Tab title="TypeScript Client SDK">
@@ -218,9 +215,8 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     // After
     const client = new MemoryClient({ apiKey: "..." });
     const results = await client.search("query", {
-      userId: "alice",          // [OK] camelCase
-      topK: 20                  // [OK] camelCase
-      // enable_graph removed — configured at project level
+      filters: { userId: "alice" },
+      topK: 20
     });
     ```
   </Tab>
@@ -467,27 +463,6 @@ These parameters have been removed across all SDKs. Remove them from your code:
     Graph store support (`enable_graph`, `graph_store`, `enableGraph`, `graphStore`) has been removed entirely in this release. If your application relied on graph memory (Neo4j, Memgraph, etc.), this functionality is no longer available in the SDK. Entity linking provides some of the same cross-memory relationship capabilities through a different mechanism.
   </Accordion>
 </AccordionGroup>
-
-## Rollback
-
-To revert to the previous version, pin the version before this release:
-
-<Tabs>
-  <Tab title="Python">
-    ```bash
-    pip install mem0ai==<previous-version>
-    ```
-  </Tab>
-  <Tab title="TypeScript">
-    ```bash
-    npm install mem0ai@<previous-version>
-    ```
-  </Tab>
-</Tabs>
-
-<Warning>
-Memories added with the new algorithm are forward-compatible — they're stored as standard vector entries. However, the entity store collection (`{collection}_entities`) will not be used by the old version and can be safely ignored or deleted if rolling back.
-</Warning>
 
 ## Need Help?
 
