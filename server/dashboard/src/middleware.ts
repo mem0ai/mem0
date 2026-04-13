@@ -1,27 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/setup", "/_next", "/api/auth", "/fonts", "/favicon"];
+const PUBLIC_PATHS = ["/_next", "/api/auth", "/fonts", "/favicon"];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  // Check for refresh token cookie (presence = likely authenticated)
   const hasRefreshToken = request.cookies.has("mem0_refresh_token");
 
-  // Root redirect
-  if (pathname === "/") {
-    if (hasRefreshToken) {
-      return NextResponse.redirect(new URL("/dashboard/", request.url));
+  // Check setup status for root, login, and setup pages
+  if (pathname === "/" || pathname === "/login" || pathname === "/setup") {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/setup-status`);
+      if (res.ok) {
+        const { needsSetup } = await res.json();
+
+        if (needsSetup && pathname !== "/setup") {
+          return NextResponse.redirect(new URL("/setup", request.url));
+        }
+        if (!needsSetup && pathname === "/setup") {
+          return NextResponse.redirect(new URL("/login", request.url));
+        }
+      }
+    } catch {
+      // API unreachable — fall through to default behavior
     }
-    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // Protected routes — redirect to login if no token
+  if (pathname === "/login" || pathname === "/setup") {
+    return NextResponse.next();
+  }
+
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL(hasRefreshToken ? "/dashboard/" : "/login", request.url));
+  }
+
   if (!hasRefreshToken) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);

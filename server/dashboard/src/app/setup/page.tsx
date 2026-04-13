@@ -11,6 +11,7 @@ import { Check, Copy } from "lucide-react";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { api, getAccessToken } from "@/utils/api";
 
 const STEPS = ["Admin Account", "Providers", "API Key", "Quick Test"];
 
@@ -70,14 +71,13 @@ export default function SetupPage() {
     setIsLoading(true);
     try {
       if (llmApiKey) {
-        await fetch(`${apiUrl}/configure`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            version: "v1.1",
-            llm: { provider: llmProvider, config: { model: llmModel || undefined, api_key: llmApiKey } },
-          }),
+        const res = await api.post("/configure", {
+          version: "v1.1",
+          llm: { provider: llmProvider, config: { model: llmModel || undefined, api_key: llmApiKey } },
         });
+        if (!res.data?.ok && res.status >= 400) {
+          throw new Error("Failed to save configuration");
+        }
       }
       setStep(2);
     } catch (e: any) {
@@ -91,15 +91,8 @@ export default function SetupPage() {
     setError("");
     setIsLoading(true);
     try {
-      const { getAccessToken } = await import("@/utils/api");
-      const token = getAccessToken();
-      const res = await fetch(`${apiUrl}/api-keys/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ label: "My First Key" }),
-      });
-      if (!res.ok) throw new Error("Failed to create API key");
-      const data = await res.json();
+      const res = await api.post("/api-keys", { label: "My First Key" });
+      const data = res.data;
       setApiKey(data.key);
       setStep(3);
     } catch (e: any) {
