@@ -983,7 +983,7 @@ def test_cluster_mode_search(valkey_db_cluster, mock_valkey_cluster_client):
     mock_results.docs = [mock_doc]
     mock_valkey_cluster_client.ft.return_value.search.return_value = mock_results
 
-    results = valkey_db_cluster.search("test", np.random.rand(1536).tolist(), limit=5)
+    results = valkey_db_cluster.search("test", np.random.rand(1536).tolist(), top_k=5)
 
     assert len(results) == 1
     assert results[0].id == "id1"
