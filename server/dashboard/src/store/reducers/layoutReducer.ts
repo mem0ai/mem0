@@ -10,7 +10,10 @@ const initialState: LayoutState = {
   isSidebarCollapsed: false,
 };
 
-export const layoutReducer = (state: LayoutState = initialState, action: { type: string }): LayoutState => {
+export const layoutReducer = (
+  state: LayoutState = initialState,
+  action: { type: string },
+): LayoutState => {
   switch (action.type) {
     case LayoutActionConstants.TOGGLE_SIDEBAR:
       return { ...state, isSidebarCollapsed: !state.isSidebarCollapsed };
@@ -19,4 +22,6 @@ export const layoutReducer = (state: LayoutState = initialState, action: { type:
   }
 };
 
-export const toggleSidebar = () => ({ type: LayoutActionConstants.TOGGLE_SIDEBAR as const });
+export const toggleSidebar = () => ({
+  type: LayoutActionConstants.TOGGLE_SIDEBAR as const,
+});

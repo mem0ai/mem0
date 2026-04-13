@@ -1,6 +1,7 @@
 export interface Stats {
   memory_count: number;
   active_api_keys: number;
+  ops_today: number;
 }
 
 export enum StatsConstants {

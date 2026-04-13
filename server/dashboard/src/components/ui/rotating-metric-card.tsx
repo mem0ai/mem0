@@ -44,22 +44,22 @@ export function RotatingMetricCard({
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <Icon className={`size-4 shrink-0 ${iconColor}`} />
           <div className="relative min-w-0 h-5 flex items-center">
-            <div 
+            <div
               className={`absolute w-full transition-all duration-500 ease-in-out ${
-                showPrimary 
-                  ? 'translate-y-0 opacity-100' 
-                  : '-translate-y-full opacity-0'
+                showPrimary
+                  ? "translate-y-0 opacity-100"
+                  : "-translate-y-full opacity-0"
               }`}
             >
               <span className="text-[#717680] text-sm font-medium truncate">
                 {primaryMetric.label}
               </span>
             </div>
-            <div 
+            <div
               className={`absolute w-full transition-all duration-500 ease-in-out ${
-                !showPrimary 
-                  ? 'translate-y-0 opacity-100' 
-                  : 'translate-y-full opacity-0'
+                !showPrimary
+                  ? "translate-y-0 opacity-100"
+                  : "translate-y-full opacity-0"
               }`}
             >
               <span className="text-[#717680] text-sm font-medium truncate">
@@ -70,22 +70,22 @@ export function RotatingMetricCard({
         </div>
         <div className="flex items-center shrink-0">
           <div className="relative h-6 min-w-12 flex items-center justify-end">
-            <div 
+            <div
               className={`absolute w-full flex items-center justify-end transition-all duration-500 ease-in-out ${
-                showPrimary 
-                  ? 'translate-y-0 opacity-100' 
-                  : '-translate-y-full opacity-0'
+                showPrimary
+                  ? "translate-y-0 opacity-100"
+                  : "-translate-y-full opacity-0"
               }`}
             >
               <span className="text-[#181d27] dark:text-zinc-200 text-md font-semibold">
                 {formatCompactNumber(primaryMetric.value)}
               </span>
             </div>
-            <div 
+            <div
               className={`absolute w-full flex items-center justify-end transition-all duration-500 ease-in-out ${
-                !showPrimary 
-                  ? 'translate-y-0 opacity-100' 
-                  : 'translate-y-full opacity-0'
+                !showPrimary
+                  ? "translate-y-0 opacity-100"
+                  : "translate-y-full opacity-0"
               }`}
             >
               <span className="text-[#181d27] dark:text-zinc-200 text-md font-semibold">
@@ -97,4 +97,4 @@ export function RotatingMetricCard({
       </CardContent>
     </Card>
   );
-} 
+}

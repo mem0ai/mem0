@@ -16,7 +16,9 @@ export async function middleware(request: NextRequest) {
   // Check setup status for root, login, and setup pages
   if (pathname === "/" || pathname === "/login" || pathname === "/setup") {
     try {
-      const res = await fetch(`${getServerApiUrl()}${AUTH_ENDPOINTS.SETUP_STATUS}`);
+      const res = await fetch(
+        `${getServerApiUrl()}${AUTH_ENDPOINTS.SETUP_STATUS}`,
+      );
       if (res.ok) {
         const { needsSetup } = await res.json();
 
@@ -37,7 +39,9 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === "/") {
-    return NextResponse.redirect(new URL(hasRefreshToken ? "/dashboard/" : "/login", request.url));
+    return NextResponse.redirect(
+      new URL(hasRefreshToken ? "/dashboard/" : "/login", request.url),
+    );
   }
 
   if (!hasRefreshToken) {

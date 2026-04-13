@@ -1,17 +1,17 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { CalendarIcon } from "@radix-ui/react-icons"
-import { format } from "date-fns"
+import * as React from "react";
+import { CalendarIcon } from "@radix-ui/react-icons";
+import { format } from "date-fns";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/popover";
 import { useState, useEffect } from "react";
 
 interface DatePickerProps {
@@ -39,7 +39,7 @@ export function DatePicker({
           className={cn(
             "w-[100%] justify-start text-left font-normal h-10",
             !date && "text-muted-foreground",
-            className
+            className,
           )}
         >
           <CalendarIcon className="mr-2 size-4" />
@@ -57,7 +57,7 @@ export function DatePicker({
             }
           }}
           initialFocus
-          disabled={(date) => maxDate ? date > maxDate : false}
+          disabled={(date) => (maxDate ? date > maxDate : false)}
           toDate={maxDate}
         />
       </PopoverContent>

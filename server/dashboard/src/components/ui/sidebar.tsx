@@ -7,7 +7,7 @@ import { Slot } from "@radix-ui/react-slot";
 import {
   Tooltip,
   TooltipContent,
-  TooltipTrigger
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
 
 const sidebarVariants = cva(
@@ -22,12 +22,13 @@ const sidebarVariants = cva(
     defaultVariants: {
       collapsible: "default",
     },
-  }
+  },
 );
 
 interface SidebarProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-  VariantProps<typeof sidebarVariants> { }
+  extends
+    React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof sidebarVariants> {}
 
 const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
   ({ className, collapsible, ...props }, ref) => (
@@ -36,7 +37,7 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
       className={cn(sidebarVariants({ collapsible }), className)}
       {...props}
     />
-  )
+  ),
 );
 Sidebar.displayName = "Sidebar";
 
@@ -44,11 +45,7 @@ const SidebarHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("flex flex-col gap-2", className)}
-    {...props}
-  />
+  <div ref={ref} className={cn("flex flex-col gap-2", className)} {...props} />
 ));
 SidebarHeader.displayName = "SidebarHeader";
 
@@ -88,7 +85,7 @@ const SidebarGroupLabel = React.forwardRef<
     ref={ref}
     className={cn(
       "flex w-full items-center gap-1 px-[6px] py-1 text-[10px] font-medium uppercase leading-[140%] text-onSurface-default-tertiary font-dm-mono",
-      className
+      className,
     )}
     {...props}
   />
@@ -127,7 +124,8 @@ const menuButtonVariants = cva(
         // Default: transparent bg, text onSurface-default-secondary, icon onSurface-default-tertiary
         // Hover: bg surface-default-secondary, text stays same, icon onSurface-default-secondary
         // Using group-hover ensures icon color changes when hovering anywhere on the button
-        false: "bg-transparent text-onSurface-default-secondary [&_svg]:text-onSurface-default-tertiary hover:bg-surface-default-primary-hover [&_svg]:group-hover:text-onSurface-default-secondary",
+        false:
+          "bg-transparent text-onSurface-default-secondary [&_svg]:text-onSurface-default-tertiary hover:bg-surface-default-primary-hover [&_svg]:group-hover:text-onSurface-default-secondary",
       },
       collapsed: {
         // Collapsed: 32x32 square container (8px padding on all sides + 16px icon)
@@ -143,25 +141,28 @@ const menuButtonVariants = cva(
       {
         collapsed: true,
         active: false,
-        className: "bg-surface-default-secondary hover:bg-surface-default-primary-hover [&_svg]:text-onSurface-default-tertiary [&_svg]:group-hover:text-onSurface-default-secondary",
+        className:
+          "bg-surface-default-secondary hover:bg-surface-default-primary-hover [&_svg]:text-onSurface-default-tertiary [&_svg]:group-hover:text-onSurface-default-secondary",
       },
       // Collapsed + Active: bg surface-default-tertiary, icon onSurface-default-primary
       {
         collapsed: true,
         active: true,
-        className: "bg-surface-default-tertiary [&_svg]:text-onSurface-default-primary",
+        className:
+          "bg-surface-default-tertiary [&_svg]:text-onSurface-default-primary",
       },
     ],
     defaultVariants: {
       active: false,
       collapsed: false,
     },
-  }
+  },
 );
 
 interface SidebarMenuButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-  VariantProps<typeof menuButtonVariants> {
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof menuButtonVariants> {
   asChild?: boolean;
   tooltip?: string;
 }
@@ -169,31 +170,32 @@ interface SidebarMenuButtonProps
 const SidebarMenuButton = React.forwardRef<
   HTMLButtonElement,
   SidebarMenuButtonProps
->(({ className, active, collapsed, asChild = false, tooltip, ...props }, ref) => {
-  const Comp = asChild ? Slot : "button";
-  const button = (
-    <Comp
-      ref={ref}
-      className={cn(menuButtonVariants({ active, collapsed }), className)}
-      {...props}
-    />
-  );
+>(
+  (
+    { className, active, collapsed, asChild = false, tooltip, ...props },
+    ref,
+  ) => {
+    const Comp = asChild ? Slot : "button";
+    const button = (
+      <Comp
+        ref={ref}
+        className={cn(menuButtonVariants({ active, collapsed }), className)}
+        {...props}
+      />
+    );
 
-  if (!tooltip) {
-    return button;
-  }
+    if (!tooltip) {
+      return button;
+    }
 
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        {button}
-      </TooltipTrigger>
-      <TooltipContent side="right">
-        {tooltip}
-      </TooltipContent>
-    </Tooltip>
-  );
-});
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="right">{tooltip}</TooltipContent>
+      </Tooltip>
+    );
+  },
+);
 SidebarMenuButton.displayName = "SidebarMenuButton";
 
 const SidebarMenuAction = React.forwardRef<
@@ -207,7 +209,7 @@ const SidebarMenuAction = React.forwardRef<
     className={cn(
       "flex h-6 w-6 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground",
       showOnHover && "invisible group-hover:visible",
-      className
+      className,
     )}
     {...props}
   />
@@ -247,7 +249,7 @@ const SidebarMenuSubButton = React.forwardRef<
         active
           ? "bg-surface-default-tertiary text-onSurface-default-primary [&_svg]:text-onSurface-default-primary"
           : "bg-transparent text-onSurface-default-secondary [&_svg]:text-onSurface-default-tertiary hover:bg-surface-default-primary-hover hover:[&_svg]:text-onSurface-default-secondary",
-        className
+        className,
       )}
       {...props}
     />
@@ -263,7 +265,7 @@ const SidebarRail = React.forwardRef<
     ref={ref}
     className={cn(
       "absolute right-0 top-0 h-full w-px bg-border opacity-0",
-      className
+      className,
     )}
     {...props}
   />
@@ -285,4 +287,4 @@ export {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   SidebarRail,
-}; 
+};

@@ -31,7 +31,7 @@ export const TruncatedText: React.FC<{ text: string; limit?: number }> = ({
         >
           <p className="">{text}</p>
         </HoverCardContent>,
-        document.body
+        document.body,
       )}
     </HoverCard>
   );

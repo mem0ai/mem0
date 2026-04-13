@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import React from "react";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -11,9 +11,13 @@ import store from "@/store/store";
 import { AuthProvider } from "@/lib/auth";
 import dynamic from "next/dynamic";
 
-const Toaster = dynamic(() => import("@/components/ui/sonner").then(mod => ({ default: mod.Toaster })), {
-  ssr: false,
-});
+const Toaster = dynamic(
+  () =>
+    import("@/components/ui/sonner").then((mod) => ({ default: mod.Toaster })),
+  {
+    ssr: false,
+  },
+);
 
 export function DashboardClientLayout({
   children,
@@ -22,7 +26,16 @@ export function DashboardClientLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={cn(Inter.className, InterDisplay.variable, Roboto.variable, Fustat.variable, DMMono.variable)} suppressHydrationWarning>
+      <body
+        className={cn(
+          Inter.className,
+          InterDisplay.variable,
+          Roboto.variable,
+          Fustat.variable,
+          DMMono.variable,
+        )}
+        suppressHydrationWarning
+      >
         <Provider store={store}>
           <AuthProvider>
             <ThemeProvider
@@ -31,9 +44,7 @@ export function DashboardClientLayout({
               enableSystem
               disableTransitionOnChange
             >
-              <ClientLayout>
-                {children}
-              </ClientLayout>
+              <ClientLayout>{children}</ClientLayout>
               <Toaster />
             </ThemeProvider>
           </AuthProvider>

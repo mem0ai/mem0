@@ -3,7 +3,11 @@
 import { MainNav } from "./main-nav";
 import { PanelRight, LogOut, Settings, HelpCircle } from "lucide-react";
 import { useCallback } from "react";
-import { COLLAPSED_SIDEBAR_WIDTH, COLLAPSED_SIDEBAR_WIDTH_WITHOUT_PADDING, SIDEBAR_WIDTH } from "../../clientLayout";
+import {
+  COLLAPSED_SIDEBAR_WIDTH,
+  COLLAPSED_SIDEBAR_WIDTH_WITHOUT_PADDING,
+  SIDEBAR_WIDTH,
+} from "../../clientLayout";
 import { useDispatch, useSelector } from "react-redux";
 import { cn } from "@/lib/utils";
 import { RootState } from "@/store/store";
@@ -16,13 +20,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
 
 export default function NavWrapper() {
   const dispatch = useDispatch();
-  const isSidebarCollapsed = useSelector((state: RootState) => state.layout.isSidebarCollapsed);
+  const isSidebarCollapsed = useSelector(
+    (state: RootState) => state.layout.isSidebarCollapsed,
+  );
   const { user, logout } = useAuth();
 
   const instanceName = process.env.NEXT_PUBLIC_INSTANCE_NAME || "Mem0";
@@ -36,12 +46,24 @@ export default function NavWrapper() {
       {/* Sidebar */}
       <div
         className="fixed top-0 left-0 h-full flex justify-between flex-col overflow-hidden transition-all duration-300 ease-in-out z-30 bg-transparent"
-        style={{ width: isSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : SIDEBAR_WIDTH }}
+        style={{
+          width: isSidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : SIDEBAR_WIDTH,
+        }}
       >
         <div className="flex flex-col flex-1 min-h-0 items-start gap-5 px-3 py-3 overflow-y-auto overflow-x-hidden">
           {/* Instance header */}
-          <div className={cn("relative flex w-full", isSidebarCollapsed ? "p-0 justify-center" : "")}>
-            <div className={cn("flex items-center w-full", isSidebarCollapsed ? "justify-center" : "gap-2")}>
+          <div
+            className={cn(
+              "relative flex w-full",
+              isSidebarCollapsed ? "p-0 justify-center" : "",
+            )}
+          >
+            <div
+              className={cn(
+                "flex items-center w-full",
+                isSidebarCollapsed ? "justify-center" : "gap-2",
+              )}
+            >
               <div className="flex items-center justify-center size-7 rounded-md bg-surface-default-tertiary shrink-0">
                 <Building2 className="size-4 text-onSurface-default-primary" />
               </div>
@@ -68,25 +90,43 @@ export default function NavWrapper() {
                       {user?.name?.charAt(0).toUpperCase() || "?"}
                     </div>
                     <div className="flex flex-col min-w-0">
-                      <span className="typo-body-xs text-onSurface-default-primary truncate">{user?.name}</span>
-                      <span className="typo-caption-sm text-onSurface-default-tertiary truncate">{user?.email}</span>
+                      <span className="typo-body-xs text-onSurface-default-primary truncate">
+                        {user?.name}
+                      </span>
+                      <span className="typo-caption-sm text-onSurface-default-tertiary truncate">
+                        {user?.email}
+                      </span>
                     </div>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="top" className="w-56 font-fustat bg-surface-default-primary border-memBorder-secondary">
+                <DropdownMenuContent
+                  align="start"
+                  side="top"
+                  className="w-56 font-fustat bg-surface-default-primary border-memBorder-secondary"
+                >
                   <div className="px-2 py-1.5">
-                    <p className="typo-body-sm text-onSurface-default-primary">{user?.name}</p>
-                    <p className="typo-body-xs text-onSurface-default-tertiary">{user?.email}</p>
+                    <p className="typo-body-sm text-onSurface-default-primary">
+                      {user?.name}
+                    </p>
+                    <p className="typo-body-xs text-onSurface-default-tertiary">
+                      {user?.email}
+                    </p>
                   </div>
                   <DropdownMenuSeparator className="bg-memBorder-primary" />
-                  <DropdownMenuItem asChild className="typo-body-sm text-onSurface-default-primary hover:bg-surface-default-tertiary-hover focus:bg-surface-default-tertiary-hover cursor-pointer">
+                  <DropdownMenuItem
+                    asChild
+                    className="typo-body-sm text-onSurface-default-primary hover:bg-surface-default-tertiary-hover focus:bg-surface-default-tertiary-hover cursor-pointer"
+                  >
                     <Link href="/dashboard/settings">
                       <Settings className="size-4 mr-2" />
                       Settings
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-memBorder-primary" />
-                  <DropdownMenuItem onClick={logout} className="typo-body-sm text-onSurface-default-primary hover:bg-surface-default-tertiary-hover focus:bg-surface-default-tertiary-hover cursor-pointer">
+                  <DropdownMenuItem
+                    onClick={logout}
+                    className="typo-body-sm text-onSurface-default-primary hover:bg-surface-default-tertiary-hover focus:bg-surface-default-tertiary-hover cursor-pointer"
+                  >
                     <LogOut className="size-4 mr-2" />
                     Log out
                   </DropdownMenuItem>
@@ -110,7 +150,9 @@ export default function NavWrapper() {
             type="button"
             onClick={handleToggle}
             className="cursor-pointer text-onSurface-default-tertiary hover:text-onSurface-default-secondary"
-            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={
+              isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+            }
           >
             <PanelRight className="size-4" />
           </button>

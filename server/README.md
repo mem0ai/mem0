@@ -1,17 +1,54 @@
-# Mem0 REST API Server
+# Mem0 Self-Hosted Server
 
-Mem0 provides a REST API server (written using FastAPI). Users can perform all operations through REST endpoints. The API also includes OpenAPI documentation, accessible at `/docs` when the server is running.
+Mem0 ships a self-hosted FastAPI server plus a local dashboard. It is secure by default, supports dashboard login and API keys, and exposes OpenAPI docs at `/docs`.
 
-## Features
+## Quick Start
 
-- **Create memories:** Create memories based on messages for a user, agent, or run.
-- **Retrieve memories:** Get all memories for a given user, agent, or run.
-- **Search memories:** Search stored memories based on a query.
-- **Update memories:** Update an existing memory.
-- **Delete memories:** Delete a specific memory or all memories for a user, agent, or run.
-- **Reset memories:** Reset all memories for a user, agent, or run.
-- **OpenAPI Documentation:** Accessible via `/docs` endpoint.
+### Agent-first
 
-## Running the server
+```bash
+cd server
+make bootstrap
+```
 
-Follow the instructions in the [docs](https://docs.mem0.ai/open-source/features/rest-api) to run the server.
+This starts the stack, waits for the API and dashboard to be ready, creates the first admin, and generates the first API key.
+
+You can override the generated credentials:
+
+```bash
+cd server
+make bootstrap EMAIL=admin@company.com PASSWORD='strong-password' NAME='Admin'
+```
+
+For machine-readable output:
+
+```bash
+cd server
+OUTPUT=json make seed
+```
+
+### Browser-first
+
+```bash
+cd server
+make up
+```
+
+Then open `http://localhost:3000` and complete the setup wizard.
+
+## Security Defaults
+
+- Dashboard login uses JWTs.
+- Programmatic access uses `X-API-Key`.
+- Auth is enabled by default.
+- `AUTH_DISABLED=true` exists for local development only and should not be used in production.
+
+## Local URLs
+
+- Dashboard: `http://localhost:3000`
+- API: `http://localhost:8888`
+- OpenAPI docs: `http://localhost:8888/docs`
+
+## Reference
+
+Additional product and API documentation lives at [docs.mem0.ai](https://docs.mem0.ai/self-hosted).

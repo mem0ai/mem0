@@ -12,7 +12,10 @@ function CategoriesMockup() {
           <CardContent className="p-4">
             <p className="text-sm font-medium mb-3">{cat}</p>
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 bg-surface-default-secondary rounded mb-2" />
+              <div
+                key={i}
+                className="h-8 bg-surface-default-secondary rounded mb-2"
+              />
             ))}
           </CardContent>
         </Card>

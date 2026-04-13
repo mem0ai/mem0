@@ -124,9 +124,7 @@ export function CategoriesDisplay({
         {/* Always show the first category */}
         <div className="inline-flex items-center gap-1.5 whitespace-nowrap bg-surface-default-fg-secondary border border-memBorder-primary rounded-md px-2 py-1 text-onSurface-default-secondary">
           <div
-            className={`size-2 rounded-full ${getCategoryColor(
-              firstCategory
-            )}`}
+            className={`size-2 rounded-full ${getCategoryColor(firstCategory)}`}
           />
           <span className="typo-body-xs">{firstCategory}</span>
         </div>

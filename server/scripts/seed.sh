@@ -2,9 +2,11 @@
 set -e
 
 API_URL="${API_URL:-http://localhost:8888}"
+DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:3000}"
 EMAIL="${EMAIL:-admin@mem0.dev}"
 PASSWORD="${PASSWORD:-admin123456}"
 NAME="${NAME:-Admin}"
+OUTPUT="${OUTPUT:-text}"
 
 echo "=== Mem0 Self-Hosted Seed ==="
 echo "API: $API_URL"
@@ -16,9 +18,10 @@ NEEDS_SETUP=$(echo "$SETUP" | python3 -c "import sys,json; print(json.load(sys.s
 
 if [ "$NEEDS_SETUP" = "True" ]; then
   echo "Creating admin account..."
+  REGISTER_PAYLOAD=$(NAME="$NAME" EMAIL="$EMAIL" PASSWORD="$PASSWORD" python3 -c 'import json, os; print(json.dumps({"name": os.environ["NAME"], "email": os.environ["EMAIL"], "password": os.environ["PASSWORD"]}))')
   REGISTER=$(curl -s -X POST "$API_URL/auth/register" \
     -H "Content-Type: application/json" \
-    -d "{\"name\": \"$NAME\", \"email\": \"$EMAIL\", \"password\": \"$PASSWORD\"}")
+    -d "$REGISTER_PAYLOAD")
   echo "$REGISTER" | python3 -c "import sys,json; d=json.load(sys.stdin); print('  Admin created.' if 'access_token' in d else f'  Error: {d}')" 2>/dev/null
 else
   echo "Admin already exists, logging in..."
@@ -26,9 +29,10 @@ fi
 
 # Login
 echo "Logging in..."
+LOGIN_PAYLOAD=$(EMAIL="$EMAIL" PASSWORD="$PASSWORD" python3 -c 'import json, os; print(json.dumps({"email": os.environ["EMAIL"], "password": os.environ["PASSWORD"]}))')
 LOGIN=$(curl -s -X POST "$API_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d "{\"email\": \"$EMAIL\", \"password\": \"$PASSWORD\"}")
+  -d "$LOGIN_PAYLOAD")
 TOKEN=$(echo "$LOGIN" | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])" 2>/dev/null)
 
 if [ -z "$TOKEN" ]; then
@@ -45,9 +49,19 @@ KEY_RESP=$(curl -s -X POST "$API_URL/api-keys/" \
   -d '{"label": "dev-seed-key"}')
 API_KEY=$(echo "$KEY_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['key'])" 2>/dev/null)
 
+if [ -z "$API_KEY" ]; then
+  echo "  API key creation failed: $KEY_RESP"
+  exit 1
+fi
+
+if [ "$OUTPUT" = "json" ]; then
+  DASHBOARD_URL="$DASHBOARD_URL" API_URL="$API_URL" EMAIL="$EMAIL" PASSWORD="$PASSWORD" API_KEY="$API_KEY" python3 -c 'import json, os; print(json.dumps({"dashboard_url": os.environ["DASHBOARD_URL"], "api_url": os.environ["API_URL"], "email": os.environ["EMAIL"], "password": os.environ["PASSWORD"], "api_key": os.environ["API_KEY"]}))'
+  exit 0
+fi
+
 echo ""
 echo "=== Ready ==="
-echo "Dashboard:  http://localhost:3000"
+echo "Dashboard:  $DASHBOARD_URL"
 echo "Email:      $EMAIL"
 echo "Password:   $PASSWORD"
 echo "API Key:    $API_KEY"

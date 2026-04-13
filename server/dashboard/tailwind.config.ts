@@ -26,7 +26,7 @@ const config = {
     },
     extend: {
       spacing: {
-        '2.5': '0.625rem',
+        "2.5": "0.625rem",
       },
       fontFamily: {
         sans: ["Inter", "system-ui"],
@@ -40,9 +40,9 @@ const config = {
       },
       colors: {
         onSurface: {
-          "primary": "hsla(var(--onSurface-primary))",
-          "tertiary": "hsla(var(--onSurface-tertiary))",
-          "secondary": "hsla(var(--onSurface-secondary))",
+          primary: "hsla(var(--onSurface-primary))",
+          tertiary: "hsla(var(--onSurface-tertiary))",
+          secondary: "hsla(var(--onSurface-secondary))",
           default: {
             primary: "var(--on-surface-default-primary)",
             secondary: "var(--on-surface-default-secondary)",
@@ -70,9 +70,9 @@ const config = {
           },
         },
         surface: {
-          "primary": "hsla(var(--surface-primary))",
-          "secondary": "hsla(var(--surface-secondary))",
-          "tertiary": "hsla(var(--surface-tertiary))",
+          primary: "hsla(var(--surface-primary))",
+          secondary: "hsla(var(--surface-secondary))",
+          tertiary: "hsla(var(--surface-tertiary))",
           default: {
             primary: "var(--surface-default-primary)",
             "primary-hover": "var(--surface-default-primary-hover)",
@@ -105,7 +105,7 @@ const config = {
           },
         },
         elevationLight: {
-          "2": "hsla(var(--elevation-light-2))"
+          "2": "hsla(var(--elevation-light-2))",
         },
         neutral: {
           "0": "hsl(var(--neutral-0))",
@@ -130,7 +130,7 @@ const config = {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
           border: "var(--border-primary)",
-          borderLight: "rgba(39, 39, 42, 1)"
+          borderLight: "rgba(39, 39, 42, 1)",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -282,7 +282,7 @@ const config = {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        'custom': '0px 3px 10px 0px rgba(0, 0, 0, 0.08)',
+        custom: "0px 3px 10px 0px rgba(0, 0, 0, 0.08)",
       },
       keyframes: {
         "accordion-down": {
@@ -319,7 +319,7 @@ const config = {
             transform: "translateX(0)",
           },
         },
-        "shimmer": {
+        shimmer: {
           "0%": {
             transform: "translateX(-100%)",
           },
@@ -337,7 +337,7 @@ const config = {
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.3s ease-in-out",
         "fade-in-right": "fade-in-right 0.5s ease-out",
-        "shimmer": "shimmer 2s ease-in-out infinite",
+        shimmer: "shimmer 2s ease-in-out infinite",
         "shimmer-subtle": "shimmer-subtle 1.5s linear infinite",
       },
     },

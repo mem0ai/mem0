@@ -1,37 +1,39 @@
-import { Plus, RefreshCw, SearchCode, Trash, UserRound } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Plus, RefreshCw, SearchCode, Trash, UserRound } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface EventBadgeProps {
-  event: string
-  type?: string
-  count?: number
-  label?: string
-  icon?: React.ElementType
-  showIcon?: boolean
-  variant?: "primary" | "secondary"
+  event: string;
+  type?: string;
+  count?: number;
+  label?: string;
+  icon?: React.ElementType;
+  showIcon?: boolean;
+  variant?: "primary" | "secondary";
 }
 
-type BadgeVariant = "add" | "update" | "retrieved" | "delete" | "user"
+type BadgeVariant = "add" | "update" | "retrieved" | "delete" | "user";
 
-const getBadgeConfig = (type: string): { variant: BadgeVariant; icon: React.ElementType } => {
+const getBadgeConfig = (
+  type: string,
+): { variant: BadgeVariant; icon: React.ElementType } => {
   switch (type.toUpperCase()) {
     case "ADD":
-      return { variant: "add", icon: Plus }
+      return { variant: "add", icon: Plus };
     case "UPDATE":
-      return { variant: "update", icon: RefreshCw }
+      return { variant: "update", icon: RefreshCw };
     case "SEARCH":
     case "GET_ALL":
     case "GET":
-      return { variant: "retrieved", icon: SearchCode }
+      return { variant: "retrieved", icon: SearchCode };
     case "DELETE":
-      return { variant: "delete", icon: Trash }
+      return { variant: "delete", icon: Trash };
     case "USER":
     case "USERS":
-      return { variant: "user", icon: UserRound }
+      return { variant: "user", icon: UserRound };
     default:
-      return { variant: "add", icon: Plus }
+      return { variant: "add", icon: Plus };
   }
-}
+};
 
 export function EventBadge({
   event,
@@ -42,13 +44,14 @@ export function EventBadge({
   showIcon = true,
   variant = "primary",
 }: EventBadgeProps) {
-  const resolvedType = (type ?? event).toUpperCase()
-  const { variant: badgeVariant, icon: DefaultIcon } = getBadgeConfig(resolvedType)
-  const Icon = icon ?? DefaultIcon
-  const content = label ?? (typeof count === "number" ? String(count) : "")
+  const resolvedType = (type ?? event).toUpperCase();
+  const { variant: badgeVariant, icon: DefaultIcon } =
+    getBadgeConfig(resolvedType);
+  const Icon = icon ?? DefaultIcon;
+  const content = label ?? (typeof count === "number" ? String(count) : "");
 
   if (count === 0 && !label) {
-    return null
+    return null;
   }
 
   return (
@@ -57,7 +60,7 @@ export function EventBadge({
         "inline-flex min-w-0 max-w-full items-center justify-center gap-1 overflow-hidden rounded-sm px-1.5 py-0.5",
         variant === "secondary"
           ? "bg-surface-default-fg-secondary"
-          : "bg-surface-default-tertiary"
+          : "bg-surface-default-tertiary",
       )}
       aria-label={`${event} ${badgeVariant} count`}
     >
@@ -70,5 +73,5 @@ export function EventBadge({
         </span>
       )}
     </div>
-  )
+  );
 }

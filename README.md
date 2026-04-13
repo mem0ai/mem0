@@ -99,6 +99,8 @@ cd server && docker compose up -d
 # API: http://localhost:8888
 ```
 
+Prefer a one-command bootstrap for local agents? Run `cd server && make bootstrap` to start the stack, create the first admin, and generate the first API key.
+
 See the [self-hosted docs](https://docs.mem0.ai/self-hosted) for configuration.
 
 ### Cloud Platform

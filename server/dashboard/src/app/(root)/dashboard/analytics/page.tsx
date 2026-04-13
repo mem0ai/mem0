@@ -14,7 +14,9 @@ function AnalyticsMockup() {
         ].map((stat) => (
           <Card key={stat.label} className="border-memBorder-primary">
             <CardContent className="p-4">
-              <p className="text-xs text-onSurface-default-tertiary">{stat.label}</p>
+              <p className="text-xs text-onSurface-default-tertiary">
+                {stat.label}
+              </p>
               <p className="text-2xl font-semibold mt-1">{stat.value}</p>
             </CardContent>
           </Card>

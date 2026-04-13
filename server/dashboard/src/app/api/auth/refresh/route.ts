@@ -47,7 +47,10 @@ export async function PUT(request: NextRequest) {
   const cookieStore = await cookies();
 
   if (!body.refresh_token) {
-    return NextResponse.json({ error: "Missing refresh_token" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing refresh_token" },
+      { status: 400 },
+    );
   }
 
   cookieStore.set(COOKIE_NAME, body.refresh_token, COOKIE_OPTIONS);

@@ -12,7 +12,9 @@ export default function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const isSidebarCollapsed = useSelector((state: RootState) => state.layout.isSidebarCollapsed);
+  const isSidebarCollapsed = useSelector(
+    (state: RootState) => state.layout.isSidebarCollapsed,
+  );
 
   return (
     <>
@@ -25,7 +27,9 @@ export default function DashboardLayout({
         }}
       >
         <ScrollArea type="scroll" className="h-[calc(100vh-70px)]">
-          <div className="mx-auto px-6 py-6 flex-1 flex-col space-y-4">{children}</div>
+          <div className="mx-auto px-6 py-6 flex-1 flex-col space-y-4">
+            {children}
+          </div>
         </ScrollArea>
       </div>
     </>

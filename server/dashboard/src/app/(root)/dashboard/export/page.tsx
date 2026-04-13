@@ -14,7 +14,13 @@ function ExportMockup() {
             <Label>Format</Label>
             <div className="flex gap-2">
               {["JSON", "CSV", "Pydantic Schema"].map((fmt) => (
-                <Button key={fmt} variant="outline" size="sm" disabled className={fmt === "JSON" ? "border-memPurple-300" : ""}>
+                <Button
+                  key={fmt}
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  className={fmt === "JSON" ? "border-memPurple-300" : ""}
+                >
                   {fmt}
                 </Button>
               ))}
@@ -25,7 +31,7 @@ function ExportMockup() {
             <Card className="border-memBorder-primary bg-surface-default-secondary">
               <CardContent className="p-3">
                 <pre className="text-xs text-onSurface-default-secondary font-mono whitespace-pre-wrap">
-{`{
+                  {`{
   "memories": [
     {
       "id": "mem_abc123",

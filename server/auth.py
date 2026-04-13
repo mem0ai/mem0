@@ -2,7 +2,7 @@ import os
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -17,6 +17,7 @@ JWT_ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "")
+AUTH_DISABLED = os.environ.get("AUTH_DISABLED", "").lower() in {"1", "true", "yes", "on"}
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -71,6 +72,14 @@ bearer_scheme = HTTPBearer(auto_error=False)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
+def _mark_auth_type(request: Request, auth_type: str) -> None:
+    request.state.auth_type = auth_type
+
+
+def _get_default_user(db: Session) -> User | None:
+    return db.scalar(select(User).order_by(User.created_at.asc()))
+
+
 def _resolve_user_from_jwt(token: str, db: Session) -> User:
     payload = decode_token(token)
     if payload.get("type") != "access":
@@ -100,31 +109,44 @@ def _resolve_user_from_api_key(key: str, db: Session) -> User:
 
 
 async def verify_auth(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     x_api_key: str | None = Depends(api_key_header),
     db: Session = Depends(get_db),
 ) -> User | None:
     """Authenticate via JWT, X-API-Key, or legacy ADMIN_API_KEY. Returns User or None."""
     if credentials is not None:
+        _mark_auth_type(request, "bearer")
         return _resolve_user_from_jwt(credentials.credentials, db)
 
     if x_api_key is not None:
         if ADMIN_API_KEY and secrets.compare_digest(x_api_key, ADMIN_API_KEY):
+            _mark_auth_type(request, "admin_api_key")
             return None
+        _mark_auth_type(request, "api_key")
         return _resolve_user_from_api_key(x_api_key, db)
 
-    if ADMIN_API_KEY:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required. Provide a Bearer token or X-API-Key header.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    if AUTH_DISABLED:
+        _mark_auth_type(request, "disabled")
+        return None
 
-    return None
+    raise HTTPException(
+        status_code=401,
+        detail="Authentication required. Provide a Bearer token or X-API-Key header.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
-async def require_auth(user: User | None = Depends(verify_auth)) -> User:
+async def require_auth(
+    request: Request,
+    user: User | None = Depends(verify_auth),
+    db: Session = Depends(get_db),
+) -> User:
     """Like verify_auth but guarantees a non-None User. Use for endpoints that require auth."""
     if user is None:
+        if getattr(request.state, "auth_type", "none") in {"admin_api_key", "disabled"}:
+            default_user = _get_default_user(db)
+            if default_user is not None:
+                return default_user
         raise HTTPException(status_code=401, detail="Authentication required.")
     return user

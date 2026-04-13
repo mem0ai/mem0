@@ -20,7 +20,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       className,
       ...props
     },
-    ref
+    ref,
   ) => {
     const generatedId = React.useId();
     const id = idProp ?? generatedId;

@@ -16,7 +16,9 @@ export default function SettingsPage() {
       <h1 className="text-xl font-semibold font-fustat">Settings</h1>
 
       <Card className="border-memBorder-primary">
-        <CardHeader><CardTitle className="text-sm">Profile</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-sm">Profile</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
@@ -32,17 +34,30 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="border-memBorder-primary">
-        <CardHeader><CardTitle className="text-sm">Appearance</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-sm">Appearance</CardTitle>
+        </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-onSurface-default-secondary">Theme</span>
-            <button onClick={() => setTheme("light")} className="p-2 rounded hover:bg-surface-default-secondary-hover">
+            <span className="text-sm text-onSurface-default-secondary">
+              Theme
+            </span>
+            <button
+              onClick={() => setTheme("light")}
+              className="p-2 rounded hover:bg-surface-default-secondary-hover"
+            >
               <Sun className="size-4" />
             </button>
-            <button onClick={() => setTheme("dark")} className="p-2 rounded hover:bg-surface-default-secondary-hover">
+            <button
+              onClick={() => setTheme("dark")}
+              className="p-2 rounded hover:bg-surface-default-secondary-hover"
+            >
               <Moon className="size-4" />
             </button>
-            <button onClick={() => setTheme("system")} className="p-2 rounded hover:bg-surface-default-secondary-hover">
+            <button
+              onClick={() => setTheme("system")}
+              className="p-2 rounded hover:bg-surface-default-secondary-hover"
+            >
               <Monitor className="size-4" />
             </button>
           </div>

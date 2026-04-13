@@ -38,7 +38,11 @@ export default function SearchPage() {
       const res = await api.post(MEMORY_ENDPOINTS.SEARCH, params);
       setResults(res.data?.results || res.data || []);
     } catch (error: any) {
-      toast({ title: "Search failed", description: typeof error === "string" ? error : error?.message, variant: "destructive" });
+      toast({
+        title: "Search failed",
+        description: typeof error === "string" ? error : error?.message,
+        variant: "destructive",
+      });
     } finally {
       setIsSearching(false);
     }
@@ -49,13 +53,35 @@ export default function SearchPage() {
       <h1 className="text-xl font-semibold font-fustat">Search Memories</h1>
 
       {results.length > 50 && (
-        <UpgradeBanner id="search-results-50" message="Need more precise results? Advanced retrieval available in Cloud." ctaLabel="Explore Cloud" ctaUrl="https://app.mem0.ai" variant="cloud" />
+        <UpgradeBanner
+          id="search-results-50"
+          message="Need more precise results? Advanced retrieval available in Cloud."
+          ctaLabel="Explore Cloud"
+          ctaUrl="https://app.mem0.ai"
+          variant="cloud"
+        />
       )}
 
       <div className="flex gap-3">
-        <Input placeholder="Search your memories..." value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSearch()} className="flex-1" />
-        <Input placeholder="user_id (optional)" value={userId} onChange={(e) => setUserId(e.target.value)} className="w-40" />
-        <Input placeholder="agent_id (optional)" value={agentId} onChange={(e) => setAgentId(e.target.value)} className="w-40" />
+        <Input
+          placeholder="Search your memories..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          className="flex-1"
+        />
+        <Input
+          placeholder="user_id (optional)"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+          className="w-40"
+        />
+        <Input
+          placeholder="agent_id (optional)"
+          value={agentId}
+          onChange={(e) => setAgentId(e.target.value)}
+          className="w-40"
+        />
         <Button onClick={handleSearch} disabled={isSearching || !query.trim()}>
           <Search className="size-4 mr-2" />
           Search
@@ -86,7 +112,10 @@ export default function SearchPage() {
       )}
 
       {results.length === 0 && hasSearched && !isSearching && (
-        <EmptyState title={`No results for "${query}"`} description="Try a different query or check the user ID." />
+        <EmptyState
+          title={`No results for "${query}"`}
+          description="Try a different query or check the user ID."
+        />
       )}
     </div>
   );

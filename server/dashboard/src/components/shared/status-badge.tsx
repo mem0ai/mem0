@@ -1,80 +1,82 @@
-import React from 'react'
-import { cn } from '@/lib/utils'
+import React from "react";
+import { cn } from "@/lib/utils";
 import {
   Clock9,
   CircleDotDashed,
   CircleCheck,
   CircleSlash,
-} from 'lucide-react'
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
+} from "@/components/ui/tooltip";
 
-type EventStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED'
+type EventStatus = "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
 
 interface StatusBadgeProps {
-  status: EventStatus
-  className?: string
-  iconOnly?: boolean
+  status: EventStatus;
+  className?: string;
+  iconOnly?: boolean;
 }
 
-export function StatusBadge({ status, className, iconOnly = false }: StatusBadgeProps) {
+export function StatusBadge({
+  status,
+  className,
+  iconOnly = false,
+}: StatusBadgeProps) {
   const getStatusConfig = (status: EventStatus) => {
     switch (status) {
-      case 'PENDING':
+      case "PENDING":
         return {
-          label: 'Pending',
+          label: "Pending",
           icon: Clock9,
-          className: 'text-onSurface-info-primary'
-        }
-      case 'RUNNING':
+          className: "text-onSurface-info-primary",
+        };
+      case "RUNNING":
         return {
-          label: 'Running',
+          label: "Running",
           icon: CircleDotDashed,
-          className: 'text-onSurface-info-primary'
-        }
-      case 'SUCCEEDED':
+          className: "text-onSurface-info-primary",
+        };
+      case "SUCCEEDED":
         return {
-          label: 'Succeeded',
+          label: "Succeeded",
           icon: CircleCheck,
-          className: 'text-onSurface-event-add'
-        }
-      case 'FAILED':
+          className: "text-onSurface-event-add",
+        };
+      case "FAILED":
         return {
-          label: 'Failed',
+          label: "Failed",
           icon: CircleSlash,
-          className: 'text-onSurface-danger-primary'
-        }
+          className: "text-onSurface-danger-primary",
+        };
       default:
         return {
-          label: 'Unknown',
+          label: "Unknown",
           icon: Clock9,
-          className: 'text-onSurface-default-secondary'
-        }
+          className: "text-onSurface-default-secondary",
+        };
     }
-  }
+  };
 
-  const config = getStatusConfig(status.toUpperCase() as EventStatus)
-  const Icon = config.icon
+  const config = getStatusConfig(status.toUpperCase() as EventStatus);
+  const Icon = config.icon;
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <div
           className={cn(
-            'flex h-4 w-4 items-center justify-center transition-colors',
+            "flex h-4 w-4 items-center justify-center transition-colors",
             config.className,
-            className
+            className,
           )}
         >
           <Icon className="size-4" />
         </div>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        {config.label}
-      </TooltipContent>
+      <TooltipContent side="bottom">{config.label}</TooltipContent>
     </Tooltip>
-  )
+  );
 }

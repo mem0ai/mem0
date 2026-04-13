@@ -1,66 +1,108 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, Copy } from "lucide-react";
+import { CopyToClipboard } from "react-copy-to-clipboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Copy } from "lucide-react";
-import { CopyToClipboard } from "react-copy-to-clipboard";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
+import { getErrorMessage } from "@/lib/error-message";
 import { cn } from "@/lib/utils";
-import { API_KEY_ENDPOINTS, MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
 import { api } from "@/utils/api";
+import { API_KEY_ENDPOINTS, MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
+import {
+  buildProviderConfig,
+  getEffectiveConfig,
+} from "@/utils/self-hosted-config";
 
 const STEPS = ["Admin Account", "Providers", "API Key", "Quick Test"];
+const STEP_TITLES = [
+  "Create your admin account",
+  "Configure LLM provider",
+  "Your API key",
+  "Test your setup",
+];
 
 export default function SetupPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPrefillingConfig, setIsPrefillingConfig] = useState(false);
   const [error, setError] = useState("");
 
-  // Step 1: Admin
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  // Step 2: Providers
-  const [llmProvider, setLlmProvider] = useState("openai");
+  const [llmProvider, setLlmProvider] = useState("");
   const [llmModel, setLlmModel] = useState("");
   const [llmApiKey, setLlmApiKey] = useState("");
 
-  // Step 3: API Key
   const [apiKey, setApiKey] = useState("");
   const [copied, setCopied] = useState(false);
-
-  // Step 4: Test
   const [testSuccess, setTestSuccess] = useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
+  useEffect(() => {
+    if (step !== 1) {
+      setIsPrefillingConfig(false);
+      return;
+    }
+
+    let active = true;
+    setIsPrefillingConfig(true);
+
+    const loadConfig = async () => {
+      try {
+        const res = await api.get(MEMORY_ENDPOINTS.CONFIGURE);
+        const config = getEffectiveConfig(res.data);
+
+        if (!active || !config?.llm) {
+          return;
+        }
+
+        setLlmProvider((current) => current || config.llm?.provider || "");
+        setLlmModel((current) => current || config.llm?.config?.model || "");
+      } catch {
+      } finally {
+        if (active) {
+          setIsPrefillingConfig(false);
+        }
+      }
+    };
+
+    void loadConfig();
+
+    return () => {
+      active = false;
+    };
+  }, [step]);
+
   const handleStep1 = async () => {
-    if (password !== confirmPassword) { setError("Passwords don't match"); return; }
-    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (password !== confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
     setError("");
     setIsLoading(true);
+
     try {
-      const res = await fetch(`${apiUrl}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || "Registration failed");
-      }
-      await login(email, password);
+      await register(name, email, password);
       setStep(1);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (err) {
+      setError(getErrorMessage(err, "Registration failed"));
     } finally {
       setIsLoading(false);
     }
@@ -69,16 +111,24 @@ export default function SetupPage() {
   const handleStep2 = async () => {
     setError("");
     setIsLoading(true);
+
     try {
-      if (llmApiKey) {
+      const llm = buildProviderConfig({
+        provider: llmProvider,
+        model: llmModel,
+        apiKey: llmApiKey,
+      });
+
+      if (llm) {
         await api.post(MEMORY_ENDPOINTS.CONFIGURE, {
           version: "v1.1",
-          llm: { provider: llmProvider, config: { model: llmModel || undefined, api_key: llmApiKey } },
+          llm,
         });
       }
+
       setStep(2);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to save provider configuration"));
     } finally {
       setIsLoading(false);
     }
@@ -87,13 +137,15 @@ export default function SetupPage() {
   const handleStep3 = async () => {
     setError("");
     setIsLoading(true);
+
     try {
-      const res = await api.post(API_KEY_ENDPOINTS.BASE, { label: "My First Key" });
-      const data = res.data;
-      setApiKey(data.key);
+      const res = await api.post(API_KEY_ENDPOINTS.BASE, {
+        label: "My First Key",
+      });
+      setApiKey(res.data.key);
       setStep(3);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to create API key"));
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +154,7 @@ export default function SetupPage() {
   const handleTest = async () => {
     setError("");
     setIsLoading(true);
+
     try {
       const res = await fetch(`${apiUrl}/memories`, {
         method: "POST",
@@ -111,10 +164,14 @@ export default function SetupPage() {
           user_id: "setup-test",
         }),
       });
-      if (!res.ok) throw new Error("Test failed");
+
+      if (!res.ok) {
+        throw new Error("Test failed");
+      }
+
       setTestSuccess(true);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (err) {
+      setError(getErrorMessage(err, "Test failed"));
     } finally {
       setIsLoading(false);
     }
@@ -123,54 +180,144 @@ export default function SetupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-default-primary p-4">
       <div className="w-full max-w-[560px] space-y-6">
-        {/* Step indicator */}
         <div className="flex items-center justify-center gap-2">
           {STEPS.map((label, i) => (
             <div key={label} className="flex items-center gap-2">
-              <div className={cn(
-                "size-7 rounded-full flex items-center justify-center text-xs font-medium",
-                i <= step ? "bg-memPurple-500 text-white" :
-                "bg-memNeutral-200 text-onSurface-default-tertiary"
-              )}>
+              <div
+                className={cn(
+                  "size-7 rounded-full flex items-center justify-center text-xs font-medium",
+                  i <= step
+                    ? "bg-memPurple-500 text-white"
+                    : "bg-memNeutral-200 text-onSurface-default-tertiary",
+                )}
+              >
                 {i < step ? <Check className="size-3.5" /> : i + 1}
               </div>
               {i < STEPS.length - 1 && (
-                <div className={cn("w-8 h-[2px]", i < step ? "bg-memPurple-500" : "bg-memNeutral-200")} />
+                <div
+                  className={cn(
+                    "w-8 h-[2px]",
+                    i < step ? "bg-memPurple-500" : "bg-memNeutral-200",
+                  )}
+                />
               )}
             </div>
           ))}
         </div>
-        <p className="text-center text-sm text-onSurface-default-tertiary">{STEPS[step]}</p>
+        <p className="text-center text-sm text-onSurface-default-tertiary">
+          {STEPS[step]}
+        </p>
 
         <Card className="border-memBorder-primary">
           <CardContent className="p-6 space-y-4">
-            <h2 className="text-base font-semibold font-fustat">
-              {["Create your admin account", "Configure LLM provider", "Your API key", "Test your setup"][step]}
-            </h2>
-            {error && <p className="text-sm text-onSurface-danger-primary">{error}</p>}
+            <div className="space-y-1">
+              <h2 className="text-base font-semibold font-fustat">
+                {STEP_TITLES[step]}
+              </h2>
+              {isPrefillingConfig && step === 1 && (
+                <p className="text-xs text-onSurface-default-tertiary">
+                  Checking server configuration...
+                </p>
+              )}
+            </div>
+            {error && (
+              <p className="text-sm text-onSurface-danger-primary">{error}</p>
+            )}
 
             {step === 0 && (
               <>
-                <div className="space-y-1"><Label>Name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" /></div>
-                <div className="space-y-1"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@company.com" /></div>
-                <div className="space-y-1"><Label>Password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters" /></div>
-                <div className="space-y-1"><Label>Confirm Password</Label><Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /></div>
-                <Button onClick={handleStep1} disabled={isLoading || !name || !email || !password} className="w-full">{isLoading ? "Creating..." : "Create Admin Account"}</Button>
+                <div className="space-y-1">
+                  <Label>Name</Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="admin@company.com"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Confirm Password</Label>
+                  <Input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+                <Button
+                  onClick={handleStep1}
+                  disabled={isLoading || !name || !email || !password}
+                  className="w-full"
+                >
+                  {isLoading ? "Creating..." : "Create Admin Account"}
+                </Button>
               </>
             )}
 
             {step === 1 && (
               <>
-                <div className="space-y-1"><Label>LLM Provider</Label><Input value={llmProvider} onChange={(e) => setLlmProvider(e.target.value)} /></div>
-                <div className="space-y-1"><Label>Model</Label><Input value={llmModel} onChange={(e) => setLlmModel(e.target.value)} placeholder="gpt-4.1-nano-2025-04-14" /></div>
-                <div className="space-y-1"><Label>API Key</Label><Input type="password" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} placeholder="sk-..." /></div>
-                <p className="text-xs text-onSurface-default-tertiary">Skip if already configured via .env</p>
-                <Button onClick={handleStep2} disabled={isLoading} className="w-full">{isLoading ? "Saving..." : "Next"}</Button>
+                <div className="space-y-1">
+                  <Label>LLM Provider</Label>
+                  <Input
+                    value={llmProvider}
+                    onChange={(e) => setLlmProvider(e.target.value)}
+                    placeholder="openai"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Model</Label>
+                  <Input
+                    value={llmModel}
+                    onChange={(e) => setLlmModel(e.target.value)}
+                    placeholder="gpt-4.1-nano-2025-04-14"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>API Key</Label>
+                  <Input
+                    type="password"
+                    value={llmApiKey}
+                    onChange={(e) => setLlmApiKey(e.target.value)}
+                    placeholder="sk-..."
+                  />
+                </div>
+                <p className="text-xs text-onSurface-default-tertiary">
+                  Skip this step if the server is already configured.
+                </p>
+                <Button
+                  onClick={handleStep2}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? "Saving..." : "Continue"}
+                </Button>
               </>
             )}
 
             {step === 2 && !apiKey && (
-              <Button onClick={handleStep3} disabled={isLoading} className="w-full">{isLoading ? "Generating..." : "Generate API Key"}</Button>
+              <Button
+                onClick={handleStep3}
+                disabled={isLoading}
+                className="w-full"
+              >
+                {isLoading ? "Generating..." : "Generate API Key"}
+              </Button>
             )}
 
             {step === 2 && apiKey && (
@@ -178,14 +325,34 @@ export default function SetupPage() {
                 <div className="space-y-1">
                   <Label>Your API Key</Label>
                   <div className="flex gap-2">
-                    <Input value={apiKey} readOnly className="font-mono text-sm" />
-                    <CopyToClipboard text={apiKey} onCopy={() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
-                      <Button variant="outline" size="icon">{copied ? <Check className="size-4" /> : <Copy className="size-4" />}</Button>
+                    <Input
+                      value={apiKey}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    <CopyToClipboard
+                      text={apiKey}
+                      onCopy={() => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                    >
+                      <Button variant="outline" size="icon">
+                        {copied ? (
+                          <Check className="size-4" />
+                        ) : (
+                          <Copy className="size-4" />
+                        )}
+                      </Button>
                     </CopyToClipboard>
                   </div>
-                  <p className="text-xs text-onSurface-danger-primary">Save this key -- you won't see it again.</p>
+                  <p className="text-xs text-onSurface-danger-primary">
+                    Save this key. You will not see it again.
+                  </p>
                 </div>
-                <Button onClick={() => setStep(3)} className="w-full">Next</Button>
+                <Button onClick={() => setStep(3)} className="w-full">
+                  Next
+                </Button>
               </>
             )}
 
@@ -199,13 +366,24 @@ export default function SetupPage() {
   -d '{"messages": [{"role": "user", "content": "I like hiking"}], "user_id": "test"}'`}</pre>
                 </div>
                 {!testSuccess ? (
-                  <Button onClick={handleTest} disabled={isLoading} className="w-full">{isLoading ? "Testing..." : "Run Test"}</Button>
+                  <Button
+                    onClick={handleTest}
+                    disabled={isLoading}
+                    className="w-full"
+                  >
+                    {isLoading ? "Testing..." : "Run Test"}
+                  </Button>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm text-onSurface-positive-primary">
                       <Check className="size-4" /> Memory created successfully
                     </div>
-                    <Button onClick={() => router.push("/dashboard/")} className="w-full">Go to Dashboard</Button>
+                    <Button
+                      onClick={() => router.push("/dashboard/")}
+                      className="w-full"
+                    >
+                      Go to Dashboard
+                    </Button>
                   </div>
                 )}
               </>

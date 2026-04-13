@@ -1,7 +1,13 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Lock } from "lucide-react";
 
 interface LockedPageProps {
@@ -26,7 +32,9 @@ export function LockedPage({
           {title}
           <Lock className="size-4 text-onSurface-default-tertiary" />
         </h1>
-        <p className="text-sm text-onSurface-default-secondary mt-1">{description}</p>
+        <p className="text-sm text-onSurface-default-secondary mt-1">
+          {description}
+        </p>
       </div>
 
       <div className="opacity-60 pointer-events-none select-none">
@@ -36,7 +44,9 @@ export function LockedPage({
       <Card className="border-memBorder-primary">
         <CardContent className="flex flex-col sm:flex-row items-center gap-4 py-6">
           <div className="flex-1">
-            <p className="text-sm font-medium">This feature is available in Mem0 Cloud and Enterprise.</p>
+            <p className="text-sm font-medium">
+              This feature is available in Mem0 Cloud and Enterprise.
+            </p>
           </div>
           <div className="flex gap-3">
             <Button variant="default" asChild>

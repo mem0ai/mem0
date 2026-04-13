@@ -15,6 +15,7 @@ import {
   WebhookIcon,
   ChartLine,
   FolderInput,
+  GitBranch,
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
@@ -43,7 +44,7 @@ export function MainNav({
 }: React.HTMLAttributes<HTMLElement>) {
   const pathname = usePathname();
   const isSidebarCollapsed = useSelector(
-    (state: RootState) => state.layout.isSidebarCollapsed
+    (state: RootState) => state.layout.isSidebarCollapsed,
   );
   const [isSetupOpen, setIsSetupOpen] = React.useState(true);
   const [isCloudOpen, setIsCloudOpen] = React.useState(true);
@@ -71,7 +72,7 @@ export function MainNav({
                       <ChevronDown
                         className={cn(
                           "size-3 transition-transform duration-200",
-                          isSetupOpen ? "" : "-rotate-90"
+                          isSetupOpen ? "" : "-rotate-90",
                         )}
                       />
                     </SidebarGroupLabel>
@@ -97,7 +98,9 @@ export function MainNav({
                           href={item.url}
                           className={cn(
                             "flex items-center w-full",
-                            isSidebarCollapsed ? "justify-center mx-auto" : "gap-1.5"
+                            isSidebarCollapsed
+                              ? "justify-center mx-auto"
+                              : "gap-1.5",
                           )}
                         >
                           <item.icon className="size-4 shrink-0" />
@@ -116,17 +119,53 @@ export function MainNav({
               {/* ACTIVITY SECTION */}
               <div className="flex flex-col gap-0">
                 {!isSidebarCollapsed && (
-                  <SidebarGroupLabel className="mb-0">ACTIVITY</SidebarGroupLabel>
+                  <SidebarGroupLabel className="mb-0">
+                    ACTIVITY
+                  </SidebarGroupLabel>
                 )}
                 {[
-                  { title: "Dashboard", url: "/dashboard", icon: Home, active: pathname === "/dashboard" || pathname === "/dashboard/" },
-                  { title: "Requests", url: "/dashboard/requests", icon: Activity, active: pathname === "/dashboard/requests" },
-                  { title: "Memories", url: "/dashboard/memories", icon: GalleryVerticalEnd, active: pathname === "/dashboard/memories" },
-                  { title: "Search", url: "/dashboard/search", icon: Search, active: pathname === "/dashboard/search" },
+                  {
+                    title: "Dashboard",
+                    url: "/dashboard",
+                    icon: Home,
+                    active:
+                      pathname === "/dashboard" || pathname === "/dashboard/",
+                  },
+                  {
+                    title: "Requests",
+                    url: "/dashboard/requests",
+                    icon: Activity,
+                    active: pathname === "/dashboard/requests",
+                  },
+                  {
+                    title: "Memories",
+                    url: "/dashboard/memories",
+                    icon: GalleryVerticalEnd,
+                    active: pathname === "/dashboard/memories",
+                  },
+                  {
+                    title: "Search",
+                    url: "/dashboard/search",
+                    icon: Search,
+                    active: pathname === "/dashboard/search",
+                  },
                 ].map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild collapsed={isSidebarCollapsed} active={item.active} tooltip={isSidebarCollapsed ? item.title : undefined}>
-                      <Link href={item.url} className={cn("flex items-center w-full", isSidebarCollapsed ? "justify-center mx-auto" : "gap-1.5")}>
+                    <SidebarMenuButton
+                      asChild
+                      collapsed={isSidebarCollapsed}
+                      active={item.active}
+                      tooltip={isSidebarCollapsed ? item.title : undefined}
+                    >
+                      <Link
+                        href={item.url}
+                        className={cn(
+                          "flex items-center w-full",
+                          isSidebarCollapsed
+                            ? "justify-center mx-auto"
+                            : "gap-1.5",
+                        )}
+                      >
                         <item.icon className="size-4 shrink-0" />
                         {!isSidebarCollapsed && <span>{item.title}</span>}
                       </Link>
@@ -142,15 +181,40 @@ export function MainNav({
               {/* ACCOUNT SECTION */}
               <div className="flex flex-col gap-0">
                 {!isSidebarCollapsed && (
-                  <SidebarGroupLabel className="mb-0">ACCOUNT</SidebarGroupLabel>
+                  <SidebarGroupLabel className="mb-0">
+                    ACCOUNT
+                  </SidebarGroupLabel>
                 )}
                 {[
-                  { title: "Configuration", url: "/dashboard/configuration", icon: Wrench, active: pathname === "/dashboard/configuration" },
-                  { title: "Settings", url: "/dashboard/settings", icon: Settings, active: pathname === "/dashboard/settings" },
+                  {
+                    title: "Configuration",
+                    url: "/dashboard/configuration",
+                    icon: Wrench,
+                    active: pathname === "/dashboard/configuration",
+                  },
+                  {
+                    title: "Settings",
+                    url: "/dashboard/settings",
+                    icon: Settings,
+                    active: pathname === "/dashboard/settings",
+                  },
                 ].map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild collapsed={isSidebarCollapsed} active={item.active} tooltip={isSidebarCollapsed ? item.title : undefined}>
-                      <Link href={item.url} className={cn("flex items-center w-full", isSidebarCollapsed ? "justify-center mx-auto" : "gap-1.5")}>
+                    <SidebarMenuButton
+                      asChild
+                      collapsed={isSidebarCollapsed}
+                      active={item.active}
+                      tooltip={isSidebarCollapsed ? item.title : undefined}
+                    >
+                      <Link
+                        href={item.url}
+                        className={cn(
+                          "flex items-center w-full",
+                          isSidebarCollapsed
+                            ? "justify-center mx-auto"
+                            : "gap-1.5",
+                        )}
+                      >
                         <item.icon className="size-4 shrink-0" />
                         {!isSidebarCollapsed && <span>{item.title}</span>}
                       </Link>
@@ -176,7 +240,7 @@ export function MainNav({
                       <ChevronDown
                         className={cn(
                           "size-3 transition-transform duration-200",
-                          isCloudOpen ? "" : "-rotate-90"
+                          isCloudOpen ? "" : "-rotate-90",
                         )}
                       />
                     </SidebarGroupLabel>
@@ -184,10 +248,31 @@ export function MainNav({
                 )}
                 <CollapsibleContent className="flex flex-col gap-0">
                   {[
-                    { title: "Categories", url: "/dashboard/categories", icon: Tags },
-                    { title: "Webhooks", url: "/dashboard/webhooks", icon: WebhookIcon },
-                    { title: "Analytics", url: "/dashboard/analytics", icon: ChartLine },
-                    { title: "Export", url: "/dashboard/export", icon: FolderInput },
+                    {
+                      title: "Categories",
+                      url: "/dashboard/categories",
+                      icon: Tags,
+                    },
+                    {
+                      title: "Webhooks",
+                      url: "/dashboard/webhooks",
+                      icon: WebhookIcon,
+                    },
+                    {
+                      title: "Analytics",
+                      url: "/dashboard/analytics",
+                      icon: ChartLine,
+                    },
+                    {
+                      title: "Graph Memory",
+                      url: "/dashboard/graph-memory",
+                      icon: GitBranch,
+                    },
+                    {
+                      title: "Export",
+                      url: "/dashboard/export",
+                      icon: FolderInput,
+                    },
                   ].map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
@@ -200,14 +285,19 @@ export function MainNav({
                           href={item.url}
                           className={cn(
                             "flex items-center w-full",
-                            isSidebarCollapsed ? "justify-center mx-auto" : "gap-1.5"
+                            isSidebarCollapsed
+                              ? "justify-center mx-auto"
+                              : "gap-1.5",
                           )}
                         >
                           <item.icon className="size-4 shrink-0" />
                           {!isSidebarCollapsed && (
                             <>
                               <span>{item.title}</span>
-                              <Badge variant="outline" className="ml-auto text-memGold-600 border-memGold-300 typo-caption-sm px-1.5 py-0">
+                              <Badge
+                                variant="outline"
+                                className="ml-auto text-memGold-600 border-memGold-300 typo-caption-sm px-1.5 py-0"
+                              >
                                 PRO
                               </Badge>
                             </>

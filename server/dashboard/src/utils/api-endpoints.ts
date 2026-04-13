@@ -23,3 +23,7 @@ export const API_KEY_ENDPOINTS = {
 export const STATS_ENDPOINTS = {
   OVERVIEW: "/stats/overview",
 } as const;
+
+export const REQUEST_ENDPOINTS = {
+  BASE: "/requests",
+} as const;

@@ -41,7 +41,7 @@ export function UpgradeBanner({
         "flex items-center gap-3 px-4 py-2.5 rounded-md typo-body-xs font-fustat",
         variant === "cloud"
           ? "bg-memGold-100 border-l-2 border-memGold-500"
-          : "bg-memRed-100 border-l-2 border-memRed-400"
+          : "bg-memRed-100 border-l-2 border-memRed-400",
       )}
     >
       <p className="flex-1 text-onSurface-default-secondary">{message}</p>
@@ -51,7 +51,7 @@ export function UpgradeBanner({
         rel="noopener noreferrer"
         className={cn(
           "text-xs font-medium whitespace-nowrap underline",
-          variant === "cloud" ? "text-memGold-700" : "text-memRed-600"
+          variant === "cloud" ? "text-memGold-700" : "text-memRed-600",
         )}
       >
         {ctaLabel}

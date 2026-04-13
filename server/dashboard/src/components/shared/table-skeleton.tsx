@@ -1,8 +1,8 @@
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface TableSkeletonProps {
-  rows?: number
-  columns?: number
+  rows?: number;
+  columns?: number;
 }
 
 export function TableSkeleton({ rows = 5, columns = 5 }: TableSkeletonProps) {
@@ -34,6 +34,5 @@ export function TableSkeleton({ rows = 5, columns = 5 }: TableSkeletonProps) {
         ))}
       </div>
     </div>
-  )
+  );
 }
-

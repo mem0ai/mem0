@@ -5,8 +5,7 @@ import { Select } from "@/components/ui/select";
 /**
  * TextField component props
  */
-export interface TextFieldProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: React.ReactNode;
   containerClassName?: string;
   inputClassName?: string;
@@ -16,8 +15,7 @@ export interface TextFieldProps
 /**
  * NestedInputField component props
  */
-export interface NestedInputFieldProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface NestedInputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: React.ReactNode;
   containerClassName?: string;
   inputClassName?: string;
@@ -27,8 +25,7 @@ export interface NestedInputFieldProps
 /**
  * EmailField component props
  */
-export interface EmailFieldProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface EmailFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: React.ReactNode;
   containerClassName?: string;
   inputClassName?: string;
@@ -39,8 +36,7 @@ export interface EmailFieldProps
 /**
  * SearchField component props
  */
-export interface SearchFieldProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface SearchFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: React.ReactNode;
   containerClassName?: string;
   inputClassName?: string;
@@ -51,8 +47,7 @@ export interface SearchFieldProps
 /**
  * DateField component props
  */
-export interface DateFieldProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface DateFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: React.ReactNode;
   containerClassName?: string;
   inputClassName?: string;
@@ -63,8 +58,7 @@ export interface DateFieldProps
 /**
  * Textarea component props
  */
-export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: React.ReactNode;
   containerClassName?: string;
   textareaClassName?: string;
@@ -103,8 +97,7 @@ export interface DropdownFieldProps {
 /**
  * Input component props
  */
-export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   variant?: "default" | "textField" | "nestedInput";
 }
 

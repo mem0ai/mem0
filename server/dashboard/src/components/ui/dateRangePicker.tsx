@@ -1,18 +1,18 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { format } from "date-fns"
-import { Calendar as CalendarIcon } from "lucide-react"
-import { DateRange } from "react-day-picker"
+import * as React from "react";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { DateRange } from "react-day-picker";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/popover";
 
 interface DateRangePickerProps {
   value: DateRange | undefined;
@@ -27,14 +27,14 @@ export function DateRangePicker({
   maxDate,
   className,
 }: DateRangePickerProps) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = React.useState(false);
 
   const handleSelect = (range: DateRange | undefined) => {
-    onChange(range)
+    onChange(range);
     if (range?.to) {
-      setOpen(false)
+      setOpen(false);
     }
-  }
+  };
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -45,7 +45,7 @@ export function DateRangePicker({
             variant="outline"
             className={cn(
               "w-full justify-start text-left font-normal",
-              !value && "text-muted-foreground"
+              !value && "text-muted-foreground",
             )}
           >
             <CalendarIcon className="mr-2 size-4" />
@@ -69,7 +69,7 @@ export function DateRangePicker({
             selected={value}
             onSelect={handleSelect}
             initialFocus
-            disabled={(date) => maxDate ? date > maxDate : false}
+            disabled={(date) => (maxDate ? date > maxDate : false)}
             toDate={maxDate}
             defaultMonth={value?.from}
             numberOfMonths={2}
@@ -77,5 +77,5 @@ export function DateRangePicker({
         </PopoverContent>
       </Popover>
     </div>
-  )
+  );
 }

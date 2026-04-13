@@ -26,6 +26,7 @@ services:
       - DASHBOARD_URL=http://localhost:3000
       - APP_DB_NAME=mem0_app
       - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret}
+      - AUTH_DISABLED=${AUTH_DISABLED:-false}
 
   postgres:
       image: ankane/pgvector:v0.5.1

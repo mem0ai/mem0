@@ -1,40 +1,47 @@
-from copy import deepcopy
 import logging
 import os
+import time
 from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
-from mem0 import Memory
-
-from auth import ADMIN_API_KEY, verify_auth
+from auth import ADMIN_API_KEY, AUTH_DISABLED, verify_auth
+from db import SessionLocal
+from models import RequestLog
 from routers import auth as auth_router
 from routers import api_keys as api_keys_router
+from routers import requests as requests_router
 from routers import stats as stats_router
+from server_state import get_current_config, get_memory_instance, initialize_state, update_config
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Load environment variables
-load_dotenv()
-
 MIN_KEY_LENGTH = 16
+SENSITIVE_CONFIG_KEYS = {
+    "admin_api_key",
+    "api_key",
+    "authorization",
+    "jwt_secret",
+    "password",
+    "password_hash",
+    "secret",
+    "token",
+}
+SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
 
-if not ADMIN_API_KEY:
+if AUTH_DISABLED:
+    logging.warning("AUTH_DISABLED is enabled. Protected endpoints are open for local development only.")
+elif ADMIN_API_KEY and len(ADMIN_API_KEY) < MIN_KEY_LENGTH:
     logging.warning(
-        "ADMIN_API_KEY not set - API endpoints are UNSECURED! "
-        "Set ADMIN_API_KEY environment variable for production use."
+        "ADMIN_API_KEY is shorter than %d characters - consider using a longer key for production.",
+        MIN_KEY_LENGTH,
     )
-else:
-    if len(ADMIN_API_KEY) < MIN_KEY_LENGTH:
-        logging.warning(
-            "ADMIN_API_KEY is shorter than %d characters - consider using a longer key for production.",
-            MIN_KEY_LENGTH,
-        )
-    logging.info("API key authentication enabled")
 
 POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
 POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
@@ -68,20 +75,7 @@ DEFAULT_CONFIG = {
 }
 
 
-CURRENT_CONFIG = deepcopy(DEFAULT_CONFIG)
-MEMORY_INSTANCE = Memory.from_config(CURRENT_CONFIG)
-
-
-def _merge_config(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
-    merged = deepcopy(base)
-
-    for key, value in updates.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _merge_config(merged[key], value)
-        else:
-            merged[key] = value
-
-    return merged
+initialize_state(DEFAULT_CONFIG)
 
 
 app = FastAPI(
@@ -90,12 +84,10 @@ app = FastAPI(
         "A REST API for managing and searching memories for your AI Agents and Apps.\n\n"
         "## Authentication\n"
         "Supports Bearer JWT tokens, per-user API keys via `X-API-Key` header, "
-        "or the legacy `ADMIN_API_KEY` environment variable."
+        "or the legacy `ADMIN_API_KEY` environment variable. Set `AUTH_DISABLED=true` for local development only."
     ),
     version="1.0.0",
 )
-
-# CORS — allow the dashboard origin
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
@@ -105,9 +97,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include auth & management routers
 app.include_router(auth_router.router)
 app.include_router(api_keys_router.router)
+app.include_router(requests_router.router)
 app.include_router(stats_router.router)
 
 
@@ -142,14 +134,68 @@ class SearchRequest(BaseModel):
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
 
 
+def _redact_config(value: Any, key: str | None = None) -> Any:
+    if isinstance(value, dict):
+        return {item_key: _redact_config(item_value, item_key) for item_key, item_value in value.items()}
+    if isinstance(value, list):
+        return [_redact_config(item_value, key) for item_value in value]
+    if key is not None and key.lower() in SENSITIVE_CONFIG_KEYS:
+        return "[redacted]"
+    return value
+
+
+def _should_log_request(request: Request) -> bool:
+    return request.method != "OPTIONS" and request.url.path not in SKIPPED_REQUEST_LOG_PATHS
+
+
+def _persist_request_log(request: Request, status_code: int, latency_ms: float) -> None:
+    session = SessionLocal()
+
+    try:
+        session.add(
+            RequestLog(
+                method=request.method,
+                path=request.url.path,
+                status_code=status_code,
+                latency_ms=latency_ms,
+                auth_type=getattr(request.state, "auth_type", "none"),
+            )
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
+        logging.exception("Failed to persist request log")
+    finally:
+        session.close()
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    request.state.auth_type = getattr(request.state, "auth_type", "none")
+    start = time.perf_counter()
+    status_code = 500
+
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception:
+        status_code = 500
+        raise
+    finally:
+        if _should_log_request(request):
+            _persist_request_log(request, status_code, round((time.perf_counter() - start) * 1000, 2))
+
+
+@app.get("/configure", summary="Get current Mem0 configuration")
+def get_config(_auth=Depends(verify_auth)):
+    return _redact_config(get_current_config())
+
+
 @app.post("/configure", summary="Configure Mem0")
 def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
     """Set memory configuration."""
-    global CURRENT_CONFIG, MEMORY_INSTANCE
-    next_config = _merge_config(CURRENT_CONFIG, config)
-    memory_instance = Memory.from_config(next_config)
-    CURRENT_CONFIG = next_config
-    MEMORY_INSTANCE = memory_instance
+    update_config(config)
     return {"message": "Configuration set successfully"}
 
 
@@ -161,7 +207,7 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
 
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
     try:
-        response = MEMORY_INSTANCE.add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
         return JSONResponse(content=response)
     except Exception as e:
         logging.exception("Error in add_memory:")
@@ -182,7 +228,7 @@ def get_all_memories(
         params = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
-        return MEMORY_INSTANCE.get_all(**params)
+        return get_memory_instance().get_all(**params)
     except Exception as e:
         logging.exception("Error in get_all_memories:")
         raise HTTPException(status_code=500, detail=str(e))
@@ -192,7 +238,7 @@ def get_all_memories(
 def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
     try:
-        return MEMORY_INSTANCE.get(memory_id)
+        return get_memory_instance().get(memory_id)
     except Exception as e:
         logging.exception("Error in get_memory:")
         raise HTTPException(status_code=500, detail=str(e))
@@ -203,7 +249,7 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
-        return MEMORY_INSTANCE.search(query=search_req.query, **params)
+        return get_memory_instance().search(query=search_req.query, **params)
     except Exception as e:
         logging.exception("Error in search_memories:")
         raise HTTPException(status_code=500, detail=str(e))
@@ -213,7 +259,9 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
 def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(verify_auth)):
     """Update an existing memory."""
     try:
-        return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata)
+        return get_memory_instance().update(
+            memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata
+        )
     except Exception as e:
         logging.exception("Error in update_memory:")
         raise HTTPException(status_code=500, detail=str(e))
@@ -223,7 +271,7 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
 def memory_history(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve memory history."""
     try:
-        return MEMORY_INSTANCE.history(memory_id=memory_id)
+        return get_memory_instance().history(memory_id=memory_id)
     except Exception as e:
         logging.exception("Error in memory_history:")
         raise HTTPException(status_code=500, detail=str(e))
@@ -233,7 +281,7 @@ def memory_history(memory_id: str, _auth=Depends(verify_auth)):
 def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Delete a specific memory by ID."""
     try:
-        MEMORY_INSTANCE.delete(memory_id=memory_id)
+        get_memory_instance().delete(memory_id=memory_id)
         return {"message": "Memory deleted successfully"}
     except Exception as e:
         logging.exception("Error in delete_memory:")
@@ -254,7 +302,7 @@ def delete_all_memories(
         params = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
-        MEMORY_INSTANCE.delete_all(**params)
+        get_memory_instance().delete_all(**params)
         return {"message": "All relevant memories deleted"}
     except Exception as e:
         logging.exception("Error in delete_all_memories:")
@@ -265,7 +313,7 @@ def delete_all_memories(
 def reset_memory(_auth=Depends(verify_auth)):
     """Completely reset stored memories."""
     try:
-        MEMORY_INSTANCE.reset()
+        get_memory_instance().reset()
         return {"message": "All memories reset"}
     except Exception as e:
         logging.exception("Error in reset_memory:")

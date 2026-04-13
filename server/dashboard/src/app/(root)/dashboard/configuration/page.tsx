@@ -1,52 +1,98 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { api } from "@/utils/api";
-import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
 import { toast } from "@/components/ui/use-toast";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
+import { getErrorMessage } from "@/lib/error-message";
+import { api } from "@/utils/api";
+import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
+import {
+  buildProviderConfig,
+  getEffectiveConfig,
+} from "@/utils/self-hosted-config";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function ConfigurationPage() {
   const { isAdmin } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
+  const [isPrefilling, setIsPrefilling] = useState(true);
   const [llmProvider, setLlmProvider] = useState("");
   const [llmModel, setLlmModel] = useState("");
   const [llmApiKey, setLlmApiKey] = useState("");
   const [embedderProvider, setEmbedderProvider] = useState("");
   const [embedderModel, setEmbedderModel] = useState("");
 
+  useEffect(() => {
+    let active = true;
+
+    const loadConfig = async () => {
+      try {
+        const res = await api.get(MEMORY_ENDPOINTS.CONFIGURE);
+        const config = getEffectiveConfig(res.data);
+
+        if (!active || !config) {
+          return;
+        }
+
+        setLlmProvider((current) => current || config.llm?.provider || "");
+        setLlmModel((current) => current || config.llm?.config?.model || "");
+        setEmbedderProvider(
+          (current) => current || config.embedder?.provider || "",
+        );
+        setEmbedderModel(
+          (current) => current || config.embedder?.config?.model || "",
+        );
+      } catch {
+      } finally {
+        if (active) {
+          setIsPrefilling(false);
+        }
+      }
+    };
+
+    void loadConfig();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleSave = async () => {
     setIsSaving(true);
+
     try {
-      const newConfig: Record<string, any> = {
+      const llm = buildProviderConfig({
+        provider: llmProvider,
+        model: llmModel,
+        apiKey: llmApiKey,
+      });
+      const embedder = buildProviderConfig({
+        provider: embedderProvider,
+        model: embedderModel,
+      });
+
+      const newConfig: Record<string, unknown> = {
         version: "v1.1",
       };
-      if (llmProvider) {
-        newConfig.llm = {
-          provider: llmProvider,
-          config: {
-            model: llmModel || undefined,
-            api_key: llmApiKey || undefined,
-          },
-        };
+
+      if (llm) {
+        newConfig.llm = llm;
       }
-      if (embedderProvider) {
-        newConfig.embedder = {
-          provider: embedderProvider,
-          config: { model: embedderModel || undefined },
-        };
+
+      if (embedder) {
+        newConfig.embedder = embedder;
       }
+
       await api.post(MEMORY_ENDPOINTS.CONFIGURE, newConfig);
       toast({ title: "Configuration saved", variant: "success" });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Failed to save configuration",
-        description: typeof error === "string" ? error : error?.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -56,7 +102,14 @@ export default function ConfigurationPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold font-fustat">Configuration</h1>
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold font-fustat">Configuration</h1>
+        {isPrefilling && (
+          <p className="text-sm text-onSurface-default-tertiary">
+            Loading effective server configuration...
+          </p>
+        )}
+      </div>
 
       <Card className="border-memBorder-primary">
         <CardHeader>
@@ -66,16 +119,32 @@ export default function ConfigurationPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Provider</Label>
-              <Input placeholder="openai" value={llmProvider} onChange={(e) => setLlmProvider(e.target.value)} disabled={!isAdmin} />
+              <Input
+                placeholder="openai"
+                value={llmProvider}
+                onChange={(e) => setLlmProvider(e.target.value)}
+                disabled={!isAdmin}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Model</Label>
-              <Input placeholder="gpt-4.1-nano-2025-04-14" value={llmModel} onChange={(e) => setLlmModel(e.target.value)} disabled={!isAdmin} />
+              <Input
+                placeholder="gpt-4.1-nano-2025-04-14"
+                value={llmModel}
+                onChange={(e) => setLlmModel(e.target.value)}
+                disabled={!isAdmin}
+              />
             </div>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">API Key</Label>
-            <Input type="password" placeholder="sk-..." value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} disabled={!isAdmin} />
+            <Input
+              type="password"
+              placeholder="sk-..."
+              value={llmApiKey}
+              onChange={(e) => setLlmApiKey(e.target.value)}
+              disabled={!isAdmin}
+            />
           </div>
         </CardContent>
       </Card>
@@ -88,11 +157,21 @@ export default function ConfigurationPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Provider</Label>
-              <Input placeholder="openai" value={embedderProvider} onChange={(e) => setEmbedderProvider(e.target.value)} disabled={!isAdmin} />
+              <Input
+                placeholder="openai"
+                value={embedderProvider}
+                onChange={(e) => setEmbedderProvider(e.target.value)}
+                disabled={!isAdmin}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Model</Label>
-              <Input placeholder="text-embedding-3-small" value={embedderModel} onChange={(e) => setEmbedderModel(e.target.value)} disabled={!isAdmin} />
+              <Input
+                placeholder="text-embedding-3-small"
+                value={embedderModel}
+                onChange={(e) => setEmbedderModel(e.target.value)}
+                disabled={!isAdmin}
+              />
             </div>
           </div>
         </CardContent>

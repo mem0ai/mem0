@@ -9,8 +9,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground  hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground  hover:bg-primary/90",
         destructive:
           "bg-onSurface-danger-primary hover:bg-onSurface-danger-secondary dark:bg-onSurface-danger-secondary dark:hover:bg-onSurface-danger-primary text-white",
         outline:
@@ -20,13 +19,20 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent/30 hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         grey: "bg-accent/30 text-accent-foreground hover:bg-accent/80",
-        primary: "bg-onSurface-default-primary text-surface-default-primary hover:bg-onSurface-default-primary/80",
-        tertiary: "bg-surface-default-tertiary text-onSurface-default-primary hover:bg-surface-default-tertiary-hover",
-        surfaceSecondary: "bg-surface-default-secondary text-onSurface-default-primary hover:bg-surface-default-secondary-hover border border-memBorder-primary",
-        surfacePrimary: "bg-surface-default-primary text-onSurface-default-primary hover:bg-surface-default-primary-hover",
-        transparent: "bg-transparent text-onSurface-default-primary hover:bg-transparent/80 hover:text-white",
-        subtle: "bg-transparent text-onSurface-default-primary hover:bg-surface-default-fg-secondary-hover border-0",
-        brand: "bg-surface-default-brand text-onSurface-default-primary hover:bg-surface-default-brand-hover",
+        primary:
+          "bg-onSurface-default-primary text-surface-default-primary hover:bg-onSurface-default-primary/80",
+        tertiary:
+          "bg-surface-default-tertiary text-onSurface-default-primary hover:bg-surface-default-tertiary-hover",
+        surfaceSecondary:
+          "bg-surface-default-secondary text-onSurface-default-primary hover:bg-surface-default-secondary-hover border border-memBorder-primary",
+        surfacePrimary:
+          "bg-surface-default-primary text-onSurface-default-primary hover:bg-surface-default-primary-hover",
+        transparent:
+          "bg-transparent text-onSurface-default-primary hover:bg-transparent/80 hover:text-white",
+        subtle:
+          "bg-transparent text-onSurface-default-primary hover:bg-surface-default-fg-secondary-hover border-0",
+        brand:
+          "bg-surface-default-brand text-onSurface-default-primary hover:bg-surface-default-brand-hover",
       },
       size: {
         default: "h-9 px-4 py-2",

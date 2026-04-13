@@ -64,7 +64,8 @@ const variantToElement: Record<TypographyVariant, TypographyElement> = {
 };
 
 export interface TypographyProps
-  extends React.HTMLAttributes<HTMLElement>,
+  extends
+    React.HTMLAttributes<HTMLElement>,
     VariantProps<typeof typographyVariants> {
   as?: TypographyElement;
 }

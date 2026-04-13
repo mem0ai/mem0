@@ -45,13 +45,12 @@ const DeleteConfirmationModal = ({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent>
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription className="mb-4">
-          {description}
-        </DialogDescription>
-        
+        <DialogDescription className="mb-4">{description}</DialogDescription>
+
         <div className="space-y-4">
           <p className="text-sm text-[#565553]">
-            Please type <span className="font-bold">{itemName}</span> to confirm.
+            Please type <span className="font-bold">{itemName}</span> to
+            confirm.
           </p>
           <Input
             type="text"
@@ -66,8 +65,8 @@ const DeleteConfirmationModal = ({
           <Button onClick={handleClose} variant="outline">
             Cancel
           </Button>
-          <Button 
-            onClick={handleConfirm} 
+          <Button
+            onClick={handleConfirm}
             variant="destructive"
             disabled={!isDeleteEnabled}
           >
@@ -79,4 +78,4 @@ const DeleteConfirmationModal = ({
   );
 };
 
-export default DeleteConfirmationModal; 
+export default DeleteConfirmationModal;

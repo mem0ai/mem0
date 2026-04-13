@@ -1,6 +1,7 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosError, AxiosInstance } from "axios";
 
 let cachedToken: string | null = null;
+const LOGIN_PATH = "/login";
 
 export const setAccessToken = (token: string | null) => {
   cachedToken = token;
@@ -14,85 +15,102 @@ const handleTokenError = () => {
   cachedToken = null;
 };
 
-const createApi = (): AxiosInstance & { postStream: (url: string, data: any) => Promise<Response> } => {
+const redirectToLogin = () => {
+  if (typeof window !== "undefined") {
+    window.location.href = LOGIN_PATH;
+  }
+};
+
+const refreshAccessToken = async () => {
+  const refreshResponse = await fetch("/api/auth/refresh", {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!refreshResponse.ok) {
+    return null;
+  }
+
+  const data = await refreshResponse.json();
+  setAccessToken(data.access_token);
+  return data.access_token as string;
+};
+
+const createApi = (): AxiosInstance & {
+  postStream: (url: string, data: unknown) => Promise<Response>;
+} => {
   const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL,
   });
 
-  // Request interceptor
   api.interceptors.request.use(
     async (config) => {
       if (cachedToken) {
+        config.headers = config.headers ?? {};
         config.headers.Authorization = `Bearer ${cachedToken}`;
       }
       return config;
     },
     (error) => {
       return Promise.reject(error);
-    }
+    },
   );
 
-  // Response interceptor
   api.interceptors.response.use(
     (response) => {
       try {
-        if (typeof response.data === 'object' && response.data !== null) {
+        if (typeof response.data === "object" && response.data !== null) {
           response.data.ok = true;
         }
-      } catch (e) {
+      } catch {
         return response;
       }
       return response;
     },
-    async (error) => {
+    async (error: AxiosError<{ error?: string }>) => {
       if (error.response?.status === 401) {
         handleTokenError();
-        // Try to refresh the token
+
         try {
-          const refreshResponse = await fetch('/api/auth/refresh', {
-            method: 'POST',
-            credentials: 'include',
-          });
-          if (refreshResponse.ok) {
-            const data = await refreshResponse.json();
-            setAccessToken(data.access_token);
-            // Retry the original request
-            error.config.headers.Authorization = `Bearer ${data.access_token}`;
+          const nextToken = await refreshAccessToken();
+          if (nextToken && error.config) {
+            error.config.headers = error.config.headers ?? {};
+            error.config.headers.Authorization = `Bearer ${nextToken}`;
             return api.request(error.config);
           }
-        } catch {
-          // Refresh failed — redirect to login
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
-        }
+        } catch {}
+
+        handleTokenError();
+        redirectToLogin();
       }
+
       if (error.response?.data?.error) {
         return Promise.reject(error.response.data.error);
       }
+
       return Promise.reject(error);
-    }
+    },
   );
 
-  // Streaming POST using fetch
-  const postStream = async (url: string, data: any): Promise<Response> => {
+  const postStream = async (url: string, data: unknown): Promise<Response> => {
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${url}`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: cachedToken ? `Bearer ${cachedToken}` : '',
+        "Content-Type": "application/json",
+        Authorization: cachedToken ? `Bearer ${cachedToken}` : "",
       },
       body: JSON.stringify(data),
     });
 
     if (response.status === 401) {
       handleTokenError();
-      throw new Error('Unauthorized');
+      redirectToLogin();
+      throw new Error("Unauthorized");
     }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Request failed');
+      throw new Error(errorData.error || "Request failed");
     }
 
     return response;

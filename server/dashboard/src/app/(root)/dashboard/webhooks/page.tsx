@@ -18,7 +18,12 @@ function WebhooksMockup() {
         <div className="space-y-2">
           <Label>Events</Label>
           <div className="flex flex-col gap-2">
-            {["memory.created", "memory.updated", "memory.deleted", "search.performed"].map((event) => (
+            {[
+              "memory.created",
+              "memory.updated",
+              "memory.deleted",
+              "search.performed",
+            ].map((event) => (
               <div key={event} className="flex items-center gap-2">
                 <Checkbox disabled checked={event === "memory.created"} />
                 <Label className="text-sm font-normal">{event}</Label>

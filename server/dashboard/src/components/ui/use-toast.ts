@@ -15,8 +15,16 @@ export type ToastOptions = {
 
 function toast(options: ToastOptions) {
   const { title, description, variant = "default" } = options;
-  const message = title != null ? String(title) : description != null ? String(description) : "Notification";
-  const opts = title != null && description != null ? { description: String(description) } : {};
+  const message =
+    title != null
+      ? String(title)
+      : description != null
+        ? String(description)
+        : "Notification";
+  const opts =
+    title != null && description != null
+      ? { description: String(description) }
+      : {};
 
   if (variant === "destructive") {
     sonnerToast.error(message, opts);
@@ -40,7 +48,7 @@ function useToast() {
       toast,
       dismiss: () => {},
     }),
-    []
+    [],
   );
 }
 

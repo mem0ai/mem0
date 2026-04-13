@@ -37,7 +37,6 @@ export function CodeComparison({
     darkTheme,
   ]);
 
-  
   return (
     <div className="mx-auto w-full">
       <div className="relative w-full overflow-hidden rounded-md border border-memBorder-primary">
