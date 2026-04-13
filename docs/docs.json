@@ -622,7 +622,7 @@
     },
     {
       "source": "/platform/features/expiration-date",
-      "destination": "/"
+      "destination": "/cookbooks/essentials/memory-expiration-short-and-long-term"
     },
     {
       "source": "/platform/features/async-mode-default-change",
