@@ -96,6 +96,7 @@ def _merge_config(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, An
 
     return merged
 
+
 app = FastAPI(
     title="Mem0 REST APIs",
     description=(
@@ -177,7 +178,7 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
         response = MEMORY_INSTANCE.add(messages=[m.model_dump() for m in memory_create.messages], **params)
         return JSONResponse(content=response)
     except Exception as e:
-        logging.exception("Error in add_memory:")  # This will log the full traceback
+        logging.exception("Error in add_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -224,15 +225,7 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
 def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(verify_auth)):
-    """Update an existing memory with new content.
-
-    Args:
-        memory_id (str): ID of the memory to update
-        updated_memory (MemoryUpdate): New content and optional metadata to update the memory with
-
-    Returns:
-        dict: Success message indicating the memory was updated
-    """
+    """Update an existing memory."""
     try:
         return MEMORY_INSTANCE.update(memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata)
     except Exception as e:

@@ -129,8 +129,7 @@ export default function SetupPage() {
             <div key={label} className="flex items-center gap-2">
               <div className={cn(
                 "size-7 rounded-full flex items-center justify-center text-xs font-medium",
-                i < step ? "bg-memPurple-500 text-white" :
-                i === step ? "bg-memPurple-500 text-white" :
+                i <= step ? "bg-memPurple-500 text-white" :
                 "bg-memNeutral-200 text-onSurface-default-tertiary"
               )}>
                 {i < step ? <Check className="size-3.5" /> : i + 1}
