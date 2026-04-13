@@ -54,7 +54,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
       const result = await client.add(messages, { userId: TEST_USER_ID });
 
       // v3 API processes memories asynchronously — returns PENDING
-      expect(result).toHaveProperty("event_id");
+      expect(result).toHaveProperty("eventId");
       expect(result).toHaveProperty("status");
     });
 
@@ -71,7 +71,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
       ];
 
       const result = await client.add(messages, { userId: TEST_USER_ID });
-      expect(result).toHaveProperty("event_id");
+      expect(result).toHaveProperty("eventId");
     });
 
     test("memories become available after async processing", async () => {
@@ -190,7 +190,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
         },
       );
 
-      expect(result).toHaveProperty("event_id");
+      expect(result).toHaveProperty("eventId");
     });
 
     test("getAll for non-existent user returns empty array", async () => {
