@@ -10,7 +10,6 @@ import {
   Activity,
   GalleryVerticalEnd,
   Search,
-  Users,
   Wrench,
   Tags,
   Waypoints,
@@ -147,7 +146,6 @@ export function MainNav({
                   <SidebarGroupLabel className="mb-0">ACCOUNT</SidebarGroupLabel>
                 )}
                 {[
-                  { title: "Team", url: "/dashboard/team", icon: Users, active: pathname === "/dashboard/team" },
                   { title: "Configuration", url: "/dashboard/configuration", icon: Wrench, active: pathname === "/dashboard/configuration" },
                   { title: "Settings", url: "/dashboard/settings", icon: Settings, active: pathname === "/dashboard/settings" },
                 ].map((item) => (

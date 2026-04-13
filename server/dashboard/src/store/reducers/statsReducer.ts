@@ -9,7 +9,6 @@ interface StatsState {
 const initialState: StatsState = {
   stats: {
     memory_count: 0,
-    team_size: 0,
     active_api_keys: 0,
   },
   isLoading: false,

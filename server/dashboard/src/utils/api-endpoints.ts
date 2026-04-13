@@ -20,13 +20,6 @@ export const API_KEY_ENDPOINTS = {
   BY_ID: (keyId: string) => `/api-keys/${keyId}`,
 } as const;
 
-export const TEAM_ENDPOINTS = {
-  BASE: "/team",
-  INVITE: "/team/invite",
-  ACCEPT_INVITE: "/team/accept-invite",
-  BY_ID: (userId: string) => `/team/${userId}`,
-} as const;
-
 export const STATS_ENDPOINTS = {
   OVERVIEW: "/stats/overview",
 } as const;

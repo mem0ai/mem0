@@ -1,6 +1,5 @@
 export interface Stats {
   memory_count: number;
-  team_size: number;
   active_api_keys: number;
 }
 

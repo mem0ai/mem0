@@ -14,7 +14,6 @@ from mem0 import Memory
 from auth import ADMIN_API_KEY, verify_auth
 from routers import auth as auth_router
 from routers import api_keys as api_keys_router
-from routers import team as team_router
 from routers import stats as stats_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -121,7 +120,6 @@ app.add_middleware(
 # Include auth & management routers
 app.include_router(auth_router.router)
 app.include_router(api_keys_router.router)
-app.include_router(team_router.router)
 app.include_router(stats_router.router)
 
 
