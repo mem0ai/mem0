@@ -99,18 +99,18 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     ```python
     # Before
     config = {
-        "custom_fact_extraction_prompt": "Focus on user preferences",  # ❌ Renamed
-        "custom_update_memory_prompt": "Be concise when updating",      # ❌ Deprecated
+        "custom_fact_extraction_prompt": "Focus on user preferences",  # [REMOVED] Renamed
+        "custom_update_memory_prompt": "Be concise when updating",      # [REMOVED] Deprecated
         "graph_store": {
             "provider": "neo4j",
             "config": { "url": "...", "username": "...", "password": "..." }
         },
-        "enable_graph": True,  # ❌ Removed
+        "enable_graph": True,  # [REMOVED] Removed
     }
 
     # After
     config = {
-        "custom_instructions": "Focus on user preferences",  # ✅ New name
+        "custom_instructions": "Focus on user preferences",  # [OK] New name
         # custom_update_memory_prompt removed — use custom_instructions
         "graph_store": {
             "provider": "neo4j",
@@ -124,8 +124,8 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     ```typescript
     // Before
     const config = {
-      customPrompt: "Focus on user preferences",  // ❌ Renamed
-      enableGraph: true,                            // ❌ Removed
+      customPrompt: "Focus on user preferences",  // [REMOVED] Renamed
+      enableGraph: true,                            // [REMOVED] Removed
       graphStore: {
         provider: "neo4j",
         config: { url: "...", username: "...", password: "..." }
@@ -134,7 +134,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
 
     // After
     const config = {
-      customInstructions: "Focus on user preferences",  // ✅ New name
+      customInstructions: "Focus on user preferences",  // [OK] New name
       // enableGraph removed — graph activates when graphStore is present
       graphStore: {
         provider: "neo4j",
@@ -154,7 +154,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     results = m.search(
         "what meetings did I attend?",
         user_id="alice",
-        top_k=20          # ❌ Renamed to 'limit'
+        top_k=20          # [REMOVED] Renamed to 'limit'
     )
     for r in results:
         print(r["score"])  # Was raw cosine similarity
@@ -163,7 +163,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     results = m.search(
         "what meetings did I attend?",
         user_id="alice",
-        limit=20,           # ✅ Renamed from 'top_k'
+        limit=20,           # [OK] Renamed from 'top_k'
         threshold=0.1,      # New default (pass 0.0 to disable)
         rerank=False         # New default (pass True to restore)
     )
@@ -179,13 +179,13 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     // Before
     const results = await m.search("what meetings did I attend?", {
       userId: "alice",
-      limit: 20          // ❌ Renamed to 'topK'
+      limit: 20          // [REMOVED] Renamed to 'topK'
     });
 
     // After
     const results = await m.search("what meetings did I attend?", {
       userId: "alice",
-      topK: 20            // ✅ Renamed from 'limit'
+      topK: 20            // [OK] Renamed from 'limit'
     });
     ```
   </Tab>
@@ -217,20 +217,20 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     // Before
     const client = new MemoryClient({
       apiKey: "...",
-      organizationId: "org-1",  // ❌ Removed
-      projectId: "proj-1"       // ❌ Removed
+      organizationId: "org-1",  // [REMOVED] Removed
+      projectId: "proj-1"       // [REMOVED] Removed
     });
     const results = await client.search("query", {
-      user_id: "alice",         // ❌ snake_case
-      top_k: 20,                // ❌ snake_case
-      enable_graph: true        // ❌ Removed
+      user_id: "alice",         // [REMOVED] snake_case
+      top_k: 20,                // [REMOVED] snake_case
+      enable_graph: true        // [REMOVED] Removed
     });
 
     // After
     const client = new MemoryClient({ apiKey: "..." });
     const results = await client.search("query", {
-      userId: "alice",          // ✅ camelCase
-      topK: 20                  // ✅ camelCase
+      userId: "alice",          // [OK] camelCase
+      topK: 20                  // [OK] camelCase
       // enable_graph removed — configured at project level
     });
     ```
@@ -248,9 +248,9 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
         if item["event"] == "ADD":
             print("New memory:", item["memory"])
         elif item["event"] == "UPDATE":
-            print("Updated:", item["memory"])     # ❌ No longer returned
+            print("Updated:", item["memory"])     # [REMOVED] No longer returned
         elif item["event"] == "DELETE":
-            print("Deleted:", item["memory"])      # ❌ No longer returned
+            print("Deleted:", item["memory"])      # [REMOVED] No longer returned
 
     # After — only ADD events
     result = m.add("I love hiking and my dog's name is Max", user_id="alice")
@@ -278,15 +278,15 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     ```typescript
     // Before
     await client.add(messages, {
-      user_id: "alice",       // ❌ snake_case
-      async_mode: true,       // ❌ Removed
-      output_format: "v1.1",  // ❌ Removed
-      enable_graph: true      // ❌ Removed
+      user_id: "alice",       // [REMOVED] snake_case
+      async_mode: true,       // [REMOVED] Removed
+      output_format: "v1.1",  // [REMOVED] Removed
+      enable_graph: true      // [REMOVED] Removed
     });
 
     // After
     await client.add(messages, {
-      userId: "alice"         // ✅ camelCase
+      userId: "alice"         // [OK] camelCase
     });
     ```
   </Tab>

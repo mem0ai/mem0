@@ -179,8 +179,8 @@ from mem0 import MemoryClient
 # Before
 client = MemoryClient(
     api_key="...",
-    org_id="org-1",       # ❌ Removed
-    project_id="proj-1"   # ❌ Removed
+    org_id="org-1",       # [REMOVED] Removed
+    project_id="proj-1"   # [REMOVED] Removed
 )
 client.add(messages, user_id="alice", async_mode=True, output_format="v1.1")
 
@@ -200,20 +200,20 @@ All parameters now use **camelCase** (the SDK handles conversion to/from the API
 // Before
 const client = new MemoryClient({
   apiKey: "...",
-  organizationId: "org-1",  // ❌ Removed
-  projectId: "proj-1"       // ❌ Removed
+  organizationId: "org-1",  // [REMOVED] Removed
+  projectId: "proj-1"       // [REMOVED] Removed
 });
 await client.search("query", {
-  user_id: "alice",          // ❌ snake_case
-  top_k: 20,                 // ❌ snake_case
-  enable_graph: true          // ❌ Removed
+  user_id: "alice",          // [REMOVED] snake_case
+  top_k: 20,                 // [REMOVED] snake_case
+  enable_graph: true          // [REMOVED] Removed
 });
 
 // After
 const client = new MemoryClient({ apiKey: "..." });
 await client.search("query", {
-  userId: "alice",           // ✅ camelCase
-  topK: 20                   // ✅ camelCase
+  userId: "alice",           // [OK] camelCase
+  topK: 20                   // [OK] camelCase
 });
 ```
 
