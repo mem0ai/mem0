@@ -168,7 +168,10 @@ export class Memory {
       };
       // For file-based stores (memory/SQLite), use a separate DB path for entities
       if (entityConfig.dbPath) {
-        entityConfig.dbPath = entityConfig.dbPath.replace(/\.db$/, "_entities.db");
+        entityConfig.dbPath = entityConfig.dbPath.replace(
+          /\.db$/,
+          "_entities.db",
+        );
       }
       this._entityStore = VectorStoreFactory.create(
         this.config.vectorStore.provider,
@@ -359,8 +362,7 @@ export class Memory {
     }
 
     // Phase 2: LLM extraction (single call)
-    const isAgentScoped =
-      !!filters.agentId && !filters.userId;
+    const isAgentScoped = !!filters.agentId && !filters.userId;
     let systemPrompt = ADDITIVE_EXTRACTION_PROMPT;
     if (isAgentScoped) {
       systemPrompt += AGENT_CONTEXT_SUFFIX;
@@ -404,8 +406,7 @@ export class Memory {
           extractedMemories = parsed.memory;
         } catch {
           const fallbackJson = extractJson(cleanResponse);
-          extractedMemories =
-            JSON.parse(fallbackJson)?.memory ?? [];
+          extractedMemories = JSON.parse(fallbackJson)?.memory ?? [];
         }
       }
     } catch (e) {
@@ -565,9 +566,7 @@ export class Memory {
               hr.createdAt,
             );
           } catch (e) {
-            console.error(
-              `Failed to add history for ${hr.memoryId}: ${e}`,
-            );
+            console.error(`Failed to add history for ${hr.memoryId}: ${e}`);
           }
         }
       }
@@ -582,9 +581,7 @@ export class Memory {
             hr.createdAt,
           );
         } catch (e) {
-          console.error(
-            `Failed to add history for ${hr.memoryId}: ${e}`,
-          );
+          console.error(`Failed to add history for ${hr.memoryId}: ${e}`);
         }
       }
     }
@@ -601,8 +598,7 @@ export class Memory {
       > = {};
       for (let idx = 0; idx < records.length; idx++) {
         const memoryId = records[idx].memoryId;
-        const entities =
-          idx < allEntities.length ? allEntities[idx] : [];
+        const entities = idx < allEntities.length ? allEntities[idx] : [];
         for (const entity of entities) {
           const key = entity.text.trim().toLowerCase();
           if (key in globalEntities) {
@@ -656,8 +652,7 @@ export class Memory {
           const toInsertPayloads: Record<string, any>[] = [];
 
           for (const { index: j, key } of valid) {
-            const { entityType, entityText, memoryIds } =
-              globalEntities[key];
+            const { entityType, entityText, memoryIds } = globalEntities[key];
             const entityVec = entityEmbeddings[j]!;
 
             let matches: Array<{
@@ -666,31 +661,20 @@ export class Memory {
               payload: Record<string, any>;
             }> = [];
             try {
-              matches = await entityStore.search(
-                entityVec,
-                1,
-                searchFilters,
-              );
+              matches = await entityStore.search(entityVec, 1, searchFilters);
             } catch {}
 
-            if (
-              matches.length > 0 &&
-              (matches[0].score ?? 0) >= 0.95
-            ) {
+            if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
               // Update existing entity
               const match = matches[0];
               const payload = match.payload || {};
-              const linked = new Set<string>(
-                payload.linkedMemoryIds ?? [],
-              );
+              const linked = new Set<string>(payload.linkedMemoryIds ?? []);
               for (const mid of memoryIds) linked.add(mid);
               payload.linkedMemoryIds = Array.from(linked).sort();
               try {
                 await entityStore.update(match.id, entityVec, payload);
               } catch (e) {
-                console.debug(
-                  `Entity update failed for '${entityText}': ${e}`,
-                );
+                console.debug(`Entity update failed for '${entityText}': ${e}`);
               }
             } else {
               // New entity — collect for batch insert
@@ -857,10 +841,7 @@ export class Memory {
     // Step 5: Compute BM25 scores from keyword results
     const bm25Scores: Record<string, number> = {};
     if (keywordResults) {
-      const [midpoint, steepness] = getBm25Params(
-        query,
-        queryLemmatized,
-      );
+      const [midpoint, steepness] = getBm25Params(query, queryLemmatized);
       for (const mem of keywordResults) {
         const memId = String(mem.id);
         const rawScore = mem.score ?? 0;
@@ -888,17 +869,14 @@ export class Memory {
         if (deduped.length > 0) {
           const searchFilters: SearchFilters = {};
           if (filters.userId) searchFilters.userId = filters.userId;
-          if (filters.agentId)
-            searchFilters.agentId = filters.agentId;
+          if (filters.agentId) searchFilters.agentId = filters.agentId;
           if (filters.runId) searchFilters.runId = filters.runId;
 
           const entityStore = await this.getEntityStore();
 
           for (const entity of deduped) {
             try {
-              const entityEmbedding = await this.embedder.embed(
-                entity.text,
-              );
+              const entityEmbedding = await this.embedder.embed(entity.text);
               const matches = await entityStore.search(
                 entityEmbedding,
                 500,
@@ -910,22 +888,15 @@ export class Memory {
                 if (similarity < 0.5) continue;
 
                 const payload = match.payload || {};
-                const linkedMemoryIds =
-                  payload.linkedMemoryIds ?? [];
+                const linkedMemoryIds = payload.linkedMemoryIds ?? [];
                 if (!Array.isArray(linkedMemoryIds)) continue;
 
                 // Spread-attenuated boost
-                const numLinked = Math.max(
-                  linkedMemoryIds.length,
-                  1,
-                );
+                const numLinked = Math.max(linkedMemoryIds.length, 1);
                 const memoryCountWeight =
-                  1.0 /
-                  (1.0 + 0.001 * (numLinked - 1) ** 2);
+                  1.0 / (1.0 + 0.001 * (numLinked - 1) ** 2);
                 const boost =
-                  similarity *
-                  ENTITY_BOOST_WEIGHT *
-                  memoryCountWeight;
+                  similarity * ENTITY_BOOST_WEIGHT * memoryCountWeight;
 
                 for (const memoryId of linkedMemoryIds) {
                   if (memoryId) {
@@ -990,10 +961,7 @@ export class Memory {
           metadata: {
             ...Object.entries(payload)
               .filter(([key]) => !excludedKeys.has(key))
-              .reduce(
-                (acc, [key, value]) => ({ ...acc, [key]: value }),
-                {},
-              ),
+              .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
             scoreBreakdown: scored.scoreBreakdown,
           },
           ...(payload.userId && { userId: payload.userId }),

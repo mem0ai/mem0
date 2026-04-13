@@ -28,9 +28,7 @@ jest.mock("../src/llms/openai", () => ({
           const newMsgMatch = content.match(
             /## New Messages\n([\s\S]*?)(?=\n##|$)/,
           );
-          const extracted = newMsgMatch
-            ? newMsgMatch[1].trim()
-            : "test fact";
+          const extracted = newMsgMatch ? newMsgMatch[1].trim() : "test fact";
           return JSON.stringify({
             memory: [
               {

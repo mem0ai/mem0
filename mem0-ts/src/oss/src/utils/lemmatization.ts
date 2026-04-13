@@ -269,11 +269,7 @@ export function lemmatizeForBm25(text: string): string {
 
     // Also add original if it ends in -ing and differs from stem.
     // This handles noun/verb ambiguity (meeting/meet, attending/attend).
-    if (
-      word.endsWith("ing") &&
-      word !== stemmed &&
-      /^[a-z0-9]+$/.test(word)
-    ) {
+    if (word.endsWith("ing") && word !== stemmed && /^[a-z0-9]+$/.test(word)) {
       tokens.push(word);
     }
   }

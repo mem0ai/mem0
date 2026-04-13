@@ -425,7 +425,10 @@ function extractProper(text: string): ExtractedEntity[] {
     }
 
     const isLabel = i + 1 < tokens.length && tokens[i + 1] === ":";
-    const isCap = tok.length > 0 && tok.charAt(0) === tok.charAt(0).toUpperCase() && /[A-Z]/.test(tok.charAt(0));
+    const isCap =
+      tok.length > 0 &&
+      tok.charAt(0) === tok.charAt(0).toUpperCase() &&
+      /[A-Z]/.test(tok.charAt(0));
 
     if (isCap && !isLabel) {
       const seq: Array<{ token: string; idx: number }> = [
@@ -508,7 +511,9 @@ function extractCompoundsWithNlp(text: string): ExtractedEntity[] {
     if (GENERIC_HEADS.has(head)) {
       // Check if there's a specific modifier
       const hasSpecificMod = words.some(
-        (w) => !NON_SPECIFIC_ADJ.has(w.toLowerCase()) && w !== words[words.length - 1],
+        (w) =>
+          !NON_SPECIFIC_ADJ.has(w.toLowerCase()) &&
+          w !== words[words.length - 1],
       );
       if (!hasSpecificMod) {
         continue;
@@ -516,7 +521,9 @@ function extractCompoundsWithNlp(text: string): ExtractedEntity[] {
     }
 
     // Filter non-specific adjectives from the beginning
-    const filtered = words.filter((w) => !NON_SPECIFIC_ADJ.has(w.toLowerCase()));
+    const filtered = words.filter(
+      (w) => !NON_SPECIFIC_ADJ.has(w.toLowerCase()),
+    );
     const cleaned = stripGenericEnding(filtered);
 
     if (cleaned.length >= 2) {
@@ -560,16 +567,11 @@ function extractCompoundsRegex(text: string): ExtractedEntity[] {
   }
 
   // Also try lowercase compound patterns (e.g., "machine learning", "deep learning")
-  const lowerCompoundRe =
-    /\b([a-z]+(?:\s+[a-z]+){1,3})\b/g;
+  const lowerCompoundRe = /\b([a-z]+(?:\s+[a-z]+){1,3})\b/g;
   while ((match = lowerCompoundRe.exec(text)) !== null) {
     const phrase = match[1].trim();
     const words = phrase.split(/\s+/);
-    if (
-      words.length >= 2 &&
-      words.length <= 4 &&
-      phrase.length > 5
-    ) {
+    if (words.length >= 2 && words.length <= 4 && phrase.length > 5) {
       const head = words[words.length - 1].toLowerCase();
       const allGeneric = words.every(
         (w) =>

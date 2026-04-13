@@ -111,10 +111,9 @@ describe("Memory - add()", () => {
   });
 
   test("result item has a memory string field", async () => {
-    const result: SearchResult = await memory.add(
-      "My favorite color is blue",
-      { userId },
-    );
+    const result: SearchResult = await memory.add("My favorite color is blue", {
+      userId,
+    });
     expect(typeof result.results[0].memory).toBe("string");
   });
 
