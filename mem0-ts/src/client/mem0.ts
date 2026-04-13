@@ -280,7 +280,7 @@ export default class MemoryClient {
   async search(
     query: string,
     options?: SearchMemoryOptions,
-  ): Promise<Array<Memory>> {
+  ): Promise<{ results: Array<Memory> }> {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
@@ -298,8 +298,7 @@ export default class MemoryClient {
         body: JSON.stringify(payload),
       },
     );
-    // Unwrap v1.1 format: { results: [...] } → [...]
-    return Array.isArray(response) ? response : (response?.results ?? response);
+    return response;
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {

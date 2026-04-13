@@ -108,16 +108,16 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   // ─── Edge cases ─────────────────────────────────────────
   describe("edge cases", () => {
     test("search for non-existent user returns empty results", async () => {
-      const results = await client.search("anything", {
+      const response = await client.search("anything", {
         filters: { userId: `nonexistent-user-${randomUUID()}` },
       });
 
-      expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(0);
+      expect(response).toHaveProperty("results");
+      expect(response.results).toHaveLength(0);
     });
 
     test("search with top_k param does not throw", async () => {
-      const results = await client.search(
+      const response = await client.search(
         "Tell me about integration test user",
         {
           filters: { userId: TEST_USER_ID },
@@ -125,7 +125,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
         },
       );
 
-      expect(Array.isArray(results)).toBe(true);
+      expect(response).toHaveProperty("results");
     });
   });
 });

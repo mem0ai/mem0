@@ -92,7 +92,8 @@ export async function waitForSearchResults(
   maxRetries = 4,
 ): Promise<Memory[]> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const results = await withRetry(() => client.search(query, options));
+    const response = await withRetry(() => client.search(query, options));
+    const results = response?.results ?? [];
     if (results.length > 0) {
       return results;
     }
