@@ -298,7 +298,8 @@ export default class MemoryClient {
         body: JSON.stringify(payload),
       },
     );
-    return response;
+    // Unwrap v1.1 format: { results: [...] } → [...]
+    return Array.isArray(response) ? response : (response?.results ?? response);
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
