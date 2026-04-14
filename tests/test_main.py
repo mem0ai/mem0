@@ -371,3 +371,30 @@ def test_telemetry_vector_store_created_when_enabled():
 
         # VectorStoreFactory.create should be called twice — user data + telemetry
         assert mock_vector_store.create.call_count == 2
+
+
+def test_telemetry_vector_store_uses_fixed_dimension():
+    """The mem0migrations collection should always use embedding_model_dims=1536
+    regardless of the user's embedding model, to prevent dimension mismatch
+    when multiple agents share the same database (see #4801)."""
+    with (
+        patch("mem0.memory.main.MEM0_TELEMETRY", True),
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
+
+        # Use a non-default dimension (512) to simulate a different embedding model
+        config = MemoryConfig(version="v1.1", vector_store={"config": {"embedding_model_dims": 512}})
+        Memory(config)
+
+        # The second call to VectorStoreFactory.create is for the telemetry store
+        assert mock_vector_store.create.call_count == 2
+        telemetry_call_args = mock_vector_store.create.call_args_list[1]
+        telemetry_config = telemetry_call_args[0][1]  # second positional arg is the config
+        assert telemetry_config.collection_name == "mem0migrations"
+        assert telemetry_config.embedding_model_dims == 1536

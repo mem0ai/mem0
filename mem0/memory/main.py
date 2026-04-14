@@ -301,6 +301,11 @@ class Memory(MemoryBase):
             # Override collection name for telemetry
             telemetry_config_dict['collection_name'] = "mem0migrations"
 
+            # Use a fixed embedding dimension so that all agents sharing the same
+            # database write to the same mem0migrations collection regardless of
+            # their embedding model's dimensions (fixes #4801).
+            telemetry_config_dict['embedding_model_dims'] = 1536
+
             # Set path for file-based vector stores
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
@@ -1448,6 +1453,11 @@ class AsyncMemory(MemoryBase):
         if MEM0_TELEMETRY:
             telemetry_config = _safe_deepcopy_config(self.config.vector_store.config)
             telemetry_config.collection_name = "mem0migrations"
+            # Use a fixed embedding dimension so that all agents sharing the same
+            # database write to the same mem0migrations collection regardless of
+            # their embedding model's dimensions (fixes #4801).
+            if hasattr(telemetry_config, 'embedding_model_dims'):
+                telemetry_config.embedding_model_dims = 1536
             if self.config.vector_store.provider in ["faiss", "qdrant"]:
                 provider_path = f"migrations_{self.config.vector_store.provider}"
                 telemetry_config.path = os.path.join(mem0_dir, provider_path)
