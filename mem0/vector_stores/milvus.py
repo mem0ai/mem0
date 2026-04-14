@@ -71,13 +71,9 @@ class MilvusDB(VectorStoreBase):
 
         if self.client.has_collection(collection_name):
             logger.info(f"Collection {collection_name} already exists. Skipping creation.")
-            try:
-                desc = self.client.describe_collection(collection_name=collection_name)
-                field_names = {f.get("name") for f in desc.get("fields", [])}
-                self._has_bm25_schema = "text" in field_names and "sparse" in field_names
-            except Exception as e:
-                logger.debug(f"Could not inspect Milvus collection schema: {e}")
-                self._has_bm25_schema = False
+            desc = self.client.describe_collection(collection_name=collection_name)
+            field_names = {f.get("name") for f in desc.get("fields", [])}
+            self._has_bm25_schema = "text" in field_names and "sparse" in field_names
             if not self._has_bm25_schema:
                 logger.warning(
                     f"Collection '{collection_name}' predates v3 hybrid search (no 'text'/'sparse' fields). "

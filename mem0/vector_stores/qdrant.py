@@ -131,13 +131,9 @@ class Qdrant(VectorStoreBase):
         for collection in response.collections:
             if collection.name == self.collection_name:
                 logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
-                try:
-                    info = self.client.get_collection(self.collection_name)
-                    sparse_cfg = info.config.params.sparse_vectors
-                    self._has_bm25_slot = bool(sparse_cfg and "bm25" in sparse_cfg)
-                except Exception as e:
-                    logger.debug(f"Could not inspect sparse vectors config: {e}")
-                    self._has_bm25_slot = False
+                info = self.client.get_collection(self.collection_name)
+                sparse_cfg = info.config.params.sparse_vectors
+                self._has_bm25_slot = bool(sparse_cfg and "bm25" in sparse_cfg)
                 if not self._has_bm25_slot:
                     logger.warning(
                         f"Collection '{self.collection_name}' predates v3 hybrid search (no 'bm25' sparse slot). "
