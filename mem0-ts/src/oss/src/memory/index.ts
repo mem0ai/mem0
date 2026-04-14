@@ -993,12 +993,9 @@ export class Memory {
           createdAt: payload.createdAt,
           updatedAt: payload.updatedAt,
           score: scored.score,
-          metadata: {
-            ...Object.entries(payload)
-              .filter(([key]) => !excludedKeys.has(key))
-              .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-            scoreBreakdown: scored.scoreBreakdown,
-          },
+          metadata: Object.entries(payload)
+            .filter(([key]) => !excludedKeys.has(key))
+            .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),

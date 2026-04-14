@@ -1240,9 +1240,6 @@ class Memory(MemoryBase):
                 score=scored["score"],
             ).model_dump()
 
-            # Add score breakdown to metadata
-            memory_item_dict["score_breakdown"] = scored.get("score_breakdown", {})
-
             for key in promoted_payload_keys:
                 if key in payload:
                     memory_item_dict[key] = payload[key]
@@ -2493,8 +2490,6 @@ class AsyncMemory(MemoryBase):
                 updated_at=payload.get("updated_at"),
                 score=scored["score"],
             ).model_dump()
-
-            memory_item_dict["score_breakdown"] = scored.get("score_breakdown", {})
 
             for key in promoted_payload_keys:
                 if key in payload:
