@@ -196,13 +196,21 @@ class MilvusDB(VectorStoreBase):
             list: Search results.
         """
         query_filter = self._create_filter(filters) if filters else None
-        hits = self.client.search(
-            collection_name=self.collection_name,
-            data=[vectors],
-            limit=top_k,
-            filter=query_filter,
-            output_fields=["*"],
-        )
+        # v3 collections carry both a dense `vectors` field and a sparse `sparse`
+        # field (for BM25), which makes anns_field ambiguous — Milvus rejects the
+        # query otherwise with "multiple anns_fields exist". Legacy single-vector
+        # collections don't need the hint, so only pass it when the hybrid schema
+        # is present.
+        search_kwargs = {
+            "collection_name": self.collection_name,
+            "data": [vectors],
+            "limit": top_k,
+            "filter": query_filter,
+            "output_fields": ["*"],
+        }
+        if self._has_bm25_schema:
+            search_kwargs["anns_field"] = "vectors"
+        hits = self.client.search(**search_kwargs)
         result = self._parse_output(data=hits[0])
         return result
 
