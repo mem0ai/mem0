@@ -164,10 +164,6 @@ Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `F
 }
 ```
 
-### Deprecated Parameters
-
-The `memory_version` parameter (`"v3"`, `"v4"`) is **deprecated and has no effect**. The new algorithm is now the default for all requests. The parameter is still accepted for backward compatibility but can be safely removed from your code.
-
 ## SDK Breaking Changes
 
 Alongside the algorithm update, the Python and TypeScript client SDKs have been cleaned up. These changes affect how you initialize and call the client.
@@ -263,7 +259,6 @@ If your application previously read graph relations from the API response (`rela
 
 - **V1 and V2 endpoints continue to work.** There is no requirement to migrate to V3 endpoints immediately.
 - **Existing memories are preserved.** The new algorithm does not modify or re-process previously stored memories.
-- **The `memory_version` parameter is accepted but ignored.** You can remove it at your convenience.
 - **Search results are fully backward compatible.** The `score_breakdown` field is additive — existing code that reads `score` will continue to work.
 
 ## Performance Improvements
