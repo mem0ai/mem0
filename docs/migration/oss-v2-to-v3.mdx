@@ -17,6 +17,7 @@ The new Mem0 release redesigns both extraction and retrieval, and cleans up the 
 - **Retrieval**: Multi-signal hybrid search (semantic + BM25 keyword + entity matching)
 - **Entity linking**: Automatic entity extraction and cross-memory linking
 - **SDK cleanup**: Deprecated parameters removed, naming conventions standardized
+- **API surface aligned with Platform**: Entity IDs now follow the same convention across OSS and Platform — top-level kwargs for `add()` / `delete_all()`, inside `filters` for `search()` / `get_all()`
 
 These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and **+26 point improvement on LongMemEval** (67.8 → 93.4), while cutting extraction latency roughly in half.
 
@@ -26,6 +27,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 
 | Change | Old | New | Migration |
 |---|---|---|---|
+| `search()` / `get_all()` entity IDs | Top-level kwargs (`user_id="..."`) | Inside `filters` dict | `m.search("q", filters={"user_id": "..."})` — top-level kwargs now raise `ValueError` |
 | `threshold` default | `None` (no filtering) | `0.1` (filters low-relevance) | Pass `threshold=0.0` for old behavior |
 | `rerank` default | `True` | `False` | Pass `rerank=True` to restore |
 | `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
@@ -41,6 +43,7 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | Change | Old | New | Migration |
 |---|---|---|---|
 | Search parameter | `search(query, { limit: 10 })` | `search(query, { topK: 10 })` | Rename `limit` → `topK` |
+| `search()` / `getAll()` entity IDs | Top-level options (`userId: "..."`) | Inside `filters` object | `m.search("q", { filters: { userId: "..." } })` |
 | Custom prompt | `customPrompt` | `customInstructions` | Rename in config |
 | Graph memory | `enableGraph` + `graphStore` in config | Removed | Graph store support has been removed entirely |
 | Default graph config | Neo4j default config applied | No default graph config | Graph store config is no longer used |
@@ -139,7 +142,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
 <Tabs>
   <Tab title="Python OSS">
     ```python
-    # Before
+    # Before — entity IDs as top-level kwargs
     results = m.search(
         "what meetings did I attend?",
         user_id="alice",
@@ -148,11 +151,11 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     for r in results:
         print(r["score"])  # Was raw cosine similarity
 
-    # After
+    # After — entity IDs go inside `filters` (matches Platform API)
     results = m.search(
         "what meetings did I attend?",
-        user_id="alice",    # Direct kwarg — unchanged
-        top_k=20,           # Unchanged
+        filters={"user_id": "alice"},   # [REMOVED top-level kwarg, use filters]
+        top_k=20,
         threshold=0.1,      # New default (pass 0.0 to disable)
         rerank=False         # New default (pass True to restore)
     )
@@ -162,19 +165,23 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
         print(r["score_breakdown"]["bm25"])        # Normalized keyword score
         print(r["score_breakdown"]["entity_boost"])# Entity linking boost
     ```
+
+    <Warning>
+    Passing `user_id`, `agent_id`, or `run_id` as a top-level kwarg to `search()` or `get_all()` now raises `ValueError`. They must be inside the `filters` dict. The change aligns the OSS SDK with the Platform API contract.
+    </Warning>
   </Tab>
   <Tab title="TypeScript OSS">
     ```typescript
-    // Before
+    // Before — entity IDs as top-level options
     const results = await m.search("what meetings did I attend?", {
       userId: "alice",
       limit: 20          // [REMOVED] Renamed to 'topK' for consistency
     });
 
-    // After
+    // After — entity IDs go inside `filters` (matches Platform API)
     const results = await m.search("what meetings did I attend?", {
-      userId: "alice",    // Direct property — unchanged
-      topK: 20            // [OK] Renamed from 'limit'
+      filters: { userId: "alice" },   // [REMOVED top-level option, use filters]
+      topK: 20                        // [OK] Renamed from 'limit'
     });
     ```
   </Tab>
@@ -457,13 +464,24 @@ These parameters have been removed across all SDKs. Remove them from your code:
     await client.search("query", { user_id: "alice", top_k: 20 });
 
     // After
-    await client.search("query", { userId: "alice", topK: 20 });
+    await client.search("query", { filters: { userId: "alice" }, topK: 20 });
     ```
+  </Accordion>
+  <Accordion title="ValueError: Top-level entity parameters not supported in search() / get_all()">
+    `search()` and `get_all()` now require entity IDs inside `filters`. Top-level kwargs raise `ValueError`. This aligns the OSS SDK with the Platform API.
+    ```python
+    # Before
+    results = m.search("query", user_id="alice", top_k=20)
+
+    # After
+    results = m.search("query", filters={"user_id": "alice"}, top_k=20)
+    ```
+    `add()` and `delete_all()` continue to accept entity IDs as top-level kwargs.
   </Accordion>
   <Accordion title="Search returns fewer results than before">
     The default `threshold` changed from `None` to `0.1`. Low-relevance results that were previously included are now filtered out. To restore the old behavior:
     ```python
-    results = m.search("query", user_id="alice", threshold=0.0)
+    results = m.search("query", filters={"user_id": "alice"}, threshold=0.0)
     ```
   </Accordion>
   <Accordion title="spaCy model not found">
