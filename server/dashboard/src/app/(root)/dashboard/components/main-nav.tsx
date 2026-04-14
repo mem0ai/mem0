@@ -9,6 +9,7 @@ import {
   Activity,
   GalleryVerticalEnd,
   Search,
+  Users,
   Wrench,
   Tags,
   WebhookIcon,
@@ -133,6 +134,12 @@ export function MainNav({
                     url: "/dashboard/memories",
                     icon: GalleryVerticalEnd,
                     active: pathname === "/dashboard/memories",
+                  },
+                  {
+                    title: "Entities",
+                    url: "/dashboard/entities",
+                    icon: Users,
+                    active: pathname === "/dashboard/entities",
                   },
                   {
                     title: "Search",

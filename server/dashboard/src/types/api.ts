@@ -40,3 +40,13 @@ export interface ApiRequestLog {
   latency_ms: number;
   auth_type: string;
 }
+
+export type EntityType = "user" | "agent" | "run";
+
+export interface Entity {
+  id: string;
+  type: EntityType;
+  total_memories: number;
+  created_at: string | null;
+  updated_at: string | null;
+}
