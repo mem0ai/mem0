@@ -334,6 +334,14 @@ class Memory(MemoryBase):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
                 entity_config['collection_name'] = entity_collection
+            # For Qdrant, share the existing client to avoid RocksDB lock contention
+            # when using embedded mode (path=...). QdrantConfig.client takes precedence
+            # over host/port/path.
+            if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
+                if hasattr(entity_config, "client"):
+                    entity_config.client = self.vector_store.client
+                elif isinstance(entity_config, dict):
+                    entity_config["client"] = self.vector_store.client
             self._entity_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, entity_config
             )
@@ -1188,8 +1196,6 @@ class Memory(MemoryBase):
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
         # Step 7: Build candidate set from semantic results
-        # BM25 acts as a boost signal only (not recall-expanding) -- candidates must
-        # pass the semantic threshold gate, so only semantic results are candidates.
         candidates = []
         for mem in semantic_results:
             mem_id = str(mem.id)
@@ -1640,6 +1646,14 @@ class AsyncMemory(MemoryBase):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
                 entity_config['collection_name'] = entity_collection
+            # For Qdrant, share the existing client to avoid RocksDB lock contention
+            # when using embedded mode (path=...). QdrantConfig.client takes precedence
+            # over host/port/path.
+            if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
+                if hasattr(entity_config, "client"):
+                    entity_config.client = self.vector_store.client
+                elif isinstance(entity_config, dict):
+                    entity_config["client"] = self.vector_store.client
             self._entity_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, entity_config
             )
