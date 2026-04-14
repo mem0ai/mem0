@@ -49,6 +49,17 @@ Then open `http://localhost:3000` and complete the setup wizard.
 - API: `http://localhost:8888`
 - OpenAPI docs: `http://localhost:8888/docs`
 
+## Dashboard
+
+Once logged in, the dashboard exposes:
+
+- **Requests** — live audit log of API calls (method, path, status, latency).
+- **Memories** — browse memories, filter by user ID.
+- **Entities** — list every `user_id`, `agent_id`, and `run_id` that owns memories, with counts. Delete an entity to cascade-delete its memories.
+- **API Keys** — create, label, and revoke per-user keys.
+- **Configuration** — runtime LLM and embedder override. Changes apply to the running process and reset on restart; edit `.env` to persist.
+- **Settings** — account profile and password.
+
 ## Reference
 
 Additional product and API documentation lives at [docs.mem0.ai](https://docs.mem0.ai/open-source/overview).

@@ -26,7 +26,7 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 ## Feature
 
 - **CRUD endpoints:** Create, retrieve, search, update, delete, and reset memories by `user_id`, `agent_id`, or `run_id`.
-- **API key authentication:** Optionally secure all endpoints with a shared API key via the `X-API-Key` header.
+- **Authentication:** On by default. Dashboard sessions use JWTs; programmatic clients use per-user `X-API-Key` headers. Legacy `ADMIN_API_KEY` is still supported.
 - **Status health check:** Access base routes to confirm the server is online.
 - **OpenAPI explorer:** Visit `/docs` for interactive testing and schema reference.
 
@@ -98,35 +98,65 @@ uvicorn main:app --reload
 
 ## Authentication
 
-The server supports optional API key authentication. When the `ADMIN_API_KEY` environment variable is set, every endpoint requires a valid `X-API-Key` header. The `/` redirect, `/docs`, and `/openapi.json` routes remain open so you can always reach the interactive API explorer.
+Auth is on by default. Protected endpoints require either a JWT (from the dashboard login flow) or an `X-API-Key` header. The `/` redirect, `/docs`, and `/openapi.json` routes stay open so you can reach the OpenAPI explorer.
 
-| `ADMIN_API_KEY` value | Behavior |
-|---|---|
-| Not set / empty | All endpoints are open (no auth) |
-| Any non-empty string | Requests must include `X-API-Key: <your-key>` |
+| Mode | How to send it | When to use it |
+|---|---|---|
+| Bearer JWT | `Authorization: Bearer <access_token>` | Dashboard sessions; tokens come from `POST /auth/login` and refresh via `POST /auth/refresh` |
+| Per-user API key | `X-API-Key: m0sk_...` | Programmatic access scoped to a single dashboard user |
+| Legacy `ADMIN_API_KEY` | `X-API-Key: <env value>` | Back-compat for deployments that set the `ADMIN_API_KEY` env var |
+| `AUTH_DISABLED=true` | — | Local development only; bypasses auth entirely |
 
-### Enable authentication
+### Log in and use a JWT
 
-Add the key to your `.env` file:
+Register the first admin (only works when no user exists yet), then log in:
 
 ```bash
-ADMIN_API_KEY=your-secret-api-key
+curl -X POST http://localhost:8888/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com", "password": "your-password"}'
 ```
 
-Then include the header in every request:
+Use the returned `access_token` as a bearer token:
 
 ```bash
-curl -X POST http://localhost:8000/memories \
+curl -X POST http://localhost:8888/memories \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: your-secret-api-key" \
+  -H "Authorization: Bearer <access_token>" \
   -d '{
     "messages": [{"role": "user", "content": "I love pizza."}],
     "user_id": "alice"
   }'
 ```
 
+When the access token expires, exchange the refresh token at `POST /auth/refresh`.
+
+### Create and use a per-user API key
+
+Create a key from the dashboard **API Keys** page, or call `POST /api-keys` with a JWT. The full `m0sk_...` value is returned **once** at creation time — store it securely.
+
+```bash
+curl -X POST http://localhost:8888/memories \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: m0sk_your_key_here" \
+  -d '{
+    "messages": [{"role": "user", "content": "I love pizza."}],
+    "user_id": "alice"
+  }'
+```
+
+Per-user keys inherit the creating user's scope. List or revoke them via `GET /api-keys` and `DELETE /api-keys/{id}`.
+
+### Legacy `ADMIN_API_KEY`
+
+Set the `ADMIN_API_KEY` environment variable and send it as `X-API-Key`. The request is treated as admin-level and is not tied to a dashboard user. This mode is kept for back-compat with older self-hosted deployments — prefer JWT or per-user keys for new setups.
+
+```bash
+ADMIN_API_KEY=your-long-admin-key
+```
+
 <Warning>
-  The server logs a warning at startup when `ADMIN_API_KEY` is not set. Always set it in production.
+  Setting `AUTH_DISABLED=true` makes every protected endpoint open — the server logs a warning at startup when it's enabled. The server also warns when `ADMIN_API_KEY` is shorter than 16 characters. Never enable `AUTH_DISABLED` in production, and always use a long `ADMIN_API_KEY` if you rely on the legacy fallback.
 </Warning>
 
 ---
@@ -136,7 +166,7 @@ curl -X POST http://localhost:8000/memories \
 ### Create and search memories via HTTP
 
 ```bash
-curl -X POST http://localhost:8000/memories \
+curl -X POST http://localhost:8888/memories \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [
@@ -151,7 +181,7 @@ curl -X POST http://localhost:8000/memories \
 </Info>
 
 ```bash
-curl -X POST http://localhost:8000/search \
+curl -X POST http://localhost:8888/search \
   -H "Content-Type: application/json" \
   -d '{
     "query": "vegetable",
@@ -175,9 +205,12 @@ curl -X POST http://localhost:8000/search \
 
 The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 
+### Memory operations
+
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/configure` | Set memory configuration |
+| `GET` | `/configure` | Get the current memory configuration |
 | `POST` | `/memories` | Create memories |
 | `GET` | `/memories` | Get all memories (filter by `user_id`, `agent_id`, or `run_id`) |
 | `GET` | `/memories/{memory_id}` | Get a specific memory |
@@ -187,6 +220,41 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 | `GET` | `/memories/{memory_id}/history` | Get memory history |
 | `POST` | `/search` | Search memories |
 | `POST` | `/reset` | Reset all memories |
+
+### Authentication
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/auth/setup-status` | Returns `{needsSetup: bool}`. Open, no auth required |
+| `POST` | `/auth/register` | Register the first admin user; returns 403 once any user exists |
+| `POST` | `/auth/login` | Exchange email and password for access and refresh JWTs |
+| `POST` | `/auth/refresh` | Exchange a refresh token for a new access token |
+| `GET` | `/auth/me` | Get the current authenticated user (JWT required) |
+
+### API keys
+
+All `/api-keys` endpoints require a JWT.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api-keys` | List the caller's API keys |
+| `POST` | `/api-keys` | Create a new key; the full `m0sk_...` value is returned once |
+| `DELETE` | `/api-keys/{id}` | Revoke an API key |
+
+### Request logs
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/requests?limit=N` | Recent API call log (JWT or admin key) |
+
+### Entities
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/entities` | Distinct `user_id` / `agent_id` / `run_id` values with memory counts |
+| `DELETE` | `/entities/{entity_type}/{entity_id}` | Cascade-delete all memories for an entity; `entity_type` is `user`, `agent`, or `run` |
+
+The `/auth/*`, `/api-keys`, `/requests`, and `/entities` routes are new to the self-hosted server and primarily back the dashboard, but you can call them directly from your own tooling.
 
 ---
 
@@ -201,7 +269,7 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 
 ## Best practices
 
-1. **Enable authentication:** Set `ADMIN_API_KEY` to secure all endpoints, or use an API gateway for more advanced schemes.
+1. **Keep auth on:** Auth is enabled by default. Never set `AUTH_DISABLED=true` in production. If you rely on `ADMIN_API_KEY`, use a long value (16+ chars) or prefer per-user API keys.
 2. **Use HTTPS:** Terminate TLS at your load balancer or reverse proxy.
 3. **Monitor uptime:** Track request rates, latency, and error codes per endpoint.
 4. **Version configs:** Keep environment files and Docker Compose definitions in source control.

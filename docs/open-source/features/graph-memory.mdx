@@ -13,6 +13,10 @@ Graph Memory extends Mem0 by persisting nodes and edges alongside embeddings, so
 - Agent teams need shared context without duplicating every memory in each run
 </Info>
 
+<Note>
+Graph memory is a library feature. The bundled self-hosted FastAPI server under `server/` does not wire up a graph store — configure it in code via `Memory.from_config` as shown below, or run your own REST layer.
+</Note>
+
 ## How Graph Memory Maps Context
 
 Mem0 extracts entities and relationships from every memory write, stores embeddings in your vector database, and mirrors relationships in a graph backend. On retrieval, vector search narrows candidates while the graph returns related context alongside the results.
