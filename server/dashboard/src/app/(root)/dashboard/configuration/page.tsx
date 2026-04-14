@@ -172,7 +172,7 @@ export default function ConfigurationPage() {
         id="config-sso"
         message="Looking for SSO / SAML? Available in Enterprise."
         ctaLabel="Contact sales"
-        ctaUrl="https://mem0.ai/enterprise"
+        ctaUrl="https://app.mem0.ai/enterprise"
         variant="enterprise"
         dismissible={false}
       />

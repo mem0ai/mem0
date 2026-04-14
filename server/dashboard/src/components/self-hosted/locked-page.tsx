@@ -23,7 +23,7 @@ export function LockedPage({
   description,
   previewContent,
   cloudUrl = "https://app.mem0.ai",
-  salesUrl = "https://mem0.ai/enterprise",
+  salesUrl = "https://app.mem0.ai/enterprise",
 }: LockedPageProps) {
   return (
     <div className="space-y-6">
