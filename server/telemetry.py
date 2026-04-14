@@ -1,8 +1,8 @@
 """Opt-in anonymous telemetry. Sends a single `onboarding_completed` event per install.
 
-Disabled by default. Enable with `MEM0_TELEMETRY=true`. Requires a PostHog project
-write key in `MEM0_TELEMETRY_WRITE_KEY`. No PII is collected — only the email domain,
-signup source, server version, and a randomly generated install UUID.
+Disabled by default. Enable with `MEM0_TELEMETRY=true`. Fires to the same PostHog
+project the mem0 OSS library uses. No PII — only the signup source, email domain,
+server version, and a randomly generated install UUID.
 """
 
 import json
@@ -16,9 +16,10 @@ from typing import Any
 
 import mem0
 
+PROJECT_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
+HOST = "https://us.i.posthog.com"
+
 ENABLED = os.environ.get("MEM0_TELEMETRY", "").lower() in {"1", "true", "yes", "on"}
-WRITE_KEY = os.environ.get("MEM0_TELEMETRY_WRITE_KEY", "")
-HOST = os.environ.get("MEM0_TELEMETRY_HOST", "https://us.i.posthog.com")
 STATE_PATH = Path(os.environ.get("MEM0_TELEMETRY_STATE_PATH", "/app/history/telemetry.json"))
 
 _lock = Lock()
@@ -60,21 +61,17 @@ def _get_client():
     except ImportError:
         logging.warning("telemetry: posthog package not installed; disabling")
         return None
-    _client = Posthog(project_api_key=WRITE_KEY, host=HOST, disable_geoip=True)
+    _client = Posthog(project_api_key=PROJECT_API_KEY, host=HOST, disable_geoip=True)
     return _client
 
 
 def log_status() -> None:
-    if not ENABLED:
-        return
-    if not WRITE_KEY:
-        logging.warning("telemetry: MEM0_TELEMETRY is on but MEM0_TELEMETRY_WRITE_KEY is empty; no events will be sent")
-        return
-    logging.info("telemetry: enabled. Set MEM0_TELEMETRY=false to disable.")
+    if ENABLED:
+        logging.info("telemetry: enabled. Set MEM0_TELEMETRY=false to disable.")
 
 
 def capture_onboarding_completed(email: str, source: str) -> None:
-    if not (ENABLED and WRITE_KEY):
+    if not ENABLED:
         return
 
     with _lock:
