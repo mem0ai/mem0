@@ -8,7 +8,6 @@ import {
   Settings,
   Activity,
   GalleryVerticalEnd,
-  Search,
   Users,
   Wrench,
   Tags,
@@ -140,12 +139,6 @@ export function MainNav({
                     url: "/dashboard/entities",
                     icon: Users,
                     active: pathname === "/dashboard/entities",
-                  },
-                  {
-                    title: "Search",
-                    url: "/dashboard/search",
-                    icon: Search,
-                    active: pathname === "/dashboard/search",
                   },
                 ].map((item) => (
                   <SidebarMenuItem key={item.title}>

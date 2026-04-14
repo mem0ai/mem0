@@ -7,14 +7,6 @@ export interface Memory {
   updated_at?: string;
 }
 
-export interface SearchResult {
-  id: string;
-  memory: string;
-  score: number;
-  user_id?: string;
-  agent_id?: string;
-}
-
 export interface ApiKey {
   id: string;
   label: string;
