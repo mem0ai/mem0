@@ -275,7 +275,7 @@ If your application previously read graph relations from the API response (`rela
 | **Extraction latency (p50)** | ~2.0s | **~1.0s** |
 | **Mean tokens per query** | — | 6.8-7.0K (top200) |
 
-All benchmarks were run on `gpt-oss-120B`, deliberately avoiding frontier models to keep numbers representative of production workloads.
+All benchmarks were run on a production-representative stack — deliberately avoiding frontier models to keep numbers representative of real production workloads.
 
 ## FAQ
 
@@ -288,9 +288,6 @@ All benchmarks were run on `gpt-oss-120B`, deliberately avoiding frontier models
   </Accordion>
   <Accordion title="Can I opt out of the new algorithm?">
     The new algorithm is the default for all platform users. If you have a specific need to use the previous extraction behavior, contact support.
-  </Accordion>
-  <Accordion title="What model powers the extraction?">
-    The platform uses `gpt-oss-120B` for memory extraction by default. This can be overridden at the organization level with a custom LLM configuration. Contact support for details.
   </Accordion>
   <Accordion title="How does entity linking affect my existing integrations?">
     Entity linking is automatic and transparent. It improves retrieval quality without requiring any changes to your integration. Entities are extracted from both new memories and search queries, and matched automatically.

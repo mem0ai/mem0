@@ -12,7 +12,7 @@ Evaluating a memory system at scale requires balancing three parameters: **accur
 Most memory benchmarks today are small enough to be saturated with brute force — aggressive retrieval, bigger context windows, and frontier models can push scores up without meaningfully improving the memory system underneath. That's why we evaluate with deliberate constraints:
 
 - **Two retrieval configurations**: `top200` (maximum recall) and `top50` (production constraints), with tokens and latency disclosed for each
-- **A smaller model, by choice**: All benchmarks use `gpt-oss-120B` as the extraction model — roughly 2.6x faster and 18x cheaper than frontier-model stacks
+- **A production-representative model, by choice**: All benchmarks use a smaller, production-grade model as the extraction model — roughly 2.6x faster and 18x cheaper than frontier-model stacks
 
 ## Architecture Overview
 
@@ -132,7 +132,7 @@ All results use a single-pass retrieval setup: one retrieval call, one answer, n
 | **BEAM (1M)** | — | **64.0** | 6.7K | 1.00s |
 | **BEAM (10M)** | — | **48.0** | 6.9K | 1.05s |
 
-All benchmarks run on `gpt-oss-120B`. Scores carry a ±1 point confidence interval due to judge inconsistency.
+All benchmarks run on the same production-representative model stack. Scores carry a ±1 point confidence interval due to judge inconsistency.
 
 ## Running Evaluations
 
@@ -182,8 +182,8 @@ Each benchmark is a Python module with its own runner ([source code](https://git
 | `--mem0-host` | `http://localhost:8888` | Mem0 server URL (for `oss` backend) |
 | `--top-k` | `200` | Number of memories to retrieve per query |
 | `--top-k-cutoffs` | `10,20,50,200` | Evaluate accuracy at multiple retrieval depths (BEAM default: `100`) |
-| `--answerer-model` | `gpt-5` | LLM for generating answers from retrieved memories |
-| `--judge-model` | `gpt-5` | LLM for judging answer correctness |
+| `--answerer-model` | *(varies)* | LLM for generating answers from retrieved memories |
+| `--judge-model` | *(varies)* | LLM for judging answer correctness |
 | `--provider` | `openai` | LLM provider: `openai`, `anthropic`, `azure` |
 | `--judge-provider` | (same as `--provider`) | Override provider for the judge model |
 | `--max-workers` | `10` | Parallel workers for evaluation |
@@ -286,7 +286,7 @@ Each evaluated question produces a structured result:
   },
   "generation": {
     "generated_answer": "The user first mentioned moving on March 3rd",
-    "model": "gpt-5",
+    "model": "<answerer-model>",
     "prompt_tokens": 500,
     "completion_tokens": 100
   },
@@ -294,7 +294,7 @@ Each evaluated question produces a structured result:
     "judgment": "CORRECT",
     "score": 0.85,
     "reason": "Answer correctly identifies the date",
-    "model": "gpt-5"
+    "model": "<judge-model>"
   },
   "cutoff_results": {
     "top_10": { "score": 0.75, "judgment": "CORRECT" },
@@ -309,7 +309,7 @@ Each evaluated question produces a structured result:
 When evaluating memory systems, keep these considerations in mind:
 
 - **Saturating a small benchmark is not the same as building a memory system that works at scale.** Small benchmarks can be brute-forced with aggressive retrieval and frontier models.
-- **Compare at equal constraints.** Always compare systems using the same `top_k`, the same model, and the same latency budget. A system scoring 95% with top200 and GPT-5 is not comparable to one scoring 90% with top50 and a 120B model.
+- **Compare at equal constraints.** Always compare systems using the same `top_k`, the same model, and the same latency budget. A system scoring 95% with a frontier model at top200 is not comparable to one scoring 90% with a smaller production-grade model at top50.
 - **Watch for score ceiling effects.** Categories like "single-session user" are already near-saturated (97%+). Improvements in these categories are less meaningful than gains in harder categories like temporal reasoning or multi-session.
 - **BEAM at 10M is the real test.** Any system can look good at small scale. The 10M-token BEAM benchmark reveals whether the retrieval system actually scales.
 
@@ -317,10 +317,10 @@ When evaluating memory systems, keep these considerations in mind:
 
 <AccordionGroup>
   <Accordion title="What judge model is used for evaluation?">
-    The default judge model is `gpt-5`. You can override it with `--judge-model` and `--judge-provider` flags. Scores carry a ±1 point confidence interval due to judge inconsistency.
+    The judge model is configurable via `--judge-model` and `--judge-provider` flags. See the [evaluation repository](https://github.com/mem0ai/memory-benchmarks) for the current defaults. Scores carry a ±1 point confidence interval due to judge inconsistency.
   </Accordion>
   <Accordion title="Can I evaluate with a different extraction model?">
-    Yes. For self-hosted, configure the extraction model in your `mem0-config.yaml` (see configs/ for examples with Azure OpenAI, Ollama, etc.). For Mem0 Cloud, extraction uses the platform's default model. The published benchmark numbers use `gpt-oss-120B` specifically — using a frontier model will likely produce higher scores but at higher cost and latency.
+    Yes. For self-hosted, configure the extraction model in your `mem0-config.yaml` (see the `configs/` directory of the evaluation repo for provider-specific examples). For Mem0 Cloud, extraction uses the platform's default. Using a frontier model will likely produce higher scores but at higher cost and latency.
   </Accordion>
   <Accordion title="What's the difference between top200 and top50?">
     `top200` retrieves up to 200 memories per query (maximum recall), while `top50` retrieves up to 50 (production-realistic constraints). The gap between them shows how much retrieval precision matters — a small gap means the system is good at ranking, a large gap means it depends on casting a wide net.

@@ -51,7 +51,7 @@
 | **BEAM (1M)** | — | **64.0** | 6.7K  | 1.00s  |
 | **BEAM (10M)** | — | **48.0** | 6.9K  | 1.05s  |
 
-All benchmarks run on `gpt-oss-120B`. Single-pass retrieval (one call, no agentic loops).
+All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops).
 
 **What changed:**
 - **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.
@@ -123,7 +123,7 @@ See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full comm
 
 ### Basic Usage
 
-Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14 from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+Mem0 requires an LLM to function. It supports a wide range of providers — see our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview) for configuration details.
 
 First step is to instantiate the memory:
 
@@ -142,7 +142,7 @@ def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Generate Assistant response
     system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages)
+    response = openai_client.chat.completions.create(model="<your-model>", messages=messages)
     assistant_response = response.choices[0].message.content
 
     # Create new memories from the conversation
