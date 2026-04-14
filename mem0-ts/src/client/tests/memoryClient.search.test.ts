@@ -189,7 +189,7 @@ describe("MemoryClient - search()", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     const result = await client.search("nonexistent query", {
-      filters: { user_id: "u1" },
+      filters: { AND: [{ user_id: "u1" }] },
     });
     expect(result.results).toHaveLength(0);
   });
@@ -230,7 +230,7 @@ describe("MemoryClient - search() entity param rejection", () => {
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     // Should not throw
-    await client.search("query", { filters: { user_id: "u1" } });
+    await client.search("query", { filters: { AND: [{ user_id: "u1" }] } });
     expect(findFetchCall(mock, "/v3/memories/search/", "POST")).toBeDefined();
   });
 });

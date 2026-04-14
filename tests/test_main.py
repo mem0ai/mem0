@@ -52,9 +52,7 @@ def memory_custom_instance():
         return Memory(config)
 
 
-@pytest.mark.parametrize("version", ["v1.0", "v1.1"])
-def test_add(memory_instance, version):
-    memory_instance.config.version = version
+def test_add(memory_instance):
     memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
 
     result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user")
@@ -92,9 +90,7 @@ def test_get(memory_instance):
     assert result["metadata"] == {"extra_field": "extra_value"}
 
 
-@pytest.mark.parametrize("version", ["v1.0", "v1.1"])
-def test_search(memory_instance, version):
-    memory_instance.config.version = version
+def test_search(memory_instance):
     mock_memories = [
         Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"}, score=0.9),
         Mock(id="2", payload={"data": "Memory 2", "user_id": "test_user"}, score=0.8),
@@ -177,9 +173,7 @@ def test_delete(memory_instance):
     assert result["message"] == "Memory deleted successfully!"
 
 
-@pytest.mark.parametrize("version", ["v1.0", "v1.1"])
-def test_delete_all(memory_instance, version):
-    memory_instance.config.version = version
+def test_delete_all(memory_instance):
     mock_memories = [Mock(id="1"), Mock(id="2")]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
     memory_instance.vector_store.reset = Mock()
@@ -194,15 +188,7 @@ def test_delete_all(memory_instance, version):
     assert result["message"] == "Memories deleted successfully!"
 
 
-@pytest.mark.parametrize(
-    "version, expected_result",
-    [
-        ("v1.0", {"results": [{"id": "1", "memory": "Memory 1", "user_id": "test_user"}]}),
-        ("v1.1", {"results": [{"id": "1", "memory": "Memory 1", "user_id": "test_user"}]}),
-    ],
-)
-def test_get_all(memory_instance, version, expected_result):
-    memory_instance.config.version = version
+def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
 
@@ -210,12 +196,10 @@ def test_get_all(memory_instance, version, expected_result):
 
     assert isinstance(result, dict)
     assert "results" in result
-    assert len(result["results"]) == len(expected_result["results"])
-    for expected_item, result_item in zip(expected_result["results"], result["results"]):
-        assert all(key in result_item for key in expected_item)
-        assert result_item["id"] == expected_item["id"]
-        assert result_item["memory"] == expected_item["memory"]
-        assert result_item["user_id"] == expected_item["user_id"]
+    assert len(result["results"]) == 1
+    assert result["results"][0]["id"] == "1"
+    assert result["results"][0]["memory"] == "Memory 1"
+    assert result["results"][0]["user_id"] == "test_user"
 
     memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=100)
 
