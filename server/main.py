@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from auth import ADMIN_API_KEY, AUTH_DISABLED, verify_auth
 from db import SessionLocal
 from models import RequestLog
+import telemetry
 from routers import auth as auth_router
 from routers import api_keys as api_keys_router
 from routers import entities as entities_router
@@ -43,6 +44,8 @@ elif ADMIN_API_KEY and len(ADMIN_API_KEY) < MIN_KEY_LENGTH:
         "ADMIN_API_KEY is shorter than %d characters - consider using a longer key for production.",
         MIN_KEY_LENGTH,
     )
+
+telemetry.log_status()
 
 POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
 POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")

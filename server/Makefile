@@ -1,8 +1,5 @@
-.PHONY: up down clean logs seed wait-api wait-dashboard bootstrap health build run_local
+.PHONY: up down clean logs seed wait-api wait-dashboard bootstrap health build run_local reset-admin-password
 
-EMAIL ?= admin@mem0.dev
-PASSWORD ?= admin123456
-NAME ?= Admin
 OUTPUT ?= text
 API_URL ?= http://localhost:8888
 DASHBOARD_URL ?= http://localhost:3000
@@ -36,6 +33,11 @@ health:
 	@echo "API:       $$(curl -s -o /dev/null -w '%{http_code}' "$(API_URL)/docs")"
 	@echo "Dashboard: $$(curl -s -o /dev/null -w '%{http_code}' "$(DASHBOARD_URL)/api/health")"
 	@echo "Postgres:  $$(docker compose exec -T postgres pg_isready -q && echo 'ok' || echo 'down')"
+
+reset-admin-password:
+	@test -n "$(EMAIL)" || (echo "usage: make reset-admin-password EMAIL=<email> PASSWORD=<password>" && exit 2)
+	@test -n "$(PASSWORD)" || (echo "usage: make reset-admin-password EMAIL=<email> PASSWORD=<password>" && exit 2)
+	@docker compose exec -T -e EMAIL="$(EMAIL)" -e PASSWORD="$(PASSWORD)" -e PYTHONPATH=/app mem0 python scripts/reset_admin_password.py
 
 build:
 	docker build -t mem0-api-server .

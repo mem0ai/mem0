@@ -43,6 +43,21 @@ Then open `http://localhost:3000` and complete the setup wizard.
 - Auth is enabled by default.
 - `AUTH_DISABLED=true` exists for local development only and should not be used in production.
 
+## Forgotten password
+
+Reset an admin password from the host while the stack is running:
+
+```bash
+cd server
+make reset-admin-password EMAIL=admin@example.com PASSWORD='new-strong-password'
+```
+
+This is the supported recovery path. Anyone with shell access to the host already has full access to the database and secrets, so this command does not expand the attack surface.
+
+## Telemetry
+
+Disabled by default. Enable with `MEM0_TELEMETRY=true` and a PostHog write key in `MEM0_TELEMETRY_WRITE_KEY`. Sends exactly one `onboarding_completed` event per install containing the signup source (`dashboard` or `api`), email domain, server version, and a randomly generated install UUID. No PII is collected.
+
 ## Local URLs
 
 - Dashboard: `http://localhost:3000`

@@ -12,3 +12,6 @@ alembic>=1.13,<2.0
 passlib[bcrypt]>=1.7,<2.0
 bcrypt==4.0.1
 python-jose[cryptography]>=3.3,<4.0
+
+# Optional anonymous telemetry (opt-in via MEM0_TELEMETRY=true)
+posthog>=3.0,<8.0

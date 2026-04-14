@@ -27,6 +27,8 @@ services:
       - APP_DB_NAME=mem0_app
       - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret}
       - AUTH_DISABLED=${AUTH_DISABLED:-false}
+      - MEM0_TELEMETRY=${MEM0_TELEMETRY:-false}
+      - MEM0_TELEMETRY_WRITE_KEY=${MEM0_TELEMETRY_WRITE_KEY:-}
 
   postgres:
       image: ankane/pgvector:v0.5.1

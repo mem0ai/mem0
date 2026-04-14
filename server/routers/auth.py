@@ -16,6 +16,7 @@ from auth import (
 )
 from db import get_db
 from models import User
+from telemetry import capture_onboarding_completed
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -24,6 +25,7 @@ class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
+    source: str = "api"
 
 
 class LoginRequest(BaseModel):
@@ -79,6 +81,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    capture_onboarding_completed(email=body.email, source=body.source)
 
     return TokenResponse(
         access_token=create_access_token(str(user.id), user.role),
