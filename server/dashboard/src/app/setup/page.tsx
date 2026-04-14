@@ -13,18 +13,16 @@ import { getErrorMessage } from "@/lib/error-message";
 import { cn } from "@/lib/utils";
 import { api } from "@/utils/api";
 import { API_KEY_ENDPOINTS, MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
-import {
-  buildProviderConfig,
-  getEffectiveConfig,
-} from "@/utils/self-hosted-config";
+import { getEffectiveConfig } from "@/utils/self-hosted-config";
 
 const STEPS = ["Admin Account", "Providers", "API Key", "Quick Test"];
 const STEP_TITLES = [
   "Create your admin account",
-  "Configure LLM provider",
+  "Review provider configuration",
   "Your API key",
   "Test your setup",
 ];
+const SUPPORTED_PROVIDERS_URL = "https://docs.mem0.ai/components/llms/overview";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -41,7 +39,8 @@ export default function SetupPage() {
 
   const [llmProvider, setLlmProvider] = useState("");
   const [llmModel, setLlmModel] = useState("");
-  const [llmApiKey, setLlmApiKey] = useState("");
+  const [embedderProvider, setEmbedderProvider] = useState("");
+  const [embedderModel, setEmbedderModel] = useState("");
 
   const [apiKey, setApiKey] = useState("");
   const [copied, setCopied] = useState(false);
@@ -63,12 +62,14 @@ export default function SetupPage() {
         const res = await api.get(MEMORY_ENDPOINTS.CONFIGURE);
         const config = getEffectiveConfig(res.data);
 
-        if (!active || !config?.llm) {
+        if (!active) {
           return;
         }
 
-        setLlmProvider((current) => current || config.llm?.provider || "");
-        setLlmModel((current) => current || config.llm?.config?.model || "");
+        setLlmProvider(config?.llm?.provider || "");
+        setLlmModel(config?.llm?.config?.model || "");
+        setEmbedderProvider(config?.embedder?.provider || "");
+        setEmbedderModel(config?.embedder?.config?.model || "");
       } catch (err) {
         if (active) {
           setError(getErrorMessage(err, "Could not read server configuration"));
@@ -106,32 +107,6 @@ export default function SetupPage() {
       setStep(1);
     } catch (err) {
       setError(getErrorMessage(err, "Registration failed"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleStep2 = async () => {
-    setError("");
-    setIsLoading(true);
-
-    try {
-      const llm = buildProviderConfig({
-        provider: llmProvider,
-        model: llmModel,
-        apiKey: llmApiKey,
-      });
-
-      if (llm) {
-        await api.post(MEMORY_ENDPOINTS.CONFIGURE, {
-          version: "v1.1",
-          llm,
-        });
-      }
-
-      setStep(2);
-    } catch (err) {
-      setError(getErrorMessage(err, "Failed to save provider configuration"));
     } finally {
       setIsLoading(false);
     }
@@ -280,43 +255,64 @@ export default function SetupPage() {
 
             {step === 1 && (
               <>
-                <div className="space-y-1">
-                  <Label htmlFor="setup-llm-provider">LLM Provider</Label>
-                  <Input
-                    id="setup-llm-provider"
-                    value={llmProvider}
-                    onChange={(e) => setLlmProvider(e.target.value)}
-                    placeholder="openai"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="setup-llm-model">Model</Label>
-                  <Input
-                    id="setup-llm-model"
-                    value={llmModel}
-                    onChange={(e) => setLlmModel(e.target.value)}
-                    placeholder="gpt-4.1-nano-2025-04-14"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="setup-llm-api-key">API Key</Label>
-                  <Input
-                    id="setup-llm-api-key"
-                    type="password"
-                    value={llmApiKey}
-                    onChange={(e) => setLlmApiKey(e.target.value)}
-                    placeholder="sk-..."
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="setup-llm-provider">LLM Provider</Label>
+                    <Input
+                      id="setup-llm-provider"
+                      value={llmProvider}
+                      readOnly
+                      className="font-mono text-sm"
+                      placeholder="—"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="setup-llm-model">Model</Label>
+                    <Input
+                      id="setup-llm-model"
+                      value={llmModel}
+                      readOnly
+                      className="font-mono text-sm"
+                      placeholder="—"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="setup-embedder-provider">Embedder</Label>
+                    <Input
+                      id="setup-embedder-provider"
+                      value={embedderProvider}
+                      readOnly
+                      className="font-mono text-sm"
+                      placeholder="—"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="setup-embedder-model">Model</Label>
+                    <Input
+                      id="setup-embedder-model"
+                      value={embedderModel}
+                      readOnly
+                      className="font-mono text-sm"
+                      placeholder="—"
+                    />
+                  </div>
                 </div>
                 <p className="text-xs text-onSurface-default-tertiary">
-                  Skip this step if the server is already configured.
+                  Providers and credentials come from your server environment.
+                  To change them, edit <code>.env</code> and restart the
+                  container. See{" "}
+                  <a
+                    href={SUPPORTED_PROVIDERS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4 hover:text-onSurface-default-primary"
+                  >
+                    supported providers
+                  </a>
+                  .
                 </p>
-                <Button
-                  onClick={handleStep2}
-                  disabled={isLoading}
-                  className="w-full"
-                >
-                  {isLoading ? "Saving..." : "Continue"}
+                <Button onClick={() => setStep(2)} className="w-full">
+                  Continue
                 </Button>
               </>
             )}
