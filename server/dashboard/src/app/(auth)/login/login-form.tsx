@@ -28,7 +28,7 @@ export default function LoginForm() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push(searchParams.get("next") || "/dashboard/");
+      router.push(searchParams.get("next") || "/dashboard/requests");
     }
   }, [user, isLoading, router, searchParams]);
 
@@ -45,7 +45,7 @@ export default function LoginForm() {
     setSubmitting(true);
     try {
       await login(email, password);
-      router.push(searchParams.get("next") || "/dashboard/");
+      router.push(searchParams.get("next") || "/dashboard/requests");
     } catch (err) {
       setError(getErrorMessage(err, "Login failed"));
     } finally {

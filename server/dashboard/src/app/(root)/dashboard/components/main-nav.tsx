@@ -6,7 +6,6 @@ import {
   ChevronDown,
   KeyRound,
   Settings,
-  Home,
   Activity,
   GalleryVerticalEnd,
   Search,
@@ -123,13 +122,6 @@ export function MainNav({
                   </SidebarGroupLabel>
                 )}
                 {[
-                  {
-                    title: "Dashboard",
-                    url: "/dashboard",
-                    icon: Home,
-                    active:
-                      pathname === "/dashboard" || pathname === "/dashboard/",
-                  },
                   {
                     title: "Requests",
                     url: "/dashboard/requests",

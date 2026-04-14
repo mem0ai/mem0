@@ -392,7 +392,7 @@ export default function SetupPage() {
                       <Check className="size-4" /> Memory created successfully
                     </div>
                     <Button
-                      onClick={() => router.push("/dashboard/")}
+                      onClick={() => router.push("/dashboard/requests")}
                       className="w-full"
                     >
                       Go to Dashboard

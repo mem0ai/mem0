@@ -15,7 +15,6 @@ from models import RequestLog
 from routers import auth as auth_router
 from routers import api_keys as api_keys_router
 from routers import requests as requests_router
-from routers import stats as stats_router
 from server_state import get_current_config, get_memory_instance, initialize_state, update_config
 
 load_dotenv()
@@ -34,7 +33,7 @@ SENSITIVE_CONFIG_KEYS = {
     "token",
 }
 SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
-SKIPPED_REQUEST_LOG_PREFIXES = ("/auth/", "/stats/", "/api-keys", "/requests", "/configure")
+SKIPPED_REQUEST_LOG_PREFIXES = ("/auth/", "/api-keys", "/requests", "/configure")
 
 if AUTH_DISABLED:
     logging.warning("AUTH_DISABLED is enabled. Protected endpoints are open for local development only.")
@@ -101,7 +100,6 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(api_keys_router.router)
 app.include_router(requests_router.router)
-app.include_router(stats_router.router)
 
 
 class Message(BaseModel):

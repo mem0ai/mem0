@@ -40,9 +40,3 @@ export interface ApiRequestLog {
   latency_ms: number;
   auth_type: string;
 }
-
-export interface DashboardStats {
-  memory_count: number;
-  active_api_keys: number;
-  ops_today: number;
-}

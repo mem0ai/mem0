@@ -46,8 +46,12 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === "/") {
     return NextResponse.redirect(
-      new URL(hasRefreshToken ? "/dashboard/" : "/login", request.url),
+      new URL(hasRefreshToken ? "/dashboard/requests" : "/login", request.url),
     );
+  }
+
+  if (pathname === "/dashboard" || pathname === "/dashboard/") {
+    return NextResponse.redirect(new URL("/dashboard/requests", request.url));
   }
 
   if (!hasRefreshToken) {
