@@ -187,7 +187,7 @@ export async function cleanupTestUser(
   userId: string,
 ): Promise<void> {
   try {
-    await client.deleteAll({ filters: { user_id: userId } });
+    await client.deleteAll({ userId });
   } catch {
     // ignore
   }
@@ -210,12 +210,10 @@ export async function fullProjectCleanup(client: MemoryClient): Promise<void> {
   // Delete all memories — all four filters set explicitly
   try {
     await client.deleteAll({
-      filters: {
-        user_id: "*",
-        agent_id: "*",
-        app_id: "*",
-        run_id: "*",
-      },
+      userId: "*",
+      agentId: "*",
+      appId: "*",
+      runId: "*",
     });
   } catch {
     // ignore — may 404 if no data exists

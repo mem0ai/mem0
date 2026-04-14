@@ -425,27 +425,26 @@ class Memory(MemoryBase):
         self,
         messages,
         *,
-        filters: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
-        **kwargs,
     ):
         """
         Create a new memory.
 
-        Adds new memories scoped to a single session id (e.g. `user_id`, `agent_id`, or `run_id`). One of those ids is required in filters.
+        Adds new memories scoped to a single session id (e.g. `user_id`, `agent_id`, or `run_id`). One of those ids is required.
 
         Args:
             messages (str or List[Dict[str, str]]): The message content or list of messages
                 (e.g., `[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi"}]`)
                 to be processed and stored.
-            filters (dict, optional): Dictionary containing entity identifiers. Must contain at least one of:
-                - user_id: ID of the user creating the memory
-                - agent_id: ID of the agent creating the memory
-                - run_id: ID of the run creating the memory
-                Example: `{"user_id": "user123"}` or `{"agent_id": "agent456"}`
+            user_id (str, optional): ID of the user creating the memory. Defaults to None.
+            agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
+            run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
                 'messages' and decide whether to add, update, or delete related memories.
@@ -469,19 +468,11 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
-        filters = filters or {}
-
-        # Validate filters contains at least one entity ID
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
-            )
 
         processed_metadata, effective_filters = _build_filters_and_metadata(
-            user_id=filters.get("user_id"),
-            agent_id=filters.get("agent_id"),
-            run_id=filters.get("run_id"),
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
             input_metadata=metadata,
         )
 
@@ -507,7 +498,7 @@ class Memory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        if filters.get("agent_id") is not None and memory_type == MemoryType.PROCEDURAL.value:
+        if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             return results
 
@@ -1360,23 +1351,26 @@ class Memory(MemoryBase):
         self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
-    def delete_all(self, *, filters: Optional[Dict[str, Any]] = None, **kwargs):
+    def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
         """
         Delete all memories.
 
         Args:
-            filters (dict, optional): Dictionary containing entity identifiers. Must contain at least one of:
-                - user_id: ID of the user to delete memories for
-                - agent_id: ID of the agent to delete memories for
-                - run_id: ID of the run to delete memories for
-                Example: `{"user_id": "user123"}`
+            user_id (str, optional): ID of the user to delete memories for. Defaults to None.
+            agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
+            run_id (str, optional): ID of the run to delete memories for. Defaults to None.
         """
-        filters = filters or {}
+        filters: Dict[str, Any] = {}
+        if user_id:
+            filters["user_id"] = user_id
+        if agent_id:
+            filters["agent_id"] = agent_id
+        if run_id:
+            filters["run_id"] = run_id
 
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
+        if not filters:
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "If you want to delete all memories, use the `reset()` method."
+                "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method."
             )
 
         keys, encoded_ids = process_telemetry_filters(filters)
@@ -1694,24 +1688,23 @@ class AsyncMemory(MemoryBase):
         self,
         messages,
         *,
-        filters: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
         llm=None,
-        **kwargs,
     ):
         """
         Create a new memory asynchronously.
 
         Args:
             messages (str or List[Dict[str, str]]): Messages to store in the memory.
-            filters (dict, optional): Dictionary containing entity identifiers. Must contain at least one of:
-                - user_id: ID of the user creating the memory
-                - agent_id: ID of the agent creating the memory
-                - run_id: ID of the run creating the memory
-                Example: `{"user_id": "user123"}` or `{"agent_id": "agent456"}`
+            user_id (str, optional): ID of the user creating the memory.
+            agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
+            run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
@@ -1721,20 +1714,8 @@ class AsyncMemory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
-        filters = filters or {}
-
-        # Validate filters contains at least one entity ID
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
-            )
-
         processed_metadata, effective_filters = _build_filters_and_metadata(
-            user_id=filters.get("user_id"),
-            agent_id=filters.get("agent_id"),
-            run_id=filters.get("run_id"),
-            input_metadata=metadata,
+            user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
@@ -1756,7 +1737,7 @@ class AsyncMemory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        if filters.get("agent_id") is not None and memory_type == MemoryType.PROCEDURAL.value:
+        if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
@@ -2606,23 +2587,26 @@ class AsyncMemory(MemoryBase):
         await self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
-    async def delete_all(self, *, filters: Optional[Dict[str, Any]] = None, **kwargs):
+    async def delete_all(self, user_id=None, agent_id=None, run_id=None):
         """
         Delete all memories asynchronously.
 
         Args:
-            filters (dict, optional): Dictionary containing entity identifiers. Must contain at least one of:
-                - user_id: ID of the user to delete memories for
-                - agent_id: ID of the agent to delete memories for
-                - run_id: ID of the run to delete memories for
-                Example: `{"user_id": "user123"}`
+            user_id (str, optional): ID of the user to delete memories for. Defaults to None.
+            agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
+            run_id (str, optional): ID of the run to delete memories for. Defaults to None.
         """
-        filters = filters or {}
+        filters = {}
+        if user_id:
+            filters["user_id"] = user_id
+        if agent_id:
+            filters["agent_id"] = agent_id
+        if run_id:
+            filters["run_id"] = run_id
 
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
+        if not filters:
             raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "If you want to delete all memories, use the `reset()` method."
+                "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method."
             )
 
         keys, encoded_ids = process_telemetry_filters(filters)

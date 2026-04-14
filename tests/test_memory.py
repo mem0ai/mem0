@@ -33,20 +33,20 @@ def memory_client():
 
 def test_create_memory(memory_client):
     data = "Name is John Doe."
-    result = memory_client.add([{"role": "user", "content": data}], filters={"user_id": "test_user"})
+    result = memory_client.add([{"role": "user", "content": data}], user_id="test_user")
     assert result["results"][0]["memory"] == data
 
 
 def test_get_memory(memory_client):
     data = "Name is John Doe."
-    memory_client.add([{"role": "user", "content": data}], filters={"user_id": "test_user"})
+    memory_client.add([{"role": "user", "content": data}], user_id="test_user")
     result = memory_client.get("1")
     assert result["memory"] == data
 
 
 def test_update_memory(memory_client):
     data = "Name is John Doe."
-    memory_client.add([{"role": "user", "content": data}], filters={"user_id": "test_user"})
+    memory_client.add([{"role": "user", "content": data}], user_id="test_user")
     new_data = "Name is John Kapoor."
     update_result = memory_client.update("1", text=new_data)
     assert update_result["message"] == "Memory updated successfully!"
@@ -54,14 +54,14 @@ def test_update_memory(memory_client):
 
 def test_delete_memory(memory_client):
     data = "Name is John Doe."
-    memory_client.add([{"role": "user", "content": data}], filters={"user_id": "test_user"})
+    memory_client.add([{"role": "user", "content": data}], user_id="test_user")
     delete_result = memory_client.delete("1")
     assert delete_result["message"] == "Memory deleted successfully!"
 
 
 def test_history(memory_client):
     data = "I like Indian food."
-    memory_client.add([{"role": "user", "content": data}], filters={"user_id": "test_user"})
+    memory_client.add([{"role": "user", "content": data}], user_id="test_user")
     memory_client.update("1", text="I like Italian food.")
     history = memory_client.history("1")
     assert history[0]["memory"] == "I like Indian food."
@@ -71,8 +71,8 @@ def test_history(memory_client):
 def test_list_memories(memory_client):
     data1 = "Name is John Doe."
     data2 = "Name is John Doe. I like to code in Python."
-    memory_client.add([{"role": "user", "content": data1}], filters={"user_id": "test_user"})
-    memory_client.add([{"role": "user", "content": data2}], filters={"user_id": "test_user"})
+    memory_client.add([{"role": "user", "content": data1}], user_id="test_user")
+    memory_client.add([{"role": "user", "content": data2}], user_id="test_user")
     memories = memory_client.get_all(filters={"user_id": "test_user"})
     assert data1 in memories
     assert data2 in memories
@@ -469,7 +469,7 @@ def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
 
-    memory.add("foo", filters={"user_id": "test_user"}, infer=False)
+    memory.add("foo", user_id="test_user", infer=False)
 
     assert embedder.embed.call_count == 1
     mock_vector_store.insert.assert_called_once()
@@ -511,7 +511,7 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
 
-    memory.add("I like Python", filters={"user_id": "test_user"}, infer=True)
+    memory.add("I like Python", user_id="test_user", infer=True)
 
     # V3 pipeline: embed called once for search query (Phase 1),
     # embed_batch called once for extracted memories (Phase 3)
@@ -568,7 +568,7 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
     from mem0.memory.main import Memory as MemoryClass
     memory = MemoryClass(MemoryConfig())
 
-    memory.add("I love Python now", filters={"user_id": "test_user"}, infer=True)
+    memory.add("I love Python now", user_id="test_user", infer=True)
 
     # V3 pipeline: embed called once for search query (Phase 1),
     # embed_batch called once for extracted memories (Phase 3)

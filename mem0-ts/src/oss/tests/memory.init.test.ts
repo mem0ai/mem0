@@ -118,7 +118,7 @@ describe("Memory - reset()", () => {
     const mem = createMemory();
     const userId = `reset_test_${Date.now()}`;
 
-    await mem.add("Remember this fact", { filters: { user_id: userId } });
+    await mem.add("Remember this fact", { userId });
     const before: SearchResult = await mem.getAll({
       filters: { user_id: userId },
     });

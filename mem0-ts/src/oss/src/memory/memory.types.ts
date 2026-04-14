@@ -1,7 +1,13 @@
 import { Message } from "../types";
 import { SearchFilters } from "../types";
 
-export interface AddMemoryOptions {
+export interface Entity {
+  userId?: string;
+  agentId?: string;
+  runId?: string;
+}
+
+export interface AddMemoryOptions extends Entity {
   metadata?: Record<string, any>;
   filters?: SearchFilters;
   infer?: boolean;
@@ -18,6 +24,4 @@ export interface GetAllMemoryOptions {
   filters?: SearchFilters;
 }
 
-export interface DeleteAllMemoryOptions {
-  filters?: SearchFilters;
-}
+export interface DeleteAllMemoryOptions extends Entity {}

@@ -589,7 +589,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
       disableHistory: true,
     });
 
-    await mem.add("I love sushi", { filters: { user_id: "u1" } });
+    await mem.add("I love sushi", { userId: "u1" });
 
     expect(mockLlm.generateResponse).toHaveBeenCalled();
     expect(mockEmbedder.embed).toHaveBeenCalled();

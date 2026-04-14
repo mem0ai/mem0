@@ -53,8 +53,15 @@ import {
   ScoredResult,
 } from "../utils/scoring";
 
-// Entity parameters that must be passed via filters, not top-level (snake_case only - matches API)
-const ENTITY_PARAMS = ["user_id", "agent_id", "run_id"];
+// Entity params that must be passed via filters - check both snake_case and camelCase
+const ENTITY_PARAMS = [
+  "user_id",
+  "agent_id",
+  "run_id",
+  "userId",
+  "agentId",
+  "runId",
+];
 
 /**
  * Validates that no top-level entity parameters are passed in config.
@@ -70,7 +77,7 @@ function rejectTopLevelEntityParams(
   if (invalidKeys.length > 0) {
     throw new Error(
       `Top-level entity parameters [${invalidKeys.join(", ")}] are not supported in ${methodName}(). ` +
-        `Use filters: { user_id: "..." } instead.`,
+        `Use filters: { userId: "..." } instead.`,
     );
   }
 }
@@ -276,20 +283,25 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const { metadata = {}, filters = {}, infer = true } = config;
+    const {
+      userId,
+      agentId,
+      runId,
+      metadata = {},
+      filters = {},
+      infer = true,
+    } = config;
 
-    // Validate filters contains at least one entity ID (snake_case)
+    // Convert camelCase entity params to snake_case for storage (matches API and search/getAll filters)
+    if (userId) filters.user_id = metadata.user_id = userId;
+    if (agentId) filters.agent_id = metadata.agent_id = agentId;
+    if (runId) filters.run_id = metadata.run_id = runId;
+
     if (!filters.user_id && !filters.agent_id && !filters.run_id) {
       throw new Error(
-        "filters must contain at least one of: user_id, agent_id, run_id. " +
-          "Example: { filters: { user_id: 'u1' } }",
+        "One of the filters: userId, agentId or runId is required!",
       );
     }
-
-    // Copy entity IDs to metadata for storage
-    if (filters.user_id) metadata.user_id = filters.user_id;
-    if (filters.agent_id) metadata.agent_id = filters.agent_id;
-    if (filters.run_id) metadata.run_id = filters.run_id;
 
     const parsedMessages = Array.isArray(messages)
       ? (messages as Message[])
@@ -1017,18 +1029,22 @@ export class Memory {
     config: DeleteAllMemoryOptions,
   ): Promise<{ message: string }> {
     await this._ensureInitialized();
-    const { filters = {} } = config;
-
     await this._captureEvent("delete_all", {
-      has_user_id: !!filters.user_id,
-      has_agent_id: !!filters.agent_id,
-      has_run_id: !!filters.run_id,
+      has_user_id: !!config.userId,
+      has_agent_id: !!config.agentId,
+      has_run_id: !!config.runId,
     });
+    const { userId, agentId, runId } = config;
 
-    if (!filters.user_id && !filters.agent_id && !filters.run_id) {
+    // Convert camelCase entity params to snake_case for filters (matches storage and search/getAll)
+    const filters: SearchFilters = {};
+    if (userId) filters.user_id = userId;
+    if (agentId) filters.agent_id = agentId;
+    if (runId) filters.run_id = runId;
+
+    if (!Object.keys(filters).length) {
       throw new Error(
-        "filters must contain at least one of: user_id, agent_id, run_id. " +
-          "If you want to delete all memories, use the `reset()` method.",
+        "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method.",
       );
     }
 

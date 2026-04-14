@@ -97,7 +97,7 @@ describe("Memory - get()", () => {
 
   test("returns the memory matching the ID from add()", async () => {
     const addResult: SearchResult = await memory.add("I love AI", {
-      filters: { user_id: userId },
+      userId,
     });
     const id = addResult.results[0].id;
     const item: MemoryItem | null = await memory.get(id);
@@ -107,7 +107,7 @@ describe("Memory - get()", () => {
 
   test("returns a string for the memory field", async () => {
     const addResult: SearchResult = await memory.add("Testing get", {
-      filters: { user_id: userId },
+      userId,
     });
     const item: MemoryItem | null = await memory.get(addResult.results[0].id);
     expect(typeof item!.memory).toBe("string");
@@ -120,7 +120,7 @@ describe("Memory - get()", () => {
 
   test("returns hash and createdAt on stored memory", async () => {
     const addResult: SearchResult = await memory.add("Hash test", {
-      filters: { user_id: userId },
+      userId,
     });
     const item: MemoryItem | null = await memory.get(addResult.results[0].id);
     expect(typeof item!.hash).toBe("string");
@@ -146,7 +146,7 @@ describe("Memory - update()", () => {
   // Use infer: false for update tests — bypasses LLM, gives us a stable ID
   test("returns success message", async () => {
     const addResult: SearchResult = await memory.add("Original", {
-      filters: { user_id: userId },
+      userId,
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -156,7 +156,7 @@ describe("Memory - update()", () => {
 
   test("persists the updated text", async () => {
     const addResult: SearchResult = await memory.add("Before update", {
-      filters: { user_id: userId },
+      userId,
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -167,7 +167,7 @@ describe("Memory - update()", () => {
 
   test("preserves createdAt and sets updatedAt", async () => {
     const addResult: SearchResult = await memory.add("Timestamp test", {
-      filters: { user_id: userId },
+      userId,
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -182,7 +182,7 @@ describe("Memory - update()", () => {
 
   test("updates the hash", async () => {
     const addResult: SearchResult = await memory.add("Hash change", {
-      filters: { user_id: userId },
+      userId,
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -209,7 +209,7 @@ describe("Memory - delete()", () => {
 
   test("returns success message", async () => {
     const addResult: SearchResult = await memory.add("Delete me", {
-      filters: { user_id: userId },
+      userId,
       infer: false,
     });
     const result = await memory.delete(addResult.results[0].id);
@@ -218,7 +218,7 @@ describe("Memory - delete()", () => {
 
   test("get() returns null after deletion", async () => {
     const addResult: SearchResult = await memory.add("Temporary", {
-      filters: { user_id: userId },
+      userId,
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -242,9 +242,9 @@ describe("Memory - deleteAll()", () => {
   });
 
   test("removes all memories for the user and returns success", async () => {
-    await memory.add("Fact A", { filters: { user_id: userId } });
-    await memory.add("Fact B", { filters: { user_id: userId } });
-    const result = await memory.deleteAll({ filters: { user_id: userId } });
+    await memory.add("Fact A", { userId });
+    await memory.add("Fact B", { userId });
+    const result = await memory.deleteAll({ userId });
     expect(result.message).toBe("Memories deleted successfully!");
     const remaining: SearchResult = await memory.getAll({
       filters: { user_id: userId },
@@ -254,7 +254,7 @@ describe("Memory - deleteAll()", () => {
 
   test("throws when no filter is provided", async () => {
     await expect(memory.deleteAll({} as any)).rejects.toThrow(
-      "filters must contain at least one of: user_id, agent_id, run_id",
+      "At least one filter is required to delete all memories",
     );
   });
 });
@@ -274,8 +274,8 @@ describe("Memory - getAll()", () => {
   });
 
   test("returns all stored memories for the user", async () => {
-    await memory.add("First", { filters: { user_id: userId } });
-    await memory.add("Second", { filters: { user_id: userId } });
+    await memory.add("First", { userId });
+    await memory.add("Second", { userId });
     const result: SearchResult = await memory.getAll({
       filters: { user_id: userId },
     });
@@ -309,7 +309,7 @@ describe("Memory - search()", () => {
 
   beforeAll(async () => {
     memory = createMemory();
-    await memory.add("I love TypeScript", { filters: { user_id: userId } });
+    await memory.add("I love TypeScript", { userId });
   });
 
   afterAll(async () => {
@@ -362,7 +362,7 @@ describe("Memory - history()", () => {
 
   test("records ADD event after add()", async () => {
     const addResult: SearchResult = await memory.add("New fact", {
-      filters: { user_id: userId },
+      userId,
     });
     const history = await memory.history(addResult.results[0].id);
     expect(Array.isArray(history)).toBe(true);
@@ -371,7 +371,7 @@ describe("Memory - history()", () => {
 
   test("records additional entry after update()", async () => {
     const addResult: SearchResult = await memory.add("Before", {
-      filters: { user_id: userId },
+      userId,
     });
     const id = addResult.results[0].id;
     await memory.update(id, "After");

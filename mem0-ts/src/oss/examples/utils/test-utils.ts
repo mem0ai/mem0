@@ -12,7 +12,7 @@ export async function runTests(memory: Memory) {
     const result1 = await memory.add(
       "Hi, my name is John and I am a software engineer.",
       {
-        filters: { user_id: "john" },
+        userId: "john",
       },
     );
     console.log("Added memory:", result1);
@@ -25,7 +25,7 @@ export async function runTests(memory: Memory) {
         { role: "assistant", content: "I love Paris, it is my favorite city." },
       ],
       {
-        filters: { user_id: "john" },
+        userId: "john",
       },
     );
     console.log("Added messages:", result2);
@@ -40,7 +40,7 @@ export async function runTests(memory: Memory) {
         },
       ],
       {
-        filters: { user_id: "john" },
+        userId: "john",
       },
     );
     console.log("Updated messages:", result3);

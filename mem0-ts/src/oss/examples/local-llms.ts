@@ -52,7 +52,7 @@ ${memoriesStr}`;
   const assistantResponse = response.message.content || "";
 
   messages.push({ role: "assistant", content: assistantResponse });
-  await memory.add(messages, { filters: { user_id: userId } });
+  await memory.add(messages, { userId: userId });
 
   return assistantResponse;
 }

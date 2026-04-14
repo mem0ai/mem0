@@ -57,10 +57,7 @@ def test_add(memory_instance, version):
     memory_instance.config.version = version
     memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
 
-    result = memory_instance.add(
-        messages=[{"role": "user", "content": "Test message"}],
-        filters={"user_id": "test_user"},
-    )
+    result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user")
 
     assert "results" in result
     assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
@@ -188,7 +185,7 @@ def test_delete_all(memory_instance, version):
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
 
-    result = memory_instance.delete_all(filters={"user_id": "test_user"})
+    result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
     # Ensure the collection is NOT dropped — only matched memories should be removed

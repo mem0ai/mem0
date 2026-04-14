@@ -27,9 +27,7 @@ describe("MemoryClient - add()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.add([{ role: "user", content: "Hello" }], {
-      filters: { user_id: "u1" },
-    });
+    await client.add([{ role: "user", content: "Hello" }], { userId: "u1" });
 
     expect(findFetchCall(mock, "/v3/memories/", "POST")).toBeDefined();
   });
@@ -41,26 +39,24 @@ describe("MemoryClient - add()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.add(messages, { filters: { user_id: "u1" } });
+    await client.add(messages, { userId: "u1" });
 
     const call = findFetchCall(mock, "/v3/memories/", "POST");
     expect(getFetchBody(call!).messages).toEqual(messages);
   });
 
-  test("spreads filters into top-level request body (API expects flat entity IDs)", async () => {
+  test("includes user_id in request body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
     extra.set("/v3/memories/", { status: 200, body: [createMockMemory()] });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.add([{ role: "user", content: "test" }], {
-      filters: { user_id: "user_1" },
+      user_id: "user_1",
     });
 
     const call = findFetchCall(mock, "/v3/memories/", "POST");
-    const body = getFetchBody(call!) as { user_id: string };
-    // Entity IDs are spread into top level, not nested under filters
-    expect(body.user_id).toBe("user_1");
+    expect(getFetchBody(call!).user_id).toBe("user_1");
   });
 
   test("sends empty messages array without crashing", async () => {
@@ -69,7 +65,7 @@ describe("MemoryClient - add()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.add([], { filters: { user_id: "u1" } });
+    await client.add([], { userId: "u1" });
 
     const call = findFetchCall(mock, "/v3/memories/", "POST");
     expect(getFetchBody(call!).messages).toEqual([]);
@@ -219,7 +215,7 @@ describe("MemoryClient - deleteAll()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.deleteAll({ filters: { user_id: "u1" } });
+    await client.deleteAll({ userId: "u1" });
 
     const call = mock.mock.calls.find(
       (c: [string, RequestInit]) =>
@@ -235,7 +231,7 @@ describe("MemoryClient - deleteAll()", () => {
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.deleteAll({ filters: { user_id: "user@email.com" } });
+    await client.deleteAll({ userId: "user@email.com" });
 
     const call = mock.mock.calls.find(
       (c: [string, RequestInit]) =>

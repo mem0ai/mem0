@@ -23,8 +23,17 @@ import { captureClientEvent, generateHash } from "./telemetry";
 import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
 import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
 
-// Entity parameters that must be passed via filters, not top-level (snake_case only - matches API)
-const ENTITY_PARAMS = ["user_id", "agent_id", "app_id", "run_id"];
+// Entity params that must be passed via filters - check both snake_case and camelCase
+const ENTITY_PARAMS = [
+  "user_id",
+  "agent_id",
+  "app_id",
+  "run_id",
+  "userId",
+  "agentId",
+  "appId",
+  "runId",
+];
 
 /**
  * Validates that no top-level entity parameters are passed.
@@ -207,13 +216,7 @@ export default class MemoryClient {
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
 
-    // Extract filters and spread entity IDs into payload (API expects top-level entity IDs)
-    const { filters, ...rest } = options;
-    const payload: Record<string, any> = {
-      messages,
-      ...camelToSnakeKeys(rest),
-      ...(filters && filters), // Spread filters content into payload
-    };
+    const payload = this._preparePayload(messages, options);
     const payloadKeys = Object.keys(payload);
     this._captureEvent("add", [payloadKeys]);
 
@@ -355,27 +358,9 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("delete_all", [payloadKeys]);
-
-    // Extract filters and build query params from filters (snake_case keys)
-    const { filters, ...rest } = options;
-    const queryParams: Record<string, string> = {};
-    if (filters) {
-      // Pass filter keys directly as query params (already snake_case)
-      for (const [key, value] of Object.entries(filters)) {
-        if (value != null) {
-          queryParams[key] = String(value);
-        }
-      }
-    }
-    // Add any other non-filter params
-    const otherParams = camelToSnakeKeys(this._prepareParams(rest));
-    for (const [key, value] of Object.entries(otherParams)) {
-      if (value != null) {
-        queryParams[key] = String(value);
-      }
-    }
-
-    const params = new URLSearchParams(queryParams);
+    const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
+    // @ts-ignore
+    const params = new URLSearchParams(snakeOptions);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/?${params}`,
       {

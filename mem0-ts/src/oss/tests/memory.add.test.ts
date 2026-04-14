@@ -96,7 +96,7 @@ describe("Memory - add()", () => {
 
   test("returns SearchResult with results array for string input", async () => {
     const result: SearchResult = await memory.add("I am a software engineer", {
-      filters: { user_id: userId },
+      userId,
     });
     expect(Array.isArray(result.results)).toBe(true);
   });
@@ -104,7 +104,7 @@ describe("Memory - add()", () => {
   test("returns at least one result with an id", async () => {
     const result: SearchResult = await memory.add(
       "I enjoy hiking in the mountains",
-      { filters: { user_id: userId } },
+      { userId },
     );
     expect(result.results.length).toBeGreaterThan(0);
     expect(result.results[0].id).toBeDefined();
@@ -112,7 +112,7 @@ describe("Memory - add()", () => {
 
   test("result item has a memory string field", async () => {
     const result: SearchResult = await memory.add("My favorite color is blue", {
-      filters: { user_id: userId },
+      userId,
     });
     expect(typeof result.results[0].memory).toBe("string");
   });
@@ -122,35 +122,31 @@ describe("Memory - add()", () => {
       { role: "user", content: "What is your favorite city?" },
       { role: "assistant", content: "I love Paris." },
     ];
-    const result: SearchResult = await memory.add(messages, {
-      filters: { user_id: userId },
-    });
+    const result: SearchResult = await memory.add(messages, { userId });
     expect(result.results.length).toBeGreaterThan(0);
   });
 
-  test("works with agent_id filter instead of user_id", async () => {
+  test("works with agentId instead of userId", async () => {
     const result: SearchResult = await memory.add("test", {
-      filters: { agent_id: "agent_1" },
+      agentId: "agent_1",
     });
     expect(result.results.length).toBeGreaterThan(0);
   });
 
-  test("works with run_id filter instead of user_id", async () => {
-    const result: SearchResult = await memory.add("test", {
-      filters: { run_id: "run_1" },
-    });
+  test("works with runId instead of userId", async () => {
+    const result: SearchResult = await memory.add("test", { runId: "run_1" });
     expect(result.results.length).toBeGreaterThan(0);
   });
 
-  test("throws when no user_id/agent_id/run_id provided in filters", async () => {
+  test("throws when no userId/agentId/runId provided", async () => {
     await expect(memory.add("test", {} as any)).rejects.toThrow(
-      "filters must contain at least one of: user_id, agent_id, run_id",
+      "One of the filters: userId, agentId or runId is required!",
     );
   });
 
   test("passes metadata through to stored memory", async () => {
     const result: SearchResult = await memory.add("I love TypeScript", {
-      filters: { user_id: userId },
+      userId,
       metadata: { source: "chat", tag: "programming" },
     });
     const stored: MemoryItem | null = await memory.get(result.results[0].id);
@@ -162,7 +158,7 @@ describe("Memory - add()", () => {
 
   test("with infer=false skips LLM and stores messages directly", async () => {
     const result: SearchResult = await memory.add("Direct storage content", {
-      filters: { user_id: userId },
+      userId,
       infer: false,
     });
     expect(result.results.length).toBeGreaterThan(0);
@@ -172,7 +168,7 @@ describe("Memory - add()", () => {
 
   test("with infer=false marks event as ADD in metadata", async () => {
     const result: SearchResult = await memory.add("Direct fact", {
-      filters: { user_id: userId },
+      userId,
       infer: false,
     });
     expect(result.results[0].metadata).toEqual(

@@ -1070,9 +1070,7 @@ describe("Memory class – backward compat with all providers", () => {
     expect(deleteResult.message).toBe("Memory deleted successfully!");
 
     // deleteAll
-    const deleteAllResult = await mem.deleteAll({
-      filters: { user_id: "u1" },
-    });
+    const deleteAllResult = await mem.deleteAll({ userId: "u1" });
     expect(deleteAllResult.message).toBe("Memories deleted successfully!");
 
     // history
