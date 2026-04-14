@@ -88,6 +88,11 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
     expect(cfg.skills).toBeUndefined();
   });
+
+  it("allows anonymousTelemetryId", () => {
+    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key", anonymousTelemetryId: "123" });
+    expect(cfg.anonymousTelemetryId).toBe("123");
+  });
 });
 
 // ---------------------------------------------------------------------------
