@@ -162,7 +162,7 @@ export default function NavWrapper() {
           <Tooltip>
             <TooltipTrigger asChild>
               <a
-                href="https://docs.mem0.ai/self-hosted"
+                href="https://docs.mem0.ai/introduction"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center text-onSurface-default-tertiary hover:text-onSurface-default-secondary"
