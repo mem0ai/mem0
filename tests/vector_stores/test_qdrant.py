@@ -4,7 +4,7 @@ import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
-from qdrant_client import QdrantClient
+from qdrant_client import QdrantClient, models
 from qdrant_client.models import (
     DatetimeRange,
     Distance,
@@ -18,6 +18,7 @@ from qdrant_client.models import (
     PointStruct,
     PointVectors,
     Range,
+    SparseVectorParams,
     VectorParams,
 )
 
@@ -59,8 +60,14 @@ class TestQdrant(unittest.TestCase):
 
         expected_config = VectorParams(size=128, distance=Distance.COSINE, on_disk=True)
 
+        expected_sparse_config = {
+            "bm25": SparseVectorParams(modifier=models.Modifier.IDF),
+        }
+
         self.client_mock.create_collection.assert_called_with(
-            collection_name="test_collection", vectors_config=expected_config
+            collection_name="test_collection",
+            vectors_config=expected_config,
+            sparse_vectors_config=expected_sparse_config,
         )
 
     def test_insert(self):
@@ -231,7 +238,9 @@ class TestQdrant(unittest.TestCase):
         self.client_mock.upsert.assert_called_once()
         point = self.client_mock.upsert.call_args[1]["points"][0]
         self.assertEqual(point.id, vector_id)
-        self.assertEqual(point.vector, updated_vector)
+        # v3 uses named vectors: dense vector stored under "" key
+        self.assertIn("", point.vector)
+        self.assertEqual(point.vector[""], updated_vector)
         self.assertEqual(point.payload, updated_payload)
 
     def test_update_with_none_vector_uses_set_payload(self):

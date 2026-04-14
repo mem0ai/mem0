@@ -944,7 +944,7 @@ describe("Memory class – backward compat with all providers", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     const embedder = mockEmbedderFactory.create.mock.results[0].value;
     expect(embedder.embed).not.toHaveBeenCalledWith("dimension probe");
@@ -967,7 +967,7 @@ describe("Memory class – backward compat with all providers", () => {
     const mockEmbedder768 = createMockEmbedder(768);
     mockEmbedderFactory.create.mockReturnValue(mockEmbedder768);
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
     expect(mockEmbedder768.embed).not.toHaveBeenCalledWith("dimension probe");
   });
 
@@ -982,7 +982,7 @@ describe("Memory class – backward compat with all providers", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
     expect(mockEmbedder768.embed).toHaveBeenCalledWith("dimension probe");
 
     const vsCreateCall = mockVectorStoreFactory.create.mock.calls[0];
@@ -1003,7 +1003,7 @@ describe("Memory class – backward compat with all providers", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
     expect(mockVStore.initialize).toHaveBeenCalled();
   });
 
@@ -1048,11 +1048,13 @@ describe("Memory class – backward compat with all providers", () => {
     });
 
     // getAll
-    const all = await mem.getAll({ userId: "u1" });
+    const all = await mem.getAll({ filters: { user_id: "u1" } });
     expect(all).toBeDefined();
 
     // search
-    const searchResult = await mem.search("query", { userId: "u1" });
+    const searchResult = await mem.search("query", {
+      filters: { user_id: "u1" },
+    });
     expect(searchResult).toBeDefined();
 
     // get
@@ -1093,7 +1095,7 @@ describe("Memory class – backward compat with all providers", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
     expect(mockVectorStoreFactory.create).toHaveBeenCalledTimes(1);
 
     await mem.reset();
@@ -1120,12 +1122,12 @@ describe("Memory class – backward compat with all providers", () => {
       disableHistory: true,
     });
 
-    await expect(mem.getAll({ userId: "u1" })).rejects.toThrow(
+    await expect(mem.getAll({ filters: { user_id: "u1" } })).rejects.toThrow(
       "auto-detect embedding dimension",
     );
-    await expect(mem.search("q", { userId: "u1" })).rejects.toThrow(
-      "auto-detect embedding dimension",
-    );
+    await expect(
+      mem.search("q", { filters: { user_id: "u1" } }),
+    ).rejects.toThrow("auto-detect embedding dimension");
     await expect(mem.get("id")).rejects.toThrow(
       "auto-detect embedding dimension",
     );

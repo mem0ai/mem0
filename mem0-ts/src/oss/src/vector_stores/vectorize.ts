@@ -74,6 +74,10 @@ export class VectorizeDB implements VectorStore {
     }
   }
 
+  async keywordSearch(): Promise<null> {
+    return null;
+  }
+
   async search(
     query: number[],
     topK: number = 5,

@@ -43,7 +43,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
       const results = await waitForSearchResults(
         client,
         "What is my favorite color?",
-        { filters: { userId: TEST_USER_ID } },
+        { filters: { user_id: TEST_USER_ID } },
       );
 
       expect(Array.isArray(results)).toBe(true);
@@ -64,7 +64,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
         client,
         "What do you know about me?",
         {
-          filters: { OR: [{ userId: TEST_USER_ID }] },
+          filters: { OR: [{ user_id: TEST_USER_ID }] },
         },
       );
 
@@ -108,24 +108,24 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   // ─── Edge cases ─────────────────────────────────────────
   describe("edge cases", () => {
     test("search for non-existent user returns empty results", async () => {
-      const results = await client.search("anything", {
-        filters: { userId: `nonexistent-user-${randomUUID()}` },
+      const response = await client.search("test search query", {
+        filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
-      expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(0);
+      expect(response).toHaveProperty("results");
+      expect(response.results).toHaveLength(0);
     });
 
     test("search with top_k param does not throw", async () => {
-      const results = await client.search(
+      const response = await client.search(
         "Tell me about integration test user",
         {
-          filters: { userId: TEST_USER_ID },
+          filters: { user_id: TEST_USER_ID },
           topK: 1,
         },
       );
 
-      expect(Array.isArray(results)).toBe(true);
+      expect(response).toHaveProperty("results");
     });
   });
 });

@@ -162,6 +162,51 @@ export class PGVector implements VectorStore {
     );
   }
 
+  async keywordSearch(
+    query: string,
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    try {
+      const filterConditions: string[] = [];
+      const filterValues: any[] = [query, topK];
+      let filterIndex = 3;
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          filterConditions.push(`payload->>'${key}' = $${filterIndex}`);
+          filterValues.push(value);
+          filterIndex++;
+        }
+      }
+
+      const filterClause =
+        filterConditions.length > 0
+          ? "AND " + filterConditions.join(" AND ")
+          : "";
+
+      const searchQuery = `
+        SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'text_lemmatized'), plainto_tsquery('simple', $1)) AS score, payload
+        FROM ${this.collectionName}
+        WHERE to_tsvector('simple', payload->>'text_lemmatized') @@ plainto_tsquery('simple', $1)
+        ${filterClause}
+        ORDER BY score DESC
+        LIMIT $2
+      `;
+
+      const result = await this.client.query(searchQuery, filterValues);
+
+      return result.rows.map((row) => ({
+        id: row.id,
+        payload: row.payload,
+        score: row.score,
+      }));
+    } catch (error) {
+      console.error("Error during keyword search:", error);
+      return null;
+    }
+  }
+
   async search(
     query: number[],
     topK: number = 5,

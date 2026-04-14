@@ -13,13 +13,15 @@ export interface AddMemoryOptions extends Entity {
   infer?: boolean;
 }
 
-export interface SearchMemoryOptions extends Entity {
+export interface SearchMemoryOptions {
   topK?: number;
   filters?: SearchFilters;
+  threshold?: number;
 }
 
-export interface GetAllMemoryOptions extends Entity {
+export interface GetAllMemoryOptions {
   topK?: number;
+  filters?: SearchFilters;
 }
 
 export interface DeleteAllMemoryOptions extends Entity {}

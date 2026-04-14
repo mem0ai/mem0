@@ -29,3 +29,19 @@ class EmbeddingBase(ABC):
             list: The embedding vector.
         """
         pass
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts. Override in subclasses for native batch support.
+
+        Default implementation calls embed() sequentially for each text.
+        Subclasses with native batch APIs (e.g., OpenAI) should override
+        this for better performance.
+
+        Args:
+            texts: List of text strings to embed.
+            memory_action: The action context ("add", "search", "update").
+
+        Returns:
+            List of embedding vectors (list of floats), one per input text.
+        """
+        return [self.embed(text, memory_action) for text in texts]

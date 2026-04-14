@@ -73,7 +73,7 @@ def test_list_memories(memory_client):
     data2 = "Name is John Doe. I like to code in Python."
     memory_client.add([{"role": "user", "content": data1}], user_id="test_user")
     memory_client.add([{"role": "user", "content": data2}], user_id="test_user")
-    memories = memory_client.get_all(user_id="test_user")
+    memories = memory_client.get_all(filters={"user_id": "test_user"})
     assert data1 in memories
     assert data2 in memories
 
@@ -137,11 +137,10 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
 
     result = memory._search_vector_store("test", {"user_id": "test"}, 10)
 
-    assert len(result) == 2
-    memories_by_id = {mem["id"]: mem for mem in result}
-
-    assert memories_by_id["mem_1"]["memory"] == ""
-    assert memories_by_id["mem_2"]["memory"] == "content"
+    # v3 search pipeline skips entries where payload has no "data" key
+    assert len(result) == 1
+    assert result[0]["id"] == "mem_2"
+    assert result[0]["memory"] == "content"
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -497,13 +496,15 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     telemetry_vector_store = MagicMock()
     mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
 
-    # LLM extracts fact "User likes Python", then ADD action rewrites to "The user enjoys Python"
+    # V3 single-call extraction: LLM returns extracted memories directly
     mock_llm = MagicMock()
-    mock_llm.generate_response.side_effect = [
-        json.dumps({"facts": ["User likes Python"]}),
-        json.dumps({"memory": [{"id": "0", "text": "The user enjoys Python", "event": "ADD", "old_memory": None}]}),
-    ]
+    mock_llm.generate_response.return_value = json.dumps(
+        {"memory": [{"text": "The user enjoys Python"}]}
+    )
     mock_llm_factory.return_value = mock_llm
+
+    # embed_batch is used in Phase 3 for all extracted memories
+    embedder.embed_batch.return_value = [[0.4, 0.5, 0.6]]
 
     mock_sqlite.return_value = MagicMock()
 
@@ -512,11 +513,10 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
 
     memory.add("I like Python", user_id="test_user", infer=True)
 
-    # embed should be called exactly twice:
-    # 1. For the extracted fact "User likes Python" (search)
-    # 2. For the rewritten text "The user enjoys Python" (pre-cached before _create_memory)
-    # It should NOT be called a 3rd time inside _create_memory
-    assert embedder.embed.call_count == 2
+    # V3 pipeline: embed called once for search query (Phase 1),
+    # embed_batch called once for extracted memories (Phase 3)
+    assert embedder.embed.call_count == 1
+    assert embedder.embed_batch.call_count == 1
     mock_vector_store.insert.assert_called_once()
 
 
@@ -526,15 +526,15 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
 @patch('mem0.memory.storage.SQLiteManager')
 def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
-    Regression test for issue #3723 (infer=True UPDATE path): when the LLM rewrites a fact during
-    an UPDATE action, the embedding should be computed once and cached, not computed again inside _update_memory.
+    Regression test for issue #3723 (infer=True path): V3 is ADD-only, so this test verifies
+    that the single-call extraction pipeline embeds via embed_batch, not individual embed calls.
     """
     embedder = MagicMock()
     embedder.embed.return_value = [0.1, 0.2, 0.3]
     embedder.config = MagicMock(embedding_dims=3)
     mock_embedder_factory.return_value = embedder
 
-    # Existing memory that will be matched for update
+    # Existing memory that will be returned from search
     existing_memory = MockVectorMemory(
         memory_id="existing-mem-id",
         payload={
@@ -549,16 +549,19 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
     mock_vector_store.get.return_value = existing_memory
     mock_vector_store.insert.return_value = None
     mock_vector_store.update.return_value = None
+    mock_vector_store.keyword_search.return_value = None
     telemetry_vector_store = MagicMock()
     mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
 
-    # LLM extracts fact "User loves Python now", then UPDATE action rewrites to "The user loves Python"
+    # V3 single-call extraction: LLM returns extracted memories directly
     mock_llm = MagicMock()
-    mock_llm.generate_response.side_effect = [
-        json.dumps({"facts": ["User loves Python now"]}),
-        json.dumps({"memory": [{"id": "0", "text": "The user loves Python", "event": "UPDATE", "old_memory": "User likes Python"}]}),
-    ]
+    mock_llm.generate_response.return_value = json.dumps(
+        {"memory": [{"text": "The user loves Python"}]}
+    )
     mock_llm_factory.return_value = mock_llm
+
+    # embed_batch is used in Phase 3 for all extracted memories
+    embedder.embed_batch.return_value = [[0.4, 0.5, 0.6]]
 
     mock_sqlite.return_value = MagicMock()
 
@@ -567,12 +570,11 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
 
     memory.add("I love Python now", user_id="test_user", infer=True)
 
-    # embed should be called exactly twice:
-    # 1. For the extracted fact "User loves Python now" (search)
-    # 2. For the rewritten text "The user loves Python" (pre-cached before _update_memory)
-    # It should NOT be called a 3rd time inside _update_memory
-    assert embedder.embed.call_count == 2
-    mock_vector_store.update.assert_called_once()
+    # V3 pipeline: embed called once for search query (Phase 1),
+    # embed_batch called once for extracted memories (Phase 3)
+    assert embedder.embed.call_count == 1
+    assert embedder.embed_batch.call_count == 1
+    mock_vector_store.insert.assert_called_once()
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -765,30 +767,6 @@ class TestProcessMetadataFiltersMerge:
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
-def test_reset_calls_graph_reset_when_graph_enabled(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
-    """Test that reset() calls graph.reset() when graph is enabled (issue #3040)."""
-    mock_embedder_factory.return_value = MagicMock()
-    mock_vector_store = MagicMock()
-    mock_vector_factory.return_value = mock_vector_store
-    mock_llm_factory.return_value = MagicMock()
-    mock_sqlite.return_value = MagicMock()
-
-    config = MemoryConfig()
-    memory = Memory(config)
-
-    # Simulate graph being enabled by setting graph instance
-    mock_graph = MagicMock()
-    memory.graph = mock_graph
-
-    memory.reset()
-
-    mock_graph.reset.assert_called_once()
-
-
-@patch('mem0.utils.factory.EmbedderFactory.create')
-@patch('mem0.utils.factory.VectorStoreFactory.create')
-@patch('mem0.utils.factory.LlmFactory.create')
-@patch('mem0.memory.storage.SQLiteManager')
 def test_reset_skips_graph_when_graph_disabled(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """Test that reset() does NOT call graph.reset() when graph is disabled."""
     mock_embedder_factory.return_value = MagicMock()
@@ -809,26 +787,38 @@ def test_reset_skips_graph_when_graph_disabled(mock_sqlite, mock_llm_factory, mo
     assert memory.graph is None
 
 
+# ─── Entity Param Rejection Tests ─────────────────────────────────────────────
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
-def test_reset_continues_if_graph_reset_fails(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
-    """Test that reset() doesn't crash if graph.reset() raises an exception (issue #3040)."""
+def test_search_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """search() should reject user_id as top-level kwarg."""
     mock_embedder_factory.return_value = MagicMock()
-    mock_vector_store = MagicMock()
-    mock_vector_factory.return_value = mock_vector_store
+    mock_vector_factory.return_value = MagicMock()
     mock_llm_factory.return_value = MagicMock()
     mock_sqlite.return_value = MagicMock()
 
     config = MemoryConfig()
     memory = Memory(config)
 
-    mock_graph = MagicMock()
-    mock_graph.reset.side_effect = Exception("Neo4j connection failed")
-    memory.graph = mock_graph
+    with pytest.raises(ValueError, match=r"user_id.*filters"):
+        memory.search("test query", user_id="u1")
 
-    # Should NOT raise — graph failure is logged but reset continues
-    memory.reset()
 
-    mock_graph.reset.assert_called_once()
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_get_all_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """get_all() should reject user_id as top-level kwarg."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    with pytest.raises(ValueError, match=r"user_id.*filters"):
+        memory.get_all(user_id="u1")

@@ -11,6 +11,11 @@ export interface VectorStore {
     topK?: number,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]>;
+  keywordSearch?(
+    query: string,
+    topK?: number,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null>;
   get(vectorId: string): Promise<VectorStoreResult | null>;
   update(
     vectorId: string,
