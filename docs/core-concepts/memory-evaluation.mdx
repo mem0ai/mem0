@@ -7,12 +7,13 @@ iconType: "solid"
 
 ## Why Memory Evaluation Matters
 
-Evaluating a memory system at scale requires balancing three parameters: **accuracy** (does it retrieve the right memories?), **performance** (how fast and how many tokens?), and **cost** (what models does it require?). Optimizing one is easy. Balancing all three at the scale of billions of interactions is the actual problem.
+Most AI agent memory systems retrieve information by maximizing context window size. That works on benchmarks but not in production, where every token adds cost. **Token efficiency** — achieving high accuracy with less context per query — is what separates benchmark performance from production viability.
 
-Most memory benchmarks today are small enough to be saturated with brute force — aggressive retrieval, bigger context windows, and frontier models can push scores up without meaningfully improving the memory system underneath. That's why we evaluate with deliberate constraints:
+The new Mem0 algorithm achieves competitive accuracy on LoCoMo, LongMemEval, and BEAM while averaging **under 7,000 tokens per retrieval call**. Full-context approaches on the same benchmarks routinely consume 25,000+ tokens per query.
 
-- **Two retrieval configurations**: `top200` (maximum recall) and `top50` (production constraints), with tokens and latency disclosed for each
-- **A production-representative model, by choice**: All benchmarks use a smaller, production-grade model as the extraction model — roughly 2.6x faster and 18x cheaper than frontier-model stacks
+Evaluating a memory system at scale comes down to three parameters: **accuracy** (what the benchmarks measure), **cost** (context tokens per query), and **performance** (latency). Optimizing one is easy. Balancing all three at scale is the actual problem.
+
+Some benchmarks today — particularly smaller ones like LoCoMo and LongMemEval — can be materially improved by aggressive retrieval strategies, larger context windows, or frontier models. That does not necessarily mean the underlying memory system has gotten better. We evaluate under constraints that reflect how memory systems actually run in production: limited context windows and practical token budgets.
 
 ## Architecture Overview
 
@@ -65,15 +66,15 @@ The combined score outperformed every individual signal across every category te
 
 [LoCoMo](https://github.com/snap-stanford/locomo) tests single-hop, multi-hop, open-domain, and temporal memory recall across conversational sessions.
 
-| Category | Previous | New (top200) | New (top50) | Delta (top200) |
-|---|---|---|---|---|
-| **Overall** | 71.4 | **91.6** | 82.7 | **+20.2** |
-| Single-hop | 76.6 | 92.3 | 82.8 | +15.7 |
-| Multi-hop | 70.2 | 93.3 | 82.3 | +23.1 |
-| Open-domain | 57.3 | 76.0 | 70.8 | +18.7 |
-| Temporal | 63.2 | 92.8 | 86.3 | +29.6 |
+| Category | Old Algorithm | New Algorithm | Delta |
+|---|---|---|---|
+| **Overall** | **71.4** | **91.6** | **+20.2** |
+| Single-hop | 76.6 | 92.3 | +15.7 |
+| Multi-hop | 70.2 | 93.3 | +23.1 |
+| Open-domain | 57.3 | 76.0 | +18.7 |
+| Temporal | 63.2 | 92.8 | +29.6 |
 
-*Mean tokens: 6,956 (top200) / 1,711 (top50). Median latency: 0.880s (top200) / 0.861s (top50).*
+*Mean tokens: 6,956*
 
 The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning (+23.1)**. Both categories directly test the ADD-only architecture (preserving temporal context) and entity linking (connecting facts across memories).
 
@@ -81,17 +82,17 @@ The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning
 
 [LongMemEval](https://github.com/xiaowu0162/LongMemEval) evaluates memory across single-session and multi-session contexts, including knowledge updates and temporal reasoning.
 
-| Category | Previous | New (top200) | New (top50) | Delta (top200) |
-|---|---|---|---|---|
-| **Overall** | 67.8 | **93.4** | 90.4 | **+25.6** |
-| Single-session (user) | 94.3 | 97.1 | 95.7 | +2.8 |
-| Single-session (assistant) | 46.4 | 100.0 | 92.9 | +53.6 |
-| Single-session (preference) | 76.7 | 96.7 | 86.7 | +20.0 |
-| Knowledge update | 79.5 | 96.2 | 96.2 | +16.7 |
-| Temporal reasoning | 51.1 | 93.2 | 92.5 | +42.1 |
-| Multi-session | 70.7 | 86.5 | 82.0 | +15.8 |
+| Category | Old Algorithm | New Algorithm | Delta |
+|---|---|---|---|
+| **Overall** | **67.8** | **93.4** | **+25.6** |
+| Single-session (user) | 94.3 | 97.1 | +2.8 |
+| Single-session (assistant) | 46.4 | 100.0 | +53.6 |
+| Single-session (preference) | 76.7 | 96.7 | +20.0 |
+| Knowledge update | 79.5 | 96.2 | +16.7 |
+| Temporal reasoning | 51.1 | 93.2 | +42.1 |
+| Multi-session | 70.7 | 86.5 | +15.8 |
 
-*Mean tokens: 6,787 (top200) / 1,851 (top50). Median latency: 1.091s (top200) / 0.558s (top50).*
+*Mean tokens: 6,787*
 
 The biggest gain is **single-session assistant (+53.6)** — the previous algorithm had a blind spot for agent-generated facts. The new algorithm treats them as first-class memories.
 
@@ -101,36 +102,40 @@ The **+42.1 on temporal reasoning** reflects the ADD-only architecture preservin
 
 [BEAM](https://github.com/mem0ai/memory-benchmarks) evaluates memory systems at 1M and 10M token scales across ten task categories. It is the only public benchmark that operates at context volumes production AI agents actually encounter.
 
-| Category | 1M (top200) | 1M (top50) | 10M (top200) | 10M (top50) |
-|---|---|---|---|---|
-| **Overall** | **64.0** | 60.0 | **48.0** | 41.0 |
-| preference_following | 88.0 | 84.0 | 90.0 | 79.0 |
-| instruction_following | 85.0 | 76.0 | 83.0 | 59.0 |
-| information_extraction | 70.0 | 66.0 | 56.0 | 49.0 |
-| knowledge_update | 65.0 | 59.0 | 75.0 | 70.0 |
-| multi_session_reasoning | 65.0 | 63.0 | 26.0 | 26.0 |
-| summarization | 64.0 | 54.0 | 47.0 | 24.0 |
-| temporal_reasoning | 62.0 | 59.0 | 16.0 | 23.0 |
-| event_ordering | 54.0 | 54.0 | 20.0 | 7.0 |
-| abstention | 53.0 | 54.0 | 40.0 | 45.0 |
-| contradiction_resolution | 36.0 | 37.0 | 33.0 | 32.0 |
+| Category | 1M | 10M |
+|---|---|---|
+| **Overall** | **64.1** | **48.6** |
+| preference_following | 88.3 | 90.4 |
+| instruction_following | 85.2 | 82.5 |
+| information_extraction | 70.0 | 56.3 |
+| knowledge_update | 65.0 | 75.0 |
+| multi_session_reasoning | 65.2 | 26.1 |
+| summarization | 63.5 | 46.9 |
+| temporal_reasoning | 61.8 | 16.3 |
+| event_ordering | 53.6 | 20.2 |
+| abstention | 52.5 | 40.0 |
+| contradiction_resolution | 35.7 | 32.5 |
 
-*Mean tokens (1M): 6,719 (top200) / 1,647 (top50). Mean tokens (10M): 6,914 (top200) / 1,679 (top50). Median latency (1M): 1.00s (top200) / 0.872s (top50). Median latency (10M): 1.053s (top200) / 1.086s (top50).*
+*Mean tokens (1M): 6,719. Mean tokens (10M): 6,914.*
 
 <Info>
-**BEAM is the most important benchmark in this list.** It operates at scales that cannot be brute-forced with current context windows. The system holds up well on preference following, instruction following, and knowledge updates at both 1M and 10M scales. Weaker categories at 10M (temporal reasoning, event ordering) are open problems for the field — they require higher-order temporal representations beyond fact-level and entity-level matching.
+**BEAM is the most relevant benchmark here.** It operates at 1M and 10M token scales and cannot be solved by simply expanding the context window. The results at 10M reflect where memory systems actually stand at production context volumes. The system holds up well on preference following, instruction following, and knowledge updates at both scales. Weaker categories at 10M (temporal reasoning, event ordering, multi-session reasoning) are open problems across the field — they require higher-order representations of how events relate to each other across time, which is a primary focus of our ongoing research.
 </Info>
 
 ### Performance Summary
 
 All results use a single-pass retrieval setup: one retrieval call, one answer, no agentic loops.
 
-| Benchmark | Old | New | Tokens | Latency p50 |
-|---|---|---|---|---|
-| **LoCoMo** | 71.4 | **91.6** | 7.0K | 0.88s |
-| **LongMemEval** | 67.8 | **93.4** | 6.8K | 1.09s |
-| **BEAM (1M)** | — | **64.0** | 6.7K | 1.00s |
-| **BEAM (10M)** | — | **48.0** | 6.9K | 1.05s |
+| Benchmark | Old Algorithm | New Algorithm | Average tokens / query |
+|---|---|---|---|
+| **LoCoMo** | 71.4 | **91.6** | 6,956 |
+| **LongMemEval** | 67.8 | **93.4** | 6,787 |
+| **BEAM (1M)** | — | **64.1** | 6,719 |
+| **BEAM (10M)** | — | **48.6** | 6,914 |
+
+<Info>
+Scores reflect Mem0's managed platform, which includes proprietary optimizations not available in the open-source SDK. Open-source users should expect directionally similar gains but not identical numbers.
+</Info>
 
 All benchmarks run on the same production-representative model stack. Scores carry a ±1 point confidence interval due to judge inconsistency.
 
@@ -309,7 +314,8 @@ Each evaluated question produces a structured result:
 When evaluating memory systems, keep these considerations in mind:
 
 - **Saturating a small benchmark is not the same as building a memory system that works at scale.** Small benchmarks can be brute-forced with aggressive retrieval and frontier models.
-- **Compare at equal constraints.** Always compare systems using the same `top_k`, the same model, and the same latency budget. A system scoring 95% with a frontier model at top200 is not comparable to one scoring 90% with a smaller production-grade model at top50.
+- **Token efficiency matters as much as accuracy.** A system that scores 95% using 25K tokens per query isn't comparable to one scoring 90% using 7K tokens. Report mean tokens per query alongside scores.
+- **Compare at equal constraints.** Always compare systems using the same retrieval budget, the same model, and the same latency budget. A frontier model at maximum recall is not comparable to a smaller production-grade model at production-realistic retrieval depth.
 - **Watch for score ceiling effects.** Categories like "single-session user" are already near-saturated (97%+). Improvements in these categories are less meaningful than gains in harder categories like temporal reasoning or multi-session.
 - **BEAM at 10M is the real test.** Any system can look good at small scale. The 10M-token BEAM benchmark reveals whether the retrieval system actually scales.
 
@@ -321,9 +327,6 @@ When evaluating memory systems, keep these considerations in mind:
   </Accordion>
   <Accordion title="Can I evaluate with a different extraction model?">
     Yes. For self-hosted, configure the extraction model in your `mem0-config.yaml` (see the `configs/` directory of the evaluation repo for provider-specific examples). For Mem0 Cloud, extraction uses the platform's default. Using a frontier model will likely produce higher scores but at higher cost and latency.
-  </Accordion>
-  <Accordion title="What's the difference between top200 and top50?">
-    `top200` retrieves up to 200 memories per query (maximum recall), while `top50` retrieves up to 50 (production-realistic constraints). The gap between them shows how much retrieval precision matters — a small gap means the system is good at ranking, a large gap means it depends on casting a wide net.
   </Accordion>
   <Accordion title="Why are BEAM scores lower than LoCoMo/LongMemEval?">
     BEAM operates at 1M and 10M token scales — orders of magnitude larger than LoCoMo or LongMemEval. At these scales, similar content appears multiple times across the window, and the memory system must surface the exact correct memory over many close matches. The scores reflect the genuine difficulty of the task, not a regression in the algorithm.

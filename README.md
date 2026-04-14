@@ -48,8 +48,8 @@
 | --- | --- | --- | --- | --- |
 | **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
 | **LongMemEval** | 67.8 | **93.4** | 6.8K  | 1.09s  |
-| **BEAM (1M)** | — | **64.0** | 6.7K  | 1.00s  |
-| **BEAM (10M)** | — | **48.0** | 6.9K  | 1.05s  |
+| **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
+| **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
 
 All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops).
 
