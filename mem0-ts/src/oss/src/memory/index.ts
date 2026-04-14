@@ -195,7 +195,10 @@ export class Memory {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
-      // For file-based stores (memory/SQLite), use a separate DB path for entities
+      // For file-based stores (memory/SQLite), use a separate DB path for entities.
+      // If dbPath was set explicitly, derive the entity path from it. If it's unset,
+      // leave it unset — the vector store's default-path logic now scopes by
+      // collectionName, so the entity store will land in its own file automatically.
       if (entityConfig.dbPath) {
         entityConfig.dbPath = entityConfig.dbPath.replace(
           /\.db$/,
