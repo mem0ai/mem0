@@ -23,6 +23,28 @@ import { captureClientEvent, generateHash } from "./telemetry";
 import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
 import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
 
+// Entity parameters that must be passed via filters, not top-level (snake_case only - matches API)
+const ENTITY_PARAMS = ["user_id", "agent_id", "app_id", "run_id"];
+
+/**
+ * Validates that no top-level entity parameters are passed.
+ * @throws Error if entity params are found at top level
+ */
+function rejectTopLevelEntityParams(
+  options: Record<string, any> | undefined,
+  methodName: string,
+): void {
+  const invalidKeys = Object.keys(options ?? {}).filter((k) =>
+    ENTITY_PARAMS.includes(k),
+  );
+  if (invalidKeys.length > 0) {
+    throw new Error(
+      `Top-level entity parameters [${invalidKeys.join(", ")}] are not supported in ${methodName}(). ` +
+        `Use filters: { user_id: "..." } instead.`,
+    );
+  }
+}
+
 class APIError extends Error {
   constructor(message: string) {
     super(message);
@@ -185,7 +207,13 @@ export default class MemoryClient {
   ): Promise<Array<Memory>> {
     if (this.telemetryId === "") await this.ping();
 
-    const payload = this._preparePayload(messages, options);
+    // Extract filters and spread entity IDs into payload (API expects top-level entity IDs)
+    const { filters, ...rest } = options;
+    const payload: Record<string, any> = {
+      messages,
+      ...camelToSnakeKeys(rest),
+      ...(filters && filters), // Spread filters content into payload
+    };
     const payloadKeys = Object.keys(payload);
     this._captureEvent("add", [payloadKeys]);
 
@@ -254,6 +282,9 @@ export default class MemoryClient {
   }
 
   async getAll(options?: GetAllMemoryOptions): Promise<Array<Memory>> {
+    // Reject top-level entity params - must use filters instead
+    rejectTopLevelEntityParams(options as Record<string, any>, "getAll");
+
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
@@ -281,6 +312,9 @@ export default class MemoryClient {
     query: string,
     options?: SearchMemoryOptions,
   ): Promise<{ results: Array<Memory> }> {
+    // Reject top-level entity params - must use filters instead
+    rejectTopLevelEntityParams(options as Record<string, any>, "search");
+
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
@@ -321,9 +355,27 @@ export default class MemoryClient {
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("delete_all", [payloadKeys]);
-    const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
-    // @ts-ignore
-    const params = new URLSearchParams(snakeOptions);
+
+    // Extract filters and build query params from filters (snake_case keys)
+    const { filters, ...rest } = options;
+    const queryParams: Record<string, string> = {};
+    if (filters) {
+      // Pass filter keys directly as query params (already snake_case)
+      for (const [key, value] of Object.entries(filters)) {
+        if (value != null) {
+          queryParams[key] = String(value);
+        }
+      }
+    }
+    // Add any other non-filter params
+    const otherParams = camelToSnakeKeys(this._prepareParams(rest));
+    for (const [key, value] of Object.entries(otherParams)) {
+      if (value != null) {
+        queryParams[key] = String(value);
+      }
+    }
+
+    const params = new URLSearchParams(queryParams);
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/memories/?${params}`,
       {

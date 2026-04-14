@@ -18,10 +18,12 @@ export default async function globalSetup() {
   // Full project wipe — all four filters set explicitly
   try {
     await client.deleteAll({
-      userId: "*",
-      agentId: "*",
-      appId: "*",
-      runId: "*",
+      filters: {
+        user_id: "*",
+        agent_id: "*",
+        app_id: "*",
+        run_id: "*",
+      },
     });
   } catch {
     // ignore — may 404 if no data exists

@@ -434,7 +434,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
       "lmstudio",
@@ -469,7 +469,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     expect(mockEmbedder.embed).toHaveBeenCalledWith("dimension probe");
     const vsCall = mockVectorStoreFactory.create.mock.calls[0];
@@ -497,7 +497,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
       "lmstudio",
@@ -550,7 +550,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
     });
 
     const result = await mem.search("What does the user like?", {
-      userId: "u1",
+      filters: { user_id: "u1" },
     });
 
     expect(mockEmbedder.embed).toHaveBeenCalledWith("What does the user like?");
@@ -589,7 +589,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
       disableHistory: true,
     });
 
-    await mem.add("I love sushi", { userId: "u1" });
+    await mem.add("I love sushi", { filters: { user_id: "u1" } });
 
     expect(mockLlm.generateResponse).toHaveBeenCalled();
     expect(mockEmbedder.embed).toHaveBeenCalled();

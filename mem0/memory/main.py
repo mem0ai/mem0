@@ -10,7 +10,6 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-
 from pydantic import ValidationError
 
 from mem0.configs.base import MemoryConfig, MemoryItem
@@ -18,12 +17,9 @@ from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
     AGENT_CONTEXT_SUFFIX,
-    generate_additive_extraction_prompt,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
+    generate_additive_extraction_prompt,
 )
-from mem0.utils.lemmatization import lemmatize_for_bm25
-from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
-from mem0.utils.scoring import ENTITY_BOOST_WEIGHT, get_bm25_params, normalize_bm25, score_and_rank
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
@@ -36,11 +32,19 @@ from mem0.memory.utils import (
     process_telemetry_filters,
     remove_code_blocks,
 )
+from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.factory import (
     EmbedderFactory,
     LlmFactory,
-    VectorStoreFactory,
     RerankerFactory,
+    VectorStoreFactory,
+)
+from mem0.utils.lemmatization import lemmatize_for_bm25
+from mem0.utils.scoring import (
+    ENTITY_BOOST_WEIGHT,
+    get_bm25_params,
+    normalize_bm25,
+    score_and_rank,
 )
 
 # Suppress SWIG deprecation warnings globally
@@ -91,6 +95,19 @@ _SENSITIVE_SUFFIXES = (
     "_credential",
     "_credentials",
 )
+
+# Entity parameters that must be passed via filters, not top-level kwargs
+ENTITY_PARAMS = frozenset({"user_id", "agent_id", "run_id"})
+
+
+def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) -> None:
+    """Reject top-level entity parameters - must use filters instead."""
+    invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+    if invalid_keys:
+        raise ValueError(
+            f"Top-level entity parameters {invalid_keys} are not supported in {method_name}(). "
+            f"Use filters={{'user_id': '...'}} instead."
+        )
 
 
 def _is_sensitive_field(field_name: str) -> bool:
@@ -408,26 +425,27 @@ class Memory(MemoryBase):
         self,
         messages,
         *,
-        user_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        run_id: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        **kwargs,
     ):
         """
         Create a new memory.
 
-        Adds new memories scoped to a single session id (e.g. `user_id`, `agent_id`, or `run_id`). One of those ids is required.
+        Adds new memories scoped to a single session id (e.g. `user_id`, `agent_id`, or `run_id`). One of those ids is required in filters.
 
         Args:
             messages (str or List[Dict[str, str]]): The message content or list of messages
                 (e.g., `[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi"}]`)
                 to be processed and stored.
-            user_id (str, optional): ID of the user creating the memory. Defaults to None.
-            agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
-            run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            filters (dict, optional): Dictionary containing entity identifiers. Must contain at least one of:
+                - user_id: ID of the user creating the memory
+                - agent_id: ID of the agent creating the memory
+                - run_id: ID of the run creating the memory
+                Example: `{"user_id": "user123"}` or `{"agent_id": "agent456"}`
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
                 'messages' and decide whether to add, update, or delete related memories.
@@ -435,7 +453,7 @@ class Memory(MemoryBase):
             memory_type (str, optional): Specifies the type of memory. Currently, only
                 `MemoryType.PROCEDURAL.value` ("procedural_memory") is explicitly handled for
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
-                are treated as general conversational/factual memories.memory_type (str, optional): Type of memory to create. Defaults to None. By default, it creates the short term memories and long term (semantic and episodic) memories. Pass "procedural_memory" to create procedural memories.
+                are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
 
 
@@ -451,11 +469,19 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
+        filters = filters or {}
+
+        # Validate filters contains at least one entity ID
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError(
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "Example: filters={'user_id': 'u1'}"
+            )
 
         processed_metadata, effective_filters = _build_filters_and_metadata(
-            user_id=user_id,
-            agent_id=agent_id,
-            run_id=run_id,
+            user_id=filters.get("user_id"),
+            agent_id=filters.get("agent_id"),
+            run_id=filters.get("run_id"),
             input_metadata=metadata,
         )
 
@@ -481,7 +507,7 @@ class Memory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
+        if filters.get("agent_id") is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             return results
 
@@ -850,37 +876,38 @@ class Memory(MemoryBase):
     def get_all(
         self,
         *,
-        user_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 100,
+        **kwargs,
     ):
         """
         List all memories.
 
         Args:
-            user_id (str, optional): user id
-            agent_id (str, optional): agent id
-            run_id (str, optional): run id
-            filters (dict, optional): Additional custom key-value filters to apply to the search.
-                These are merged with the ID-based scoping filters. For example,
-                `filters={"actor_id": "some_user"}`.
-            limit (int, optional): The maximum number of memories to return. Defaults to 100.
+            filters (dict): Filter dict containing entity IDs and optional metadata filters.
+                Must contain at least one of: user_id, agent_id, run_id.
+                Example: filters={"user_id": "u1", "agent_id": "a1"}
+            top_k (int, optional): The maximum number of memories to return. Defaults to 100.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
+
+        Raises:
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
         """
+        # Reject top-level entity params - must use filters instead
+        _reject_top_level_entity_params(kwargs, "get_all")
+
+        # Validate filters contains at least one entity ID
+        effective_filters = filters or {}
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError(
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "Example: filters={'user_id': 'u1'}"
+            )
 
         limit = top_k
-
-        _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
-        )
-
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -942,28 +969,26 @@ class Memory(MemoryBase):
         self,
         query: str,
         *,
-        user_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        run_id: Optional[str] = None,
         top_k: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        **kwargs,
     ):
         """
-        Searches for memories based on a query
+        Searches for memories based on a query.
+
         Args:
             query (str): Query to search for.
-            user_id (str, optional): ID of the user to search for. Defaults to None.
-            agent_id (str, optional): ID of the agent to search for. Defaults to None.
-            run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
-            filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
-            threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to 0.1.
-            filters (dict, optional): Enhanced metadata filtering with operators:
+            top_k (int, optional): Maximum number of results to return. Defaults to 100.
+            filters (dict): Filter dict containing entity IDs and optional metadata filters.
+                Must contain at least one of: user_id, agent_id, run_id.
+                Example: filters={"user_id": "u1", "agent_id": "a1"}
+
+                Enhanced metadata filtering with operators:
                 - {"key": "value"} - exact match
                 - {"key": {"eq": "value"}} - equals
-                - {"key": {"ne": "value"}} - not equals  
+                - {"key": {"ne": "value"}} - not equals
                 - {"key": {"in": ["val1", "val2"]}} - in list
                 - {"key": {"nin": ["val1", "val2"]}} - not in list
                 - {"key": {"gt": 10}} - greater than
@@ -976,34 +1001,39 @@ class Memory(MemoryBase):
                 - {"AND": [filter1, filter2]} - logical AND
                 - {"OR": [filter1, filter2]} - logical OR
                 - {"NOT": [filter1]} - logical NOT
+            threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
+            rerank (bool, optional): Whether to rerank results. Defaults to False.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
-        """
-        limit = top_k
-        
-        _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
-        )
 
+        Raises:
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+        """
+        # Reject top-level entity params - must use filters instead
+        _reject_top_level_entity_params(kwargs, "search")
+
+        # Validate filters contains at least one entity ID
+        effective_filters = filters.copy() if filters else {}
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("At least one of 'user_id', 'agent_id', or 'run_id' must be specified.")
+            raise ValueError(
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "Example: filters={'user_id': 'u1'}"
+            )
+
+        limit = top_k
 
         # Apply enhanced metadata filtering if advanced operators are detected
-        if filters and self._has_advanced_operators(filters):
-            processed_filters = self._process_metadata_filters(filters)
-            # Remove original logical/operator keys that _build_filters_and_metadata
-            # copied verbatim from input_filters — they have now been reprocessed.
+        if self._has_advanced_operators(effective_filters):
+            processed_filters = self._process_metadata_filters(effective_filters)
+            # Remove logical/operator keys that have been reprocessed
             for logical_key in ("AND", "OR", "NOT"):
                 effective_filters.pop(logical_key, None)
-            for fk in list(filters.keys()):
-                if fk not in ("AND", "OR", "NOT") and fk in effective_filters and isinstance(filters[fk], dict):
+            for fk in list(effective_filters.keys()):
+                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(effective_filters.get(fk), dict):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
-        elif filters:
-            # Simple filters, merge directly
-            effective_filters.update(filters)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -1330,26 +1360,23 @@ class Memory(MemoryBase):
         self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
-    def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
+    def delete_all(self, *, filters: Optional[Dict[str, Any]] = None, **kwargs):
         """
         Delete all memories.
 
         Args:
-            user_id (str, optional): ID of the user to delete memories for. Defaults to None.
-            agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
-            run_id (str, optional): ID of the run to delete memories for. Defaults to None.
+            filters (dict, optional): Dictionary containing entity identifiers. Must contain at least one of:
+                - user_id: ID of the user to delete memories for
+                - agent_id: ID of the agent to delete memories for
+                - run_id: ID of the run to delete memories for
+                Example: `{"user_id": "user123"}`
         """
-        filters: Dict[str, Any] = {}
-        if user_id:
-            filters["user_id"] = user_id
-        if agent_id:
-            filters["agent_id"] = agent_id
-        if run_id:
-            filters["run_id"] = run_id
+        filters = filters or {}
 
-        if not filters:
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method."
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "If you want to delete all memories, use the `reset()` method."
             )
 
         keys, encoded_ids = process_telemetry_filters(filters)
@@ -1667,23 +1694,24 @@ class AsyncMemory(MemoryBase):
         self,
         messages,
         *,
-        user_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        run_id: Optional[str] = None,
+        filters: Optional[Dict[str, Any]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
         llm=None,
+        **kwargs,
     ):
         """
         Create a new memory asynchronously.
 
         Args:
             messages (str or List[Dict[str, str]]): Messages to store in the memory.
-            user_id (str, optional): ID of the user creating the memory.
-            agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
-            run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            filters (dict, optional): Dictionary containing entity identifiers. Must contain at least one of:
+                - user_id: ID of the user creating the memory
+                - agent_id: ID of the agent creating the memory
+                - run_id: ID of the run creating the memory
+                Example: `{"user_id": "user123"}` or `{"agent_id": "agent456"}`
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
@@ -1693,8 +1721,20 @@ class AsyncMemory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
+        filters = filters or {}
+
+        # Validate filters contains at least one entity ID
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError(
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "Example: filters={'user_id': 'u1'}"
+            )
+
         processed_metadata, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
+            user_id=filters.get("user_id"),
+            agent_id=filters.get("agent_id"),
+            run_id=filters.get("run_id"),
+            input_metadata=metadata,
         )
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
@@ -1716,7 +1756,7 @@ class AsyncMemory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
+        if filters.get("agent_id") is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
@@ -2093,40 +2133,38 @@ class AsyncMemory(MemoryBase):
     async def get_all(
         self,
         *,
-        user_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        run_id: Optional[str] = None,
         filters: Optional[Dict[str, Any]] = None,
         top_k: int = 100,
+        **kwargs,
     ):
         """
         List all memories.
 
-         Args:
-             user_id (str, optional): user id
-             agent_id (str, optional): agent id
-             run_id (str, optional): run id
-             filters (dict, optional): Additional custom key-value filters to apply to the search.
-                 These are merged with the ID-based scoping filters. For example,
-                 `filters={"actor_id": "some_user"}`.
-             limit (int, optional): The maximum number of memories to return. Defaults to 100.
+        Args:
+            filters (dict): Filter dict containing entity IDs and optional metadata filters.
+                Must contain at least one of: user_id, agent_id, run_id.
+                Example: filters={"user_id": "u1", "agent_id": "a1"}
+            top_k (int, optional): The maximum number of memories to return. Defaults to 100.
 
-         Returns:
-             dict: A dictionary containing a list of memories under the "results" key.
-                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
+        Returns:
+            dict: A dictionary containing a list of memories under the "results" key.
+                  Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
+
+        Raises:
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
         """
+        # Reject top-level entity params - must use filters instead
+        _reject_top_level_entity_params(kwargs, "get_all")
 
-        limit = top_k
-
-        _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
-        )
-
+        # Validate filters contains at least one entity ID
+        effective_filters = filters or {}
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "When 'conversation_id' is not provided (classic mode), "
-                "at least one of 'user_id', 'agent_id', or 'run_id' must be specified for get_all."
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "Example: filters={'user_id': 'u1'}"
             )
+
+        limit = top_k
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -2188,29 +2226,26 @@ class AsyncMemory(MemoryBase):
         self,
         query: str,
         *,
-        user_id: Optional[str] = None,
-        agent_id: Optional[str] = None,
-        run_id: Optional[str] = None,
         top_k: int = 100,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
-        metadata_filters: Optional[Dict[str, Any]] = None,
         rerank: bool = False,
+        **kwargs,
     ):
         """
-        Searches for memories based on a query
+        Searches for memories based on a query.
+
         Args:
             query (str): Query to search for.
-            user_id (str, optional): ID of the user to search for. Defaults to None.
-            agent_id (str, optional): ID of the agent to search for. Defaults to None.
-            run_id (str, optional): ID of the run to search for. Defaults to None.
-            limit (int, optional): Limit the number of results. Defaults to 100.
-            filters (dict, optional): Legacy filters to apply to the search. Defaults to None.
-            threshold (float, optional): Minimum score for a memory to be included in the results. Defaults to None.
-            filters (dict, optional): Enhanced metadata filtering with operators:
+            top_k (int, optional): Maximum number of results to return. Defaults to 100.
+            filters (dict): Filter dict containing entity IDs and optional metadata filters.
+                Must contain at least one of: user_id, agent_id, run_id.
+                Example: filters={"user_id": "u1", "agent_id": "a1"}
+
+                Enhanced metadata filtering with operators:
                 - {"key": "value"} - exact match
                 - {"key": {"eq": "value"}} - equals
-                - {"key": {"ne": "value"}} - not equals  
+                - {"key": {"ne": "value"}} - not equals
                 - {"key": {"in": ["val1", "val2"]}} - in list
                 - {"key": {"nin": ["val1", "val2"]}} - not in list
                 - {"key": {"gt": 10}} - greater than
@@ -2223,35 +2258,39 @@ class AsyncMemory(MemoryBase):
                 - {"AND": [filter1, filter2]} - logical AND
                 - {"OR": [filter1, filter2]} - logical OR
                 - {"NOT": [filter1]} - logical NOT
+            threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
+            rerank (bool, optional): Whether to rerank results. Defaults to False.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
+
+        Raises:
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
         """
+        # Reject top-level entity params - must use filters instead
+        _reject_top_level_entity_params(kwargs, "search")
+
+        # Validate filters contains at least one entity ID
+        effective_filters = filters.copy() if filters else {}
+        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
+            raise ValueError(
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "Example: filters={'user_id': 'u1'}"
+            )
 
         limit = top_k
 
-        _, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_filters=filters
-        )
-
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("at least one of 'user_id', 'agent_id', or 'run_id' must be specified ")
-
         # Apply enhanced metadata filtering if advanced operators are detected
-        if filters and self._has_advanced_operators(filters):
-            processed_filters = self._process_metadata_filters(filters)
-            # Remove original logical/operator keys that _build_filters_and_metadata
-            # copied verbatim from input_filters — they have now been reprocessed.
+        if self._has_advanced_operators(effective_filters):
+            processed_filters = self._process_metadata_filters(effective_filters)
+            # Remove logical/operator keys that have been reprocessed
             for logical_key in ("AND", "OR", "NOT"):
                 effective_filters.pop(logical_key, None)
-            for fk in list(filters.keys()):
-                if fk not in ("AND", "OR", "NOT") and fk in effective_filters and isinstance(filters[fk], dict):
+            for fk in list(effective_filters.keys()):
+                if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(effective_filters.get(fk), dict):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
-        elif filters:
-            # Simple filters, merge directly
-            effective_filters.update(filters)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -2567,26 +2606,23 @@ class AsyncMemory(MemoryBase):
         await self._delete_memory(memory_id, existing_memory)
         return {"message": "Memory deleted successfully!"}
 
-    async def delete_all(self, user_id=None, agent_id=None, run_id=None):
+    async def delete_all(self, *, filters: Optional[Dict[str, Any]] = None, **kwargs):
         """
         Delete all memories asynchronously.
 
         Args:
-            user_id (str, optional): ID of the user to delete memories for. Defaults to None.
-            agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
-            run_id (str, optional): ID of the run to delete memories for. Defaults to None.
+            filters (dict, optional): Dictionary containing entity identifiers. Must contain at least one of:
+                - user_id: ID of the user to delete memories for
+                - agent_id: ID of the agent to delete memories for
+                - run_id: ID of the run to delete memories for
+                Example: `{"user_id": "user123"}`
         """
-        filters = {}
-        if user_id:
-            filters["user_id"] = user_id
-        if agent_id:
-            filters["agent_id"] = agent_id
-        if run_id:
-            filters["run_id"] = run_id
+        filters = filters or {}
 
-        if not filters:
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
-                "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method."
+                "filters must contain at least one of: user_id, agent_id, run_id. "
+                "If you want to delete all memories, use the `reset()` method."
             )
 
         keys, encoded_ids = process_telemetry_filters(filters)

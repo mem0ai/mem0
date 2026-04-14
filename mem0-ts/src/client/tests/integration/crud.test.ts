@@ -51,7 +51,9 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
         },
       ];
 
-      const result = await client.add(messages, { userId: TEST_USER_ID });
+      const result = await client.add(messages, {
+        filters: { user_id: TEST_USER_ID },
+      });
 
       // v3 API processes memories asynchronously — returns PENDING
       expect(result).toHaveProperty("eventId");
@@ -70,7 +72,9 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
         },
       ];
 
-      const result = await client.add(messages, { userId: TEST_USER_ID });
+      const result = await client.add(messages, {
+        filters: { user_id: TEST_USER_ID },
+      });
       expect(result).toHaveProperty("eventId");
     });
 
@@ -204,7 +208,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
 
     test("deleteAll for non-existent user does not throw", async () => {
       const result = await client.deleteAll({
-        userId: `nonexistent-user-${randomUUID()}`,
+        filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
       expect(result).toBeDefined();
@@ -234,7 +238,9 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
   // ─── Delete all + delete user ─────────────────────────────
   describe("cleanup operations", () => {
     test("deletes all memories for test user", async () => {
-      const result = await client.deleteAll({ userId: TEST_USER_ID });
+      const result = await client.deleteAll({
+        filters: { user_id: TEST_USER_ID },
+      });
       expect(result).toBeDefined();
       expect(typeof result.message).toBe("string");
     });

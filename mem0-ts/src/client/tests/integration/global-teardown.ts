@@ -17,10 +17,12 @@ export default async function globalTeardown() {
 
   try {
     await client.deleteAll({
-      userId: "*",
-      agentId: "*",
-      appId: "*",
-      runId: "*",
+      filters: {
+        user_id: "*",
+        agent_id: "*",
+        app_id: "*",
+        run_id: "*",
+      },
     });
   } catch {
     // ignore

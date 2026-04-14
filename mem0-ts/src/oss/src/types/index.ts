@@ -81,9 +81,9 @@ export interface MemoryItem {
 }
 
 export interface SearchFilters {
-  userId?: string;
-  agentId?: string;
-  runId?: string;
+  user_id?: string;
+  agent_id?: string;
+  run_id?: string;
   [key: string]: any;
 }
 

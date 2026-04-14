@@ -53,6 +53,28 @@ import {
   ScoredResult,
 } from "../utils/scoring";
 
+// Entity parameters that must be passed via filters, not top-level (snake_case only - matches API)
+const ENTITY_PARAMS = ["user_id", "agent_id", "run_id"];
+
+/**
+ * Validates that no top-level entity parameters are passed in config.
+ * @throws Error if entity params are found at top level
+ */
+function rejectTopLevelEntityParams(
+  config: Record<string, any>,
+  methodName: string,
+): void {
+  const invalidKeys = Object.keys(config).filter((k) =>
+    ENTITY_PARAMS.includes(k),
+  );
+  if (invalidKeys.length > 0) {
+    throw new Error(
+      `Top-level entity parameters [${invalidKeys.join(", ")}] are not supported in ${methodName}(). ` +
+        `Use filters: { user_id: "..." } instead.`,
+    );
+  }
+}
+
 export class Memory {
   private config: MemoryConfig;
   private customInstructions: string | undefined;
@@ -184,7 +206,7 @@ export class Memory {
 
   private buildSessionScope(filters: SearchFilters): string {
     const parts: string[] = [];
-    for (const key of ["agentId", "runId", "userId"].sort()) {
+    for (const key of ["agent_id", "run_id", "user_id"].sort()) {
       const val = (filters as any)[key];
       if (val) parts.push(`${key}=${val}`);
     }
@@ -254,24 +276,20 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const {
-      userId,
-      agentId,
-      runId,
-      metadata = {},
-      filters = {},
-      infer = true,
-    } = config;
+    const { metadata = {}, filters = {}, infer = true } = config;
 
-    if (userId) filters.userId = metadata.userId = userId;
-    if (agentId) filters.agentId = metadata.agentId = agentId;
-    if (runId) filters.runId = metadata.runId = runId;
-
-    if (!filters.userId && !filters.agentId && !filters.runId) {
+    // Validate filters contains at least one entity ID (snake_case)
+    if (!filters.user_id && !filters.agent_id && !filters.run_id) {
       throw new Error(
-        "One of the filters: userId, agentId or runId is required!",
+        "filters must contain at least one of: user_id, agent_id, run_id. " +
+          "Example: { filters: { user_id: 'u1' } }",
       );
     }
+
+    // Copy entity IDs to metadata for storage
+    if (filters.user_id) metadata.user_id = filters.user_id;
+    if (filters.agent_id) metadata.agent_id = filters.agent_id;
+    if (filters.run_id) metadata.run_id = filters.run_id;
 
     const parsedMessages = Array.isArray(messages)
       ? (messages as Message[])
@@ -337,16 +355,11 @@ export class Memory {
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
     // Phase 1: Existing memory retrieval
-    const searchFilters: SearchFilters = {};
-    if (filters.userId) searchFilters.userId = filters.userId;
-    if (filters.agentId) searchFilters.agentId = filters.agentId;
-    if (filters.runId) searchFilters.runId = filters.runId;
-
     const queryEmbedding = await this.embedder.embed(parsedMessages);
     const existingResults = await this.vectorStore.search(
       queryEmbedding,
       10,
-      searchFilters,
+      filters,
     );
 
     // Map UUIDs to integers (anti-hallucination)
@@ -362,7 +375,7 @@ export class Memory {
     }
 
     // Phase 2: LLM extraction (single call)
-    const isAgentScoped = !!filters.agentId && !filters.userId;
+    const isAgentScoped = !!filters.agent_id && !filters.user_id;
     let systemPrompt = ADDITIVE_EXTRACTION_PROMPT;
     if (isAgentScoped) {
       systemPrompt += AGENT_CONTEXT_SUFFIX;
@@ -491,9 +504,9 @@ export class Memory {
       if (mem.attributed_to) {
         memPayload.attributedTo = mem.attributed_to;
       }
-      if (filters.userId) memPayload.userId = filters.userId;
-      if (filters.agentId) memPayload.agentId = filters.agentId;
-      if (filters.runId) memPayload.runId = filters.runId;
+      if (filters.user_id) memPayload.user_id = filters.user_id;
+      if (filters.agent_id) memPayload.agent_id = filters.agent_id;
+      if (filters.run_id) memPayload.run_id = filters.run_id;
 
       records.push({
         memoryId,
@@ -661,7 +674,7 @@ export class Memory {
               payload: Record<string, any>;
             }> = [];
             try {
-              matches = await entityStore.search(entityVec, 1, searchFilters);
+              matches = await entityStore.search(entityVec, 1, filters);
             } catch {}
 
             if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
@@ -683,12 +696,9 @@ export class Memory {
                 entityType,
                 linkedMemoryIds: Array.from(memoryIds).sort(),
               };
-              if (searchFilters.userId)
-                entityPayload.userId = searchFilters.userId;
-              if (searchFilters.agentId)
-                entityPayload.agentId = searchFilters.agentId;
-              if (searchFilters.runId)
-                entityPayload.runId = searchFilters.runId;
+              if (filters.user_id) entityPayload.user_id = filters.user_id;
+              if (filters.agent_id) entityPayload.agent_id = filters.agent_id;
+              if (filters.run_id) entityPayload.run_id = filters.run_id;
 
               toInsertVectors.push(entityVec);
               toInsertIds.push(uuidv4());
@@ -740,9 +750,9 @@ export class Memory {
     if (!memory) return null;
 
     const filters = {
-      ...(memory.payload.userId && { userId: memory.payload.userId }),
-      ...(memory.payload.agentId && { agentId: memory.payload.agentId }),
-      ...(memory.payload.runId && { runId: memory.payload.runId }),
+      ...(memory.payload.user_id && { user_id: memory.payload.user_id }),
+      ...(memory.payload.agent_id && { agent_id: memory.payload.agent_id }),
+      ...(memory.payload.run_id && { run_id: memory.payload.run_id }),
     };
 
     const memoryItem: MemoryItem = {
@@ -779,28 +789,46 @@ export class Memory {
     query: string,
     config: SearchMemoryOptions,
   ): Promise<SearchResult> {
+    // Reject top-level entity params - must use filters instead
+    rejectTopLevelEntityParams(config as Record<string, any>, "search");
+
     await this._ensureInitialized();
     await this._captureEvent("search", {
       query_length: query.length,
       topK: config.topK,
       has_filters: !!config.filters,
     });
-    const {
-      userId,
-      agentId,
-      runId,
-      topK = 100,
-      filters = {},
-      threshold = 0.1,
-    } = config;
+    const { topK = 100, threshold = 0.1 } = config;
+    let effectiveFilters: Record<string, any> = { ...(config.filters || {}) };
 
-    if (userId) filters.userId = userId;
-    if (agentId) filters.agentId = agentId;
-    if (runId) filters.runId = runId;
+    // Apply enhanced metadata filtering if advanced operators are detected
+    if (this._hasAdvancedOperators(effectiveFilters)) {
+      const processedFilters = this._processMetadataFilters(effectiveFilters);
+      // Remove logical/operator keys that have been reprocessed
+      for (const logicalKey of ["AND", "OR", "NOT"]) {
+        delete effectiveFilters[logicalKey];
+      }
+      for (const fk of Object.keys(effectiveFilters)) {
+        if (
+          !["AND", "OR", "NOT", "user_id", "agent_id", "run_id"].includes(fk) &&
+          typeof effectiveFilters[fk] === "object" &&
+          effectiveFilters[fk] !== null
+        ) {
+          delete effectiveFilters[fk];
+        }
+      }
+      effectiveFilters = { ...effectiveFilters, ...processedFilters };
+    }
 
-    if (!filters.userId && !filters.agentId && !filters.runId) {
+    // Validate filters contains at least one entity ID (snake_case)
+    if (
+      !effectiveFilters.user_id &&
+      !effectiveFilters.agent_id &&
+      !effectiveFilters.run_id
+    ) {
       throw new Error(
-        "One of the filters: userId, agentId or runId is required!",
+        "filters must contain at least one of: user_id, agent_id, run_id. " +
+          "Example: filters: { user_id: 'u1' }",
       );
     }
 
@@ -816,7 +844,7 @@ export class Memory {
     const semanticResults = await this.vectorStore.search(
       queryEmbedding,
       internalLimit,
-      filters,
+      effectiveFilters,
     );
 
     // Step 4: Keyword search (if store supports it)
@@ -831,7 +859,7 @@ export class Memory {
           (await this.vectorStore.keywordSearch(
             queryLemmatized,
             internalLimit,
-            filters,
+            effectiveFilters,
           )) ?? null;
       } catch {
         keywordResults = null;
@@ -867,11 +895,6 @@ export class Memory {
         }
 
         if (deduped.length > 0) {
-          const searchFilters: SearchFilters = {};
-          if (filters.userId) searchFilters.userId = filters.userId;
-          if (filters.agentId) searchFilters.agentId = filters.agentId;
-          if (filters.runId) searchFilters.runId = filters.runId;
-
           const entityStore = await this.getEntityStore();
 
           for (const entity of deduped) {
@@ -880,7 +903,7 @@ export class Memory {
               const matches = await entityStore.search(
                 entityEmbedding,
                 500,
-                searchFilters,
+                effectiveFilters,
               );
 
               for (const match of matches) {
@@ -936,9 +959,9 @@ export class Memory {
 
     // Step 9: Format results
     const excludedKeys = new Set([
-      "userId",
-      "agentId",
-      "runId",
+      "user_id",
+      "agent_id",
+      "run_id",
       "hash",
       "data",
       "createdAt",
@@ -964,9 +987,9 @@ export class Memory {
               .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
             scoreBreakdown: scored.scoreBreakdown,
           },
-          ...(payload.userId && { userId: payload.userId }),
-          ...(payload.agentId && { agentId: payload.agentId }),
-          ...(payload.runId && { runId: payload.runId }),
+          ...(payload.user_id && { user_id: payload.user_id }),
+          ...(payload.agent_id && { agent_id: payload.agent_id }),
+          ...(payload.run_id && { run_id: payload.run_id }),
         };
       });
 
@@ -994,21 +1017,18 @@ export class Memory {
     config: DeleteAllMemoryOptions,
   ): Promise<{ message: string }> {
     await this._ensureInitialized();
+    const { filters = {} } = config;
+
     await this._captureEvent("delete_all", {
-      has_user_id: !!config.userId,
-      has_agent_id: !!config.agentId,
-      has_run_id: !!config.runId,
+      has_user_id: !!filters.user_id,
+      has_agent_id: !!filters.agent_id,
+      has_run_id: !!filters.run_id,
     });
-    const { userId, agentId, runId } = config;
 
-    const filters: SearchFilters = {};
-    if (userId) filters.userId = userId;
-    if (agentId) filters.agentId = agentId;
-    if (runId) filters.runId = runId;
-
-    if (!Object.keys(filters).length) {
+    if (!filters.user_id && !filters.agent_id && !filters.run_id) {
       throw new Error(
-        "At least one filter is required to delete all memories. If you want to delete all memories, use the `reset()` method.",
+        "filters must contain at least one of: user_id, agent_id, run_id. " +
+          "If you want to delete all memories, use the `reset()` method.",
       );
     }
 
@@ -1077,26 +1097,33 @@ export class Memory {
   }
 
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
-    await this._ensureInitialized();
-    await this._captureEvent("get_all", {
-      topK: config.topK,
-      has_user_id: !!config.userId,
-      has_agent_id: !!config.agentId,
-      has_run_id: !!config.runId,
-    });
-    const { userId, agentId, runId, topK = 100 } = config;
+    // Reject top-level entity params - must use filters instead
+    rejectTopLevelEntityParams(config as Record<string, any>, "getAll");
 
-    const filters: SearchFilters = {};
-    if (userId) filters.userId = userId;
-    if (agentId) filters.agentId = agentId;
-    if (runId) filters.runId = runId;
+    await this._ensureInitialized();
+    const { topK = 100, filters = {} } = config;
+
+    await this._captureEvent("get_all", {
+      topK: topK,
+      has_user_id: !!filters.user_id,
+      has_agent_id: !!filters.agent_id,
+      has_run_id: !!filters.run_id,
+    });
+
+    // Validate filters contains at least one entity ID (snake_case)
+    if (!filters.user_id && !filters.agent_id && !filters.run_id) {
+      throw new Error(
+        "filters must contain at least one of: user_id, agent_id, run_id. " +
+          "Example: filters: { user_id: 'u1' }",
+      );
+    }
 
     const [memories] = await this.vectorStore.list(filters, topK);
 
     const excludedKeys = new Set([
-      "userId",
-      "agentId",
-      "runId",
+      "user_id",
+      "agent_id",
+      "run_id",
       "hash",
       "data",
       "createdAt",
@@ -1113,9 +1140,9 @@ export class Memory {
       metadata: Object.entries(mem.payload)
         .filter(([key]) => !excludedKeys.has(key))
         .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-      ...(mem.payload.userId && { userId: mem.payload.userId }),
-      ...(mem.payload.agentId && { agentId: mem.payload.agentId }),
-      ...(mem.payload.runId && { runId: mem.payload.runId }),
+      ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
+      ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
+      ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
     }));
 
     return { results };
@@ -1170,14 +1197,14 @@ export class Memory {
       hash: createHash("md5").update(data).digest("hex"),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
-      ...(existingMemory.payload.userId && {
-        userId: existingMemory.payload.userId,
+      ...(existingMemory.payload.user_id && {
+        user_id: existingMemory.payload.user_id,
       }),
-      ...(existingMemory.payload.agentId && {
-        agentId: existingMemory.payload.agentId,
+      ...(existingMemory.payload.agent_id && {
+        agent_id: existingMemory.payload.agent_id,
       }),
-      ...(existingMemory.payload.runId && {
-        runId: existingMemory.payload.runId,
+      ...(existingMemory.payload.run_id && {
+        run_id: existingMemory.payload.run_id,
       }),
     };
 
@@ -1213,5 +1240,157 @@ export class Memory {
     );
 
     return memoryId;
+  }
+
+  /**
+   * Check if filters contain advanced operators that need special processing.
+   */
+  private _hasAdvancedOperators(filters: Record<string, any>): boolean {
+    if (!filters || typeof filters !== "object") {
+      return false;
+    }
+
+    for (const [key, value] of Object.entries(filters)) {
+      // Check for platform-style logical operators
+      if (key === "AND" || key === "OR" || key === "NOT") {
+        return true;
+      }
+      // Check for comparison operators
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
+        for (const op of Object.keys(value)) {
+          if (
+            [
+              "eq",
+              "ne",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "nin",
+              "contains",
+              "icontains",
+            ].includes(op)
+          ) {
+            return true;
+          }
+        }
+      }
+      // Check for wildcard values
+      if (value === "*") {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Process enhanced metadata filters and convert them to vector store compatible format.
+   * Converts AND/OR/NOT to $or/$not format that vector stores can interpret.
+   */
+  private _processMetadataFilters(
+    metadataFilters: Record<string, any>,
+  ): Record<string, any> {
+    const processedFilters: Record<string, any> = {};
+
+    const processCondition = (
+      key: string,
+      condition: any,
+    ): Record<string, any> => {
+      if (typeof condition !== "object" || condition === null) {
+        // Simple equality: {"key": "value"} or wildcard
+        if (condition === "*") {
+          return { [key]: "*" };
+        }
+        return { [key]: condition };
+      }
+
+      if (Array.isArray(condition)) {
+        // Array shorthand for "in" operator
+        return { [key]: { in: condition } };
+      }
+
+      const result: Record<string, any> = {};
+      const operatorMap: Record<string, string> = {
+        eq: "eq",
+        ne: "ne",
+        gt: "gt",
+        gte: "gte",
+        lt: "lt",
+        lte: "lte",
+        in: "in",
+        nin: "nin",
+        contains: "contains",
+        icontains: "icontains",
+      };
+
+      for (const [operator, value] of Object.entries(condition)) {
+        if (operator in operatorMap) {
+          if (!result[key]) {
+            result[key] = {};
+          }
+          result[key][operatorMap[operator]] = value;
+        } else {
+          throw new Error(`Unsupported metadata filter operator: ${operator}`);
+        }
+      }
+      return result;
+    };
+
+    for (const [key, value] of Object.entries(metadataFilters)) {
+      if (key === "AND") {
+        // Logical AND: combine multiple conditions
+        if (!Array.isArray(value)) {
+          throw new Error("AND operator requires a list of conditions");
+        }
+        for (const condition of value) {
+          for (const [subKey, subValue] of Object.entries(condition)) {
+            Object.assign(processedFilters, processCondition(subKey, subValue));
+          }
+        }
+      } else if (key === "OR") {
+        // Logical OR: Pass through to vector store for implementation-specific handling
+        if (!Array.isArray(value) || value.length === 0) {
+          throw new Error(
+            "OR operator requires a non-empty list of conditions",
+          );
+        }
+        processedFilters["$or"] = [];
+        for (const condition of value) {
+          const orCondition: Record<string, any> = {};
+          for (const [subKey, subValue] of Object.entries(
+            condition as Record<string, any>,
+          )) {
+            Object.assign(orCondition, processCondition(subKey, subValue));
+          }
+          processedFilters["$or"].push(orCondition);
+        }
+      } else if (key === "NOT") {
+        // Logical NOT: Pass through to vector store for implementation-specific handling
+        if (!Array.isArray(value) || value.length === 0) {
+          throw new Error(
+            "NOT operator requires a non-empty list of conditions",
+          );
+        }
+        processedFilters["$not"] = [];
+        for (const condition of value) {
+          const notCondition: Record<string, any> = {};
+          for (const [subKey, subValue] of Object.entries(
+            condition as Record<string, any>,
+          )) {
+            Object.assign(notCondition, processCondition(subKey, subValue));
+          }
+          processedFilters["$not"].push(notCondition);
+        }
+      } else {
+        Object.assign(processedFilters, processCondition(key, value));
+      }
+    }
+
+    return processedFilters;
   }
 }

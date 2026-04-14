@@ -96,7 +96,9 @@ describe("Memory - get()", () => {
   });
 
   test("returns the memory matching the ID from add()", async () => {
-    const addResult: SearchResult = await memory.add("I love AI", { userId });
+    const addResult: SearchResult = await memory.add("I love AI", {
+      filters: { user_id: userId },
+    });
     const id = addResult.results[0].id;
     const item: MemoryItem | null = await memory.get(id);
     expect(item).not.toBeNull();
@@ -105,7 +107,7 @@ describe("Memory - get()", () => {
 
   test("returns a string for the memory field", async () => {
     const addResult: SearchResult = await memory.add("Testing get", {
-      userId,
+      filters: { user_id: userId },
     });
     const item: MemoryItem | null = await memory.get(addResult.results[0].id);
     expect(typeof item!.memory).toBe("string");
@@ -117,7 +119,9 @@ describe("Memory - get()", () => {
   });
 
   test("returns hash and createdAt on stored memory", async () => {
-    const addResult: SearchResult = await memory.add("Hash test", { userId });
+    const addResult: SearchResult = await memory.add("Hash test", {
+      filters: { user_id: userId },
+    });
     const item: MemoryItem | null = await memory.get(addResult.results[0].id);
     expect(typeof item!.hash).toBe("string");
     expect(item!.createdAt).toBeDefined();
@@ -142,7 +146,7 @@ describe("Memory - update()", () => {
   // Use infer: false for update tests — bypasses LLM, gives us a stable ID
   test("returns success message", async () => {
     const addResult: SearchResult = await memory.add("Original", {
-      userId,
+      filters: { user_id: userId },
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -152,7 +156,7 @@ describe("Memory - update()", () => {
 
   test("persists the updated text", async () => {
     const addResult: SearchResult = await memory.add("Before update", {
-      userId,
+      filters: { user_id: userId },
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -163,7 +167,7 @@ describe("Memory - update()", () => {
 
   test("preserves createdAt and sets updatedAt", async () => {
     const addResult: SearchResult = await memory.add("Timestamp test", {
-      userId,
+      filters: { user_id: userId },
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -178,7 +182,7 @@ describe("Memory - update()", () => {
 
   test("updates the hash", async () => {
     const addResult: SearchResult = await memory.add("Hash change", {
-      userId,
+      filters: { user_id: userId },
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -205,7 +209,7 @@ describe("Memory - delete()", () => {
 
   test("returns success message", async () => {
     const addResult: SearchResult = await memory.add("Delete me", {
-      userId,
+      filters: { user_id: userId },
       infer: false,
     });
     const result = await memory.delete(addResult.results[0].id);
@@ -214,7 +218,7 @@ describe("Memory - delete()", () => {
 
   test("get() returns null after deletion", async () => {
     const addResult: SearchResult = await memory.add("Temporary", {
-      userId,
+      filters: { user_id: userId },
       infer: false,
     });
     const id = addResult.results[0].id;
@@ -238,17 +242,19 @@ describe("Memory - deleteAll()", () => {
   });
 
   test("removes all memories for the user and returns success", async () => {
-    await memory.add("Fact A", { userId });
-    await memory.add("Fact B", { userId });
-    const result = await memory.deleteAll({ userId });
+    await memory.add("Fact A", { filters: { user_id: userId } });
+    await memory.add("Fact B", { filters: { user_id: userId } });
+    const result = await memory.deleteAll({ filters: { user_id: userId } });
     expect(result.message).toBe("Memories deleted successfully!");
-    const remaining: SearchResult = await memory.getAll({ userId });
+    const remaining: SearchResult = await memory.getAll({
+      filters: { user_id: userId },
+    });
     expect(remaining.results).toHaveLength(0);
   });
 
   test("throws when no filter is provided", async () => {
     await expect(memory.deleteAll({} as any)).rejects.toThrow(
-      "At least one filter is required",
+      "filters must contain at least one of: user_id, agent_id, run_id",
     );
   });
 });
@@ -268,15 +274,19 @@ describe("Memory - getAll()", () => {
   });
 
   test("returns all stored memories for the user", async () => {
-    await memory.add("First", { userId });
-    await memory.add("Second", { userId });
-    const result: SearchResult = await memory.getAll({ userId });
+    await memory.add("First", { filters: { user_id: userId } });
+    await memory.add("Second", { filters: { user_id: userId } });
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: userId },
+    });
     expect(Array.isArray(result.results)).toBe(true);
     expect(result.results.length).toBeGreaterThanOrEqual(2);
   });
 
   test("each result has id and memory fields", async () => {
-    const result: SearchResult = await memory.getAll({ userId });
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: userId },
+    });
     for (const item of result.results) {
       expect(item.id).toBeDefined();
       expect(typeof item.memory).toBe("string");
@@ -285,7 +295,7 @@ describe("Memory - getAll()", () => {
 
   test("returns empty array when no memories exist", async () => {
     const result: SearchResult = await memory.getAll({
-      userId: "no_such_user",
+      filters: { user_id: "no_such_user" },
     });
     expect(result.results).toHaveLength(0);
   });
@@ -299,7 +309,7 @@ describe("Memory - search()", () => {
 
   beforeAll(async () => {
     memory = createMemory();
-    await memory.add("I love TypeScript", { userId });
+    await memory.add("I love TypeScript", { filters: { user_id: userId } });
   });
 
   afterAll(async () => {
@@ -307,12 +317,16 @@ describe("Memory - search()", () => {
   });
 
   test("returns SearchResult with results array", async () => {
-    const result: SearchResult = await memory.search("TypeScript", { userId });
+    const result: SearchResult = await memory.search("TypeScript", {
+      filters: { user_id: userId },
+    });
     expect(Array.isArray(result.results)).toBe(true);
   });
 
   test("returns results with score field", async () => {
-    const result: SearchResult = await memory.search("content", { userId });
+    const result: SearchResult = await memory.search("content", {
+      filters: { user_id: userId },
+    });
     if (result.results.length > 0) {
       expect(typeof result.results[0].score).toBe("number");
     }
@@ -320,13 +334,13 @@ describe("Memory - search()", () => {
 
   test("throws when no userId/agentId/runId provided", async () => {
     await expect(memory.search("query", {} as any)).rejects.toThrow(
-      "One of the filters: userId, agentId or runId is required!",
+      "filters must contain at least one of: user_id, agent_id, run_id",
     );
   });
 
   test("returns empty results for user with no memories", async () => {
     const result: SearchResult = await memory.search("query", {
-      userId: "empty_user",
+      filters: { user_id: "empty_user" },
     });
     expect(result.results).toHaveLength(0);
   });
@@ -347,14 +361,18 @@ describe("Memory - history()", () => {
   });
 
   test("records ADD event after add()", async () => {
-    const addResult: SearchResult = await memory.add("New fact", { userId });
+    const addResult: SearchResult = await memory.add("New fact", {
+      filters: { user_id: userId },
+    });
     const history = await memory.history(addResult.results[0].id);
     expect(Array.isArray(history)).toBe(true);
     expect(history.length).toBeGreaterThan(0);
   });
 
   test("records additional entry after update()", async () => {
-    const addResult: SearchResult = await memory.add("Before", { userId });
+    const addResult: SearchResult = await memory.add("Before", {
+      filters: { user_id: userId },
+    });
     const id = addResult.results[0].id;
     await memory.update(id, "After");
     const history = await memory.history(id);

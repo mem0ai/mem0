@@ -1,13 +1,6 @@
-// ─── Entity Options (for add/delete — top-level identity) ───
-export interface EntityOptions {
-  userId?: string;
-  agentId?: string;
-  appId?: string;
-  runId?: string;
-}
-
 // ─── Per-Method Options ─────────────────────────────────────
-export interface AddMemoryOptions extends EntityOptions {
+export interface AddMemoryOptions {
+  filters?: Record<string, any>;
   metadata?: Record<string, any>;
   infer?: boolean;
   customCategories?: custom_categories[];
@@ -35,7 +28,9 @@ export interface GetAllMemoryOptions {
   categories?: string[];
 }
 
-export interface DeleteAllMemoryOptions extends EntityOptions {}
+export interface DeleteAllMemoryOptions {
+  filters?: Record<string, any>;
+}
 
 // ─── Project Options ────────────────────────────────────────
 export interface ProjectOptions {

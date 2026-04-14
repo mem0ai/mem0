@@ -29,6 +29,9 @@ warnings.filterwarnings("default", category=DeprecationWarning)
 # Setup user config
 setup_config()
 
+# Entity parameters that must be passed via filters, not top-level
+ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
+
 
 class MemoryClient:
     """Client for interacting with the Mem0 API.
@@ -139,8 +142,7 @@ class MemoryClient:
                      or a string. If a string is provided, it will be converted to
                      a user message.
             options: Typed options for the add operation (AddMemoryOptions).
-            **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters.
+            **kwargs: Additional parameters such as metadata, filters.
 
         Returns:
             A dictionary containing the API response in v1.1 format.
@@ -163,7 +165,11 @@ class MemoryClient:
             raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
         kwargs = self._prepare_params(kwargs)
+        # Extract filters and spread entity IDs into payload (API expects top-level entity IDs)
+        filters = kwargs.pop("filters", None)
         payload = self._prepare_payload(messages, kwargs)
+        if filters:
+            payload.update(filters)
         response = self.client.post("/v3/memories/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
@@ -201,8 +207,7 @@ class MemoryClient:
 
         Args:
             options: Typed options for the get_all operation (GetAllMemoryOptions).
-            **kwargs: Optional parameters for filtering (user_id, agent_id,
-                      app_id, top_k, page, page_size).
+            **kwargs: Optional parameters for filtering (filters, page, page_size).
 
         Returns:
             A dictionary containing memories in v1.1 format: {"results": [...]}
@@ -215,6 +220,14 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in get_all(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
@@ -264,6 +277,14 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in search(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
         payload = {"query": query, **params}
@@ -349,8 +370,7 @@ class MemoryClient:
 
         Args:
             options: Typed options for the delete_all operation (DeleteAllMemoryOptions).
-            **kwargs: Optional parameters for filtering (user_id, agent_id,
-                      app_id).
+            **kwargs: Optional parameters for filtering (filters).
 
         Returns:
             A dictionary containing the API response.
@@ -365,7 +385,16 @@ class MemoryClient:
         """
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
-        response = self.client.delete("/v1/memories/", params=params)
+
+        # Extract filters and pass as query params (snake_case keys)
+        query_params = {}
+        if "filters" in params:
+            filters = params.pop("filters")
+            if isinstance(filters, dict):
+                query_params.update(filters)
+        query_params.update(params)
+
+        response = self.client.delete("/v1/memories/", params=query_params)
         response.raise_for_status()
         capture_client_event(
             "client.delete_all",
@@ -1052,8 +1081,7 @@ class AsyncMemoryClient:
                      or a string. If a string is provided, it will be converted to
                      a user message.
             options: Typed options for the add operation (AddMemoryOptions).
-            **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters.
+            **kwargs: Additional parameters such as metadata, filters.
 
         Returns:
             A dictionary containing the API response in v1.1 format.
@@ -1076,7 +1104,11 @@ class AsyncMemoryClient:
             raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
         kwargs = self._prepare_params(kwargs)
+        # Extract filters and spread entity IDs into payload (API expects top-level entity IDs)
+        filters = kwargs.pop("filters", None)
         payload = self._prepare_payload(messages, kwargs)
+        if filters:
+            payload.update(filters)
         response = await self.async_client.post("/v3/memories/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
@@ -1111,6 +1143,14 @@ class AsyncMemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in get_all(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
@@ -1160,6 +1200,14 @@ class AsyncMemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in search(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
         payload = {"query": query, **params}
@@ -1245,7 +1293,7 @@ class AsyncMemoryClient:
 
         Args:
             options: Typed options for the delete_all operation (DeleteAllMemoryOptions).
-            **kwargs: Optional parameters for filtering (user_id, agent_id, app_id).
+            **kwargs: Optional parameters for filtering (filters).
 
         Returns:
             A dictionary containing the API response.
@@ -1260,7 +1308,16 @@ class AsyncMemoryClient:
         """
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
-        response = await self.async_client.delete("/v1/memories/", params=params)
+
+        # Extract filters and pass as query params (snake_case keys)
+        query_params = {}
+        if "filters" in params:
+            filters = params.pop("filters")
+            if isinstance(filters, dict):
+                query_params.update(filters)
+        query_params.update(params)
+
+        response = await self.async_client.delete("/v1/memories/", params=query_params)
         response.raise_for_status()
         capture_client_event("client.delete_all", self, {"keys": list(kwargs.keys()), "sync_type": "async"})
         return response.json()

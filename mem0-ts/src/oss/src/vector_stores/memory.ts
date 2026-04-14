@@ -67,11 +67,139 @@ export class MemoryVectorStore implements VectorStore {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
+  /**
+   * Check if a single field condition matches the payload.
+   * Supports comparison operators: eq, ne, gt, gte, lt, lte, in, nin, contains, icontains
+   */
+  private matchFieldCondition(
+    payload: Record<string, any>,
+    key: string,
+    value: any,
+  ): boolean {
+    const payloadValue = payload[key];
+
+    // Handle non-dict values
+    if (typeof value !== "object" || value === null) {
+      // Wildcard: match any value
+      if (value === "*") {
+        return true;
+      }
+      // Simple equality
+      return payloadValue === value;
+    }
+
+    // Handle array shorthand: {"field": ["a", "b"]} treated as "in" operator
+    if (Array.isArray(value)) {
+      return value.includes(payloadValue);
+    }
+
+    // Handle comparison operators
+    if ("eq" in value) {
+      return payloadValue === value.eq;
+    }
+    if ("ne" in value) {
+      return payloadValue !== value.ne;
+    }
+    if ("gt" in value) {
+      return payloadValue > value.gt;
+    }
+    if ("gte" in value) {
+      return payloadValue >= value.gte;
+    }
+    if ("lt" in value) {
+      return payloadValue < value.lt;
+    }
+    if ("lte" in value) {
+      return payloadValue <= value.lte;
+    }
+    if ("in" in value) {
+      return Array.isArray(value.in) && value.in.includes(payloadValue);
+    }
+    if ("nin" in value) {
+      return !Array.isArray(value.nin) || !value.nin.includes(payloadValue);
+    }
+    if ("contains" in value) {
+      return (
+        typeof payloadValue === "string" &&
+        payloadValue.includes(value.contains)
+      );
+    }
+    if ("icontains" in value) {
+      return (
+        typeof payloadValue === "string" &&
+        payloadValue.toLowerCase().includes(value.icontains.toLowerCase())
+      );
+    }
+
+    // Unknown operator - treat as nested object for equality (shouldn't happen normally)
+    return payloadValue === value;
+  }
+
+  /**
+   * Filter a vector by the given filters.
+   * Supports logical operators (AND, OR, NOT) and comparison operators.
+   */
   private filterVector(vector: MemoryVector, filters?: SearchFilters): boolean {
-    if (!filters) return true;
-    return Object.entries(filters).every(
-      ([key, value]) => vector.payload[key] === value,
-    );
+    if (!filters || Object.keys(filters).length === 0) return true;
+
+    // Normalize $or/$not/$and → OR/NOT/AND
+    const keyMap: Record<string, string> = {
+      $and: "AND",
+      $or: "OR",
+      $not: "NOT",
+    };
+    const normalized: Record<string, any> = {};
+    for (const [key, value] of Object.entries(filters)) {
+      const normKey = keyMap[key] || key;
+      if (!(normKey in normalized)) {
+        normalized[normKey] = value;
+      }
+    }
+
+    for (const [key, value] of Object.entries(normalized)) {
+      // Handle logical operators
+      if (key === "AND") {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `AND filter value must be a list of filter dicts, got ${typeof value}`,
+          );
+        }
+        // All conditions must match
+        const allMatch = value.every((sub: SearchFilters) =>
+          this.filterVector(vector, sub),
+        );
+        if (!allMatch) return false;
+      } else if (key === "OR") {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `OR filter value must be a list of filter dicts, got ${typeof value}`,
+          );
+        }
+        // At least one condition must match
+        const anyMatch = value.some((sub: SearchFilters) =>
+          this.filterVector(vector, sub),
+        );
+        if (!anyMatch) return false;
+      } else if (key === "NOT") {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `NOT filter value must be a list of filter dicts, got ${typeof value}`,
+          );
+        }
+        // None of the conditions should match
+        const noneMatch = value.every(
+          (sub: SearchFilters) => !this.filterVector(vector, sub),
+        );
+        if (!noneMatch) return false;
+      } else {
+        // Regular field condition
+        if (!this.matchFieldCondition(vector.payload, key, value)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   async insert(
