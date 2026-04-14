@@ -1,0 +1,103 @@
+---
+title: "Local Model Compatibility"
+description: "Guidance for using Mem0 with local LLM runtimes such as Ollama, LM Studio, and vLLM."
+icon: "server"
+---
+
+# Local Model Compatibility
+
+Mem0 can run with local LLMs, but not every local runtime behaves the same way. Some are better suited for day-to-day memory extraction, while others are best treated as OpenAI-compatible endpoints with a bit more operator tuning.
+
+This page is a practical compatibility guide for local and self-hosted setups.
+
+## Compatibility Matrix
+
+| Runtime | Status | Best for | Notes |
+| --- | --- | --- | --- |
+| `Ollama` | Recommended | Simple local setups, privacy-sensitive deployments, fast prototyping | Best documented local path in Mem0. Works well when you want a straightforward local LLM + local embedder setup. |
+| `LM Studio` | Supported with caveats | Desktop experimentation, OpenAI-compatible local serving | Useful when you already run models through the LM Studio local server. Expect more variation between models and prompt behavior. |
+| `vLLM` | Supported for OpenAI-compatible setups | GPU-backed self-hosted inference, higher-throughput local serving | Best fit when you operate your own OpenAI-compatible inference endpoint and want performance/throughput benefits. |
+| Small local instruct models | Supported with caveats | Lightweight development setups | Smaller models can work, but they are more likely to produce noisy or incomplete structured outputs. Keep prompts and workloads simple. |
+
+## Recommendations
+
+### Start with Ollama
+
+If you want the smoothest local setup, start with [Ollama](/components/llms/models/ollama). It is the clearest path today for:
+
+- local development on a single machine
+- privacy-sensitive or offline workflows
+- pairing a local LLM with a local embedder
+
+### Use LM Studio for local OpenAI-compatible workflows
+
+[LM Studio](/components/llms/models/lmstudio) is a good option when you prefer its desktop workflow or already use it as your local OpenAI-compatible endpoint.
+
+Good fit:
+
+- interactive experimentation
+- desktop-based local inference
+- testing prompt behavior across different GGUF models
+
+Watch out for:
+
+- differences between model families
+- inconsistent formatting across smaller local models
+- occasional need to tune prompts more carefully than with hosted APIs
+
+### Use vLLM for self-hosted performance
+
+[vLLM](/components/llms/models/vllm) is the better choice when you run your own inference server and care about serving efficiency.
+
+Good fit:
+
+- GPU-backed deployments
+- higher-throughput memory extraction
+- OpenAI-compatible infrastructure
+
+Watch out for:
+
+- operator complexity compared with Ollama
+- model-specific behavior still matters even when the server layer is stable
+
+## Guidance by Model Size
+
+### Small local models
+
+For smaller local instruct models:
+
+- keep prompts narrow and explicit
+- prefer shorter inputs when possible
+- expect more output-format variance than with larger hosted models
+
+### Larger local models
+
+Larger local models usually behave more predictably for extraction tasks, especially when prompts ask for structured outputs. They are a better fit for:
+
+- denser conversational memory
+- longer multi-turn inputs
+- higher-confidence extraction flows
+
+## When Local Models Are a Good Fit
+
+Choose a local model setup when you want:
+
+- stronger privacy controls
+- fully self-hosted deployments
+- lower marginal inference cost after infrastructure is in place
+- tighter control over the serving stack
+
+## When to Prefer Hosted Models
+
+Hosted models are usually easier when you need:
+
+- the most reliable structured outputs
+- less operator overhead
+- faster onboarding for new teams
+- the strongest out-of-the-box behavior across many workloads
+
+## Next Steps
+
+- Start with the [Python Quickstart](/open-source/python-quickstart)
+- Configure a provider in [Configuration](/open-source/configuration)
+- Use the provider-specific setup guides for [Ollama](/components/llms/models/ollama), [LM Studio](/components/llms/models/lmstudio), or [vLLM](/components/llms/models/vllm)
