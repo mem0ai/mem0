@@ -1,7 +1,8 @@
-import { Stats, StatsConstants, StatsActions } from "../actions/statsAction";
+import { StatsConstants, StatsActions } from "../actions/statsAction";
+import { DashboardStats } from "@/types/api";
 
 interface StatsState {
-  stats: Stats;
+  stats: DashboardStats;
   isLoading: boolean;
   error: string | null;
 }

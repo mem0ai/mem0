@@ -1,8 +1,4 @@
-export interface Stats {
-  memory_count: number;
-  active_api_keys: number;
-  ops_today: number;
-}
+import { DashboardStats } from "@/types/api";
 
 export enum StatsConstants {
   SET_STATS = "SET_STATS",
@@ -10,12 +6,12 @@ export enum StatsConstants {
 
 export interface SetStatsAction {
   type: StatsConstants.SET_STATS;
-  payload: Stats;
+  payload: DashboardStats;
 }
 
 export type StatsActions = SetStatsAction;
 
-export const setStats = (stats: Stats): StatsActions => ({
+export const setStats = (stats: DashboardStats): StatsActions => ({
   type: StatsConstants.SET_STATS,
   payload: stats,
 });

@@ -82,8 +82,9 @@ export default function LoginForm() {
             )}
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="space-y-1.5">
-                <Label>Email</Label>
+                <Label htmlFor="login-email">Email</Label>
                 <Input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -93,8 +94,9 @@ export default function LoginForm() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Password</Label>
+                <Label htmlFor="login-password">Password</Label>
                 <Input
+                  id="login-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

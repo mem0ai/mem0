@@ -69,7 +69,10 @@ export default function SetupPage() {
 
         setLlmProvider((current) => current || config.llm?.provider || "");
         setLlmModel((current) => current || config.llm?.config?.model || "");
-      } catch {
+      } catch (err) {
+        if (active) {
+          setError(getErrorMessage(err, "Could not read server configuration"));
+        }
       } finally {
         if (active) {
           setIsPrefillingConfig(false);
@@ -227,16 +230,18 @@ export default function SetupPage() {
             {step === 0 && (
               <>
                 <div className="space-y-1">
-                  <Label>Name</Label>
+                  <Label htmlFor="setup-name">Name</Label>
                   <Input
+                    id="setup-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your name"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Email</Label>
+                  <Label htmlFor="setup-email">Email</Label>
                   <Input
+                    id="setup-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -244,8 +249,9 @@ export default function SetupPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Password</Label>
+                  <Label htmlFor="setup-password">Password</Label>
                   <Input
+                    id="setup-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -253,8 +259,11 @@ export default function SetupPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Confirm Password</Label>
+                  <Label htmlFor="setup-confirm-password">
+                    Confirm Password
+                  </Label>
                   <Input
+                    id="setup-confirm-password"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -273,24 +282,27 @@ export default function SetupPage() {
             {step === 1 && (
               <>
                 <div className="space-y-1">
-                  <Label>LLM Provider</Label>
+                  <Label htmlFor="setup-llm-provider">LLM Provider</Label>
                   <Input
+                    id="setup-llm-provider"
                     value={llmProvider}
                     onChange={(e) => setLlmProvider(e.target.value)}
                     placeholder="openai"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Model</Label>
+                  <Label htmlFor="setup-llm-model">Model</Label>
                   <Input
+                    id="setup-llm-model"
                     value={llmModel}
                     onChange={(e) => setLlmModel(e.target.value)}
                     placeholder="gpt-4.1-nano-2025-04-14"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>API Key</Label>
+                  <Label htmlFor="setup-llm-api-key">API Key</Label>
                   <Input
+                    id="setup-llm-api-key"
                     type="password"
                     value={llmApiKey}
                     onChange={(e) => setLlmApiKey(e.target.value)}
@@ -323,9 +335,10 @@ export default function SetupPage() {
             {step === 2 && apiKey && (
               <>
                 <div className="space-y-1">
-                  <Label>Your API Key</Label>
+                  <Label htmlFor="setup-api-key">Your API Key</Label>
                   <div className="flex gap-2">
                     <Input
+                      id="setup-api-key"
                       value={apiKey}
                       readOnly
                       className="font-mono text-sm"

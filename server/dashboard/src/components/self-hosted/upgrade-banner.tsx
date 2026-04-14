@@ -21,14 +21,15 @@ export function UpgradeBanner({
   variant,
   dismissible = true,
 }: UpgradeBannerProps) {
-  const [dismissed, setDismissed] = useState(true); // Start hidden to avoid flash
+  const [mounted, setMounted] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const key = `nudge_${id}_dismissed`;
-    setDismissed(localStorage.getItem(key) === "true");
+    setDismissed(localStorage.getItem(`nudge_${id}_dismissed`) === "true");
+    setMounted(true);
   }, [id]);
 
-  if (dismissed) return null;
+  if (!mounted || dismissed) return null;
 
   const handleDismiss = () => {
     localStorage.setItem(`nudge_${id}_dismissed`, "true");

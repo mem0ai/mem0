@@ -10,14 +10,8 @@ import { api } from "@/utils/api";
 import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
 import { toast } from "@/components/ui/use-toast";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
-
-interface SearchResult {
-  id: string;
-  memory: string;
-  score: number;
-  user_id?: string;
-  agent_id?: string;
-}
+import { getErrorMessage } from "@/lib/error-message";
+import { SearchResult } from "@/types/api";
 
 export default function SearchPage() {
   const [query, setQuery] = useState("");
@@ -37,10 +31,10 @@ export default function SearchPage() {
       if (agentId) params.agent_id = agentId;
       const res = await api.post(MEMORY_ENDPOINTS.SEARCH, params);
       setResults(res.data?.results || res.data || []);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Search failed",
-        description: typeof error === "string" ? error : error?.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     } finally {

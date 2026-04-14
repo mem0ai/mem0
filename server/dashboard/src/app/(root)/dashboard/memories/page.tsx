@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/data-table";
@@ -8,41 +8,27 @@ import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { EmptyState } from "@/components/self-hosted/empty-state";
 import { api } from "@/utils/api";
 import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
-import { toast } from "@/components/ui/use-toast";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
-
-interface Memory {
-  id: string;
-  memory: string;
-  user_id?: string;
-  agent_id?: string;
-  created_at?: string;
-  updated_at?: string;
-}
+import { useApiQuery } from "@/hooks/use-api-query";
+import { Memory } from "@/types/api";
 
 export default function MemoriesPage() {
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState("");
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
 
-  const fetchMemories = useCallback(async () => {
-    setIsLoading(true);
-    try {
+  const {
+    data: memories = [],
+    isLoading,
+    refetch,
+  } = useApiQuery<Memory[]>(
+    async () => {
       const params = userId.trim() ? { user_id: userId.trim() } : undefined;
       const res = await api.get(MEMORY_ENDPOINTS.BASE, { params });
-      const data = res.data?.results || res.data || [];
-      setMemories(Array.isArray(data) ? data : []);
-    } catch {
-      toast({ title: "Failed to load memories", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    fetchMemories();
-  }, [fetchMemories]);
+      const raw = res.data?.results ?? res.data ?? [];
+      return Array.isArray(raw) ? raw : [];
+    },
+    { errorToast: "Failed to load memories", initialData: [] },
+  );
 
   const columns = [
     {
@@ -83,7 +69,7 @@ export default function MemoriesPage() {
           placeholder="Filter by User ID (optional)"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && fetchMemories()}
+          onKeyDown={(e) => e.key === "Enter" && refetch()}
           className="w-64"
         />
       </div>

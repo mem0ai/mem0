@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,20 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/shared/data-table";
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { EmptyState } from "@/components/self-hosted/empty-state";
-import { toast } from "@/components/ui/use-toast";
-import { getErrorMessage } from "@/lib/error-message";
 import { api } from "@/utils/api";
 import { REQUEST_ENDPOINTS } from "@/utils/api-endpoints";
-
-type ApiRequestLog = {
-  id: string;
-  created_at: string;
-  method: string;
-  path: string;
-  status_code: number;
-  latency_ms: number;
-  auth_type: string;
-};
+import { useApiQuery } from "@/hooks/use-api-query";
+import { ApiRequestLog } from "@/types/api";
 
 type RequestLog = {
   id: string;
@@ -90,40 +80,23 @@ const normalizeLog = (entry: ApiRequestLog): RequestLog => {
 };
 
 export default function RequestsPage() {
-  const [logs, setLogs] = useState<RequestLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  const loadRequestLogs = useCallback(async () => {
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const res = await api.get(REQUEST_ENDPOINTS.BASE, {
-        params: {
-          limit: REQUEST_LOG_LIMIT,
-        },
+  const {
+    data: logs = [],
+    isLoading,
+    error,
+    refetch,
+  } = useApiQuery<RequestLog[]>(
+    async () => {
+      const res = await api.get<ApiRequestLog[]>(REQUEST_ENDPOINTS.BASE, {
+        params: { limit: REQUEST_LOG_LIMIT },
       });
-
-      setLogs((res.data as ApiRequestLog[]).map(normalizeLog));
       setLastUpdated(new Date().toISOString());
-    } catch (err) {
-      const message = getErrorMessage(err, "Failed to load request logs");
-      setError(message);
-      toast({
-        title: "Failed to load request logs",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadRequestLogs();
-  }, [loadRequestLogs]);
+      return (res.data ?? []).map(normalizeLog);
+    },
+    { errorToast: "Failed to load request logs", initialData: [] },
+  );
 
   const totalRequests = logs.length;
   const successfulRequests = logs.filter((log) => log.statusCode < 400).length;
@@ -210,7 +183,7 @@ export default function RequestsPage() {
         </div>
         <Button
           variant="outline"
-          onClick={loadRequestLogs}
+          onClick={() => void refetch()}
           disabled={isLoading}
         >
           <RefreshCw className="size-4 mr-2" />

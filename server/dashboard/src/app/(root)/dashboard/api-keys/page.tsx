@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,68 +14,63 @@ import {
 import { DataTable } from "@/components/shared/data-table";
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { EmptyState } from "@/components/self-hosted/empty-state";
+import DeleteConfirmationModal from "@/components/ui/delete-confirmation-modal";
 import { api } from "@/utils/api";
 import { API_KEY_ENDPOINTS } from "@/utils/api-endpoints";
 import { toast } from "@/components/ui/use-toast";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { Plus, Copy, Check, Trash2 } from "lucide-react";
 import { CopyToClipboard } from "react-copy-to-clipboard";
-
-interface ApiKey {
-  id: string;
-  label: string;
-  key_prefix: string;
-  created_at: string;
-  last_used_at: string | null;
-}
+import { getErrorMessage } from "@/lib/error-message";
+import { useApiQuery } from "@/hooks/use-api-query";
+import { ApiKey, ApiKeyCreateResponse } from "@/types/api";
 
 export default function ApiKeysPage() {
-  const [keys, setKeys] = useState<ApiKey[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newKey, setNewKey] = useState("");
   const [copied, setCopied] = useState(false);
+  const [keyToRevoke, setKeyToRevoke] = useState<ApiKey | null>(null);
 
-  const fetchKeys = useCallback(async () => {
-    try {
-      const res = await api.get(API_KEY_ENDPOINTS.BASE);
-      setKeys(res.data || []);
-    } catch {
-      toast({ title: "Failed to load API keys", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchKeys();
-  }, [fetchKeys]);
+  const {
+    data: keys = [],
+    isLoading,
+    refetch,
+  } = useApiQuery<ApiKey[]>(
+    async () => {
+      const res = await api.get<ApiKey[]>(API_KEY_ENDPOINTS.BASE);
+      return res.data ?? [];
+    },
+    { errorToast: "Failed to load API keys", initialData: [] },
+  );
 
   const handleCreate = async () => {
     try {
-      const res = await api.post(API_KEY_ENDPOINTS.BASE, { label: newLabel });
+      const res = await api.post<ApiKeyCreateResponse>(API_KEY_ENDPOINTS.BASE, {
+        label: newLabel,
+      });
       setNewKey(res.data.key);
-      fetchKeys();
-    } catch (error: any) {
+      void refetch();
+    } catch (error) {
       toast({
         title: "Failed to create key",
-        description: typeof error === "string" ? error : error?.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
   };
 
-  const handleRevoke = async (keyId: string) => {
-    if (!confirm("Revoke this API key? This cannot be undone.")) return;
+  const handleRevoke = async () => {
+    if (!keyToRevoke) return;
     try {
-      await api.delete(API_KEY_ENDPOINTS.BY_ID(keyId));
+      await api.delete(API_KEY_ENDPOINTS.BY_ID(keyToRevoke.id));
       toast({ title: "API key revoked", variant: "success" });
-      fetchKeys();
-    } catch (error: any) {
+      setKeyToRevoke(null);
+      void refetch();
+    } catch (error) {
       toast({
         title: "Failed to revoke key",
-        description: typeof error === "string" ? error : error?.message,
+        description: getErrorMessage(error),
         variant: "destructive",
       });
     }
@@ -121,7 +116,7 @@ export default function ApiKeysPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => handleRevoke(row.id)}
+          onClick={() => setKeyToRevoke(row)}
           className="size-7"
         >
           <Trash2 className="size-3.5 text-onSurface-danger-primary" />
@@ -147,8 +142,9 @@ export default function ApiKeysPage() {
             {!newKey ? (
               <div className="space-y-4 mt-2">
                 <div className="space-y-2">
-                  <Label>Label</Label>
+                  <Label htmlFor="api-key-label">Label</Label>
                   <Input
+                    id="api-key-label"
                     value={newLabel}
                     onChange={(e) => setNewLabel(e.target.value)}
                     placeholder="e.g. Production"
@@ -165,9 +161,10 @@ export default function ApiKeysPage() {
             ) : (
               <div className="space-y-4 mt-2">
                 <div className="space-y-2">
-                  <Label>Your API Key</Label>
+                  <Label htmlFor="api-key-new">Your API Key</Label>
                   <div className="flex gap-2">
                     <Input
+                      id="api-key-new"
                       value={newKey}
                       readOnly
                       className="font-mono text-sm"
@@ -189,7 +186,7 @@ export default function ApiKeysPage() {
                     </CopyToClipboard>
                   </div>
                   <p className="text-xs text-onSurface-danger-primary">
-                    Save this key -- you won't see it again.
+                    Save this key -- you won&apos;t see it again.
                   </p>
                 </div>
                 <Button
@@ -224,6 +221,16 @@ export default function ApiKeysPage() {
       ) : (
         <DataTable data={keys} columns={columns} getRowKey={(row) => row.id} />
       )}
+
+      <DeleteConfirmationModal
+        isOpen={!!keyToRevoke}
+        onClose={() => setKeyToRevoke(null)}
+        onConfirm={handleRevoke}
+        title="Revoke API key"
+        description="Applications using this key will immediately stop working. This cannot be undone."
+        itemName={keyToRevoke?.label ?? ""}
+        confirmButtonText="Revoke"
+      />
     </div>
   );
 }

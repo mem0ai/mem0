@@ -15,51 +15,36 @@ import {
   getEffectiveConfig,
 } from "@/utils/self-hosted-config";
 import { useAuth } from "@/hooks/use-auth";
+import { useApiQuery } from "@/hooks/use-api-query";
 
 export default function ConfigurationPage() {
   const { isAdmin } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
-  const [isPrefilling, setIsPrefilling] = useState(true);
   const [llmProvider, setLlmProvider] = useState("");
   const [llmModel, setLlmModel] = useState("");
   const [llmApiKey, setLlmApiKey] = useState("");
   const [embedderProvider, setEmbedderProvider] = useState("");
   const [embedderModel, setEmbedderModel] = useState("");
 
+  const { data: config, isLoading: isPrefilling } = useApiQuery(
+    async () => {
+      const res = await api.get(MEMORY_ENDPOINTS.CONFIGURE);
+      return getEffectiveConfig(res.data);
+    },
+    { errorToast: "Failed to load server configuration" },
+  );
+
   useEffect(() => {
-    let active = true;
-
-    const loadConfig = async () => {
-      try {
-        const res = await api.get(MEMORY_ENDPOINTS.CONFIGURE);
-        const config = getEffectiveConfig(res.data);
-
-        if (!active || !config) {
-          return;
-        }
-
-        setLlmProvider((current) => current || config.llm?.provider || "");
-        setLlmModel((current) => current || config.llm?.config?.model || "");
-        setEmbedderProvider(
-          (current) => current || config.embedder?.provider || "",
-        );
-        setEmbedderModel(
-          (current) => current || config.embedder?.config?.model || "",
-        );
-      } catch {
-      } finally {
-        if (active) {
-          setIsPrefilling(false);
-        }
-      }
-    };
-
-    void loadConfig();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (!config) return;
+    setLlmProvider((current) => current || config.llm?.provider || "");
+    setLlmModel((current) => current || config.llm?.config?.model || "");
+    setEmbedderProvider(
+      (current) => current || config.embedder?.provider || "",
+    );
+    setEmbedderModel(
+      (current) => current || config.embedder?.config?.model || "",
+    );
+  }, [config]);
 
   const handleSave = async () => {
     setIsSaving(true);

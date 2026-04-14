@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { CopyToClipboard } from "react-copy-to-clipboard";
-import { inRange } from "lodash";
 
 interface CopyButtonProps {
   textToCopy: string;
@@ -19,7 +18,6 @@ const CopyButton: React.FC<CopyButtonProps> = ({ textToCopy }) => {
   };
 
   return (
-    // @ts-ignore
     <CopyToClipboard text={textToCopy} onCopy={handleCopy}>
       <button
         type="button"
