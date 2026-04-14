@@ -394,6 +394,13 @@ export class Memory {
           }
           case "UPDATE": {
             const realMemoryId = tempUuidMapping[action.id];
+            if (!realMemoryId) {
+              console.warn(
+                `[mem0] Could not resolve action.id "${action.id}" to a real memory ID — skipping. ` +
+                  `Available keys: ${Object.keys(tempUuidMapping).join(", ")}`,
+              );
+              break;
+            }
             await this.updateMemory(
               realMemoryId,
               action.text,
@@ -412,6 +419,13 @@ export class Memory {
           }
           case "DELETE": {
             const realMemoryId = tempUuidMapping[action.id];
+            if (!realMemoryId) {
+              console.warn(
+                `[mem0] Could not resolve action.id "${action.id}" to a real memory ID — skipping. ` +
+                  `Available keys: ${Object.keys(tempUuidMapping).join(", ")}`,
+              );
+              break;
+            }
             await this.deleteMemory(realMemoryId);
             results.push({
               id: realMemoryId,
