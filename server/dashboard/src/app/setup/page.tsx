@@ -88,7 +88,9 @@ export default function SetupPage() {
     };
   }, [step]);
 
-  const handleStep1 = async () => {
+  const handleStep1 = async (e: React.FormEvent) => {
+    e.preventDefault();
+
     if (password !== confirmPassword) {
       setError("Passwords don't match");
       return;
@@ -112,7 +114,13 @@ export default function SetupPage() {
     }
   };
 
-  const handleStep3 = async () => {
+  const handleStep2 = (e: React.FormEvent) => {
+    e.preventDefault();
+    setStep(2);
+  };
+
+  const handleStep3 = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError("");
     setIsLoading(true);
 
@@ -128,7 +136,18 @@ export default function SetupPage() {
     }
   };
 
-  const handleTest = async () => {
+  const handleContinueToTest = (e: React.FormEvent) => {
+    e.preventDefault();
+    setStep(3);
+  };
+
+  const handleGoToDashboard = (e: React.FormEvent) => {
+    e.preventDefault();
+    router.push("/dashboard/requests");
+  };
+
+  const handleTest = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError("");
     setIsLoading(true);
 
@@ -202,7 +221,7 @@ export default function SetupPage() {
             )}
 
             {step === 0 && (
-              <>
+              <form onSubmit={handleStep1} className="space-y-4">
                 <div className="space-y-1">
                   <Label htmlFor="setup-name">Name</Label>
                   <Input
@@ -244,17 +263,17 @@ export default function SetupPage() {
                   />
                 </div>
                 <Button
-                  onClick={handleStep1}
+                  type="submit"
                   disabled={isLoading || !name || !email || !password}
                   className="w-full"
                 >
                   {isLoading ? "Creating..." : "Create Admin Account"}
                 </Button>
-              </>
+              </form>
             )}
 
             {step === 1 && (
-              <>
+              <form onSubmit={handleStep2} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="setup-llm-provider">LLM Provider</Label>
@@ -311,24 +330,22 @@ export default function SetupPage() {
                   </a>
                   .
                 </p>
-                <Button onClick={() => setStep(2)} className="w-full">
+                <Button type="submit" className="w-full">
                   Continue
                 </Button>
-              </>
+              </form>
             )}
 
             {step === 2 && !apiKey && (
-              <Button
-                onClick={handleStep3}
-                disabled={isLoading}
-                className="w-full"
-              >
-                {isLoading ? "Generating..." : "Generate API Key"}
-              </Button>
+              <form onSubmit={handleStep3}>
+                <Button type="submit" disabled={isLoading} className="w-full">
+                  {isLoading ? "Generating..." : "Generate API Key"}
+                </Button>
+              </form>
             )}
 
             {step === 2 && apiKey && (
-              <>
+              <form onSubmit={handleContinueToTest} className="space-y-4">
                 <div className="space-y-1">
                   <Label htmlFor="setup-api-key">Your API Key</Label>
                   <div className="flex gap-2">
@@ -358,14 +375,17 @@ export default function SetupPage() {
                     Save this key. You will not see it again.
                   </p>
                 </div>
-                <Button onClick={() => setStep(3)} className="w-full">
+                <Button type="submit" className="w-full">
                   Continue
                 </Button>
-              </>
+              </form>
             )}
 
             {step === 3 && (
-              <>
+              <form
+                onSubmit={testSuccess ? handleGoToDashboard : handleTest}
+                className="space-y-4"
+              >
                 <div className="space-y-1">
                   <Label>Test your setup</Label>
                   <pre className="text-xs bg-surface-default-secondary p-3 rounded font-mono overflow-x-auto">{`curl -X POST ${apiUrl}/memories \\
@@ -374,11 +394,7 @@ export default function SetupPage() {
   -d '{"messages": [{"role": "user", "content": "I like hiking"}], "user_id": "test"}'`}</pre>
                 </div>
                 {!testSuccess ? (
-                  <Button
-                    onClick={handleTest}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
+                  <Button type="submit" disabled={isLoading} className="w-full">
                     {isLoading ? "Testing..." : "Run Test"}
                   </Button>
                 ) : (
@@ -386,15 +402,12 @@ export default function SetupPage() {
                     <div className="flex items-center gap-2 text-sm text-onSurface-positive-primary">
                       <Check className="size-4" /> Memory created successfully
                     </div>
-                    <Button
-                      onClick={() => router.push("/dashboard/requests")}
-                      className="w-full"
-                    >
+                    <Button type="submit" className="w-full">
                       Go to Dashboard
                     </Button>
                   </div>
                 )}
-              </>
+              </form>
             )}
           </CardContent>
         </Card>
