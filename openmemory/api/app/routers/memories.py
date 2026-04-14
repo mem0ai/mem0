@@ -1,4 +1,6 @@
 import logging
+import os
+import tempfile
 from datetime import UTC, datetime
 from typing import List, Optional, Set
 from uuid import UUID
@@ -17,7 +19,7 @@ from app.models import (
 from app.schemas import MemoryResponse
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
 from pydantic import BaseModel
@@ -326,6 +328,149 @@ async def create_memory(
         }
 
 
+
+
+# Upload a file and create memories from its contents
+@router.post("/upload")
+async def upload_memory_file(
+    user_id: str = Form(...),
+    file: UploadFile = File(...),
+    app: str = Form("openmemory"),
+    infer: bool = Form(True),
+    db: Session = Depends(get_db),
+):
+    from mem0.memory.file_utils import SUPPORTED_EXTENSIONS
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{ext}'. Supported: {', '.join(SUPPORTED_EXTENSIONS)}",
+        )
+
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    app_obj = db.query(App).filter(App.name == app, App.owner_id == user.id).first()
+    if not app_obj:
+        app_obj = App(name=app, owner_id=user.id)
+        db.add(app_obj)
+        db.commit()
+        db.refresh(app_obj)
+
+    if not app_obj.is_active:
+        raise HTTPException(status_code=403, detail=f"App {app} is currently paused on OpenMemory.")
+
+    try:
+        memory_client = get_memory_client()
+        if not memory_client:
+            raise Exception("Memory client is not available")
+    except Exception as client_error:
+        raise HTTPException(status_code=503, detail=f"Memory service unavailable: {client_error}")
+
+    # Save upload to a temp file — main.py's add() detects the path and handles
+    # extraction + chunking internally via file_utils, keeping that logic in one place.
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        qdrant_response = memory_client.add(
+            tmp_path,
+            user_id=user_id,
+            metadata={"source_app": "openmemory", "mcp_client": app, "source_file": file.filename},
+            infer=infer,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process file: {e}")
+    finally:
+        try:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+        except OSError as e:
+            logging.warning(f"Failed to clean up temp file {tmp_path}: {e}")
+
+    if not qdrant_response or not isinstance(qdrant_response, dict) or "results" not in qdrant_response:
+        raise HTTPException(
+            status_code=500,
+            detail="Memory service returned an invalid or empty response."
+        )
+
+    from app.utils.categorization import get_categories_for_memories
+
+    created_memories = []
+    if isinstance(qdrant_response, dict) and "results" in qdrant_response:
+        for result in qdrant_response["results"]:
+            if result["event"] != "ADD":
+                continue
+            memory_id = UUID(result["id"])
+            existing = db.query(Memory).filter(Memory.id == memory_id).first()
+            if existing:
+                existing.state = MemoryState.active
+                existing.content = result["memory"]
+                memory = existing
+            else:
+                memory = Memory(
+                    id=memory_id,
+                    user_id=user.id,
+                    app_id=app_obj.id,
+                    content=result["memory"],
+                    metadata_={"source_file": file.filename},
+                    state=MemoryState.active,
+                )
+                # Skip per-insert categorization — we'll batch it below
+                memory.skip_categorization = True
+                db.add(memory)
+            db.add(MemoryStatusHistory(
+                memory_id=memory_id,
+                changed_by=user.id,
+                old_state=MemoryState.deleted,
+                new_state=MemoryState.active,
+            ))
+            created_memories.append(memory)
+
+    if created_memories:
+        db.commit()
+        for m in created_memories:
+            db.refresh(m)
+
+        # Single batch categorization call instead of N individual LLM calls
+        try:
+            from app.models import memory_categories
+            contents = [m.content for m in created_memories]
+            categories_list = get_categories_for_memories(contents)
+            for memory, cats in zip(created_memories, categories_list):
+                for cat_name in cats:
+                    category = db.query(Category).filter(Category.name == cat_name).first()
+                    if not category:
+                        category = Category(
+                            name=cat_name,
+                            description=f"Automatically created category for {cat_name}"
+                        )
+                        db.add(category)
+                        db.flush()
+                    existing_assoc = db.execute(
+                        memory_categories.select().where(
+                            (memory_categories.c.memory_id == memory.id) &
+                            (memory_categories.c.category_id == category.id)
+                        )
+                    ).first()
+                    if not existing_assoc:
+                        db.execute(
+                            memory_categories.insert().values(
+                                memory_id=memory.id,
+                                category_id=category.id,
+                            )
+                        )
+            db.commit()
+        except Exception as e:
+            logging.error(f"Batch categorization failed for upload, memories saved without categories: {e}")
+
+    return {
+        "message": f"Processed '{file.filename}': {len(created_memories)} memory(s) created.",
+        "memories_created": len(created_memories),
+    }
 
 
 # Get memory by ID

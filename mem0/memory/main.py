@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 import uuid
 import warnings
 from copy import deepcopy
@@ -48,6 +49,13 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
+
+
+def _is_safe_path(path: str) -> bool:
+    """Return True only if path resolves to a file inside the system temp directory."""
+    abs_path = os.path.realpath(path)
+    tmp_dir = os.path.realpath(tempfile.gettempdir())
+    return abs_path.startswith(tmp_dir + os.sep)
 
 
 def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
@@ -441,6 +449,31 @@ class Memory(MemoryBase):
                 details={"provided_type": memory_type, "valid_type": MemoryType.PROCEDURAL.value},
                 suggestion=f"Use '{MemoryType.PROCEDURAL.value}' to create procedural memories."
             )
+
+        if isinstance(messages, str) and os.path.isfile(messages) and _is_safe_path(messages):
+            from mem0.memory.file_utils import (
+                SUPPORTED_EXTENSIONS,
+                chunk_text,
+                extract_text_from_file,
+            )
+
+            if os.path.splitext(messages)[1].lower() in SUPPORTED_EXTENSIONS:
+                text = extract_text_from_file(messages)
+                chunks = chunk_text(text)
+                all_results = []
+                for chunk in chunks:
+                    result = self.add(
+                        chunk,
+                        user_id=user_id,
+                        agent_id=agent_id,
+                        run_id=run_id,
+                        metadata=metadata,
+                        infer=infer,
+                        memory_type=memory_type,
+                        prompt=prompt,
+                    )
+                    all_results.extend(result.get("results", []))
+                return {"results": all_results}
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
@@ -1551,6 +1584,32 @@ class AsyncMemory(MemoryBase):
             raise ValueError(
                 f"Invalid 'memory_type'. Please pass {MemoryType.PROCEDURAL.value} to create procedural memories."
             )
+
+        if isinstance(messages, str) and os.path.isfile(messages) and _is_safe_path(messages):
+            from mem0.memory.file_utils import (
+                SUPPORTED_EXTENSIONS,
+                chunk_text,
+                extract_text_from_file,
+            )
+
+            if os.path.splitext(messages)[1].lower() in SUPPORTED_EXTENSIONS:
+                text = extract_text_from_file(messages)
+                chunks = chunk_text(text)
+                all_results = []
+                for chunk in chunks:
+                    result = await self.add(
+                        chunk,
+                        user_id=user_id,
+                        agent_id=agent_id,
+                        run_id=run_id,
+                        metadata=metadata,
+                        infer=infer,
+                        memory_type=memory_type,
+                        prompt=prompt,
+                        llm=llm,
+                    )
+                    all_results.extend(result.get("results", []))
+                return {"results": all_results}
 
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]

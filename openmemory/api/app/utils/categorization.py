@@ -15,6 +15,46 @@ class MemoryCategories(BaseModel):
     categories: List[str]
 
 
+class BatchMemoryCategories(BaseModel):
+    results: List[MemoryCategories]
+
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
+def get_categories_for_memories(memories: List[str]) -> List[List[str]]:
+    """Categorize multiple memories in a single LLM call.
+
+    Returns a list of category lists, one per memory in the same order.
+    Falls back to empty categories on failure so callers are never blocked.
+    """
+    if not memories:
+        return []
+
+    numbered = "\n".join(f"{i + 1}. {m}" for i, m in enumerate(memories))
+    prompt = (
+        f"{MEMORY_CATEGORIZATION_PROMPT}\n\n"
+        "You will receive a numbered list of memories. "
+        "Return a JSON object with a 'results' key containing an array of objects, "
+        "one per memory in the same order, each with a 'categories' key.\n\n"
+        f"{numbered}"
+    )
+
+    try:
+        completion = openai_client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            response_format=BatchMemoryCategories,
+            temperature=0,
+        )
+        parsed: BatchMemoryCategories = completion.choices[0].message.parsed
+        return [
+            [cat.strip().lower() for cat in item.categories]
+            for item in parsed.results[:len(memories)]
+        ]
+    except Exception as e:
+        logging.error(f"[ERROR] Batch categorization failed: {e}")
+        return [[] for _ in memories]
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=15))
 def get_categories_for_memory(memory: str) -> List[str]:
     try:

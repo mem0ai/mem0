@@ -227,17 +227,35 @@ def categorize_memory(memory: Memory, db: Session) -> None:
         print(f"Error categorizing memory: {e}")
 
 
+def _run_categorization(target, connection):
+    import os
+    import threading
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key or api_key == "dummy":
+        return
+    def _worker():
+        db = Session(bind=connection)
+        categorize_memory(target, db)
+        db.close()
+    threading.Thread(target=_worker, daemon=True).start()
+
+
 @event.listens_for(Memory, 'after_insert')
 def after_memory_insert(mapper, connection, target):
-    """Trigger categorization after a memory is inserted."""
-    db = Session(bind=connection)
-    categorize_memory(target, db)
-    db.close()
+    """Trigger categorization after a memory is inserted.
+
+    Skipped when target.skip_categorization is True — used by the file upload
+    endpoint which runs a single batch categorization call after all inserts.
+    Skipped entirely when OPENAI_API_KEY is not set or is a placeholder.
+    """
+    if getattr(target, 'skip_categorization', False):
+        return
+    _run_categorization(target, connection)
 
 
 @event.listens_for(Memory, 'after_update')
 def after_memory_update(mapper, connection, target):
     """Trigger categorization after a memory is updated."""
-    db = Session(bind=connection)
-    categorize_memory(target, db)
-    db.close()
+    if getattr(target, 'skip_categorization', False):
+        return
+    _run_categorization(target, connection)

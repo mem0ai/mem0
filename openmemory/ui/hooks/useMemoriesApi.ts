@@ -68,6 +68,11 @@ interface RelatedMemoriesResponse {
   pages: number;
 }
 
+interface UploadMemoryFileResult {
+  message: string;
+  memories_created: number;
+}
+
 interface UseMemoriesApiReturn {
   fetchMemories: (
     query?: string,
@@ -85,6 +90,7 @@ interface UseMemoriesApiReturn {
   fetchAccessLogs: (memoryId: string, page?: number, pageSize?: number) => Promise<void>;
   fetchRelatedMemories: (memoryId: string) => Promise<void>;
   createMemory: (text: string) => Promise<void>;
+  uploadMemoryFile: (file: File) => Promise<UploadMemoryFileResult>;
   deleteMemories: (memoryIds: string[]) => Promise<void>;
   updateMemory: (memoryId: string, content: string) => Promise<void>;
   updateMemoryState: (memoryIds: string[], state: string) => Promise<void>;
@@ -133,7 +139,8 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
           sort_column: filters?.sortColumn?.toLowerCase(),
           sort_direction: filters?.sortDirection,
           show_archived: filters?.showArchived
-        }
+        },
+        { timeout: 15000 }
       );
 
       const adaptedMemories: Memory[] = response.data.items.map((item: ApiMemoryItem) => ({
@@ -172,6 +179,30 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
       await axios.post<ApiMemoryItem>(`${URL}/api/v1/memories/`, memoryData);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to create memory';
+      setError(errorMessage);
+      setIsLoading(false);
+      throw new Error(errorMessage);
+    }
+  };
+
+  const uploadMemoryFile = async (file: File): Promise<UploadMemoryFileResult> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("user_id", user_id);
+      form.append("app", "openmemory");
+      form.append("infer", "true");
+      const response = await axios.post<UploadMemoryFileResult>(
+        `${URL}/api/v1/memories/upload`,
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      setIsLoading(false);
+      return response.data;
+    } catch (err: any) {
+      const errorMessage = err.message || "Failed to upload file";
       setError(errorMessage);
       setIsLoading(false);
       throw new Error(errorMessage);
@@ -332,6 +363,7 @@ export const useMemoriesApi = (): UseMemoriesApiReturn => {
     fetchAccessLogs,
     fetchRelatedMemories,
     createMemory,
+    uploadMemoryFile,
     deleteMemories,
     updateMemory,
     updateMemoryState,
