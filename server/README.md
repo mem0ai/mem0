@@ -51,4 +51,4 @@ Then open `http://localhost:3000` and complete the setup wizard.
 
 ## Reference
 
-Additional product and API documentation lives at [docs.mem0.ai](https://docs.mem0.ai/self-hosted).
+Additional product and API documentation lives at [docs.mem0.ai](https://docs.mem0.ai/open-source/overview).
