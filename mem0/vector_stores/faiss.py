@@ -279,11 +279,27 @@ class FAISS(VectorStoreBase):
         if not filters or not payload:
             return True
 
+        op_funcs = {
+            "eq": lambda a, b: a == b,
+            "ne": lambda a, b: a != b,
+            "gt": lambda a, b: a > b,
+            "gte": lambda a, b: a >= b,
+            "lt": lambda a, b: a < b,
+            "lte": lambda a, b: a <= b,
+            "in": lambda a, b: a in b,
+            "nin": lambda a, b: a not in b,
+        }
+
         for key, value in filters.items():
             if key not in payload:
                 return False
 
-            if isinstance(value, list):
+            if isinstance(value, dict):
+                for op, val in value.items():
+                    func = op_funcs.get(op)
+                    if func is None or not func(payload[key], val):
+                        return False
+            elif isinstance(value, list):
                 if payload[key] not in value:
                     return False
             elif payload[key] != value:

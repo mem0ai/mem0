@@ -199,6 +199,35 @@ class PGVector(VectorStoreBase):
                     data,
                 )
 
+    def _build_filter_conditions(self, filters):
+        """Build SQL WHERE clause components from a filter dict.
+
+        Handles simple equality (scalar value) and operator dicts
+        (value is dict with keys: eq, ne, gt, gte, lt, lte, in, nin).
+        """
+        conditions = []
+        params = []
+        op_sql = {"eq": "=", "ne": "!=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
+
+        for k, v in filters.items():
+            if isinstance(v, dict):
+                for op, val in v.items():
+                    if op in op_sql:
+                        cast = "::numeric" if isinstance(val, (int, float)) else ""
+                        conditions.append(f"(payload->>%s){cast} {op_sql[op]} %s")
+                        params.extend([k, val])
+                    elif op == "in":
+                        conditions.append("payload->>%s = ANY(%s)")
+                        params.extend([k, val])
+                    elif op == "nin":
+                        conditions.append("NOT (payload->>%s = ANY(%s))")
+                        params.extend([k, val])
+            else:
+                conditions.append("payload->>%s = %s")
+                params.extend([k, str(v)])
+
+        return conditions, params
+
     def search(
         self,
         query: str,
@@ -218,13 +247,7 @@ class PGVector(VectorStoreBase):
         Returns:
             list: Search results.
         """
-        filter_conditions = []
-        filter_params = []
-
-        if filters:
-            for k, v in filters.items():
-                filter_conditions.append("payload->>%s = %s")
-                filter_params.extend([k, str(v)])
+        filter_conditions, filter_params = self._build_filter_conditions(filters) if filters else ([], [])
 
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 
@@ -362,13 +385,7 @@ class PGVector(VectorStoreBase):
         Returns:
             List[OutputData]: List of vectors.
         """
-        filter_conditions = []
-        filter_params = []
-
-        if filters:
-            for k, v in filters.items():
-                filter_conditions.append("payload->>%s = %s")
-                filter_params.extend([k, str(v)])
+        filter_conditions, filter_params = self._build_filter_conditions(filters) if filters else ([], [])
 
         filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
 

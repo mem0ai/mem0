@@ -299,3 +299,49 @@ def test_normalize_L2(faiss_instance, mock_faiss_index):
 
             # Verify faiss.normalize_L2 was called
             mock_normalize.assert_called_once()
+
+
+# ===========================================================================
+# _apply_filters: operator dict support (fix for #3914)
+# ===========================================================================
+
+
+def test_apply_filters_range(faiss_instance):
+    """Range filter with gte + lte should match values within range."""
+    filters = {"score": {"gte": 5, "lte": 10}}
+    assert faiss_instance._apply_filters({"score": 7}, filters) is True
+    assert faiss_instance._apply_filters({"score": 5}, filters) is True
+    assert faiss_instance._apply_filters({"score": 10}, filters) is True
+    assert faiss_instance._apply_filters({"score": 4}, filters) is False
+    assert faiss_instance._apply_filters({"score": 11}, filters) is False
+
+
+def test_apply_filters_single_gt(faiss_instance):
+    """Single gt operator should filter correctly."""
+    filters = {"age": {"gt": 18}}
+    assert faiss_instance._apply_filters({"age": 25}, filters) is True
+    assert faiss_instance._apply_filters({"age": 18}, filters) is False
+    assert faiss_instance._apply_filters({"age": 10}, filters) is False
+
+
+def test_apply_filters_ne(faiss_instance):
+    """ne operator should exclude matching values."""
+    filters = {"status": {"ne": "archived"}}
+    assert faiss_instance._apply_filters({"status": "active"}, filters) is True
+    assert faiss_instance._apply_filters({"status": "archived"}, filters) is False
+
+
+def test_apply_filters_in_nin(faiss_instance):
+    """in and nin operators should check list membership."""
+    assert faiss_instance._apply_filters({"cat": "a"}, {"cat": {"in": ["a", "b"]}}) is True
+    assert faiss_instance._apply_filters({"cat": "c"}, {"cat": {"in": ["a", "b"]}}) is False
+    assert faiss_instance._apply_filters({"cat": "c"}, {"cat": {"nin": ["a", "b"]}}) is True
+    assert faiss_instance._apply_filters({"cat": "a"}, {"cat": {"nin": ["a", "b"]}}) is False
+
+
+def test_apply_filters_mixed_equality_and_range(faiss_instance):
+    """Equality and operator dict filters should coexist."""
+    filters = {"user_id": "alice", "score": {"gte": 1, "lte": 10}}
+    assert faiss_instance._apply_filters({"user_id": "alice", "score": 5}, filters) is True
+    assert faiss_instance._apply_filters({"user_id": "bob", "score": 5}, filters) is False
+    assert faiss_instance._apply_filters({"user_id": "alice", "score": 15}, filters) is False

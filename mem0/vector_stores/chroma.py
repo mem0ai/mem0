@@ -264,31 +264,18 @@ class ChromaDB(VectorStoreBase):
                 return None
             elif isinstance(value, dict):
                 # Handle comparison operators
-                chroma_condition = {}
+                op_map = {
+                    "eq": "$eq", "ne": "$ne", "gt": "$gt", "gte": "$gte",
+                    "lt": "$lt", "lte": "$lte", "in": "$in", "nin": "$nin",
+                    "contains": "$eq", "icontains": "$eq",
+                }
+                conditions = []
                 for op, val in value.items():
-                    if op == "eq":
-                        chroma_condition[key] = {"$eq": val}
-                    elif op == "ne":
-                        chroma_condition[key] = {"$ne": val}
-                    elif op == "gt":
-                        chroma_condition[key] = {"$gt": val}
-                    elif op == "gte":
-                        chroma_condition[key] = {"$gte": val}
-                    elif op == "lt":
-                        chroma_condition[key] = {"$lt": val}
-                    elif op == "lte":
-                        chroma_condition[key] = {"$lte": val}
-                    elif op == "in":
-                        chroma_condition[key] = {"$in": val}
-                    elif op == "nin":
-                        chroma_condition[key] = {"$nin": val}
-                    elif op in ["contains", "icontains"]:
-                        # ChromaDB doesn't support contains, fallback to equality
-                        chroma_condition[key] = {"$eq": val}
-                    else:
-                        # Unknown operator, treat as equality
-                        chroma_condition[key] = {"$eq": val}
-                return chroma_condition
+                    chroma_op = op_map.get(op, "$eq")
+                    conditions.append({key: {chroma_op: val}})
+                if len(conditions) == 1:
+                    return conditions[0]
+                return {"$and": conditions}
             else:
                 # Simple equality
                 return {key: {"$eq": value}}

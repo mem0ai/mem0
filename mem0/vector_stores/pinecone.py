@@ -193,11 +193,18 @@ class PineconeDB(VectorStoreBase):
         if not filters:
             return {}
 
+        op_map = {
+            "eq": "$eq", "ne": "$ne",
+            "gt": "$gt", "gte": "$gte",
+            "lt": "$lt", "lte": "$lte",
+            "in": "$in", "nin": "$nin",
+        }
+
         pinecone_filter = {}
 
         for key, value in filters.items():
-            if isinstance(value, dict) and "gte" in value and "lte" in value:
-                pinecone_filter[key] = {"$gte": value["gte"], "$lte": value["lte"]}
+            if isinstance(value, dict):
+                pinecone_filter[key] = {op_map.get(op, "$eq"): val for op, val in value.items()}
             else:
                 pinecone_filter[key] = {"$eq": value}
 
