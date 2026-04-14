@@ -35,7 +35,7 @@ graph LR
 Mem0’s extraction LLM identifies entities, relationships, and timestamps from the conversation payload you send to `memory.add`.
 </Step>
 <Step title="Store vectors and edges together">
-Embeddings land in your configured vector database while nodes and edges flow into a graph backend (Neo4j, Memgraph, Neptune, Kuzu, or Apache AGE).
+Embeddings land in your configured vector database while nodes and edges flow into a graph backend (Neo4j, Memgraph, Neptune, Kuzu, Apache AGE, NebulaGraph).
 </Step>
 <Step title="Expose graph context at search time">
 `memory.search` performs vector similarity (optionally reranked by your configured reranker) and returns the results list. Graph Memory runs in parallel and adds related entities in the `relations` array—it does not reorder the vector hits automatically.
@@ -402,6 +402,47 @@ m = Memory.from_config(config_dict=config)
 Apache AGE does not have a built-in vector index, so similarity search is computed client-side. This works well for moderate graph sizes; for very large graphs consider pairing AGE with pgvector for the vector store.
 
 Reference: [Apache AGE documentation](https://age.apache.org/age-manual/master/index.html).
+  </Accordion>
+  <Accordion title="NebulaGraph (with external vectors)">
+   NebulaGraph is a distributed graph database that consists of three services that work together:
+- **graphd**: query service
+- **metad**: metadata service
+- **storaged**: storage service
+
+`graphd` depends on `metad` and `storaged`. Use the official docker-compose deployment for local development.
+
+```bash
+# setup cluster
+git clone -b v3.8 https://github.com/vesoft-inc/nebula-docker-compose.git
+cd nebula-docker-compose
+docker compose up -d
+```
+
+```python
+from mem0 import Memory
+
+config = {
+    "graph_store": {
+        "provider": "nebulagraph",
+        "config": {
+            "graph_address": "localhost:9669",
+            "username": "root",
+            "password": "nebula",
+            "space": "mem0_space",
+            "delete_page_size": 1000, # Batch size for delete_all
+            "collection_name": "mem0_nebulagraph_vectors_graph" # The entity vectors are stored separately from the vector store.
+        },
+    },
+}
+
+m = Memory.from_config(config_dict=config)
+```
+NebulaGraph v3.8 does not support vector search, you can use Mem0's vector store to store vector data.
+Note that graph_store.config.collection_name and vector_store.config.collection_name must be different to avoid interference with each other.
+
+A complete example can be found at [NebulaGraph Example](https://github.com/mem0ai/mem0/blob/main/examples/graph-db-demo/nebulagraph-example.ipynb)
+
+Reference: [NebulaGraph documentation](https://docs.nebula-graph.io/3.8.0/).
   </Accordion>
 </AccordionGroup>
 

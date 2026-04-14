@@ -32,6 +32,7 @@ graph = [
     "rank-bm25>=0.2.2",
     "kuzu>=0.11.0",
     "apache-age-python>=0.0.6",
+    "nebula3-python>=3.8.3",
 ]
 vector_stores = [
     "vecs>=0.4.0",
