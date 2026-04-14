@@ -42,9 +42,12 @@ def test_initalize_create_col(mongo_vector_fixture):
     mock_collection.insert_one.assert_called_once_with({"_id": 0, "placeholder": True})
     mock_collection.delete_one.assert_called_once_with({"_id": 0})
     assert mongo_vector.index_name == "test_collection_vector_index"
-    mock_collection.list_search_indexes.assert_called_once_with(name="test_collection_vector_index")
-    mock_collection.create_search_index.assert_called_once()
-    args, _ = mock_collection.create_search_index.call_args
+    mock_collection.list_search_indexes.assert_any_call(name="test_collection_vector_index")
+    mock_collection.list_search_indexes.assert_any_call(name="test_collection_text_search_index")
+    assert mock_collection.list_search_indexes.call_count == 2
+    # Two indexes created: vector search + text search
+    assert mock_collection.create_search_index.call_count == 2
+    args, _ = mock_collection.create_search_index.call_args_list[0]
     search_index_model = args[0].document
     assert search_index_model == {
         "name": "test_collection_vector_index",

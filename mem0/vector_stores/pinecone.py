@@ -241,6 +241,42 @@ class PineconeDB(VectorStoreBase):
         results = self._parse_output(response.matches)
         return results
 
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Search using BM25 sparse vectors for keyword-based retrieval.
+
+        Args:
+            query (str): The search query text.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            List[OutputData]: Search results, or None if hybrid search is not configured.
+        """
+        if not self.hybrid_search or self.sparse_encoder is None:
+            return None
+
+        try:
+            filter_dict = self._create_filter(filters) if filters else None
+
+            sparse_vector = self.sparse_encoder.encode_queries(query)
+
+            query_params = {
+                "sparse_vector": sparse_vector,
+                "top_k": top_k,
+                "include_metadata": True,
+                "include_values": False,
+            }
+
+            if filter_dict:
+                query_params["filter"] = filter_dict
+
+            response = self.index.query(**query_params, namespace=self.namespace)
+
+            return self._parse_output(response.matches)
+        except Exception:
+            return None
+
     def delete(self, vector_id: Union[str, int]):
         """
         Delete a vector by ID.

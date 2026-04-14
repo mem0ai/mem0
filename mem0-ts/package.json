@@ -120,10 +120,11 @@
     "better-sqlite3": "^12.6.2",
     "cloudflare": "^4.2.0",
     "groq-sdk": "0.3.0",
-    "neo4j-driver": "^5.28.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
-    "redis": "^4.6.13"
+    "redis": "^4.6.13",
+    "compromise": "^14.0.0",
+    "natural": "^8.0.1"
   },
   "engines": {
     "node": ">=18"

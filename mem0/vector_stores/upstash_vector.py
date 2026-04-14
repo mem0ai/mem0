@@ -149,6 +149,45 @@ class UpstashVector(VectorStoreBase):
             for res in response
         ]
 
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Perform keyword-based search using Upstash's BM25 sparse search.
+
+        Args:
+            query (str): The text query to search for.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results, or None if sparse/BM25 search is not supported.
+        """
+        try:
+            filters_str = (
+                " AND ".join([f"{k} = {self._stringify(v)}" for k, v in filters.items()])
+                if filters
+                else None
+            )
+
+            response = self.client.query(
+                data=query,
+                top_k=top_k,
+                filter=filters_str or "",
+                include_metadata=True,
+                namespace=self.collection_name,
+            )
+
+            return [
+                OutputData(
+                    id=res.id,
+                    score=res.score,
+                    payload=res.metadata,
+                )
+                for res in response
+            ]
+        except Exception as e:
+            logger.error(f"Error during keyword search for query '{query}': {e}")
+            return None
+
     def delete(self, vector_id: int):
         """
         Delete a vector by ID.

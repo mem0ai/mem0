@@ -13,13 +13,14 @@ const external = [
   "ollama",
   "@google/genai",
   "@mistralai/mistralai",
-  "neo4j-driver",
   "@supabase/supabase-js",
   "@azure/search-documents",
   "@azure/identity",
   "cloudflare",
   "@cloudflare/workers-types",
   "@langchain/core",
+  "compromise",
+  "natural",
 ];
 
 export default defineConfig([

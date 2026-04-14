@@ -67,11 +67,139 @@ export class MemoryVectorStore implements VectorStore {
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
+  /**
+   * Check if a single field condition matches the payload.
+   * Supports comparison operators: eq, ne, gt, gte, lt, lte, in, nin, contains, icontains
+   */
+  private matchFieldCondition(
+    payload: Record<string, any>,
+    key: string,
+    value: any,
+  ): boolean {
+    const payloadValue = payload[key];
+
+    // Handle non-dict values
+    if (typeof value !== "object" || value === null) {
+      // Wildcard: match any value
+      if (value === "*") {
+        return true;
+      }
+      // Simple equality
+      return payloadValue === value;
+    }
+
+    // Handle array shorthand: {"field": ["a", "b"]} treated as "in" operator
+    if (Array.isArray(value)) {
+      return value.includes(payloadValue);
+    }
+
+    // Handle comparison operators
+    if ("eq" in value) {
+      return payloadValue === value.eq;
+    }
+    if ("ne" in value) {
+      return payloadValue !== value.ne;
+    }
+    if ("gt" in value) {
+      return payloadValue > value.gt;
+    }
+    if ("gte" in value) {
+      return payloadValue >= value.gte;
+    }
+    if ("lt" in value) {
+      return payloadValue < value.lt;
+    }
+    if ("lte" in value) {
+      return payloadValue <= value.lte;
+    }
+    if ("in" in value) {
+      return Array.isArray(value.in) && value.in.includes(payloadValue);
+    }
+    if ("nin" in value) {
+      return !Array.isArray(value.nin) || !value.nin.includes(payloadValue);
+    }
+    if ("contains" in value) {
+      return (
+        typeof payloadValue === "string" &&
+        payloadValue.includes(value.contains)
+      );
+    }
+    if ("icontains" in value) {
+      return (
+        typeof payloadValue === "string" &&
+        payloadValue.toLowerCase().includes(value.icontains.toLowerCase())
+      );
+    }
+
+    // Unknown operator - treat as nested object for equality (shouldn't happen normally)
+    return payloadValue === value;
+  }
+
+  /**
+   * Filter a vector by the given filters.
+   * Supports logical operators (AND, OR, NOT) and comparison operators.
+   */
   private filterVector(vector: MemoryVector, filters?: SearchFilters): boolean {
-    if (!filters) return true;
-    return Object.entries(filters).every(
-      ([key, value]) => vector.payload[key] === value,
-    );
+    if (!filters || Object.keys(filters).length === 0) return true;
+
+    // Normalize $or/$not/$and → OR/NOT/AND
+    const keyMap: Record<string, string> = {
+      $and: "AND",
+      $or: "OR",
+      $not: "NOT",
+    };
+    const normalized: Record<string, any> = {};
+    for (const [key, value] of Object.entries(filters)) {
+      const normKey = keyMap[key] || key;
+      if (!(normKey in normalized)) {
+        normalized[normKey] = value;
+      }
+    }
+
+    for (const [key, value] of Object.entries(normalized)) {
+      // Handle logical operators
+      if (key === "AND") {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `AND filter value must be a list of filter dicts, got ${typeof value}`,
+          );
+        }
+        // All conditions must match
+        const allMatch = value.every((sub: SearchFilters) =>
+          this.filterVector(vector, sub),
+        );
+        if (!allMatch) return false;
+      } else if (key === "OR") {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `OR filter value must be a list of filter dicts, got ${typeof value}`,
+          );
+        }
+        // At least one condition must match
+        const anyMatch = value.some((sub: SearchFilters) =>
+          this.filterVector(vector, sub),
+        );
+        if (!anyMatch) return false;
+      } else if (key === "NOT") {
+        if (!Array.isArray(value)) {
+          throw new Error(
+            `NOT filter value must be a list of filter dicts, got ${typeof value}`,
+          );
+        }
+        // None of the conditions should match
+        const noneMatch = value.every(
+          (sub: SearchFilters) => !this.filterVector(vector, sub),
+        );
+        if (!noneMatch) return false;
+      } else {
+        // Regular field condition
+        if (!this.matchFieldCondition(vector.payload, key, value)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   async insert(
@@ -96,6 +224,111 @@ export class MemoryVectorStore implements VectorStore {
       },
     );
     insertMany(vectors, ids, payloads);
+  }
+
+  private tokenize(text: string): string[] {
+    return text.toLowerCase().split(/\s+/).filter(Boolean);
+  }
+
+  async keywordSearch(
+    query: string,
+    topK: number = 10,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    try {
+      const rows = this.db.prepare(`SELECT * FROM vectors`).all() as any[];
+
+      // Collect documents that pass the filter
+      const candidates: {
+        id: string;
+        payload: Record<string, any>;
+        tokens: string[];
+      }[] = [];
+
+      for (const row of rows) {
+        const payload = JSON.parse(row.payload);
+        const memoryVector: MemoryVector = {
+          id: row.id,
+          vector: Array.from(
+            new Float32Array(
+              row.vector.buffer,
+              row.vector.byteOffset,
+              row.vector.byteLength / 4,
+            ),
+          ),
+          payload,
+        };
+
+        if (this.filterVector(memoryVector, filters)) {
+          const text = payload.text_lemmatized || payload.data || "";
+          candidates.push({ id: row.id, payload, tokens: this.tokenize(text) });
+        }
+      }
+
+      if (candidates.length === 0) {
+        return [];
+      }
+
+      const tokenizedQuery = this.tokenize(query);
+      if (tokenizedQuery.length === 0) {
+        return [];
+      }
+
+      // Compute BM25 scores inline
+      const k1 = 1.5;
+      const b = 0.75;
+      const N = candidates.length;
+      const avgDocLength =
+        candidates.reduce((sum, c) => sum + c.tokens.length, 0) / N;
+
+      // Compute document frequency for query terms
+      const docFreq = new Map<string, number>();
+      for (const term of tokenizedQuery) {
+        if (!docFreq.has(term)) {
+          let count = 0;
+          for (const c of candidates) {
+            if (c.tokens.includes(term)) count++;
+          }
+          docFreq.set(term, count);
+        }
+      }
+
+      // Compute IDF for query terms
+      const idf = new Map<string, number>();
+      for (const [term, freq] of docFreq) {
+        idf.set(term, Math.log((N - freq + 0.5) / (freq + 0.5) + 1));
+      }
+
+      // Score each candidate
+      const scored = candidates.map((candidate) => {
+        let score = 0;
+        const docLength = candidate.tokens.length;
+        for (const term of tokenizedQuery) {
+          const tf = candidate.tokens.filter((t) => t === term).length;
+          const termIdf = idf.get(term) || 0;
+          score +=
+            (termIdf * tf * (k1 + 1)) /
+            (tf + k1 * (1 - b + (b * docLength) / avgDocLength));
+        }
+        return { ...candidate, score };
+      });
+
+      // Filter out zero-score documents and sort descending
+      const results = scored
+        .filter((s) => s.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, topK)
+        .map((s) => ({
+          id: s.id,
+          payload: s.payload,
+          score: s.score,
+        }));
+
+      return results;
+    } catch (error) {
+      console.error("Error during keyword search:", error);
+      return null;
+    }
   }
 
   async search(

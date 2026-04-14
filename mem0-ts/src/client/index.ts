@@ -3,7 +3,6 @@ import type * as MemoryTypes from "./mem0.types";
 
 // Re-export all types from mem0.types
 export type {
-  EntityOptions,
   AddMemoryOptions,
   SearchMemoryOptions,
   GetAllMemoryOptions,
