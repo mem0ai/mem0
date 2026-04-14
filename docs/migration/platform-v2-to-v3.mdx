@@ -19,6 +19,7 @@ The new Mem0 memory algorithm is a ground-up redesign of how memories are extrac
 | **Memory mutations** | ADD, UPDATE, DELETE | ADD only — nothing is overwritten or deleted |
 | **Agent-generated facts** | Often ignored | First-class, stored with equal weight |
 | **Entity linking** | Not available | Entities extracted and linked across memories |
+| **Graph memory** | Separate graph store + dashboard visualization | Replaced by built-in entity linking, no graph visuals on platform dashboard |
 | **Retrieval signals** | Semantic (vector) only | Semantic + BM25 keyword + entity matching |
 | **Score transparency** | Single `score` value | `score_breakdown` with per-signal scores |
 
@@ -222,6 +223,21 @@ await client.search("query", {
 <Info>
 For the full list of parameter changes across all SDKs, see the [OSS migration guide](/migration/oss-v2-to-v3#removed-parameters-reference).
 </Info>
+
+## Graph Memory → Entity Linking
+
+Graph memory has been replaced by **built-in entity linking**. The changes:
+
+- **Graph visualizations removed from the platform dashboard.** The graph view in your project dashboard is no longer available.
+- **`enable_graph` project setting removed.** The toggle is gone from the dashboard; the API parameter is ignored.
+- **No external graph store to configure.** Previously graph memory required a separate Neo4j (or similar) deployment. Entity linking runs natively inside the platform — nothing to provision, no connection strings to manage.
+- **Entity linking is the native replacement.** Entities (proper nouns, quoted text, compound noun phrases) are automatically extracted from every memory and linked across memories belonging to the same user. At search time, entities from the query are matched against this index and used to boost ranking via the `entity` component of `score_breakdown`.
+
+**No migration work is required.** Entity linking activates automatically for all projects on the new algorithm. Existing memories are not re-processed, but any new memories you add will be indexed for entity-based retrieval going forward.
+
+<Note>
+If your application previously read graph relations from the API response (`relations` field on search results), note that this field is no longer populated. Entity relationships are now consumed indirectly through retrieval ranking, not exposed as a separate graph structure.
+</Note>
 
 ## Migration Checklist
 

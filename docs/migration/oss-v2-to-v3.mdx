@@ -301,6 +301,29 @@ The new algorithm automatically creates a parallel entity store collection named
 Make sure your vector store user/credentials have permission to create new collections. If you're using a managed vector database with restricted permissions, pre-create the `{collection_name}_entities` collection with the same embedding dimensions as your main collection.
 </Warning>
 
+## Graph Memory → Entity Linking
+
+Graph store support has been removed from the open-source SDK. It is replaced by **built-in entity linking**, which runs natively with no external dependencies.
+
+**What was removed:**
+- `enable_graph` / `enableGraph` config flag
+- `graph_store` / `graphStore` configuration block (Neo4j, Memgraph, Kuzu, Apache AGE, Neptune)
+- All graph memory code paths (~4000 lines)
+
+**What replaces it:**
+
+Entity linking extracts entities (proper nouns, quoted text, compound noun phrases) from every memory during the add pipeline and stores them in a parallel collection (`{collection}_entities`) inside your existing vector store. At search time, entities from the query are matched against this collection and used to boost relevant memories via the `entity_boost` component of `score_breakdown`.
+
+**Migration:**
+- Remove `enable_graph` / `enableGraph` from your config
+- Remove the `graph_store` / `graphStore` block — it is no longer read
+- Uninstall graph drivers (neo4j, memgraph, etc.) if you were using them only for Mem0
+- No data migration is required. Entity linking activates automatically on the next `add()` call.
+
+<Warning>
+Graph relationships exposed via the old `relations` field on search results are no longer populated. Entity relationships are consumed indirectly through retrieval ranking, not exposed as a queryable graph structure. If your application depended on traversing graph relationships directly, you will need to redesign that part against the new API.
+</Warning>
+
 ## How the New Algorithm Works
 
 ### Extraction: Single-Pass ADD-Only
@@ -458,9 +481,6 @@ These parameters have been removed across all SDKs. Remove them from your code:
   </Accordion>
   <Accordion title="Score values are different from before">
     The top-level `score` is now a combined hybrid score (0-1), not raw cosine similarity. To get the raw cosine similarity, use `score_breakdown["semantic"]`. The combined score factors in keyword matching and entity linking, which generally produces better ranking.
-  </Accordion>
-  <Accordion title="Graph memory no longer available">
-    Graph store support (`enable_graph`, `graph_store`, `enableGraph`, `graphStore`) has been removed entirely in this release. If your application relied on graph memory (Neo4j, Memgraph, etc.), this functionality is no longer available in the SDK. Entity linking provides some of the same cross-memory relationship capabilities through a different mechanism.
   </Accordion>
 </AccordionGroup>
 
