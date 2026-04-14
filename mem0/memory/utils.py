@@ -202,7 +202,7 @@ def process_telemetry_filters(filters):
     Process the telemetry filters
     """
     if filters is None:
-        return {}
+        return [], {}
 
     encoded_ids = {}
     if "user_id" in filters:
