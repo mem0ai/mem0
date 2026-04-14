@@ -18,9 +18,13 @@ export const describeIntegration = API_KEY ? describe : describe.skip;
  * Create a MemoryClient with the real API key.
  * Call this inside beforeAll — not at module scope — so it only
  * runs when the suite is not skipped.
+ *
+ * Returns an initialized client ready for immediate use.
  */
-export function createTestClient(): MemoryClient {
-  return new MemoryClient({ apiKey: API_KEY! });
+export async function createTestClient(): Promise<MemoryClient> {
+  const client = new MemoryClient({ apiKey: API_KEY! });
+  await client.ping();
+  return client;
 }
 
 /**

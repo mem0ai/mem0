@@ -21,10 +21,7 @@ export class MemoryVectorStore implements VectorStore {
 
   constructor(config: VectorStoreConfig) {
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
-    // Scope the default path by collectionName so that parallel stores
-    // (e.g. memory vs entity) don't share the same `vectors` table.
-    this.dbPath =
-      config.dbPath || getDefaultVectorStoreDbPath(config.collectionName);
+    this.dbPath = config.dbPath || getDefaultVectorStoreDbPath();
 
     if (!config.dbPath) {
       const oldDefault = path.join(process.cwd(), "vector_store.db");
