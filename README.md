@@ -102,6 +102,13 @@ Install the sdk via pip:
 pip install mem0ai
 ```
 
+For enhanced hybrid search with BM25 keyword matching and entity extraction, install with NLP support:
+
+```bash
+pip install mem0ai[nlp]
+python -m spacy download en_core_web_sm
+```
+
 Install sdk via npm:
 ```bash
 npm install mem0ai
