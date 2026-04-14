@@ -97,12 +97,40 @@ class ApacheAgeConfig(BaseModel):
         return values
 
 
+class NebulaGraphConfig(BaseModel):
+    graph_address: Optional[str] = Field(None, description="graphd address for NebulaGraph")
+    username: Optional[str] = Field(None, description="Username for NebulaGraph")
+    password: Optional[str] = Field(None, description="Password for NebulaGraph")
+    space: Optional[str] = Field(None, description="Graph space name in NebulaGraph")
+    collection_name: Optional[str] = Field(
+        None,
+        description="Vector store collection name for NebulaGraph graph embeddings",
+    )
+    delete_page_size: Optional[int] = Field(
+        1000,
+        description="Page size for batched delete operations in NebulaGraph",
+        ge=1,
+    )
+
+    @model_validator(mode="before")
+    def check_required_fields(cls, values):
+        graph_address, username, password, space = (
+            values.get("graph_address"),
+            values.get("username"),
+            values.get("password"),
+            values.get("space"),
+        )
+        if not graph_address or not username or not password or not space:
+            raise ValueError("Please provide 'graph_address', 'username', 'password' and 'space'.")
+        return values
+
+
 class GraphStoreConfig(BaseModel):
     provider: str = Field(
-        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'apache_age')",
+        description="Provider of the data store (e.g., 'neo4j', 'memgraph', 'neptune', 'kuzu', 'apache_age', 'nebulagraph')",
         default="neo4j",
     )
-    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, ApacheAgeConfig] = Field(
+    config: Union[Neo4jConfig, MemgraphConfig, NeptuneConfig, KuzuConfig, ApacheAgeConfig, NebulaGraphConfig] = Field(
         description="Configuration for the specific data store", default=None
     )
     llm: Optional[LlmConfig] = Field(description="LLM configuration for querying the graph store", default=None)
@@ -132,5 +160,7 @@ class GraphStoreConfig(BaseModel):
             return KuzuConfig(**v.model_dump())
         elif provider == "apache_age":
             return ApacheAgeConfig(**v.model_dump())
+        elif provider == "nebulagraph":
+            return NebulaGraphConfig(**v.model_dump())
         else:
             raise ValueError(f"Unsupported graph store provider: {provider}")

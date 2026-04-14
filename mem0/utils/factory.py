@@ -221,6 +221,7 @@ class GraphStoreFactory:
         "neptunedb": "mem0.graphs.neptune.neptunedb.MemoryGraph",
         "kuzu": "mem0.memory.kuzu_memory.MemoryGraph",
         "apache_age": "mem0.memory.apache_age_memory.MemoryGraph",
+        "nebulagraph": "mem0.memory.nebulagraph_memory.MemoryGraph",
         "default": "mem0.memory.graph_memory.MemoryGraph",
     }
 
