@@ -286,3 +286,25 @@ class RerankerFactory:
             raise ImportError(f"Could not import reranker for provider '{provider_name}': {e}")
 
         return reranker_class(config)
+
+
+class HistoryStoreFactory:
+    provider_to_class = {
+        "sqlite": "mem0.memory.storage.SQLiteManager",
+        "postgres": "mem0.memory.storage_sql.SQLHistoryStore",
+        "mysql": "mem0.memory.storage_sql.SQLHistoryStore",
+        "noop": "mem0.memory.storage_noop.NoopHistoryStore",
+    }
+
+    @classmethod
+    def create(cls, provider_name, config=None):
+        class_type = cls.provider_to_class.get(provider_name)
+        if class_type is None:
+            raise ValueError(
+                f"Unsupported history store provider: {provider_name}. "
+                f"Available providers: {list(cls.provider_to_class.keys())}"
+            )
+        store_class = load_class(class_type)
+        if config:
+            return store_class(**config)
+        return store_class()

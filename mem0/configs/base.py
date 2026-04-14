@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from mem0.configs.rerankers.config import RerankerConfig
 from mem0.embeddings.configs import EmbedderConfig
@@ -27,6 +27,19 @@ class MemoryItem(BaseModel):
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
 
 
+class HistoryStoreConfig(BaseModel):
+    """Configuration for the history storage backend."""
+
+    provider: str = Field(
+        description="History store provider name (sqlite, postgres, noop)",
+        default="sqlite",
+    )
+    config: Optional[Dict[str, Any]] = Field(
+        description="Provider-specific configuration",
+        default=None,
+    )
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -40,9 +53,17 @@ class MemoryConfig(BaseModel):
         description="Configuration for the embedding model",
         default_factory=EmbedderConfig,
     )
-    history_db_path: str = Field(
-        description="Path to the history database",
-        default=os.path.join(mem0_dir, "history.db"),
+    history_db_path: Optional[str] = Field(
+        description="Path to the history database (deprecated, use history_store instead)",
+        default=None,
+    )
+    history_store: Optional[HistoryStoreConfig] = Field(
+        description="Configuration for the history storage backend",
+        default=None,
+    )
+    disable_history: bool = Field(
+        description="Disable history tracking entirely",
+        default=False,
     )
     graph_store: GraphStoreConfig = Field(
         description="Configuration for the graph",
@@ -64,6 +85,19 @@ class MemoryConfig(BaseModel):
         description="Custom prompt for the update memory",
         default=None,
     )
+
+    @model_validator(mode="after")
+    def _resolve_history_store(self) -> "MemoryConfig":
+        """Resolve history_store from legacy history_db_path or disable_history."""
+        if self.disable_history:
+            self.history_store = HistoryStoreConfig(provider="noop")
+        elif self.history_store is None:
+            db_path = self.history_db_path or os.path.join(mem0_dir, "history.db")
+            self.history_store = HistoryStoreConfig(
+                provider="sqlite",
+                config={"db_path": db_path},
+            )
+        return self
 
 
 class AzureConfig(BaseModel):

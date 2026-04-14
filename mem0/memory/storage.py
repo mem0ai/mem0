@@ -4,10 +4,12 @@ import threading
 import uuid
 from typing import Any, Dict, List, Optional
 
+from mem0.memory.storage_base import HistoryStoreBase
+
 logger = logging.getLogger(__name__)
 
 
-class SQLiteManager:
+class SQLiteManager(HistoryStoreBase):
     def __init__(self, db_path: str = ":memory:"):
         self.db_path = db_path
         self.connection = sqlite3.connect(self.db_path, check_same_thread=False)

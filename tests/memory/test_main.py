@@ -22,7 +22,7 @@ def _setup_mocks(mocker):
     mock_llm = mocker.MagicMock()
     mocker.patch("mem0.utils.factory.LlmFactory.create", mock_llm)
 
-    mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+    mocker.patch("mem0.utils.factory.HistoryStoreFactory.create", mocker.MagicMock())
 
     return mock_llm, mock_vector_store
 
@@ -183,7 +183,7 @@ class TestAsyncAddToVectorStoreErrors:
 
 def _build_memory_instance(mocker, memory_cls):
     _setup_mocks(mocker)
-    mocker.patch("mem0.memory.main.SQLiteManager", mocker.MagicMock())
+    mocker.patch("mem0.utils.factory.HistoryStoreFactory.create", mocker.MagicMock())
     mocker.patch("mem0.memory.main.MEM0_TELEMETRY", False)
     memory = memory_cls()
     memory.config = mocker.MagicMock()
