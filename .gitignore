@@ -4,6 +4,10 @@ __pycache__/
 *$py.class
 **/node_modules/
 
+# Self-hosted server local runtime state
+server/history/
+server/.env
+
 # C extensions
 *.so
 

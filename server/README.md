@@ -56,7 +56,7 @@ This is the supported recovery path. Anyone with shell access to the host alread
 
 ## Telemetry
 
-Disabled by default. Enable with `MEM0_TELEMETRY=true`. Sends exactly one `onboarding_completed` event per install to the same anonymous PostHog project the Mem0 OSS library uses, containing the signup source (`dashboard` or `api`), email domain, server version, and a randomly generated install UUID. No PII is collected.
+Enabled by default, matching the Mem0 OSS library. Sends exactly one `onboarding_completed` event per install to the same anonymous PostHog project the library uses, containing the signup source (`dashboard` or `api`), email domain, server version, and a randomly generated install UUID. No PII is collected. Set `MEM0_TELEMETRY=false` to opt out.
 
 ## Local URLs
 
