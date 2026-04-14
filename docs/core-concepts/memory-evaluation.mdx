@@ -28,13 +28,13 @@ When new conversations arrive, the extraction pipeline processes them through fi
 4. **Deduplicate + Embed** — Hash-based deduplication, then vectorize new memories
 5. **Entity Linking** — Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories
 
-All extracted facts are written to three storage layers:
+Memories are distributed across three storage layers, each tuned for a specific retrieval pattern:
 
 | Store | Contents | Purpose |
 |---|---|---|
-| **SQL Database** | Facts + metadata (timestamps, entities, categories) | Structured queries, audit trail |
-| **Vector Database** | Embeddings + similarity indexes | Semantic retrieval |
-| **Entity Store** | Entities + relationships + linked memory IDs | Entity-based retrieval boost |
+| **Vector Database** | Memory text, embeddings, metadata (timestamps, hash, categories, attributed_to) | Primary fact storage + semantic retrieval |
+| **Entity Store** | Entities + embeddings + linked memory IDs | Entity-based retrieval boost |
+| **SQL Database** | History log (ADD events) + rolling message window | Audit trail + extraction dedup context |
 
 <Info>
 The key architectural decision is **ADD-only extraction**. New facts are stored alongside old ones — nothing is overwritten or deleted. When information changes, both the old and new facts survive. This preserves temporal context and eliminates information loss from premature consolidation.

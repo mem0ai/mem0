@@ -151,7 +151,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     # After
     results = m.search(
         "what meetings did I attend?",
-        filters={"user_id": "alice"},
+        user_id="alice",    # Direct kwarg — unchanged
         top_k=20,           # Unchanged
         threshold=0.1,      # New default (pass 0.0 to disable)
         rerank=False         # New default (pass True to restore)
@@ -173,7 +173,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
 
     // After
     const results = await m.search("what meetings did I attend?", {
-      filters: { userId: "alice" },
+      userId: "alice",    // Direct property — unchanged
       topK: 20            // [OK] Renamed from 'limit'
     });
     ```
