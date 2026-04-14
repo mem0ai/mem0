@@ -146,7 +146,6 @@ export default function SetupPage() {
         label: "My First Key",
       });
       setApiKey(res.data.key);
-      setStep(3);
     } catch (err) {
       setError(getErrorMessage(err, "Failed to create API key"));
     } finally {
@@ -364,7 +363,7 @@ export default function SetupPage() {
                   </p>
                 </div>
                 <Button onClick={() => setStep(3)} className="w-full">
-                  Next
+                  Continue
                 </Button>
               </>
             )}
