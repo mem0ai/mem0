@@ -357,9 +357,13 @@ export class RedisDB implements VectorStore {
     }
   }
 
+  async keywordSearch(): Promise<null> {
+    return null;
+  }
+
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const snakeFilters = filters ? toSnakeCase(filters) : undefined;
@@ -391,14 +395,14 @@ export class RedisDB implements VectorStore {
       DIALECT: 2,
       LIMIT: {
         from: 0,
-        size: limit,
+        size: topK,
       },
     };
 
     try {
       const results = (await this.client.ft.search(
         this.indexName,
-        `${filterExpr} =>[KNN ${limit} @embedding $vec AS __vector_score]`,
+        `${filterExpr} =>[KNN ${topK} @embedding $vec AS __vector_score]`,
         searchOptions,
       )) as unknown as RedisSearchResult;
 
@@ -598,7 +602,7 @@ export class RedisDB implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const snakeFilters = filters ? toSnakeCase(filters) : undefined;
     const filterExpr = snakeFilters
@@ -613,7 +617,7 @@ export class RedisDB implements VectorStore {
       SORTDIR: "DESC",
       LIMIT: {
         from: 0,
-        size: limit,
+        size: topK,
       },
     };
 

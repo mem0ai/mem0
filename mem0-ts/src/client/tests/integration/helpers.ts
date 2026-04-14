@@ -63,7 +63,9 @@ export async function waitForMemories(
   maxRetries = 4,
 ): Promise<Memory[]> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const memories = await withRetry(() => client.getAll({ user_id: userId }));
+    const memories = await withRetry(() =>
+      client.getAll({ filters: { user_id: userId } }),
+    );
     if (Array.isArray(memories) && memories.length >= minCount) {
       return memories;
     }
@@ -90,8 +92,9 @@ export async function waitForSearchResults(
   maxRetries = 4,
 ): Promise<Memory[]> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const results = await withRetry(() => client.search(query, options));
-    if (Array.isArray(results) && results.length > 0) {
+    const response = await withRetry(() => client.search(query, options));
+    const results = response?.results ?? [];
+    if (results.length > 0) {
       return results;
     }
     if (attempt < maxRetries) {
@@ -152,7 +155,7 @@ export async function seedTestMemories(
             "Nice to meet you! I'll remember that your favorite color is blue.",
         },
       ],
-      { user_id: userId },
+      { userId },
     ),
   );
 
@@ -168,7 +171,7 @@ export async function seedTestMemories(
           content: "Got it, you're a software engineer at Acme Corp!",
         },
       ],
-      { user_id: userId },
+      { userId },
     ),
   );
 
@@ -184,12 +187,12 @@ export async function cleanupTestUser(
   userId: string,
 ): Promise<void> {
   try {
-    await client.deleteAll({ user_id: userId });
+    await client.deleteAll({ userId });
   } catch {
     // ignore
   }
   try {
-    await client.deleteUsers({ user_id: userId });
+    await client.deleteUsers({ userId });
   } catch {
     // ignore
   }
@@ -207,10 +210,10 @@ export async function fullProjectCleanup(client: MemoryClient): Promise<void> {
   // Delete all memories — all four filters set explicitly
   try {
     await client.deleteAll({
-      user_id: "*",
-      agent_id: "*",
-      app_id: "*",
-      run_id: "*",
+      userId: "*",
+      agentId: "*",
+      appId: "*",
+      runId: "*",
     });
   } catch {
     // ignore — may 404 if no data exists

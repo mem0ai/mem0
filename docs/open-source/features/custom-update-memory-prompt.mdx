@@ -263,7 +263,7 @@ Please note to return the IDs in the output from the input IDs only and do not g
 - Log each decision so product teams can review why a change happened.
 
 <Note>
-  The prompt works alongside `custom_fact_extraction_prompt`—fact extraction identifies candidate facts, and the update prompt decides how to merge them into long-term storage.
+  The prompt works alongside `custom_instructions`—fact extraction identifies candidate facts, and the update prompt decides how to merge them into long-term storage.
 </Note>
 
 ---
@@ -288,7 +288,7 @@ Please note to return the IDs in the output from the input IDs only and do not g
 
 ## Compare prompts
 
-| Feature | `custom_update_memory_prompt` | `custom_fact_extraction_prompt` |
+| Feature | `custom_update_memory_prompt` | `custom_instructions` |
 | --- | --- | --- |
 | Primary job | Decide memory actions (ADD/UPDATE/DELETE/NONE) | Pull facts from user and assistant messages |
 | Inputs | Retrieved facts + existing memory entries | Raw conversation turns |
@@ -297,7 +297,7 @@ Please note to return the IDs in the output from the input IDs only and do not g
 ---
 
 <CardGroup cols={2}>
-  <Card title="Design Fact Extraction" icon="sparkles" href="/open-source/features/custom-fact-extraction-prompt">
+  <Card title="Design Fact Extraction" icon="sparkles" href="/open-source/features/custom-instructions">
     Coordinate both prompts so fact extraction feeds clean inputs into the update flow.
   </Card>
   <Card title="Build Email Automations" icon="inbox" href="/cookbooks/operations/email-automation">

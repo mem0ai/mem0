@@ -61,6 +61,7 @@ describe("providerToBackend — search", () => {
       keyword_search: true,
       reranking: true,
       filters: { category: "preference" },
+      source: "OPENCLAW",
     });
     expect(results).toHaveLength(1);
     expect((results[0] as any).id).toBe("m1");
@@ -79,6 +80,7 @@ describe("providerToBackend — search", () => {
       keyword_search: undefined,
       reranking: undefined,
       filters: undefined,
+      source: "OPENCLAW",
     });
   });
 });
@@ -173,6 +175,7 @@ describe("providerToBackend — listMemories", () => {
     expect(provider.getAll).toHaveBeenCalledWith({
       user_id: DEFAULT_USER,
       page_size: 50,
+      source: "OPENCLAW",
     });
     expect(results).toHaveLength(1);
   });
@@ -186,6 +189,7 @@ describe("providerToBackend — listMemories", () => {
     expect(provider.getAll).toHaveBeenCalledWith({
       user_id: DEFAULT_USER,
       page_size: undefined,
+      source: "OPENCLAW",
     });
   });
 });

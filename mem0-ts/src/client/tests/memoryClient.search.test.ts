@@ -1,5 +1,5 @@
 /**
- * MemoryClient unit tests — search (v1/v2 routing, filters).
+ * MemoryClient unit tests — search (v3 endpoint, filters).
  * Tests verify request construction, not mock response echo.
  */
 import { MemoryClient } from "../mem0";
@@ -15,89 +15,253 @@ import {
 installConsoleSuppression();
 
 describe("MemoryClient - search()", () => {
-  test("sends POST to /v1/memories/search/ by default", async () => {
+  test("sends POST to /v3/memories/search/ by default", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.search("What is my name?", { user_id: "u1" });
+    await client.search("What is my name?", {
+      filters: { user_id: "u1" },
+    });
 
-    expect(findFetchCall(mock, "/v1/memories/search/", "POST")).toBeDefined();
+    expect(findFetchCall(mock, "/v3/memories/search/", "POST")).toBeDefined();
   });
 
   test("includes query in request body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.search("What is my name?", { user_id: "u1" });
+    await client.search("What is my name?", {
+      filters: { user_id: "u1" },
+    });
 
-    const call = findFetchCall(mock, "/v1/memories/search/", "POST");
+    const call = findFetchCall(mock, "/v3/memories/search/", "POST");
     expect(getFetchBody(call!).query).toBe("What is my name?");
   });
 
-  test("includes user_id in request body", async () => {
+  test("passes filters through to the API body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.search("test", { user_id: "u1" });
+    await client.search("test", { filters: { user_id: "u1" } });
 
-    const call = findFetchCall(mock, "/v1/memories/search/", "POST");
-    expect(getFetchBody(call!).user_id).toBe("u1");
+    const call = findFetchCall(mock, "/v3/memories/search/", "POST");
+    expect(getFetchBody(call!).filters).toEqual({ user_id: "u1" });
   });
 
-  test("uses /v2/memories/search/ when api_version=v2", async () => {
+  test("passes complex OR filters through to the API body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/memories/search/", { status: 200, body: [] });
-    const mock = setupMockFetch(extra);
-
-    const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    await client.search("test", { user_id: "u1", api_version: "v2" });
-
-    expect(findFetchCall(mock, "/v2/memories/search/", "POST")).toBeDefined();
-  });
-
-  test("passes filters through to the v2 API body", async () => {
-    const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v2/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.search("query", {
-      api_version: "v2",
       filters: { OR: [{ user_id: "u1" }, { agent_id: "a1" }] },
     });
 
-    const call = findFetchCall(mock, "/v2/memories/search/", "POST");
+    const call = findFetchCall(mock, "/v3/memories/search/", "POST");
     const body = getFetchBody(call!);
     expect(body.filters).toEqual({
       OR: [{ user_id: "u1" }, { agent_id: "a1" }],
     });
   });
 
+  test("passes complex AND filters through to the API body", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.search("query", {
+      filters: {
+        AND: [
+          { user_id: "u1" },
+          { created_at: { gte: "2024-01-01T00:00:00Z" } },
+        ],
+      },
+    });
+
+    const call = findFetchCall(mock, "/v3/memories/search/", "POST");
+    const body = getFetchBody(call!);
+    expect(body.filters).toEqual({
+      AND: [{ user_id: "u1" }, { created_at: { gte: "2024-01-01T00:00:00Z" } }],
+    });
+  });
+
+  test("passes NOT filters through to the API body", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.search("query", {
+      filters: {
+        AND: [
+          { user_id: "u1" },
+          { NOT: { categories: { in: ["spam", "test"] } } },
+        ],
+      },
+    });
+
+    const call = findFetchCall(mock, "/v3/memories/search/", "POST");
+    const body = getFetchBody(call!);
+    expect(body.filters).toEqual({
+      AND: [
+        { user_id: "u1" },
+        { NOT: { categories: { in: ["spam", "test"] } } },
+      ],
+    });
+  });
+
+  test("passes complex nested AND/OR/NOT filters through to the API body", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    const complexFilter = {
+      AND: [
+        { user_id: "u1" },
+        { created_at: { gte: "2024-01-01T00:00:00Z" } },
+        {
+          NOT: {
+            OR: [
+              { categories: { in: ["spam"] } },
+              { categories: { in: ["test"] } },
+            ],
+          },
+        },
+      ],
+    };
+    await client.search("query", { filters: complexFilter });
+
+    const call = findFetchCall(mock, "/v3/memories/search/", "POST");
+    const body = getFetchBody(call!);
+    expect(body.filters).toEqual(complexFilter);
+  });
+
   test("does not crash when called without options", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result: Memory[] = await client.search("query");
-    expect(Array.isArray(result)).toBe(true);
+    const result = await client.search("query");
+    expect(result).toHaveProperty("results");
   });
 
   test("handles empty results array", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v1/memories/search/", { status: 200, body: [] });
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
     setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
-    const result: Memory[] = await client.search("nonexistent query", {
-      user_id: "u1",
+    const result = await client.search("nonexistent query", {
+      filters: { AND: [{ user_id: "u1" }] },
     });
-    expect(result).toHaveLength(0);
+    expect(result.results).toHaveLength(0);
+  });
+});
+
+describe("MemoryClient - search() entity param rejection", () => {
+  test("rejects user_id at top level", async () => {
+    setupMockFetch();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await expect(
+      client.search("query", { user_id: "u1" } as any),
+    ).rejects.toThrow(/filters/);
+  });
+
+  test("rejects agent_id at top level", async () => {
+    setupMockFetch();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await expect(
+      client.search("query", { agent_id: "a1" } as any),
+    ).rejects.toThrow(/filters/);
+  });
+
+  test("rejects app_id at top level", async () => {
+    setupMockFetch();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await expect(
+      client.search("query", { app_id: "app1" } as any),
+    ).rejects.toThrow(/filters/);
+  });
+
+  test("accepts filters with user_id", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v3/memories/search/", {
+      status: 200,
+      body: { results: [] },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    // Should not throw
+    await client.search("query", { filters: { AND: [{ user_id: "u1" }] } });
+    expect(findFetchCall(mock, "/v3/memories/search/", "POST")).toBeDefined();
+  });
+});
+
+describe("MemoryClient - getAll() entity param rejection", () => {
+  test("rejects user_id at top level", async () => {
+    setupMockFetch();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await expect(client.getAll({ user_id: "u1" } as any)).rejects.toThrow(
+      /filters/,
+    );
+  });
+
+  test("rejects agent_id at top level", async () => {
+    setupMockFetch();
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await expect(client.getAll({ agent_id: "a1" } as any)).rejects.toThrow(
+      /filters/,
+    );
+  });
+
+  test("accepts filters with user_id", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v2/memories/", {
+      status: 200,
+      body: { results: [] },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.getAll({ filters: { user_id: "u1" } });
+    expect(findFetchCall(mock, "/v2/memories/", "POST")).toBeDefined();
   });
 });

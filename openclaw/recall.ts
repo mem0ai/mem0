@@ -260,6 +260,7 @@ export async function recall(
     threshold,
     keyword_search: recallConfig.keywordSearch !== false, // Default on
     reranking: recallConfig.rerank !== false, // Default on
+    source: "OPENCLAW",
   };
   if (recallConfig.filterMemories) {
     searchOpts.filter_memories = true;

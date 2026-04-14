@@ -158,7 +158,7 @@ class OpenSearchDB(VectorStoreBase):
         return results
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """Search for similar vectors using OpenSearch k-NN search with optional filters."""
 
@@ -167,13 +167,13 @@ class OpenSearchDB(VectorStoreBase):
             "knn": {
                 "vector_field": {
                     "vector": vectors,
-                    "k": limit * 2,
+                    "k": top_k * 2,
                 }
             }
         }
 
         # Start building the full query
-        query_body = {"size": limit * 2, "query": None}
+        query_body = {"size": top_k * 2, "query": None}
 
         # Prepare filter conditions if applicable
         filter_clauses = []
@@ -196,11 +196,62 @@ class OpenSearchDB(VectorStoreBase):
             hits = response["hits"]["hits"]
             results = [
                 OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
-                for hit in hits[:limit]  # Ensure we don't exceed limit
+                for hit in hits[:top_k]  # Ensure we don't exceed top_k
             ]
             return results
         except Exception as e:
             logger.error(f"Error during search: {e}", exc_info=True)
+            return []
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """Search for memories using BM25 keyword matching.
+
+        Args:
+            query (str): The text query to search for.
+            top_k (int): Maximum number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results with id, score, and payload.
+        """
+        # Build a multi_match query across text fields in payload
+        should_clauses = [
+            {"match": {"payload.data": query}},
+            {"match": {"payload.text_lemmatized": query}},
+        ]
+
+        bool_query = {
+            "should": should_clauses,
+            "minimum_should_match": 1,
+        }
+
+        # Apply filters consistently with the existing search() method
+        filter_clauses = []
+        if filters:
+            for key in ["user_id", "run_id", "agent_id"]:
+                value = filters.get(key)
+                if value:
+                    filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
+
+        if filter_clauses:
+            bool_query["filter"] = filter_clauses
+
+        query_body = {
+            "size": top_k,
+            "query": {"bool": bool_query},
+        }
+
+        try:
+            response = self.client.search(index=self.collection_name, body=query_body)
+
+            hits = response["hits"]["hits"]
+            results = [
+                OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
+                for hit in hits[:top_k]
+            ]
+            return results
+        except Exception as e:
+            logger.error(f"Error during keyword search: {e}")
             return []
 
     def delete(self, vector_id: str) -> None:
@@ -284,7 +335,7 @@ class OpenSearchDB(VectorStoreBase):
         """Get information about a collection (index)."""
         return self.client.indices.get(index=name)
 
-    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[OutputData]:
         try:
             """List all memories with optional filters."""
             query: Dict = {"query": {"match_all": {}}}
@@ -299,8 +350,8 @@ class OpenSearchDB(VectorStoreBase):
             if filter_clauses:
                 query["query"] = {"bool": {"filter": filter_clauses}}
 
-            if limit:
-                query["size"] = limit
+            if top_k:
+                query["size"] = top_k
 
             response = self.client.search(index=self.collection_name, body=query)
             hits = response["hits"]["hits"]

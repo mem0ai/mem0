@@ -85,7 +85,6 @@ const messages = [
 
 await client.add(messages, {
   user_id: "alice",
-  version: "v2",
 });
 ```
 </CodeGroup>
@@ -173,7 +172,6 @@ For full list of supported fields, required formats, and advanced options, see t
 | Capability | Mem0 Platform | Mem0 OSS |
 | --- | --- | --- |
 | Conflict resolution | Automatic with dashboard visibility | SDK handles merges locally; you control storage |
-| Graph writes | Toggle per request (`enable_graph=True`) | Requires configuring a graph provider |
 | Rate limits | Managed quotas per workspace | Limited by your hardware and provider APIs |
 | Dashboard visibility | Yes — inspect memories visually | Inspect via CLI, logs, or custom UI |
 

@@ -22,17 +22,8 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
     config: {
       baseURL: "https://api.openai.com/v1",
       apiKey: process.env.OPENAI_API_KEY || "",
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4.1-nano-2025-04-14",
       modelProperties: undefined,
-    },
-  },
-  enableGraph: false,
-  graphStore: {
-    provider: "neo4j",
-    config: {
-      url: process.env.NEO4J_URL || "neo4j://localhost:7687",
-      username: process.env.NEO4J_USERNAME || "neo4j",
-      password: process.env.NEO4J_PASSWORD || "password",
     },
   },
   historyStore: {

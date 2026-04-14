@@ -20,13 +20,17 @@ import {
   getUpdateMemoryMessages,
   parseMessages,
   extractJson,
+  ADDITIVE_EXTRACTION_PROMPT,
+  AGENT_CONTEXT_SUFFIX,
+  AdditiveExtractionSchema,
+  generateAdditiveExtractionPrompt,
 } from "../prompts";
 import { DummyHistoryManager } from "../storage/DummyHistoryManager";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
 import { ConfigManager } from "../config/manager";
-import { MemoryGraph } from "./graph_memory";
+
 import {
   AddMemoryOptions,
   SearchMemoryOptions,
@@ -36,27 +40,67 @@ import {
 import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
+import { lemmatizeForBm25 } from "../utils/lemmatization";
+import {
+  extractEntities,
+  extractEntitiesBatch,
+} from "../utils/entity_extraction";
+import {
+  scoreAndRank,
+  getBm25Params,
+  normalizeBm25,
+  ENTITY_BOOST_WEIGHT,
+  ScoredResult,
+} from "../utils/scoring";
+
+// Entity params that must be passed via filters - check both snake_case and camelCase
+const ENTITY_PARAMS = [
+  "user_id",
+  "agent_id",
+  "run_id",
+  "userId",
+  "agentId",
+  "runId",
+];
+
+/**
+ * Validates that no top-level entity parameters are passed in config.
+ * @throws Error if entity params are found at top level
+ */
+function rejectTopLevelEntityParams(
+  config: Record<string, any>,
+  methodName: string,
+): void {
+  const invalidKeys = Object.keys(config).filter((k) =>
+    ENTITY_PARAMS.includes(k),
+  );
+  if (invalidKeys.length > 0) {
+    throw new Error(
+      `Top-level entity parameters [${invalidKeys.join(", ")}] are not supported in ${methodName}(). ` +
+        `Use filters: { userId: "..." } instead.`,
+    );
+  }
+}
 
 export class Memory {
   private config: MemoryConfig;
-  private customPrompt: string | undefined;
+  private customInstructions: string | undefined;
   private embedder: Embedder;
   private vectorStore!: VectorStore;
   private llm: LLM;
   private db: HistoryManager;
   private collectionName: string | undefined;
   private apiVersion: string;
-  private graphMemory?: MemoryGraph;
-  private enableGraph: boolean;
   telemetryId: string;
   private _initPromise: Promise<void>;
   private _initError?: Error;
+  private _entityStore?: VectorStore;
 
   constructor(config: Partial<MemoryConfig> = {}) {
     // Merge and validate config
     this.config = ConfigManager.mergeConfig(config);
 
-    this.customPrompt = this.config.customPrompt;
+    this.customInstructions = this.config.customInstructions;
     this.embedder = EmbedderFactory.create(
       this.config.embedder.provider,
       this.config.embedder.config,
@@ -79,13 +123,7 @@ export class Memory {
 
     this.collectionName = this.config.vectorStore.config.collectionName;
     this.apiVersion = this.config.version || "v1.0";
-    this.enableGraph = this.config.enableGraph || false;
     this.telemetryId = "anonymous";
-
-    // Initialize graph memory if configured
-    if (this.enableGraph && this.config.graphStore) {
-      this.graphMemory = new MemoryGraph(this.config);
-    }
 
     // Auto-detect embedding dimension (if needed), create vector store,
     // and initialize it. All public methods await this before proceeding.
@@ -150,6 +188,38 @@ export class Memory {
     }
   }
 
+  private async getEntityStore(): Promise<VectorStore> {
+    if (!this._entityStore) {
+      const entityCollectionName = `${this.collectionName}_entities`;
+      const entityConfig = {
+        ...this.config.vectorStore.config,
+        collectionName: entityCollectionName,
+      };
+      // For file-based stores (memory/SQLite), use a separate DB path for entities
+      if (entityConfig.dbPath) {
+        entityConfig.dbPath = entityConfig.dbPath.replace(
+          /\.db$/,
+          "_entities.db",
+        );
+      }
+      this._entityStore = VectorStoreFactory.create(
+        this.config.vectorStore.provider,
+        entityConfig,
+      );
+      await this._entityStore.initialize();
+    }
+    return this._entityStore;
+  }
+
+  private buildSessionScope(filters: SearchFilters): string {
+    const parts: string[] = [];
+    for (const key of ["agent_id", "run_id", "user_id"].sort()) {
+      const val = (filters as any)[key];
+      if (val) parts.push(`${key}=${val}`);
+    }
+    return parts.join("&");
+  }
+
   private async _initializeTelemetry() {
     try {
       await this._getTelemetryId();
@@ -159,7 +229,6 @@ export class Memory {
         api_version: this.apiVersion,
         client_type: "Memory",
         collection_name: this.collectionName,
-        enable_graph: this.enableGraph,
       });
     } catch (error) {}
   }
@@ -223,11 +292,12 @@ export class Memory {
       infer = true,
     } = config;
 
-    if (userId) filters.userId = metadata.userId = userId;
-    if (agentId) filters.agentId = metadata.agentId = agentId;
-    if (runId) filters.runId = metadata.runId = runId;
+    // Convert camelCase entity params to snake_case for storage (matches API and search/getAll filters)
+    if (userId) filters.user_id = metadata.user_id = userId;
+    if (agentId) filters.agent_id = metadata.agent_id = agentId;
+    if (runId) filters.run_id = metadata.run_id = runId;
 
-    if (!filters.userId && !filters.agentId && !filters.runId) {
+    if (!filters.user_id && !filters.agent_id && !filters.run_id) {
       throw new Error(
         "One of the filters: userId, agentId or runId is required!",
       );
@@ -247,22 +317,8 @@ export class Memory {
       infer,
     );
 
-    // Add to graph store if available
-    let graphResult;
-    if (this.graphMemory) {
-      try {
-        graphResult = await this.graphMemory.add(
-          final_parsedMessages.map((m) => m.content).join("\n"),
-          filters,
-        );
-      } catch (error) {
-        console.error("Error adding to graph memory:", error);
-      }
-    }
-
     return {
       results: vectorStoreResult,
-      relations: graphResult?.relations,
     };
   }
 
@@ -291,145 +347,413 @@ export class Memory {
       }
       return returnedMemories;
     }
+
+    // === V3 PHASED BATCH PIPELINE ===
+
+    // Phase 0: Context gathering
+    const sessionScope = this.buildSessionScope(filters);
+    let lastMessages: Array<{
+      role: string;
+      content: string;
+      name?: string;
+    }> = [];
+    if (typeof this.db.getLastMessages === "function") {
+      try {
+        lastMessages = await this.db.getLastMessages(sessionScope, 10);
+      } catch {
+        // getLastMessages not supported — proceed without context
+      }
+    }
     const parsedMessages = messages.map((m) => m.content).join("\n");
 
-    const [systemPrompt, userPrompt] = this.customPrompt
-      ? [
-          this.customPrompt.toLowerCase().includes("json")
-            ? this.customPrompt
-            : `${this.customPrompt}\n\nYou MUST return a valid JSON object with a 'facts' key containing an array of strings.`,
-          `Input:\n${parsedMessages}`,
-        ]
-      : getFactRetrievalMessages(parsedMessages);
-
-    const response = await this.llm.generateResponse(
-      [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      { type: "json_object" },
+    // Phase 1: Existing memory retrieval
+    const queryEmbedding = await this.embedder.embed(parsedMessages);
+    const existingResults = await this.vectorStore.search(
+      queryEmbedding,
+      10,
+      filters,
     );
 
-    const cleanResponse = extractJson(response as string);
-    let facts: string[] = [];
-    try {
-      const parsed = FactRetrievalSchema.parse(JSON.parse(cleanResponse));
-      facts = parsed.facts;
-    } catch (e) {
-      console.error(
-        "Failed to parse facts from LLM response:",
-        cleanResponse,
-        e,
-      );
-      facts = [];
+    // Map UUIDs to integers (anti-hallucination)
+    const existingMemories: Array<{ id: string; text: string }> = [];
+    const uuidMapping: Record<string, string> = {};
+    for (let idx = 0; idx < existingResults.length; idx++) {
+      const mem = existingResults[idx];
+      uuidMapping[String(idx)] = mem.id;
+      existingMemories.push({
+        id: String(idx),
+        text: mem.payload?.data ?? "",
+      });
     }
 
-    // Get embeddings for new facts
-    const newMessageEmbeddings: Record<string, number[]> = {};
-    const retrievedOldMemory: Array<{ id: string; text: string }> = [];
-
-    // Create embeddings and search for similar memories
-    for (const fact of facts) {
-      const embedding = await this.embedder.embed(fact);
-      newMessageEmbeddings[fact] = embedding;
-
-      const existingMemories = await this.vectorStore.search(
-        embedding,
-        5,
-        filters,
-      );
-      for (const mem of existingMemories) {
-        retrievedOldMemory.push({ id: mem.id, text: mem.payload.data });
-      }
+    // Phase 2: LLM extraction (single call)
+    const isAgentScoped = !!filters.agent_id && !filters.user_id;
+    let systemPrompt = ADDITIVE_EXTRACTION_PROMPT;
+    if (isAgentScoped) {
+      systemPrompt += AGENT_CONTEXT_SUFFIX;
     }
 
-    // Remove duplicates from old memories
-    const uniqueOldMemories = retrievedOldMemory.filter(
-      (mem, index) =>
-        retrievedOldMemory.findIndex((m) => m.id === mem.id) === index,
-    );
-
-    // Create UUID mapping for handling UUID hallucinations
-    const tempUuidMapping: Record<string, string> = {};
-    uniqueOldMemories.forEach((item, idx) => {
-      tempUuidMapping[String(idx)] = item.id;
-      uniqueOldMemories[idx].id = String(idx);
+    const userPrompt = generateAdditiveExtractionPrompt({
+      existingMemories,
+      newMessages: parsedMessages,
+      lastKMessages: lastMessages,
+      customInstructions: this.customInstructions,
     });
 
-    // Get memory update decisions
-    const updatePrompt = getUpdateMemoryMessages(uniqueOldMemories, facts);
-
-    const updateResponse = await this.llm.generateResponse(
-      [{ role: "user", content: updatePrompt }],
-      { type: "json_object" },
-    );
-
-    const cleanUpdateResponse = extractJson(updateResponse as string);
-    let memoryActions: any[] = [];
+    let response: string;
     try {
-      memoryActions = JSON.parse(cleanUpdateResponse).memory || [];
+      response = (await this.llm.generateResponse(
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        { type: "json_object" },
+      )) as string;
     } catch (e) {
-      console.error(
-        "Failed to parse memory actions from LLM response:",
-        cleanUpdateResponse,
-        e,
-      );
-      memoryActions = [];
+      console.error("LLM extraction failed:", e);
+      return [];
     }
 
-    // Process memory actions
-    const results: MemoryItem[] = [];
-    for (const action of memoryActions) {
-      try {
-        switch (action.event) {
-          case "ADD": {
-            const memoryId = await this.createMemory(
-              action.text,
-              newMessageEmbeddings,
-              metadata,
-            );
-            results.push({
-              id: memoryId,
-              memory: action.text,
-              metadata: { event: action.event },
-            });
-            break;
-          }
-          case "UPDATE": {
-            const realMemoryId = tempUuidMapping[action.id];
-            await this.updateMemory(
-              realMemoryId,
-              action.text,
-              newMessageEmbeddings,
-              metadata,
-            );
-            results.push({
-              id: realMemoryId,
-              memory: action.text,
-              metadata: {
-                event: action.event,
-                previousMemory: action.old_memory,
-              },
-            });
-            break;
-          }
-          case "DELETE": {
-            const realMemoryId = tempUuidMapping[action.id];
-            await this.deleteMemory(realMemoryId);
-            results.push({
-              id: realMemoryId,
-              memory: action.text,
-              metadata: { event: action.event },
-            });
-            break;
-          }
+    // Parse response
+    let extractedMemories: Array<{
+      id?: string;
+      text?: string;
+      attributed_to?: string;
+      linked_memory_ids?: string[];
+    }> = [];
+    try {
+      const cleanResponse = extractJson(response);
+      if (cleanResponse && cleanResponse.trim()) {
+        try {
+          const parsed = AdditiveExtractionSchema.parse(
+            JSON.parse(cleanResponse),
+          );
+          extractedMemories = parsed.memory;
+        } catch {
+          const fallbackJson = extractJson(cleanResponse);
+          extractedMemories = JSON.parse(fallbackJson)?.memory ?? [];
         }
-      } catch (error) {
-        console.error(`Error processing memory action: ${error}`);
+      }
+    } catch (e) {
+      console.error("Error parsing extraction response:", e);
+      extractedMemories = [];
+    }
+
+    if (extractedMemories.length === 0) {
+      // Save messages even if nothing extracted
+      if (typeof this.db.saveMessages === "function") {
+        try {
+          await this.db.saveMessages(
+            messages.map((m) => ({
+              role: m.role,
+              content: m.content as string,
+            })),
+            sessionScope,
+          );
+        } catch {}
+      }
+      return [];
+    }
+
+    // Phase 3: Batch embed all extracted memory texts
+    const memTexts = extractedMemories
+      .map((m) => m.text ?? "")
+      .filter((t) => t.length > 0);
+    let embedMap: Record<string, number[]> = {};
+    try {
+      const memEmbeddingsList = await this.embedder.embedBatch(memTexts);
+      for (let i = 0; i < memTexts.length; i++) {
+        embedMap[memTexts[i]] = memEmbeddingsList[i];
+      }
+    } catch {
+      // Fallback: embed individually
+      for (const text of memTexts) {
+        try {
+          embedMap[text] = await this.embedder.embed(text);
+        } catch (e) {
+          console.warn(`Failed to embed memory text: ${e}`);
+        }
       }
     }
 
-    return results;
+    // Phase 4-5: CPU processing + hash dedup
+    const existingHashes = new Set<string>();
+    for (const mem of existingResults) {
+      const h = mem.payload?.hash;
+      if (h) existingHashes.add(h);
+    }
+
+    const records: Array<{
+      memoryId: string;
+      text: string;
+      embedding: number[];
+      payload: Record<string, any>;
+    }> = [];
+    const seenHashes = new Set<string>();
+
+    for (const mem of extractedMemories) {
+      const text = mem.text;
+      if (!text || !(text in embedMap)) continue;
+
+      const memHash = createHash("md5").update(text).digest("hex");
+      if (existingHashes.has(memHash) || seenHashes.has(memHash)) {
+        continue;
+      }
+      seenHashes.add(memHash);
+
+      const textLemmatized = lemmatizeForBm25(text);
+      const memoryId = uuidv4();
+      const now = new Date().toISOString();
+
+      const memPayload: Record<string, any> = {
+        ...metadata,
+        data: text,
+        textLemmatized,
+        hash: memHash,
+        createdAt: now,
+        updatedAt: now,
+      };
+      if (mem.attributed_to) {
+        memPayload.attributedTo = mem.attributed_to;
+      }
+      if (filters.user_id) memPayload.user_id = filters.user_id;
+      if (filters.agent_id) memPayload.agent_id = filters.agent_id;
+      if (filters.run_id) memPayload.run_id = filters.run_id;
+
+      records.push({
+        memoryId,
+        text,
+        embedding: embedMap[text],
+        payload: memPayload,
+      });
+    }
+
+    if (records.length === 0) {
+      if (typeof this.db.saveMessages === "function") {
+        try {
+          await this.db.saveMessages(
+            messages.map((m) => ({
+              role: m.role,
+              content: m.content as string,
+            })),
+            sessionScope,
+          );
+        } catch {}
+      }
+      return [];
+    }
+
+    // Phase 6: Batch persist
+    const allVectors = records.map((r) => r.embedding);
+    const allIds = records.map((r) => r.memoryId);
+    const allPayloads = records.map((r) => r.payload);
+
+    try {
+      await this.vectorStore.insert(allVectors, allIds, allPayloads);
+    } catch {
+      // Fallback: insert one by one
+      for (let i = 0; i < allIds.length; i++) {
+        try {
+          await this.vectorStore.insert(
+            [allVectors[i]],
+            [allIds[i]],
+            [allPayloads[i]],
+          );
+        } catch (e) {
+          console.error(`Failed to insert memory ${allIds[i]}: ${e}`);
+        }
+      }
+    }
+
+    // Batch history
+    const historyRecords = records.map((r) => ({
+      memoryId: r.memoryId,
+      previousValue: null as string | null,
+      newValue: r.text as string | null,
+      action: "ADD",
+      createdAt: r.payload.createdAt as string | undefined,
+      updatedAt: undefined as string | undefined,
+      isDeleted: 0,
+    }));
+
+    if (typeof this.db.batchAddHistory === "function") {
+      try {
+        await this.db.batchAddHistory(historyRecords);
+      } catch {
+        // Fallback: add one by one
+        for (const hr of historyRecords) {
+          try {
+            await this.db.addHistory(
+              hr.memoryId,
+              null,
+              hr.newValue,
+              "ADD",
+              hr.createdAt,
+            );
+          } catch (e) {
+            console.error(`Failed to add history for ${hr.memoryId}: ${e}`);
+          }
+        }
+      }
+    } else {
+      for (const hr of historyRecords) {
+        try {
+          await this.db.addHistory(
+            hr.memoryId,
+            null,
+            hr.newValue,
+            "ADD",
+            hr.createdAt,
+          );
+        } catch (e) {
+          console.error(`Failed to add history for ${hr.memoryId}: ${e}`);
+        }
+      }
+    }
+
+    // Phase 7: Batch entity linking
+    try {
+      const allTexts = records.map((r) => r.text);
+      const allEntities = extractEntitiesBatch(allTexts);
+
+      // 7a: Global dedup — collect unique entities across all memories
+      const globalEntities: Record<
+        string,
+        { entityType: string; entityText: string; memoryIds: Set<string> }
+      > = {};
+      for (let idx = 0; idx < records.length; idx++) {
+        const memoryId = records[idx].memoryId;
+        const entities = idx < allEntities.length ? allEntities[idx] : [];
+        for (const entity of entities) {
+          const key = entity.text.trim().toLowerCase();
+          if (key in globalEntities) {
+            globalEntities[key].memoryIds.add(memoryId);
+          } else {
+            globalEntities[key] = {
+              entityType: entity.type,
+              entityText: entity.text,
+              memoryIds: new Set([memoryId]),
+            };
+          }
+        }
+      }
+
+      const orderedKeys = Object.keys(globalEntities);
+      if (orderedKeys.length > 0) {
+        const entityTexts = orderedKeys.map(
+          (k) => globalEntities[k].entityText,
+        );
+
+        // 7b: Single batch embed for all unique entities
+        let entityEmbeddings: (number[] | null)[];
+        try {
+          entityEmbeddings = await this.embedder.embedBatch(entityTexts);
+        } catch {
+          // Fallback: embed individually
+          entityEmbeddings = [];
+          for (const t of entityTexts) {
+            try {
+              entityEmbeddings.push(await this.embedder.embed(t));
+            } catch {
+              entityEmbeddings.push(null);
+            }
+          }
+        }
+
+        // Filter out entities with failed embeddings
+        const valid: Array<{ index: number; key: string }> = [];
+        for (let i = 0; i < orderedKeys.length; i++) {
+          if (entityEmbeddings[i] !== null) {
+            valid.push({ index: i, key: orderedKeys[i] });
+          }
+        }
+
+        if (valid.length > 0) {
+          const entityStore = await this.getEntityStore();
+
+          // 7c: Search for existing entities one by one (no batch search)
+          const toInsertVectors: number[][] = [];
+          const toInsertIds: string[] = [];
+          const toInsertPayloads: Record<string, any>[] = [];
+
+          for (const { index: j, key } of valid) {
+            const { entityType, entityText, memoryIds } = globalEntities[key];
+            const entityVec = entityEmbeddings[j]!;
+
+            let matches: Array<{
+              id: string;
+              score?: number;
+              payload: Record<string, any>;
+            }> = [];
+            try {
+              matches = await entityStore.search(entityVec, 1, filters);
+            } catch {}
+
+            if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
+              // Update existing entity
+              const match = matches[0];
+              const payload = match.payload || {};
+              const linked = new Set<string>(payload.linkedMemoryIds ?? []);
+              for (const mid of memoryIds) linked.add(mid);
+              payload.linkedMemoryIds = Array.from(linked).sort();
+              try {
+                await entityStore.update(match.id, entityVec, payload);
+              } catch (e) {
+                console.debug(`Entity update failed for '${entityText}': ${e}`);
+              }
+            } else {
+              // New entity — collect for batch insert
+              const entityPayload: Record<string, any> = {
+                data: entityText,
+                entityType,
+                linkedMemoryIds: Array.from(memoryIds).sort(),
+              };
+              if (filters.user_id) entityPayload.user_id = filters.user_id;
+              if (filters.agent_id) entityPayload.agent_id = filters.agent_id;
+              if (filters.run_id) entityPayload.run_id = filters.run_id;
+
+              toInsertVectors.push(entityVec);
+              toInsertIds.push(uuidv4());
+              toInsertPayloads.push(entityPayload);
+            }
+          }
+
+          // 7e: Single batch insert for all new entities
+          if (toInsertVectors.length > 0) {
+            try {
+              await entityStore.insert(
+                toInsertVectors,
+                toInsertIds,
+                toInsertPayloads,
+              );
+            } catch (e) {
+              console.warn(`Batch entity insert failed: ${e}`);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`Batch entity linking failed: ${e}`);
+    }
+
+    // Phase 8: Save messages + return
+    if (typeof this.db.saveMessages === "function") {
+      try {
+        await this.db.saveMessages(
+          messages.map((m) => ({
+            role: m.role,
+            content: m.content as string,
+          })),
+          sessionScope,
+        );
+      } catch {}
+    }
+
+    return records.map((r) => ({
+      id: r.memoryId,
+      memory: r.text,
+      metadata: { event: "ADD" },
+    }));
   }
 
   async get(memoryId: string): Promise<MemoryItem | null> {
@@ -438,9 +762,9 @@ export class Memory {
     if (!memory) return null;
 
     const filters = {
-      ...(memory.payload.userId && { userId: memory.payload.userId }),
-      ...(memory.payload.agentId && { agentId: memory.payload.agentId }),
-      ...(memory.payload.runId && { runId: memory.payload.runId }),
+      ...(memory.payload.user_id && { user_id: memory.payload.user_id }),
+      ...(memory.payload.agent_id && { agent_id: memory.payload.agent_id }),
+      ...(memory.payload.run_id && { run_id: memory.payload.run_id }),
     };
 
     const memoryItem: MemoryItem = {
@@ -461,6 +785,8 @@ export class Memory {
       "data",
       "createdAt",
       "updatedAt",
+      "textLemmatized",
+      "attributedTo",
     ]);
     for (const [key, value] of Object.entries(memory.payload)) {
       if (!excludedKeys.has(key)) {
@@ -475,69 +801,212 @@ export class Memory {
     query: string,
     config: SearchMemoryOptions,
   ): Promise<SearchResult> {
+    // Reject top-level entity params - must use filters instead
+    rejectTopLevelEntityParams(config as Record<string, any>, "search");
+
     await this._ensureInitialized();
     await this._captureEvent("search", {
       query_length: query.length,
-      limit: config.limit,
+      topK: config.topK,
       has_filters: !!config.filters,
     });
-    const { userId, agentId, runId, limit = 100, filters = {} } = config;
+    const { topK = 100, threshold = 0.1 } = config;
+    let effectiveFilters: Record<string, any> = { ...(config.filters || {}) };
 
-    if (userId) filters.userId = userId;
-    if (agentId) filters.agentId = agentId;
-    if (runId) filters.runId = runId;
+    // Apply enhanced metadata filtering if advanced operators are detected
+    if (this._hasAdvancedOperators(effectiveFilters)) {
+      const processedFilters = this._processMetadataFilters(effectiveFilters);
+      // Remove logical/operator keys that have been reprocessed
+      for (const logicalKey of ["AND", "OR", "NOT"]) {
+        delete effectiveFilters[logicalKey];
+      }
+      for (const fk of Object.keys(effectiveFilters)) {
+        if (
+          !["AND", "OR", "NOT", "user_id", "agent_id", "run_id"].includes(fk) &&
+          typeof effectiveFilters[fk] === "object" &&
+          effectiveFilters[fk] !== null
+        ) {
+          delete effectiveFilters[fk];
+        }
+      }
+      effectiveFilters = { ...effectiveFilters, ...processedFilters };
+    }
 
-    if (!filters.userId && !filters.agentId && !filters.runId) {
+    // Validate filters contains at least one entity ID (snake_case)
+    if (
+      !effectiveFilters.user_id &&
+      !effectiveFilters.agent_id &&
+      !effectiveFilters.run_id
+    ) {
       throw new Error(
-        "One of the filters: userId, agentId or runId is required!",
+        "filters must contain at least one of: user_id, agent_id, run_id. " +
+          "Example: filters: { user_id: 'u1' }",
       );
     }
 
-    // Search vector store
+    // Step 1: Preprocess query
+    const queryLemmatized = lemmatizeForBm25(query);
+    const queryEntities = extractEntities(query);
+
+    // Step 2: Embed query
     const queryEmbedding = await this.embedder.embed(query);
-    const memories = await this.vectorStore.search(
+
+    // Step 3: Semantic search (over-fetch for scoring pool)
+    const internalLimit = Math.max(topK * 4, 60);
+    const semanticResults = await this.vectorStore.search(
       queryEmbedding,
-      limit,
-      filters,
+      internalLimit,
+      effectiveFilters,
     );
 
-    // Search graph store if available
-    let graphResults;
-    if (this.graphMemory) {
+    // Step 4: Keyword search (if store supports it)
+    let keywordResults: Array<{
+      id: string;
+      score?: number;
+      payload: Record<string, any>;
+    }> | null = null;
+    if (typeof this.vectorStore.keywordSearch === "function") {
       try {
-        graphResults = await this.graphMemory.search(query, filters);
-      } catch (error) {
-        console.error("Error searching graph memory:", error);
+        keywordResults =
+          (await this.vectorStore.keywordSearch(
+            queryLemmatized,
+            internalLimit,
+            effectiveFilters,
+          )) ?? null;
+      } catch {
+        keywordResults = null;
       }
     }
 
+    // Step 5: Compute BM25 scores from keyword results
+    const bm25Scores: Record<string, number> = {};
+    if (keywordResults) {
+      const [midpoint, steepness] = getBm25Params(query, queryLemmatized);
+      for (const mem of keywordResults) {
+        const memId = String(mem.id);
+        const rawScore = mem.score ?? 0;
+        if (rawScore > 0) {
+          bm25Scores[memId] = normalizeBm25(rawScore, midpoint, steepness);
+        }
+      }
+    }
+
+    // Step 6: Compute entity boosts
+    const entityBoosts: Record<string, number> = {};
+    if (queryEntities.length > 0) {
+      try {
+        // Deduplicate entities (max 8)
+        const seen = new Set<string>();
+        const deduped: Array<{ type: string; text: string }> = [];
+        for (const entity of queryEntities.slice(0, 8)) {
+          const key = entity.text.trim().toLowerCase();
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            deduped.push(entity);
+          }
+        }
+
+        if (deduped.length > 0) {
+          const entityStore = await this.getEntityStore();
+
+          for (const entity of deduped) {
+            try {
+              const entityEmbedding = await this.embedder.embed(entity.text);
+              const matches = await entityStore.search(
+                entityEmbedding,
+                500,
+                effectiveFilters,
+              );
+
+              for (const match of matches) {
+                const similarity = match.score ?? 0;
+                if (similarity < 0.5) continue;
+
+                const payload = match.payload || {};
+                const linkedMemoryIds = payload.linkedMemoryIds ?? [];
+                if (!Array.isArray(linkedMemoryIds)) continue;
+
+                // Spread-attenuated boost
+                const numLinked = Math.max(linkedMemoryIds.length, 1);
+                const memoryCountWeight =
+                  1.0 / (1.0 + 0.001 * (numLinked - 1) ** 2);
+                const boost =
+                  similarity * ENTITY_BOOST_WEIGHT * memoryCountWeight;
+
+                for (const memoryId of linkedMemoryIds) {
+                  if (memoryId) {
+                    const memKey = String(memoryId);
+                    entityBoosts[memKey] = Math.max(
+                      entityBoosts[memKey] ?? 0,
+                      boost,
+                    );
+                  }
+                }
+              }
+            } catch (e) {
+              // Individual entity boost failed — continue
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Entity boost computation failed:", e);
+      }
+    }
+
+    // Step 7: Build candidate set from semantic results
+    const candidates = semanticResults.map((mem) => ({
+      id: String(mem.id),
+      score: mem.score ?? 0,
+      payload: mem.payload || {},
+    }));
+
+    // Step 8: Score and rank
+    const scoredResults = scoreAndRank(
+      candidates,
+      bm25Scores,
+      entityBoosts,
+      threshold ?? 0.1,
+      topK,
+    );
+
+    // Step 9: Format results
     const excludedKeys = new Set([
-      "userId",
-      "agentId",
-      "runId",
+      "user_id",
+      "agent_id",
+      "run_id",
       "hash",
       "data",
       "createdAt",
       "updatedAt",
+      "textLemmatized",
+      "attributedTo",
     ]);
-    const results = memories.map((mem) => ({
-      id: mem.id,
-      memory: mem.payload.data,
-      hash: mem.payload.hash,
-      createdAt: mem.payload.createdAt,
-      updatedAt: mem.payload.updatedAt,
-      score: mem.score,
-      metadata: Object.entries(mem.payload)
-        .filter(([key]) => !excludedKeys.has(key))
-        .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-      ...(mem.payload.userId && { userId: mem.payload.userId }),
-      ...(mem.payload.agentId && { agentId: mem.payload.agentId }),
-      ...(mem.payload.runId && { runId: mem.payload.runId }),
-    }));
+
+    const results = scoredResults
+      .filter((scored) => scored.payload?.data)
+      .map((scored) => {
+        const payload = scored.payload || {};
+        return {
+          id: scored.id,
+          memory: payload.data,
+          hash: payload.hash,
+          createdAt: payload.createdAt,
+          updatedAt: payload.updatedAt,
+          score: scored.score,
+          metadata: {
+            ...Object.entries(payload)
+              .filter(([key]) => !excludedKeys.has(key))
+              .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
+            scoreBreakdown: scored.scoreBreakdown,
+          },
+          ...(payload.user_id && { user_id: payload.user_id }),
+          ...(payload.agent_id && { agent_id: payload.agent_id }),
+          ...(payload.run_id && { run_id: payload.run_id }),
+        };
+      });
 
     return {
       results,
-      relations: graphResults,
     };
   }
 
@@ -567,10 +1036,11 @@ export class Memory {
     });
     const { userId, agentId, runId } = config;
 
+    // Convert camelCase entity params to snake_case for filters (matches storage and search/getAll)
     const filters: SearchFilters = {};
-    if (userId) filters.userId = userId;
-    if (agentId) filters.agentId = agentId;
-    if (runId) filters.runId = runId;
+    if (userId) filters.user_id = userId;
+    if (agentId) filters.agent_id = agentId;
+    if (runId) filters.run_id = runId;
 
     if (!Object.keys(filters).length) {
       throw new Error(
@@ -613,8 +1083,11 @@ export class Memory {
       );
     }
 
-    if (this.graphMemory) {
-      await this.graphMemory.deleteAll({ userId: "default" }); // Assuming this is okay, or needs similar check?
+    if (this._entityStore) {
+      try {
+        await this._entityStore.deleteCol();
+      } catch {}
+      this._entityStore = undefined;
     }
 
     // Re-initialize factories/clients based on the original config.
@@ -640,30 +1113,39 @@ export class Memory {
   }
 
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
+    // Reject top-level entity params - must use filters instead
+    rejectTopLevelEntityParams(config as Record<string, any>, "getAll");
+
     await this._ensureInitialized();
+    const { topK = 100, filters = {} } = config;
+
     await this._captureEvent("get_all", {
-      limit: config.limit,
-      has_user_id: !!config.userId,
-      has_agent_id: !!config.agentId,
-      has_run_id: !!config.runId,
+      topK: topK,
+      has_user_id: !!filters.user_id,
+      has_agent_id: !!filters.agent_id,
+      has_run_id: !!filters.run_id,
     });
-    const { userId, agentId, runId, limit = 100 } = config;
 
-    const filters: SearchFilters = {};
-    if (userId) filters.userId = userId;
-    if (agentId) filters.agentId = agentId;
-    if (runId) filters.runId = runId;
+    // Validate filters contains at least one entity ID (snake_case)
+    if (!filters.user_id && !filters.agent_id && !filters.run_id) {
+      throw new Error(
+        "filters must contain at least one of: user_id, agent_id, run_id. " +
+          "Example: filters: { user_id: 'u1' }",
+      );
+    }
 
-    const [memories] = await this.vectorStore.list(filters, limit);
+    const [memories] = await this.vectorStore.list(filters, topK);
 
     const excludedKeys = new Set([
-      "userId",
-      "agentId",
-      "runId",
+      "user_id",
+      "agent_id",
+      "run_id",
       "hash",
       "data",
       "createdAt",
       "updatedAt",
+      "textLemmatized",
+      "attributedTo",
     ]);
     const results = memories.map((mem) => ({
       id: mem.id,
@@ -674,9 +1156,9 @@ export class Memory {
       metadata: Object.entries(mem.payload)
         .filter(([key]) => !excludedKeys.has(key))
         .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-      ...(mem.payload.userId && { userId: mem.payload.userId }),
-      ...(mem.payload.agentId && { agentId: mem.payload.agentId }),
-      ...(mem.payload.runId && { runId: mem.payload.runId }),
+      ...(mem.payload.user_id && { user_id: mem.payload.user_id }),
+      ...(mem.payload.agent_id && { agent_id: mem.payload.agent_id }),
+      ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
     }));
 
     return { results };
@@ -731,14 +1213,14 @@ export class Memory {
       hash: createHash("md5").update(data).digest("hex"),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
-      ...(existingMemory.payload.userId && {
-        userId: existingMemory.payload.userId,
+      ...(existingMemory.payload.user_id && {
+        user_id: existingMemory.payload.user_id,
       }),
-      ...(existingMemory.payload.agentId && {
-        agentId: existingMemory.payload.agentId,
+      ...(existingMemory.payload.agent_id && {
+        agent_id: existingMemory.payload.agent_id,
       }),
-      ...(existingMemory.payload.runId && {
-        runId: existingMemory.payload.runId,
+      ...(existingMemory.payload.run_id && {
+        run_id: existingMemory.payload.run_id,
       }),
     };
 
@@ -774,5 +1256,157 @@ export class Memory {
     );
 
     return memoryId;
+  }
+
+  /**
+   * Check if filters contain advanced operators that need special processing.
+   */
+  private _hasAdvancedOperators(filters: Record<string, any>): boolean {
+    if (!filters || typeof filters !== "object") {
+      return false;
+    }
+
+    for (const [key, value] of Object.entries(filters)) {
+      // Check for platform-style logical operators
+      if (key === "AND" || key === "OR" || key === "NOT") {
+        return true;
+      }
+      // Check for comparison operators
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
+        for (const op of Object.keys(value)) {
+          if (
+            [
+              "eq",
+              "ne",
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "in",
+              "nin",
+              "contains",
+              "icontains",
+            ].includes(op)
+          ) {
+            return true;
+          }
+        }
+      }
+      // Check for wildcard values
+      if (value === "*") {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Process enhanced metadata filters and convert them to vector store compatible format.
+   * Converts AND/OR/NOT to $or/$not format that vector stores can interpret.
+   */
+  private _processMetadataFilters(
+    metadataFilters: Record<string, any>,
+  ): Record<string, any> {
+    const processedFilters: Record<string, any> = {};
+
+    const processCondition = (
+      key: string,
+      condition: any,
+    ): Record<string, any> => {
+      if (typeof condition !== "object" || condition === null) {
+        // Simple equality: {"key": "value"} or wildcard
+        if (condition === "*") {
+          return { [key]: "*" };
+        }
+        return { [key]: condition };
+      }
+
+      if (Array.isArray(condition)) {
+        // Array shorthand for "in" operator
+        return { [key]: { in: condition } };
+      }
+
+      const result: Record<string, any> = {};
+      const operatorMap: Record<string, string> = {
+        eq: "eq",
+        ne: "ne",
+        gt: "gt",
+        gte: "gte",
+        lt: "lt",
+        lte: "lte",
+        in: "in",
+        nin: "nin",
+        contains: "contains",
+        icontains: "icontains",
+      };
+
+      for (const [operator, value] of Object.entries(condition)) {
+        if (operator in operatorMap) {
+          if (!result[key]) {
+            result[key] = {};
+          }
+          result[key][operatorMap[operator]] = value;
+        } else {
+          throw new Error(`Unsupported metadata filter operator: ${operator}`);
+        }
+      }
+      return result;
+    };
+
+    for (const [key, value] of Object.entries(metadataFilters)) {
+      if (key === "AND") {
+        // Logical AND: combine multiple conditions
+        if (!Array.isArray(value)) {
+          throw new Error("AND operator requires a list of conditions");
+        }
+        for (const condition of value) {
+          for (const [subKey, subValue] of Object.entries(condition)) {
+            Object.assign(processedFilters, processCondition(subKey, subValue));
+          }
+        }
+      } else if (key === "OR") {
+        // Logical OR: Pass through to vector store for implementation-specific handling
+        if (!Array.isArray(value) || value.length === 0) {
+          throw new Error(
+            "OR operator requires a non-empty list of conditions",
+          );
+        }
+        processedFilters["$or"] = [];
+        for (const condition of value) {
+          const orCondition: Record<string, any> = {};
+          for (const [subKey, subValue] of Object.entries(
+            condition as Record<string, any>,
+          )) {
+            Object.assign(orCondition, processCondition(subKey, subValue));
+          }
+          processedFilters["$or"].push(orCondition);
+        }
+      } else if (key === "NOT") {
+        // Logical NOT: Pass through to vector store for implementation-specific handling
+        if (!Array.isArray(value) || value.length === 0) {
+          throw new Error(
+            "NOT operator requires a non-empty list of conditions",
+          );
+        }
+        processedFilters["$not"] = [];
+        for (const condition of value) {
+          const notCondition: Record<string, any> = {};
+          for (const [subKey, subValue] of Object.entries(
+            condition as Record<string, any>,
+          )) {
+            Object.assign(notCondition, processCondition(subKey, subValue));
+          }
+          processedFilters["$not"].push(notCondition);
+        }
+      } else {
+        Object.assign(processedFilters, processCondition(key, value));
+      }
+    }
+
+    return processedFilters;
   }
 }

@@ -87,6 +87,15 @@ Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? 
 pip install mem0ai
 ```
 
+For enhanced hybrid search with BM25 keyword matching and entity extraction, install with NLP support:
+
+```bash
+pip install mem0ai[nlp]
+python -m spacy download en_core_web_sm
+```
+
+Install sdk via npm:
+
 ```bash
 npm install mem0ai
 ```
@@ -124,7 +133,9 @@ See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full comm
 
 ### Basic Usage
 
-Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14 from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+
+Mem0 uses `text-embedding-3-small` from OpenAI as the default embedding model. For best results with hybrid search (semantic + keyword + entity boosting), we recommend using at least [Qwen 600M](https://huggingface.co/Alibaba-NLP/gte-Qwen2-1.5B-instruct) or a comparable embedding model. See [Supported Embeddings](https://docs.mem0.ai/components/embedders/overview) for configuration details.
 
 First step is to instantiate the memory:
 

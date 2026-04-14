@@ -1,20 +1,20 @@
+import json
 import logging
 import os
 import pickle
 import uuid
+import warnings
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 from pydantic import BaseModel
-
-import warnings
 
 try:
     # Suppress SWIG deprecation warnings from FAISS
     warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
     warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigvarlink.*")
-    
+
     logging.getLogger("faiss").setLevel(logging.WARNING)
     logging.getLogger("faiss.loader").setLevel(logging.WARNING)
 
@@ -29,6 +29,93 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+
+class SafeUnpickler(pickle.Unpickler):
+    """
+    Restricted unpickler that only allows safe built-in types.
+
+    This prevents arbitrary code execution via pickle deserialization by only
+    allowing a whitelist of safe types (dict, list, str, int, float, bool, tuple, None).
+    """
+
+    # Only allow builtins module
+    SAFE_MODULES = frozenset({"builtins", "__builtin__"})
+    # Only allow safe basic types
+    SAFE_NAMES = frozenset({"dict", "list", "str", "int", "float", "bool", "tuple", "set", "frozenset", "NoneType"})
+
+    def find_class(self, module: str, name: str) -> Any:
+        """Override find_class to only allow safe types."""
+        if module in self.SAFE_MODULES and name in self.SAFE_NAMES:
+            import builtins
+
+            if hasattr(builtins, name):
+                return getattr(builtins, name)
+            # NoneType special case
+            if name == "NoneType":
+                return type(None)
+        raise pickle.UnpicklingError(
+            f"Unsafe pickle: attempted to load '{module}.{name}'. "
+            f"Only basic Python types are allowed for security reasons."
+        )
+
+
+def _safe_pickle_load(file_path: str) -> Any:
+    """
+    Safely load a pickle file using restricted unpickler.
+
+    Args:
+        file_path: Path to the pickle file.
+
+    Returns:
+        The deserialized object (only basic Python types allowed).
+
+    Raises:
+        pickle.UnpicklingError: If the pickle contains unsafe types.
+    """
+    with open(file_path, "rb") as f:
+        return SafeUnpickler(f).load()
+
+
+def _validate_docstore_structure(data: Any) -> tuple:
+    """
+    Validate that loaded data has the expected structure.
+
+    Args:
+        data: The loaded data to validate.
+
+    Returns:
+        Tuple of (docstore, index_to_id) if valid.
+
+    Raises:
+        ValueError: If the data structure is invalid.
+    """
+    if not isinstance(data, tuple) or len(data) != 2:
+        raise ValueError("Invalid docstore format: expected tuple of (docstore, index_to_id)")
+
+    docstore, index_to_id = data
+
+    if not isinstance(docstore, dict):
+        raise ValueError("Invalid docstore format: docstore must be a dict")
+
+    if not isinstance(index_to_id, dict):
+        raise ValueError("Invalid docstore format: index_to_id must be a dict")
+
+    # Validate docstore entries
+    for key, value in docstore.items():
+        if not isinstance(key, str):
+            raise ValueError(f"Invalid docstore key type: {type(key)}, expected str")
+        if not isinstance(value, dict):
+            raise ValueError(f"Invalid docstore value type: {type(value)}, expected dict")
+
+    # Validate index_to_id entries
+    for key, value in index_to_id.items():
+        if not isinstance(key, int):
+            raise ValueError(f"Invalid index_to_id key type: {type(key)}, expected int")
+        if not isinstance(value, str):
+            raise ValueError(f"Invalid index_to_id value type: {type(value)}, expected str")
+
+    return docstore, index_to_id
 
 
 class OutputData(BaseModel):
@@ -74,9 +161,13 @@ class FAISS(VectorStoreBase):
 
             # Try to load existing index if available
             index_path = f"{self.path}/{collection_name}.faiss"
-            docstore_path = f"{self.path}/{collection_name}.pkl"
-            if os.path.exists(index_path) and os.path.exists(docstore_path):
-                self._load(index_path, docstore_path)
+            json_docstore_path = f"{self.path}/{collection_name}.json"
+            pkl_docstore_path = f"{self.path}/{collection_name}.pkl"
+
+            # Check for index file and either JSON (preferred) or legacy pickle docstore
+            if os.path.exists(index_path) and (os.path.exists(json_docstore_path) or os.path.exists(pkl_docstore_path)):
+                # _load will prefer JSON over pickle and auto-migrate
+                self._load(index_path, pkl_docstore_path)
             else:
                 self.create_col(collection_name)
 
@@ -84,54 +175,96 @@ class FAISS(VectorStoreBase):
         """
         Load FAISS index and docstore from disk.
 
+        Supports both JSON (preferred) and legacy pickle formats. Pickle files are loaded
+        using a restricted unpickler that only allows basic Python types to prevent
+        arbitrary code execution (CVE mitigation).
+
         Args:
             index_path (str): Path to FAISS index file.
-            docstore_path (str): Path to docstore pickle file.
+            docstore_path (str): Path to docstore file (.json or legacy .pkl).
         """
         try:
             self.index = faiss.read_index(index_path)
-            with open(docstore_path, "rb") as f:
-                self.docstore, self.index_to_id = pickle.load(f)
-            logger.info(f"Loaded FAISS index from {index_path} with {self.index.ntotal} vectors")
+
+            # Determine docstore format - prefer JSON over pickle
+            json_docstore_path = docstore_path.replace(".pkl", ".json")
+
+            if os.path.exists(json_docstore_path):
+                # Load from JSON (safe, preferred format)
+                with open(json_docstore_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                self.docstore = data.get("docstore", {})
+                # JSON keys are always strings, convert back to int
+                self.index_to_id = {int(k): v for k, v in data.get("index_to_id", {}).items()}
+                logger.info(f"Loaded FAISS index from {index_path} with {self.index.ntotal} vectors (JSON format)")
+
+            elif os.path.exists(docstore_path):
+                # Load from legacy pickle using safe unpickler
+                # This prevents arbitrary code execution from malicious pickle files
+                logger.warning(
+                    f"Loading legacy pickle docstore from {docstore_path}. "
+                    f"Consider migrating to JSON format for better security."
+                )
+                data = _safe_pickle_load(docstore_path)
+                self.docstore, self.index_to_id = _validate_docstore_structure(data)
+                logger.info(f"Loaded FAISS index from {index_path} with {self.index.ntotal} vectors (pickle format)")
+
+                # Auto-migrate to JSON format
+                self._save()
+                logger.info(f"Migrated docstore to JSON format: {json_docstore_path}")
+
+            else:
+                raise FileNotFoundError(f"No docstore found at {docstore_path} or {json_docstore_path}")
+
+        except pickle.UnpicklingError as e:
+            logger.error(f"Security error loading FAISS docstore: {e}")
+            raise ValueError(f"Failed to load FAISS docstore: potentially malicious pickle file. {e}") from e
         except Exception as e:
             logger.warning(f"Failed to load FAISS index: {e}")
-
             self.docstore = {}
             self.index_to_id = {}
 
     def _save(self):
-        """Save FAISS index and docstore to disk."""
+        """Save FAISS index and docstore to disk using JSON format (secure)."""
         if not self.path or not self.index:
             return
 
         try:
             os.makedirs(self.path, exist_ok=True)
             index_path = f"{self.path}/{self.collection_name}.faiss"
-            docstore_path = f"{self.path}/{self.collection_name}.pkl"
+            json_docstore_path = f"{self.path}/{self.collection_name}.json"
 
             faiss.write_index(self.index, index_path)
-            with open(docstore_path, "wb") as f:
-                pickle.dump((self.docstore, self.index_to_id), f)
+
+            # Save docstore as JSON (safe format, no code execution risk)
+            # JSON keys must be strings, so convert int keys to str
+            data = {
+                "docstore": self.docstore,
+                "index_to_id": {str(k): v for k, v in self.index_to_id.items()},
+            }
+            with open(json_docstore_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+
         except Exception as e:
             logger.warning(f"Failed to save FAISS index: {e}")
 
-    def _parse_output(self, scores, ids, limit=None) -> List[OutputData]:
+    def _parse_output(self, scores, ids, top_k=None) -> List[OutputData]:
         """
         Parse the output data.
 
         Args:
             scores: Similarity scores from FAISS.
             ids: Indices from FAISS.
-            limit: Maximum number of results to return.
+            top_k: Maximum number of results to return.
 
         Returns:
             List[OutputData]: Parsed output data.
         """
-        if limit is None:
-            limit = len(ids)
+        if top_k is None:
+            top_k = len(ids)
 
         results = []
-        for i in range(min(len(ids), limit)):
+        for i in range(min(len(ids), top_k)):
             if ids[i] == -1:  # FAISS returns -1 for empty results
                 continue
 
@@ -225,7 +358,7 @@ class FAISS(VectorStoreBase):
         logger.info(f"Inserted {len(vectors)} vectors into collection {self.collection_name}")
 
     def search(
-        self, query: str, vectors: List[list], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[list], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -233,7 +366,7 @@ class FAISS(VectorStoreBase):
         Args:
             query (str): Query (not used, kept for API compatibility).
             vectors (List[list]): List of vectors to search.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Optional[Dict], optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -250,19 +383,19 @@ class FAISS(VectorStoreBase):
         if self.normalize_L2 and self.distance_strategy.lower() == "euclidean":
             faiss.normalize_L2(query_vectors)
 
-        fetch_k = limit * 2 if filters else limit
+        fetch_k = top_k * 2 if filters else top_k
         scores, indices = self.index.search(query_vectors, fetch_k)
 
-        results = self._parse_output(scores[0], indices[0], limit)
+        results = self._parse_output(scores[0], indices[0], top_k)
 
         if filters:
             filtered_results = []
             for result in results:
                 if self._apply_filters(result.payload, filters):
                     filtered_results.append(result)
-                    if len(filtered_results) >= limit:
+                    if len(filtered_results) >= top_k:
                         break
-            results = filtered_results[:limit]
+            results = filtered_results[:top_k]
 
         return results
 
@@ -418,12 +551,16 @@ class FAISS(VectorStoreBase):
         if self.path:
             try:
                 index_path = f"{self.path}/{self.collection_name}.faiss"
-                docstore_path = f"{self.path}/{self.collection_name}.pkl"
+                json_docstore_path = f"{self.path}/{self.collection_name}.json"
+                pkl_docstore_path = f"{self.path}/{self.collection_name}.pkl"
 
                 if os.path.exists(index_path):
                     os.remove(index_path)
-                if os.path.exists(docstore_path):
-                    os.remove(docstore_path)
+                if os.path.exists(json_docstore_path):
+                    os.remove(json_docstore_path)
+                # Also clean up legacy pickle files if they exist
+                if os.path.exists(pkl_docstore_path):
+                    os.remove(pkl_docstore_path)
 
                 logger.info(f"Deleted collection {self.collection_name}")
             except Exception as e:
@@ -450,13 +587,13 @@ class FAISS(VectorStoreBase):
             "distance": self.distance_strategy,
         }
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List all vectors in a collection.
 
         Args:
             filters (Optional[Dict], optional): Filters to apply to the list. Defaults to None.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors.
@@ -482,7 +619,7 @@ class FAISS(VectorStoreBase):
             )
 
             count += 1
-            if count >= limit:
+            if count >= top_k:
                 break
 
         return [results]
