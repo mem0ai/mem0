@@ -12,7 +12,7 @@ openclaw plugins install @mem0/openclaw-mem0
 
 ### Platform (Mem0 Cloud)
 
-Get an API key from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys):
+Get an API key from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=openclaw-readme):
 
 ```bash
 openclaw mem0 init --api-key <your-key> --user-id <your-user-id>

@@ -352,7 +352,7 @@ def run_init(
 def _setup_platform(config: Mem0Config) -> None:
     """Platform setup flow."""
     console.print()
-    console.print(f"  [{DIM_COLOR}]Get your API key at https://app.mem0.ai/dashboard/api-keys[/]")
+    console.print(f"  [{DIM_COLOR}]Get your API key at https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-python[/]")
     console.print()
 
     console.print(f"  [{BRAND_COLOR}]API Key[/]: ", end="")
@@ -404,7 +404,7 @@ def _validate_platform(config: Mem0Config) -> None:
             print_error(
                 err_console,
                 f"Could not connect: {status.get('error', 'Unknown error')}",
-                hint="Visit https://app.mem0.ai/dashboard/api-keys to get a new key, then run mem0 init again.",
+                hint="Visit https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-python to get a new key, then run mem0 init again.",
             )
     except Exception as e:
         print_error(err_console, f"Connection test failed: {e}")

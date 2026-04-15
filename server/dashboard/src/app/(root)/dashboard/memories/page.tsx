@@ -59,7 +59,7 @@ export default function MemoriesPage() {
           id="memories-1k"
           message="1,000+ memories stored. Categories can help organize them."
           ctaLabel="Explore Cloud"
-          ctaUrl="https://app.mem0.ai"
+          ctaUrl="https://app.mem0.ai?utm_source=oss&utm_medium=dashboard-memories"
           variant="cloud"
         />
       )}

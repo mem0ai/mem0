@@ -206,7 +206,7 @@ export default function ApiKeysPage() {
           id="api-keys-3"
           message="Managing multiple apps? Cloud offers project-based isolation."
           ctaLabel="Explore Cloud"
-          ctaUrl="https://app.mem0.ai"
+          ctaUrl="https://app.mem0.ai?utm_source=oss&utm_medium=dashboard-api-keys"
           variant="cloud"
         />
       )}

@@ -125,7 +125,7 @@ const memoryPlugin = definePluginEntry({
         "openclaw-mem0: API key not configured. Memory features are disabled.\n" +
           "  To set up, run:\n" +
           "  openclaw mem0 init\n" +
-          "  Get your key at: https://app.mem0.ai/dashboard/api-keys",
+          "  Get your key at: https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=openclaw-src",
       );
 
       // Register CLI even without API key — init command must be available

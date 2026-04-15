@@ -74,7 +74,7 @@
 | | Library | Self-Hosted Server | Cloud Platform |
 |---|---------|-------------------|----------------|
 | **Best for** | Testing, prototyping | Teams evaluating for production | Zero-ops production use |
-| **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai) |
+| **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=readme) |
 | **Dashboard** | -- | Yes | Yes |
 | **Auth & API Keys** | -- | Yes | Yes |
 | **Advanced Features** | -- | Teasers | All included |
@@ -114,7 +114,7 @@ See the [self-hosted docs](https://docs.mem0.ai/open-source/overview) for config
 
 ### Cloud Platform
 
-1. Sign up on [Mem0 Platform](https://app.mem0.ai)
+1. Sign up on [Mem0 Platform](https://app.mem0.ai?utm_source=oss&utm_medium=readme)
 2. Embed the memory layer via SDK or API keys
 
 ### CLI

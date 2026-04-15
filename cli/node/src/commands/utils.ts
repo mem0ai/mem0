@@ -63,7 +63,7 @@ export async function cmdStatus(
 				`  ${dim("Run")} ${brand("mem0 init")} ${dim("to reconfigure your API key")}`,
 			);
 			lines.push(
-				`  ${dim("Get a key at")} ${brand("https://app.mem0.ai/dashboard/api-keys")}`,
+				`  ${dim("Get a key at")} ${brand("https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-node")}`,
 			);
 		}
 	}

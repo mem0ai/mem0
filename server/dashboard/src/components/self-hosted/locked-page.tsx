@@ -22,8 +22,8 @@ export function LockedPage({
   title,
   description,
   previewContent,
-  cloudUrl = "https://app.mem0.ai",
-  salesUrl = "https://app.mem0.ai/enterprise",
+  cloudUrl = "https://app.mem0.ai?utm_source=oss&utm_medium=dashboard-locked-page",
+  salesUrl = "https://app.mem0.ai/enterprise?utm_source=oss&utm_medium=dashboard-locked-page",
 }: LockedPageProps) {
   return (
     <div className="space-y-6">
