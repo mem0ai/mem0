@@ -85,14 +85,16 @@ describe("MemoryVectorStore - search", () => {
     expect(results).toHaveLength(1);
   });
 
-  test("filters by userId", async () => {
-    const results = await store.search(vec([1, 0, 0, 0]), 10, { userId: "u2" });
-    expect(results.every((r) => r.payload.userId === "u2")).toBe(true);
+  test("filters by user_id", async () => {
+    const results = await store.search(vec([1, 0, 0, 0]), 10, {
+      user_id: "u2",
+    });
+    expect(results.every((r) => r.payload.user_id === "u2")).toBe(true);
   });
 
   test("returns empty when filter matches nothing", async () => {
     const results = await store.search(vec([1, 0, 0, 0]), 10, {
-      userId: "nobody",
+      user_id: "nobody",
     });
     expect(results).toHaveLength(0);
   });
@@ -168,10 +170,10 @@ describe("MemoryVectorStore - list", () => {
     expect(results).toHaveLength(3);
   });
 
-  test("filters by userId", async () => {
-    const [results, count] = await store.list({ userId: "u1" });
+  test("filters by user_id", async () => {
+    const [results, count] = await store.list({ user_id: "u1" });
     expect(count).toBe(2);
-    expect(results.every((r) => r.payload.userId === "u1")).toBe(true);
+    expect(results.every((r) => r.payload.user_id === "u1")).toBe(true);
   });
 
   test("respects limit", async () => {
