@@ -256,17 +256,25 @@ export class RedisDB implements VectorStore {
       const modulesResponse =
         (await this.client.moduleList()) as unknown as any[];
 
-      // Parse module list to find search module
-      const hasSearch = modulesResponse.some((module: any[]) => {
-        const moduleMap = new Map();
-        for (let i = 0; i < module.length; i += 2) {
-          moduleMap.set(module[i], module[i + 1]);
+      const hasSearch = modulesResponse.some((mod: any) => {
+        // node-redis v4+ returns objects: { name: "search", ver: ..., ... }
+        if (typeof mod === "object" && !Array.isArray(mod) && mod.name) {
+          const name = String(mod.name).toLowerCase();
+          return name === "search" || name === "searchlight";
         }
-        const moduleName = moduleMap.get("name");
-        return (
-          moduleName?.toLowerCase() === "search" ||
-          moduleName?.toLowerCase() === "searchlight"
-        );
+        // Fallback: legacy flat array format [key, value, key, value, ...]
+        if (Array.isArray(mod)) {
+          const moduleMap = new Map();
+          for (let i = 0; i < mod.length; i += 2) {
+            moduleMap.set(mod[i], mod[i + 1]);
+          }
+          const name = moduleMap.get("name");
+          return (
+            name?.toLowerCase() === "search" ||
+            name?.toLowerCase() === "searchlight"
+          );
+        }
+        return false;
       });
 
       if (!hasSearch) {

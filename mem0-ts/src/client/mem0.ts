@@ -308,7 +308,7 @@ export default class MemoryClient {
       headers: this.headers,
       body: JSON.stringify(body),
     });
-    return Array.isArray(response) ? response : (response?.results ?? response);
+    return response;
   }
 
   async search(

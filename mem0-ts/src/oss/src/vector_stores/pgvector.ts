@@ -22,6 +22,7 @@ export class PGVector implements VectorStore {
   private useHnsw: boolean;
   private readonly dbName: string;
   private config: PGVectorConfig;
+  private _initPromise?: Promise<void>;
 
   constructor(config: PGVectorConfig) {
     this.collectionName = config.collectionName || "memories";
@@ -41,6 +42,13 @@ export class PGVector implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       await this.client.connect();
 

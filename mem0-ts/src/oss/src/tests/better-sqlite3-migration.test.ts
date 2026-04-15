@@ -197,7 +197,7 @@ describe("MemoryVectorStore (better-sqlite3)", () => {
     expect(result).not.toBeNull();
     expect(result!.id).toBe("id-1");
     expect(result!.payload.data).toBe("hello");
-    expect(result!.payload.userId).toBe("u1");
+    expect(result!.payload.user_id).toBe("u1");
   });
 
   it("get returns null for non-existent id", async () => {
@@ -253,7 +253,7 @@ describe("MemoryVectorStore (better-sqlite3)", () => {
       ],
     );
 
-    const results = await store.search(v, 10, { userId: "alice" });
+    const results = await store.search(v, 10, { user_id: "alice" });
     expect(results).toHaveLength(1);
     expect(results[0].id).toBe("id-1");
   });
@@ -320,7 +320,7 @@ describe("MemoryVectorStore (better-sqlite3)", () => {
     expect(all).toHaveLength(3);
     expect(totalAll).toBe(3);
 
-    const [filtered, totalFiltered] = await store.list({ userId: "alice" });
+    const [filtered, totalFiltered] = await store.list({ user_id: "alice" });
     expect(filtered).toHaveLength(2);
     expect(totalFiltered).toBe(2);
   });

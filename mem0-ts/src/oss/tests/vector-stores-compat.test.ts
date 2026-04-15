@@ -95,19 +95,19 @@ describe("MemoryVectorStore – full backward compat", () => {
     expect(results.length).toBe(2);
     expect(results[0].id).toBe("id-1");
 
-    // Search with filters
-    const filtered = await store.search(vec1, 2, { userId: "u1" });
+    // Search with filters (camelCase in payload is normalized to snake_case)
+    const filtered = await store.search(vec1, 2, { user_id: "u1" });
     expect(filtered.length).toBe(2);
 
     // Update
     const vec3 = new Array(1536).fill(0);
     vec3[2] = 1.0;
-    await store.update("id-1", vec3, { data: "updated", userId: "u1" });
+    await store.update("id-1", vec3, { data: "updated", user_id: "u1" });
     const updated = await store.get("id-1");
     expect(updated!.payload.data).toBe("updated");
 
     // List
-    const [listed, count] = await store.list({ userId: "u1" });
+    const [listed, count] = await store.list({ user_id: "u1" });
     expect(count).toBe(2);
 
     // List with limit
