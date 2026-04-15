@@ -213,6 +213,26 @@ describe("Memory Input Validation", () => {
         memory.add("test message", { runId: "   " }),
       ).rejects.toThrow("Invalid runId");
     });
+
+    it("should throw error when userId contains internal whitespace", async () => {
+      await expect(
+        memory.add("test message", { userId: "user 123" }),
+      ).rejects.toThrow("Invalid userId: cannot contain whitespace");
+    });
+
+    it("should throw error when userId contains tab character", async () => {
+      await expect(
+        memory.add("test message", { userId: "user\t123" }),
+      ).rejects.toThrow("Invalid userId: cannot contain whitespace");
+    });
+
+    it("should accept userId with leading/trailing whitespace (trimmed)", async () => {
+      // Should not throw - leading/trailing whitespace is trimmed
+      const result = await memory.add("test message", {
+        userId: "  valid-user  ",
+      });
+      expect(result).toBeDefined();
+    });
   });
 
   describe("search() filter entity ID validation", () => {
@@ -231,6 +251,22 @@ describe("Memory Input Validation", () => {
         }),
       ).rejects.toThrow("Invalid agent_id");
     });
+
+    it("should throw error when user_id contains internal whitespace", async () => {
+      await expect(
+        memory.search("test query", {
+          filters: { user_id: "user 123" },
+        }),
+      ).rejects.toThrow("Invalid user_id: cannot contain whitespace");
+    });
+
+    it("should accept user_id with leading/trailing whitespace (trimmed)", async () => {
+      const result = await memory.search("test query", {
+        filters: { user_id: "  valid-user  " },
+      });
+      expect(result).toBeDefined();
+      expect(result.results).toBeDefined();
+    });
   });
 
   describe("getAll() validation", () => {
@@ -244,6 +280,20 @@ describe("Memory Input Validation", () => {
       await expect(
         memory.getAll({ filters: { user_id: testUserId }, topK: -1 }),
       ).rejects.toThrow("Invalid topK");
+    });
+
+    it("should throw error when user_id contains internal whitespace", async () => {
+      await expect(
+        memory.getAll({ filters: { user_id: "user 123" } }),
+      ).rejects.toThrow("Invalid user_id: cannot contain whitespace");
+    });
+
+    it("should accept user_id with leading/trailing whitespace (trimmed)", async () => {
+      const result = await memory.getAll({
+        filters: { user_id: "  valid-user  " },
+      });
+      expect(result).toBeDefined();
+      expect(result.results).toBeDefined();
     });
   });
 });
