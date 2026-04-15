@@ -264,20 +264,10 @@ def _build_session_scope(filters):
 setup_config()
 logger = logging.getLogger(__name__)
 
-_logged_self_hosted_hint = False
-
 
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
-        global _logged_self_hosted_hint
         self.config = config
-
-        if not _logged_self_hosted_hint and config.vector_store.provider in ("qdrant", None):
-            logger.info(
-                "Using local storage. For team use with dashboard + API auth, "
-                "see https://docs.mem0.ai/open-source/overview"
-            )
-            _logged_self_hosted_hint = True
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
