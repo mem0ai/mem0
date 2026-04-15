@@ -44,11 +44,26 @@ export interface PluginAuthConfig {
 /** Read the full ~/.openclaw/openclaw.json */
 function readFullConfig(): Record<string, unknown> {
   if (exists(OPENCLAW_CONFIG_FILE)) {
+    const text = readText(OPENCLAW_CONFIG_FILE);
+    let parsed: unknown;
     try {
-      return JSON.parse(readText(OPENCLAW_CONFIG_FILE));
-    } catch {
-      /* ignore parse errors */
+      parsed = JSON.parse(text);
+    } catch (err) {
+      // Fail-closed: throw instead of returning {} so that callers
+      // (writePluginAuth, writePluginConfigField) cannot silently overwrite
+      // the entire config with only the plugin entry.
+      throw new Error(
+        `[openclaw-mem0] Failed to parse ${OPENCLAW_CONFIG_FILE}: ${(err as Error).message}. ` +
+          `Fix the file manually or delete it to start fresh.`,
+      );
     }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(
+        `[openclaw-mem0] ${OPENCLAW_CONFIG_FILE} does not contain a JSON object. ` +
+          `Fix the file manually or delete it to start fresh.`,
+      );
+    }
+    return parsed as Record<string, unknown>;
   }
   return {};
 }

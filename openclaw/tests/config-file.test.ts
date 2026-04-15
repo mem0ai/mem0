@@ -113,10 +113,16 @@ describe("readPluginAuth", () => {
     expect(auth.userId).toBe("user-snake");
   });
 
-  it("returns empty object when JSON is invalid", () => {
+  it("throws when config file contains invalid JSON", () => {
     mockExists.mockReturnValue(true);
     mockReadText.mockReturnValue("not valid json {{{");
-    expect(readPluginAuth()).toEqual({});
+    expect(() => readPluginAuth()).toThrow("[openclaw-mem0]");
+  });
+
+  it("throws when config file contains a non-object JSON value", () => {
+    mockExists.mockReturnValue(true);
+    mockReadText.mockReturnValue('"just a string"');
+    expect(() => readPluginAuth()).toThrow("[openclaw-mem0]");
   });
 });
 
@@ -186,6 +192,19 @@ describe("writePluginAuth", () => {
       expect.stringContaining(".openclaw"),
       0o700,
     );
+  });
+
+  it("throws and does NOT overwrite config when JSON is invalid", () => {
+    // Regression test for: https://github.com/mem0ai/mem0/issues/4849
+    // A corrupted config must never be silently replaced with only the plugin entry.
+    mockExists.mockReturnValue(true);
+    mockReadText.mockReturnValue("{ corrupted json <<<");
+
+    expect(() => writePluginAuth({ apiKey: "sk-test" })).toThrow(
+      "[openclaw-mem0]",
+    );
+    // The write must NOT have been called — config is untouched.
+    expect(mockWriteText).not.toHaveBeenCalled();
   });
 
   it("skips undefined values", () => {
