@@ -110,7 +110,6 @@ export function DataTable<T>({
                     .join(" ")
                 : "";
 
-              // Build header class name, replacing text-left if needed
               const baseHeaderClass = classes.tableHeaderCell;
               const alignClass =
                 column.align === "center"

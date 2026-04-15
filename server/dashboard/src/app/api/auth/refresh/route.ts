@@ -12,7 +12,6 @@ const COOKIE_OPTIONS = {
   maxAge: 30 * 24 * 60 * 60, // 30 days
 };
 
-// POST — refresh the access token using the stored refresh token cookie
 export async function POST() {
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get(COOKIE_NAME)?.value;
@@ -35,13 +34,11 @@ export async function POST() {
 
   const data = await res.json();
 
-  // Update refresh token cookie
   cookieStore.set(COOKIE_NAME, data.refresh_token, COOKIE_OPTIONS);
 
   return NextResponse.json({ access_token: data.access_token });
 }
 
-// PUT — store a new refresh token (called after login)
 export async function PUT(request: NextRequest) {
   const body = await request.json();
   const cookieStore = await cookies();
@@ -57,7 +54,6 @@ export async function PUT(request: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-// DELETE — clear the refresh token (logout)
 export async function DELETE() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);

@@ -17,7 +17,6 @@ export function CategoriesDisplay({
   const [isPositioned, setIsPositioned] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
 
-  // Update popover position when hovered
   useEffect(() => {
     if (isHovered && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
@@ -31,7 +30,6 @@ export function CategoriesDisplay({
     }
   }, [isHovered]);
 
-  // Function to get a consistent color for each category
   const getCategoryColor = (category: string) => {
     const colors = [
       "bg-purple-500",
@@ -46,7 +44,6 @@ export function CategoriesDisplay({
       "bg-cyan-500",
     ];
 
-    // Simple hash function to consistently assign colors
     let hash = 0;
     for (let i = 0; i < category.length; i++) {
       hash = category.charCodeAt(i) + ((hash << 5) - hash);
@@ -54,7 +51,6 @@ export function CategoriesDisplay({
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // useMemo to prevent recalculating on every render
   const allCategories = useMemo(() => {
     return categories || [];
   }, [categories]);

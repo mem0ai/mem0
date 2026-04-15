@@ -275,7 +275,7 @@ class Memory(MemoryBase):
         if not _logged_self_hosted_hint and config.vector_store.provider in ("qdrant", None):
             logger.info(
                 "Using local storage. For team use with dashboard + API auth, "
-                "see https://docs.mem0.ai/self-hosted"
+                "see https://docs.mem0.ai/open-source/overview"
             )
             _logged_self_hosted_hint = True
 

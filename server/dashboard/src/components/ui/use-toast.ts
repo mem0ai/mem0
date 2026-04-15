@@ -52,6 +52,5 @@ function useToast() {
   );
 }
 
-// Re-export Sonner's toast so callers can use toast.success(), toast.error(), etc. from one place
 export { sonnerToast as toastSonner };
 export { useToast, toast };

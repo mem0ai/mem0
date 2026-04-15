@@ -1,6 +1,5 @@
 import localFont from "next/font/local";
 
-// Single InterVariable font that replaces both Inter and InterDisplay
 export const Inter = localFont({
   src: [
     {
@@ -18,7 +17,6 @@ export const Inter = localFont({
   display: "swap",
 });
 
-// Alias for backward compatibility - points to the same InterVariable
 export const InterDisplay = Inter;
 
 export const Roboto = localFont({
@@ -38,7 +36,6 @@ export const Roboto = localFont({
   display: "swap",
 });
 
-// Fustat variable font (weights 200-800)
 export const Fustat = localFont({
   src: [
     {
@@ -51,7 +48,6 @@ export const Fustat = localFont({
   display: "swap",
 });
 
-// DM Mono font (weights 300, 400, 500 with italic variants)
 export const DMMono = localFont({
   src: [
     {

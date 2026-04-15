@@ -32,16 +32,15 @@ export function DateTimePicker({
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(
     undefined,
-  ); // New state for selected time
+  );
 
-  // New function to handle time selection
   const handleTimeSelect = (time: string) => {
     if (dateTime) {
       const [hours, minutes] = time.split(":").map(Number);
       const newDateTime = new Date(dateTime);
       newDateTime.setHours(hours, minutes);
       onSelect(newDateTime);
-      setSelectedTime(time); // Update selected time state
+      setSelectedTime(time);
       if (closeOnSelect) {
         setIsOpen(false);
       }

@@ -109,42 +109,26 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem";
 
 const menuButtonVariants = cva(
-  // Base styles - Expanded state default
-  // Font: Fustat 12px semibold, line-height 140%
-  // Padding: 6px all around, gap: 6px icon-text
-  // Border-radius: 4px (rounded)
-  // Icon: 16px (handled in usage, not here)
-  // Uses 'group' class so children can respond to parent hover with 'group-hover:'
   "group flex w-full items-center gap-1.5 rounded p-1.5 font-fustat text-xs font-semibold leading-[140%] transition-colors",
   {
     variants: {
       active: {
-        // Active: bg surface-default-tertiary, text/icon onSurface-default-primary
         true: "bg-surface-default-tertiary text-onSurface-default-primary [&_svg]:text-onSurface-default-primary",
-        // Default: transparent bg, text onSurface-default-secondary, icon onSurface-default-tertiary
-        // Hover: bg surface-default-secondary, text stays same, icon onSurface-default-secondary
-        // Using group-hover ensures icon color changes when hovering anywhere on the button
         false:
           "bg-transparent text-onSurface-default-secondary [&_svg]:text-onSurface-default-tertiary hover:bg-surface-default-primary-hover [&_svg]:group-hover:text-onSurface-default-secondary",
       },
       collapsed: {
-        // Collapsed: 32x32 square container (8px padding on all sides + 16px icon)
-        // Using !w-8 !h-8 to override base w-full, p-2 = 8px padding
-        // items-center + justify-center to center the icon
         true: "!w-8 !h-8 !p-2 items-center justify-center",
         false: "",
       },
     },
     compoundVariants: [
-      // Collapsed + Not Active: bg surface-default-secondary, icon onSurface-default-tertiary
-      // Hover: bg surface-default-tertiary, icon onSurface-default-secondary
       {
         collapsed: true,
         active: false,
         className:
           "bg-surface-default-secondary hover:bg-surface-default-primary-hover [&_svg]:text-onSurface-default-tertiary [&_svg]:group-hover:text-onSurface-default-secondary",
       },
-      // Collapsed + Active: bg surface-default-tertiary, icon onSurface-default-primary
       {
         collapsed: true,
         active: true,
