@@ -142,6 +142,13 @@ export interface AllUsers {
   previous: any;
 }
 
+export interface PaginatedMemories {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Array<Memory>;
+}
+
 export interface ProjectResponse {
   customInstructions?: string;
   customCategories?: string[];

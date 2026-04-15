@@ -21,33 +21,33 @@ installConsoleSuppression();
 // ─── add() ───────────────────────────────────────────────
 
 describe("MemoryClient - add()", () => {
-  test("sends POST to /v3/memories/", async () => {
+  test("sends POST to /v3/memories/add/", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/", { status: 200, body: [createMockMemory()] });
+    extra.set("/v3/memories/add/", { status: 200, body: [createMockMemory()] });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.add([{ role: "user", content: "Hello" }], { userId: "u1" });
 
-    expect(findFetchCall(mock, "/v3/memories/", "POST")).toBeDefined();
+    expect(findFetchCall(mock, "/v3/memories/add/", "POST")).toBeDefined();
   });
 
   test("includes messages in request body", async () => {
     const messages = [{ role: "user" as const, content: "Hello, I am Alex" }];
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/", { status: 200, body: [createMockMemory()] });
+    extra.set("/v3/memories/add/", { status: 200, body: [createMockMemory()] });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.add(messages, { userId: "u1" });
 
-    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    const call = findFetchCall(mock, "/v3/memories/add/", "POST");
     expect(getFetchBody(call!).messages).toEqual(messages);
   });
 
   test("includes user_id in request body", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/", { status: 200, body: [createMockMemory()] });
+    extra.set("/v3/memories/add/", { status: 200, body: [createMockMemory()] });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
@@ -55,19 +55,19 @@ describe("MemoryClient - add()", () => {
       user_id: "user_1",
     });
 
-    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    const call = findFetchCall(mock, "/v3/memories/add/", "POST");
     expect(getFetchBody(call!).user_id).toBe("user_1");
   });
 
   test("sends empty messages array without crashing", async () => {
     const extra = new Map<string, { status: number; body: unknown }>();
-    extra.set("/v3/memories/", { status: 200, body: [] });
+    extra.set("/v3/memories/add/", { status: 200, body: [] });
     const mock = setupMockFetch(extra);
 
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.add([], { userId: "u1" });
 
-    const call = findFetchCall(mock, "/v3/memories/", "POST");
+    const call = findFetchCall(mock, "/v3/memories/add/", "POST");
     expect(getFetchBody(call!).messages).toEqual([]);
   });
 });

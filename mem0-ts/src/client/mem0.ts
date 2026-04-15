@@ -1,6 +1,7 @@
 import axios from "axios";
 import {
   AllUsers,
+  PaginatedMemories,
   ProjectOptions,
   Memory,
   MemoryHistory,
@@ -221,7 +222,7 @@ export default class MemoryClient {
     this._captureEvent("add", [payloadKeys]);
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v3/memories/`,
+      `${this.host}/v3/memories/add/`,
       {
         method: "POST",
         headers: this.headers,
@@ -284,7 +285,7 @@ export default class MemoryClient {
     );
   }
 
-  async getAll(options?: GetAllMemoryOptions): Promise<Array<Memory>> {
+  async getAll(options?: GetAllMemoryOptions): Promise<PaginatedMemories> {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(options as Record<string, any>, "getAll");
 
@@ -293,12 +294,11 @@ export default class MemoryClient {
     this._captureEvent("get_all", [payloadKeys]);
     const { page, pageSize, filters, ...rest } = options ?? {};
     const body: Record<string, any> = {
-      output_format: "v1.1",
       ...camelToSnakeKeys(rest),
       ...(filters && { filters }),
     };
 
-    let url = `${this.host}/v2/memories/`;
+    let url = `${this.host}/v3/memories/`;
     if (page && pageSize) {
       url += `?page=${page}&page_size=${pageSize}`;
     }
