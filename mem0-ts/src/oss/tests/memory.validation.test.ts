@@ -25,7 +25,7 @@ jest.mock("../src/llms/openai", () => ({
     generateResponse: jest.fn().mockResolvedValue(
       JSON.stringify({
         memory: [{ id: "0", text: "test memory", attributed_to: "user" }],
-      })
+      }),
     ),
   })),
 }));
@@ -74,14 +74,14 @@ describe("Memory Input Validation", () => {
     it("should throw error when messages is undefined", async () => {
       await expect(
         // @ts-ignore - intentionally passing undefined
-        memory.add(undefined, { userId: testUserId })
+        memory.add(undefined, { userId: testUserId }),
       ).rejects.toThrow("messages is required");
     });
 
     it("should throw error when messages is null", async () => {
       await expect(
         // @ts-ignore - intentionally passing null
-        memory.add(null, { userId: testUserId })
+        memory.add(null, { userId: testUserId }),
       ).rejects.toThrow("messages is required");
     });
   });
@@ -92,7 +92,7 @@ describe("Memory Input Validation", () => {
         memory.search("test query", {
           filters: { user_id: testUserId },
           threshold: 1.5,
-        })
+        }),
       ).rejects.toThrow("Invalid threshold");
     });
 
@@ -101,7 +101,7 @@ describe("Memory Input Validation", () => {
         memory.search("test query", {
           filters: { user_id: testUserId },
           threshold: 1.1,
-        })
+        }),
       ).rejects.toThrow("Invalid threshold");
     });
 
@@ -110,7 +110,7 @@ describe("Memory Input Validation", () => {
         memory.search("test query", {
           filters: { user_id: testUserId },
           threshold: -0.5,
-        })
+        }),
       ).rejects.toThrow("Invalid threshold");
     });
 
@@ -119,7 +119,7 @@ describe("Memory Input Validation", () => {
         memory.search("test query", {
           filters: { user_id: testUserId },
           threshold: -0.1,
-        })
+        }),
       ).rejects.toThrow("Invalid threshold");
     });
 
@@ -157,7 +157,7 @@ describe("Memory Input Validation", () => {
         memory.search("test query", {
           filters: { user_id: testUserId },
           topK: -5,
-        })
+        }),
       ).rejects.toThrow("Invalid topK");
     });
 
@@ -166,7 +166,7 @@ describe("Memory Input Validation", () => {
         memory.search("test query", {
           filters: { user_id: testUserId },
           topK: -1,
-        })
+        }),
       ).rejects.toThrow("Invalid topK");
     });
 
@@ -192,25 +192,25 @@ describe("Memory Input Validation", () => {
   describe("add() entity ID validation", () => {
     it("should throw error when userId is whitespace-only", async () => {
       await expect(
-        memory.add("test message", { userId: "   " })
+        memory.add("test message", { userId: "   " }),
       ).rejects.toThrow("Invalid userId");
     });
 
     it("should throw error when userId is tabs and newlines", async () => {
       await expect(
-        memory.add("test message", { userId: "\t\n\t" })
+        memory.add("test message", { userId: "\t\n\t" }),
       ).rejects.toThrow("Invalid userId");
     });
 
     it("should throw error when agentId is whitespace-only", async () => {
       await expect(
-        memory.add("test message", { agentId: "   " })
+        memory.add("test message", { agentId: "   " }),
       ).rejects.toThrow("Invalid agentId");
     });
 
     it("should throw error when runId is whitespace-only", async () => {
       await expect(
-        memory.add("test message", { runId: "   " })
+        memory.add("test message", { runId: "   " }),
       ).rejects.toThrow("Invalid runId");
     });
   });
@@ -220,7 +220,7 @@ describe("Memory Input Validation", () => {
       await expect(
         memory.search("test query", {
           filters: { user_id: "   " },
-        })
+        }),
       ).rejects.toThrow("Invalid user_id");
     });
 
@@ -228,7 +228,7 @@ describe("Memory Input Validation", () => {
       await expect(
         memory.search("test query", {
           filters: { agent_id: "   " },
-        })
+        }),
       ).rejects.toThrow("Invalid agent_id");
     });
   });
@@ -236,13 +236,13 @@ describe("Memory Input Validation", () => {
   describe("getAll() validation", () => {
     it("should throw error when user_id is whitespace-only", async () => {
       await expect(
-        memory.getAll({ filters: { user_id: "   " } })
+        memory.getAll({ filters: { user_id: "   " } }),
       ).rejects.toThrow("Invalid user_id");
     });
 
     it("should throw error when topK is negative", async () => {
       await expect(
-        memory.getAll({ filters: { user_id: testUserId }, topK: -1 })
+        memory.getAll({ filters: { user_id: testUserId }, topK: -1 }),
       ).rejects.toThrow("Invalid topK");
     });
   });
