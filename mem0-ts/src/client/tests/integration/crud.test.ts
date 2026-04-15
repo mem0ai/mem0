@@ -120,10 +120,13 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
   // ─── Get all ──────────────────────────────────────────────
   describe("get all memories", () => {
     test("returns all memories for test user", async () => {
-      const memories = await client.getAll({
+      const response = await client.getAll({
         filters: { user_id: TEST_USER_ID },
       });
 
+      // v1.1 output_format returns { results: [...] }
+      expect(response).toHaveProperty("results");
+      const memories = (response as any).results;
       expect(Array.isArray(memories)).toBe(true);
       expect(memories.length).toBeGreaterThanOrEqual(memoryIds.length);
 
@@ -142,6 +145,7 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
 
       // Paginated response is an object with results array
       expect(page1).toBeDefined();
+      expect(page1).toHaveProperty("results");
     });
   });
 
@@ -197,11 +201,14 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
       expect(result).toHaveProperty("eventId");
     });
 
-    test("getAll for non-existent user returns empty array", async () => {
-      const memories = await client.getAll({
+    test("getAll for non-existent user returns empty results", async () => {
+      const response = await client.getAll({
         filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
+      // v1.1 output_format returns { results: [...] }
+      expect(response).toHaveProperty("results");
+      const memories = (response as any).results;
       expect(Array.isArray(memories)).toBe(true);
       expect(memories.length).toBe(0);
     });
