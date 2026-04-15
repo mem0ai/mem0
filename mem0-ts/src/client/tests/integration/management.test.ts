@@ -27,7 +27,7 @@ describeIntegration("MemoryClient Integration — Users & Project", () => {
 
   beforeAll(async () => {
     cleanup = suppressTelemetryNoise();
-    client = createTestClient();
+    client = await createTestClient();
     await seedTestMemories(client, TEST_USER_ID);
   });
 
