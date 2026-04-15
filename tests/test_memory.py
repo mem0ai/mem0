@@ -760,6 +760,30 @@ class TestProcessMetadataFiltersMerge:
             "score": {"gt": 0.5, "lt": 0.9},
         }
 
+    def test_and_same_key_separate_conditions_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND conditions on the same key in separate dicts must be merged, not overwritten (issue #4850)."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gt": 10}}, {"price": {"lt": 20}}]
+        })
+        assert result == {"price": {"gt": 10, "lt": 20}}
+
+    def test_and_same_key_three_conditions_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Three AND conditions on the same key must all be preserved."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gt": 10}}, {"price": {"lt": 100}}, {"price": {"ne": 50}}]
+        })
+        assert result == {"price": {"gt": 10, "lt": 100, "ne": 50}}
+
+    def test_and_mixed_same_and_different_keys(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with both same-key and different-key conditions."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gt": 10}}, {"price": {"lt": 20}}, {"rating": {"gte": 4}}]
+        })
+        assert result == {"price": {"gt": 10, "lt": 20}, "rating": {"gte": 4}}
+
 
 # --- Issue #3040: reset() should clean up graph database ---
 

@@ -1193,6 +1193,14 @@ class Memory(MemoryBase):
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
 
+        def _merge_condition(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+            """Merge source into target, combining nested operator dicts for the same key."""
+            for k, v in source.items():
+                if k in target and isinstance(target[k], dict) and isinstance(v, dict):
+                    target[k].update(v)
+                else:
+                    target[k] = v
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
@@ -1200,7 +1208,7 @@ class Memory(MemoryBase):
                     raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        processed_filters.update(process_condition(sub_key, sub_value))
+                        _merge_condition(processed_filters, process_condition(sub_key, sub_value))
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
@@ -1223,14 +1231,14 @@ class Memory(MemoryBase):
                         not_condition.update(process_condition(sub_key, sub_value))
                     processed_filters["$not"].append(not_condition)
             else:
-                processed_filters.update(process_condition(key, value))
-        
+                _merge_condition(processed_filters, process_condition(key, value))
+
         return processed_filters
 
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
         """
         Check if filters contain advanced operators that need special processing.
-        
+
         Args:
             filters: Dictionary of filters to check
             
@@ -2482,6 +2490,14 @@ class AsyncMemory(MemoryBase):
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
 
+        def _merge_condition(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+            """Merge source into target, combining nested operator dicts for the same key."""
+            for k, v in source.items():
+                if k in target and isinstance(target[k], dict) and isinstance(v, dict):
+                    target[k].update(v)
+                else:
+                    target[k] = v
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
@@ -2489,7 +2505,7 @@ class AsyncMemory(MemoryBase):
                     raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        processed_filters.update(process_condition(sub_key, sub_value))
+                        _merge_condition(processed_filters, process_condition(sub_key, sub_value))
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
@@ -2512,7 +2528,7 @@ class AsyncMemory(MemoryBase):
                         not_condition.update(process_condition(sub_key, sub_value))
                     processed_filters["$not"].append(not_condition)
             else:
-                processed_filters.update(process_condition(key, value))
+                _merge_condition(processed_filters, process_condition(key, value))
 
         return processed_filters
 
