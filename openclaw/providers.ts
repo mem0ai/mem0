@@ -20,7 +20,7 @@ import type {
 function normalizeMemoryItem(raw: any): MemoryItem {
   return {
     id: raw.id ?? raw.memory_id ?? "",
-    memory: raw.memory ?? raw.text ?? raw.content ?? "",
+    memory: raw.memory ?? raw.text ?? raw.content ?? raw.payload?.data ?? "",
     // Handle both platform (user_id, created_at) and OSS (userId, createdAt) field names
     user_id: raw.user_id ?? raw.userId,
     score: raw.score,
