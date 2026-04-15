@@ -1,0 +1,138 @@
+---
+title: "Self-Hosted Setup"
+description: "Stand up the Mem0 REST server and dashboard in a few minutes — admin account, API keys, and a live audit log included."
+icon: "rocket-launch"
+---
+
+The self-hosted bundle ships the REST API and a web dashboard together. New installs run a one-time setup wizard that creates the admin account, reviews your LLM and embedder config, and generates your first API key.
+
+<Info>
+  **Use this page when…**
+  - You want a self-hosted Mem0 with a dashboard, not just the Python or Node library.
+  - You need per-user API keys and a request audit log for your team.
+  - You're upgrading from a pre-1.x server that relied on `ADMIN_API_KEY` or open endpoints.
+</Info>
+
+<Warning>
+  **Upgrading from 1.x?** Auth is now on by default. Deployments that ran with an empty `ADMIN_API_KEY` will return `401` on every protected endpoint until you either set `ADMIN_API_KEY`, register an admin through the wizard, or set `AUTH_DISABLED=true` for local development. See [Upgrade notes](#upgrade-notes) below.
+</Warning>
+
+---
+
+## Prerequisites
+
+- Docker and Docker Compose (the reference path).
+- An `OPENAI_API_KEY` (or equivalent — the server reads the same component config as the library).
+- A free port `8888` for the API and `3000` for the dashboard.
+
+---
+
+## Configure the environment
+
+Copy `server/.env.example` to `server/.env` and fill in the required values. The server refuses to start if `JWT_SECRET` is unset once auth is enabled.
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `OPENAI_API_KEY` | Yes | Default LLM and embedder provider. |
+| `JWT_SECRET` | Yes | Signs access and refresh tokens. Use a long random value. A missing secret causes auth endpoints to return `500`. |
+| `ADMIN_API_KEY` | Optional | Legacy shared admin key. Kept for back-compat; prefer per-user keys for new setups. |
+| `AUTH_DISABLED` | Optional | `true` turns off auth for local development only. Never enable in production. |
+| `DASHBOARD_URL` | Optional | Origin the API accepts for CORS. Defaults to `http://localhost:3000`. Set this when you front the dashboard on a custom domain. |
+| `POSTGRES_*` | Optional | Override the bundled Postgres / pgvector connection. |
+
+<Tip>
+  Generate a `JWT_SECRET` with `openssl rand -base64 48` or `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+</Tip>
+
+---
+
+## Start the stack
+
+From the repo root:
+
+```bash
+cd server
+make bootstrap
+```
+
+`make bootstrap` starts the containers, runs database migrations, and opens the dashboard at `http://localhost:3000`. The REST API listens on `http://localhost:8888`.
+
+<Tip>
+  Prefer raw Docker Compose? `docker compose up` works too — the dashboard still boots at port `3000` and the API at port `8888`.
+</Tip>
+
+---
+
+## Run the setup wizard
+
+On a fresh install the dashboard redirects to `/setup`. Each step submits on Enter.
+
+<Frame>
+  {/* TODO: screenshot — /setup step 1, admin account */}
+</Frame>
+
+**1. Create the admin account.** Name, email, password. This account becomes the first admin; subsequent calls to `POST /auth/register` return `403`.
+
+<Frame>
+  {/* TODO: screenshot — /setup step 2, config review */}
+</Frame>
+
+**2. Review the effective config.** Read-only display of the LLM and embedder the server is running with, sourced from your environment. If anything is wrong here, stop the stack, fix the `.env`, and restart — the dashboard intentionally does not let you change provider secrets at runtime.
+
+<Frame>
+  {/* TODO: screenshot — /setup step 3, API key */}
+</Frame>
+
+**3. Generate your first API key.** The full `m0sk_...` value is shown **once**. Copy it immediately — the server only stores the prefix and a bcrypt hash.
+
+<Frame>
+  {/* TODO: screenshot — /setup step 4, test curl */}
+</Frame>
+
+**4. Test the key.** A ready-to-paste `curl` exercises `POST /memories` against your new key. Success lands you in the dashboard at `/dashboard/requests`, where you'll see the test call in the live audit log.
+
+---
+
+## What the dashboard gives you
+
+| Page | What it does |
+|---|---|
+| **Requests** | Default landing page. Live audit log of every API call, with status, latency, and auth mode. |
+| **Memories** | Browse and search the memories your server has stored. |
+| **Entities** | Distinct `user_id` / `agent_id` / `run_id` values with memory counts and cascade-delete. |
+| **API Keys** | Issue per-user keys, label them, and revoke. |
+| **Configuration** | Runtime override for LLM and embedder. Resets on container restart — environment is the source of truth. |
+| **Settings** | Account and session controls. |
+
+For the underlying endpoints (including `/auth/*`, `/api-keys`, `/requests`, `/entities`), see the [REST API reference](/open-source/features/rest-api).
+
+---
+
+## Upgrade notes
+
+### Upgrading from a pre-auth build
+
+Previous self-hosted builds allowed open access when `ADMIN_API_KEY` was unset. This build enables auth by default. After pulling the new image, pick **one**:
+
+1. **Fastest, zero client changes** — set `ADMIN_API_KEY` to a long random value (16+ characters). Existing clients that send `X-API-Key: <your-key>` keep working unchanged.
+2. **Recommended for teams** — visit `http://<host>:3000`, run the setup wizard, and switch clients to per-user API keys. You get the audit log and revocation for free.
+3. **Local development only** — set `AUTH_DISABLED=true`. The server logs a warning on every boot. Never use this in production.
+
+The server prints an unmissable startup banner when it detects the "upgraded but not configured" state so you know exactly which option to pick.
+
+### Other changes in this release
+
+- Dashboard ships alongside the API in the same container.
+- New tables: `users`, `api_keys`, `request_logs`. Alembic handles the migration automatically on first boot.
+- Graph memory remains a library feature; the bundled FastAPI server does not wire up a graph store. See [Graph Memory](/open-source/features/graph-memory).
+
+---
+
+<CardGroup cols={2}>
+  <Card title="REST API reference" icon="code" href="/open-source/features/rest-api">
+    Endpoint tables, auth modes, and example requests.
+  </Card>
+  <Card title="Configure components" icon="sliders" href="/open-source/configuration">
+    Swap LLMs, embedders, vector stores, and rerankers.
+  </Card>
+</CardGroup>

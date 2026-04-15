@@ -19,12 +19,15 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
 - **Extendable codebase**: Fork the repo, add providers, and ship custom automations.
 
 <Info>
-  Begin with the <Link href="/open-source/python-quickstart">Python quickstart</Link> (or the Node.js variant) to clone the repo, configure dependencies, and validate memory reads/writes locally.
+  Two ways to run Mem0 OSS: as a **library** inside your app (Python or Node), or as a **self-hosted server** with a dashboard, per-user API keys, and a request audit log.
 </Info>
 
 ## Choose your path
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
+  <Card title="Self-hosted setup" icon="rocket-launch" href="/open-source/setup">
+    Server + dashboard in one stack. Wizard-driven admin setup and API keys.
+  </Card>
   <Card title="Python Quickstart" icon="python" href="/open-source/python-quickstart">
     Bootstrap CLI and verify add/search loop.
   </Card>
@@ -46,11 +49,11 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
 </CardGroup>
 
 <CardGroup cols={2}>
-  <Card title="Deploy with Docker Compose" icon="server" href="/open-source/features/rest-api">
-    Reference deployment with REST endpoints.
+  <Card title="Deploy with Docker Compose" icon="server" href="/open-source/setup">
+    Reference deployment with server, dashboard, and wizard.
   </Card>
   <Card title="Use the REST API" icon="code" href="/open-source/features/rest-api">
-    Async add/search flows and automation.
+    Endpoint reference, auth modes, and automation flows.
   </Card>
 </CardGroup>
 
@@ -84,9 +87,6 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
   Override any component with <Link href="/open-source/configuration">`Memory.from_config`</Link>.
 </Note>
 
-<Info>
-  The self-hosted REST server also ships with a web dashboard at `http://localhost:3000`. It covers admin setup, request logs, browsing memories, managing entities (users, agents, runs), API keys, and runtime configuration. See the <Link href="/open-source/features/rest-api">REST API Server</Link> page for setup.
-</Info>
 
 ## Keep going
 

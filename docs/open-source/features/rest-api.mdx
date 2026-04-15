@@ -14,6 +14,10 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 </Info>
 
 <Warning>
+  **First time self-hosting, or upgrading from a pre-1.x build?** Start at [Self-Hosted Setup](/open-source/setup). It walks through the stack, the setup wizard, and the upgrade path for deployments that relied on open endpoints or `ADMIN_API_KEY`. This page covers the API surface and auth modes only.
+</Warning>
+
+<Warning>
   **OSS vs Platform API paths:** The self-hosted OSS server does **not** use the `/v1/` prefix. For example, the endpoint is `POST /memories`, not `POST /v1/memories/`. The [API Reference](/api-reference) documents the hosted platform at `api.mem0.ai` which uses `/v1/` paths — those do not apply to the OSS server.
 </Warning>
 
@@ -70,7 +74,7 @@ docker build -t mem0-api-server .
   </Tab>
 </Tabs>
 
-1. Create a `.env` file with `OPENAI_API_KEY`.  
+1. Create a `.env` file with `OPENAI_API_KEY` and `JWT_SECRET`.
 2. Run the container:
 
 ```bash
@@ -85,6 +89,14 @@ docker run -p 8000:8000 --env-file .env mem0-api-server
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
+
+<Note>
+  The container listens on `8000` internally. Docker Compose publishes that as `8888` on the host (so `make bootstrap` → `http://localhost:8888`), while raw `docker run -p 8000:8000` and bare `uvicorn` both stay on `8000`. Use whichever port your own launch command binds.
+</Note>
+
+<Note>
+  `JWT_SECRET` is required once auth is enabled — the server returns `500` on auth endpoints if it's unset. Generate one with `openssl rand -base64 48`. See [Self-Hosted Setup](/open-source/setup#configure-the-environment) for the full env var table.
+</Note>
 
 <Tip>
   Use a process manager such as `systemd`, Supervisor, or PM2 when deploying the FastAPI server for production resilience.
@@ -191,7 +203,7 @@ curl -X POST http://localhost:8888/search \
 
 ### Explore with OpenAPI docs
 
-1. Navigate to `http://localhost:8000/docs`.
+1. Navigate to `http://localhost:8888/docs` (Compose) or `http://localhost:8000/docs` (raw Docker / uvicorn).
 2. Pick an endpoint (e.g., `POST /search`).  
 3. Fill in parameters and click **Execute** to try requests in-browser.
 
