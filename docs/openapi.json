@@ -1048,8 +1048,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1233,7 +1233,7 @@
 					"memories"
 				],
 				"description": "Delete memories by filter. At least one filter is required \u2014 previously omitting all filters silently deleted everything; now it returns a validation error.",
-				"operationId": "memories_delete",
+				"operationId": "memories_delete_all",
 				"parameters": [
 					{
 						"name": "user_id",
@@ -1393,8 +1393,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1540,8 +1540,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1675,8 +1675,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1739,7 +1739,7 @@
 				"tags": [
 					"memories"
 				],
-				"operationId": "memories_read",
+				"operationId": "memories_entity_read",
 				"responses": {
 					"200": {
 						"description": "Successfully retrieved memories.",
@@ -5176,9 +5176,10 @@
 						"nullable": true
 					},
 					"expiration_date": {
-						"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+						"description": "The date when the memory will expire. Format: YYYY-MM-DD",
 						"title": "Expiration date",
 						"type": "string",
+						"format": "date",
 						"nullable": true
 					},
 					"org_id": {
