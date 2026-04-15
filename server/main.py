@@ -8,10 +8,11 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import func, select
 
 from auth import ADMIN_API_KEY, AUTH_DISABLED, verify_auth
 from db import SessionLocal
-from models import RequestLog
+from models import RequestLog, User
 import telemetry
 from routers import auth as auth_router
 from routers import api_keys as api_keys_router
@@ -37,6 +38,31 @@ SENSITIVE_CONFIG_KEYS = {
 SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/auth/", "/api-keys", "/entities", "/requests", "/configure")
 
+
+def _warn_if_unconfigured() -> None:
+    """Pre-auth deployments upgrading into this build will 401 everywhere until
+    an admin key or admin user exists. Surface the fix before the support tickets."""
+    try:
+        with SessionLocal() as session:
+            if session.scalar(select(func.count(User.id))) > 0:
+                return
+    except Exception:
+        return
+
+    logging.warning(
+        "\n%s\n"
+        "  Auth is enabled by default and this server has no admin configured.\n"
+        "  Protected endpoints will return 401 until you either:\n"
+        "    1. Set ADMIN_API_KEY=<long-random-value>  (fastest, no client changes)\n"
+        "    2. Register an admin at http://<host>:3000/setup\n"
+        "    3. Set AUTH_DISABLED=true                 (local development only)\n"
+        "  Docs: https://docs.mem0.ai/open-source/features/rest-api#authentication\n"
+        "%s",
+        "=" * 72,
+        "=" * 72,
+    )
+
+
 if AUTH_DISABLED:
     logging.warning("AUTH_DISABLED is enabled. Protected endpoints are open for local development only.")
 elif ADMIN_API_KEY and len(ADMIN_API_KEY) < MIN_KEY_LENGTH:
@@ -44,6 +70,8 @@ elif ADMIN_API_KEY and len(ADMIN_API_KEY) < MIN_KEY_LENGTH:
         "ADMIN_API_KEY is shorter than %d characters - consider using a longer key for production.",
         MIN_KEY_LENGTH,
     )
+elif not ADMIN_API_KEY:
+    _warn_if_unconfigured()
 
 telemetry.log_status()
 
