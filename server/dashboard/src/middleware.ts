@@ -19,7 +19,6 @@ export async function middleware(request: NextRequest) {
 
   const hasRefreshToken = request.cookies.has("mem0_refresh_token");
 
-  // Check setup status for root, login, and setup pages
   if (pathname === "/" || pathname === "/login" || pathname === "/setup") {
     try {
       const res = await fetch(

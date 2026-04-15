@@ -50,7 +50,6 @@ export function DataTable<T>({
   onRowClick,
   getRowClassName,
 }: DataTableProps<T>) {
-  // Calculate dynamic min-height: header (44px) + (rows * 44px) with a reasonable minimum
   const minHeight = data.length > 0 ? Math.max(76, 38 + data.length * 38) : 100;
   // Proportional column widths so table fits container (width numbers treated as relative weights)
   const totalWeight = columns.reduce(
@@ -94,7 +93,6 @@ export function DataTable<T>({
               }
 
               const Icon = column.icon;
-              // Extract width and alignment classes from column.className if they exist
               const relevantClasses = column.className
                 ? column.className
                     .split(" ")
@@ -129,7 +127,6 @@ export function DataTable<T>({
                   : baseHeaderClass;
               const headerCellClassName = `${headerClassName} min-w-0`;
 
-              // Adjust flex alignment based on text alignment
               const flexAlignment = mergedRelevantClasses.includes(
                 "text-center",
               )
@@ -192,5 +189,4 @@ export function DataTable<T>({
   );
 }
 
-// Export the classes for use in other components that need the same styling
 export { classes as tableClasses };
