@@ -1200,7 +1200,11 @@ class Memory(MemoryBase):
                     raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        processed_filters.update(process_condition(sub_key, sub_value))
+                        sub_condition = process_condition(sub_key, sub_value)
+                        if sub_key in processed_filters and isinstance(processed_filters.get(sub_key), dict) and isinstance(sub_condition.get(sub_key), dict):
+                            processed_filters[sub_key].update(sub_condition[sub_key])
+                        else:
+                            processed_filters.update(sub_condition)
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
@@ -2489,7 +2493,11 @@ class AsyncMemory(MemoryBase):
                     raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        processed_filters.update(process_condition(sub_key, sub_value))
+                        sub_condition = process_condition(sub_key, sub_value)
+                        if sub_key in processed_filters and isinstance(processed_filters.get(sub_key), dict) and isinstance(sub_condition.get(sub_key), dict):
+                            processed_filters[sub_key].update(sub_condition[sub_key])
+                        else:
+                            processed_filters.update(sub_condition)
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:

@@ -760,6 +760,14 @@ class TestProcessMetadataFiltersMerge:
             "score": {"gt": 0.5, "lt": 0.9},
         }
 
+    def test_and_operator_merges_conditions_on_same_key(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """Filters with AND wrapping multiple conditions on the same key must merge them instead of overwriting."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gt": 10}}, {"price": {"lt": 20}}]
+        })
+        assert result == {"price": {"gt": 10, "lt": 20}}
+
 
 # --- Issue #3040: reset() should clean up graph database ---
 
