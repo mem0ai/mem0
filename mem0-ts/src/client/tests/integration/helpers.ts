@@ -70,10 +70,7 @@ export async function waitForMemories(
     const response = await withRetry(() =>
       client.getAll({ filters: { user_id: userId } }),
     );
-    // v1.1 output_format returns { results: [...] }
-    const memories = Array.isArray(response)
-      ? response
-      : ((response as any)?.results ?? []);
+    const memories = response.results ?? [];
     if (memories.length >= minCount) {
       return memories;
     }
