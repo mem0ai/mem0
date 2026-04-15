@@ -1,0 +1,76 @@
+---
+title: "Neon"
+description: "Use Neon Postgres with pgvector as a managed vector store for Mem0."
+---
+
+[Neon](https://neon.com) is a managed Postgres platform. In Mem0, Neon works through the existing `pgvector` provider because Neon is Postgres-compatible and supports the `vector` extension.
+
+Before using Neon with Mem0:
+
+1. Create a Neon Postgres database.
+2. Enable the `vector` extension:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+3. Use a Neon connection string with `sslmode=require`.
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "pgvector",
+        "config": {
+            "connection_string": "postgresql://USER:PASSWORD@EP-XXXX.us-east-1.aws.neon.tech/neondb?sslmode=require",
+            "collection_name": "mem0_neon",
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I prefer boutique hotels when I travel."},
+    {"role": "assistant", "content": "Understood. I'll keep boutique hotel recommendations in mind."}
+]
+memory.add(messages, user_id="alex", metadata={"category": "travel"})
+```
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'pgvector',
+    config: {
+      connectionString: 'postgresql://USER:PASSWORD@EP-XXXX.us-east-1.aws.neon.tech/neondb?sslmode=require',
+      collectionName: 'mem0_neon',
+      embeddingModelDims: 1536,
+    },
+  },
+};
+
+const memory = new Memory(config);
+await memory.add(
+  [
+    { role: 'user', content: 'I prefer boutique hotels when I travel.' },
+    { role: 'assistant', content: "Understood. I'll keep boutique hotel recommendations in mind." },
+  ],
+  { userId: 'alex', metadata: { category: 'travel' } }
+);
+```
+</CodeGroup>
+
+### Notes
+
+- Use the `pgvector` provider for Neon.
+- Prefer `connection_string` / `connectionString` for Neon instead of splitting host, port, and credentials manually.
+- Keep `sslmode=require` in the connection string for hosted Neon databases.
+- The rest of the available configuration options are the same as [pgvector](/components/vectordbs/dbs/pgvector).
