@@ -57,16 +57,7 @@ const createApi = (): AxiosInstance & {
   );
 
   api.interceptors.response.use(
-    (response) => {
-      try {
-        if (typeof response.data === "object" && response.data !== null) {
-          response.data.ok = true;
-        }
-      } catch {
-        return response;
-      }
-      return response;
-    },
+    (response) => response,
     async (error: AxiosError<{ error?: string }>) => {
       if (error.response?.status === 401) {
         handleTokenError();

@@ -57,7 +57,6 @@ export function MainNav({
         <SidebarGroup>
           <SidebarMenu className="gap-0">
             <div className="flex flex-col gap-3">
-              {/* SETUP SECTION */}
               <Collapsible
                 open={isSetupOpen}
                 onOpenChange={setIsSetupOpen}
@@ -114,7 +113,6 @@ export function MainNav({
                 <div className="h-[1px] w-full bg-memBorder-primary my-2" />
               )}
 
-              {/* ACTIVITY SECTION */}
               <div className="flex flex-col gap-0">
                 {!isSidebarCollapsed && (
                   <SidebarGroupLabel className="mb-0">
@@ -169,7 +167,6 @@ export function MainNav({
                 <div className="h-[1px] w-full bg-memBorder-primary my-2" />
               )}
 
-              {/* ACCOUNT SECTION */}
               <div className="flex flex-col gap-0">
                 {!isSidebarCollapsed && (
                   <SidebarGroupLabel className="mb-0">
@@ -218,7 +215,6 @@ export function MainNav({
                 <div className="h-[1px] w-full bg-memBorder-primary my-2" />
               )}
 
-              {/* CLOUD FEATURES SECTION */}
               <Collapsible
                 open={isCloudOpen}
                 onOpenChange={setIsCloudOpen}

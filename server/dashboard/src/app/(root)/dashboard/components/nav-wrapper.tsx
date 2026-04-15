@@ -43,7 +43,6 @@ export default function NavWrapper() {
 
   return (
     <>
-      {/* Sidebar */}
       <div
         className="fixed top-0 left-0 h-full flex justify-between flex-col overflow-hidden transition-all duration-300 ease-in-out z-30 bg-transparent"
         style={{
@@ -51,7 +50,6 @@ export default function NavWrapper() {
         }}
       >
         <div className="flex flex-col flex-1 min-h-0 items-start gap-5 px-3 py-3 overflow-y-auto overflow-x-hidden">
-          {/* Instance header */}
           <div
             className={cn(
               "relative flex w-full",
@@ -78,10 +76,8 @@ export default function NavWrapper() {
           <MainNav className="w-full" />
         </div>
 
-        {/* Bottom bar */}
         {!isSidebarCollapsed && (
           <div className="flex flex-col shrink-0">
-            {/* User profile */}
             <div className="mx-3 px-0 py-3 border-t border-memBorder-primary">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -137,7 +133,6 @@ export default function NavWrapper() {
         )}
       </div>
 
-      {/* Top bar (above content area) */}
       <div
         className="bg-transparent left-0 top-0 fixed flex justify-between items-center pr-4 h-12 font-fustat z-20"
         style={{
