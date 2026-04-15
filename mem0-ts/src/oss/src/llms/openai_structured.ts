@@ -8,7 +8,7 @@ export class OpenAIStructuredLLM implements LLM {
 
   constructor(config: LLMConfig) {
     this.openai = new OpenAI({ apiKey: config.apiKey });
-    this.model = config.model || "gpt-4-turbo-preview";
+    this.model = config.model || "gpt-5-mini";
   }
 
   async generateResponse(

@@ -24,9 +24,9 @@ describeIntegration("MemoryClient Integration — Initialization", () => {
   let client: MemoryClient;
   let cleanup: () => void;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     cleanup = suppressTelemetryNoise();
-    client = createTestClient();
+    client = await createTestClient();
   });
 
   afterAll(() => cleanup());

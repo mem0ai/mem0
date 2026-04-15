@@ -359,3 +359,63 @@ class TestTelemetryEnvVar:
     def test_env_var_parsing(self, value, expected):
         result = value.lower() in ("true", "1", "yes")
         assert result == expected
+
+
+class TestTelemetryNullUserIdHandling:
+    """Verify telemetry doesn't crash when user_id is None.
+
+    This is a regression test for the bug where Memory.from_config() crashed
+    with AssertionError because distinct_id was None in PostHog.capture().
+    """
+
+    def test_capture_event_skips_when_user_id_is_none(self):
+        """AnonymousTelemetry.capture_event should not crash when user_id is None."""
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            with patch("mem0.memory.telemetry.Posthog") as mock_posthog_cls:
+                at = telemetry_module.AnonymousTelemetry()
+                at.user_id = None  # Simulate the bug condition
+
+                # This should not raise, even with user_id=None
+                at.capture_event("test.event", {"key": "value"})
+
+                # PostHog.capture should NOT have been called since user_id is None
+                mock_posthog_cls.return_value.capture.assert_not_called()
+
+    def test_capture_event_does_not_crash_on_posthog_error(self):
+        """AnonymousTelemetry.capture_event should catch PostHog exceptions."""
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            with patch("mem0.memory.telemetry.Posthog") as mock_posthog_cls:
+                with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="test-user"):
+                    at = telemetry_module.AnonymousTelemetry()
+                    mock_posthog_cls.return_value.capture.side_effect = Exception("PostHog error")
+
+                    # This should not raise, even when PostHog.capture fails
+                    at.capture_event("test.event", {"key": "value"})
+
+    def test_oss_capture_event_does_not_crash_memory_init(self):
+        """capture_event() should never raise, even if everything inside fails."""
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            # Make _get_oss_telemetry return a broken telemetry object
+            mock_at = MagicMock()
+            mock_at.capture_event.side_effect = Exception("Telemetry is broken")
+
+            with patch.object(telemetry_module, "_oss_telemetry_instance", mock_at):
+                mock_memory = MagicMock()
+                mock_memory.config.graph_store.config = None
+                mock_memory.api_version = "v1"
+
+                # This should not raise, even when telemetry fails
+                telemetry_module.capture_event("mem0.init", mock_memory)
+
+    def test_client_capture_event_does_not_crash(self):
+        """capture_client_event() should never raise exceptions."""
+        with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
+            mock_client_telemetry = MagicMock()
+            mock_client_telemetry.capture_event.side_effect = Exception("Client telemetry broken")
+
+            with patch.object(telemetry_module, "client_telemetry", mock_client_telemetry):
+                mock_instance = MagicMock()
+                mock_instance.user_email = "test@example.com"
+
+                # This should not raise
+                telemetry_module.capture_client_event("test.event", mock_instance)

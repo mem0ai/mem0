@@ -22,7 +22,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
     config: {
       baseURL: "https://api.openai.com/v1",
       apiKey: process.env.OPENAI_API_KEY || "",
-      model: "gpt-4.1-nano-2025-04-14",
+      model: "gpt-5-mini",
       modelProperties: undefined,
     },
   },

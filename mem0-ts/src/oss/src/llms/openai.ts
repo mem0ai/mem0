@@ -11,7 +11,7 @@ export class OpenAILLM implements LLM {
       apiKey: config.apiKey,
       baseURL: config.baseURL,
     });
-    this.model = config.model || "gpt-4.1-nano-2025-04-14";
+    this.model = config.model || "gpt-5-mini";
   }
 
   async generateResponse(

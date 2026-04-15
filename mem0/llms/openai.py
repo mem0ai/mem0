@@ -36,7 +36,7 @@ class OpenAILLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4.1-nano-2025-04-14"
+            self.config.model = "gpt-5-mini"
 
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
             self.client = OpenAI(
