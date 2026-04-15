@@ -260,7 +260,7 @@ export class MemoryVectorStore implements VectorStore {
         };
 
         if (this.filterVector(memoryVector, filters)) {
-          const text = payload.text_lemmatized || payload.data || "";
+          const text = payload.textLemmatized || payload.data || "";
           candidates.push({ id: row.id, payload, tokens: this.tokenize(text) });
         }
       }

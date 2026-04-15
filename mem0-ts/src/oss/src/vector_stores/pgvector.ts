@@ -186,9 +186,9 @@ export class PGVector implements VectorStore {
           : "";
 
       const searchQuery = `
-        SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'text_lemmatized'), plainto_tsquery('simple', $1)) AS score, payload
+        SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'textLemmatized'), plainto_tsquery('simple', $1)) AS score, payload
         FROM ${this.collectionName}
-        WHERE to_tsvector('simple', payload->>'text_lemmatized') @@ plainto_tsquery('simple', $1)
+        WHERE to_tsvector('simple', payload->>'textLemmatized') @@ plainto_tsquery('simple', $1)
         ${filterClause}
         ORDER BY score DESC
         LIMIT $2

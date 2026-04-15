@@ -75,7 +75,7 @@ function createMemory(overrides: Partial<MemoryConfig> = {}): Memory {
     },
     llm: {
       provider: "openai",
-      config: { apiKey: "test-key", model: "gpt-4-turbo-preview" },
+      config: { apiKey: "test-key", model: "gpt-5-mini" },
     },
     historyDbPath: ":memory:",
     ...overrides,
