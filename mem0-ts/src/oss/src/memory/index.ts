@@ -82,6 +82,43 @@ function rejectTopLevelEntityParams(
   }
 }
 
+/**
+ * Validates that an entity ID is not empty or whitespace-only.
+ * @throws Error if entity ID is invalid
+ */
+function validateEntityId(value: string | undefined, name: string): void {
+  if (value !== undefined && value.trim() === "") {
+    throw new Error(
+      `Invalid ${name}: cannot be empty or whitespace-only. Provide a valid identifier.`,
+    );
+  }
+}
+
+/**
+ * Validates search parameters.
+ * @throws Error if threshold or topK are invalid
+ */
+function validateSearchParams(threshold?: number, topK?: number): void {
+  if (threshold !== undefined) {
+    if (typeof threshold !== "number" || isNaN(threshold)) {
+      throw new Error("threshold must be a valid number");
+    }
+    if (threshold < 0 || threshold > 1) {
+      throw new Error(
+        `Invalid threshold: ${threshold}. Must be between 0 and 1 (inclusive).`,
+      );
+    }
+  }
+  if (topK !== undefined) {
+    if (typeof topK !== "number" || isNaN(topK) || !Number.isInteger(topK)) {
+      throw new Error("topK must be a valid integer");
+    }
+    if (topK < 0) {
+      throw new Error(`Invalid topK: ${topK}. Must be a non-negative integer.`);
+    }
+  }
+}
+
 export class Memory {
   private config: MemoryConfig;
   private customInstructions: string | undefined;
@@ -276,6 +313,13 @@ export class Memory {
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
+    // Validate messages input
+    if (messages === undefined || messages === null) {
+      throw new Error(
+        "messages is required and cannot be undefined or null. Provide a string or array of messages.",
+      );
+    }
+
     await this._ensureInitialized();
     await this._captureEvent("add", {
       message_count: Array.isArray(messages) ? messages.length : 1,
@@ -291,6 +335,11 @@ export class Memory {
       filters = {},
       infer = true,
     } = config;
+
+    // Validate entity IDs are not whitespace-only
+    validateEntityId(userId, "userId");
+    validateEntityId(agentId, "agentId");
+    validateEntityId(runId, "runId");
 
     // Convert camelCase entity params to snake_case for storage (matches API and search/getAll filters)
     if (userId) filters.user_id = metadata.user_id = userId;
@@ -804,6 +853,16 @@ export class Memory {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "search");
 
+    // Validate search parameters
+    validateSearchParams(config.threshold, config.topK);
+
+    // Validate entity IDs in filters are not whitespace-only
+    if (config.filters) {
+      validateEntityId(config.filters.user_id, "user_id");
+      validateEntityId(config.filters.agent_id, "agent_id");
+      validateEntityId(config.filters.run_id, "run_id");
+    }
+
     await this._ensureInitialized();
     await this._captureEvent("search", {
       query_length: query.length,
@@ -1115,6 +1174,16 @@ export class Memory {
 
     await this._ensureInitialized();
     const { topK = 100, filters = {} } = config;
+
+    // Validate entity IDs are not whitespace-only
+    validateEntityId(filters.user_id, "user_id");
+    validateEntityId(filters.agent_id, "agent_id");
+    validateEntityId(filters.run_id, "run_id");
+
+    // Validate topK if provided
+    if (config.topK !== undefined) {
+      validateSearchParams(undefined, config.topK);
+    }
 
     await this._captureEvent("get_all", {
       topK: topK,
