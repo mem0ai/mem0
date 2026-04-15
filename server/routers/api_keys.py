@@ -34,7 +34,7 @@ class KeyListItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("/", response_model=list[KeyListItem])
+@router.get("", response_model=list[KeyListItem])
 def list_keys(user: User = Depends(require_auth), db: Session = Depends(get_db)):
     keys = (
         db.execute(
@@ -57,7 +57,7 @@ def list_keys(user: User = Depends(require_auth), db: Session = Depends(get_db))
     ]
 
 
-@router.post("/", response_model=CreateKeyResponse, status_code=201)
+@router.post("", response_model=CreateKeyResponse, status_code=201)
 def create_key(body: CreateKeyRequest, user: User = Depends(require_auth), db: Session = Depends(get_db)):
     full_key, prefix, key_hash = generate_api_key()
     api_key = APIKey(key_prefix=prefix, key_hash=key_hash, label=body.label, created_by=user.id)

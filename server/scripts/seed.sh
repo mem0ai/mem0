@@ -43,7 +43,7 @@ echo "  Logged in."
 
 # Create API key
 echo "Creating API key..."
-KEY_RESP=$(curl -s -X POST "$API_URL/api-keys/" \
+KEY_RESP=$(curl -s -X POST "$API_URL/api-keys" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"label": "dev-seed-key"}')

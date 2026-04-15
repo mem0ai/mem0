@@ -91,6 +91,7 @@ app = FastAPI(
         "or the legacy `ADMIN_API_KEY` environment variable. Set `AUTH_DISABLED=true` for local development only."
     ),
     version="1.0.0",
+    redirect_slashes=False,
 )
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
 app.add_middleware(
