@@ -83,6 +83,21 @@ class Weaviate(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.create_col(embedding_model_dims)
 
+    def _build_filters(self, filters: Optional[Dict]) -> Optional[Filter]:
+        """
+        Build Weaviate filter conditions from a filters dict.
+
+        Supports all filter keys (not just user_id/agent_id/run_id),
+        enabling metadata filtering on any property stored in the collection.
+        """
+        if not filters:
+            return None
+        filter_conditions = []
+        for key, value in filters.items():
+            if value is not None:
+                filter_conditions.append(Filter.by_property(key).equal(value))
+        return Filter.all_of(filter_conditions) if filter_conditions else None
+
     def _parse_output(self, data: Dict) -> List[OutputData]:
         """
         Parse the output data.
@@ -185,12 +200,7 @@ class Weaviate(VectorStoreBase):
         Search for similar vectors.
         """
         collection = self.client.collections.get(str(self.collection_name))
-        filter_conditions = []
-        if filters:
-            for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
-                    filter_conditions.append(Filter.by_property(key).equal(value))
-        combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
+        combined_filter = self._build_filters(filters)
         response = collection.query.hybrid(
             query="",
             vector=vectors,
@@ -230,18 +240,13 @@ class Weaviate(VectorStoreBase):
         Args:
             query (str): Search query text.
             top_k (int): Maximum number of results. Defaults to 5.
-            filters (dict, optional): Filters to apply (user_id, agent_id, run_id).
+            filters (dict, optional): Filters to apply to the search.
 
         Returns:
             List[OutputData]: Search results.
         """
         collection = self.client.collections.get(str(self.collection_name))
-        filter_conditions = []
-        if filters:
-            for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
-                    filter_conditions.append(Filter.by_property(key).equal(value))
-        combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
+        combined_filter = self._build_filters(filters)
         response = collection.query.bm25(
             query=query,
             query_properties=["data"],
@@ -367,12 +372,7 @@ class Weaviate(VectorStoreBase):
         List all vectors in a collection.
         """
         collection = self.client.collections.get(self.collection_name)
-        filter_conditions = []
-        if filters:
-            for key, value in filters.items():
-                if value and key in ["user_id", "agent_id", "run_id"]:
-                    filter_conditions.append(Filter.by_property(key).equal(value))
-        combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
+        combined_filter = self._build_filters(filters)
         response = collection.query.fetch_objects(
             limit=top_k,
             filters=combined_filter,

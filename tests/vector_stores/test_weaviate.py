@@ -145,6 +145,52 @@ class TestWeaviateDB(unittest.TestCase):
         self.assertEqual(results[0].id, "id1")
         self.assertEqual(results[0].score, 0.8)
 
+    def test_search_with_metadata_filters(self):
+        """Test that custom metadata filters (e.g. category) are passed through to Weaviate."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+
+        mock_hybrid = MagicMock()
+        self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
+        mock_hybrid.return_value = mock_response
+
+        vectors = [[0.1] * 1536]
+        self.weaviate_db.search(
+            query="", vectors=vectors, top_k=5, filters={"user_id": "alice", "category": "movies"}
+        )
+
+        mock_hybrid.assert_called_once()
+        call_kwargs = mock_hybrid.call_args.kwargs
+        combined_filter = call_kwargs.get("filters")
+
+        # Should be a FilterAnd with 2 conditions (user_id + category), not just user_id
+        self.assertIsNotNone(combined_filter)
+        self.assertTrue(hasattr(combined_filter, "filters"), "Expected FilterAnd with multiple conditions")
+        self.assertEqual(len(combined_filter.filters), 2)
+
+    def test_search_filters_exclude_none_values(self):
+        """Test that None-valued filter keys are excluded."""
+        mock_response = MagicMock()
+        mock_response.objects = []
+
+        mock_hybrid = MagicMock()
+        self.client_mock.collections.get.return_value.query.hybrid = mock_hybrid
+        mock_hybrid.return_value = mock_response
+
+        vectors = [[0.1] * 1536]
+        self.weaviate_db.search(
+            query="", vectors=vectors, top_k=5, filters={"user_id": "alice", "agent_id": None}
+        )
+
+        mock_hybrid.assert_called_once()
+        call_kwargs = mock_hybrid.call_args.kwargs
+        combined_filter = call_kwargs.get("filters")
+
+        # Only user_id should be included (agent_id is None)
+        self.assertIsNotNone(combined_filter)
+        # Single condition = _FilterValue, not _FilterAnd
+        self.assertFalse(hasattr(combined_filter, "filters"), "Expected single filter, not FilterAnd")
+
     def test_delete(self):
         self.weaviate_db.delete(vector_id="id1")
 
