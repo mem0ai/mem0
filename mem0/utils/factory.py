@@ -188,6 +188,7 @@ class VectorStoreFactory:
         "s3_vectors": "mem0.vector_stores.s3_vectors.S3Vectors",
         "baidu": "mem0.vector_stores.baidu.BaiduDB",
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
+        "lancedb": "mem0.vector_stores.lancedb.LanceDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
         "turbopuffer": "mem0.vector_stores.turbopuffer.TurbopufferDB",
     }
