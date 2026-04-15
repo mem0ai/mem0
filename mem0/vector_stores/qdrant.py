@@ -79,6 +79,10 @@ class Qdrant(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.on_disk = on_disk
         self._bm25_encoder = None
+        # Whether this collection has the `bm25` named sparse vector slot.
+        # Pre-v3 collections lack it; writing a `bm25` sparse vector into such a
+        # collection is rejected by Qdrant ("Not existing vector name error: bm25").
+        self._has_bm25_slot = False
         self.create_col(embedding_model_dims, on_disk)
 
     def _get_bm25_encoder(self):
@@ -127,6 +131,15 @@ class Qdrant(VectorStoreBase):
         for collection in response.collections:
             if collection.name == self.collection_name:
                 logger.debug(f"Collection {self.collection_name} already exists. Skipping creation.")
+                info = self.client.get_collection(self.collection_name)
+                sparse_cfg = info.config.params.sparse_vectors
+                self._has_bm25_slot = bool(sparse_cfg and "bm25" in sparse_cfg)
+                if not self._has_bm25_slot:
+                    logger.warning(
+                        f"Collection '{self.collection_name}' predates v3 hybrid search (no 'bm25' sparse slot). "
+                        "BM25 keyword scoring will be disabled for this collection; semantic search works normally. "
+                        "To enable hybrid search, use a fresh collection."
+                    )
                 self._create_filter_indexes()
                 return
 
@@ -139,6 +152,7 @@ class Qdrant(VectorStoreBase):
                 ),
             },
         )
+        self._has_bm25_slot = True
         self._create_filter_indexes()
 
     def _create_filter_indexes(self):
@@ -177,13 +191,14 @@ class Qdrant(VectorStoreBase):
             payload = payloads[idx] if payloads else {}
             point_id = idx if ids is None else ids[idx]
 
-            # Build named vectors: dense + optional BM25 sparse
+            # Build named vectors: dense + optional BM25 sparse (only if collection has the slot).
             named_vectors = {"": vector}
-            text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
-            if text_for_bm25:
-                sparse = self._encode_bm25(text_for_bm25)
-                if sparse is not None:
-                    named_vectors["bm25"] = sparse
+            if self._has_bm25_slot:
+                text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
+                if text_for_bm25:
+                    sparse = self._encode_bm25(text_for_bm25)
+                    if sparse is not None:
+                        named_vectors["bm25"] = sparse
 
             points.append(PointStruct(id=point_id, vector=named_vectors, payload=payload))
 
@@ -382,7 +397,7 @@ class Qdrant(VectorStoreBase):
         """Batch search using Qdrant's query_batch_points for efficiency."""
         query_filter = self._create_filter(filters) if filters else None
         requests = [
-            models.QueryRequest(query=vec, filter=query_filter, limit=top_k)
+            models.QueryRequest(query=vec, filter=query_filter, limit=top_k, with_payload=True)
             for vec in vectors_list
         ]
         try:
@@ -407,6 +422,8 @@ class Qdrant(VectorStoreBase):
         Returns:
             list: Search results, or None if BM25 is not available.
         """
+        if not self._has_bm25_slot:
+            return None
         sparse_query = self._encode_bm25(query)
         if sparse_query is None:
             return None
@@ -449,13 +466,14 @@ class Qdrant(VectorStoreBase):
             payload (dict, optional): Updated payload. Defaults to None.
         """
         if vector is not None and payload is not None:
-            # Full update: attach BM25 sparse vector alongside dense vector
+            # Full update: attach BM25 sparse vector alongside dense vector (only if slot exists).
             named_vectors = {"": vector}
-            text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
-            if text_for_bm25:
-                sparse = self._encode_bm25(text_for_bm25)
-                if sparse is not None:
-                    named_vectors["bm25"] = sparse
+            if self._has_bm25_slot:
+                text_for_bm25 = payload.get("text_lemmatized") or payload.get("data", "")
+                if text_for_bm25:
+                    sparse = self._encode_bm25(text_for_bm25)
+                    if sparse is not None:
+                        named_vectors["bm25"] = sparse
             point = PointStruct(id=vector_id, vector=named_vectors, payload=payload)
             self.client.upsert(collection_name=self.collection_name, points=[point])
         else:
