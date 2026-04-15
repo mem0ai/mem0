@@ -111,9 +111,9 @@ def test_search(memory_instance):
     # Score is now combined score (semantic only since no BM25/entity), still 0.9
     assert result["results"][0]["score"] == pytest.approx(0.9)
 
-    # Hybrid pipeline over-fetches: max(10*4, 60) = 60 (top_k default is now 10)
+    # Hybrid pipeline over-fetches: max(20*4, 60) = 80 (top_k default is now 20)
     memory_instance.vector_store.search.assert_called_once_with(
-        query="test query", vectors=[0.1, 0.2, 0.3], top_k=60, filters={"user_id": "test_user"}
+        query="test query", vectors=[0.1, 0.2, 0.3], top_k=80, filters={"user_id": "test_user"}
     )
 
 
@@ -200,7 +200,7 @@ def test_get_all(memory_instance):
     assert result["results"][0]["memory"] == "Memory 1"
     assert result["results"][0]["user_id"] == "test_user"
 
-    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=10)
+    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=20)
 
 
 def test_no_telemetry_vector_store_when_disabled():

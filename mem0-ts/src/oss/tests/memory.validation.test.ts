@@ -179,10 +179,10 @@ describe("Memory Input Validation", () => {
       expect(result.results).toBeDefined();
     });
 
-    it("should accept topK = 10 (normal value)", async () => {
+    it("should accept topK = 20 (normal value)", async () => {
       const result = await memory.search("test query", {
         filters: { user_id: testUserId },
-        topK: 10,
+        topK: 20,
       });
       expect(result).toBeDefined();
       expect(result.results).toBeDefined();

@@ -878,7 +878,7 @@ export class Memory {
       : {};
 
     await this._ensureInitialized();
-    const { topK = 10, threshold = 0.1 } = config;
+    const { topK = 20, threshold = 0.1 } = config;
 
     await this._captureEvent("search", {
       query_length: query.length,
@@ -1193,7 +1193,7 @@ export class Memory {
 
     await this._ensureInitialized();
 
-    const { topK = 10 } = config;
+    const { topK = 20 } = config;
 
     // Validate and trim entity IDs in filters
     const filters = {

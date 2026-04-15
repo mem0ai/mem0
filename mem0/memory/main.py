@@ -939,7 +939,7 @@ class Memory(MemoryBase):
         self,
         *,
         filters: Optional[Dict[str, Any]] = None,
-        top_k: int = 10,
+        top_k: int = 20,
         **kwargs,
     ):
         """
@@ -949,7 +949,7 @@ class Memory(MemoryBase):
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
-            top_k (int, optional): The maximum number of memories to return. Defaults to 10.
+            top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
@@ -1049,7 +1049,7 @@ class Memory(MemoryBase):
         self,
         query: str,
         *,
-        top_k: int = 10,
+        top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
@@ -1060,7 +1060,7 @@ class Memory(MemoryBase):
 
         Args:
             query (str): Query to search for.
-            top_k (int, optional): Maximum number of results to return. Defaults to 10.
+            top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
@@ -2223,7 +2223,7 @@ class AsyncMemory(MemoryBase):
         self,
         *,
         filters: Optional[Dict[str, Any]] = None,
-        top_k: int = 10,
+        top_k: int = 20,
         **kwargs,
     ):
         """
@@ -2233,7 +2233,7 @@ class AsyncMemory(MemoryBase):
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
-            top_k (int, optional): The maximum number of memories to return. Defaults to 10.
+            top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
@@ -2333,7 +2333,7 @@ class AsyncMemory(MemoryBase):
         self,
         query: str,
         *,
-        top_k: int = 10,
+        top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
@@ -2344,7 +2344,7 @@ class AsyncMemory(MemoryBase):
 
         Args:
             query (str): Query to search for.
-            top_k (int, optional): Maximum number of results to return. Defaults to 10.
+            top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
