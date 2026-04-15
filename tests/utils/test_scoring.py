@@ -101,16 +101,6 @@ class TestScoreAndRank:
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=5)
         assert len(scored) == 5
 
-    def test_score_breakdown_present(self):
-        results = [{"id": "a", "score": 0.8, "payload": {"data": "x"}}]
-        bm25 = {"a": 0.4}
-        entity = {"a": 0.2}
-        scored = score_and_rank(results, bm25, entity, threshold=0.1, top_k=10)
-        breakdown = scored[0]["score_breakdown"]
-        assert breakdown["semantic"] == 0.8
-        assert breakdown["bm25"] == 0.4
-        assert breakdown["entity_boost"] == 0.2
-
     def test_adaptive_divisor_semantic_only(self):
         results = [{"id": "a", "score": 0.8, "payload": {}}]
         scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)

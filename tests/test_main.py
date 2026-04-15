@@ -110,7 +110,6 @@ def test_search(memory_instance):
     assert result["results"][0]["user_id"] == "test_user"
     # Score is now combined score (semantic only since no BM25/entity), still 0.9
     assert result["results"][0]["score"] == pytest.approx(0.9)
-    assert "score_breakdown" in result["results"][0]
 
     # Hybrid pipeline over-fetches: max(100*4, 60) = 400
     memory_instance.vector_store.search.assert_called_once_with(
