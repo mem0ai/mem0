@@ -73,7 +73,7 @@ export async function waitForMemories(
     // v1.1 output_format returns { results: [...] }
     const memories = Array.isArray(response)
       ? response
-      : (response as any)?.results ?? [];
+      : ((response as any)?.results ?? []);
     if (memories.length >= minCount) {
       return memories;
     }
