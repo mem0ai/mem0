@@ -52,6 +52,7 @@ import {
   ENTITY_BOOST_WEIGHT,
   ScoredResult,
 } from "../utils/scoring";
+import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
@@ -247,12 +248,10 @@ export class Memory {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
-      // For file-based stores (memory/SQLite), use a separate DB path for entities
-      if (entityConfig.dbPath) {
-        entityConfig.dbPath = entityConfig.dbPath.replace(
-          /\.db$/,
-          "_entities.db",
-        );
+      // For file-based stores (memory/SQLite), always use a separate DB for entities
+      if (this.config.vectorStore.provider === "memory") {
+        const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
+        entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
       }
       this._entityStore = VectorStoreFactory.create(
         this.config.vectorStore.provider,
