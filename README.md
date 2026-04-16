@@ -64,7 +64,7 @@ See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgra
 ## Research Highlights
 - **91.6 on LoCoMo** -- +20 points over the previous algorithm
 - **93.4 on LongMemEval** -- +26 points, with +53.6 on assistant memory recall
-- **0.64 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
+- **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
 - [Read the full paper](https://mem0.ai/research)
 
 # Introduction
