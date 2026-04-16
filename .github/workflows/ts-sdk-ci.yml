@@ -59,6 +59,8 @@ jobs:
 
       - name: Run unit tests
         working-directory: mem0-ts
+        env:
+          NODE_OPTIONS: "--max-old-space-size=6144"
         run: pnpm run test:unit
 
       - name: Verify package exports
