@@ -4,31 +4,23 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
-<Update label="2026-04-16" description="V3 Pipeline — Post-launch Hardening">
-
-**Hardening pass on the V3 memory pipeline across OSS and Platform.**
-
-- **Platform client endpoints updated** — Python `MemoryClient.add()` now posts to `/v3/memories/add/`; `get_all()` moves to `/v3/memories/` with a paginated envelope (`count` / `next` / `previous` / `results`). Same for the TypeScript client.
-- **Default OpenAI model bumped to `gpt-5-mini`** across OSS Python + TypeScript (OpenAI, Azure, OpenAI Structured, LiteLLM fallback).
-- **Input validation tightened** — Entity IDs are trimmed and reject empty / whitespace-only strings; `threshold` must be in `[0, 1]`; `top_k` / `topK` default is now `20` (was `100`).
-- **`score_breakdown` removed from search responses** in both OSS Python and TypeScript. The top-level `score` remains a `[0, 1]` combined value; per-signal scores are not exposed on the response so the scoring stack is free to evolve.
-- **OSS fixes** — FAISS pickle RCE hardened, V3 migration path fixed (entity linking works on Qdrant + Milvus), Qdrant embedded-mode client shared with the entity store, PGVector async init is idempotent, Redis module detection handles both node-redis v3 and v4 response shapes, in-memory `MemoryVectorStore` entity store is fully isolated with backward-compat payload normalization for legacy snake/camel keys.
-
-See the [SDK changelog](/changelog/sdk) for the full patch list.
-
-</Update>
-
 <Update label="2026-04-14" description="Mem0 SDK v2.0.0 / v3.0.0">
 
-**V3 Memory Pipeline — 20+ Point Benchmark Improvements**
+**New Memory Algorithm — State-of-the-Art Accuracy at 90% Lower Cost**
 
-Major release of the Mem0 SDKs with a completely rewritten memory pipeline:
+Ground-up rewrite of the memory pipeline with 20+ point benchmark improvements:
 
-- **Python SDK v2.0.0** — Single-pass additive extraction, hybrid search (semantic + BM25 + entity boost), spaCy-based entity extraction and linking, batch operations, message persistence, Valkey cluster mode, graph memory removed from OSS (~4,000 lines across `graph_memory.py`, `memgraph_memory.py`, `kuzu_memory.py`, `apache_age_memory.py`)
-- **TypeScript SDK v3.0.0** — V3 OSS pipeline with entity extraction (720+ lines), message persistence, batch embeddings, camelCase parameters, DeepSeek LLM provider, graph memory removed from OSS (1,088 lines across `graph_memory.ts`, `graphs/tools.ts`, `graphs/utils.ts`, `graphs/configs.ts`)
-- **Benchmark Results:** LoCoMo 71.4 → 91.6 (+20), LongMemEval 67.8 → 93.4 (+26), BEAM 1M @ 64.1
+- **LoCoMo:** 71.4 → **91.6** (+20) — multi-turn conversation recall
+- **LongMemEval:** 67.8 → **93.4** (+26) — long-term memory across sessions
+- **BEAM (1M tokens):** **64.1** — production-scale memory evaluation
+- **Agent memories are first-class** — Previous algorithm: 46% on assistant recall. New: **100%**
+- **Temporal reasoning works** — "Where did I live before SF?" Previous: 51%. New: **93%**
+- **90% fewer tokens** — Under 7K tokens per retrieval vs 25K+ for full-context approaches
+- **ADD-only extraction** — Memories accumulate; nothing is overwritten or deleted
+- **Hybrid retrieval** — Semantic + BM25 keyword + entity boost, scored in parallel
+- **Entity linking** — Entities extracted, embedded, and linked across memories
 
-**Breaking Changes:** `add()` returns ADD-only events, `search()` defaults changed, deprecated parameters removed (`org_id`, `project_id`, `enable_graph`), `limit` → `top_k`/`topK`, **graph memory removed from both Python and TypeScript OSS** (use the Platform API for graph features). See [migration guides](https://docs.mem0.ai/migration/oss-v2-to-v3).
+Breaking changes: Graph memory removed from OSS, `search()` defaults changed, deprecated params removed. See [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3).
 
 </Update>
 
@@ -59,7 +51,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 </Update>
 
-<Update label="2026-04-04" description="OpenClaw v1.0.4">
+<Update label="2026-04-06" description="OpenClaw v1.0.4">
 
 **OpenClaw Plugin — Production-Ready**
 

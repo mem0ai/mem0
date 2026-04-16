@@ -164,7 +164,6 @@
                     "icon": "server",
                     "pages": [
                       "open-source/features/overview",
-                      "open-source/features/graph-memory",
                       "open-source/features/metadata-filtering",
                       "open-source/features/reranker-search",
                       "open-source/features/async-memory",
@@ -641,7 +640,7 @@
     },
     {
       "source": "/platform/features/graph-memory",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/changelog",
@@ -817,11 +816,11 @@
     },
     {
       "source": "/open-source/graph_memory/overview",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/open-source/graph_memory/features",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/v0x/examples/ai_companion_js",
@@ -1001,7 +1000,7 @@
     },
     {
       "source": "/features/graph-memory",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/features/:slug",
@@ -1109,7 +1108,7 @@
     },
     {
       "source": "/open-source/graph-memory",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/cookbooks/customer-support-agent",

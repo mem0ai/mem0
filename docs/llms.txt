@@ -45,7 +45,6 @@ Key differentiators:
 - [Custom Categories](https://docs.mem0.ai/platform/features/custom-categories): Define domain-specific categories to improve memory organization
 
 ### Advanced Features
-- [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory): Build and query relationships between entities for contextually relevant retrieval
 - [Graph Threshold](https://docs.mem0.ai/platform/features/graph-threshold): Configure graph relationship sensitivity and strength
 - [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval): Enhanced search with keyword search, reranking, and filtering capabilities
 - [Criteria-Based Retrieval](https://docs.mem0.ai/platform/features/criteria-retrieval): Targeted memory retrieval using custom criteria
@@ -81,7 +80,6 @@ Key differentiators:
 
 ### Open Source Features
 - [Features Overview](https://docs.mem0.ai/open-source/features/overview): Overview of all open-source features
-- [Graph Memory](https://docs.mem0.ai/open-source/features/graph-memory): Build and query entity relationships using graph stores like Neo4j
 - [Metadata Filtering](https://docs.mem0.ai/open-source/features/metadata-filtering): Advanced filtering using custom metadata fields
 - [Reranker Search](https://docs.mem0.ai/open-source/features/reranker-search): Enhanced search results with reranking models
 - [Async Memory](https://docs.mem0.ai/open-source/features/async-memory): Asynchronous memory operations for better performance
