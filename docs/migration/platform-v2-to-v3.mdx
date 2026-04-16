@@ -304,21 +304,20 @@ All benchmarks were run on a production-representative stack — deliberately av
 
 ## FAQ
 
-### Do I need to re-process my existing memories?
-
-No. Existing memories remain as-is. New memories added after the rollout will use the new extraction algorithm. Both old and new memories are searchable through the same retrieval pipeline.
-
-### Will my memory count increase faster now?
-
-Yes. The ADD-only approach means memories accumulate rather than being consolidated. This is intentional — the retrieval system handles ranking and relevance. If you need to manage memory volume, use the expiration date feature or the delete API.
-
-### Can I opt out of the new algorithm?
-
-The new algorithm is the default for all platform users. If you have a specific need to use the previous extraction behavior, contact support.
-
-### How does entity linking affect my existing integrations?
-
-Entity linking is automatic and transparent. It improves retrieval quality without requiring any changes to your integration. Entities are extracted from both new memories and search queries, and matched automatically.
+<AccordionGroup>
+  <Accordion title="Do I need to re-process my existing memories?">
+    No. Existing memories remain as-is. New memories added after the rollout will use the new extraction algorithm. Both old and new memories are searchable through the same retrieval pipeline.
+  </Accordion>
+  <Accordion title="Will my memory count increase faster now?">
+    Yes. The ADD-only approach means memories accumulate rather than being consolidated. This is intentional — the retrieval system handles ranking and relevance. If you need to manage memory volume, use the expiration date feature or the delete API.
+  </Accordion>
+  <Accordion title="Can I opt out of the new algorithm?">
+    The new algorithm is the default for all platform users. If you have a specific need to use the previous extraction behavior, contact support.
+  </Accordion>
+  <Accordion title="How does entity linking affect my existing integrations?">
+    Entity linking is automatic and transparent. It improves retrieval quality without requiring any changes to your integration. Entities are extracted from both new memories and search queries, and matched automatically.
+  </Accordion>
+</AccordionGroup>
 
 ## Need Help?
 
