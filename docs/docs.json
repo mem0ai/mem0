@@ -328,7 +328,6 @@
                       "cookbooks/essentials/building-ai-companion",
                       "cookbooks/essentials/entity-partitioning-playbook",
                       "cookbooks/essentials/controlling-memory-ingestion",
-                      "cookbooks/essentials/memory-expiration-short-and-long-term",
                       "cookbooks/essentials/tagging-and-organizing-memories",
                       "cookbooks/essentials/exporting-memories",
                       "cookbooks/essentials/choosing-memory-architecture-vector-vs-graph"
@@ -626,6 +625,10 @@
     {
       "source": "/platform/features/expiration-date",
       "destination": "/"
+    },
+    {
+      "source": "/cookbooks/essentials/memory-expiration-short-and-long-term",
+      "destination": "/cookbooks/essentials/building-ai-companion"
     },
     {
       "source": "/platform/features/async-mode-default-change",

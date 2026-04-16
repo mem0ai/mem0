@@ -158,7 +158,7 @@ class PersonalTravelAssistant:
         return [m['memory'] for m in memories.get('results', [])]
 
     def search_memories(self, query, user_id):
-        memories = self.memory.search(query, user_id=user_id)
+        memories = self.memory.search(query, filters={"user_id": user_id})
         return [m['memory'] for m in memories.get('results', [])]
 
 # Usage example
