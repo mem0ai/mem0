@@ -151,7 +151,7 @@ def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Generate Assistant response
     system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="<your-model>", messages=messages)
+    response = openai_client.chat.completions.create(model="gpt-5-mini", messages=messages)
     assistant_response = response.choices[0].message.content
 
     # Create new memories from the conversation

@@ -32,8 +32,8 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | `threshold` default | `None` (no filtering) | `0.1` (filters low-relevance) | Pass `threshold=0.0` for old behavior |
 | `threshold` validation | Any float | Must be in `[0, 1]` | Out-of-range values now raise `ValueError` |
 | `rerank` default | `True` | `False` | Pass `rerank=True` to restore |
-| Entity ID validation | Accepted any string | Trimmed; empty / whitespace-only rejected | Pass a non-empty identifier without internal spaces |
-| `messages` in `add()` | Could be `None` | Required — raises `ValueError` on `None` | Always pass a string, dict, or list of messages |
+| Entity ID validation | Accepted any string | Trimmed; empty / whitespace-only rejected (`ValueError`) | Pass a non-empty identifier without internal spaces |
+| `messages` in `add()` | Could be `None` | Must be `str` / `dict` / `list[dict]` — other types raise `Mem0ValidationError` (code `VALIDATION_003`) | Always pass a string, dict, or list of messages |
 | `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
 | `score` meaning | Raw cosine similarity | Combined multi-signal score | Score is a fused value (semantic + BM25 + entity); relative ranking is preserved but absolute numbers shift |
 | Custom extraction prompt | `custom_fact_extraction_prompt` | `custom_instructions` | Rename in config |

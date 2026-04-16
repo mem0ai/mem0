@@ -100,7 +100,7 @@ results = client.search(
 
 # List memories (paginated)
 page = client.get_all(filters={"user_id": "alice"}, page=1, page_size=50)
-# page == {"count": 123, "next": "...", "previous": null, "results": [...]}
+# page == {"count": 123, "next": "...", "previous": None, "results": [...]}
 ```
 
 ```bash cURL
