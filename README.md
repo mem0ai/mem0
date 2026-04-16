@@ -39,7 +39,7 @@
 </p>
 
 <p align="center">
-  <a href="https://mem0.ai/research"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
+  <a href="https://mem0.ai/blog/mem0-the-token-efficient-memory-algorithm"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
 </p>
 
 ## New Memory Algorithm (April 2026)
@@ -65,7 +65,7 @@ See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgra
 - **91.6 on LoCoMo** -- +20 points over the previous algorithm
 - **93.4 on LongMemEval** -- +26 points, with +53.6 on assistant memory recall
 - **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
-- [Read the full paper](https://mem0.ai/research)
+- [Read the full paper](https://mem0.ai/blog/mem0-the-token-efficient-memory-algorithm)
 
 # Introduction
 
