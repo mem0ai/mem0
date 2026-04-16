@@ -87,6 +87,9 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
     # For hybrid search + entity extraction (recommended)
     pip install --upgrade "mem0ai[nlp]"
     python -m spacy download en_core_web_sm
+
+    # Qdrant users: also install fastembed to enable BM25 keyword search
+    pip install fastembed
     ```
   </Tab>
   <Tab title="TypeScript">
@@ -99,6 +102,14 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 <Info>
 The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity linking, no BM25 lemmatization).
 </Info>
+
+<Warning>
+**Qdrant users — install `fastembed` to enable BM25 keyword search.** The Qdrant backend uses [fastembed](https://github.com/qdrant/fastembed) to encode sparse (BM25) vectors alongside dense vectors in the same collection. Without it, BM25 is silently disabled and search falls back to semantic-only — you'll see a log warning `"fastembed not installed — BM25 keyword search disabled"` on the first search call. Other vector stores use their native full-text capabilities and don't need `fastembed`.
+
+```bash
+pip install fastembed
+```
+</Warning>
 
 ### 2. Update Configuration
 
