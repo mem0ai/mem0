@@ -66,11 +66,11 @@ The top-level `score` remains a `[0, 1]` value. Relative ranking between results
 
 The new algorithm is available through the V3 API. The endpoints split into per-operation paths:
 
-| Operation | Endpoint |
-|---|---|
-| Add memories | `POST /v3/memories/add/` |
-| Search memories | `POST /v3/memories/search/` |
-| List memories (paginated) | `POST /v3/memories/` |
+| Operation | SDK method | Endpoint |
+|---|---|---|
+| Add memories | `client.add()` | `POST /v3/memories/add/` |
+| Search memories | `client.search()` | `POST /v3/memories/search/` |
+| Get all memories (paginated) | `client.get_all()` | `POST /v3/memories/` |
 
 <Info>
 `get_all` / list now returns a paginated envelope: `{"count": int, "next": str | null, "previous": str | null, "results": [...]}`. Pass `page` and `page_size` as query params to paginate; defaults return the first page.
