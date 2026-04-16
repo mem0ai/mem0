@@ -409,7 +409,7 @@ describe("Qdrant – backward compat with mocked client", () => {
 describe("Redis – backward compat with mocked client", () => {
   let RedisDB: any;
 
-  beforeEach(() => {
+  beforeAll(() => {
     jest.resetModules();
 
     // Mock redis createClient
@@ -464,7 +464,7 @@ describe("Redis – backward compat with mocked client", () => {
     RedisDB = require("../src/vector_stores/redis").RedisDB;
   });
 
-  afterEach(() => {
+  afterAll(() => {
     jest.restoreAllMocks();
     jest.resetModules();
   });
@@ -532,7 +532,7 @@ describe("Redis – backward compat with mocked client", () => {
 describe("Supabase – backward compat with mocked client", () => {
   let SupabaseDB: any;
 
-  beforeEach(() => {
+  beforeAll(() => {
     jest.resetModules();
 
     jest.doMock("@supabase/supabase-js", () => {
@@ -563,7 +563,7 @@ describe("Supabase – backward compat with mocked client", () => {
     SupabaseDB = require("../src/vector_stores/supabase").SupabaseDB;
   });
 
-  afterEach(() => {
+  afterAll(() => {
     jest.restoreAllMocks();
     jest.resetModules();
   });
@@ -608,7 +608,7 @@ describe("Supabase – backward compat with mocked client", () => {
 describe("AzureAISearch – backward compat with mocked client", () => {
   let AzureAISearch: any;
 
-  beforeEach(() => {
+  beforeAll(() => {
     jest.resetModules();
 
     jest.doMock("@azure/search-documents", () => ({
@@ -640,7 +640,7 @@ describe("AzureAISearch – backward compat with mocked client", () => {
       require("../src/vector_stores/azure_ai_search").AzureAISearch;
   });
 
-  afterEach(() => {
+  afterAll(() => {
     jest.restoreAllMocks();
     jest.resetModules();
   });
@@ -686,7 +686,7 @@ describe("AzureAISearch – backward compat with mocked client", () => {
 describe("Vectorize – backward compat with mocked client", () => {
   let VectorizeDB: any;
 
-  beforeEach(() => {
+  beforeAll(() => {
     jest.resetModules();
 
     jest.doMock("cloudflare", () => {
@@ -719,7 +719,7 @@ describe("Vectorize – backward compat with mocked client", () => {
     VectorizeDB = require("../src/vector_stores/vectorize").VectorizeDB;
   });
 
-  afterEach(() => {
+  afterAll(() => {
     jest.restoreAllMocks();
     jest.resetModules();
   });
@@ -894,31 +894,24 @@ describe("Memory class – backward compat with all providers", () => {
   let MemoryClass: any;
   let mockEmbedderFactory: any;
   let mockVectorStoreFactory: any;
+  let mockLLMFactory: any;
+  let mockHistoryManagerFactory: any;
 
-  beforeEach(() => {
+  beforeAll(() => {
     jest.resetModules();
 
-    const mockEmbedder = createMockEmbedder(1536);
-    const mockVStore = createMockVectorStore();
-
-    mockEmbedderFactory = { create: jest.fn().mockReturnValue(mockEmbedder) };
-    mockVectorStoreFactory = { create: jest.fn().mockReturnValue(mockVStore) };
+    // Create stable factory objects whose jest.fn()s persist across tests.
+    // beforeEach resets call counts and default implementations via resetAllMocks.
+    mockEmbedderFactory = { create: jest.fn() };
+    mockVectorStoreFactory = { create: jest.fn() };
+    mockLLMFactory = { create: jest.fn() };
+    mockHistoryManagerFactory = { create: jest.fn() };
 
     jest.doMock("../src/utils/factory", () => ({
       EmbedderFactory: mockEmbedderFactory,
       VectorStoreFactory: mockVectorStoreFactory,
-      LLMFactory: {
-        create: jest.fn().mockReturnValue({
-          generateResponse: jest.fn().mockResolvedValue('{"facts":[]}'),
-        }),
-      },
-      HistoryManagerFactory: {
-        create: jest.fn().mockReturnValue({
-          addHistory: jest.fn().mockResolvedValue(undefined),
-          getHistory: jest.fn().mockResolvedValue([]),
-          reset: jest.fn().mockResolvedValue(undefined),
-        }),
-      },
+      LLMFactory: mockLLMFactory,
+      HistoryManagerFactory: mockHistoryManagerFactory,
     }));
 
     jest.doMock("../src/utils/telemetry", () => ({
@@ -928,7 +921,22 @@ describe("Memory class – backward compat with all providers", () => {
     MemoryClass = require("../src/memory").Memory;
   });
 
-  afterEach(() => {
+  beforeEach(() => {
+    // Reset call counts and implementations, then restore safe defaults.
+    jest.resetAllMocks();
+    mockEmbedderFactory.create.mockReturnValue(createMockEmbedder(1536));
+    mockVectorStoreFactory.create.mockReturnValue(createMockVectorStore());
+    mockLLMFactory.create.mockReturnValue({
+      generateResponse: jest.fn().mockResolvedValue('{"facts":[]}'),
+    });
+    mockHistoryManagerFactory.create.mockReturnValue({
+      addHistory: jest.fn().mockResolvedValue(undefined),
+      getHistory: jest.fn().mockResolvedValue([]),
+      reset: jest.fn().mockResolvedValue(undefined),
+    });
+  });
+
+  afterAll(() => {
     jest.restoreAllMocks();
     jest.resetModules();
   });
