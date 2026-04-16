@@ -74,7 +74,7 @@ The new algorithm is available through the V3 API. The endpoints split into per-
 | List memories (paginated) | `POST /v3/memories/` |
 
 <Info>
-`get_all` / list now returns a paginated envelope: `{"count": int, "next": str \| null, "previous": str \| null, "results": [...]}`. Pass `page` and `page_size` as query params to paginate; defaults return the first page.
+`get_all` / list now returns a paginated envelope: `{"count": int, "next": str | null, "previous": str | null, "results": [...]}`. Pass `page` and `page_size` as query params to paginate; defaults return the first page.
 </Info>
 
 <CodeGroup>
