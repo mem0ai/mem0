@@ -32,15 +32,26 @@ def get_user_id():
         return "anonymous_user"
 
 
-def get_or_create_user_id(vector_store):
-    """Store user_id in vector store and return it."""
+def get_or_create_user_id(vector_store=None):
+    """Store user_id in vector store and return it.
+
+    If vector_store is None, simply returns the user_id from config.
+    This ensures telemetry initialization never fails due to missing vector store.
+    """
     user_id = get_user_id()
+
+    # If no vector store provided, just return the user_id
+    if vector_store is None:
+        return user_id
 
     # Try to get existing user_id from vector store
     try:
         existing = vector_store.get(vector_id=user_id)
         if existing and hasattr(existing, "payload") and existing.payload and "user_id" in existing.payload:
-            return existing.payload["user_id"]
+            stored_id = existing.payload["user_id"]
+            # Ensure we never return None from vector store
+            if stored_id is not None:
+                return stored_id
     except Exception:
         pass
 

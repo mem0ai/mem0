@@ -38,7 +38,6 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
     expect(cfg.historyStore!.provider).toBe("sqlite");
     expect(cfg.historyStore!.config.historyDbPath).toBe("memory.db");
     expect(cfg.disableHistory).toBe(false);
-    expect(cfg.graphStore).toBeUndefined();
   });
 
   it("workaround: explicit historyStore still works (existing user pattern)", () => {
@@ -102,20 +101,6 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
     expect(cfg.vectorStore.provider).toBe("qdrant");
     expect(cfg.vectorStore.config.collectionName).toBe("test");
     expect(cfg.vectorStore.config.dimension).toBe(768);
-  });
-
-  it("graphStore config passes through unchanged", () => {
-    const cfg = ConfigManager.mergeConfig({
-      graphStore: {
-        provider: "neo4j",
-        config: {
-          url: "neo4j://custom:7687",
-          username: "admin",
-          password: "pass",
-        },
-      },
-    });
-    expect(cfg.graphStore!.config.url).toBe("neo4j://custom:7687");
   });
 
   it("customInstructions passes through unchanged", () => {
@@ -323,7 +308,7 @@ describe("backward compat: MemoryVectorStore", () => {
       );
 
       const results = await store.search(normalize([1, 0, 0]), 10, {
-        userId: "user2",
+        user_id: "user2",
       });
       expect(results).toHaveLength(1);
       expect(results[0].id).toBe("b");

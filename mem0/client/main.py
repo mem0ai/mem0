@@ -29,6 +29,9 @@ warnings.filterwarnings("default", category=DeprecationWarning)
 # Setup user config
 setup_config()
 
+# Entity parameters that must be passed via filters, not top-level
+ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
+
 
 class MemoryClient:
     """Client for interacting with the Mem0 API.
@@ -162,12 +165,9 @@ class MemoryClient:
         elif not isinstance(messages, list):
             raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
-        # Force v1.1 format for all add operations
-        kwargs["output_format"] = "v1.1"
-
         kwargs = self._prepare_params(kwargs)
         payload = self._prepare_payload(messages, kwargs)
-        response = self.client.post("/v1/memories/", json=payload)
+        response = self.client.post("/v3/memories/add/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -204,11 +204,10 @@ class MemoryClient:
 
         Args:
             options: Typed options for the get_all operation (GetAllMemoryOptions).
-            **kwargs: Optional parameters for filtering (user_id, agent_id,
-                      app_id, top_k, page, page_size).
+            **kwargs: Optional parameters for filtering (filters, page, page_size).
 
         Returns:
-            A dictionary containing memories in v1.1 format: {"results": [...]}
+            A paginated dict: {"count": int, "next": str | None, "previous": str | None, "results": [...]}
 
         Raises:
             ValidationError: If the input data is invalid.
@@ -218,6 +217,14 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in get_all(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
@@ -226,9 +233,9 @@ class MemoryClient:
                 "page": params.pop("page"),
                 "page_size": params.pop("page_size"),
             }
-            response = self.client.post("/v2/memories/", json=params, params=query_params)
+            response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
-            response = self.client.post("/v2/memories/", json=params)
+            response = self.client.post("/v3/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -240,12 +247,7 @@ class MemoryClient:
                 "sync_type": "sync",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     def search(self, query: str, options: Optional[SearchMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
@@ -267,11 +269,19 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in search(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
         payload = {"query": query, **params}
 
-        response = self.client.post("/v2/memories/search/", json=payload)
+        response = self.client.post("/v3/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -283,12 +293,7 @@ class MemoryClient:
                 "sync_type": "sync",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     def update(
@@ -1083,12 +1088,9 @@ class AsyncMemoryClient:
         elif not isinstance(messages, list):
             raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
-        # Force v1.1 format for all add operations
-        kwargs["output_format"] = "v1.1"
-
         kwargs = self._prepare_params(kwargs)
         payload = self._prepare_payload(messages, kwargs)
-        response = await self.async_client.post("/v1/memories/", json=payload)
+        response = await self.async_client.post("/v3/memories/add/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1112,7 +1114,7 @@ class AsyncMemoryClient:
             **kwargs: Optional parameters for filtering (filters, page, page_size).
 
         Returns:
-            A dictionary containing memories in v1.1 format: {"results": [...]}
+            A paginated dict: {"count": int, "next": str | None, "previous": str | None, "results": [...]}
 
         Raises:
             ValidationError: If the input data is invalid.
@@ -1122,6 +1124,14 @@ class AsyncMemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in get_all(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
 
@@ -1130,9 +1140,9 @@ class AsyncMemoryClient:
                 "page": params.pop("page"),
                 "page_size": params.pop("page_size"),
             }
-            response = await self.async_client.post("/v2/memories/", json=params, params=query_params)
+            response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
-            response = await self.async_client.post("/v2/memories/", json=params)
+            response = await self.async_client.post("/v3/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1144,12 +1154,7 @@ class AsyncMemoryClient:
                 "sync_type": "async",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     async def search(self, query: str, options: Optional[SearchMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
@@ -1171,11 +1176,19 @@ class AsyncMemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in search(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
         payload = {"query": query, **params}
 
-        response = await self.async_client.post("/v2/memories/search/", json=payload)
+        response = await self.async_client.post("/v3/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1187,12 +1200,7 @@ class AsyncMemoryClient:
                 "sync_type": "async",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     async def update(

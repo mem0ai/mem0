@@ -1,6 +1,7 @@
 import axios from "axios";
 import {
   AllUsers,
+  PaginatedMemories,
   ProjectOptions,
   Memory,
   MemoryHistory,
@@ -22,6 +23,37 @@ import {
 import { captureClientEvent, generateHash } from "./telemetry";
 import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
 import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
+
+// Entity params that must be passed via filters - check both snake_case and camelCase
+const ENTITY_PARAMS = [
+  "user_id",
+  "agent_id",
+  "app_id",
+  "run_id",
+  "userId",
+  "agentId",
+  "appId",
+  "runId",
+];
+
+/**
+ * Validates that no top-level entity parameters are passed.
+ * @throws Error if entity params are found at top level
+ */
+function rejectTopLevelEntityParams(
+  options: Record<string, any> | undefined,
+  methodName: string,
+): void {
+  const invalidKeys = Object.keys(options ?? {}).filter((k) =>
+    ENTITY_PARAMS.includes(k),
+  );
+  if (invalidKeys.length > 0) {
+    throw new Error(
+      `Top-level entity parameters [${invalidKeys.join(", ")}] are not supported in ${methodName}(). ` +
+        `Use filters: { user_id: "..." } instead.`,
+    );
+  }
+}
 
 class APIError extends Error {
   constructor(message: string) {
@@ -190,7 +222,7 @@ export default class MemoryClient {
     this._captureEvent("add", [payloadKeys]);
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/`,
+      `${this.host}/v3/memories/add/`,
       {
         method: "POST",
         headers: this.headers,
@@ -253,17 +285,20 @@ export default class MemoryClient {
     );
   }
 
-  async getAll(options?: GetAllMemoryOptions): Promise<Array<Memory>> {
+  async getAll(options?: GetAllMemoryOptions): Promise<PaginatedMemories> {
+    // Reject top-level entity params - must use filters instead
+    rejectTopLevelEntityParams(options as Record<string, any>, "getAll");
+
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("get_all", [payloadKeys]);
-    const { page, pageSize, ...rest } = options ?? {};
+    const { page, pageSize, filters, ...rest } = options ?? {};
     const body: Record<string, any> = {
-      output_format: "v1.1",
       ...camelToSnakeKeys(rest),
+      ...(filters && { filters }),
     };
 
-    let url = `${this.host}/v2/memories/`;
+    let url = `${this.host}/v3/memories/`;
     if (page && pageSize) {
       url += `?page=${page}&page_size=${pageSize}`;
     }
@@ -273,33 +308,36 @@ export default class MemoryClient {
       headers: this.headers,
       body: JSON.stringify(body),
     });
-    // Unwrap v1.1 format: { results: [...] } → [...]
-    return Array.isArray(response) ? response : (response?.results ?? response);
+    return response;
   }
 
   async search(
     query: string,
     options?: SearchMemoryOptions,
-  ): Promise<Array<Memory>> {
+  ): Promise<{ results: Array<Memory> }> {
+    // Reject top-level entity params - must use filters instead
+    rejectTopLevelEntityParams(options as Record<string, any>, "search");
+
     if (this.telemetryId === "") await this.ping();
     const payloadKeys = Object.keys(options || {});
     this._captureEvent("search", [payloadKeys]);
+    const { filters, ...rest } = options ?? {};
     const payload: Record<string, any> = {
       query,
       output_format: "v1.1",
-      ...camelToSnakeKeys(options ?? {}),
+      ...camelToSnakeKeys(rest),
+      ...(filters && { filters }),
     };
 
     const response = await this._fetchWithErrorHandling(
-      `${this.host}/v2/memories/search/`,
+      `${this.host}/v3/memories/search/`,
       {
         method: "POST",
         headers: this.headers,
         body: JSON.stringify(payload),
       },
     );
-    // Unwrap v1.1 format: { results: [...] } → [...]
-    return Array.isArray(response) ? response : (response?.results ?? response);
+    return response;
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
@@ -614,12 +652,16 @@ export default class MemoryClient {
       throw new Error("Missing filters or schema");
     }
 
+    const { filters, ...rest } = data;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(camelToSnakeKeys(data)),
+        body: JSON.stringify({
+          ...camelToSnakeKeys(rest),
+          filters,
+        }),
       },
     );
 
@@ -636,12 +678,16 @@ export default class MemoryClient {
       throw new Error("Missing memoryExportId or filters");
     }
 
+    const { filters, ...rest } = data;
     const response = await this._fetchWithErrorHandling(
       `${this.host}/v1/exports/get/`,
       {
         method: "POST",
         headers: this.headers,
-        body: JSON.stringify(camelToSnakeKeys(data)),
+        body: JSON.stringify({
+          ...camelToSnakeKeys(rest),
+          ...(filters && { filters }),
+        }),
       },
     );
     return response;

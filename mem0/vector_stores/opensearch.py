@@ -203,6 +203,57 @@ class OpenSearchDB(VectorStoreBase):
             logger.error(f"Error during search: {e}", exc_info=True)
             return []
 
+    def keyword_search(self, query, top_k=5, filters=None):
+        """Search for memories using BM25 keyword matching.
+
+        Args:
+            query (str): The text query to search for.
+            top_k (int): Maximum number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results with id, score, and payload.
+        """
+        # Build a multi_match query across text fields in payload
+        should_clauses = [
+            {"match": {"payload.data": query}},
+            {"match": {"payload.text_lemmatized": query}},
+        ]
+
+        bool_query = {
+            "should": should_clauses,
+            "minimum_should_match": 1,
+        }
+
+        # Apply filters consistently with the existing search() method
+        filter_clauses = []
+        if filters:
+            for key in ["user_id", "run_id", "agent_id"]:
+                value = filters.get(key)
+                if value:
+                    filter_clauses.append({"term": {f"payload.{key}.keyword": value}})
+
+        if filter_clauses:
+            bool_query["filter"] = filter_clauses
+
+        query_body = {
+            "size": top_k,
+            "query": {"bool": bool_query},
+        }
+
+        try:
+            response = self.client.search(index=self.collection_name, body=query_body)
+
+            hits = response["hits"]["hits"]
+            results = [
+                OutputData(id=hit["_source"].get("id"), score=hit["_score"], payload=hit["_source"].get("payload", {}))
+                for hit in hits[:top_k]
+            ]
+            return results
+        except Exception as e:
+            logger.error(f"Error during keyword search: {e}")
+            return []
+
     def delete(self, vector_id: str) -> None:
         """Delete a vector by custom ID."""
         # First, find the document by custom ID
