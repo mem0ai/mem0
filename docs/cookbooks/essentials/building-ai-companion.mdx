@@ -123,7 +123,7 @@ ollama_chat = OpenAI(base_url=f"{OLLAMA_URL}/v1", api_key="ollama")
 
 def chat(user_input, user_id):
     # Retrieve relevant memories
-    memories = memory.search(user_input, user_id=user_id, limit=5)
+    memories = memory.search(user_input, filters={"user_id": user_id}, top_k=5)
     context = "\n".join(m["memory"] for m in memories["results"])
 
     # Call LLM with memory context (Ollama via OpenAI-compatible API)
@@ -712,7 +712,7 @@ memories = mem0_client.search("training plan", user_id="max", limit=5)
   </Tab>
   <Tab title="Open Source">
 ```python
-memories = memory.search("training plan", user_id="max", limit=5)
+memories = memory.search("training plan", filters={"user_id": "max"}, top_k=5)
 # Gets: marathon goal, trail preference, ankle injury (if still valid / not pruned)
 ```
   </Tab>

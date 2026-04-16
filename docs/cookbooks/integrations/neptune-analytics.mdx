@@ -101,7 +101,7 @@ result = m.add(messages, user_id="alice", metadata={"category": "movie_recommend
 
 #### Search a memory:
 ```python
-relevant_memories = m.search(query, user_id="alice")
+relevant_memories = m.search(query, filters={"user_id": "alice"})
 ```
 
 #### Get all memories:

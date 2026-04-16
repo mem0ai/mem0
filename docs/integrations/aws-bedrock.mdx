@@ -107,10 +107,10 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movie_recommendations"})
 
 # Search for memory
-relevant = m.search("What kind of movies does Alice like?", user_id="alice")
+relevant = m.search("What kind of movies does Alice like?", filters={"user_id": "alice"})
 
 # Retrieve all user memories
-all_memories = m.get_all(user_id="alice")
+all_memories = m.get_all(filters={"user_id": "alice"})
 ```
 
 ## Key Features

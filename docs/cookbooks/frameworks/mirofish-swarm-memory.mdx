@@ -5,6 +5,10 @@ description: "Build a multi-agent swarm simulation with graph-powered memory usi
 
 <Snippet file="blank-notif.mdx" />
 
+<Warning>
+**Graph memory has been removed from the Mem0 OSS SDKs** (Python v2.0.0, TypeScript v3.0.0). This cookbook uses the legacy OSS graph-memory integration and will not run against the current OSS release. Entity extraction + linking is now built into the v3 extraction pipeline, but the external graph-store hooks and the `relations` field on search results are no longer available in OSS. For full graph features, use the [Mem0 Platform](https://app.mem0.ai). See the [OSS v2→v3 migration guide](/migration/oss-v2-to-v3).
+</Warning>
+
 Build a multi-agent swarm simulation with graph-powered memory using Mem0 OSS and [MiroFish](https://github.com/666ghj/MiroFish) patterns. MiroFish is a graph-centric system — it extracts entities and relationships from documents, builds a knowledge graph, and queries it throughout its pipeline. Mem0's Graph Memory is a natural replacement for its Zep Cloud integration.
 
 <Note>
@@ -608,7 +612,7 @@ MiroFish's entire pipeline revolves around a **knowledge graph** — it extracts
 When Graph Memory is enabled, every `search()` call returns two arrays:
 
 ```python
-results = memory.search("housing reform", user_id="my_sim")
+results = memory.search("housing reform", filters={"user_id": "my_sim"})
 
 # Vector-matched memories (ordered by similarity)
 results["results"]   # [{"memory": "...", "score": 0.85, ...}, ...]
@@ -637,13 +641,13 @@ memory.add(
 )
 
 # Search project-level memories (seed docs)
-memory.search("housing reform", user_id="my_sim")
+memory.search("housing reform", filters={"user_id": "my_sim"})
 
 # Search agent-specific memories (actions stored with run_id)
-memory.search("housing reform", run_id="mayor_chen")
+memory.search("housing reform", filters={"run_id": "mayor_chen"})
 
 # Get all project-level memories + graph relations
-memory.get_all(user_id="my_sim")
+memory.get_all(filters={"user_id": "my_sim"})
 ```
 
 <Note>

@@ -4,6 +4,14 @@ description: "Layer relationships onto Mem0 search so agents remember who did wh
 icon: "network-wired"
 ---
 
+<Warning>
+**Graph memory has been removed from the Mem0 OSS SDKs** (Python v2.0.0, TypeScript v3.0.0). The external graph-store integrations (Neo4j, Memgraph, Kuzu, Apache AGE, Neptune) and the `enable_graph` / `graph_store` config options are no longer available in OSS. Entity extraction and linking — the primary capability people reached for graph memory for — is now built into the v3 extraction and retrieval pipeline and runs automatically without any external graph backend.
+
+For full graph features (node / edge visualisation, custom relationship queries, persistent graph storage), use the [Mem0 Platform](https://app.mem0.ai). See the [OSS v2→v3 migration guide](/migration/oss-v2-to-v3) for details.
+
+The code samples below describe the legacy OSS graph memory integration and are retained for users on older versions.
+</Warning>
+
 Graph Memory extends Mem0 by persisting nodes and edges alongside embeddings, so recalls stitch together people, places, and events instead of just keywords.
 
 <Info icon="sparkles">
