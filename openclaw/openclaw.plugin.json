@@ -2,9 +2,16 @@
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. Injects recalled memories into agent context (auto-recall) and extracts facts after each turn (auto-capture). Both configurable via autoRecall/autoCapture settings.",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "kind": "memory",
   "skills": ["skills"],
+  "commandAliases": [
+    {
+      "name": "mem0",
+      "cliCommand": "mem0",
+      "description": "Mem0 memory plugin commands"
+    }
+  ],
   "contracts": {
     "tools": [
       "memory_search", "memory_add", "memory_get", "memory_list",

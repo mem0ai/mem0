@@ -41,16 +41,38 @@ export interface PluginAuthConfig {
 // OpenClaw config read/write
 // ============================================================================
 
-/** Read the full ~/.openclaw/openclaw.json */
+/**
+ * Read the full ~/.openclaw/openclaw.json.
+ *
+ * Returns {} only when the file doesn't exist (first-time setup).
+ * Throws on parse errors to prevent writes from destroying existing config.
+ */
 function readFullConfig(): Record<string, unknown> {
-  if (exists(OPENCLAW_CONFIG_FILE)) {
-    try {
-      return JSON.parse(readText(OPENCLAW_CONFIG_FILE));
-    } catch {
-      /* ignore parse errors */
-    }
+  if (!exists(OPENCLAW_CONFIG_FILE)) {
+    return {};
   }
-  return {};
+
+  const text = readText(OPENCLAW_CONFIG_FILE);
+
+  // Handle empty or whitespace-only files as first-time setup
+  if (!text.trim()) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Config is not a JSON object");
+    }
+    return parsed;
+  } catch (err) {
+    // Fail closed: throw so writes don't proceed with empty config
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `[openclaw-mem0] Failed to parse ${OPENCLAW_CONFIG_FILE}: ${msg}\n` +
+        `Fix the JSON syntax error manually before running config commands.`,
+    );
+  }
 }
 
 /** Write the full ~/.openclaw/openclaw.json (preserves all non-plugin config) */

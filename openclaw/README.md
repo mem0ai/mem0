@@ -4,6 +4,11 @@ Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, po
 
 Your agent forgets everything between sessions. This plugin fixes that — it watches conversations, extracts what matters, and brings it back when relevant. Automatically.
 
+## Requirements
+
+- **OpenClaw**: `>=2026.3.28` (plugin API and gateway version)
+- **Node.js**: 18+ (for open-source mode)
+
 ## Quick Start
 
 ```bash
