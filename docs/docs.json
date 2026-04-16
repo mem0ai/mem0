@@ -79,7 +79,6 @@
                         "group": "Advanced Features",
                         "icon": "bolt",
                         "pages": [
-                          "platform/features/graph-threshold",
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
                           "platform/features/criteria-retrieval",
@@ -169,7 +168,6 @@
                       "open-source/features/async-memory",
                       "open-source/features/multimodal-support",
                       "open-source/features/custom-instructions",
-                      "open-source/features/custom-update-memory-prompt",
                       "open-source/features/rest-api",
                       "open-source/features/openai_compatibility"
                     ]
@@ -369,7 +367,6 @@
                       "cookbooks/integrations/mastra-agent",
                       "cookbooks/integrations/healthcare-google-adk",
                       "cookbooks/integrations/aws-bedrock",
-                      "cookbooks/integrations/neptune-analytics",
                       "cookbooks/integrations/tavily-search"
                     ]
                   },
@@ -740,11 +737,23 @@
     },
     {
       "source": "/examples/aws_neptune_analytics_hybrid_store",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/examples/aws_neptune_analytics_hybrid_st",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/cookbooks/integrations/neptune-analytics",
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/platform/features/graph-threshold",
+      "destination": "/migration/platform-v2-to-v3"
+    },
+    {
+      "source": "/open-source/features/custom-update-memory-prompt",
+      "destination": "/open-source/features/custom-instructions"
     },
     {
       "source": "/examples/personalized-search-tavily-mem0",
@@ -916,7 +925,7 @@
     },
     {
       "source": "/v0x/examples/aws_neptune_analytics_hybrid_store",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/features/memory-export",

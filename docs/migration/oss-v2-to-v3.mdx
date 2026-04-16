@@ -91,6 +91,10 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
     # Qdrant users: also install fastembed to enable BM25 keyword search
     pip install fastembed
     ```
+
+    <Info>
+    **Supported Python versions for `[nlp]` extras: 3.10 – 3.12.** spaCy and its `blis` / `thinc` dependencies do not yet ship prebuilt wheels for Python 3.13, so installs on 3.13 will fail at build time. Use Python 3.12 (or older) for the `[nlp]` extras until upstream support lands. The base `mem0ai` package works on all supported Python versions; only the NLP extras are constrained.
+    </Info>
   </Tab>
   <Tab title="TypeScript">
     ```bash

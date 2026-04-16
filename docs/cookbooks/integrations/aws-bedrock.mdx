@@ -1,17 +1,17 @@
 ---
 title: Bedrock with Persistent Memory
-description: "Pair Mem0 with AWS Bedrock, OpenSearch, and Neptune for a managed stack."
+description: "Pair Mem0 with AWS Bedrock and OpenSearch for a managed stack."
 ---
 
 
-This example demonstrates how to configure and use the `mem0ai` SDK with **AWS Bedrock**, **OpenSearch Service (AOSS)**, and **AWS Neptune Analytics** for persistent memory capabilities in Python.
+This example demonstrates how to configure and use the `mem0ai` SDK with **AWS Bedrock** and **OpenSearch Service (AOSS)** for persistent memory capabilities in Python.
 
 ## Installation
 
 Install the required dependencies to include the Amazon data stack, including **boto3**, **opensearch-py**, and **langchain-aws**:
 
 ```bash
-pip install "mem0ai[graph,extras]"
+pip install "mem0ai[extras]"
 ```
 
 ## Environment Setup
@@ -78,12 +78,6 @@ config = {
             "embedding_model_dims": 1024,
         }
     },
-    "graph_store": {
-        "provider": "neptune",
-        "config": {
-            "endpoint": f"neptune-graph://my-graph-identifier",
-        },
-    },
 }
 
 # Initialize the memory system
@@ -91,8 +85,6 @@ m = Memory.from_config(config)
 ```
 
 ## Usage
-
-Reference [Notebook example](https://github.com/mem0ai/mem0/blob/main/examples/graph-db-demo/neptune-example.ipynb)
 
 ### Add a memory
 
@@ -128,14 +120,11 @@ memory = m.get(memory_id)
 
 ## Conclusion
 
-With Mem0 and AWS services like Bedrock, OpenSearch, and Neptune Analytics, you can build intelligent AI companions that remember, adapt, and personalize their responses over time. This makes them ideal for long-term assistants, tutors, or support bots with persistent memory and natural conversation abilities.
+With Mem0 and AWS services like Bedrock and OpenSearch, you can build intelligent AI companions that remember, adapt, and personalize their responses over time. This makes them ideal for long-term assistants, tutors, or support bots with persistent memory and natural conversation abilities.
 
 ---
 
 <CardGroup cols={2}>
-  <Card title="Neptune Analytics with Mem0" icon="database" href="/cookbooks/integrations/neptune-analytics">
-    Explore graph-based memory storage with AWS Neptune Analytics.
-  </Card>
   <Card title="Memory Evaluation" icon="chart-line" href="/core-concepts/memory-evaluation">
     Understand how Mem0's memory system is benchmarked and evaluated.
   </Card>
