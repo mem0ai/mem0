@@ -135,12 +135,19 @@ def capture_event(
             "anon_distinct_id_to_alias": anon_id_to_alias,
         }
 
-        subprocess.Popen(
-            [sys.executable, "-m", "mem0_cli.telemetry_sender", json.dumps(context)],
+        child = subprocess.Popen(
+            [sys.executable, "-m", "mem0_cli.telemetry_sender"],
+            stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             start_new_session=True,
             close_fds=True,
+            text=True,
         )
+        if child.stdin:
+            with contextlib.suppress(Exception):
+                child.stdin.write(json.dumps(context))
+            with contextlib.suppress(Exception):
+                child.stdin.close()
     except Exception:
         pass
