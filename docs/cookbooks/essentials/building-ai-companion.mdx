@@ -319,7 +319,7 @@ print([m["memory"] for m in memories["results"]])
   </Tab>
   <Tab title="Open Source">
 ```python
-memories = memory.get_all(user_id="max")
+memories = memory.get_all(filters={"user_id": "max"})
 print([m["memory"] for m in memories["results"]])
 # Output: ["Max wants to run marathon under 4 hours", "hey", "lol ok", "cool thanks", "gtg bye"]
 ```
@@ -397,7 +397,7 @@ print([m["memory"] for m in memories["results"]])
 chat("hey how's it going", user_id="max")
 chat("I prefer trail running over roads", user_id="max")
 
-memories = memory.get_all(user_id="max")
+memories = memory.get_all(filters={"user_id": "max"})
 print([m["memory"] for m in memories["results"]])
 # Output: ["Max wants to run marathon under 4 hours", "Max prefers trail running over roads"]
 ```
@@ -806,7 +806,7 @@ mem0_client.update(goal_memory["id"], "Max wants to run sub-3:45 marathon")
   <Tab title="Open Source">
 ```python
 # Find the old memory
-memories = memory.get_all(user_id="max")
+memories = memory.get_all(filters={"user_id": "max"})
 goal_memory = [m for m in memories["results"] if "sub-4" in m["memory"]][0]
 
 # Update it

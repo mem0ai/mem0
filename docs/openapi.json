@@ -1096,7 +1096,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(user_id=\"<user_id>\")\n\nprint(user_memories)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(filters={\"user_id\": \"<user_id>\"})\n\nprint(user_memories)"
 					},
 					{
 						"lang": "JavaScript",

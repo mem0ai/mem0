@@ -105,7 +105,7 @@ relevant_memories = m.search(query, filters={"user_id": "alice"})
 
 #### Get all memories:
 ```python
-all_memories = m.get_all(user_id="alice")
+all_memories = m.get_all(filters={"user_id": "alice"})
 ```
 
 #### Get a specific memory:
