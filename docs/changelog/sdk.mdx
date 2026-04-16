@@ -7,7 +7,57 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
-<Update label="2026-04-04" description="v1.0.11">
+<Update label="2026-04-14" description="v2.0.0">
+
+**Major Release** — Python SDK with V3 memory pipeline, ADD-only extraction, and cleaned-up API surface.
+
+**New Features:**
+- **Single-Pass Extraction:** Replaced 2-LLM-call pipeline with additive extraction using `ADDITIVE_EXTRACTION_PROMPT`. Memories accumulate via `linked_memory_ids` — no more UPDATE/DELETE events ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Hybrid Search:** Combined semantic + BM25 keyword matching + entity boost with additive scoring. Native `keyword_search()` added to 15 vector store adapters (Qdrant, Elasticsearch, OpenSearch, Azure AI Search, Weaviate, Redis, PGVector, Pinecone, Databricks, MongoDB, Milvus, Baidu, Upstash, Azure MySQL, Vertex AI) ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Entity Extraction & Linking:** spaCy-based entity extraction with second vector collection (`{collection}_entities`) for cross-memory relationship retrieval. Optional dependency: `pip install mem0ai[nlp]` ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Batch Operations:** Batch embedding, batch persist, and batch entity linking (8-phase pipeline) for both sync `Memory` and async `AsyncMemory` at full parity ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Message Persistence:** SQLite-based rolling window (10 messages per session scope) for LLM context ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Valkey Cluster Mode:** Added `cluster_mode` parameter for Valkey Cluster Mode Enabled (CME) deployments ([#4759](https://github.com/mem0ai/mem0/pull/4759))
+- **V3 API Endpoints:** `MemoryClient.add()` now posts to `/v3/memories/add/`; `MemoryClient.get_all()` posts to `/v3/memories/` and returns a paginated envelope `{"count": int, "next": str | None, "previous": str | None, "results": [...]}` ([#4856](https://github.com/mem0ai/mem0/pull/4856))
+- **Default model:** `gpt-5-mini` is now the default across `OpenAILLM`, `OpenAIStructuredLLM`, `AzureOpenAILLM`, `AzureOpenAIStructuredLLM`, and `LiteLLM` fallback ([#4829](https://github.com/mem0ai/mem0/pull/4829))
+
+**Breaking Changes:**
+- **`add()` returns ADD-only events** — No more `"UPDATE"` or `"DELETE"` events. Memories accumulate; nothing is overwritten ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **`search()` default `threshold` is now `0.1`** — Pass `threshold=0.0` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **`search()` `score` is now a combined multi-signal score** — The top-level `score` fuses semantic similarity, BM25 keyword match, and entity boost into one value. Absolute numbers shift versus the old raw cosine score; retune any hard thresholds against representative queries. Per-signal scores are not exposed on the response ([#4805](https://github.com/mem0ai/mem0/pull/4805), [#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **`search()` default `rerank` is now `False`** — Pass `rerank=True` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **`top_k` default changed 100 → 20** in `Memory.get_all()` and `Memory.search()` (sync + async). Pass `top_k=100` explicitly to restore the old behavior ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **Entity ID validation:** `user_id` / `agent_id` / `run_id` are trimmed; empty-string and whitespace-only values now raise `ValueError` ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **Search params validation:** `threshold` must be a number in `[0, 1]`; `top_k` must be a non-negative integer — invalid inputs raise `ValueError` ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **`messages` in `Memory.add()` rejects invalid types:** Passing `None` or non-`(str | dict | list)` values raises `Mem0ValidationError` (`error_code="VALIDATION_003"`) ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **`qdrant-client>=1.12.0` required** — Upgrade from `>=1.9.1` ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **`org_id` and `project_id` removed** — Removed from `MemoryClient` constructor and all method signatures ([#4740](https://github.com/mem0ai/mem0/pull/4740))
+- **Graph Memory Removed (OSS):** `mem0/memory/graph_memory.py`, `memgraph_memory.py`, `kuzu_memory.py`, `apache_age_memory.py`, and `mem0/graphs/` (Neo4j / Memgraph / Kuzu / Apache AGE / Neptune drivers) deleted — ~4,000 lines. Graph memory is no longer supported in the OSS SDK; graph drivers (neo4j, memgraph, kuzu, etc.) can be uninstalled. Use the Platform API for graph features. Remove `enable_graph` and `graph_store` from your config ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **`enable_graph` removed from Client SDK** — Graph memory is now a project-level setting on the Platform. Remove `enable_graph` from `MemoryClient.add()` / `search()` / `get_all()` / `update_project()` calls ([#4776](https://github.com/mem0ai/mem0/pull/4776))
+- **`custom_fact_extraction_prompt` renamed to `custom_instructions`** — Update config and memory module references ([#4740](https://github.com/mem0ai/mem0/pull/4740))
+- **Typed option classes** — Added Pydantic v2 typed classes: `AddMemoryOptions`, `SearchMemoryOptions`, `GetAllMemoryOptions`, `DeleteAllMemoryOptions`, `UpdateMemoryOptions`, `ProjectUpdateOptions` ([#4740](https://github.com/mem0ai/mem0/pull/4740))
+
+**Security:**
+- **FAISS:** Prevent arbitrary code execution via pickle deserialization in `FAISS` vector store ([#4833](https://github.com/mem0ai/mem0/pull/4833))
+
+**Bug Fixes:**
+- **V3 migration crashes:** Fixed crashes in the v3 migration path; entity linking on OSS is now functional across Qdrant and Milvus backends ([#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **Qdrant entity store:** Entity store now shares the existing Qdrant client when using embedded mode (`path=...`), eliminating RocksDB lock contention between the main and entity collections ([#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **Reranker:** Fixed incorrect use of SentenceTransformer for cross-encoder reranker models — switched to CrossEncoder API for proper scoring ([#4806](https://github.com/mem0ai/mem0/pull/4806))
+- **S3 Vectors:** Handle `vector=None` in `update()` to prevent boto3 validation error when `event=NONE` ([#4594](https://github.com/mem0ai/mem0/pull/4594))
+- **LLMs:** Made OpenAI `store` parameter opt-in to prevent leaking to non-OpenAI backends like Google Gemini ([#4757](https://github.com/mem0ai/mem0/pull/4757))
+- **LLMs:** Forward `response_format` to Azure OpenAI API to prevent JSON parsing failures ([#4689](https://github.com/mem0ai/mem0/pull/4689))
+- **Core:** Guard `temp_uuid_mapping` lookups against LLM-hallucinated IDs with safe `.get()` and warnings ([#4674](https://github.com/mem0ai/mem0/pull/4674))
+- **Client:** Prevent `MemoryClient.feedback()` telemetry TypeError by merging feedback data into single payload ([#4795](https://github.com/mem0ai/mem0/pull/4795))
+
+**Improvements:**
+- **Telemetry:** Sample OSS hot-path events at 10% via PostHog `before_send` hook to reduce event volume ([#4771](https://github.com/mem0ai/mem0/pull/4771))
+
+See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-v2) and [Platform migration guide](https://docs.mem0.ai/migration/platform-v2-to-v3) for upgrade instructions.
+
+</Update>
+
+<Update label="2026-04-06" description="v1.0.11">
 
 **New Features & Updates:**
 - **SDK:** Added `multilingual` parameter to project update ([#4314](https://github.com/mem0ai/mem0/pull/4314))
@@ -843,7 +893,59 @@ mode: "wide"
 </Tab>
 
 <Tab title="TypeScript">
-<Update label="2026-04-04" description="v2.4.6">
+<Update label="2026-04-14" description="v3.0.0">
+
+**Major Release** — TypeScript SDK with V3 memory pipeline, camelCase parameters, and cleaned-up API surface.
+
+**V3 Memory Pipeline (OSS):**
+- **Single-Pass Extraction:** Additive extraction pipeline aligned with Python SDK — memories accumulate, no UPDATE/DELETE events ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Entity Extraction & Linking:** New `entity_extraction.ts` module (720+ lines) with cross-memory relationship retrieval ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Message Persistence:** SQLite-based message history via new `SQLiteManager.ts` with rolling window for LLM context ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Batch Embeddings:** `embedBatch()` support in OpenAI and Azure embedding providers ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **Scoring & Lemmatization:** New `scoring.ts` and `lemmatization.ts` utilities for hybrid search ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **New Prompts:** `prompts/index.ts` (592+ lines) with additive extraction prompt aligned with Python SDK ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **V3 API Endpoints:** `MemoryClient.add()` now posts to `/v3/memories/add/`; `MemoryClient.getAll()` posts to `/v3/memories/` with paginated envelope `{ count, next, previous, results }` ([#4856](https://github.com/mem0ai/mem0/pull/4856))
+- **Default model:** `gpt-5-mini` is now the default in `OpenAI`, `OpenAIStructured`, and `Azure` LLM providers ([#4829](https://github.com/mem0ai/mem0/pull/4829))
+
+**Breaking Changes:**
+- **Graph Memory Removed (OSS):** `graph_memory.ts` (675 lines), `graphs/tools.ts` (267 lines), `graphs/utils.ts` (116 lines), `graphs/configs.ts` (30 lines) deleted. Graph memory is no longer supported in the OSS SDK — use Platform API for graph features ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **camelCase Parameters (Client SDK):** All user-facing parameters converted from snake_case to camelCase. Mapping is transparent at API boundary via `camelToSnakeKeys()` / `snakeToCamelKeys()` ([#4776](https://github.com/mem0ai/mem0/pull/4776))
+  ```typescript
+  // Before
+  client.add(messages, { user_id: "alice", top_k: 5 });
+  // After
+  client.add(messages, { userId: "alice", topK: 5 });
+  ```
+- **Per-Method Option Types:** Replaced monolithic `MemoryOptions` with typed interfaces: `AddMemoryOptions`, `SearchMemoryOptions`, `GetAllMemoryOptions`, `DeleteAllMemoryOptions` ([#4740](https://github.com/mem0ai/mem0/pull/4740))
+- **Removed Deprecated Parameters:** `org_id`, `project_id`, `api_version`, `output_format`, `async_mode`, `enable_graph`, `limit` removed from client method signatures. `ClientOptions` reduced to `{ apiKey, host }` only ([#4740](https://github.com/mem0ai/mem0/pull/4740))
+- **`limit` renamed to `topK` (OSS):** Update all search calls ([#4740](https://github.com/mem0ai/mem0/pull/4740))
+- **`topK` default changed 100 → 20** in `Memory.getAll()` and `Memory.search()`. Pass `topK: 100` explicitly to restore the old behavior ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **Entity ID validation:** `userId` / `agentId` / `runId` are trimmed; empty-string and whitespace-only values now throw ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **Search params validation:** `threshold` must be in `[0, 1]`; `topK` must be a non-negative integer — invalid inputs throw ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **`messages` in `Memory.add()` is required:** Passing `undefined` or `null` now throws ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **`customPrompt` renamed to `customInstructions` (OSS):** Update memory and vector store configurations ([#4740](https://github.com/mem0ai/mem0/pull/4740))
+- **`enableGraph` removed (OSS):** Config option removed — graph memory no longer available in OSS ([#4776](https://github.com/mem0ai/mem0/pull/4776))
+
+**New Features:**
+- **LLMs:** Added DeepSeek LLM provider with OpenAI-compatible integration using custom baseURL to `api.deepseek.com` ([#4613](https://github.com/mem0ai/mem0/pull/4613))
+- **Entity store isolation:** `MemoryVectorStore` now uses a dedicated `_entities.db` file, preventing entity/memory store collisions ([#4829](https://github.com/mem0ai/mem0/pull/4829), [#4841](https://github.com/mem0ai/mem0/pull/4841))
+- **Payload backward compatibility:** Legacy camelCase payload keys normalized to snake_case on read ([#4841](https://github.com/mem0ai/mem0/pull/4841))
+
+**Bug Fixes:**
+- **V3 migration:** Fixed crashes in the OSS migration path; entity linking works end-to-end ([#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **PGVector init race:** `PGVector.initialize()` now memoises the in-flight init promise ([#4841](https://github.com/mem0ai/mem0/pull/4841))
+- **Redis module detection:** Handles both node-redis v4+ and legacy `moduleList` response shapes ([#4841](https://github.com/mem0ai/mem0/pull/4841))
+- **Config:** Fixed `ConfigManager.mergeConfig()` to only include `graphStore` when explicitly provided by user, preventing default Neo4j connection attempts ([#4776](https://github.com/mem0ai/mem0/pull/4776))
+- **LLMs:** Config manager now falls back to `userConf.url` for `baseURL` — prevents custom LLM providers (Ollama, LMStudio) from silently connecting to OpenAI ([#4761](https://github.com/mem0ai/mem0/pull/4761))
+
+**Improvements:**
+- **Telemetry:** Sample OSS hot-path events at 10% to reduce PostHog event volume ([#4771](https://github.com/mem0ai/mem0/pull/4771))
+
+See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to-v3) for upgrade instructions.
+
+</Update>
+
+<Update label="2026-04-06" description="v2.4.6">
 
 **New Features & Updates:**
 - **Client:** Added `multilingual` parameter to project update types ([#4314](https://github.com/mem0ai/mem0/pull/4314))

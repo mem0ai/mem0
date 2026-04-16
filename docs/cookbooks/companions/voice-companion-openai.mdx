@@ -126,10 +126,9 @@ async def search_memories(
     print(f"Finding memories related to: {query}")
     results = await mem0_client.search(
         query,
-        user_id=USER_ID,
+        filters={"user_id": USER_ID},
         top_k=5,
         threshold=0.7,  # Higher threshold for more relevant results
-
     )
 
     # Format and return the results
@@ -161,7 +160,7 @@ def create_memory_voice_agent():
             Use the search_memories tool when you need context from past conversations or user asks you to recall something.
             """,
         ),
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         tools=[save_memories, search_memories],
     )
     
@@ -342,10 +341,9 @@ async def search_memories(
     print(f"Finding memories related to: {query}")
     results = await mem0_client.search(
         query,
-        user_id=USER_ID,
+        filters={"user_id": USER_ID},
         top_k=5,
         threshold=0.7,  # Higher threshold for more relevant results
-
     )
 
     # Format and return the results
@@ -368,7 +366,7 @@ def create_memory_voice_agent():
             Use the search_memories tool when you need context from past conversations or user asks you to recall something.
             """,
         ),
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         tools=[save_memories, search_memories],
     )
     

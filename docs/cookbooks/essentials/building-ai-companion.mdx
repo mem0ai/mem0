@@ -62,7 +62,7 @@ mem0_client = MemoryClient(api_key="your-mem0-key")
 
 def chat(user_input, user_id):
     # Retrieve relevant memories
-    memories = mem0_client.search(user_input, user_id=user_id, top_k=5)
+    memories = mem0_client.search(user_input, filters={"user_id": user_id}, top_k=5)
     context = "\\n".join(m["memory"] for m in memories["results"])
 
     # Call LLM with memory context
@@ -123,7 +123,7 @@ ollama_chat = OpenAI(base_url=f"{OLLAMA_URL}/v1", api_key="ollama")
 
 def chat(user_input, user_id):
     # Retrieve relevant memories
-    memories = memory.search(user_input, user_id=user_id, top_k=5)
+    memories = memory.search(user_input, filters={"user_id": user_id}, top_k=5)
     context = "\n".join(m["memory"] for m in memories["results"])
 
     # Call LLM with memory context (Ollama via OpenAI-compatible API)
@@ -319,7 +319,7 @@ print([m["memory"] for m in memories["results"]])
   </Tab>
   <Tab title="Open Source">
 ```python
-memories = memory.get_all(user_id="max")
+memories = memory.get_all(filters={"user_id": "max"})
 print([m["memory"] for m in memories["results"]])
 # Output: ["Max wants to run marathon under 4 hours", "hey", "lol ok", "cool thanks", "gtg bye"]
 ```
@@ -397,7 +397,7 @@ print([m["memory"] for m in memories["results"]])
 chat("hey how's it going", user_id="max")
 chat("I prefer trail running over roads", user_id="max")
 
-memories = memory.get_all(user_id="max")
+memories = memory.get_all(filters={"user_id": "max"})
 print([m["memory"] for m in memories["results"]])
 # Output: ["Max wants to run marathon under 4 hours", "Max prefers trail running over roads"]
 ```
@@ -446,7 +446,7 @@ Retrieve agent style alongside user memories:
   <Tab title="Platform">
 ```python
 # Get coach personality
-agent_memories = mem0_client.search("coaching style", agent_id="ray_coach")
+agent_memories = mem0_client.search("coaching style", filters={"agent_id": "ray_coach"})
 # Output: ["Max wants direct, data-driven feedback. Skip motivational language."]
 
 # Store conversations with agent_id
@@ -459,7 +459,7 @@ mem0_client.add([
   <Tab title="Open Source">
 ```python
 # Get coach personality
-agent_memories = memory.search("coaching style", agent_id="ray_coach")
+agent_memories = memory.search("coaching style", filters={"agent_id": "ray_coach"})
 # Output: ["Max wants direct, data-driven feedback. Skip motivational language."]
 
 # Store conversations with agent_id
@@ -705,13 +705,13 @@ memory.add(
 <Tabs>
   <Tab title="Platform">
 ```python
-memories = mem0_client.search("training plan", user_id="max", top_k=5)
+memories = mem0_client.search("training plan", filters={"user_id": "max"}, top_k=5)
 # Gets: marathon goal, trail preference, ankle injury (if still valid)
 ```
   </Tab>
   <Tab title="Open Source">
 ```python
-memories = memory.search("training plan", user_id="max", top_k=5)
+memories = memory.search("training plan", filters={"user_id": "max"}, top_k=5)
 # Gets: marathon goal, trail preference, ankle injury (if still valid / not pruned)
 ```
   </Tab>
@@ -805,7 +805,7 @@ mem0_client.update(goal_memory["id"], "Max wants to run sub-3:45 marathon")
   <Tab title="Open Source">
 ```python
 # Find the old memory
-memories = memory.get_all(user_id="max")
+memories = memory.get_all(filters={"user_id": "max"})
 goal_memory = [m for m in memories["results"] if "sub-4" in m["memory"]][0]
 
 # Update it

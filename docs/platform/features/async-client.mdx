@@ -62,11 +62,11 @@ Search for memories based on a query asynchronously.
 <CodeGroup>
 
 ```python Python
-await client.search("What is Alice's favorite sport?", user_id="alice")
+await client.search("What is Alice's favorite sport?", filters={"user_id": "alice"})
 ```
 
 ```javascript JavaScript
-await client.search("What is Alice's favorite sport?", { userId: "alice" });
+await client.search("What is Alice's favorite sport?", { filters: { userId: "alice" } });
 ```
 
 </CodeGroup>
