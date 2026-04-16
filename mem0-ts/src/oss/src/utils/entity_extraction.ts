@@ -660,6 +660,9 @@ export function extractEntities(text: string): ExtractedEntity[] {
     txt = txt.replace(/\s*:+$/, "");
     // Strip leading numbered list markers
     txt = txt.replace(/^\d+\s*\.\s*/, "");
+    // Strip trailing sentence punctuation (".", ",", ";", "!", "?") — otherwise
+    // "Paris." and "Paris" produce different embeddings and break entity dedup.
+    txt = txt.replace(/[.,;!?]+$/, "").trim();
 
     if (!txt || txt.length <= 2 || hasArtifacts(txt)) {
       continue;
