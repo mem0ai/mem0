@@ -40,7 +40,7 @@ load_dotenv()
 # os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
 # Initialize LangChain and Mem0
-llm = ChatOpenAI(model="gpt-4.1-nano-2025-04-14")
+llm = ChatOpenAI(model="gpt-5-mini")
 mem0 = MemoryClient()
 ```
 
@@ -66,7 +66,7 @@ Create functions to handle context retrieval, response generation, and addition 
 def retrieve_context(query: str, user_id: str) -> List[Dict]:
     """Retrieve relevant context from Mem0"""
     try:
-        memories = mem0.search(query, user_id=user_id)
+        memories = mem0.search(query, filters={"user_id": user_id})
         memory_list = memories['results']
         
         serialized_memories = ' '.join([mem["memory"] for mem in memory_list])

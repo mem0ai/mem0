@@ -43,7 +43,7 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movie_recom
 
 <Step title="Search memories">
 ```ts
-const results = await memory.search("What do you know about me?", { userId: "alice" });
+const results = await memory.search("What do you know about me?", { filters: { userId: "alice" } });
 console.log(results);
 ```
 
@@ -67,7 +67,7 @@ console.log(results);
 </Steps>
 
 <Note>
-By default the Node SDK uses local-friendly settings (OpenAI `gpt-4.1-nano-2025-04-14`, `text-embedding-3-small`, in-memory vector store, and SQLite history). Swap components by passing a config as shown below.
+By default the Node SDK uses local-friendly settings (OpenAI `gpt-5-mini`, `text-embedding-3-small`, in-memory vector store, and SQLite history). Swap components by passing a config as shown below.
 </Note>
 
 ## Configure for production
@@ -106,7 +106,7 @@ const memory = new Memory({
 
 <CodeGroup>
 ```ts Get all memories
-const allMemories = await memory.getAll({ userId: "alice" });
+const allMemories = await memory.getAll({ filters: { userId: "alice" } });
 console.log(allMemories);
 ```
 
@@ -116,7 +116,7 @@ console.log(singleMemory);
 ```
 
 ```ts Search memories
-const result = await memory.search("What do you know about me?", { userId: "alice" });
+const result = await memory.search("What do you know about me?", { filters: { userId: "alice" } });
 console.log(result);
 ```
 

@@ -56,7 +56,7 @@ Search converts your natural language question into a vector embedding, then fin
 client.search("What are Alice's hobbies?", filters={"user_id": "alice"})
 
 # OSS
-m.search("What are Alice's hobbies?", user_id="alice")
+m.search("What are Alice's hobbies?", filters={"user_id": "alice"})
 ```
 
 <Tip>
@@ -74,7 +74,7 @@ m.search("What are Alice's hobbies?", user_id="alice")
 
 | Capability | Mem0 Platform | Mem0 OSS |
 | --- | --- | --- |
-| **user_id usage** | In `filters={"user_id": "alice"}` for search/get_all | As parameter `user_id="alice"` for all operations |
+| **Entity IDs on search / get_all** | Inside `filters={"user_id": "alice"}` | Inside `filters={"user_id": "alice"}` (aligned with Platform in v3 — top-level kwargs raise `ValueError`) |
 | **Filter syntax** | Logical operators (`AND`, `OR`, comparisons) with field-level access | Basic field filters, extend via Python hooks |
 | **Reranking** | Toggle `rerank=True` with managed reranker catalog | Requires configuring local or third-party rerankers |
 | **Thresholds** | Request-level configuration (`threshold`, `top_k`) | Controlled via SDK parameters |
@@ -125,14 +125,13 @@ from mem0 import Memory
 
 m = Memory()
 
-# Simple search
-related_memories = m.search("Should I drink coffee or tea?", user_id="alice")
+# Simple search — entity IDs go in `filters`
+related_memories = m.search("Should I drink coffee or tea?", filters={"user_id": "alice"})
 
-# Search with filters
+# Search with additional metadata filters (combine entity + metadata in the same dict)
 memories = m.search(
     "food preferences",
-    user_id="alice",
-    filters={"categories": {"contains": "diet"}}
+    filters={"user_id": "alice", "categories": {"contains": "diet"}},
 )
 ```
 
@@ -141,13 +140,14 @@ import { Memory } from 'mem0ai/oss';
 
 const memory = new Memory();
 
-// Simple search
-const relatedMemories = memory.search("Should I drink coffee or tea?", { userId: "alice" });
+// Simple search — entity IDs go inside `filters`
+const relatedMemories = memory.search("Should I drink coffee or tea?", {
+    filters: { userId: "alice" },
+});
 
-// Search with filters (if supported)
+// Combine entity + metadata filters in the same filters object
 const memories = memory.search("food preferences", {
-    userId: "alice",
-    filters: { categories: { contains: "diet" } }
+    filters: { userId: "alice", categories: { contains: "diet" } },
 });
 ```
 </CodeGroup>
@@ -176,8 +176,12 @@ client.search("query", filters={
 
 *OSS:*
 ```python
-# Get memories from a specific agent session
-m.search("query", user_id="alice", agent_id="chatbot", run_id="session-123")
+# Get memories from a specific agent session — entity IDs combined in filters
+m.search("query", filters={
+    "user_id": "alice",
+    "agent_id": "chatbot",
+    "run_id": "session-123",
+})
 ```
 
 **Filter by Date Range:**

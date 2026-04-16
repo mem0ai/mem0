@@ -36,7 +36,7 @@ messages = [
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 
 # Search memories
-results = m.search(query="sci-fi recommendations", user_id="alice")
+results = m.search(query="sci-fi recommendations", filters={"user_id": "alice"})
 ```
 
 ### Config

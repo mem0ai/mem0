@@ -4,6 +4,26 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-04-14" description="Mem0 SDK v2.0.0 / v3.0.0">
+
+**New Memory Algorithm — State-of-the-Art Accuracy at 90% Lower Cost**
+
+Ground-up rewrite of the memory pipeline with 20+ point benchmark improvements:
+
+- **LoCoMo:** 71.4 → **91.6** (+20) — multi-turn conversation recall
+- **LongMemEval:** 67.8 → **93.4** (+26) — long-term memory across sessions
+- **BEAM (1M tokens):** **64.1** — production-scale memory evaluation
+- **Agent memories are first-class** — Previous algorithm: 46% on assistant recall. New: **100%**
+- **Temporal reasoning works** — "Where did I live before SF?" Previous: 51%. New: **93%**
+- **90% fewer tokens** — Under 7K tokens per retrieval vs 25K+ for full-context approaches
+- **ADD-only extraction** — Memories accumulate; nothing is overwritten or deleted
+- **Hybrid retrieval** — Semantic + BM25 keyword + entity boost, scored in parallel
+- **Entity linking** — Entities extracted, embedded, and linked across memories
+
+Breaking changes: Graph memory removed from OSS, `search()` defaults changed, deprecated params removed. See [migration guide](/migration/oss-v2-to-v3).
+
+</Update>
+
 <Update label="2026-04-06" description="Mem0 Skill Graph">
 
 **Mem0 Skill Graph — In-Context Documentation for AI Agents**
@@ -31,7 +51,7 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 </Update>
 
-<Update label="2026-04-04" description="OpenClaw v1.0.4">
+<Update label="2026-04-06" description="OpenClaw v1.0.4">
 
 **OpenClaw Plugin — Production-Ready**
 

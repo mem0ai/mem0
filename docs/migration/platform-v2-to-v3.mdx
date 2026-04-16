@@ -1,0 +1,328 @@
+---
+title: "Platform: Migrating to the New Memory Algorithm"
+description: "Guide for Mem0 Platform users to adopt the new memory algorithm with single-pass extraction, entity linking, and multi-signal retrieval."
+icon: "arrow-right"
+iconType: "solid"
+---
+
+<Info>
+**No action required for most users.** The new algorithm is rolling out automatically to all Mem0 Platform projects. This guide covers what changed, what to expect, and how to take full advantage of the new capabilities.
+</Info>
+
+## Overview
+
+The new Mem0 memory algorithm is a ground-up redesign of how memories are extracted, stored, and retrieved. It scores **91.6 on LoCoMo** and **93.4 on LongMemEval** — a +20 and +26 point improvement over the previous algorithm — while cutting extraction latency roughly in half.
+
+| What Changed | Before | After |
+|---|---|---|
+| **Extraction** | Two LLM passes (extract + merge) | Single-pass ADD-only (one LLM call) |
+| **Memory mutations** | ADD, UPDATE, DELETE | ADD only — nothing is overwritten or deleted |
+| **Agent-generated facts** | Often ignored | First-class, stored with equal weight |
+| **Entity linking** | Not available | Entities extracted and linked across memories |
+| **Graph memory** | Separate graph store + dashboard visualization | Replaced by built-in entity linking, no graph visuals on platform dashboard |
+| **Retrieval** | Semantic (vector) only | Hybrid retrieval combining multiple signals |
+
+## What This Means for Your Application
+
+### Memories accumulate instead of being overwritten
+
+The previous algorithm could UPDATE or DELETE existing memories during extraction. The new algorithm only adds new facts. When information changes (e.g., a user moves from New York to San Francisco), both facts are preserved with temporal context. This means:
+
+- **More memories over time** — your memory count will grow rather than plateau
+- **Better temporal reasoning** — the system can distinguish "used to live in New York" from "now lives in San Francisco"
+- **No information loss** — facts that seemed contradictory but were actually complementary are preserved
+
+<Tip>
+If your application previously relied on UPDATE/DELETE behavior to keep memory counts low, the new algorithm handles this at retrieval time instead. Multi-signal retrieval ranks the most relevant, current information higher without destroying historical context.
+</Tip>
+
+### Agent-generated facts are now captured
+
+Previously, when an agent said something like "I've booked your flight for March 3rd," the system would often ignore it and only store what the user explicitly stated. The new algorithm treats agent-generated facts as first-class memories. If your application involves agents that confirm actions, provide recommendations, or share information, you'll see significantly better recall on those interactions.
+
+### Retrieval is hybrid now
+
+Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, or entities that appear across multiple memories. The response shape is unchanged:
+
+```json
+{
+  "results": [
+    {
+      "id": "mem-uuid",
+      "memory": "User moved to San Francisco in January 2026",
+      "score": 0.82,
+      "metadata": {},
+      "categories": ["location"]
+    }
+  ]
+}
+```
+
+The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries.
+
+## API Changes
+
+### New V3 Endpoints
+
+The new algorithm is available through the V3 API. The endpoints split into per-operation paths:
+
+| Operation | SDK method | Endpoint |
+|---|---|---|
+| Add memories | `client.add()` | `POST /v3/memories/add/` |
+| Search memories | `client.search()` | `POST /v3/memories/search/` |
+| Get all memories (paginated) | `client.get_all()` | `POST /v3/memories/` |
+
+<Info>
+`get_all` / list now returns a paginated envelope: `{"count": int, "next": str | null, "previous": str | null, "results": [...]}`. Pass `page` and `page_size` as query params to paginate; defaults return the first page.
+</Info>
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Add memories (same interface, improved extraction)
+result = client.add(
+    messages=[
+        {"role": "user", "content": "I just moved to San Francisco from New York"},
+        {"role": "assistant", "content": "That's exciting! I'll update your location preferences."}
+    ],
+    user_id="alice"
+)
+
+# Search with multi-signal retrieval
+results = client.search(
+    query="where does the user live?",
+    filters={"user_id": "alice"}
+)
+
+# List memories (paginated)
+page = client.get_all(filters={"user_id": "alice"}, page=1, page_size=50)
+# page == {"count": 123, "next": "...", "previous": None, "results": [...]}
+```
+
+```bash cURL
+# Add memories
+curl -X POST https://api.mem0.ai/v3/memories/add/ \
+  -H "Authorization: Token your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "I just moved to San Francisco from New York"},
+      {"role": "assistant", "content": "That'\''s exciting! I'\''ll update your location preferences."}
+    ],
+    "user_id": "alice"
+  }'
+
+# Search memories
+curl -X POST https://api.mem0.ai/v3/memories/search/ \
+  -H "Authorization: Token your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "where does the user live?",
+    "filters": {"user_id": "alice"}
+  }'
+
+# List memories (paginated)
+curl -X POST 'https://api.mem0.ai/v3/memories/?page=1&page_size=50' \
+  -H "Authorization: Token your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"filters": {"user_id": "alice"}}'
+```
+</CodeGroup>
+
+### Search Parameter Changes
+
+| Parameter | V1/V2 | V3 | Notes |
+|---|---|---|---|
+| `top_k` | Supported | Supported (1-1000, default 10) | No change |
+| `threshold` | Default: none | Default: `0.1` | Pass `0.0` to disable |
+| `rerank` | Default: `true` | Default: `false` | Pass `true` to enable (adds latency) |
+| Entity IDs in `search` / `get_all` | Top-level | Inside `filters` dict | Top-level raises 400 |
+
+### Response Format
+
+**Add response** — asynchronous, returns an `event_id` for polling:
+
+```json
+{
+  "message": "Memory processing has been queued for background execution",
+  "status": "PENDING",
+  "event_id": "evt-uuid"
+}
+```
+
+Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `FAILED`.
+
+**Search response** — combined multi-signal score per result:
+
+```json
+{
+  "results": [
+    {
+      "id": "mem-uuid",
+      "memory": "User moved to San Francisco from New York in January 2026",
+      "score": 0.82,
+      "metadata": {},
+      "categories": ["location"],
+      "created_at": "2026-01-15T10:30:00Z",
+      "updated_at": "2026-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+**List response** — paginated envelope (new in V3):
+
+```json
+{
+  "count": 123,
+  "next": "https://api.mem0.ai/v3/memories/?page=2&page_size=50",
+  "previous": null,
+  "results": [
+    {
+      "id": "mem-uuid",
+      "memory": "...",
+      "metadata": {},
+      "categories": [],
+      "created_at": "2026-01-15T10:30:00Z",
+      "updated_at": "2026-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+## SDK Breaking Changes
+
+Alongside the algorithm update, the Python and TypeScript client SDKs have been cleaned up. These changes affect how you initialize and call the client.
+
+### Python Client SDK
+
+```python
+from mem0 import MemoryClient
+
+# Before
+client = MemoryClient(
+    api_key="...",
+    org_id="org-1",       # [REMOVED] Removed
+    project_id="proj-1"   # [REMOVED] Removed
+)
+client.add(messages, user_id="alice", async_mode=True, output_format="v1.1")
+
+# After
+client = MemoryClient(api_key="...")
+client.add(messages, user_id="alice")
+# async_mode and output_format removed (async by default, v1.1 always)
+```
+
+**Removed parameters:** `org_id`, `project_id`, `api_version`, `output_format`, `async_mode`, `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`, `org_name`, `project_name`
+
+### TypeScript Client SDK
+
+All parameters now use **camelCase** (the SDK handles conversion to/from the API automatically):
+
+```typescript
+// Before
+const client = new MemoryClient({
+  apiKey: "...",
+  organizationId: "org-1",  // [REMOVED] Removed
+  projectId: "proj-1"       // [REMOVED] Removed
+});
+await client.search("query", {
+  user_id: "alice",          // [REMOVED] snake_case
+  top_k: 20,                 // [REMOVED] snake_case
+  enable_graph: true          // [REMOVED] Removed
+});
+
+// After
+const client = new MemoryClient({ apiKey: "..." });
+await client.search("query", {
+  filters: { userId: "alice" },  // [OK] inside filters
+  topK: 20                       // [OK] camelCase
+});
+```
+
+**Removed:** `OutputFormat` enum, `API_VERSION` enum, `organizationId`, `projectId`, `organizationName`, `projectName`, `enableGraph`, `asyncMode`, `outputFormat`, `immutable`, `expirationDate`, `filterMemories`, `batchSize`, `forceAddOnly`, `includes`, `excludes`, `keywordSearch`
+
+<Info>
+For the full list of parameter changes across all SDKs, see the [OSS migration guide](/migration/oss-v2-to-v3#removed-parameters-reference).
+</Info>
+
+## Graph Memory → Entity Linking
+
+Graph memory has been replaced by **built-in entity linking**. The changes:
+
+- **Graph visualizations removed from the platform dashboard.** The graph view in your project dashboard is no longer available.
+- **`enable_graph` project setting removed.** The toggle is gone from the dashboard; the API parameter is ignored.
+- **No external graph store to configure.** Previously graph memory required a separate Neo4j (or similar) deployment. Entity linking runs natively inside the platform — nothing to provision, no connection strings to manage.
+- **Entity linking is the native replacement.** Entities (proper nouns, quoted text, compound noun phrases) are automatically extracted from every memory and linked across memories belonging to the same user. At search time, entities from the query are matched against this index and used to boost ranking. The boost is folded into the combined `score` returned on each result.
+
+**No migration work is required.** Entity linking activates automatically for all projects on the new algorithm. Existing memories are not re-processed, but any new memories you add will be indexed for entity-based retrieval going forward.
+
+<Note>
+If your application previously read graph relations from the API response (`relations` field on search results), note that this field is no longer populated. Entity relationships are now consumed indirectly through retrieval ranking, not exposed as a separate graph structure.
+</Note>
+
+## Migration Checklist
+
+<Steps>
+  <Step title="Review your search thresholds">
+    The default `threshold` is now `0.1` (previously no threshold). If your application was relying on unfiltered results, explicitly pass `threshold=0.0` in your search calls to preserve the old behavior. In most cases, the new default is better — it filters out low-relevance noise.
+  </Step>
+  <Step title="Review reranking usage">
+    Reranking is now `false` by default. If your application depended on reranked results, add `rerank=True` to your search calls. Note that reranking adds latency (~200-400ms) but can improve ordering quality for complex queries.
+  </Step>
+  <Step title="Update score handling (optional)">
+    The top-level `score` field continues to work as before. It is now a combined multi-signal score (semantic + keyword + entity) rather than pure cosine similarity, so the absolute numbers will differ. Relative ranking remains comparable — if you have threshold-based filtering in your app, retune on a representative query set.
+  </Step>
+  <Step title="Adjust memory count expectations">
+    With ADD-only extraction, memory counts will grow over time rather than being consolidated. This is by design — retrieval handles relevance ranking. If you have hard limits on memory count, consider using the memory expiration feature or periodic cleanup.
+  </Step>
+  <Step title="Test with representative queries">
+    The biggest improvements are in temporal reasoning (+29.6 on LoCoMo), multi-hop queries (+23.1), and assistant memory recall (+53.6 on LongMemEval). Test queries in these categories to see the improvement.
+  </Step>
+</Steps>
+
+## Backward Compatibility
+
+- **V1 and V2 endpoints continue to work.** There is no requirement to migrate to V3 endpoints immediately.
+- **Existing memories are preserved.** The new algorithm does not modify or re-process previously stored memories.
+- **Search response shape is unchanged.** The top-level `score` and `results[]` array are the same; existing code that reads `score` continues to work. What changed is the scoring method behind the number (multi-signal fusion instead of pure cosine), so the absolute values shift even when ranking stays comparable.
+- **List response shape changed.** `get_all` now returns a paginated envelope (`{count, next, previous, results}`) instead of a bare `{results: [...]}`. Update code that reads `response["results"]` to continue working, or switch to the client SDKs which handle both shapes.
+
+## Performance Improvements
+
+| Metric | Previous Algorithm | New Algorithm |
+|---|---|---|
+| **LoCoMo Overall** | 71.4 | **91.6** (+20.2) |
+| **LongMemEval Overall** | 67.8 | **93.4** (+25.6) |
+| **Extraction latency (p50)** | ~2.0s | **~1.0s** |
+| **Mean tokens per query** | — | 6.8-7.0K (top200) |
+
+All benchmarks were run on a production-representative stack — deliberately avoiding frontier models to keep numbers representative of real production workloads.
+
+## FAQ
+
+<AccordionGroup>
+  <Accordion title="Do I need to re-process my existing memories?">
+    No. Existing memories remain as-is. New memories added after the rollout will use the new extraction algorithm. Both old and new memories are searchable through the same retrieval pipeline.
+  </Accordion>
+  <Accordion title="Will my memory count increase faster now?">
+    Yes. The ADD-only approach means memories accumulate rather than being consolidated. This is intentional — the retrieval system handles ranking and relevance. If you need to manage memory volume, use the expiration date feature or the delete API.
+  </Accordion>
+  <Accordion title="Can I opt out of the new algorithm?">
+    The new algorithm is the default for all platform users. If you have a specific need to use the previous extraction behavior, contact support.
+  </Accordion>
+  <Accordion title="How does entity linking affect my existing integrations?">
+    Entity linking is automatic and transparent. It improves retrieval quality without requiring any changes to your integration. Entities are extracted from both new memories and search queries, and matched automatically.
+  </Accordion>
+</AccordionGroup>
+
+## Need Help?
+
+If you run into issues during migration or have questions about the new algorithm:
+
+- Join our [Discord community](https://mem0.ai/discord) for real-time support
+- Email us at [support@mem0.ai](mailto:support@mem0.ai)
+- Check the [API reference](/api-reference) for detailed endpoint documentation

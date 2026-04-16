@@ -41,7 +41,7 @@ messages = [
 
 chat_completion = client.chat.completions.create(
     messages=messages,
-    model="gpt-4.1-nano-2025-04-14",
+    model="gpt-5-mini",
     user_id="alice"
 )
 ```
@@ -69,7 +69,7 @@ client = Mem0(config=config)
 
 chat_completion = client.chat.completions.create(
     messages=[{"role": "user", "content": "What's the capital of France?"}],
-    model="gpt-4.1-nano-2025-04-14"
+    model="gpt-5-mini"
 )
 ```
 
@@ -85,14 +85,14 @@ client = Mem0(api_key="m0-xxx")
 # Store preferences
 client.chat.completions.create(
     messages=[{"role": "user", "content": "I love Indian food but I'm allergic to cheese."}],
-    model="gpt-4.1-nano-2025-04-14",
+    model="gpt-5-mini",
     user_id="alice"
 )
 
 # Later conversation reuses the memory
 response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Suggest dinner options in San Francisco."}],
-    model="gpt-4.1-nano-2025-04-14",
+    model="gpt-5-mini",
     user_id="alice"
 )
 

@@ -189,7 +189,7 @@ for i, prompt in enumerate(prompts):
     config["reranker"]["config"]["scoring_prompt"] = prompt
     memory = Memory.from_config(config)
 
-    results = memory.search("test query", user_id="test_user")
+    results = memory.search("test query", filters={"user_id": "test_user"})
     print(f"Prompt {i+1} results: {results}")
 ```
 

@@ -112,7 +112,7 @@ async def search_memory(
         query: The search query.
     """
     user_id = context.context.user_id or "default_user"
-    memories = await client.search(query, user_id=user_id)
+    memories = await client.search(query, filters={"user_id": user_id})
     results = '\n'.join([result["memory"] for result in memories["results"]])
     return str(results)
 ```
