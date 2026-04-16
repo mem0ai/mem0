@@ -21,7 +21,7 @@ The new Mem0 memory algorithm is a ground-up redesign of how memories are extrac
 | **Entity linking** | Not available | Entities extracted and linked across memories |
 | **Graph memory** | Separate graph store + dashboard visualization | Replaced by built-in entity linking, no graph visuals on platform dashboard |
 | **Retrieval signals** | Semantic (vector) only | Semantic + BM25 keyword + entity matching |
-| **Score transparency** | Single `score` value | `score_breakdown` with per-signal scores |
+| **Scoring method** | Raw cosine similarity | Combined multi-signal score (semantic + BM25 + entity) |
 
 ## What This Means for Your Application
 
@@ -41,9 +41,9 @@ If your application previously relied on UPDATE/DELETE behavior to keep memory c
 
 Previously, when an agent said something like "I've booked your flight for March 3rd," the system would often ignore it and only store what the user explicitly stated. The new algorithm treats agent-generated facts as first-class memories. If your application involves agents that confirm actions, provide recommendations, or share information, you'll see significantly better recall on those interactions.
 
-### Retrieval returns richer scoring information
+### Retrieval is now multi-signal
 
-Search results now include a `score_breakdown` object alongside the overall `score`:
+Search fuses three signals — semantic similarity, BM25 keyword match, and entity linking — into a single combined `score` per result. Results preserve the same shape as before:
 
 ```json
 {
@@ -52,25 +52,30 @@ Search results now include a `score_breakdown` object alongside the overall `sco
       "id": "mem-uuid",
       "memory": "User moved to San Francisco in January 2026",
       "score": 0.82,
-      "score_breakdown": {
-        "semantic": 0.75,
-        "bm25": 0.68,
-        "entity": 0.45
-      }
+      "metadata": {},
+      "categories": ["location"]
     }
   ]
 }
 ```
 
-- **`semantic`**: Vector similarity score (cosine distance)
-- **`bm25`**: Normalized keyword match score
-- **`entity`**: Entity linking boost from matched entities
+The `score` field is a normalized combined score (0-1). Per-signal component scores are available internally for debugging via the search event (see the [Event API](/api-reference/events)) but are not exposed on the search response itself so the scoring stack remains free to evolve.
 
 ## API Changes
 
 ### New V3 Endpoints
 
-The new algorithm is available through the V3 API:
+The new algorithm is available through the V3 API. The endpoints split into per-operation paths:
+
+| Operation | Endpoint |
+|---|---|
+| Add memories | `POST /v3/memories/add/` |
+| Search memories | `POST /v3/memories/search/` |
+| List memories (paginated) | `POST /v3/memories/` |
+
+<Info>
+`get_all` / list now returns a paginated envelope: `{"count": int, "next": str \| null, "previous": str \| null, "results": [...]}`. Pass `page` and `page_size` as query params to paginate; defaults return the first page.
+</Info>
 
 <CodeGroup>
 ```python Python
@@ -92,11 +97,15 @@ results = client.search(
     query="where does the user live?",
     filters={"user_id": "alice"}
 )
+
+# List memories (paginated)
+page = client.get_all(filters={"user_id": "alice"}, page=1, page_size=50)
+# page == {"count": 123, "next": "...", "previous": null, "results": [...]}
 ```
 
 ```bash cURL
 # Add memories
-curl -X POST https://api.mem0.ai/v3/memories/ \
+curl -X POST https://api.mem0.ai/v3/memories/add/ \
   -H "Authorization: Token your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -115,6 +124,12 @@ curl -X POST https://api.mem0.ai/v3/memories/search/ \
     "query": "where does the user live?",
     "filters": {"user_id": "alice"}
   }'
+
+# List memories (paginated)
+curl -X POST 'https://api.mem0.ai/v3/memories/?page=1&page_size=50' \
+  -H "Authorization: Token your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"filters": {"user_id": "alice"}}'
 ```
 </CodeGroup>
 
@@ -125,7 +140,7 @@ curl -X POST https://api.mem0.ai/v3/memories/search/ \
 | `top_k` | Supported | Supported (1-1000, default 10) | No change |
 | `threshold` | Default: none | Default: `0.1` | Pass `0.0` to disable |
 | `rerank` | Default: `true` | Default: `false` | Pass `true` to enable (adds latency) |
-| `score_breakdown` | Not available | Included in response | Automatic |
+| Entity IDs in `search` / `get_all` | Top-level | Inside `filters` dict | Top-level raises 400 |
 
 ### Response Format
 
@@ -141,7 +156,7 @@ curl -X POST https://api.mem0.ai/v3/memories/search/ \
 
 Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `FAILED`.
 
-**Search response** — now includes `score_breakdown`:
+**Search response** — combined multi-signal score per result:
 
 ```json
 {
@@ -150,13 +165,28 @@ Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `F
       "id": "mem-uuid",
       "memory": "User moved to San Francisco from New York in January 2026",
       "score": 0.82,
-      "score_breakdown": {
-        "semantic": 0.75,
-        "bm25": 0.68,
-        "entity": 0.45
-      },
       "metadata": {},
       "categories": ["location"],
+      "created_at": "2026-01-15T10:30:00Z",
+      "updated_at": "2026-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+**List response** — paginated envelope (new in V3):
+
+```json
+{
+  "count": 123,
+  "next": "https://api.mem0.ai/v3/memories/?page=2&page_size=50",
+  "previous": null,
+  "results": [
+    {
+      "id": "mem-uuid",
+      "memory": "...",
+      "metadata": {},
+      "categories": [],
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z"
     }
@@ -227,7 +257,7 @@ Graph memory has been replaced by **built-in entity linking**. The changes:
 - **Graph visualizations removed from the platform dashboard.** The graph view in your project dashboard is no longer available.
 - **`enable_graph` project setting removed.** The toggle is gone from the dashboard; the API parameter is ignored.
 - **No external graph store to configure.** Previously graph memory required a separate Neo4j (or similar) deployment. Entity linking runs natively inside the platform — nothing to provision, no connection strings to manage.
-- **Entity linking is the native replacement.** Entities (proper nouns, quoted text, compound noun phrases) are automatically extracted from every memory and linked across memories belonging to the same user. At search time, entities from the query are matched against this index and used to boost ranking via the `entity` component of `score_breakdown`.
+- **Entity linking is the native replacement.** Entities (proper nouns, quoted text, compound noun phrases) are automatically extracted from every memory and linked across memories belonging to the same user. At search time, entities from the query are matched against this index and used to boost ranking. The boost is folded into the combined `score` returned on each result.
 
 **No migration work is required.** Entity linking activates automatically for all projects on the new algorithm. Existing memories are not re-processed, but any new memories you add will be indexed for entity-based retrieval going forward.
 
@@ -245,7 +275,7 @@ If your application previously read graph relations from the API response (`rela
     Reranking is now `false` by default. If your application depended on reranked results, add `rerank=True` to your search calls. Note that reranking adds latency (~200-400ms) but can improve ordering quality for complex queries.
   </Step>
   <Step title="Update score handling (optional)">
-    If your application processes search scores, consider using the new `score_breakdown` object for more granular relevance decisions. The top-level `score` field continues to work as before.
+    The top-level `score` field continues to work as before. It is now a combined multi-signal score (semantic + keyword + entity) rather than pure cosine similarity, so the absolute numbers will differ. Relative ranking remains comparable — if you have threshold-based filtering in your app, retune on a representative query set.
   </Step>
   <Step title="Adjust memory count expectations">
     With ADD-only extraction, memory counts will grow over time rather than being consolidated. This is by design — retrieval handles relevance ranking. If you have hard limits on memory count, consider using the memory expiration feature or periodic cleanup.
@@ -259,7 +289,8 @@ If your application previously read graph relations from the API response (`rela
 
 - **V1 and V2 endpoints continue to work.** There is no requirement to migrate to V3 endpoints immediately.
 - **Existing memories are preserved.** The new algorithm does not modify or re-process previously stored memories.
-- **Search results are fully backward compatible.** The `score_breakdown` field is additive — existing code that reads `score` will continue to work.
+- **Search response shape is unchanged.** The top-level `score` and `results[]` array are the same; existing code that reads `score` continues to work. What changed is the scoring method behind the number (multi-signal fusion instead of pure cosine), so the absolute values shift even when ranking stays comparable.
+- **List response shape changed.** `get_all` now returns a paginated envelope (`{count, next, previous, results}`) instead of a bare `{results: [...]}`. Update code that reads `response["results"]` to continue working, or switch to the client SDKs which handle both shapes.
 
 ## Performance Improvements
 

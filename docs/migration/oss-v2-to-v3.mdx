@@ -28,10 +28,14 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | Change | Old | New | Migration |
 |---|---|---|---|
 | `search()` / `get_all()` entity IDs | Top-level kwargs (`user_id="..."`) | Inside `filters` dict | `m.search("q", filters={"user_id": "..."})` — top-level kwargs now raise `ValueError` |
+| `top_k` default | `100` | `20` | Pass `top_k=100` explicitly to restore |
 | `threshold` default | `None` (no filtering) | `0.1` (filters low-relevance) | Pass `threshold=0.0` for old behavior |
+| `threshold` validation | Any float | Must be in `[0, 1]` | Out-of-range values now raise `ValueError` |
 | `rerank` default | `True` | `False` | Pass `rerank=True` to restore |
+| Entity ID validation | Accepted any string | Trimmed; empty / whitespace-only rejected | Pass a non-empty identifier without internal spaces |
+| `messages` in `add()` | Could be `None` | Required — raises `ValueError` on `None` | Always pass a string, dict, or list of messages |
 | `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
-| `score` meaning | Raw cosine similarity | Combined hybrid score | Use `score_breakdown["semantic"]` for raw cosine |
+| `score` meaning | Raw cosine similarity | Combined multi-signal score | Score is a fused value (semantic + BM25 + entity); relative ranking is preserved but absolute numbers shift |
 | Custom extraction prompt | `custom_fact_extraction_prompt` | `custom_instructions` | Rename in config |
 | Custom update prompt | `custom_update_memory_prompt` | Deprecated | Use `custom_instructions` instead |
 | Graph memory | `enable_graph` + `graph_store` in config | Removed | Graph store support has been removed entirely |
@@ -43,7 +47,12 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | Change | Old | New | Migration |
 |---|---|---|---|
 | Search parameter | `search(query, { limit: 10 })` | `search(query, { topK: 10 })` | Rename `limit` → `topK` |
+| `topK` default | `100` | `20` | Pass `topK: 100` explicitly to restore |
 | `search()` / `getAll()` entity IDs | Top-level options (`userId: "..."`) | Inside `filters` object | `m.search("q", { filters: { userId: "..." } })` |
+| `threshold` validation | Any number | Must be in `[0, 1]` | Out-of-range values now throw |
+| Entity ID validation | Any string | Trimmed; empty / whitespace-only rejected | Pass non-empty identifiers without internal spaces |
+| `messages` in `add()` | Could be `null` / `undefined` | Required — throws on null/undefined | Always pass a string or array |
+| Payload key for lemmatized text | `text_lemmatized` (snake_case) | `textLemmatized` (camelCase) | TS-only internal field. If you share a vector store collection between Python and TS SDKs, lemma-based BM25 will not resolve across languages — keep collections language-scoped. |
 | Custom prompt | `customPrompt` | `customInstructions` | Rename in config |
 | Graph memory | `enableGraph` + `graphStore` in config | Removed | Graph store support has been removed entirely |
 | Default graph config | Neo4j default config applied | No default graph config | Graph store config is no longer used |
@@ -155,15 +164,12 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
     results = m.search(
         "what meetings did I attend?",
         filters={"user_id": "alice"},   # [REMOVED top-level kwarg, use filters]
-        top_k=20,
+        top_k=20,           # New default is 20 (was 100)
         threshold=0.1,      # New default (pass 0.0 to disable)
         rerank=False         # New default (pass True to restore)
     )
     for r in results:
-        print(r["score"])                         # Combined hybrid score
-        print(r["score_breakdown"]["semantic"])    # Raw cosine similarity
-        print(r["score_breakdown"]["bm25"])        # Normalized keyword score
-        print(r["score_breakdown"]["entity_boost"])# Entity linking boost
+        print(r["score"])   # Combined multi-signal score (semantic + BM25 + entity)
     ```
 
     <Warning>
@@ -319,7 +325,7 @@ Graph store support has been removed from the open-source SDK. It is replaced by
 
 **What replaces it:**
 
-Entity linking extracts entities (proper nouns, quoted text, compound noun phrases) from every memory during the add pipeline and stores them in a parallel collection (`{collection}_entities`) inside your existing vector store. At search time, entities from the query are matched against this collection and used to boost relevant memories via the `entity_boost` component of `score_breakdown`.
+Entity linking extracts entities (proper nouns, quoted text, compound noun phrases) from every memory during the add pipeline and stores them in a parallel collection (`{collection}_entities`) inside your existing vector store. At search time, entities from the query are matched against this collection and used to boost relevant memories. The boost is folded into the combined `score` on each result.
 
 **Migration:**
 - Remove `enable_graph` / `enableGraph` from your config
@@ -359,13 +365,7 @@ Query
     → Score fusion → Top-K selection
 ```
 
-**Scoring formula:**
-
-```
-combined = (semantic + bm25 + entity_boost) / max_possible
-```
-
-Where `max_possible` adapts based on which signals are available (1.0 for semantic-only, 2.0 with BM25, 2.5 with all three).
+**Scoring:** The three signals are normalized and fused into a single combined `score` per result. The fusion adapts based on which signals are available at runtime (semantic-only, semantic + BM25, or all three when spaCy + the entity store are active).
 
 **BM25 is a boost signal, not a recall expander.** Only semantic search results are candidates — BM25 and entity scores boost ranking but don't add new candidates.
 
@@ -498,7 +498,9 @@ These parameters have been removed across all SDKs. Remove them from your code:
     The entity store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
   </Accordion>
   <Accordion title="Score values are different from before">
-    The top-level `score` is now a combined hybrid score (0-1), not raw cosine similarity. To get the raw cosine similarity, use `score_breakdown["semantic"]`. The combined score factors in keyword matching and entity linking, which generally produces better ranking.
+    The top-level `score` is now a combined multi-signal score (0-1), not raw cosine similarity. It fuses semantic similarity, BM25 keyword match, and entity boost into one value. Relative ranking stays comparable, but absolute numbers shift — retune any hard thresholds in your app against representative queries.
+
+    If you need the raw cosine similarity, run an unboosted vector query directly against your vector store (`vector_store.search(...)`); the Memory class no longer exposes per-signal scores on results.
   </Accordion>
 </AccordionGroup>
 

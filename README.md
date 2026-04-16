@@ -130,7 +130,9 @@ See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full comm
 
 ### Basic Usage
 
-Mem0 requires an LLM to function. It supports a wide range of providers — see our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview) for configuration details.
+Mem0 requires an LLM to function, with `gpt-5-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+
+Mem0 uses `text-embedding-3-small` from OpenAI as the default embedding model. For best results with hybrid search (semantic + keyword + entity boosting), we recommend using at least [Qwen 600M](https://huggingface.co/Alibaba-NLP/gte-Qwen2-1.5B-instruct) or a comparable embedding model. See [Supported Embeddings](https://docs.mem0.ai/components/embedders/overview) for configuration details.
 
 First step is to instantiate the memory:
 
@@ -143,7 +145,7 @@ memory = Memory()
 
 def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Retrieve relevant memories
-    relevant_memories = memory.search(query=message, user_id=user_id, top_k=3)
+    relevant_memories = memory.search(query=message, filters={"user_id": user_id}, top_k=3)
     memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
 
     # Generate Assistant response
