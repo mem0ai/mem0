@@ -9,6 +9,19 @@ import type {
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
+/**
+ * Escape RediSearch TAG filter special characters. Any punctuation in the
+ * value (including `-`, which appears in every UUID) must be backslash-
+ * escaped, otherwise RediSearch either parses it as an operator (`-` is
+ * minus, `|` is OR) or rejects the whole expression as a syntax error.
+ */
+function escapeRedisTagValue(value: unknown): string {
+  return String(value).replace(
+    /([,.<>{}\[\]"':;!@#$%^&*()\-+=~|/\\\s])/g,
+    "\\$1",
+  );
+}
+
 interface RedisConfig extends VectorStoreConfig {
   redisUrl: string;
   collectionName: string;
@@ -377,8 +390,8 @@ export class RedisDB implements VectorStore {
     const snakeFilters = filters ? toSnakeCase(filters) : undefined;
     const filterExpr = snakeFilters
       ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null)
-          .map(([key, value]) => `@${key}:{${value}}`)
+          .filter(([_, value]) => value !== null && value !== undefined)
+          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
           .join(" ")
       : "*";
 
@@ -615,8 +628,8 @@ export class RedisDB implements VectorStore {
     const snakeFilters = filters ? toSnakeCase(filters) : undefined;
     const filterExpr = snakeFilters
       ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null)
-          .map(([key, value]) => `@${key}:{${value}}`)
+          .filter(([_, value]) => value !== null && value !== undefined)
+          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
           .join(" ")
       : "*";
 
