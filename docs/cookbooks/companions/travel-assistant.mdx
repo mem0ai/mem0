@@ -36,7 +36,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4.1-nano-2025-04-14",
+            "model": "gpt-5-mini",
             "temperature": 0.1,
             "max_tokens": 2000,
         }
@@ -77,7 +77,7 @@ class PersonalTravelAssistant:
 
         # Generate response using Responses API
         response = self.client.responses.create(
-            model="gpt-4.1-nano-2025-04-14",
+            model="gpt-5-mini",
             input=prompt
         )
 
@@ -89,11 +89,11 @@ class PersonalTravelAssistant:
         return answer
 
     def get_memories(self, user_id):
-        memories = self.memory.get_all(user_id=user_id)
+        memories = self.memory.get_all(filters={"user_id": user_id})
         return [m['memory'] for m in memories['results']]
 
     def search_memories(self, query, user_id):
-        memories = self.memory.search(query, user_id=user_id)
+        memories = self.memory.search(query, filters={"user_id": user_id})
         return [m['memory'] for m in memories['results']]
 
 # Usage example
@@ -143,7 +143,7 @@ class PersonalTravelAssistant:
 
         # Generate response using gpt-4.1-nano
         response = self.client.chat.completions.create(
-            model="gpt-4.1-nano-2025-04-14"2025-04-14",
+            model="gpt-5-mini",
             messages=self.messages
         )
         answer = response.choices[0].message.content
@@ -158,7 +158,7 @@ class PersonalTravelAssistant:
         return [m['memory'] for m in memories.get('results', [])]
 
     def search_memories(self, query, user_id):
-        memories = self.memory.search(query, user_id=user_id)
+        memories = self.memory.search(query, filters={"user_id": user_id})
         return [m['memory'] for m in memories.get('results', [])]
 
 # Usage example

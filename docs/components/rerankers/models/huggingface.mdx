@@ -175,7 +175,7 @@ queries = [
 
 results = []
 for query in queries:
-    result = m.search(query, user_id="alice", rerank=True)
+    result = m.search(query, filters={"user_id": "alice"}, rerank=True)
     results.append(result)
 ```
 

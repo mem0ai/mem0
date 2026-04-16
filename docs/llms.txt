@@ -45,7 +45,6 @@ Key differentiators:
 - [Custom Categories](https://docs.mem0.ai/platform/features/custom-categories): Define domain-specific categories to improve memory organization
 
 ### Advanced Features
-- [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory): Build and query relationships between entities for contextually relevant retrieval
 - [Graph Threshold](https://docs.mem0.ai/platform/features/graph-threshold): Configure graph relationship sensitivity and strength
 - [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval): Enhanced search with keyword search, reranking, and filtering capabilities
 - [Criteria-Based Retrieval](https://docs.mem0.ai/platform/features/criteria-retrieval): Targeted memory retrieval using custom criteria
@@ -81,7 +80,6 @@ Key differentiators:
 
 ### Open Source Features
 - [Features Overview](https://docs.mem0.ai/open-source/features/overview): Overview of all open-source features
-- [Graph Memory](https://docs.mem0.ai/open-source/features/graph-memory): Build and query entity relationships using graph stores like Neo4j
 - [Metadata Filtering](https://docs.mem0.ai/open-source/features/metadata-filtering): Advanced filtering using custom metadata fields
 - [Reranker Search](https://docs.mem0.ai/open-source/features/reranker-search): Enhanced search results with reranking models
 - [Async Memory](https://docs.mem0.ai/open-source/features/async-memory): Asynchronous memory operations for better performance
@@ -210,7 +208,6 @@ Key differentiators:
 - [Building AI Companion](https://docs.mem0.ai/cookbooks/essentials/building-ai-companion): Core patterns for building AI agents with memory
 - [Partition Memories by Entity](https://docs.mem0.ai/cookbooks/essentials/entity-partitioning-playbook): Keep multi-tenant assistants isolated by tagging user, agent, app, and session identifiers
 - [Controlling Memory Ingestion](https://docs.mem0.ai/cookbooks/essentials/controlling-memory-ingestion): Fine-tune what gets stored in memory and when
-- [Memory Expiration](https://docs.mem0.ai/cookbooks/essentials/memory-expiration-short-and-long-term): Implement short-term and long-term memory strategies
 - [Tagging and Organizing Memories](https://docs.mem0.ai/cookbooks/essentials/tagging-and-organizing-memories): Advanced memory organization and categorization
 - [Exporting Memories](https://docs.mem0.ai/cookbooks/essentials/exporting-memories): Backup and transfer memory data between systems
 - [Choosing Memory Architecture](https://docs.mem0.ai/cookbooks/essentials/choosing-memory-architecture-vector-vs-graph): Vector vs Graph memory architectures comparison
@@ -246,7 +243,6 @@ Key differentiators:
 - [Multimodal Retrieval](https://docs.mem0.ai/cookbooks/frameworks/multimodal-retrieval): Memory systems handling text, images, and documents
 - [Eliza OS Character](https://docs.mem0.ai/cookbooks/frameworks/eliza-os-character): Character-based AI with persistent personality
 - [Gemini with Mem0 MCP](https://docs.mem0.ai/cookbooks/frameworks/gemini-3-with-mem0-mcp): Google Gemini integration using MCP server
-- [Mirofish Swarm Memory](https://docs.mem0.ai/cookbooks/frameworks/mirofish-swarm-memory): Swarm-based multi-agent memory patterns
 
 ## API Reference
 

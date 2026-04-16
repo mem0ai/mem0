@@ -111,7 +111,7 @@ messages = [
 memory.add(messages, user_id="david")
 
 # Search with LLM reranking
-results = memory.search("What programming topics is the user studying?", user_id="david")
+results = memory.search("What programming topics is the user studying?", filters={"user_id": "david"})
 
 for result in results['results']:
     print(f"Memory: {result['memory']}")

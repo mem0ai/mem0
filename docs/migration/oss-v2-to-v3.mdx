@@ -1,0 +1,538 @@
+---
+title: "Open Source: Migrating to the New Memory Algorithm"
+description: "Guide for self-hosted Mem0 users to upgrade to the new memory algorithm with ADD-only extraction, hybrid search, and entity linking."
+icon: "arrow-right"
+iconType: "solid"
+---
+
+<Warning>
+**Breaking changes ahead.** This release includes renamed parameters, removed parameters, changed defaults, and a fundamentally different extraction model. Read this guide before upgrading.
+</Warning>
+
+## Overview
+
+The new Mem0 release redesigns both extraction and retrieval, and cleans up the SDK surface across Python and TypeScript:
+
+- **Extraction**: Single-pass ADD-only (one LLM call, no UPDATE/DELETE)
+- **Retrieval**: Multi-signal hybrid search (semantic + BM25 keyword + entity matching)
+- **Entity linking**: Automatic entity extraction and cross-memory linking
+- **SDK cleanup**: Deprecated parameters removed, naming conventions standardized
+- **API surface aligned with Platform**: Entity IDs now follow the same convention across OSS and Platform — top-level kwargs for `add()` / `delete_all()`, inside `filters` for `search()` / `get_all()`
+
+These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and **+26 point improvement on LongMemEval** (67.8 → 93.4), while cutting extraction latency roughly in half.
+
+## Breaking Changes
+
+### Python Open Source
+
+| Change | Old | New | Migration |
+|---|---|---|---|
+| `search()` / `get_all()` entity IDs | Top-level kwargs (`user_id="..."`) | Inside `filters` dict | `m.search("q", filters={"user_id": "..."})` — top-level kwargs now raise `ValueError` |
+| `top_k` default | `100` | `20` | Pass `top_k=100` explicitly to restore |
+| `threshold` default | `None` (no filtering) | `0.1` (filters low-relevance) | Pass `threshold=0.0` for old behavior |
+| `threshold` validation | Any float | Must be in `[0, 1]` | Out-of-range values now raise `ValueError` |
+| `rerank` default | `True` | `False` | Pass `rerank=True` to restore |
+| Entity ID validation | Accepted any string | Trimmed; empty / whitespace-only rejected (`ValueError`) | Pass a non-empty identifier without internal spaces |
+| `messages` in `add()` | Could be `None` | Must be `str` / `dict` / `list[dict]` — other types raise `Mem0ValidationError` (code `VALIDATION_003`) | Always pass a string, dict, or list of messages |
+| `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
+| Custom extraction prompt | `custom_fact_extraction_prompt` | `custom_instructions` | Rename in config |
+| Custom update prompt | `custom_update_memory_prompt` | Deprecated | Use `custom_instructions` instead |
+| Graph memory | `enable_graph` + `graph_store` in config | Removed | Graph store support has been removed entirely |
+| Qdrant client | `>=1.9.1` | `>=1.12.0` | Update dependency |
+| Upstash client | `>=0.1.0` | `>=0.6.0` | Update dependency |
+
+### TypeScript Open Source
+
+| Change | Old | New | Migration |
+|---|---|---|---|
+| Search parameter | `search(query, { limit: 10 })` | `search(query, { topK: 10 })` | Rename `limit` → `topK` |
+| `topK` default | `100` | `20` | Pass `topK: 100` explicitly to restore |
+| `search()` / `getAll()` entity IDs | Top-level options (`userId: "..."`) | Inside `filters` object | `m.search("q", { filters: { userId: "..." } })` |
+| `threshold` validation | Any number | Must be in `[0, 1]` | Out-of-range values now throw |
+| Entity ID validation | Any string | Trimmed; empty / whitespace-only rejected | Pass non-empty identifiers without internal spaces |
+| `messages` in `add()` | Could be `null` / `undefined` | Required — throws on null/undefined | Always pass a string or array |
+| Payload key for lemmatized text | `text_lemmatized` (snake_case) | `textLemmatized` (camelCase) | TS-only internal field. If you share a vector store collection between Python and TS SDKs, lemma-based BM25 will not resolve across languages — keep collections language-scoped. |
+| Custom prompt | `customPrompt` | `customInstructions` | Rename in config |
+| Graph memory | `enableGraph` + `graphStore` in config | Removed | Graph store support has been removed entirely |
+| Default graph config | Neo4j default config applied | No default graph config | Graph store config is no longer used |
+
+### Python Client SDK
+
+| Change | Old | New | Migration |
+|---|---|---|---|
+| Constructor | `MemoryClient(api_key, org_id, project_id)` | `MemoryClient(api_key)` | Remove `org_id`, `project_id` from constructor |
+| Method options | `client.add(messages, **kwargs)` | `client.add(messages, options=AddMemoryOptions(...))` | Use typed option classes (or `**kwargs` still works) |
+| Removed params | `api_version`, `output_format`, `async_mode`, `filter_memories`, `expiration_date`, `keyword_search`, `force_add_only`, `batch_size`, `immutable`, `includes`, `excludes`, `enable_graph`, `org_name`, `project_name` | — | Remove from all calls |
+
+### TypeScript Client SDK
+
+| Change | Old | New | Migration |
+|---|---|---|---|
+| Constructor | `new MemoryClient({ apiKey, organizationId, projectId })` | `new MemoryClient({ apiKey })` | Remove `organizationId`, `projectId`, `organizationName`, `projectName` |
+| All params | snake_case: `user_id`, `agent_id`, `top_k` | camelCase: `userId`, `agentId`, `topK` | Rename all params to camelCase |
+| Removed params | `api_version`, `output_format`, `async_mode`, `enable_graph`, `org_id`, `project_id`, `org_name`, `project_name`, `filter_memories`, `batch_size`, `force_add_only`, `immutable`, `expiration_date`, `includes`, `excludes`, `keyword_search` | — | Remove from all calls |
+| Output format enum | `OutputFormat.V1`, `OutputFormat.V1_1` | Removed | v1.1 is now always used |
+| API version enum | `API_VERSION.V1`, `API_VERSION.V2` | Removed | Handled internally |
+
+## Step-by-Step Migration
+
+### 1. Update Installation
+
+<Tabs>
+  <Tab title="Python">
+    ```bash
+    # Basic upgrade
+    pip install --upgrade mem0ai
+
+    # For hybrid search + entity extraction (recommended)
+    pip install --upgrade "mem0ai[nlp]"
+    python -m spacy download en_core_web_sm
+
+    # Qdrant users: also install fastembed to enable BM25 keyword search
+    pip install fastembed
+    ```
+
+    <Info>
+    **Supported Python versions for `[nlp]` extras: 3.10 – 3.12.** spaCy and its `blis` / `thinc` dependencies do not yet ship prebuilt wheels for Python 3.13, so installs on 3.13 will fail at build time. Use Python 3.12 (or older) for the `[nlp]` extras until upstream support lands. The base `mem0ai` package works on all supported Python versions; only the NLP extras are constrained.
+    </Info>
+  </Tab>
+  <Tab title="TypeScript">
+    ```bash
+    npm install mem0ai@latest
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extraction and keyword lemmatization. Without it, Mem0 still works but falls back to semantic-only search (no entity linking, no BM25 lemmatization).
+</Info>
+
+<Warning>
+**Qdrant users — install `fastembed` to enable BM25 keyword search.** The Qdrant backend uses [fastembed](https://github.com/qdrant/fastembed) to encode sparse (BM25) vectors alongside dense vectors in the same collection. Without it, BM25 is silently disabled and search falls back to semantic-only — you'll see a log warning `"fastembed not installed — BM25 keyword search disabled"` on the first search call. Other vector stores use their native full-text capabilities and don't need `fastembed`.
+
+```bash
+pip install fastembed
+```
+</Warning>
+
+### 2. Update Configuration
+
+<Tabs>
+  <Tab title="Python OSS">
+    ```python
+    # Before
+    config = {
+        "custom_fact_extraction_prompt": "Focus on user preferences",  # [REMOVED] Renamed
+        "custom_update_memory_prompt": "Be concise when updating",      # [REMOVED] Deprecated
+        "graph_store": {
+            "provider": "neo4j",
+            "config": { "url": "...", "username": "...", "password": "..." }
+        },
+        "enable_graph": True,  # [REMOVED] Removed
+    }
+
+    # After
+    config = {
+        "custom_instructions": "Focus on user preferences",  # [OK] New name
+        # custom_update_memory_prompt removed — use custom_instructions
+        # enable_graph and graph_store removed — graph store support has been removed
+    }
+    ```
+  </Tab>
+  <Tab title="TypeScript OSS">
+    ```typescript
+    // Before
+    const config = {
+      customPrompt: "Focus on user preferences",  // [REMOVED] Renamed
+      enableGraph: true,                            // [REMOVED] Removed
+      graphStore: {
+        provider: "neo4j",
+        config: { url: "...", username: "...", password: "..." }
+      }
+    };
+
+    // After
+    const config = {
+      customInstructions: "Focus on user preferences",  // [OK] New name
+      // enableGraph and graphStore removed — graph store support has been removed
+    };
+    ```
+  </Tab>
+</Tabs>
+
+### 3. Update Search Calls
+
+<Tabs>
+  <Tab title="Python OSS">
+    ```python
+    # Before — entity IDs as top-level kwargs
+    results = m.search(
+        "what meetings did I attend?",
+        user_id="alice",
+        top_k=20
+    )
+    for r in results:
+        print(r["score"])  # Was raw cosine similarity
+
+    # After — entity IDs go inside `filters` (matches Platform API)
+    results = m.search(
+        "what meetings did I attend?",
+        filters={"user_id": "alice"},   # [REMOVED top-level kwarg, use filters]
+        top_k=20,           # New default is 20 (was 100)
+        threshold=0.1,      # New default (pass 0.0 to disable)
+        rerank=False         # New default (pass True to restore)
+    )
+    for r in results:
+        print(r["score"])
+    ```
+
+    <Warning>
+    Passing `user_id`, `agent_id`, or `run_id` as a top-level kwarg to `search()` or `get_all()` now raises `ValueError`. They must be inside the `filters` dict. The change aligns the OSS SDK with the Platform API contract.
+    </Warning>
+  </Tab>
+  <Tab title="TypeScript OSS">
+    ```typescript
+    // Before — entity IDs as top-level options
+    const results = await m.search("what meetings did I attend?", {
+      userId: "alice",
+      limit: 20          // [REMOVED] Renamed to 'topK' for consistency
+    });
+
+    // After — entity IDs go inside `filters` (matches Platform API)
+    const results = await m.search("what meetings did I attend?", {
+      filters: { userId: "alice" },   // [REMOVED top-level option, use filters]
+      topK: 20                        // [OK] Renamed from 'limit'
+    });
+    ```
+  </Tab>
+  <Tab title="Python Client SDK">
+    ```python
+    from mem0 import MemoryClient
+    from mem0.client.types import SearchMemoryOptions
+
+    # Before
+    client = MemoryClient(api_key="...", org_id="org-1", project_id="proj-1")
+    results = client.search("query", user_id="alice", top_k=20, enable_graph=True)
+
+    # After
+    client = MemoryClient(api_key="...")  # org_id, project_id removed
+    results = client.search(
+        "query",
+        options=SearchMemoryOptions(
+            filters={"user_id": "alice"},
+            top_k=20
+        )
+    )
+    ```
+  </Tab>
+  <Tab title="TypeScript Client SDK">
+    ```typescript
+    // Before
+    const client = new MemoryClient({
+      apiKey: "...",
+      organizationId: "org-1",  // [REMOVED] Removed
+      projectId: "proj-1"       // [REMOVED] Removed
+    });
+    const results = await client.search("query", {
+      user_id: "alice",         // [REMOVED] snake_case
+      top_k: 20,                // [REMOVED] snake_case
+      enable_graph: true        // [REMOVED] Removed
+    });
+
+    // After
+    const client = new MemoryClient({ apiKey: "..." });
+    const results = await client.search("query", {
+      filters: { userId: "alice" },
+      topK: 20
+    });
+    ```
+  </Tab>
+</Tabs>
+
+### 4. Update Add Calls
+
+<Tabs>
+  <Tab title="Python OSS">
+    ```python
+    # Before — could return ADD, UPDATE, DELETE events
+    result = m.add("I love hiking and my dog's name is Max", user_id="alice")
+    for item in result["results"]:
+        if item["event"] == "ADD":
+            print("New memory:", item["memory"])
+        elif item["event"] == "UPDATE":
+            print("Updated:", item["memory"])     # [REMOVED] No longer returned
+        elif item["event"] == "DELETE":
+            print("Deleted:", item["memory"])      # [REMOVED] No longer returned
+
+    # After — only ADD events
+    result = m.add("I love hiking and my dog's name is Max", user_id="alice")
+    for item in result["results"]:
+        print("New memory:", item["memory"])  # Only ADD events
+    ```
+  </Tab>
+  <Tab title="Python Client SDK">
+    ```python
+    from mem0.client.types import AddMemoryOptions
+
+    # Before
+    client.add(messages, user_id="alice", async_mode=True, output_format="v1.1")
+
+    # After — async_mode and output_format removed (async by default, v1.1 always)
+    client.add(
+        messages,
+        options=AddMemoryOptions(user_id="alice")
+    )
+    # Or using **kwargs
+    client.add(messages, user_id="alice")
+    ```
+  </Tab>
+  <Tab title="TypeScript Client SDK">
+    ```typescript
+    // Before
+    await client.add(messages, {
+      user_id: "alice",       // [REMOVED] snake_case
+      async_mode: true,       // [REMOVED] Removed
+      output_format: "v1.1",  // [REMOVED] Removed
+      enable_graph: true      // [REMOVED] Removed
+    });
+
+    // After
+    await client.add(messages, {
+      userId: "alice"         // [OK] camelCase
+    });
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+The ADD-only model means memories accumulate over time. When information changes, the new fact is stored alongside the old one. Retrieval handles ranking — the most relevant, current information surfaces first.
+</Tip>
+
+### 5. Update Vector Store Dependencies
+
+If you're using Qdrant or Upstash, update your client libraries:
+
+```bash
+# Qdrant users
+pip install "qdrant-client>=1.12.0"
+
+# Upstash users
+pip install "upstash-vector>=0.6.0"
+```
+
+### 6. Entity Store Setup
+
+The new algorithm automatically creates a parallel entity store collection named `{your_collection}_entities`. No manual setup is required — it's created on first use.
+
+<Warning>
+Make sure your vector store user/credentials have permission to create new collections. If you're using a managed vector database with restricted permissions, pre-create the `{collection_name}_entities` collection with the same embedding dimensions as your main collection.
+</Warning>
+
+## Graph Memory → Entity Linking
+
+Graph store support has been removed from the open-source SDK. It is replaced by **built-in entity linking**, which runs natively with no external dependencies.
+
+**What was removed:**
+- `enable_graph` / `enableGraph` config flag
+- `graph_store` / `graphStore` configuration block (Neo4j, Memgraph, Kuzu, Apache AGE, Neptune)
+- All graph memory code paths (~4000 lines)
+
+**What replaces it:**
+
+Entity linking extracts entities (proper nouns, quoted text, compound noun phrases) from every memory during the add pipeline and stores them in a parallel collection (`{collection}_entities`) inside your existing vector store. At search time, entities from the query are matched against this collection and used to boost relevant memories. The boost is folded into the combined `score` on each result.
+
+**Migration:**
+- Remove `enable_graph` / `enableGraph` from your config
+- Remove the `graph_store` / `graphStore` block — it is no longer read
+- Uninstall graph drivers (neo4j, memgraph, etc.) if you were using them only for Mem0
+- No data migration is required. Entity linking activates automatically on the next `add()` call.
+
+<Warning>
+Graph relationships exposed via the old `relations` field on search results are no longer populated. Entity relationships are consumed indirectly through retrieval ranking, not exposed as a queryable graph structure. If your application depended on traversing graph relationships directly, you will need to redesign that part against the new API.
+</Warning>
+
+## How the New Algorithm Works
+
+### Extraction: Single-Pass ADD-Only
+
+```
+Input conversation
+    → Retrieve top-10 related existing memories (for deduplication context)
+    → Single LLM call: extract all distinct new facts
+    → Batch embed extracted memories
+    → Hash-based deduplication (MD5, prevents exact duplicates)
+    → Batch insert into vector store
+    → Entity extraction + linking
+```
+
+The previous algorithm used two LLM calls — one to extract candidate facts, one to decide ADD/UPDATE/DELETE actions against existing memories. The new algorithm collapses this into a single call that only adds. The model spends its capacity on understanding the input rather than diffing against existing state.
+
+### Retrieval: Multi-Signal Hybrid Search
+
+```
+Query
+    → Preprocess (lemmatize keywords, extract entities)
+    → Parallel scoring:
+        1. Semantic search (vector similarity)
+        2. BM25 keyword search (normalized term matching)
+        3. Entity matching (entity graph boost)
+    → Score fusion → Top-K selection
+```
+
+**Scoring:** The three signals are normalized and fused into a single combined `score` per result. The fusion adapts based on which signals are available at runtime (semantic-only, semantic + BM25, or all three when spaCy + the entity store are active).
+
+**BM25 is a boost signal, not a recall expander.** Only semantic search results are candidates — BM25 and entity scores boost ranking but don't add new candidates.
+
+## Vector Store Compatibility
+
+All 15 supported vector stores have been enhanced with two new capabilities:
+
+| Capability | Purpose | Fallback if Unsupported |
+|---|---|---|
+| `keyword_search()` | BM25/full-text keyword matching | Falls back to semantic-only search |
+| `search_batch()` | Batch search for entity matching | Falls back to sequential search |
+
+**Qdrant-specific changes:**
+- Now uses sparse vectors (BM25) alongside dense vectors in the same collection
+- Requires `fastembed` library for BM25 encoding (lazy-loaded, gracefully degrades)
+- Install: `pip install fastembed`
+
+**All other vector stores:**
+- Enhanced with `keyword_search()` methods using their native full-text capabilities
+- No additional dependencies required
+
+## Graceful Degradation
+
+The new features degrade gracefully when optional dependencies are missing:
+
+| Missing Dependency | Impact | Search Still Works? |
+|---|---|---|
+| spaCy (`mem0ai[nlp]`) | No entity extraction, no BM25 lemmatization | Yes (semantic-only) |
+| `fastembed` (Qdrant) | No BM25 keyword search | Yes (semantic + entity) |
+| Entity store unavailable | No entity boosting | Yes (semantic + BM25) |
+
+You always get semantic search. Hybrid search features layer on top when available.
+
+## Removed Parameters Reference
+
+These parameters have been removed across all SDKs. Remove them from your code:
+
+### Python Client SDK — Removed parameters
+
+**Constructor:** `org_id`, `project_id`
+
+**All methods:** `api_version`, `output_format`, `async_mode`, `org_name`, `project_name`, `org_id`, `project_id`
+
+**add():** `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
+
+**search():** `enable_graph`
+
+**get_all():** `enable_graph`
+
+**project.update():** `enable_graph`
+
+### TypeScript Client SDK — Removed parameters
+
+**Constructor:** `organizationId`, `projectId`, `organizationName`, `projectName`
+
+**All methods:** `OutputFormat` enum, `API_VERSION` enum
+
+**add():** `enable_graph` / `enableGraph`, `async_mode` / `asyncMode`, `output_format` / `outputFormat`, `immutable`, `expiration_date` / `expirationDate`, `filter_memories` / `filterMemories`, `batch_size` / `batchSize`, `force_add_only` / `forceAddOnly`, `includes`, `excludes`, `keyword_search` / `keywordSearch`
+
+**search():** `enable_graph` / `enableGraph`
+
+**get_all():** `enable_graph` / `enableGraph`
+
+### Python OSS — Removed/renamed parameters
+
+**Config:** `custom_fact_extraction_prompt` → renamed to `custom_instructions`
+
+**Config:** `custom_update_memory_prompt` → deprecated, use `custom_instructions`
+
+**Config:** `enable_graph` + `graph_store` → removed (graph store support removed entirely)
+
+### TypeScript OSS — Removed/renamed parameters
+
+**Config:** `customPrompt` → renamed to `customInstructions`
+
+**Config:** `enableGraph` + `graphStore` → removed (graph store support removed entirely)
+
+**search():** `limit` → renamed to `topK`
+
+## Common Issues
+
+### TypeScript: `limit` is not a valid parameter
+
+The `limit` parameter has been renamed to `topK` in the TypeScript OSS:
+
+```typescript
+// Before
+const results = await m.search("query", { userId: "alice", limit: 20 });
+
+// After
+const results = await m.search("query", { filters: { userId: "alice" }, topK: 20 });
+```
+
+### TypeScript Client: snake_case params no longer work
+
+All TypeScript Client SDK parameters now use camelCase. The SDK handles conversion to/from the API automatically:
+
+```typescript
+// Before
+await client.search("query", { user_id: "alice", top_k: 20 });
+
+// After
+await client.search("query", { filters: { userId: "alice" }, topK: 20 });
+```
+
+### `ValueError: Top-level entity parameters not supported in search() / get_all()`
+
+`search()` and `get_all()` now require entity IDs inside `filters`. Top-level kwargs raise `ValueError`. This aligns the OSS SDK with the Platform API.
+
+```python
+# Before
+results = m.search("query", user_id="alice", top_k=20)
+
+# After
+results = m.search("query", filters={"user_id": "alice"}, top_k=20)
+```
+
+`add()` and `delete_all()` continue to accept entity IDs as top-level kwargs.
+
+### Search returns fewer results than before
+
+The default `threshold` changed from `None` to `0.1`. Low-relevance results that were previously included are now filtered out. To restore the old behavior:
+
+```python
+results = m.search("query", filters={"user_id": "alice"}, threshold=0.0)
+```
+
+### spaCy model not found
+
+If you see errors about missing spaCy models, download the required model:
+
+```bash
+python -m spacy download en_core_web_sm
+```
+
+If spaCy is not installed at all, install the NLP extras:
+
+```bash
+pip install "mem0ai[nlp]"
+```
+
+### Entity store collection creation fails
+
+The entity store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
+
+### Score values are different from before
+
+The top-level `score` still ranges `[0, 1]`, but it is computed differently in v3. Relative ranking between results stays comparable, but absolute numbers shift — retune any hard thresholds in your app against representative queries.
+
+If you need the raw cosine similarity for a specific use case, run an unboosted vector query directly against your vector store via `vector_store.search(...)`.
+
+## Need Help?
+
+- Join our [Discord community](https://mem0.ai/discord) for real-time support
+- Open an issue on [GitHub](https://github.com/mem0ai/mem0/issues)
+- Check the [evaluation docs](/core-concepts/memory-evaluation) to benchmark the new algorithm on your data
