@@ -24,11 +24,11 @@ See the [SDK changelog](/changelog/sdk) for the full patch list.
 
 Major release of the Mem0 SDKs with a completely rewritten memory pipeline:
 
-- **Python SDK v2.0.0** — Single-pass additive extraction, hybrid search (semantic + BM25 + entity boost), spaCy-based entity extraction and linking, batch operations, message persistence, Valkey cluster mode
-- **TypeScript SDK v3.0.0** — V3 OSS pipeline with entity extraction (720+ lines), message persistence, batch embeddings, camelCase parameters, DeepSeek LLM provider, graph memory removed from OSS (1088 lines)
+- **Python SDK v2.0.0** — Single-pass additive extraction, hybrid search (semantic + BM25 + entity boost), spaCy-based entity extraction and linking, batch operations, message persistence, Valkey cluster mode, graph memory removed from OSS (~4,000 lines across `graph_memory.py`, `memgraph_memory.py`, `kuzu_memory.py`, `apache_age_memory.py`)
+- **TypeScript SDK v3.0.0** — V3 OSS pipeline with entity extraction (720+ lines), message persistence, batch embeddings, camelCase parameters, DeepSeek LLM provider, graph memory removed from OSS (1,088 lines across `graph_memory.ts`, `graphs/tools.ts`, `graphs/utils.ts`, `graphs/configs.ts`)
 - **Benchmark Results:** LoCoMo 71.4 → 91.6 (+20), LongMemEval 67.8 → 93.4 (+26), BEAM 1M @ 64.1
 
-**Breaking Changes:** `add()` returns ADD-only events, `search()` defaults changed, deprecated parameters removed (`org_id`, `project_id`, `enable_graph`), `limit` → `top_k`/`topK`, graph memory removed from TS OSS. See [migration guides](https://docs.mem0.ai/migration/oss-v1-to-v2).
+**Breaking Changes:** `add()` returns ADD-only events, `search()` defaults changed, deprecated parameters removed (`org_id`, `project_id`, `enable_graph`), `limit` → `top_k`/`topK`, **graph memory removed from both Python and TypeScript OSS** (use the Platform API for graph features). See [migration guides](https://docs.mem0.ai/migration/oss-v2-to-v3).
 
 </Update>
 

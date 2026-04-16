@@ -56,7 +56,8 @@ mode: "wide"
 - **`search()` default `rerank` is now `False`** — Pass `rerank=True` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`qdrant-client>=1.12.0` required** — Upgrade from `>=1.9.1` ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`org_id` and `project_id` removed** — Removed from `MemoryClient` constructor and all method signatures ([#4740](https://github.com/mem0ai/mem0/pull/4740))
-- **`enable_graph` removed** — Graph memory is now a project-level setting. Remove `enable_graph` from `add()`, `search()`, `get_all()`, and `update_project()` calls ([#4776](https://github.com/mem0ai/mem0/pull/4776))
+- **Graph Memory Removed (OSS):** `mem0/memory/graph_memory.py`, `memgraph_memory.py`, `kuzu_memory.py`, `apache_age_memory.py`, and `mem0/graphs/` (Neo4j / Memgraph / Kuzu / Apache AGE / Neptune drivers) deleted — ~4,000 lines. Graph memory is no longer supported in the OSS SDK; graph drivers (neo4j, memgraph, kuzu, etc.) can be uninstalled. Use the Platform API for graph features. Remove `enable_graph` and `graph_store` from your config ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **`enable_graph` removed from Client SDK** — Graph memory is now a project-level setting on the Platform. Remove `enable_graph` from `MemoryClient.add()` / `search()` / `get_all()` / `update_project()` calls ([#4776](https://github.com/mem0ai/mem0/pull/4776))
 - **`custom_fact_extraction_prompt` renamed to `custom_instructions`** — Update config and memory module references ([#4740](https://github.com/mem0ai/mem0/pull/4740))
 - **Typed option classes** — Added Pydantic v2 typed classes: `AddMemoryOptions`, `SearchMemoryOptions`, `GetAllMemoryOptions`, `DeleteAllMemoryOptions`, `UpdateMemoryOptions`, `ProjectUpdateOptions` ([#4740](https://github.com/mem0ai/mem0/pull/4740))
 
