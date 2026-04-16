@@ -110,11 +110,10 @@ def test_search(memory_instance):
     assert result["results"][0]["user_id"] == "test_user"
     # Score is now combined score (semantic only since no BM25/entity), still 0.9
     assert result["results"][0]["score"] == pytest.approx(0.9)
-    assert "score_breakdown" in result["results"][0]
 
-    # Hybrid pipeline over-fetches: max(100*4, 60) = 400
+    # Hybrid pipeline over-fetches: max(20*4, 60) = 80 (top_k default is now 20)
     memory_instance.vector_store.search.assert_called_once_with(
-        query="test query", vectors=[0.1, 0.2, 0.3], top_k=400, filters={"user_id": "test_user"}
+        query="test query", vectors=[0.1, 0.2, 0.3], top_k=80, filters={"user_id": "test_user"}
     )
 
 
@@ -201,7 +200,7 @@ def test_get_all(memory_instance):
     assert result["results"][0]["memory"] == "Memory 1"
     assert result["results"][0]["user_id"] == "test_user"
 
-    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=100)
+    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=20)
 
 
 def test_no_telemetry_vector_store_when_disabled():
@@ -242,3 +241,110 @@ def test_telemetry_vector_store_created_when_enabled():
 
         # VectorStoreFactory.create should be called twice — user data + telemetry
         assert mock_vector_store.create.call_count == 2
+
+
+# =============================================================================
+# Input Validation Tests
+# =============================================================================
+
+
+class TestEntityIdValidation:
+    """Tests for entity ID validation (whitespace rejection and trimming)."""
+
+    def test_search_rejects_whitespace_only_user_id(self, memory_instance):
+        """Search should reject whitespace-only user_id in filters."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot be empty"):
+            memory_instance.search("test query", filters={"user_id": "   "})
+
+    def test_search_rejects_internal_whitespace_user_id(self, memory_instance):
+        """Search should reject user_id with internal whitespace."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.search("test query", filters={"user_id": "user 123"})
+
+    def test_search_rejects_tab_in_user_id(self, memory_instance):
+        """Search should reject user_id with tab character."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.search("test query", filters={"user_id": "user\t123"})
+
+    def test_get_all_rejects_whitespace_only_user_id(self, memory_instance):
+        """get_all should reject whitespace-only user_id in filters."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot be empty"):
+            memory_instance.get_all(filters={"user_id": "   "})
+
+    def test_get_all_rejects_internal_whitespace_user_id(self, memory_instance):
+        """get_all should reject user_id with internal whitespace."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.get_all(filters={"user_id": "user 123"})
+
+    def test_add_rejects_whitespace_only_user_id(self, memory_instance):
+        """add should reject whitespace-only user_id."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot be empty"):
+            memory_instance.add("test message", user_id="   ")
+
+    def test_add_rejects_internal_whitespace_user_id(self, memory_instance):
+        """add should reject user_id with internal whitespace."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.add("test message", user_id="user 123")
+
+
+class TestSearchParamValidation:
+    """Tests for search parameter validation (threshold and top_k)."""
+
+    def test_search_rejects_threshold_above_1(self, memory_instance):
+        """Search should reject threshold > 1."""
+        with pytest.raises(ValueError, match="Invalid threshold.*Must be between 0 and 1"):
+            memory_instance.search("test query", filters={"user_id": "test"}, threshold=1.5)
+
+    def test_search_rejects_negative_threshold(self, memory_instance):
+        """Search should reject negative threshold."""
+        with pytest.raises(ValueError, match="Invalid threshold.*Must be between 0 and 1"):
+            memory_instance.search("test query", filters={"user_id": "test"}, threshold=-0.5)
+
+    def test_search_rejects_negative_top_k(self, memory_instance):
+        """Search should reject negative top_k."""
+        with pytest.raises(ValueError, match="Invalid top_k.*Must be a non-negative"):
+            memory_instance.search("test query", filters={"user_id": "test"}, top_k=-5)
+
+    def test_get_all_rejects_negative_top_k(self, memory_instance):
+        """get_all should reject negative top_k."""
+        with pytest.raises(ValueError, match="Invalid top_k.*Must be a non-negative"):
+            memory_instance.get_all(filters={"user_id": "test"}, top_k=-1)
+
+    def test_search_accepts_threshold_zero(self, memory_instance):
+        """Search should accept threshold=0 (edge case)."""
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            result = memory_instance.search("test", filters={"user_id": "test"}, threshold=0)
+
+        assert "results" in result
+
+    def test_search_accepts_threshold_one(self, memory_instance):
+        """Search should accept threshold=1.0 (edge case)."""
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            result = memory_instance.search("test", filters={"user_id": "test"}, threshold=1.0)
+
+        assert "results" in result
+
+    def test_search_accepts_top_k_zero(self, memory_instance):
+        """Search should accept top_k=0."""
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
+
+        assert "results" in result

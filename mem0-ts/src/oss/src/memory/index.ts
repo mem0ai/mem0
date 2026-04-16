@@ -52,6 +52,7 @@ import {
   ENTITY_BOOST_WEIGHT,
   ScoredResult,
 } from "../utils/scoring";
+import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
@@ -79,6 +80,58 @@ function rejectTopLevelEntityParams(
       `Top-level entity parameters [${invalidKeys.join(", ")}] are not supported in ${methodName}(). ` +
         `Use filters: { userId: "..." } instead.`,
     );
+  }
+}
+
+/**
+ * Validates and normalizes an entity ID.
+ * - Trims leading/trailing whitespace
+ * - Rejects empty or whitespace-only strings
+ * - Rejects strings containing internal whitespace
+ * @returns The trimmed entity ID, or undefined if input is undefined
+ * @throws Error if entity ID is invalid
+ */
+function validateAndTrimEntityId(
+  value: string | undefined,
+  name: string,
+): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw new Error(
+      `Invalid ${name}: cannot be empty or whitespace-only. Provide a valid identifier.`,
+    );
+  }
+  if (/\s/.test(trimmed)) {
+    throw new Error(
+      `Invalid ${name}: cannot contain whitespace. Provide a valid identifier without spaces.`,
+    );
+  }
+  return trimmed;
+}
+
+/**
+ * Validates search parameters.
+ * @throws Error if threshold or topK are invalid
+ */
+function validateSearchParams(threshold?: number, topK?: number): void {
+  if (threshold !== undefined) {
+    if (typeof threshold !== "number" || isNaN(threshold)) {
+      throw new Error("threshold must be a valid number");
+    }
+    if (threshold < 0 || threshold > 1) {
+      throw new Error(
+        `Invalid threshold: ${threshold}. Must be between 0 and 1 (inclusive).`,
+      );
+    }
+  }
+  if (topK !== undefined) {
+    if (typeof topK !== "number" || isNaN(topK) || !Number.isInteger(topK)) {
+      throw new Error("topK must be a valid integer");
+    }
+    if (topK < 0) {
+      throw new Error(`Invalid topK: ${topK}. Must be a non-negative integer.`);
+    }
   }
 }
 
@@ -195,12 +248,10 @@ export class Memory {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
-      // For file-based stores (memory/SQLite), use a separate DB path for entities
-      if (entityConfig.dbPath) {
-        entityConfig.dbPath = entityConfig.dbPath.replace(
-          /\.db$/,
-          "_entities.db",
-        );
+      // For file-based stores (memory/SQLite), always use a separate DB for entities
+      if (this.config.vectorStore.provider === "memory") {
+        const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
+        entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
       }
       this._entityStore = VectorStoreFactory.create(
         this.config.vectorStore.provider,
@@ -276,6 +327,13 @@ export class Memory {
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
+    // Validate messages input
+    if (messages === undefined || messages === null) {
+      throw new Error(
+        "messages is required and cannot be undefined or null. Provide a string or array of messages.",
+      );
+    }
+
     await this._ensureInitialized();
     await this._captureEvent("add", {
       message_count: Array.isArray(messages) ? messages.length : 1,
@@ -283,14 +341,12 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const {
-      userId,
-      agentId,
-      runId,
-      metadata = {},
-      filters = {},
-      infer = true,
-    } = config;
+    const { metadata = {}, filters = {}, infer = true } = config;
+
+    // Validate and trim entity IDs
+    const userId = validateAndTrimEntityId(config.userId, "userId");
+    const agentId = validateAndTrimEntityId(config.agentId, "agentId");
+    const runId = validateAndTrimEntityId(config.runId, "runId");
 
     // Convert camelCase entity params to snake_case for storage (matches API and search/getAll filters)
     if (userId) filters.user_id = metadata.user_id = userId;
@@ -804,14 +860,32 @@ export class Memory {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "search");
 
+    // Validate search parameters (before applying defaults)
+    validateSearchParams(config.threshold, config.topK);
+
+    // Validate and trim entity IDs in filters
+    const normalizedFilters = config.filters
+      ? {
+          ...config.filters,
+          user_id: validateAndTrimEntityId(config.filters.user_id, "user_id"),
+          agent_id: validateAndTrimEntityId(
+            config.filters.agent_id,
+            "agent_id",
+          ),
+          run_id: validateAndTrimEntityId(config.filters.run_id, "run_id"),
+        }
+      : {};
+
     await this._ensureInitialized();
+    const { topK = 20, threshold = 0.1 } = config;
+
     await this._captureEvent("search", {
       query_length: query.length,
-      topK: config.topK,
+      topK,
       has_filters: !!config.filters,
     });
-    const { topK = 100, threshold = 0.1 } = config;
-    let effectiveFilters: Record<string, any> = { ...(config.filters || {}) };
+
+    let effectiveFilters: Record<string, any> = { ...normalizedFilters };
 
     // Apply enhanced metadata filtering if advanced operators are detected
     if (this._hasAdvancedOperators(effectiveFilters)) {
@@ -993,12 +1067,9 @@ export class Memory {
           createdAt: payload.createdAt,
           updatedAt: payload.updatedAt,
           score: scored.score,
-          metadata: {
-            ...Object.entries(payload)
-              .filter(([key]) => !excludedKeys.has(key))
-              .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-            scoreBreakdown: scored.scoreBreakdown,
-          },
+          metadata: Object.entries(payload)
+            .filter(([key]) => !excludedKeys.has(key))
+            .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),
@@ -1116,11 +1187,23 @@ export class Memory {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "getAll");
 
+    // Validate topK if provided (before applying defaults)
+    validateSearchParams(undefined, config.topK);
+
     await this._ensureInitialized();
-    const { topK = 100, filters = {} } = config;
+
+    const { topK = 20 } = config;
+
+    // Validate and trim entity IDs in filters
+    const filters = {
+      ...(config.filters || {}),
+      user_id: validateAndTrimEntityId(config.filters?.user_id, "user_id"),
+      agent_id: validateAndTrimEntityId(config.filters?.agent_id, "agent_id"),
+      run_id: validateAndTrimEntityId(config.filters?.run_id, "run_id"),
+    };
 
     await this._captureEvent("get_all", {
-      topK: topK,
+      topK,
       has_user_id: !!filters.user_id,
       has_agent_id: !!filters.agent_id,
       has_run_id: !!filters.run_id,

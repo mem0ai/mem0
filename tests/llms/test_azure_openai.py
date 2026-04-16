@@ -286,8 +286,8 @@ def test_init_with_env_vars(monkeypatch):
             http_client=None,
             default_headers=None,
         )
-        # Should default to "gpt-4.1-nano-2025-04-14" if model is None
-        assert llm.config.model == "gpt-4.1-nano-2025-04-14"
+        # Should default to "gpt-5-mini" if model is None
+        assert llm.config.model == "gpt-5-mini"
 
 
 def test_init_with_default_azure_credential(monkeypatch):

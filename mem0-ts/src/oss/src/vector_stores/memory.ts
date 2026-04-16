@@ -19,6 +19,24 @@ export class MemoryVectorStore implements VectorStore {
   private dimension: number;
   private dbPath: string;
 
+  private static readonly CAMEL_TO_SNAKE: Record<string, string> = {
+    userId: "user_id",
+    agentId: "agent_id",
+    runId: "run_id",
+  };
+
+  private normalizePayload(payload: Record<string, any>): Record<string, any> {
+    for (const [camel, snake] of Object.entries(
+      MemoryVectorStore.CAMEL_TO_SNAKE,
+    )) {
+      if (camel in payload && !(snake in payload)) {
+        payload[snake] = payload[camel];
+        delete payload[camel];
+      }
+    }
+    return payload;
+  }
+
   constructor(config: VectorStoreConfig) {
     this.dimension = config.dimension || 1536; // Default OpenAI dimension
     this.dbPath = config.dbPath || getDefaultVectorStoreDbPath();
@@ -246,7 +264,7 @@ export class MemoryVectorStore implements VectorStore {
       }[] = [];
 
       for (const row of rows) {
-        const payload = JSON.parse(row.payload);
+        const payload = this.normalizePayload(JSON.parse(row.payload));
         const memoryVector: MemoryVector = {
           id: row.id,
           vector: Array.from(
@@ -260,7 +278,7 @@ export class MemoryVectorStore implements VectorStore {
         };
 
         if (this.filterVector(memoryVector, filters)) {
-          const text = payload.text_lemmatized || payload.data || "";
+          const text = payload.textLemmatized || payload.data || "";
           candidates.push({ id: row.id, payload, tokens: this.tokenize(text) });
         }
       }
@@ -351,7 +369,7 @@ export class MemoryVectorStore implements VectorStore {
         row.vector.byteOffset,
         row.vector.byteLength / 4,
       );
-      const payload = JSON.parse(row.payload);
+      const payload = this.normalizePayload(JSON.parse(row.payload));
       const memoryVector: MemoryVector = {
         id: row.id,
         vector: Array.from(vector),
@@ -378,7 +396,7 @@ export class MemoryVectorStore implements VectorStore {
       .get(vectorId) as any;
     if (!row) return null;
 
-    const payload = JSON.parse(row.payload);
+    const payload = this.normalizePayload(JSON.parse(row.payload));
     return {
       id: row.id,
       payload,
@@ -418,7 +436,7 @@ export class MemoryVectorStore implements VectorStore {
     const results: VectorStoreResult[] = [];
 
     for (const row of rows) {
-      const payload = JSON.parse(row.payload);
+      const payload = this.normalizePayload(JSON.parse(row.payload));
       const memoryVector: MemoryVector = {
         id: row.id,
         vector: Array.from(

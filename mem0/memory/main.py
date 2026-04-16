@@ -110,6 +110,64 @@ def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) ->
         )
 
 
+def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[str]:
+    """
+    Validates and normalizes an entity ID.
+    - Trims leading/trailing whitespace
+    - Rejects empty or whitespace-only strings
+    - Rejects strings containing internal whitespace
+
+    Args:
+        value: The entity ID value to validate
+        name: The parameter name (for error messages)
+
+    Returns:
+        The trimmed entity ID, or None if input is None
+
+    Raises:
+        ValueError: If entity ID is invalid
+    """
+    if value is None:
+        return None
+    trimmed = value.strip()
+    if trimmed == "":
+        raise ValueError(
+            f"Invalid {name}: cannot be empty or whitespace-only. Provide a valid identifier."
+        )
+    if any(c.isspace() for c in trimmed):
+        raise ValueError(
+            f"Invalid {name}: cannot contain whitespace. Provide a valid identifier without spaces."
+        )
+    return trimmed
+
+
+def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[int] = None) -> None:
+    """
+    Validates search parameters.
+
+    Args:
+        threshold: Similarity threshold (must be between 0 and 1)
+        top_k: Number of results to return (must be non-negative integer)
+
+    Raises:
+        ValueError: If threshold or top_k are invalid
+    """
+    if threshold is not None:
+        if not isinstance(threshold, (int, float)):
+            raise ValueError("threshold must be a valid number")
+        if threshold < 0 or threshold > 1:
+            raise ValueError(
+                f"Invalid threshold: {threshold}. Must be between 0 and 1 (inclusive)."
+            )
+    if top_k is not None:
+        if not isinstance(top_k, int) or isinstance(top_k, bool):
+            raise ValueError("top_k must be a valid integer")
+        if top_k < 0:
+            raise ValueError(
+                f"Invalid top_k: {top_k}. Must be a non-negative integer."
+            )
+
+
 def _is_sensitive_field(field_name: str) -> bool:
     """Check if a field should be redacted for telemetry safety.
 
@@ -217,8 +275,13 @@ def _build_filters_and_metadata(
     base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
-    # ---------- add all provided session ids ----------
+    # ---------- validate and add all provided session ids ----------
     session_ids_provided = []
+
+    # Validate and trim entity IDs
+    user_id = _validate_and_trim_entity_id(user_id, "user_id")
+    agent_id = _validate_and_trim_entity_id(agent_id, "agent_id")
+    run_id = _validate_and_trim_entity_id(run_id, "run_id")
 
     if user_id:
         base_metadata_template["user_id"] = user_id
@@ -334,6 +397,14 @@ class Memory(MemoryBase):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
                 entity_config['collection_name'] = entity_collection
+            # For Qdrant, share the existing client to avoid RocksDB lock contention
+            # when using embedded mode (path=...). QdrantConfig.client takes precedence
+            # over host/port/path.
+            if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
+                if hasattr(entity_config, "client"):
+                    entity_config.client = self.vector_store.client
+                elif isinstance(entity_config, dict):
+                    entity_config["client"] = self.vector_store.client
             self._entity_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, entity_config
             )
@@ -868,7 +939,7 @@ class Memory(MemoryBase):
         self,
         *,
         filters: Optional[Dict[str, Any]] = None,
-        top_k: int = 100,
+        top_k: int = 20,
         **kwargs,
     ):
         """
@@ -878,20 +949,38 @@ class Memory(MemoryBase):
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
-            top_k (int, optional): The maximum number of memories to return. Defaults to 100.
+            top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if top_k is invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "get_all")
 
+        # Validate top_k
+        _validate_search_params(top_k=top_k)
+
+        # Validate and trim entity IDs in filters
+        effective_filters = dict(filters) if filters else {}
+        if "user_id" in effective_filters:
+            effective_filters["user_id"] = _validate_and_trim_entity_id(
+                effective_filters["user_id"], "user_id"
+            )
+        if "agent_id" in effective_filters:
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(
+                effective_filters["agent_id"], "agent_id"
+            )
+        if "run_id" in effective_filters:
+            effective_filters["run_id"] = _validate_and_trim_entity_id(
+                effective_filters["run_id"], "run_id"
+            )
+
         # Validate filters contains at least one entity ID
-        effective_filters = filters or {}
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -960,7 +1049,7 @@ class Memory(MemoryBase):
         self,
         query: str,
         *,
-        top_k: int = 100,
+        top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
@@ -971,7 +1060,7 @@ class Memory(MemoryBase):
 
         Args:
             query (str): Query to search for.
-            top_k (int, optional): Maximum number of results to return. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
@@ -1000,13 +1089,29 @@ class Memory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if threshold/top_k values are invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
-        # Validate filters contains at least one entity ID
+        # Validate search parameters (before applying defaults)
+        _validate_search_params(threshold=threshold, top_k=top_k)
+
+        # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
+        if "user_id" in effective_filters:
+            effective_filters["user_id"] = _validate_and_trim_entity_id(
+                effective_filters["user_id"], "user_id"
+            )
+        if "agent_id" in effective_filters:
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(
+                effective_filters["agent_id"], "agent_id"
+            )
+        if "run_id" in effective_filters:
+            effective_filters["run_id"] = _validate_and_trim_entity_id(
+                effective_filters["run_id"], "run_id"
+            )
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -1188,8 +1293,6 @@ class Memory(MemoryBase):
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
         # Step 7: Build candidate set from semantic results
-        # BM25 acts as a boost signal only (not recall-expanding) -- candidates must
-        # pass the semantic threshold gate, so only semantic results are candidates.
         candidates = []
         for mem in semantic_results:
             mem_id = str(mem.id)
@@ -1233,9 +1336,6 @@ class Memory(MemoryBase):
                 updated_at=payload.get("updated_at"),
                 score=scored["score"],
             ).model_dump()
-
-            # Add score breakdown to metadata
-            memory_item_dict["score_breakdown"] = scored.get("score_breakdown", {})
 
             for key in promoted_payload_keys:
                 if key in payload:
@@ -1640,6 +1740,14 @@ class AsyncMemory(MemoryBase):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
                 entity_config['collection_name'] = entity_collection
+            # For Qdrant, share the existing client to avoid RocksDB lock contention
+            # when using embedded mode (path=...). QdrantConfig.client takes precedence
+            # over host/port/path.
+            if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
+                if hasattr(entity_config, "client"):
+                    entity_config.client = self.vector_store.client
+                elif isinstance(entity_config, dict):
+                    entity_config["client"] = self.vector_store.client
             self._entity_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, entity_config
             )
@@ -2115,7 +2223,7 @@ class AsyncMemory(MemoryBase):
         self,
         *,
         filters: Optional[Dict[str, Any]] = None,
-        top_k: int = 100,
+        top_k: int = 20,
         **kwargs,
     ):
         """
@@ -2125,20 +2233,38 @@ class AsyncMemory(MemoryBase):
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
-            top_k (int, optional): The maximum number of memories to return. Defaults to 100.
+            top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if top_k is invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "get_all")
 
+        # Validate top_k
+        _validate_search_params(top_k=top_k)
+
+        # Validate and trim entity IDs in filters
+        effective_filters = dict(filters) if filters else {}
+        if "user_id" in effective_filters:
+            effective_filters["user_id"] = _validate_and_trim_entity_id(
+                effective_filters["user_id"], "user_id"
+            )
+        if "agent_id" in effective_filters:
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(
+                effective_filters["agent_id"], "agent_id"
+            )
+        if "run_id" in effective_filters:
+            effective_filters["run_id"] = _validate_and_trim_entity_id(
+                effective_filters["run_id"], "run_id"
+            )
+
         # Validate filters contains at least one entity ID
-        effective_filters = filters or {}
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -2207,7 +2333,7 @@ class AsyncMemory(MemoryBase):
         self,
         query: str,
         *,
-        top_k: int = 100,
+        top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
@@ -2218,7 +2344,7 @@ class AsyncMemory(MemoryBase):
 
         Args:
             query (str): Query to search for.
-            top_k (int, optional): Maximum number of results to return. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
@@ -2247,13 +2373,31 @@ class AsyncMemory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if threshold/top_k values are invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
-        # Validate filters contains at least one entity ID
+        # Validate search parameters (before applying defaults)
+        _validate_search_params(threshold=threshold, top_k=top_k)
+
+        # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
+        if "user_id" in effective_filters:
+            effective_filters["user_id"] = _validate_and_trim_entity_id(
+                effective_filters["user_id"], "user_id"
+            )
+        if "agent_id" in effective_filters:
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(
+                effective_filters["agent_id"], "agent_id"
+            )
+        if "run_id" in effective_filters:
+            effective_filters["run_id"] = _validate_and_trim_entity_id(
+                effective_filters["run_id"], "run_id"
+            )
+
+        # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -2479,8 +2623,6 @@ class AsyncMemory(MemoryBase):
                 updated_at=payload.get("updated_at"),
                 score=scored["score"],
             ).model_dump()
-
-            memory_item_dict["score_breakdown"] = scored.get("score_breakdown", {})
 
             for key in promoted_payload_keys:
                 if key in payload:
