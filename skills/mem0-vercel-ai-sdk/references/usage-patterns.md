@@ -13,7 +13,7 @@ import { createMem0 } from "@mem0/vercel-ai-provider";
 const mem0 = createMem0();
 
 const { text } = await generateText({
-  model: mem0("gpt-4-turbo", { user_id: "alice" }),
+  model: mem0("gpt-5-mini", { user_id: "alice" }),
   prompt: "Recommend a restaurant based on my preferences",
 });
 
@@ -33,7 +33,7 @@ import { createMem0 } from "@mem0/vercel-ai-provider";
 const mem0 = createMem0();
 
 const result = streamText({
-  model: mem0("gpt-4-turbo", { user_id: "alice" }),
+  model: mem0("gpt-5-mini", { user_id: "alice" }),
   prompt: "What should I cook for dinner tonight?",
 });
 
@@ -53,17 +53,17 @@ import { openai } from "@ai-sdk/openai";
 import { generateText } from "ai";
 import { retrieveMemories, addMemories } from "@mem0/vercel-ai-provider";
 
-const userId = "alice";
+const user_id = "alice";
 const prompt = "Suggest a weekend trip";
 
 // Step 1: Retrieve memories as a formatted system prompt
 const memories = await retrieveMemories(prompt, {
-  user_id: userId,
+  user_id: user_id,
 });
 
 // Step 2: Generate with the memories injected as system context
 const { text } = await generateText({
-  model: openai("gpt-4-turbo"),
+  model: openai("gpt-5-mini"),
   prompt,
   system: memories,
 });
@@ -76,7 +76,7 @@ await addMemories(
     { role: "user", content: [{ type: "text", text: prompt }] },
     { role: "assistant", content: [{ type: "text", text }] },
   ],
-  { user_id: userId }
+  { user_id: user_id }
 );
 ```
 
@@ -95,7 +95,7 @@ const config = { user_id: "bob" };
 const memories = await retrieveMemories(prompt, config);
 
 const { text } = await generateText({
-  model: anthropic("claude-sonnet-4-20250514"),
+  model: anthropic("gpt-5-mini"),
   prompt,
   system: memories,
 });
@@ -121,7 +121,7 @@ import { z } from "zod";
 const mem0 = createMem0();
 
 const { object } = await generateObject({
-  model: mem0("gpt-4-turbo", { user_id: "alice" }),
+  model: mem0("gpt-5-mini", { user_id: "alice" }),
   prompt: "Suggest a meal plan for today",
   schema: z.object({
     breakfast: z.string(),
@@ -138,53 +138,7 @@ console.log(object);
 
 The `defaultObjectGenerationMode` is `"json"`, so structured output works out of the box.
 
-## 6. Graph Memory Enabled
-
-Retrieve both text memories and entity relationship graphs.
-
-```typescript
-import { generateText } from "ai";
-import { createMem0 } from "@mem0/vercel-ai-provider";
-
-const mem0 = createMem0();
-
-const { text } = await generateText({
-  model: mem0("gpt-4-turbo", {
-    user_id: "alice",
-    enable_graph: true,
-  }),
-  prompt: "What connections do you know about between my friends?",
-});
-
-console.log(text);
-```
-
-With `enable_graph: true`, the system prompt includes both:
-- **Text memories**: `"Memory: Alice is friends with Bob"`
-- **Graph relations**: `"Relation: Alice -> friends_with -> Bob"`
-
-### Using graph with standalone utilities
-
-```typescript
-import { getMemories, searchMemories } from "@mem0/vercel-ai-provider";
-
-// getMemories with graph returns the full response
-const graphResult = await getMemories("my social connections", {
-  user_id: "alice",
-  enable_graph: true,
-});
-console.log(graphResult.results);   // memory objects
-console.log(graphResult.relations); // graph relations
-
-// searchMemories always returns the full response
-const fullResponse = await searchMemories("my social connections", {
-  user_id: "alice",
-});
-console.log(fullResponse.results);
-console.log(fullResponse.relations);
-```
-
-## 7. Multi-Provider Setup
+## 6. Multi-Provider Setup
 
 Configure different LLM providers with the wrapped model.
 
@@ -194,7 +148,7 @@ Configure different LLM providers with the wrapped model.
 import { createMem0 } from "@mem0/vercel-ai-provider";
 
 const mem0 = createMem0(); // defaults to "openai"
-const model = mem0("gpt-4-turbo", { user_id: "alice" });
+const model = mem0("gpt-5-mini", { user_id: "alice" });
 ```
 
 ### Anthropic
@@ -235,7 +189,7 @@ const mem0 = createMem0({
 });
 ```
 
-## 8. Next.js API Route Integration
+## 7. Next.js API Route Integration
 
 A POST handler that uses the wrapped model in a Next.js App Router API route.
 
@@ -247,12 +201,12 @@ import { createMem0 } from "@mem0/vercel-ai-provider";
 const mem0 = createMem0();
 
 export async function POST(req: Request) {
-  const { messages, userId } = await req.json();
+  const { messages, user_id } = await req.json();
 
   const lastMessage = messages[messages.length - 1];
 
   const result = streamText({
-    model: mem0("gpt-4-turbo", { user_id: userId }),
+    model: mem0("gpt-5-mini", { user_id }),
     prompt: lastMessage.content,
   });
 
@@ -269,17 +223,17 @@ import { streamText } from "ai";
 import { retrieveMemories, addMemories } from "@mem0/vercel-ai-provider";
 
 export async function POST(req: Request) {
-  const { messages, userId } = await req.json();
+  const { messages, user_id } = await req.json();
   const lastMessage = messages[messages.length - 1];
 
   // Retrieve relevant memories
   const memories = await retrieveMemories(lastMessage.content, {
-    user_id: userId,
+    user_id,
   });
 
   // Stream the response
   const result = streamText({
-    model: openai("gpt-4-turbo"),
+    model: openai("gpt-5-mini"),
     prompt: lastMessage.content,
     system: memories,
   });
@@ -291,7 +245,7 @@ export async function POST(req: Request) {
         { role: "user", content: [{ type: "text", text: lastMessage.content }] },
         { role: "assistant", content: [{ type: "text", text }] },
       ],
-      { user_id: userId }
+      { user_id }
     );
   });
 
@@ -299,7 +253,7 @@ export async function POST(req: Request) {
 }
 ```
 
-## 9. How Memory Processing Works Internally
+## 8. How Memory Processing Works Internally
 
 ### Wrapped model flow (doGenerate / doStream)
 
@@ -308,10 +262,10 @@ export async function POST(req: Request) {
 2. processMemories(messagesPrompts, mem0Config):
    a. addMemories(messagesPrompts, mem0Config)
       --> fire-and-forget: .then().catch(), NO await
-      --> POST /v1/memories/ with converted messages
+      --> POST /v3/memories/add/ with converted messages
    b. await getMemories(messagesPrompts, mem0Config)
-      --> POST /v2/memories/search/ with flattened prompt
-      --> returns memory array (or {results, relations} if enable_graph)
+      --> POST /v3/memories/search/ with flattened prompt
+      --> returns memory array
    c. Format memories into system message string
    d. Prepend system message to messagesPrompts array
    e. Return { memories, messagesPrompts }
@@ -337,7 +291,7 @@ The memories are injected as a system message at position 0 of the prompt array:
 }
 ```
 
-## 10. Custom Configuration
+## 9. Custom Configuration
 
 ### Custom Mem0 API host
 
@@ -358,32 +312,15 @@ const memories = await retrieveMemories(prompt, {
 });
 ```
 
-### Organization and project scoping
-
-```typescript
-const mem0 = createMem0();
-const { text } = await generateText({
-  model: mem0("gpt-4-turbo", {
-    user_id: "alice",
-    org_id: "org-123",
-    project_id: "proj-456",
-  }),
-  prompt: "Hello",
-});
-```
-
-Note: `org_id` takes precedence over `org_name`. If `org_id` is set, `org_name` and `project_name` are not sent in the request.
-
 ### Memory filtering and ranking
 
 ```typescript
 const mem0 = createMem0();
-const model = mem0("gpt-4-turbo", {
+const model = mem0("gpt-5-mini", {
   user_id: "alice",
   top_k: 10,          // retrieve up to 10 memories (default: 5)
   threshold: 0.8,     // only memories with score >= 0.8
-  rerank: true,        // enable re-ranking of results
-  filter_memories: true,
+  rerank: true,       // enable re-ranking of results
 });
 ```
 
@@ -409,14 +346,13 @@ Set defaults at the provider level that apply to every model created:
 const mem0 = createMem0({
   mem0Config: {
     user_id: "alice",
-    enable_graph: true,
     top_k: 10,
   },
 });
 
-// These calls inherit user_id, enable_graph, and top_k from mem0Config
+// These calls inherit user_id and top_k from mem0Config
 const { text } = await generateText({
-  model: mem0("gpt-4-turbo"),
+  model: mem0("gpt-5-mini"),
   prompt: "Hello",
 });
 ```
@@ -425,7 +361,7 @@ Per-call settings (passed as the second argument to `mem0()`) are merged on top 
 
 ```typescript
 // Override user_id for this specific call
-const model = mem0("gpt-4-turbo", { user_id: "bob" });
+const model = mem0("gpt-5-mini", { user_id: "bob" });
 ```
 
 The merge order is: `config.mem0Config` (provider defaults) < `settings` (per-call overrides).

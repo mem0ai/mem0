@@ -15,10 +15,10 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "2.0.0"
+  version: "3.0.0"
   category: ai-memory
   tags: "memory, personalization, ai, python, typescript, vector-search"
-compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var (Platform), and internet access to api.mem0.ai
+compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm install mem0ai, MEM0_API_KEY env var (Platform), and internet access to api.mem0.ai. SDK v3 with v2 compatibility mode available.
 ---
 
 # Mem0 Platform Integration
@@ -77,14 +77,14 @@ client.add(messages, user_id="alice")
 
 ### Search memories
 ```python
-results = client.search("dietary preferences", user_id="alice")
+results = client.search("dietary preferences", filters={"user_id": "alice"})
 for mem in results.get("results", []):
     print(mem["memory"])
 ```
 
 ### Get all memories
 ```python
-all_memories = client.get_all(user_id="alice")
+all_memories = client.get_all(filters={"user_id": "alice"})
 ```
 
 ### Update a memory
@@ -109,12 +109,12 @@ openai = OpenAI()
 
 def chat(user_input: str, user_id: str) -> str:
     # 1. Retrieve relevant memories
-    memories = mem0.search(user_input, user_id=user_id)
+    memories = mem0.search(user_input, filters={"user_id": user_id})
     context = "\n".join([m["memory"] for m in memories.get("results", [])])
 
     # 2. Generate response with memory context
     response = openai.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": f"User context:\n{context}"},
             {"role": "user", "content": user_input},
@@ -132,11 +132,20 @@ def chat(user_input: str, user_id: str) -> str:
 
 ## Common edge cases
 
-- **Search returns empty:** Memories process asynchronously. Wait 2-3s after `add()` before searching. Also verify `user_id` matches exactly (case-sensitive).
+- **Search returns empty:** Memories process asynchronously. Wait 2-3s after `add()` before searching. Also verify `user_id` matches exactly (case-sensitive) and use `filters={"user_id": "..."}` syntax.
 - **AND filter with user_id + agent_id returns empty:** Entities are stored separately. Use `OR` instead, or query separately.
 - **Duplicate memories:** Don't mix `infer=True` (default) and `infer=False` for the same data. Stick to one mode.
 - **Wrong import:** Always use `from mem0 import MemoryClient` (or `AsyncMemoryClient` for async). Do not use `from mem0 import Memory`.
-- **Immutable memories:** Cannot be updated or deleted once created. Use `client.history(memory_id)` to track changes over time.
+- **v3 defaults:** `top_k=20`, `threshold=0.1`, `rerank=False`. Adjust as needed for your use case.
+
+## v2 Compatibility
+
+If you're using SDK v2.x, note these differences:
+- **Entity IDs:** Pass `user_id` as top-level kwarg to `search()` instead of inside `filters`
+- **Defaults:** `top_k=100`, no threshold, `rerank=True`
+- **Graph memory:** Available via `enable_graph=True`
+
+See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.
 
 ## Live documentation search
 
