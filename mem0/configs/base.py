@@ -80,6 +80,8 @@ class MemoryConfig(BaseModel):
     @model_validator(mode="after")
     def _resolve_history_store(self) -> "MemoryConfig":
         """Resolve history_store from legacy history_db_path or disable_history."""
+        if self.disable_history and self.history_store is not None:
+            raise ValueError("Cannot set both disable_history=True and history_store. Remove one of them.")
         if self.disable_history:
             self.history_store = HistoryStoreConfig(provider="noop")
         elif self.history_store is None:
