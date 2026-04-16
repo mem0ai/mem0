@@ -18,7 +18,7 @@ from routers import auth as auth_router
 from routers import api_keys as api_keys_router
 from routers import entities as entities_router
 from routers import requests as requests_router
-from server_state import get_current_config, get_memory_instance, initialize_state, update_config
+from server_state import get_current_config, get_memory_instance, initialize_state, set_session_factory, update_config
 
 load_dotenv()
 
@@ -36,7 +36,7 @@ SENSITIVE_CONFIG_KEYS = {
     "token",
 }
 SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
-SKIPPED_REQUEST_LOG_PREFIXES = ("/auth/", "/api-keys", "/entities", "/requests", "/configure")
+SKIPPED_REQUEST_LOG_PREFIXES = ("/auth/", "/api-keys", "/entities", "/requests", "/configure", "/generate-instructions")
 
 
 def _warn_if_unconfigured() -> None:
@@ -107,6 +107,7 @@ DEFAULT_CONFIG = {
 }
 
 
+set_session_factory(SessionLocal)
 initialize_state(DEFAULT_CONFIG)
 
 
@@ -165,6 +166,10 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = None
     top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
+
+
+class GenerateInstructionsRequest(BaseModel):
+    use_case: str = Field(..., description="Description of what the user will use Mem0 for.")
 
 
 def _redact_config(value: Any, key: str | None = None) -> Any:
@@ -235,6 +240,22 @@ def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
     """Set memory configuration."""
     update_config(config)
     return {"message": "Configuration set successfully"}
+
+
+@app.post("/generate-instructions", summary="Generate custom instructions from a use case")
+def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify_auth)):
+    """Generate custom instructions tailored to a use case."""
+    try:
+        prompt = (
+            "You are configuring a memory system. Given the use case below, write a short paragraph of custom "
+            "instructions that tells the memory extraction system what kinds of facts, preferences, and context "
+            f"to prioritize extracting and remembering. Be specific to the use case.\n\nUse case: {req.use_case}"
+        )
+        response = get_memory_instance().llm.generate_response([{"role": "user", "content": prompt}])
+        return {"custom_instructions": response}
+    except Exception as e:
+        logging.exception("Error in generate_instructions:")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/memories", summary="Create memories")

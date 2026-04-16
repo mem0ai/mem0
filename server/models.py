@@ -50,3 +50,13 @@ class RequestLog(Base):
     latency_ms: Mapped[float] = mapped_column(Float)
     auth_type: Mapped[str] = mapped_column(String(32), default="none")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class Settings(Base):
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow,
+    )

@@ -15,14 +15,43 @@ import { api } from "@/utils/api";
 import { API_KEY_ENDPOINTS, MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
 import { getEffectiveConfig } from "@/utils/self-hosted-config";
 
-const STEPS = ["Admin Account", "Providers", "API Key", "Quick Test"];
+const STEPS = [
+  "Admin Account",
+  "Providers",
+  "API Key",
+  "Use Case",
+  "Quick Test",
+];
 const STEP_TITLES = [
   "Create your admin account",
   "Review provider configuration",
   "Your API key",
+  "Tell us your use case",
   "Test your setup",
 ];
 const SUPPORTED_PROVIDERS_URL = "https://docs.mem0.ai/components/llms/overview";
+
+const USE_CASE_PRESETS = [
+  "Personal assistant",
+  "Coding agent",
+  "Customer support",
+  "Research",
+  "Therapy / journaling",
+];
+
+const USE_CASE_TEST_MESSAGES: Record<string, string> = {
+  "Personal assistant":
+    "I prefer morning meetings and I'm allergic to shellfish.",
+  "Coding agent":
+    "Our codebase uses TypeScript with strict mode and we deploy via GitHub Actions.",
+  "Customer support":
+    "Customer John prefers email communication and has a premium subscription.",
+  Research:
+    "The 2024 study by Chen et al. found that retrieval-augmented generation improves factual accuracy by 23%.",
+  "Therapy / journaling":
+    "I've been feeling anxious about work deadlines lately.",
+  default: "I like to hike on weekends.",
+};
 
 export default function SetupPage() {
   const router = useRouter();
@@ -45,6 +74,11 @@ export default function SetupPage() {
   const [apiKey, setApiKey] = useState("");
   const [copied, setCopied] = useState(false);
   const [testSuccess, setTestSuccess] = useState(false);
+
+  const [useCase, setUseCase] = useState("");
+  const [customInstructions, setCustomInstructions] = useState("");
+  const [isGeneratingInstructions, setIsGeneratingInstructions] =
+    useState(false);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -136,15 +170,23 @@ export default function SetupPage() {
     }
   };
 
-  const handleContinueToTest = (e: React.FormEvent) => {
+  const handleContinueToUseCase = (e: React.FormEvent) => {
     e.preventDefault();
     setStep(3);
+  };
+
+  const handleContinueToQuickTest = () => {
+    setError("");
+    setStep(4);
   };
 
   const handleGoToDashboard = (e: React.FormEvent) => {
     e.preventDefault();
     router.push("/dashboard/requests");
   };
+
+  const testMessage =
+    USE_CASE_TEST_MESSAGES[useCase] ?? USE_CASE_TEST_MESSAGES["default"];
 
   const handleTest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,7 +198,7 @@ export default function SetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-API-Key": apiKey },
         body: JSON.stringify({
-          messages: [{ role: "user", content: "I like to hike on weekends." }],
+          messages: [{ role: "user", content: testMessage }],
           user_id: "setup-test",
         }),
       });
@@ -345,7 +387,7 @@ export default function SetupPage() {
             )}
 
             {step === 2 && apiKey && (
-              <form onSubmit={handleContinueToTest} className="space-y-4">
+              <form onSubmit={handleContinueToUseCase} className="space-y-4">
                 <div className="space-y-1">
                   <Label htmlFor="setup-api-key">Your API Key</Label>
                   <div className="flex gap-2">
@@ -382,6 +424,115 @@ export default function SetupPage() {
             )}
 
             {step === 3 && (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label htmlFor="setup-use-case">Describe your use case</Label>
+                  <textarea
+                    id="setup-use-case"
+                    value={useCase}
+                    onChange={(e) => setUseCase(e.target.value)}
+                    placeholder="e.g. A personal assistant that remembers my preferences"
+                    className="flex w-full rounded-md border border-memBorder-primary bg-surface-default-primary px-3 py-2 text-sm placeholder:text-onSurface-default-tertiary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-memPurple-500 min-h-[80px] resize-y"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {USE_CASE_PRESETS.map((preset) => (
+                    <Button
+                      key={preset}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUseCase(preset)}
+                      className={cn(
+                        useCase === preset &&
+                          "border-memPurple-500 text-memPurple-500",
+                      )}
+                    >
+                      {preset}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleContinueToQuickTest}
+                    className="flex-1"
+                  >
+                    Skip
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={!useCase || isGeneratingInstructions}
+                    className="flex-1"
+                    onClick={async () => {
+                      setError("");
+                      setIsGeneratingInstructions(true);
+                      try {
+                        const res = await api.post(
+                          MEMORY_ENDPOINTS.GENERATE_INSTRUCTIONS,
+                          {
+                            use_case: useCase,
+                          },
+                        );
+                        setCustomInstructions(res.data.custom_instructions);
+                      } catch (err) {
+                        setError(
+                          getErrorMessage(
+                            err,
+                            "Failed to generate instructions",
+                          ),
+                        );
+                      } finally {
+                        setIsGeneratingInstructions(false);
+                      }
+                    }}
+                  >
+                    {isGeneratingInstructions ? "Generating..." : "Generate"}
+                  </Button>
+                </div>
+                {customInstructions && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="setup-instructions">
+                        Generated instructions
+                      </Label>
+                      <textarea
+                        id="setup-instructions"
+                        value={customInstructions}
+                        onChange={(e) => setCustomInstructions(e.target.value)}
+                        className="flex w-full rounded-md border border-memBorder-primary bg-surface-default-primary px-3 py-2 text-sm placeholder:text-onSurface-default-tertiary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-memPurple-500 min-h-[120px] resize-y"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      className="w-full"
+                      onClick={async () => {
+                        setError("");
+                        setIsLoading(true);
+                        try {
+                          await api.post(MEMORY_ENDPOINTS.CONFIGURE, {
+                            custom_instructions: customInstructions,
+                          });
+                          handleContinueToQuickTest();
+                        } catch (err) {
+                          setError(
+                            getErrorMessage(err, "Failed to save instructions"),
+                          );
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Saving..." : "Save & Continue"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 4 && (
               <form
                 onSubmit={testSuccess ? handleGoToDashboard : handleTest}
                 className="space-y-4"
@@ -391,7 +542,7 @@ export default function SetupPage() {
                   <pre className="text-xs bg-surface-default-secondary p-3 rounded font-mono overflow-x-auto">{`curl -X POST ${apiUrl}/memories \\
   -H "X-API-Key: ${apiKey}" \\
   -H "Content-Type: application/json" \\
-  -d '{"messages": [{"role": "user", "content": "I like hiking"}], "user_id": "test"}'`}</pre>
+  -d '{"messages": [{"role": "user", "content": "${testMessage}"}], "user_id": "test"}'`}</pre>
                 </div>
                 {!testSuccess ? (
                   <Button type="submit" disabled={isLoading} className="w-full">
