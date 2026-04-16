@@ -26,9 +26,9 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
   let cleanup: () => void;
   let memoryIds: string[] = [];
 
-  beforeAll(() => {
+  beforeAll(async () => {
     cleanup = suppressTelemetryNoise();
-    client = createTestClient();
+    client = await createTestClient();
   });
 
   afterAll(async () => {
@@ -120,14 +120,20 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
   // ─── Get all ──────────────────────────────────────────────
   describe("get all memories", () => {
     test("returns all memories for test user", async () => {
-      const memories = await client.getAll({
+      const response = await client.getAll({
         filters: { user_id: TEST_USER_ID },
       });
 
-      expect(Array.isArray(memories)).toBe(true);
-      expect(memories.length).toBeGreaterThanOrEqual(memoryIds.length);
+      // Paginated shape: { count, next, previous, results: [...] }
+      expect(response).toHaveProperty("count");
+      expect(response).toHaveProperty("next");
+      expect(response).toHaveProperty("previous");
+      expect(response).toHaveProperty("results");
+      expect(typeof response.count).toBe("number");
+      expect(Array.isArray(response.results)).toBe(true);
+      expect(response.results.length).toBeGreaterThanOrEqual(memoryIds.length);
 
-      for (const mem of memories) {
+      for (const mem of response.results) {
         expect(typeof mem.id).toBe("string");
         expect(typeof mem.memory).toBe("string");
       }
@@ -140,8 +146,12 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
         pageSize: 1,
       });
 
-      // Paginated response is an object with results array
       expect(page1).toBeDefined();
+      expect(page1).toHaveProperty("count");
+      expect(page1).toHaveProperty("next");
+      expect(page1).toHaveProperty("previous");
+      expect(Array.isArray(page1.results)).toBe(true);
+      expect(page1.results.length).toBeLessThanOrEqual(1);
     });
   });
 
@@ -197,13 +207,15 @@ describeIntegration("MemoryClient Integration — CRUD", () => {
       expect(result).toHaveProperty("eventId");
     });
 
-    test("getAll for non-existent user returns empty array", async () => {
-      const memories = await client.getAll({
+    test("getAll for non-existent user returns empty results", async () => {
+      const response = await client.getAll({
         filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
-      expect(Array.isArray(memories)).toBe(true);
-      expect(memories.length).toBe(0);
+      expect(response).toHaveProperty("results");
+      expect(Array.isArray(response.results)).toBe(true);
+      expect(response.results.length).toBe(0);
+      expect(response.count).toBe(0);
     });
 
     test("deleteAll for non-existent user does not throw", async () => {

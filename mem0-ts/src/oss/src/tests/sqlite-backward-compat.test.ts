@@ -308,7 +308,7 @@ describe("backward compat: MemoryVectorStore", () => {
       );
 
       const results = await store.search(normalize([1, 0, 0]), 10, {
-        userId: "user2",
+        user_id: "user2",
       });
       expect(results).toHaveLength(1);
       expect(results[0].id).toBe("b");

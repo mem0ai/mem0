@@ -46,6 +46,9 @@ class MilvusDB(VectorStoreBase):
         self.embedding_model_dims = embedding_model_dims
         self.metric_type = metric_type
         self.client = MilvusClient(uri=url, token=token, db_name=db_name)
+        # Whether this collection has the `text` + `sparse` fields for v3 BM25.
+        # Pre-v3 collections lack them; writing a top-level `text` field is rejected.
+        self._has_bm25_schema = False
         self.create_col(
             collection_name=self.collection_name,
             vector_size=self.embedding_model_dims,
@@ -68,6 +71,15 @@ class MilvusDB(VectorStoreBase):
 
         if self.client.has_collection(collection_name):
             logger.info(f"Collection {collection_name} already exists. Skipping creation.")
+            desc = self.client.describe_collection(collection_name=collection_name)
+            field_names = {f.get("name") for f in desc.get("fields", [])}
+            self._has_bm25_schema = "text" in field_names and "sparse" in field_names
+            if not self._has_bm25_schema:
+                logger.warning(
+                    f"Collection '{collection_name}' predates v3 hybrid search (no 'text'/'sparse' fields). "
+                    "BM25 keyword scoring will be disabled for this collection; semantic search works normally. "
+                    "To enable hybrid search, use a fresh collection."
+                )
         else:
             fields = [
                 FieldSchema(name="id", dtype=DataType.VARCHAR, is_primary=True, max_length=512),
@@ -101,6 +113,7 @@ class MilvusDB(VectorStoreBase):
                 index_name="sparse_index",
             )
             self.client.create_collection(collection_name=collection_name, schema=schema, index_params=index_params)
+            self._has_bm25_schema = True
 
     def insert(self, ids, vectors, payloads, **kwargs: Optional[dict[str, any]]):
         """Insert vectors into a collection.
@@ -110,17 +123,17 @@ class MilvusDB(VectorStoreBase):
             payloads (List[Dict], optional): List of payloads corresponding to vectors.
             ids (List[str], optional): List of IDs corresponding to vectors.
         """
-        # Batch insert all records at once for better performance and consistency
-        data = [
-            {
-                "id": idx,
-                "vectors": embedding,
-                "metadata": metadata,
+        # Batch insert all records at once for better performance and consistency.
+        # Only include the `text` field when the collection's schema has it — legacy
+        # collections created pre-v3 reject unknown top-level fields.
+        def _build_record(idx, embedding, metadata):
+            record = {"id": idx, "vectors": embedding, "metadata": metadata}
+            if self._has_bm25_schema:
                 # Populate the text field for BM25 sparse search; prefer lemmatized text, fall back to raw data
-                "text": (metadata.get("text_lemmatized") or metadata.get("data", ""))[:65535] if metadata else "",
-            }
-            for idx, embedding, metadata in zip(ids, vectors, payloads)
-        ]
+                record["text"] = (metadata.get("text_lemmatized") or metadata.get("data", ""))[:65535] if metadata else ""
+            return record
+
+        data = [_build_record(idx, embedding, metadata) for idx, embedding, metadata in zip(ids, vectors, payloads)]
         self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
 
     def _create_filter(self, filters: dict):
@@ -179,13 +192,21 @@ class MilvusDB(VectorStoreBase):
             list: Search results.
         """
         query_filter = self._create_filter(filters) if filters else None
-        hits = self.client.search(
-            collection_name=self.collection_name,
-            data=[vectors],
-            limit=top_k,
-            filter=query_filter,
-            output_fields=["*"],
-        )
+        # v3 collections carry both a dense `vectors` field and a sparse `sparse`
+        # field (for BM25), which makes anns_field ambiguous — Milvus rejects the
+        # query otherwise with "multiple anns_fields exist". Legacy single-vector
+        # collections don't need the hint, so only pass it when the hybrid schema
+        # is present.
+        search_kwargs = {
+            "collection_name": self.collection_name,
+            "data": [vectors],
+            "limit": top_k,
+            "filter": query_filter,
+            "output_fields": ["*"],
+        }
+        if self._has_bm25_schema:
+            search_kwargs["anns_field"] = "vectors"
+        hits = self.client.search(**search_kwargs)
         result = self._parse_output(data=hits[0])
         return result
 
@@ -206,6 +227,8 @@ class MilvusDB(VectorStoreBase):
             list: Search results in the same format as search(), or None if sparse search
                   is not supported on this collection.
         """
+        if not self._has_bm25_schema:
+            return None
         try:
             query_filter = self._create_filter(filters) if filters else None
             hits = self.client.search(

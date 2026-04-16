@@ -167,7 +167,7 @@ class MemoryClient:
 
         kwargs = self._prepare_params(kwargs)
         payload = self._prepare_payload(messages, kwargs)
-        response = self.client.post("/v3/memories/", json=payload)
+        response = self.client.post("/v3/memories/add/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -207,7 +207,7 @@ class MemoryClient:
             **kwargs: Optional parameters for filtering (filters, page, page_size).
 
         Returns:
-            A dictionary containing memories in v1.1 format: {"results": [...]}
+            A paginated dict: {"count": int, "next": str | None, "previous": str | None, "results": [...]}
 
         Raises:
             ValidationError: If the input data is invalid.
@@ -233,9 +233,9 @@ class MemoryClient:
                 "page": params.pop("page"),
                 "page_size": params.pop("page_size"),
             }
-            response = self.client.post("/v2/memories/", json=params, params=query_params)
+            response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
-            response = self.client.post("/v2/memories/", json=params)
+            response = self.client.post("/v3/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -247,12 +247,7 @@ class MemoryClient:
                 "sync_type": "sync",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     def search(self, query: str, options: Optional[SearchMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
@@ -1095,7 +1090,7 @@ class AsyncMemoryClient:
 
         kwargs = self._prepare_params(kwargs)
         payload = self._prepare_payload(messages, kwargs)
-        response = await self.async_client.post("/v3/memories/", json=payload)
+        response = await self.async_client.post("/v3/memories/add/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1119,7 +1114,7 @@ class AsyncMemoryClient:
             **kwargs: Optional parameters for filtering (filters, page, page_size).
 
         Returns:
-            A dictionary containing memories in v1.1 format: {"results": [...]}
+            A paginated dict: {"count": int, "next": str | None, "previous": str | None, "results": [...]}
 
         Raises:
             ValidationError: If the input data is invalid.
@@ -1145,9 +1140,9 @@ class AsyncMemoryClient:
                 "page": params.pop("page"),
                 "page_size": params.pop("page_size"),
             }
-            response = await self.async_client.post("/v2/memories/", json=params, params=query_params)
+            response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
-            response = await self.async_client.post("/v2/memories/", json=params)
+            response = await self.async_client.post("/v3/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1159,12 +1154,7 @@ class AsyncMemoryClient:
                 "sync_type": "async",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     async def search(self, query: str, options: Optional[SearchMemoryOptions] = None, **kwargs) -> Dict[str, Any]:

@@ -222,7 +222,7 @@ config = {
 def smart_search(query, user_id, use_rerank=None):
     if use_rerank is None:
         use_rerank = len(query.split()) > 3
-    return m.search(query, user_id=user_id, rerank=use_rerank)
+    return m.search(query, filters={"user_id": user_id}, rerank=use_rerank)
 ```
 
 <Tip>
@@ -233,10 +233,10 @@ def smart_search(query, user_id, use_rerank=None):
 
 ```python
 try:
-    results = m.search("test query", user_id="alice", rerank=True)
+    results = m.search("test query", filters={"user_id": "alice"}, rerank=True)
 except Exception as exc:
     print(f"Reranking failed: {exc}")
-    results = m.search("test query", user_id="alice", rerank=False)
+    results = m.search("test query", filters={"user_id": "alice"}, rerank=False)
 ```
 
 <Warning>
@@ -247,7 +247,7 @@ except Exception as exc:
 
 ```python
 # Before: basic vector search
-results = m.search("query", user_id="alice")
+results = m.search("query", filters={"user_id": "alice"})
 
 # After: same API with reranking enabled via config
 config = {
@@ -260,7 +260,7 @@ config = {
 }
 
 m = Memory.from_config(config)
-results = m.search("query", user_id="alice")
+results = m.search("query", filters={"user_id": "alice"})
 ```
 
 ---

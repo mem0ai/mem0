@@ -55,7 +55,8 @@
                       "core-concepts/memory-operations/add",
                       "core-concepts/memory-operations/search",
                       "core-concepts/memory-operations/update",
-                      "core-concepts/memory-operations/delete"
+                      "core-concepts/memory-operations/delete",
+                      "core-concepts/memory-evaluation"
                     ]
                   },
                   {
@@ -78,7 +79,6 @@
                         "group": "Advanced Features",
                         "icon": "bolt",
                         "pages": [
-                          "platform/features/graph-threshold",
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
                           "platform/features/criteria-retrieval",
@@ -118,6 +118,7 @@
                     "group": "Migration Guide",
                     "icon": "arrow-right",
                     "pages": [
+                      "migration/platform-v2-to-v3",
                       "migration/oss-to-platform",
                       "migration/api-changes"
                     ]
@@ -163,13 +164,11 @@
                     "icon": "server",
                     "pages": [
                       "open-source/features/overview",
-                      "open-source/features/graph-memory",
                       "open-source/features/metadata-filtering",
                       "open-source/features/reranker-search",
                       "open-source/features/async-memory",
                       "open-source/features/multimodal-support",
                       "open-source/features/custom-instructions",
-                      "open-source/features/custom-update-memory-prompt",
                       "open-source/features/rest-api",
                       "open-source/features/openai_compatibility"
                     ]
@@ -297,6 +296,13 @@
                     ]
                   },
                   {
+                    "group": "Migration",
+                    "icon": "arrow-right",
+                    "pages": [
+                      "migration/oss-v2-to-v3"
+                    ]
+                  },
+                  {
                     "group": "Community & Support",
                     "icon": "users",
                     "pages": [
@@ -323,10 +329,8 @@
                       "cookbooks/essentials/building-ai-companion",
                       "cookbooks/essentials/entity-partitioning-playbook",
                       "cookbooks/essentials/controlling-memory-ingestion",
-                      "cookbooks/essentials/memory-expiration-short-and-long-term",
                       "cookbooks/essentials/tagging-and-organizing-memories",
-                      "cookbooks/essentials/exporting-memories",
-                      "cookbooks/essentials/choosing-memory-architecture-vector-vs-graph"
+                      "cookbooks/essentials/exporting-memories"
                     ]
                   },
                   {
@@ -362,7 +366,6 @@
                       "cookbooks/integrations/mastra-agent",
                       "cookbooks/integrations/healthcare-google-adk",
                       "cookbooks/integrations/aws-bedrock",
-                      "cookbooks/integrations/neptune-analytics",
                       "cookbooks/integrations/tavily-search"
                     ]
                   },
@@ -374,8 +377,7 @@
                       "cookbooks/frameworks/llamaindex-multiagent",
                       "cookbooks/frameworks/multimodal-retrieval",
                       "cookbooks/frameworks/eliza-os-character",
-                      "cookbooks/frameworks/gemini-3-with-mem0-mcp",
-                      "cookbooks/frameworks/mirofish-swarm-memory"
+                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
                     ]
                   }
                 ]
@@ -625,6 +627,10 @@
       "destination": "/"
     },
     {
+      "source": "/cookbooks/essentials/memory-expiration-short-and-long-term",
+      "destination": "/cookbooks/essentials/building-ai-companion"
+    },
+    {
       "source": "/platform/features/async-mode-default-change",
       "destination": "/"
     },
@@ -634,7 +640,11 @@
     },
     {
       "source": "/platform/features/graph-memory",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/cookbooks/essentials/choosing-memory-architecture-vector-vs-graph",
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/changelog",
@@ -734,11 +744,23 @@
     },
     {
       "source": "/examples/aws_neptune_analytics_hybrid_store",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/examples/aws_neptune_analytics_hybrid_st",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/cookbooks/integrations/neptune-analytics",
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/platform/features/graph-threshold",
+      "destination": "/migration/platform-v2-to-v3"
+    },
+    {
+      "source": "/open-source/features/custom-update-memory-prompt",
+      "destination": "/open-source/features/custom-instructions"
     },
     {
       "source": "/examples/personalized-search-tavily-mem0",
@@ -810,11 +832,11 @@
     },
     {
       "source": "/open-source/graph_memory/overview",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/open-source/graph_memory/features",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/v0x/examples/ai_companion_js",
@@ -910,7 +932,7 @@
     },
     {
       "source": "/v0x/examples/aws_neptune_analytics_hybrid_store",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/features/memory-export",
@@ -994,7 +1016,7 @@
     },
     {
       "source": "/features/graph-memory",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/features/:slug",
@@ -1102,7 +1124,7 @@
     },
     {
       "source": "/open-source/graph-memory",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/cookbooks/customer-support-agent",

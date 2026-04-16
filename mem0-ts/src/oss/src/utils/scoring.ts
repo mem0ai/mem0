@@ -59,11 +59,6 @@ export function normalizeBm25(
 export interface ScoredResult {
   id: string;
   score: number;
-  scoreBreakdown: {
-    semantic: number;
-    bm25: number;
-    entityBoost: number;
-  };
   payload: Record<string, any>;
 }
 
@@ -134,11 +129,6 @@ export function scoreAndRank(
     scored.push({
       id: memIdStr,
       score: combined,
-      scoreBreakdown: {
-        semantic: semanticScore,
-        bm25: bm25Score,
-        entityBoost: entityBoost,
-      },
       payload: result.payload,
     });
   }

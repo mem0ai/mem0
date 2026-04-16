@@ -52,6 +52,7 @@ import {
   ENTITY_BOOST_WEIGHT,
   ScoredResult,
 } from "../utils/scoring";
+import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
@@ -79,6 +80,58 @@ function rejectTopLevelEntityParams(
       `Top-level entity parameters [${invalidKeys.join(", ")}] are not supported in ${methodName}(). ` +
         `Use filters: { userId: "..." } instead.`,
     );
+  }
+}
+
+/**
+ * Validates and normalizes an entity ID.
+ * - Trims leading/trailing whitespace
+ * - Rejects empty or whitespace-only strings
+ * - Rejects strings containing internal whitespace
+ * @returns The trimmed entity ID, or undefined if input is undefined
+ * @throws Error if entity ID is invalid
+ */
+function validateAndTrimEntityId(
+  value: string | undefined,
+  name: string,
+): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw new Error(
+      `Invalid ${name}: cannot be empty or whitespace-only. Provide a valid identifier.`,
+    );
+  }
+  if (/\s/.test(trimmed)) {
+    throw new Error(
+      `Invalid ${name}: cannot contain whitespace. Provide a valid identifier without spaces.`,
+    );
+  }
+  return trimmed;
+}
+
+/**
+ * Validates search parameters.
+ * @throws Error if threshold or topK are invalid
+ */
+function validateSearchParams(threshold?: number, topK?: number): void {
+  if (threshold !== undefined) {
+    if (typeof threshold !== "number" || isNaN(threshold)) {
+      throw new Error("threshold must be a valid number");
+    }
+    if (threshold < 0 || threshold > 1) {
+      throw new Error(
+        `Invalid threshold: ${threshold}. Must be between 0 and 1 (inclusive).`,
+      );
+    }
+  }
+  if (topK !== undefined) {
+    if (typeof topK !== "number" || isNaN(topK) || !Number.isInteger(topK)) {
+      throw new Error("topK must be a valid integer");
+    }
+    if (topK < 0) {
+      throw new Error(`Invalid topK: ${topK}. Must be a non-negative integer.`);
+    }
   }
 }
 
@@ -195,12 +248,10 @@ export class Memory {
         ...this.config.vectorStore.config,
         collectionName: entityCollectionName,
       };
-      // For file-based stores (memory/SQLite), use a separate DB path for entities
-      if (entityConfig.dbPath) {
-        entityConfig.dbPath = entityConfig.dbPath.replace(
-          /\.db$/,
-          "_entities.db",
-        );
+      // For file-based stores (memory/SQLite), always use a separate DB for entities
+      if (this.config.vectorStore.provider === "memory") {
+        const basePath = entityConfig.dbPath || getDefaultVectorStoreDbPath();
+        entityConfig.dbPath = basePath.replace(/\.db$/, "_entities.db");
       }
       this._entityStore = VectorStoreFactory.create(
         this.config.vectorStore.provider,
@@ -209,6 +260,181 @@ export class Memory {
       await this._entityStore.initialize();
     }
     return this._entityStore;
+  }
+
+  /**
+   * Normalize a filters object for entity-store scoping: keeps only
+   * user_id/agent_id/run_id keys whose values are defined.
+   */
+  private _sessionFiltersFromPayload(
+    payload: Record<string, any>,
+  ): Record<string, any> {
+    const filters: Record<string, any> = {};
+    if (payload.user_id) filters.user_id = payload.user_id;
+    if (payload.agent_id) filters.agent_id = payload.agent_id;
+    if (payload.run_id) filters.run_id = payload.run_id;
+    return filters;
+  }
+
+  /**
+   * Remove `memoryId` from every entity record scoped to `filters`.
+   * If an entity's `linkedMemoryIds` becomes empty after removal, the
+   * entity record itself is deleted. Errors on individual entities are
+   * swallowed so one bad record does not break the whole operation.
+   *
+   * No-op if the entity store has not been initialized yet.
+   */
+  private async _removeMemoryFromEntityStore(
+    memoryId: string,
+    filters: Record<string, any>,
+  ): Promise<void> {
+    let entityStore: VectorStore;
+    try {
+      entityStore = await this.getEntityStore();
+    } catch (e) {
+      console.debug(`Entity store unavailable during cleanup: ${e}`);
+      return;
+    }
+
+    let rows: Array<{ id: string; payload: Record<string, any> }> = [];
+    try {
+      const listed = await entityStore.list(filters, 10000);
+      rows = (
+        Array.isArray(listed) && Array.isArray(listed[0])
+          ? listed[0]
+          : (listed as any)
+      ) as Array<{ id: string; payload: Record<string, any> }>;
+    } catch (e) {
+      console.debug(`Entity store list failed during cleanup: ${e}`);
+      return;
+    }
+
+    for (const row of rows) {
+      try {
+        const payload = row.payload || {};
+        const linked: string[] = Array.isArray(payload.linkedMemoryIds)
+          ? payload.linkedMemoryIds
+          : [];
+        if (!linked.includes(memoryId)) continue;
+
+        const remaining = linked.filter((id) => id !== memoryId);
+        if (remaining.length === 0) {
+          try {
+            await entityStore.delete(row.id);
+          } catch (e) {
+            console.debug(`Entity delete failed for id=${row.id}: ${e}`);
+          }
+        } else {
+          const newPayload = { ...payload, linkedMemoryIds: remaining };
+          // entityStore.update requires a vector — re-embed entity text.
+          const entityText =
+            typeof payload.data === "string" ? payload.data : "";
+          if (!entityText) {
+            // Can't re-embed without text; skip gracefully.
+            console.debug(
+              `Entity id=${row.id} missing 'data'; skipping update during cleanup`,
+            );
+            continue;
+          }
+          let vec: number[];
+          try {
+            vec = await this.embedder.embed(entityText);
+          } catch (e) {
+            console.debug(`Entity re-embed failed for '${entityText}': ${e}`);
+            continue;
+          }
+          try {
+            await entityStore.update(row.id, vec, newPayload);
+          } catch (e) {
+            console.debug(`Entity update failed for id=${row.id}: ${e}`);
+          }
+        }
+      } catch (e) {
+        console.debug(`Entity cleanup error for id=${row?.id}: ${e}`);
+      }
+    }
+  }
+
+  /**
+   * Extract entities from `text` and link them to `memoryId` in the
+   * entity store, scoped to `filters` (user_id / agent_id / run_id).
+   *
+   * Simpler single-memory variant of Phase 7 in add(): no cross-memory
+   * dedup, but still does per-entity "search for existing, update if
+   * match >= 0.95 else insert new". Non-fatal errors are swallowed.
+   */
+  private async _linkEntitiesForMemory(
+    memoryId: string,
+    text: string,
+    filters: Record<string, any>,
+  ): Promise<void> {
+    try {
+      const entities = extractEntities(text);
+      if (entities.length === 0) return;
+
+      const entityStore = await this.getEntityStore();
+
+      for (const entity of entities) {
+        try {
+          let entityVec: number[];
+          try {
+            entityVec = await this.embedder.embed(entity.text);
+          } catch (e) {
+            console.debug(`Entity embed failed for '${entity.text}': ${e}`);
+            continue;
+          }
+
+          let matches: Array<{
+            id: string;
+            score?: number;
+            payload: Record<string, any>;
+          }> = [];
+          try {
+            matches = await entityStore.search(entityVec, 1, filters);
+          } catch {}
+
+          if (matches.length > 0 && (matches[0].score ?? 0) >= 0.95) {
+            const match = matches[0];
+            const payload = match.payload || {};
+            const linked = new Set<string>(
+              Array.isArray(payload.linkedMemoryIds)
+                ? payload.linkedMemoryIds
+                : [],
+            );
+            linked.add(memoryId);
+            payload.linkedMemoryIds = Array.from(linked).sort();
+            try {
+              await entityStore.update(match.id, entityVec, payload);
+            } catch (e) {
+              console.debug(`Entity update failed for '${entity.text}': ${e}`);
+            }
+          } else {
+            const entityPayload: Record<string, any> = {
+              data: entity.text,
+              entityType: entity.type,
+              linkedMemoryIds: [memoryId],
+            };
+            if (filters.user_id) entityPayload.user_id = filters.user_id;
+            if (filters.agent_id) entityPayload.agent_id = filters.agent_id;
+            if (filters.run_id) entityPayload.run_id = filters.run_id;
+
+            try {
+              await entityStore.insert(
+                [entityVec],
+                [uuidv4()],
+                [entityPayload],
+              );
+            } catch (e) {
+              console.debug(`Entity insert failed for '${entity.text}': ${e}`);
+            }
+          }
+        } catch (e) {
+          console.debug(`Entity link error for '${entity.text}': ${e}`);
+        }
+      }
+    } catch (e) {
+      console.warn(`Entity linking failed during update: ${e}`);
+    }
   }
 
   private buildSessionScope(filters: SearchFilters): string {
@@ -276,6 +502,13 @@ export class Memory {
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
+    // Validate messages input
+    if (messages === undefined || messages === null) {
+      throw new Error(
+        "messages is required and cannot be undefined or null. Provide a string or array of messages.",
+      );
+    }
+
     await this._ensureInitialized();
     await this._captureEvent("add", {
       message_count: Array.isArray(messages) ? messages.length : 1,
@@ -283,14 +516,12 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const {
-      userId,
-      agentId,
-      runId,
-      metadata = {},
-      filters = {},
-      infer = true,
-    } = config;
+    const { metadata = {}, filters = {}, infer = true } = config;
+
+    // Validate and trim entity IDs
+    const userId = validateAndTrimEntityId(config.userId, "userId");
+    const agentId = validateAndTrimEntityId(config.agentId, "agentId");
+    const runId = validateAndTrimEntityId(config.runId, "runId");
 
     // Convert camelCase entity params to snake_case for storage (matches API and search/getAll filters)
     if (userId) filters.user_id = metadata.user_id = userId;
@@ -804,14 +1035,38 @@ export class Memory {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "search");
 
+    // Validate search parameters (before applying defaults)
+    validateSearchParams(config.threshold, config.topK);
+
+    // Validate and trim entity IDs in filters. Only include keys whose
+    // validated value is defined — otherwise downstream vector stores
+    // receive `agent_id: undefined` / `run_id: undefined` and fail
+    // (Qdrant rejects the malformed match, pgvector binds NULL, Redis
+    // emits a literal "undefined" string in TAG filters).
+    const normalizedFilters: Record<string, any> = config.filters
+      ? Object.fromEntries(
+          Object.entries({
+            ...config.filters,
+            user_id: validateAndTrimEntityId(config.filters.user_id, "user_id"),
+            agent_id: validateAndTrimEntityId(
+              config.filters.agent_id,
+              "agent_id",
+            ),
+            run_id: validateAndTrimEntityId(config.filters.run_id, "run_id"),
+          }).filter(([, v]) => v !== undefined),
+        )
+      : {};
+
     await this._ensureInitialized();
+    const { topK = 20, threshold = 0.1 } = config;
+
     await this._captureEvent("search", {
       query_length: query.length,
-      topK: config.topK,
+      topK,
       has_filters: !!config.filters,
     });
-    const { topK = 100, threshold = 0.1 } = config;
-    let effectiveFilters: Record<string, any> = { ...(config.filters || {}) };
+
+    let effectiveFilters: Record<string, any> = { ...normalizedFilters };
 
     // Apply enhanced metadata filtering if advanced operators are detected
     if (this._hasAdvancedOperators(effectiveFilters)) {
@@ -993,12 +1248,9 @@ export class Memory {
           createdAt: payload.createdAt,
           updatedAt: payload.updatedAt,
           score: scored.score,
-          metadata: {
-            ...Object.entries(payload)
-              .filter(([key]) => !excludedKeys.has(key))
-              .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
-            scoreBreakdown: scored.scoreBreakdown,
-          },
+          metadata: Object.entries(payload)
+            .filter(([key]) => !excludedKeys.has(key))
+            .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {}),
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),
@@ -1116,11 +1368,27 @@ export class Memory {
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "getAll");
 
+    // Validate topK if provided (before applying defaults)
+    validateSearchParams(undefined, config.topK);
+
     await this._ensureInitialized();
-    const { topK = 100, filters = {} } = config;
+
+    const { topK = 20 } = config;
+
+    // Validate and trim entity IDs in filters. Drop keys that resolve to
+    // undefined so downstream vector stores don't receive
+    // `agent_id: undefined` / `run_id: undefined` and fail.
+    const filters: Record<string, any> = Object.fromEntries(
+      Object.entries({
+        ...(config.filters || {}),
+        user_id: validateAndTrimEntityId(config.filters?.user_id, "user_id"),
+        agent_id: validateAndTrimEntityId(config.filters?.agent_id, "agent_id"),
+        run_id: validateAndTrimEntityId(config.filters?.run_id, "run_id"),
+      }).filter(([, v]) => v !== undefined),
+    );
 
     await this._captureEvent("get_all", {
-      topK: topK,
+      topK,
       has_user_id: !!filters.user_id,
       has_agent_id: !!filters.agent_id,
       has_run_id: !!filters.run_id,
@@ -1177,6 +1445,7 @@ export class Memory {
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
+      textLemmatized: lemmatizeForBm25(data),
       createdAt: new Date().toISOString(),
     };
 
@@ -1234,6 +1503,16 @@ export class Memory {
       newMetadata.updatedAt,
     );
 
+    // Entity-store cleanup: strip this memory's id from old-text entities,
+    // then re-extract entities from the new text and link them back.
+    try {
+      const sessionFilters = this._sessionFiltersFromPayload(newMetadata);
+      await this._removeMemoryFromEntityStore(memoryId, sessionFilters);
+      await this._linkEntitiesForMemory(memoryId, data, sessionFilters);
+    } catch (e) {
+      console.warn(`Entity store cleanup/link failed during update: ${e}`);
+    }
+
     return memoryId;
   }
 
@@ -1244,6 +1523,9 @@ export class Memory {
     }
 
     const prevValue = existingMemory.payload.data;
+    const sessionFilters = this._sessionFiltersFromPayload(
+      existingMemory.payload || {},
+    );
     await this.vectorStore.delete(memoryId);
     await this.db.addHistory(
       memoryId,
@@ -1254,6 +1536,14 @@ export class Memory {
       undefined,
       1,
     );
+
+    // Entity-store cleanup: strip this memory's id from any entity records
+    // that linked to it. Non-fatal — log and continue on error.
+    try {
+      await this._removeMemoryFromEntityStore(memoryId, sessionFilters);
+    } catch (e) {
+      console.warn(`Entity store cleanup failed during delete: ${e}`);
+    }
 
     return memoryId;
   }

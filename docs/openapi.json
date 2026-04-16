@@ -1048,8 +1048,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1096,7 +1096,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(user_id=\"<user_id>\")\n\nprint(user_memories)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(filters={\"user_id\": \"<user_id>\"})\n\nprint(user_memories)"
 					},
 					{
 						"lang": "JavaScript",
@@ -1232,8 +1232,8 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Delete memories by filter. At least one filter is required \u2014 previously omitting all filters silently deleted everything; now it returns a validation error.",
-				"operationId": "memories_delete",
+				"description": "Delete memories by filter. At least one filter is required — previously omitting all filters silently deleted everything; now it returns a validation error.",
+				"operationId": "memories_delete_all",
 				"parameters": [
 					{
 						"name": "user_id",
@@ -1315,15 +1315,15 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")\n\n# Delete all memories for every user in the project (wildcard)\nclient.delete_all(user_id=\"*\")\n\n# Full project wipe \u2014 all four filters must be explicitly set to \"*\"\nclient.delete_all(user_id=\"*\", agent_id=\"*\", app_id=\"*\", run_id=\"*\")\n\n# NOTE: Calling delete_all() with no filters raises a validation error.\n# At least one filter is required to prevent accidental data loss."
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")\n\n# Delete all memories for every user in the project (wildcard)\nclient.delete_all(user_id=\"*\")\n\n# Full project wipe — all four filters must be explicitly set to \"*\"\nclient.delete_all(user_id=\"*\", agent_id=\"*\", app_id=\"*\", run_id=\"*\")\n\n# NOTE: Calling delete_all() with no filters raises a validation error.\n# At least one filter is required to prevent accidental data loss."
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Delete all memories for every user in the project (wildcard)\nclient.deleteAll({ user_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Full project wipe \u2014 all four filters must be explicitly set to \"*\"\nclient.deleteAll({ user_id: \"*\", agent_id: \"*\", app_id: \"*\", run_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Delete all memories for every user in the project (wildcard)\nclient.deleteAll({ user_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Full project wipe — all four filters must be explicitly set to \"*\"\nclient.deleteAll({ user_id: \"*\", agent_id: \"*\", app_id: \"*\", run_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
-						"source": "# Delete memories for a specific user\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=<user_id>' \\\n  --header 'Authorization: Token <api-key>'\n\n# Delete memories for all users (wildcard)\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*' \\\n  --header 'Authorization: Token <api-key>'\n\n# Full project wipe \u2014 all four filters must be set to *\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*&agent_id=*&app_id=*&run_id=*' \\\n  --header 'Authorization: Token <api-key>'"
+						"source": "# Delete memories for a specific user\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=<user_id>' \\\n  --header 'Authorization: Token <api-key>'\n\n# Delete memories for all users (wildcard)\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*' \\\n  --header 'Authorization: Token <api-key>'\n\n# Full project wipe — all four filters must be set to *\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*&agent_id=*&app_id=*&run_id=*' \\\n  --header 'Authorization: Token <api-key>'"
 					},
 					{
 						"lang": "Go",
@@ -1393,8 +1393,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1540,8 +1540,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1589,7 +1589,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\")\nprint(results)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, filters={\"user_id\": \"<user_id>\"})\nprint(results)"
 					},
 					{
 						"lang": "JavaScript",
@@ -1675,8 +1675,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1734,12 +1734,510 @@
 				"x-codegen-request-body-name": "data"
 			}
 		},
+		"/v3/memories/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"summary": "Get all memories (V3, paginated)",
+				"description": "List memories scoped by filters, paginated. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. `filters` supports the same operator set as V2 search (`AND`, `OR`, `NOT`, `in`, `gte`, `lte`, etc.). Response is a paginated envelope; pass `page` and `page_size` as query parameters to step through results.",
+				"operationId": "memories_list_v3",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"default": 1
+						},
+						"description": "1-indexed page number."
+					},
+					{
+						"in": "query",
+						"name": "page_size",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 200,
+							"default": 100
+						},
+						"description": "Results per page."
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"filters"
+								],
+								"properties": {
+									"filters": {
+										"type": "object",
+										"description": "Entity and metadata filters. Must include at least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`).",
+										"additionalProperties": true
+									}
+								}
+							},
+							"example": {
+								"filters": {
+									"user_id": "alice"
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Paginated envelope of memories.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"count": {
+											"type": "integer",
+											"description": "Total number of memories matching the filters."
+										},
+										"next": {
+											"type": "string",
+											"format": "uri",
+											"nullable": true,
+											"description": "URL for the next page, or `null` if this is the last page."
+										},
+										"previous": {
+											"type": "string",
+											"format": "uri",
+											"nullable": true,
+											"description": "URL for the previous page, or `null` if this is the first page."
+										},
+										"results": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"id": {
+														"type": "string",
+														"format": "uuid",
+														"description": "Unique memory identifier."
+													},
+													"memory": {
+														"type": "string",
+														"description": "The extracted memory fact."
+													},
+													"score": {
+														"type": "number",
+														"format": "float",
+														"minimum": 0,
+														"maximum": 1,
+														"description": "Combined multi-signal relevance score in [0, 1] (search responses only)."
+													},
+													"metadata": {
+														"type": "object",
+														"additionalProperties": true,
+														"description": "User-supplied metadata attached to the memory."
+													},
+													"categories": {
+														"type": "array",
+														"items": {
+															"type": "string"
+														}
+													},
+													"created_at": {
+														"type": "string",
+														"format": "date-time"
+													},
+													"updated_at": {
+														"type": "string",
+														"format": "date-time"
+													}
+												},
+												"required": [
+													"id",
+													"memory",
+													"created_at"
+												]
+											}
+										}
+									},
+									"required": [
+										"count",
+										"next",
+										"previous",
+										"results"
+									]
+								},
+								"example": {
+									"count": 123,
+									"next": "https://api.mem0.ai/v3/memories/?page=2&page_size=100",
+									"previous": null,
+									"results": [
+										{
+											"id": "mem-uuid",
+											"memory": "User moved to San Francisco from New York in January 2026",
+											"metadata": {},
+											"categories": [
+												"location"
+											],
+											"created_at": "2026-01-15T10:30:00Z",
+											"updated_at": "2026-01-15T10:30:00Z"
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error — e.g. empty `filters` or no positively-scoped entity ID."
+					},
+					"401": {
+						"description": "Unauthorized — missing or invalid API key."
+					}
+				},
+				"security": [
+					{
+						"tokenAuth": []
+					}
+				],
+				"x-codeSamples": [
+					{
+						"lang": "cURL",
+						"source": "curl -X POST 'https://api.mem0.ai/v3/memories/?page=1&page_size=50' \\\n  -H \"Authorization: Token <api-key>\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"filters\": {\"user_id\": \"alice\"}}'"
+					},
+					{
+						"lang": "Python",
+						"source": "from mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\npage = client.get_all(filters={\"user_id\": \"alice\"}, page=1, page_size=50)\n# page == {\"count\": 123, \"next\": \"...\", \"previous\": None, \"results\": [...]}\nprint(page[\"count\"], len(page[\"results\"]))"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "import MemoryClient from \"mem0ai\";\n\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst page = await client.getAll({\n  filters: { userId: \"alice\" },\n  page: 1,\n  pageSize: 50,\n});\nconsole.log(page.count, page.results.length);"
+					}
+				]
+			}
+		},
+		"/v3/memories/add/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"summary": "Add memories (V3)",
+				"description": "Extract and store memories from a conversation using the V3 additive pipeline. Entity IDs (`user_id` / `agent_id` / `run_id`) are accepted at the top level. At least one entity ID is required so the memory is scoped to a session.",
+				"operationId": "memories_add_v3",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"messages"
+								],
+								"properties": {
+									"messages": {
+										"type": "array",
+										"description": "Conversation messages to extract memories from.",
+										"items": {
+											"type": "object",
+											"properties": {
+												"role": {
+													"type": "string",
+													"enum": [
+														"user",
+														"assistant",
+														"system"
+													]
+												},
+												"content": {
+													"type": "string"
+												}
+											},
+											"required": [
+												"role",
+												"content"
+											]
+										}
+									},
+									"user_id": {
+										"type": "string",
+										"description": "Scope memories to this user."
+									},
+									"agent_id": {
+										"type": "string",
+										"description": "Scope memories to this agent."
+									},
+									"run_id": {
+										"type": "string",
+										"description": "Scope memories to this session / run."
+									},
+									"metadata": {
+										"type": "object",
+										"additionalProperties": true,
+										"description": "User-supplied metadata to attach to each extracted memory."
+									},
+									"custom_instructions": {
+										"type": "string",
+										"description": "Project-level instructions that guide extraction for this call."
+									},
+									"infer": {
+										"type": "boolean",
+										"default": true,
+										"description": "When `false`, stores each message verbatim without running the extraction LLM."
+									}
+								}
+							},
+							"example": {
+								"messages": [
+									{
+										"role": "user",
+										"content": "I just moved to San Francisco from New York."
+									},
+									{
+										"role": "assistant",
+										"content": "Got it — I'll update your location."
+									}
+								],
+								"user_id": "alice"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Memory addition queued; returns an event identifier clients can poll via `GET /v1/event/{event_id}/`.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string"
+										},
+										"status": {
+											"type": "string",
+											"enum": [
+												"PENDING",
+												"SUCCEEDED",
+												"FAILED"
+											]
+										},
+										"event_id": {
+											"type": "string",
+											"format": "uuid"
+										}
+									}
+								},
+								"example": {
+									"message": "Memory processing has been queued for background execution",
+									"status": "PENDING",
+									"event_id": "2c4d1f44-4f7b-4b2f-9f6e-7b5b4f5a1234"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error — e.g. missing `messages` or no entity ID supplied."
+					},
+					"401": {
+						"description": "Unauthorized — missing or invalid API key."
+					}
+				},
+				"security": [
+					{
+						"tokenAuth": []
+					}
+				],
+				"x-codeSamples": [
+					{
+						"lang": "cURL",
+						"source": "curl -X POST https://api.mem0.ai/v3/memories/add/ \\\n  -H \"Authorization: Token <api-key>\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"messages\": [\n      {\"role\": \"user\", \"content\": \"I just moved to San Francisco from New York.\"},\n      {\"role\": \"assistant\", \"content\": \"Got it — I\\u0027ll update your location.\"}\n    ],\n    \"user_id\": \"alice\"\n  }'"
+					},
+					{
+						"lang": "Python",
+						"source": "from mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\nresult = client.add(\n    messages=[\n        {\"role\": \"user\", \"content\": \"I just moved to San Francisco from New York.\"},\n        {\"role\": \"assistant\", \"content\": \"Got it — I'll update your location.\"}\n    ],\n    user_id=\"alice\",\n)\nprint(result)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "import MemoryClient from \"mem0ai\";\n\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst result = await client.add(\n  [\n    { role: \"user\", content: \"I just moved to San Francisco from New York.\" },\n    { role: \"assistant\", content: \"Got it — I'll update your location.\" },\n  ],\n  { userId: \"alice\" }\n);\nconsole.log(result);"
+					}
+				]
+			}
+		},
+		"/v3/memories/search/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"summary": "Search memories (V3)",
+				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval — the returned `score` is a combined `[0, 1]` value; per-signal component scores are not exposed on the response. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
+				"operationId": "memories_search_v3",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"query",
+									"filters"
+								],
+								"properties": {
+									"query": {
+										"type": "string",
+										"minLength": 1,
+										"description": "Natural-language search query."
+									},
+									"filters": {
+										"type": "object",
+										"description": "Entity and metadata filters. Must include at least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`). Supports `AND`, `OR`, `NOT`, and comparison operators (`in`, `gte`, `lte`, `gt`, `lt`, `contains`, `icontains`, `ne`).",
+										"additionalProperties": true
+									},
+									"top_k": {
+										"type": "integer",
+										"minimum": 1,
+										"maximum": 1000,
+										"default": 10,
+										"description": "Number of results to return."
+									},
+									"threshold": {
+										"type": "number",
+										"minimum": 0.0,
+										"maximum": 1.0,
+										"default": 0.1,
+										"description": "Minimum semantic relevance score. Pass `0.0` to disable filtering."
+									},
+									"rerank": {
+										"type": "boolean",
+										"default": false,
+										"description": "Apply the managed reranker for better ordering (adds latency)."
+									}
+								}
+							},
+							"example": {
+								"query": "where does the user live?",
+								"filters": {
+									"user_id": "alice"
+								},
+								"top_k": 10
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Ranked search results.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"results": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"id": {
+														"type": "string",
+														"format": "uuid",
+														"description": "Unique memory identifier."
+													},
+													"memory": {
+														"type": "string",
+														"description": "The extracted memory fact."
+													},
+													"score": {
+														"type": "number",
+														"format": "float",
+														"minimum": 0,
+														"maximum": 1,
+														"description": "Combined multi-signal relevance score in [0, 1] (search responses only)."
+													},
+													"metadata": {
+														"type": "object",
+														"additionalProperties": true,
+														"description": "User-supplied metadata attached to the memory."
+													},
+													"categories": {
+														"type": "array",
+														"items": {
+															"type": "string"
+														}
+													},
+													"created_at": {
+														"type": "string",
+														"format": "date-time"
+													},
+													"updated_at": {
+														"type": "string",
+														"format": "date-time"
+													}
+												},
+												"required": [
+													"id",
+													"memory",
+													"created_at"
+												]
+											}
+										}
+									},
+									"required": [
+										"results"
+									]
+								},
+								"example": {
+									"results": [
+										{
+											"id": "mem-uuid",
+											"memory": "User moved to San Francisco from New York in January 2026",
+											"score": 0.82,
+											"metadata": {},
+											"categories": [
+												"location"
+											],
+											"created_at": "2026-01-15T10:30:00Z",
+											"updated_at": "2026-01-15T10:30:00Z"
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error — e.g. empty `query`, missing `filters`, or no positively-scoped entity ID."
+					},
+					"401": {
+						"description": "Unauthorized — missing or invalid API key."
+					}
+				},
+				"security": [
+					{
+						"tokenAuth": []
+					}
+				],
+				"x-codeSamples": [
+					{
+						"lang": "cURL",
+						"source": "curl -X POST https://api.mem0.ai/v3/memories/search/ \\\n  -H \"Authorization: Token <api-key>\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"query\": \"where does the user live?\",\n    \"filters\": {\"user_id\": \"alice\"},\n    \"top_k\": 10\n  }'"
+					},
+					{
+						"lang": "Python",
+						"source": "from mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\nresults = client.search(\n    \"where does the user live?\",\n    filters={\"user_id\": \"alice\"},\n    top_k=10,\n)\nfor r in results[\"results\"]:\n    print(r[\"memory\"], r[\"score\"])"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "import MemoryClient from \"mem0ai\";\n\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst results = await client.search(\"where does the user live?\", {\n  filters: { userId: \"alice\" },\n  topK: 10,\n});\nfor (const r of results.results) {\n  console.log(r.memory, r.score);\n}"
+					}
+				]
+			}
+		},
 		"/v1/memories/{entity_type}/{entity_id}/": {
 			"get": {
 				"tags": [
 					"memories"
 				],
-				"operationId": "memories_read",
+				"operationId": "memories_entity_read",
 				"responses": {
 					"200": {
 						"description": "Successfully retrieved memories.",
@@ -5176,9 +5674,10 @@
 						"nullable": true
 					},
 					"expiration_date": {
-						"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+						"description": "The date when the memory will expire. Format: YYYY-MM-DD",
 						"title": "Expiration date",
 						"type": "string",
+						"format": "date",
 						"nullable": true
 					},
 					"org_id": {

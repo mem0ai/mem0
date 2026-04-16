@@ -110,6 +110,64 @@ def _reject_top_level_entity_params(kwargs: Dict[str, Any], method_name: str) ->
         )
 
 
+def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[str]:
+    """
+    Validates and normalizes an entity ID.
+    - Trims leading/trailing whitespace
+    - Rejects empty or whitespace-only strings
+    - Rejects strings containing internal whitespace
+
+    Args:
+        value: The entity ID value to validate
+        name: The parameter name (for error messages)
+
+    Returns:
+        The trimmed entity ID, or None if input is None
+
+    Raises:
+        ValueError: If entity ID is invalid
+    """
+    if value is None:
+        return None
+    trimmed = value.strip()
+    if trimmed == "":
+        raise ValueError(
+            f"Invalid {name}: cannot be empty or whitespace-only. Provide a valid identifier."
+        )
+    if any(c.isspace() for c in trimmed):
+        raise ValueError(
+            f"Invalid {name}: cannot contain whitespace. Provide a valid identifier without spaces."
+        )
+    return trimmed
+
+
+def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[int] = None) -> None:
+    """
+    Validates search parameters.
+
+    Args:
+        threshold: Similarity threshold (must be between 0 and 1)
+        top_k: Number of results to return (must be non-negative integer)
+
+    Raises:
+        ValueError: If threshold or top_k are invalid
+    """
+    if threshold is not None:
+        if not isinstance(threshold, (int, float)):
+            raise ValueError("threshold must be a valid number")
+        if threshold < 0 or threshold > 1:
+            raise ValueError(
+                f"Invalid threshold: {threshold}. Must be between 0 and 1 (inclusive)."
+            )
+    if top_k is not None:
+        if not isinstance(top_k, int) or isinstance(top_k, bool):
+            raise ValueError("top_k must be a valid integer")
+        if top_k < 0:
+            raise ValueError(
+                f"Invalid top_k: {top_k}. Must be a non-negative integer."
+            )
+
+
 def _is_sensitive_field(field_name: str) -> bool:
     """Check if a field should be redacted for telemetry safety.
 
@@ -217,8 +275,13 @@ def _build_filters_and_metadata(
     base_metadata_template = deepcopy(input_metadata) if input_metadata else {}
     effective_query_filters = deepcopy(input_filters) if input_filters else {}
 
-    # ---------- add all provided session ids ----------
+    # ---------- validate and add all provided session ids ----------
     session_ids_provided = []
+
+    # Validate and trim entity IDs
+    user_id = _validate_and_trim_entity_id(user_id, "user_id")
+    agent_id = _validate_and_trim_entity_id(agent_id, "agent_id")
+    run_id = _validate_and_trim_entity_id(run_id, "run_id")
 
     if user_id:
         base_metadata_template["user_id"] = user_id
@@ -334,6 +397,14 @@ class Memory(MemoryBase):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
                 entity_config['collection_name'] = entity_collection
+            # For Qdrant, share the existing client to avoid RocksDB lock contention
+            # when using embedded mode (path=...). QdrantConfig.client takes precedence
+            # over host/port/path.
+            if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
+                if hasattr(entity_config, "client"):
+                    entity_config.client = self.vector_store.client
+                elif isinstance(entity_config, dict):
+                    entity_config["client"] = self.vector_store.client
             self._entity_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, entity_config
             )
@@ -381,6 +452,84 @@ class Memory(MemoryBase):
                 )
         except Exception as e:
             logger.warning(f"Entity upsert failed for '{entity_text}': {e}")
+
+    def _remove_memory_from_entity_store(self, memory_id, filters):
+        """Strip `memory_id` from every entity record scoped to `filters`.
+
+        For each entity whose `linked_memory_ids` contains `memory_id`:
+          - remove the id; if the list becomes empty, delete the entity record.
+          - otherwise re-embed the entity text and update the payload
+            (the vector store's update() requires a vector).
+
+        No-op if the entity store has never been initialized in this process.
+        Errors on individual entities are swallowed at debug level; outer
+        failures are swallowed at warning level so the primary delete/update
+        path is never broken by entity cleanup.
+        """
+        if self._entity_store is None:
+            return
+        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        try:
+            listed = self.entity_store.list(filters=search_filters, top_k=10000)
+            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            for row in rows or []:
+                try:
+                    payload = getattr(row, "payload", None) or {}
+                    linked = payload.get("linked_memory_ids", [])
+                    if not isinstance(linked, list) or memory_id not in linked:
+                        continue
+                    remaining = [mid for mid in linked if mid != memory_id]
+                    if not remaining:
+                        try:
+                            self.entity_store.delete(vector_id=row.id)
+                        except Exception as e:
+                            logger.debug(f"Entity delete failed for id={row.id}: {e}")
+                    else:
+                        entity_text = payload.get("data")
+                        if not isinstance(entity_text, str) or not entity_text:
+                            logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup")
+                            continue
+                        try:
+                            vec = self.embedding_model.embed(entity_text, "update")
+                        except Exception as e:
+                            logger.debug(f"Entity re-embed failed for '{entity_text}': {e}")
+                            continue
+                        new_payload = {**payload, "linked_memory_ids": remaining}
+                        try:
+                            self.entity_store.update(
+                                vector_id=row.id,
+                                vector=vec,
+                                payload=new_payload,
+                            )
+                        except Exception as e:
+                            logger.debug(f"Entity update failed for id={row.id}: {e}")
+                except Exception as e:
+                    logger.debug(f"Entity cleanup error: {e}")
+        except Exception as e:
+            logger.warning(f"Entity store cleanup failed for memory_id={memory_id}: {e}")
+
+    def _link_entities_for_memory(self, memory_id, text, filters):
+        """Extract entities from `text` and link them to `memory_id` in the
+        entity store, scoped to `filters`. Simpler single-memory variant of
+        Phase 7 in add(): per-entity search-then-update-or-insert via the
+        existing `_upsert_entity` helper. Non-fatal on any failure.
+        """
+        try:
+            entities = extract_entities(text)
+            if not entities:
+                return
+            seen = set()
+            for entity_type, entity_text in entities:
+                key = entity_text.strip().lower()
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    self._upsert_entity(entity_text, entity_type, memory_id, filters)
+                except Exception as e:
+                    logger.debug(f"Entity link failed for '{entity_text}': {e}")
+        except Exception as e:
+            logger.warning(f"Entity linking failed for memory_id={memory_id}: {e}")
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -868,7 +1017,7 @@ class Memory(MemoryBase):
         self,
         *,
         filters: Optional[Dict[str, Any]] = None,
-        top_k: int = 100,
+        top_k: int = 20,
         **kwargs,
     ):
         """
@@ -878,20 +1027,38 @@ class Memory(MemoryBase):
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
-            top_k (int, optional): The maximum number of memories to return. Defaults to 100.
+            top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if top_k is invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "get_all")
 
+        # Validate top_k
+        _validate_search_params(top_k=top_k)
+
+        # Validate and trim entity IDs in filters
+        effective_filters = dict(filters) if filters else {}
+        if "user_id" in effective_filters:
+            effective_filters["user_id"] = _validate_and_trim_entity_id(
+                effective_filters["user_id"], "user_id"
+            )
+        if "agent_id" in effective_filters:
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(
+                effective_filters["agent_id"], "agent_id"
+            )
+        if "run_id" in effective_filters:
+            effective_filters["run_id"] = _validate_and_trim_entity_id(
+                effective_filters["run_id"], "run_id"
+            )
+
         # Validate filters contains at least one entity ID
-        effective_filters = filters or {}
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -960,7 +1127,7 @@ class Memory(MemoryBase):
         self,
         query: str,
         *,
-        top_k: int = 100,
+        top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
@@ -971,7 +1138,7 @@ class Memory(MemoryBase):
 
         Args:
             query (str): Query to search for.
-            top_k (int, optional): Maximum number of results to return. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
@@ -1000,13 +1167,29 @@ class Memory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if threshold/top_k values are invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
-        # Validate filters contains at least one entity ID
+        # Validate search parameters (before applying defaults)
+        _validate_search_params(threshold=threshold, top_k=top_k)
+
+        # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
+        if "user_id" in effective_filters:
+            effective_filters["user_id"] = _validate_and_trim_entity_id(
+                effective_filters["user_id"], "user_id"
+            )
+        if "agent_id" in effective_filters:
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(
+                effective_filters["agent_id"], "agent_id"
+            )
+        if "run_id" in effective_filters:
+            effective_filters["run_id"] = _validate_and_trim_entity_id(
+                effective_filters["run_id"], "run_id"
+            )
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -1188,8 +1371,6 @@ class Memory(MemoryBase):
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
         # Step 7: Build candidate set from semantic results
-        # BM25 acts as a boost signal only (not recall-expanding) -- candidates must
-        # pass the semantic threshold gate, so only semantic results are candidates.
         candidates = []
         for mem in semantic_results:
             mem_id = str(mem.id)
@@ -1233,9 +1414,6 @@ class Memory(MemoryBase):
                 updated_at=payload.get("updated_at"),
                 score=scored["score"],
             ).model_dump()
-
-            # Add score breakdown to metadata
-            memory_item_dict["score_breakdown"] = scored.get("score_breakdown", {})
 
             for key in promoted_payload_keys:
                 if key in payload:
@@ -1524,6 +1702,13 @@ class Memory(MemoryBase):
             actor_id=new_metadata.get("actor_id"),
             role=new_metadata.get("role"),
         )
+
+        # Entity-store cleanup: strip this memory's id from old-text entities,
+        # then re-extract entities from the new text and link them back.
+        session_filters = {k: new_metadata[k] for k in ("user_id", "agent_id", "run_id") if new_metadata.get(k)}
+        self._remove_memory_from_entity_store(memory_id, session_filters)
+        self._link_entities_for_memory(memory_id, data, session_filters)
+
         return memory_id
 
     def _delete_memory(self, memory_id, existing_memory=None):
@@ -1535,6 +1720,8 @@ class Memory(MemoryBase):
         prev_value = existing_memory.payload.get("data", "")
         created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
         updated_at = datetime.now(timezone.utc).isoformat()
+        payload = existing_memory.payload or {}
+        session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
         self.vector_store.delete(vector_id=memory_id)
         self.db.add_history(
             memory_id,
@@ -1547,6 +1734,11 @@ class Memory(MemoryBase):
             role=existing_memory.payload.get("role"),
             is_deleted=1,
         )
+
+        # Entity-store cleanup: strip this memory's id from any entity records
+        # that linked to it. Non-fatal — the helper swallows errors.
+        self._remove_memory_from_entity_store(memory_id, session_filters)
+
         return memory_id
 
     def reset(self):
@@ -1640,10 +1832,126 @@ class AsyncMemory(MemoryBase):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
                 entity_config['collection_name'] = entity_collection
+            # For Qdrant, share the existing client to avoid RocksDB lock contention
+            # when using embedded mode (path=...). QdrantConfig.client takes precedence
+            # over host/port/path.
+            if self.config.vector_store.provider == "qdrant" and hasattr(self.vector_store, "client"):
+                if hasattr(entity_config, "client"):
+                    entity_config.client = self.vector_store.client
+                elif isinstance(entity_config, dict):
+                    entity_config["client"] = self.vector_store.client
             self._entity_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, entity_config
             )
         return self._entity_store
+
+    async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters):
+        """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
+        try:
+            entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "add")
+            search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+
+            existing = await asyncio.to_thread(
+                self.entity_store.search,
+                query=entity_text,
+                vectors=entity_embedding,
+                top_k=1,
+                filters=search_filters,
+            )
+
+            if existing and existing[0].score >= 0.95:
+                match = existing[0]
+                payload = match.payload or {}
+                linked_ids = payload.get("linked_memory_ids", [])
+                if memory_id not in linked_ids:
+                    linked_ids.append(memory_id)
+                    payload["linked_memory_ids"] = linked_ids
+                    await asyncio.to_thread(
+                        self.entity_store.update,
+                        vector_id=match.id,
+                        vector=None,
+                        payload=payload,
+                    )
+            else:
+                entity_id = str(uuid.uuid4())
+                entity_payload = {
+                    "data": entity_text,
+                    "entity_type": entity_type,
+                    "linked_memory_ids": [memory_id],
+                    **{k: v for k, v in search_filters.items()},
+                }
+                await asyncio.to_thread(
+                    self.entity_store.insert,
+                    vectors=[entity_embedding],
+                    ids=[entity_id],
+                    payloads=[entity_payload],
+                )
+        except Exception as e:
+            logger.warning(f"Entity upsert failed for '{entity_text}' (async): {e}")
+
+    async def _remove_memory_from_entity_store(self, memory_id, filters):
+        """Async variant of `Memory._remove_memory_from_entity_store`."""
+        if self._entity_store is None:
+            return
+        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        try:
+            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            for row in rows or []:
+                try:
+                    payload = getattr(row, "payload", None) or {}
+                    linked = payload.get("linked_memory_ids", [])
+                    if not isinstance(linked, list) or memory_id not in linked:
+                        continue
+                    remaining = [mid for mid in linked if mid != memory_id]
+                    if not remaining:
+                        try:
+                            await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                        except Exception as e:
+                            logger.debug(f"Entity delete failed for id={row.id} (async): {e}")
+                    else:
+                        entity_text = payload.get("data")
+                        if not isinstance(entity_text, str) or not entity_text:
+                            logger.debug(f"Entity id={row.id} missing 'data'; skipping update during cleanup (async)")
+                            continue
+                        try:
+                            vec = await asyncio.to_thread(self.embedding_model.embed, entity_text, "update")
+                        except Exception as e:
+                            logger.debug(f"Entity re-embed failed for '{entity_text}' (async): {e}")
+                            continue
+                        new_payload = {**payload, "linked_memory_ids": remaining}
+                        try:
+                            await asyncio.to_thread(
+                                self.entity_store.update,
+                                vector_id=row.id,
+                                vector=vec,
+                                payload=new_payload,
+                            )
+                        except Exception as e:
+                            logger.debug(f"Entity update failed for id={row.id} (async): {e}")
+                except Exception as e:
+                    logger.debug(f"Entity cleanup error (async): {e}")
+        except Exception as e:
+            logger.warning(f"Entity store cleanup failed for memory_id={memory_id} (async): {e}")
+
+    async def _link_entities_for_memory(self, memory_id, text, filters):
+        """Async variant of `Memory._link_entities_for_memory`."""
+        try:
+            entities = await asyncio.to_thread(extract_entities, text)
+            if not entities:
+                return
+            seen = set()
+            for entity_type, entity_text in entities:
+                key = entity_text.strip().lower()
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    await self._upsert_entity_async(entity_text, entity_type, memory_id, filters)
+                except Exception as e:
+                    logger.debug(f"Entity link failed for '{entity_text}' (async): {e}")
+        except Exception as e:
+            logger.warning(f"Entity linking failed for memory_id={memory_id} (async): {e}")
 
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
@@ -2115,7 +2423,7 @@ class AsyncMemory(MemoryBase):
         self,
         *,
         filters: Optional[Dict[str, Any]] = None,
-        top_k: int = 100,
+        top_k: int = 20,
         **kwargs,
     ):
         """
@@ -2125,20 +2433,38 @@ class AsyncMemory(MemoryBase):
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
-            top_k (int, optional): The maximum number of memories to return. Defaults to 100.
+            top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
             dict: A dictionary containing a list of memories under the "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if top_k is invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "get_all")
 
+        # Validate top_k
+        _validate_search_params(top_k=top_k)
+
+        # Validate and trim entity IDs in filters
+        effective_filters = dict(filters) if filters else {}
+        if "user_id" in effective_filters:
+            effective_filters["user_id"] = _validate_and_trim_entity_id(
+                effective_filters["user_id"], "user_id"
+            )
+        if "agent_id" in effective_filters:
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(
+                effective_filters["agent_id"], "agent_id"
+            )
+        if "run_id" in effective_filters:
+            effective_filters["run_id"] = _validate_and_trim_entity_id(
+                effective_filters["run_id"], "run_id"
+            )
+
         # Validate filters contains at least one entity ID
-        effective_filters = filters or {}
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -2207,7 +2533,7 @@ class AsyncMemory(MemoryBase):
         self,
         query: str,
         *,
-        top_k: int = 100,
+        top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
@@ -2218,7 +2544,7 @@ class AsyncMemory(MemoryBase):
 
         Args:
             query (str): Query to search for.
-            top_k (int, optional): Maximum number of results to return. Defaults to 100.
+            top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
@@ -2247,13 +2573,31 @@ class AsyncMemory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id.
+            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
+                or if threshold/top_k values are invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
-        # Validate filters contains at least one entity ID
+        # Validate search parameters (before applying defaults)
+        _validate_search_params(threshold=threshold, top_k=top_k)
+
+        # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
+        if "user_id" in effective_filters:
+            effective_filters["user_id"] = _validate_and_trim_entity_id(
+                effective_filters["user_id"], "user_id"
+            )
+        if "agent_id" in effective_filters:
+            effective_filters["agent_id"] = _validate_and_trim_entity_id(
+                effective_filters["agent_id"], "agent_id"
+            )
+        if "run_id" in effective_filters:
+            effective_filters["run_id"] = _validate_and_trim_entity_id(
+                effective_filters["run_id"], "run_id"
+            )
+
+        # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -2479,8 +2823,6 @@ class AsyncMemory(MemoryBase):
                 updated_at=payload.get("updated_at"),
                 score=scored["score"],
             ).model_dump()
-
-            memory_item_dict["score_breakdown"] = scored.get("score_breakdown", {})
 
             for key in promoted_payload_keys:
                 if key in payload:
@@ -2784,6 +3126,13 @@ class AsyncMemory(MemoryBase):
             actor_id=new_metadata.get("actor_id"),
             role=new_metadata.get("role"),
         )
+
+        # Entity-store cleanup: strip this memory's id from old-text entities,
+        # then re-extract entities from the new text and link them back.
+        session_filters = {k: new_metadata[k] for k in ("user_id", "agent_id", "run_id") if new_metadata.get(k)}
+        await self._remove_memory_from_entity_store(memory_id, session_filters)
+        await self._link_entities_for_memory(memory_id, data, session_filters)
+
         return memory_id
 
     async def _delete_memory(self, memory_id, existing_memory=None):
@@ -2795,6 +3144,8 @@ class AsyncMemory(MemoryBase):
         prev_value = existing_memory.payload.get("data", "")
         created_at = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
         updated_at = datetime.now(timezone.utc).isoformat()
+        payload = existing_memory.payload or {}
+        session_filters = {k: payload[k] for k in ("user_id", "agent_id", "run_id") if payload.get(k)}
 
         await asyncio.to_thread(self.vector_store.delete, vector_id=memory_id)
         await asyncio.to_thread(
@@ -2809,6 +3160,10 @@ class AsyncMemory(MemoryBase):
             role=existing_memory.payload.get("role"),
             is_deleted=1,
         )
+
+        # Entity-store cleanup: strip this memory's id from any entity records
+        # that linked to it. Non-fatal — the helper swallows errors.
+        await self._remove_memory_from_entity_store(memory_id, session_filters)
 
         return memory_id
 
