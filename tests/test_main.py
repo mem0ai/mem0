@@ -174,16 +174,44 @@ def test_delete(memory_instance):
 
 def test_delete_all(memory_instance):
     mock_memories = [Mock(id="1"), Mock(id="2")]
-    memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
+    memory_instance.vector_store.list = Mock(side_effect=[(mock_memories, None), ([], None)])
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
     assert memory_instance._delete_memory.call_count == 2
+    assert memory_instance.vector_store.list.call_count == 2
+    memory_instance.vector_store.list.assert_any_call(filters={"user_id": "test_user"}, top_k=1000)
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 
+    assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_drains_multiple_batches(memory_instance):
+    batch_one = [Mock(id=f"id_{i}") for i in range(100)]
+    batch_two = [Mock(id=f"id_{100 + i}") for i in range(50)]
+    memory_instance.vector_store.list = Mock(side_effect=[(batch_one, None), (batch_two, None), ([], None)])
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert memory_instance._delete_memory.call_count == 150
+    assert memory_instance.vector_store.list.call_count == 3
+    assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_handles_flat_list_vector_store_results(memory_instance):
+    batch_one = [Mock(id="1"), Mock(id="2")]
+    batch_two = [Mock(id="3")]
+    memory_instance.vector_store.list = Mock(side_effect=[batch_one, batch_two, []])
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert memory_instance._delete_memory.call_count == 3
+    assert memory_instance.vector_store.list.call_count == 3
     assert result["message"] == "Memories deleted successfully!"
 
 

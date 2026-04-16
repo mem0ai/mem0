@@ -626,3 +626,18 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+@pytest.mark.asyncio
+async def test_async_delete_all_drains_multiple_batches(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    batch_one = [MagicMock(id=f"id_{i}") for i in range(100)]
+    batch_two = [MagicMock(id=f"id_{100 + i}") for i in range(50)]
+    memory.vector_store.list.side_effect = [(batch_one, None), (batch_two, None), ([], None)]
+    memory._delete_memory = mocker.AsyncMock()
+
+    result = await memory.delete_all(user_id="test_user")
+
+    assert memory._delete_memory.await_count == 150
+    assert memory.vector_store.list.call_count == 3
+    memory.vector_store.list.assert_any_call(filters={"user_id": "test_user"}, top_k=1000)
+    assert result["message"] == "Memories deleted successfully!"
+
