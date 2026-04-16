@@ -4,6 +4,20 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-04-16" description="V3 Pipeline — Post-launch Hardening">
+
+**Hardening pass on the V3 memory pipeline across OSS and Platform.**
+
+- **Platform client endpoints updated** — Python `MemoryClient.add()` now posts to `/v3/memories/add/`; `get_all()` moves to `/v3/memories/` with a paginated envelope (`count` / `next` / `previous` / `results`). Same for the TypeScript client.
+- **Default OpenAI model bumped to `gpt-5-mini`** across OSS Python + TypeScript (OpenAI, Azure, OpenAI Structured, LiteLLM fallback).
+- **Input validation tightened** — Entity IDs are trimmed and reject empty / whitespace-only strings; `threshold` must be in `[0, 1]`; `top_k` / `topK` default is now `20` (was `100`).
+- **`score_breakdown` removed from search responses** in both OSS Python and TypeScript. The top-level `score` remains a `[0, 1]` combined value; per-signal scores are not exposed on the response so the scoring stack is free to evolve.
+- **OSS fixes** — FAISS pickle RCE hardened, V3 migration path fixed (entity linking works on Qdrant + Milvus), Qdrant embedded-mode client shared with the entity store, PGVector async init is idempotent, Redis module detection handles both node-redis v3 and v4 response shapes, in-memory `MemoryVectorStore` entity store is fully isolated with backward-compat payload normalization for legacy snake/camel keys.
+
+See the [SDK changelog](/changelog/sdk) for the full patch list.
+
+</Update>
+
 <Update label="2026-04-14" description="Mem0 SDK v2.0.0 / v3.0.0">
 
 **V3 Memory Pipeline — 20+ Point Benchmark Improvements**

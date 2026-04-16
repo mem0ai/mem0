@@ -35,7 +35,6 @@ These changes produce a **+20 point improvement on LoCoMo** (71.4 → 91.6) and 
 | Entity ID validation | Accepted any string | Trimmed; empty / whitespace-only rejected (`ValueError`) | Pass a non-empty identifier without internal spaces |
 | `messages` in `add()` | Could be `None` | Must be `str` / `dict` / `list[dict]` — other types raise `Mem0ValidationError` (code `VALIDATION_003`) | Always pass a string, dict, or list of messages |
 | `add()` events | Returns `ADD`, `UPDATE`, `DELETE` | Returns `ADD` only | Update code expecting UPDATE/DELETE |
-| `score` meaning | Raw cosine similarity | Combined multi-signal score | Score is a fused value (semantic + BM25 + entity); relative ranking is preserved but absolute numbers shift |
 | Custom extraction prompt | `custom_fact_extraction_prompt` | `custom_instructions` | Rename in config |
 | Custom update prompt | `custom_update_memory_prompt` | Deprecated | Use `custom_instructions` instead |
 | Graph memory | `enable_graph` + `graph_store` in config | Removed | Graph store support has been removed entirely |
@@ -169,7 +168,7 @@ The Python `[nlp]` extra installs [spaCy](https://spacy.io/) for entity extracti
         rerank=False         # New default (pass True to restore)
     )
     for r in results:
-        print(r["score"])   # Combined multi-signal score (semantic + BM25 + entity)
+        print(r["score"])
     ```
 
     <Warning>
@@ -498,9 +497,9 @@ These parameters have been removed across all SDKs. Remove them from your code:
     The entity store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
   </Accordion>
   <Accordion title="Score values are different from before">
-    The top-level `score` is now a combined multi-signal score (0-1), not raw cosine similarity. It fuses semantic similarity, BM25 keyword match, and entity boost into one value. Relative ranking stays comparable, but absolute numbers shift — retune any hard thresholds in your app against representative queries.
+    The top-level `score` still ranges `[0, 1]`, but it is computed differently in v3. Relative ranking between results stays comparable, but absolute numbers shift — retune any hard thresholds in your app against representative queries.
 
-    If you need the raw cosine similarity, run an unboosted vector query directly against your vector store (`vector_store.search(...)`); the Memory class no longer exposes per-signal scores on results.
+    If you need the raw cosine similarity for a specific use case, run an unboosted vector query directly against your vector store via `vector_store.search(...)`.
   </Accordion>
 </AccordionGroup>
 

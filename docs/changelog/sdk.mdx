@@ -7,6 +7,36 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-04-16" description="v2.0.1">
+
+**Post-launch hardening of the V3 pipeline across OSS and Client SDK.**
+
+**Security:**
+- **FAISS:** Prevent arbitrary code execution via pickle deserialization in `FAISS` vector store ([#4833](https://github.com/mem0ai/mem0/pull/4833))
+
+**Client SDK — API changes:**
+- **Endpoints updated for V3:** `MemoryClient.add()` now posts to `/v3/memories/add/`; `MemoryClient.get_all()` now posts to `/v3/memories/` and returns a paginated envelope `{"count": int, "next": str | None, "previous": str | None, "results": [...]}`. Same applies to the async client ([#4856](https://github.com/mem0ai/mem0/pull/4856))
+
+**OSS — Validation & Defaults:**
+- **Entity ID validation:** `user_id` / `agent_id` / `run_id` are trimmed; empty-string and whitespace-only values now raise `ValueError` ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **Search params validation:** `threshold` must be a number in `[0, 1]`; `top_k` must be a non-negative integer — invalid inputs raise `ValueError` ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **`top_k` default changed 100 → 20** in `Memory.get_all()` and `Memory.search()` (sync + async). Pass `top_k=100` explicitly to restore the old behavior ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **`messages` in `Memory.add()` rejects invalid types:** Passing `None` or non-`(str | dict | list)` values raises `Mem0ValidationError` (`error_code="VALIDATION_003"`) with a structured type hint ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+
+**OSS — Bug Fixes:**
+- **V3 migration crashes:** Fixed crashes in the v3 migration path; entity linking on OSS is now functional across Qdrant and Milvus backends ([#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **Qdrant entity store:** Entity store now shares the existing Qdrant client when using embedded mode (`path=...`), eliminating RocksDB lock contention between the main and entity collections ([#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **`score_breakdown` removed from search responses:** Per-signal component scores are no longer returned on each result; the top-level `score` remains a `[0, 1]` value. This keeps the scoring stack free to evolve without breaking downstream code that destructured the old field ([#4836](https://github.com/mem0ai/mem0/pull/4836))
+
+**OSS — Defaults:**
+- **Default OpenAI / Azure / LiteLLM model bumped to `gpt-5-mini`** (from `gpt-4.1-nano-2025-04-14`) in `OpenAILLM`, `OpenAIStructuredLLM`, `AzureOpenAILLM`, `AzureOpenAIStructuredLLM`, and `LiteLLM` fallback ([#4829](https://github.com/mem0ai/mem0/pull/4829))
+
+**OpenAPI / Docs:**
+- **OpenAPI spec:** Resolved duplicate `operationId`s and corrected the `expiration_date` type ([#4854](https://github.com/mem0ai/mem0/pull/4854))
+- **Integration tests:** Updated to the new default `v1.1` output format for Mem0 Platform ([#4847](https://github.com/mem0ai/mem0/pull/4847))
+
+</Update>
+
 <Update label="2026-04-14" description="v2.0.0">
 
 **V3 Memory Pipeline** — A complete rewrite of the memory extraction and retrieval system with 20+ point benchmark improvements.
@@ -881,6 +911,36 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+<Update label="2026-04-16" description="v3.0.1">
+
+**Post-launch hardening of the V3 pipeline across OSS and Client SDK.**
+
+**Client SDK — API changes:**
+- **Endpoints updated for V3:** `MemoryClient.add()` now posts to `/v3/memories/add/`; `MemoryClient.getAll()` now posts to `/v3/memories/` and returns the new `PaginatedMemories` envelope `{ count: number, next: string | null, previous: string | null, results: Array<Memory> }` ([#4856](https://github.com/mem0ai/mem0/pull/4856))
+- **Search response shape:** The `search()` method returns the raw response (not an auto-unwrapped array); shape is `{ results: Array<Memory> }` ([#4841](https://github.com/mem0ai/mem0/pull/4841))
+
+**OSS — Validation & Defaults:**
+- **Entity ID validation:** `userId` / `agentId` / `runId` are trimmed; empty-string and whitespace-only values now throw ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **Search params validation:** `threshold` must be a number in `[0, 1]`; `topK` must be a non-negative integer — invalid inputs throw ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **`topK` default changed 100 → 20** in `Memory.getAll()` and `Memory.search()`. Pass `topK: 100` explicitly to restore the old behavior ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+- **`messages` in `Memory.add()` is required:** Passing `undefined` or `null` now throws a clear error before hitting the extraction pipeline ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+
+**OSS — Entity Store Isolation & Backward Compatibility:**
+- **Entity store isolation:** `MemoryVectorStore` now always uses a dedicated `_entities.db` file for the entity store when in `memory` provider mode, regardless of whether `dbPath` was set, preventing the entity store from sharing a SQLite table with the main memory store ([#4829](https://github.com/mem0ai/mem0/pull/4829), [#4841](https://github.com/mem0ai/mem0/pull/4841))
+- **Payload backward compatibility:** `MemoryVectorStore` now normalizes legacy camelCase payload keys (`userId`, `agentId`, `runId`) to snake_case on read so upgrades don't lose filters on existing rows ([#4841](https://github.com/mem0ai/mem0/pull/4841))
+- **`text_lemmatized` payload key renamed to `textLemmatized`** inside the TypeScript OSS vector-store backends (in-memory + pgvector). If you share a vector-store collection between the Python and TypeScript SDKs, keep collections language-scoped: the lemma key no longer matches across languages ([#4843](https://github.com/mem0ai/mem0/pull/4843))
+
+**OSS — Bug Fixes:**
+- **PGVector init race:** `PGVector.initialize()` now memoises the in-flight init promise, preventing double initialization under concurrent first use ([#4841](https://github.com/mem0ai/mem0/pull/4841))
+- **Redis module detection:** `RedisDB` now handles both object (node-redis v4+) and flat-array (legacy) `moduleList` response shapes when checking for the `search` / `searchlight` module ([#4841](https://github.com/mem0ai/mem0/pull/4841))
+- **V3 migration:** Fixed crashes in the OSS migration path and ensured entity linking works end-to-end ([#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **`scoreBreakdown` removed from search responses:** Per-signal component scores are no longer returned on each result; the top-level `score` remains a `[0, 1]` value ([#4836](https://github.com/mem0ai/mem0/pull/4836))
+
+**OSS — Defaults:**
+- **Default OpenAI / Azure model bumped to `gpt-5-mini`** (from `gpt-4.1-nano-2025-04-14`) in the `OpenAI`, `OpenAIStructured`, and `Azure` LLM providers ([#4829](https://github.com/mem0ai/mem0/pull/4829))
+
+</Update>
+
 <Update label="2026-04-14" description="v3.0.0">
 
 **Major Release** — TypeScript SDK with V3 memory pipeline, camelCase parameters, and cleaned-up API surface.

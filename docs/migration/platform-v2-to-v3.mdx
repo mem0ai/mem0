@@ -20,8 +20,7 @@ The new Mem0 memory algorithm is a ground-up redesign of how memories are extrac
 | **Agent-generated facts** | Often ignored | First-class, stored with equal weight |
 | **Entity linking** | Not available | Entities extracted and linked across memories |
 | **Graph memory** | Separate graph store + dashboard visualization | Replaced by built-in entity linking, no graph visuals on platform dashboard |
-| **Retrieval signals** | Semantic (vector) only | Semantic + BM25 keyword + entity matching |
-| **Scoring method** | Raw cosine similarity | Combined multi-signal score (semantic + BM25 + entity) |
+| **Retrieval** | Semantic (vector) only | Hybrid retrieval combining multiple signals |
 
 ## What This Means for Your Application
 
@@ -41,9 +40,9 @@ If your application previously relied on UPDATE/DELETE behavior to keep memory c
 
 Previously, when an agent said something like "I've booked your flight for March 3rd," the system would often ignore it and only store what the user explicitly stated. The new algorithm treats agent-generated facts as first-class memories. If your application involves agents that confirm actions, provide recommendations, or share information, you'll see significantly better recall on those interactions.
 
-### Retrieval is now multi-signal
+### Retrieval is hybrid now
 
-Search fuses three signals — semantic similarity, BM25 keyword match, and entity linking — into a single combined `score` per result. Results preserve the same shape as before:
+Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, or entities that appear across multiple memories. The response shape is unchanged:
 
 ```json
 {
@@ -59,7 +58,7 @@ Search fuses three signals — semantic similarity, BM25 keyword match, and enti
 }
 ```
 
-The `score` field is a normalized combined score (0-1). Per-signal component scores are available internally for debugging via the search event (see the [Event API](/api-reference/events)) but are not exposed on the search response itself so the scoring stack remains free to evolve.
+The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries.
 
 ## API Changes
 
