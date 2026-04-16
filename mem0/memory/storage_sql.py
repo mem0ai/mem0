@@ -11,20 +11,33 @@ logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
+# Cache of dynamically generated ORM classes, keyed by table name.
+# Each table_name gets its own class so multiple SQLHistoryStore instances
+# with different table names don't interfere with each other.
+_record_classes: Dict[str, type] = {}
 
-class HistoryRecord(Base):
-    __tablename__ = "mem0_history"
 
-    id = Column(String(36), primary_key=True)
-    memory_id = Column(String(255), index=True)
-    old_memory = Column(Text, nullable=True)
-    new_memory = Column(Text, nullable=True)
-    event = Column(String(50))
-    created_at = Column(String(50), nullable=True)
-    updated_at = Column(String(50), nullable=True)
-    is_deleted = Column(Integer, default=0)
-    actor_id = Column(String(255), nullable=True)
-    role = Column(String(50), nullable=True)
+def _get_record_class(table_name: str) -> type:
+    """Return (and cache) an ORM class bound to the given table name."""
+    if table_name not in _record_classes:
+        _record_classes[table_name] = type(
+            f"HistoryRecord_{table_name}",
+            (Base,),
+            {
+                "__tablename__": table_name,
+                "id": Column(String(36), primary_key=True),
+                "memory_id": Column(String(255), index=True),
+                "old_memory": Column(Text, nullable=True),
+                "new_memory": Column(Text, nullable=True),
+                "event": Column(String(50)),
+                "created_at": Column(String(50), nullable=True),
+                "updated_at": Column(String(50), nullable=True),
+                "is_deleted": Column(Integer, default=0),
+                "actor_id": Column(String(255), nullable=True),
+                "role": Column(String(50), nullable=True),
+            },
+        )
+    return _record_classes[table_name]
 
 
 class SQLHistoryStore(HistoryStoreBase):
@@ -42,15 +55,10 @@ class SQLHistoryStore(HistoryStoreBase):
     """
 
     def __init__(self, url: str, table_name: str = "mem0_history"):
-        self.url = url
         self.table_name = table_name
-
-        if table_name != "mem0_history":
-            HistoryRecord.__tablename__ = table_name
-            HistoryRecord.__table__.name = table_name
-
+        self.RecordClass = _get_record_class(table_name)
         self.engine = create_engine(url)
-        Base.metadata.create_all(self.engine, tables=[HistoryRecord.__table__])
+        Base.metadata.create_all(self.engine, tables=[self.RecordClass.__table__])
 
     def add_history(
         self,
@@ -65,7 +73,7 @@ class SQLHistoryStore(HistoryStoreBase):
         actor_id: Optional[str] = None,
         role: Optional[str] = None,
     ) -> None:
-        record = HistoryRecord(
+        record = self.RecordClass(
             id=str(uuid.uuid4()),
             memory_id=memory_id,
             old_memory=old_memory,
@@ -84,9 +92,9 @@ class SQLHistoryStore(HistoryStoreBase):
     def get_history(self, memory_id: str) -> List[Dict[str, Any]]:
         with Session(self.engine) as session:
             rows = (
-                session.query(HistoryRecord)
-                .filter(HistoryRecord.memory_id == memory_id)
-                .order_by(HistoryRecord.created_at.asc(), HistoryRecord.updated_at.asc())
+                session.query(self.RecordClass)
+                .filter(self.RecordClass.memory_id == memory_id)
+                .order_by(self.RecordClass.created_at.asc(), self.RecordClass.updated_at.asc())
                 .all()
             )
             return [
@@ -106,8 +114,8 @@ class SQLHistoryStore(HistoryStoreBase):
             ]
 
     def reset(self) -> None:
-        HistoryRecord.__table__.drop(self.engine, checkfirst=True)
-        Base.metadata.create_all(self.engine, tables=[HistoryRecord.__table__])
+        self.RecordClass.__table__.drop(self.engine, checkfirst=True)
+        Base.metadata.create_all(self.engine, tables=[self.RecordClass.__table__])
 
     def close(self) -> None:
         if self.engine:
