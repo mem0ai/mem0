@@ -22,7 +22,7 @@ mode: "wide"
 **Breaking Changes:**
 - **`add()` returns ADD-only events** — No more `"UPDATE"` or `"DELETE"` events. Memories accumulate; nothing is overwritten ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`search()` default `threshold` is now `0.1`** — Pass `threshold=0.0` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
-- **`search()` `score` is now combined additive score** — Use `score_breakdown.semantic` for raw cosine similarity ([#4805](https://github.com/mem0ai/mem0/pull/4805))
+- **`search()` `score` is now a combined multi-signal score** — The top-level `score` fuses semantic similarity, BM25 keyword match, and entity boost into one value. Absolute numbers shift versus the old raw cosine score; retune any hard thresholds against representative queries. Per-signal scores are not exposed on the response ([#4805](https://github.com/mem0ai/mem0/pull/4805), [#4836](https://github.com/mem0ai/mem0/pull/4836))
 - **`search()` default `rerank` is now `False`** — Pass `rerank=True` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`qdrant-client>=1.12.0` required** — Upgrade from `>=1.9.1` ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`org_id` and `project_id` removed** — Removed from `MemoryClient` constructor and all method signatures ([#4740](https://github.com/mem0ai/mem0/pull/4740))
