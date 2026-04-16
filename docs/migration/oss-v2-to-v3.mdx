@@ -402,106 +402,119 @@ You always get semantic search. Hybrid search features layer on top when availab
 
 These parameters have been removed across all SDKs. Remove them from your code:
 
-<AccordionGroup>
-  <Accordion title="Python Client SDK — Removed parameters">
-    **Constructor:** `org_id`, `project_id`
+### Python Client SDK — Removed parameters
 
-    **All methods:** `api_version`, `output_format`, `async_mode`, `org_name`, `project_name`, `org_id`, `project_id`
+**Constructor:** `org_id`, `project_id`
 
-    **add():** `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
+**All methods:** `api_version`, `output_format`, `async_mode`, `org_name`, `project_name`, `org_id`, `project_id`
 
-    **search():** `enable_graph`
+**add():** `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
 
-    **get_all():** `enable_graph`
+**search():** `enable_graph`
 
-    **project.update():** `enable_graph`
-  </Accordion>
-  <Accordion title="TypeScript Client SDK — Removed parameters">
-    **Constructor:** `organizationId`, `projectId`, `organizationName`, `projectName`
+**get_all():** `enable_graph`
 
-    **All methods:** `OutputFormat` enum, `API_VERSION` enum
+**project.update():** `enable_graph`
 
-    **add():** `enable_graph` / `enableGraph`, `async_mode` / `asyncMode`, `output_format` / `outputFormat`, `immutable`, `expiration_date` / `expirationDate`, `filter_memories` / `filterMemories`, `batch_size` / `batchSize`, `force_add_only` / `forceAddOnly`, `includes`, `excludes`, `keyword_search` / `keywordSearch`
+### TypeScript Client SDK — Removed parameters
 
-    **search():** `enable_graph` / `enableGraph`
+**Constructor:** `organizationId`, `projectId`, `organizationName`, `projectName`
 
-    **get_all():** `enable_graph` / `enableGraph`
-  </Accordion>
-  <Accordion title="Python OSS — Removed/renamed parameters">
-    **Config:** `custom_fact_extraction_prompt` → renamed to `custom_instructions`
+**All methods:** `OutputFormat` enum, `API_VERSION` enum
 
-    **Config:** `custom_update_memory_prompt` → deprecated, use `custom_instructions`
+**add():** `enable_graph` / `enableGraph`, `async_mode` / `asyncMode`, `output_format` / `outputFormat`, `immutable`, `expiration_date` / `expirationDate`, `filter_memories` / `filterMemories`, `batch_size` / `batchSize`, `force_add_only` / `forceAddOnly`, `includes`, `excludes`, `keyword_search` / `keywordSearch`
 
-    **Config:** `enable_graph` + `graph_store` → removed (graph store support removed entirely)
-  </Accordion>
-  <Accordion title="TypeScript OSS — Removed/renamed parameters">
-    **Config:** `customPrompt` → renamed to `customInstructions`
+**search():** `enable_graph` / `enableGraph`
 
-    **Config:** `enableGraph` + `graphStore` → removed (graph store support removed entirely)
+**get_all():** `enable_graph` / `enableGraph`
 
-    **search():** `limit` → renamed to `topK`
-  </Accordion>
-</AccordionGroup>
+### Python OSS — Removed/renamed parameters
+
+**Config:** `custom_fact_extraction_prompt` → renamed to `custom_instructions`
+
+**Config:** `custom_update_memory_prompt` → deprecated, use `custom_instructions`
+
+**Config:** `enable_graph` + `graph_store` → removed (graph store support removed entirely)
+
+### TypeScript OSS — Removed/renamed parameters
+
+**Config:** `customPrompt` → renamed to `customInstructions`
+
+**Config:** `enableGraph` + `graphStore` → removed (graph store support removed entirely)
+
+**search():** `limit` → renamed to `topK`
 
 ## Common Issues
 
-<AccordionGroup>
-  <Accordion title="TypeScript: 'limit' is not a valid parameter">
-    The `limit` parameter has been renamed to `topK` in the TypeScript OSS:
-    ```typescript
-    // Before
-    const results = await m.search("query", { userId: "alice", limit: 20 });
+### TypeScript: `limit` is not a valid parameter
 
-    // After
-    const results = await m.search("query", { userId: "alice", topK: 20 });
-    ```
-  </Accordion>
-  <Accordion title="TypeScript Client: snake_case params no longer work">
-    All TypeScript Client SDK parameters now use camelCase. The SDK handles conversion to/from the API automatically:
-    ```typescript
-    // Before
-    await client.search("query", { user_id: "alice", top_k: 20 });
+The `limit` parameter has been renamed to `topK` in the TypeScript OSS:
 
-    // After
-    await client.search("query", { filters: { userId: "alice" }, topK: 20 });
-    ```
-  </Accordion>
-  <Accordion title="ValueError: Top-level entity parameters not supported in search() / get_all()">
-    `search()` and `get_all()` now require entity IDs inside `filters`. Top-level kwargs raise `ValueError`. This aligns the OSS SDK with the Platform API.
-    ```python
-    # Before
-    results = m.search("query", user_id="alice", top_k=20)
+```typescript
+// Before
+const results = await m.search("query", { userId: "alice", limit: 20 });
 
-    # After
-    results = m.search("query", filters={"user_id": "alice"}, top_k=20)
-    ```
-    `add()` and `delete_all()` continue to accept entity IDs as top-level kwargs.
-  </Accordion>
-  <Accordion title="Search returns fewer results than before">
-    The default `threshold` changed from `None` to `0.1`. Low-relevance results that were previously included are now filtered out. To restore the old behavior:
-    ```python
-    results = m.search("query", filters={"user_id": "alice"}, threshold=0.0)
-    ```
-  </Accordion>
-  <Accordion title="spaCy model not found">
-    If you see errors about missing spaCy models, download the required model:
-    ```bash
-    python -m spacy download en_core_web_sm
-    ```
-    If spaCy is not installed at all, install the NLP extras:
-    ```bash
-    pip install "mem0ai[nlp]"
-    ```
-  </Accordion>
-  <Accordion title="Entity store collection creation fails">
-    The entity store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
-  </Accordion>
-  <Accordion title="Score values are different from before">
-    The top-level `score` still ranges `[0, 1]`, but it is computed differently in v3. Relative ranking between results stays comparable, but absolute numbers shift — retune any hard thresholds in your app against representative queries.
+// After
+const results = await m.search("query", { filters: { userId: "alice" }, topK: 20 });
+```
 
-    If you need the raw cosine similarity for a specific use case, run an unboosted vector query directly against your vector store via `vector_store.search(...)`.
-  </Accordion>
-</AccordionGroup>
+### TypeScript Client: snake_case params no longer work
+
+All TypeScript Client SDK parameters now use camelCase. The SDK handles conversion to/from the API automatically:
+
+```typescript
+// Before
+await client.search("query", { user_id: "alice", top_k: 20 });
+
+// After
+await client.search("query", { filters: { userId: "alice" }, topK: 20 });
+```
+
+### `ValueError: Top-level entity parameters not supported in search() / get_all()`
+
+`search()` and `get_all()` now require entity IDs inside `filters`. Top-level kwargs raise `ValueError`. This aligns the OSS SDK with the Platform API.
+
+```python
+# Before
+results = m.search("query", user_id="alice", top_k=20)
+
+# After
+results = m.search("query", filters={"user_id": "alice"}, top_k=20)
+```
+
+`add()` and `delete_all()` continue to accept entity IDs as top-level kwargs.
+
+### Search returns fewer results than before
+
+The default `threshold` changed from `None` to `0.1`. Low-relevance results that were previously included are now filtered out. To restore the old behavior:
+
+```python
+results = m.search("query", filters={"user_id": "alice"}, threshold=0.0)
+```
+
+### spaCy model not found
+
+If you see errors about missing spaCy models, download the required model:
+
+```bash
+python -m spacy download en_core_web_sm
+```
+
+If spaCy is not installed at all, install the NLP extras:
+
+```bash
+pip install "mem0ai[nlp]"
+```
+
+### Entity store collection creation fails
+
+The entity store tries to create a `{collection_name}_entities` collection automatically. If your vector database has restricted permissions, pre-create this collection with the same embedding dimensions as your main collection.
+
+### Score values are different from before
+
+The top-level `score` still ranges `[0, 1]`, but it is computed differently in v3. Relative ranking between results stays comparable, but absolute numbers shift — retune any hard thresholds in your app against representative queries.
+
+If you need the raw cosine similarity for a specific use case, run an unboosted vector query directly against your vector store via `vector_store.search(...)`.
 
 ## Need Help?
 
