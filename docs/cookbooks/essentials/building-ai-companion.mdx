@@ -62,7 +62,7 @@ mem0_client = MemoryClient(api_key="your-mem0-key")
 
 def chat(user_input, user_id):
     # Retrieve relevant memories
-    memories = mem0_client.search(user_input, user_id=user_id, limit=5)
+    memories = mem0_client.search(user_input, filters={"user_id": user_id}, top_k=5)
     context = "\\n".join(m["memory"] for m in memories["results"])
 
     # Call LLM with memory context
@@ -446,7 +446,7 @@ Retrieve agent style alongside user memories:
   <Tab title="Platform">
 ```python
 # Get coach personality
-agent_memories = mem0_client.search("coaching style", agent_id="ray_coach")
+agent_memories = mem0_client.search("coaching style", filters={"agent_id": "ray_coach"})
 # Output: ["Max wants direct, data-driven feedback. Skip motivational language."]
 
 # Store conversations with agent_id
@@ -459,7 +459,7 @@ mem0_client.add([
   <Tab title="Open Source">
 ```python
 # Get coach personality
-agent_memories = memory.search("coaching style", agent_id="ray_coach")
+agent_memories = memory.search("coaching style", filters={"agent_id": "ray_coach"})
 # Output: ["Max wants direct, data-driven feedback. Skip motivational language."]
 
 # Store conversations with agent_id
@@ -706,7 +706,7 @@ memory.add(
 <Tabs>
   <Tab title="Platform">
 ```python
-memories = mem0_client.search("training plan", user_id="max", limit=5)
+memories = mem0_client.search("training plan", filters={"user_id": "max"}, top_k=5)
 # Gets: marathon goal, trail preference, ankle injury (if still valid)
 ```
   </Tab>

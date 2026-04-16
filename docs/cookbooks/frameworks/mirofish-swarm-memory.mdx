@@ -659,12 +659,12 @@ memory.get_all(filters={"user_id": "my_sim"})
 | MiroFish Stage | What Happens | Mem0 Graph Memory Call |
 |---|---|---|
 | **1. Graph Building** | Ingest docs, extract entities | `memory.add(doc, user_id=project)` — entities/relations extracted automatically |
-| **2. Environment Setup** | Enrich agent personas from graph | `memory.search(query, user_id=project)` — returns facts + relations |
+| **2. Environment Setup** | Enrich agent personas from graph | `memory.search(query, filters={"user_id": project})` — returns facts + relations |
 | **3. Simulation** | Track per-agent actions | `memory.add(messages, run_id=agent)` |
-| **3. Simulation** | Mid-round recall | `memory.search(query, run_id=agent)` |
-| **4. Report Generation** | Targeted analysis | `memory.search(query, user_id=project)` — memories + graph |
+| **3. Simulation** | Mid-round recall | `memory.search(query, filters={"run_id": agent})` |
+| **4. Report Generation** | Targeted analysis | `memory.search(query, filters={"user_id": project})` — memories + graph |
 | **4. Report Generation** | Full overview | `memory.get_all(user_id=project)` — all memories + all relations |
-| **5. Deep Interaction** | Follow-up queries | `memory.search(query, user_id=project)` |
+| **5. Deep Interaction** | Follow-up queries | `memory.search(query, filters={"user_id": project})` |
 
 ### Zep-to-Mem0 Migration Reference
 
@@ -678,14 +678,14 @@ For developers replacing MiroFish's Zep integration. Note that Mem0 Graph Memory
 | GraphBuilderService | `client.graph.episode.get(uuid)` | Not needed (add is synchronous in OSS) | |
 | GraphBuilderService | `client.graph.delete(id)` | `memory.delete_all(user_id=...)` | |
 | ZepEntityReader | `client.graph.node.get_by_graph_id()` | `memory.get_all(user_id=...)` → `relations` | |
-| ZepEntityReader | `client.graph.node.get(uuid)` | `memory.search(entity_name, user_id=...)` | Semantic search, not exact ID lookup |
-| ZepEntityReader | `client.graph.node.get_entity_edges()` | `memory.search(entity_name, user_id=...)` → `relations` | Returns all matching relations, not edges for a specific node |
+| ZepEntityReader | `client.graph.node.get(uuid)` | `memory.search(entity_name, filters={"user_id": ...})` | Semantic search, not exact ID lookup |
+| ZepEntityReader | `client.graph.node.get_entity_edges()` | `memory.search(entity_name, filters={"user_id": ...})` → `relations` | Returns all matching relations, not edges for a specific node |
 | ZepGraphMemoryUpdater | `client.graph.add(type="text")` | `memory.add(messages, run_id=...)` | No batch buffering or retry — implement in your wrapper |
-| ZepToolsService | `search_graph(query, scope)` | `memory.search(query, user_id=...)` → memories + relations | |
+| ZepToolsService | `search_graph(query, scope)` | `memory.search(query, filters={"user_id": ...})` → memories + relations | |
 | ZepToolsService | `get_entities()` | `memory.get_all(user_id=...)` → `relations` | |
 | ZepToolsService | Panorama (all nodes + edges) | `memory.get_all(user_id=...)` | No temporal fact separation (active vs historical) |
 | ZepToolsService | InsightForge (multi-query decomposition) | Not available | Implement LLM-driven sub-query decomposition in your own ReportAgent |
-| OasisProfileGenerator | `client.graph.search()` | `memory.search(query, user_id=...)` | |
+| OasisProfileGenerator | `client.graph.search()` | `memory.search(query, filters={"user_id": ...})` | |
 
 <Note>
   **What Mem0 Graph Memory does not cover**: Zep's typed ontology schemas (`EntityModel`, `EdgeModel`), temporal fact lifecycle (`valid_at`/`invalid_at`/`expired_at`), single-node-by-ID lookup, and InsightForge's multi-query decomposition. For InsightForge-like functionality, implement sub-query logic in your own ReportAgent using `memory.search()` as the retrieval primitive.
