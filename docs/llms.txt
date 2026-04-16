@@ -246,7 +246,6 @@ Key differentiators:
 - [Multimodal Retrieval](https://docs.mem0.ai/cookbooks/frameworks/multimodal-retrieval): Memory systems handling text, images, and documents
 - [Eliza OS Character](https://docs.mem0.ai/cookbooks/frameworks/eliza-os-character): Character-based AI with persistent personality
 - [Gemini with Mem0 MCP](https://docs.mem0.ai/cookbooks/frameworks/gemini-3-with-mem0-mcp): Google Gemini integration using MCP server
-- [Mirofish Swarm Memory](https://docs.mem0.ai/cookbooks/frameworks/mirofish-swarm-memory): Swarm-based multi-agent memory patterns
 
 ## API Reference
 

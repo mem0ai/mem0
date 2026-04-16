@@ -382,8 +382,7 @@
                       "cookbooks/frameworks/llamaindex-multiagent",
                       "cookbooks/frameworks/multimodal-retrieval",
                       "cookbooks/frameworks/eliza-os-character",
-                      "cookbooks/frameworks/gemini-3-with-mem0-mcp",
-                      "cookbooks/frameworks/mirofish-swarm-memory"
+                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
                     ]
                   }
                 ]
