@@ -257,6 +257,44 @@ describe("Memory - deleteAll()", () => {
       "At least one filter is required to delete all memories",
     );
   });
+
+  test("handles pagination by deleting all memories across pages", async () => {
+    // 1. Setup
+    const memoryWithMock = createMemory();
+    const totalMemories = 110;
+    const memoriesPage1 = Array.from({ length: 100 }, (_, i) => ({
+      id: `id_${i}`,
+      payload: {},
+    }));
+    const memoriesPage2 = Array.from({ length: 10 }, (_, i) => ({
+      id: `id_${100 + i}`,
+      payload: {},
+    }));
+
+    // 2. Mock vectorStore.list to simulate pagination
+    const listSpy = jest
+      .spyOn((memoryWithMock as any).vectorStore, "list")
+      .mockResolvedValueOnce([memoriesPage1]) // First call returns 100
+      .mockResolvedValueOnce([memoriesPage2]) // Second call returns 10
+      .mockResolvedValueOnce([[]]); // Third call returns 0
+
+    // 3. Spy on deleteMemory to track calls
+    const deleteSpy = jest.spyOn(
+      memoryWithMock as any,
+      "deleteMemory",
+    ).mockResolvedValue({ message: "Memory deleted successfully!" });
+
+    // 4. Call the function
+    await memoryWithMock.deleteAll({ userId });
+
+    // 5. Assert
+    expect(listSpy).toHaveBeenCalledTimes(3); // Two non-empty batches, then one empty terminating fetch
+    expect(deleteSpy).toHaveBeenCalledTimes(totalMemories); // Should delete ALL memories
+
+    // 6. Cleanup spies
+    listSpy.mockRestore();
+    deleteSpy.mockRestore();
+  });
 });
 
 // ─── getAll() ────────────────────────────────────────────

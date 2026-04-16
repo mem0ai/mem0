@@ -1300,9 +1300,17 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters);
-    for (const memory of memories) {
-      await this.deleteMemory(memory.id);
+    const deleteBatchSize = 1000;
+
+    while (true) {
+      const [memories] = await this.vectorStore.list(filters, deleteBatchSize);
+      if (memories.length === 0) {
+        break;
+      }
+
+      for (const memory of memories) {
+        await this.deleteMemory(memory.id);
+      }
     }
 
     return { message: "Memories deleted successfully!" };

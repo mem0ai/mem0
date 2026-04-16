@@ -168,6 +168,20 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
             )
 
 
+def _normalize_vector_store_list_result(memories_result):
+    """Normalize vector_store.list() output to a flat list of memory rows.
+
+    Different vector stores return different shapes:
+    - flat list: [OutputData, ...]
+    - tuple/list with rows first: ([OutputData, ...], meta)
+    """
+    if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
+        first_element = memories_result[0]
+        if isinstance(first_element, (list, tuple)):
+            return list(first_element)
+    return memories_result
+
+
 def _is_sensitive_field(field_name: str) -> bool:
     """Check if a field should be redacted for telemetry safety.
 
@@ -1553,12 +1567,22 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        delete_batch_size = 1000
+        deleted_count = 0
 
-        logger.info(f"Deleted {len(memories)} memories")
+        memories_result = self.vector_store.list(filters=filters, top_k=delete_batch_size)
+        memories = _normalize_vector_store_list_result(memories_result)
+
+        while memories:
+            for memory in memories:
+                self._delete_memory(memory.id)
+                deleted_count += 1
+
+            # Re-list after each batch so stores with default page limits are drained fully.
+            memories_result = self.vector_store.list(filters=filters, top_k=delete_batch_size)
+            memories = _normalize_vector_store_list_result(memories_result)
+
+        logger.info(f"Deleted {deleted_count} memories")
 
         return {"message": "Memories deleted successfully!"}
 
@@ -2953,15 +2977,21 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        delete_batch_size = 1000
+        deleted_count = 0
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id))
+        memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=delete_batch_size)
+        memories = _normalize_vector_store_list_result(memories_result)
 
-        await asyncio.gather(*delete_tasks)
+        while memories:
+            delete_tasks = [self._delete_memory(memory.id) for memory in memories]
+            await asyncio.gather(*delete_tasks)
+            deleted_count += len(memories)
 
-        logger.info(f"Deleted {len(memories[0])} memories")
+            memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=delete_batch_size)
+            memories = _normalize_vector_store_list_result(memories_result)
+
+        logger.info(f"Deleted {deleted_count} memories")
 
         return {"message": "Memories deleted successfully!"}
 
