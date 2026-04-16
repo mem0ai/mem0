@@ -95,7 +95,7 @@ const config = { user_id: "bob" };
 const memories = await retrieveMemories(prompt, config);
 
 const { text } = await generateText({
-  model: anthropic("gpt-5-mini"),
+  model: anthropic("claude-sonnet-4-20250514"),
   prompt,
   system: memories,
 });

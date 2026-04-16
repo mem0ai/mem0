@@ -102,10 +102,6 @@ interface Mem0ConfigSettings {
   app_id?: string;               // Scope memories to an application
   agent_id?: string;             // Scope memories to an agent
   run_id?: string;               // Scope memories to a specific run/session
-  org_name?: string;             // Organization name
-  project_name?: string;         // Project name
-  org_id?: string;               // Organization ID
-  project_id?: string;           // Project ID
   metadata?: Record<string, any>; // Custom metadata attached to memories
   filters?: Record<string, any>; // Custom filters for memory search
   infer?: boolean;               // Enable inference during memory operations
@@ -113,13 +109,9 @@ interface Mem0ConfigSettings {
   page_size?: number;            // Pagination: results per page
   mem0ApiKey?: string;           // Mem0 API key (overrides provider-level key)
   top_k?: number;                // Number of memories to retrieve (default: 5)
-  threshold?: number;            // Minimum similarity score for retrieval
-  rerank?: boolean;              // Enable re-ranking of search results
-  enable_graph?: boolean;        // Enable graph memory retrieval
+  threshold?: number;            // Minimum similarity score for retrieval (default: 0.1)
+  rerank?: boolean;              // Enable re-ranking of search results (default: false)
   host?: string;                 // Custom Mem0 API host (default: "https://api.mem0.ai")
-  output_format?: string;        // Output format for API responses
-  filter_memories?: boolean;     // Filter memories
-  async_mode?: boolean;          // Enable async mode
 }
 ```
 
