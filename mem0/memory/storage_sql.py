@@ -15,16 +15,16 @@ Base = declarative_base()
 class HistoryRecord(Base):
     __tablename__ = "mem0_history"
 
-    id = Column(String, primary_key=True)
-    memory_id = Column(String, index=True)
+    id = Column(String(36), primary_key=True)
+    memory_id = Column(String(255), index=True)
     old_memory = Column(Text, nullable=True)
     new_memory = Column(Text, nullable=True)
-    event = Column(String)
-    created_at = Column(String, nullable=True)
-    updated_at = Column(String, nullable=True)
+    event = Column(String(50))
+    created_at = Column(String(50), nullable=True)
+    updated_at = Column(String(50), nullable=True)
     is_deleted = Column(Integer, default=0)
-    actor_id = Column(String, nullable=True)
-    role = Column(String, nullable=True)
+    actor_id = Column(String(255), nullable=True)
+    role = Column(String(50), nullable=True)
 
 
 class SQLHistoryStore(HistoryStoreBase):
