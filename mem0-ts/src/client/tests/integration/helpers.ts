@@ -18,9 +18,13 @@ export const describeIntegration = API_KEY ? describe : describe.skip;
  * Create a MemoryClient with the real API key.
  * Call this inside beforeAll — not at module scope — so it only
  * runs when the suite is not skipped.
+ *
+ * Returns an initialized client ready for immediate use.
  */
-export function createTestClient(): MemoryClient {
-  return new MemoryClient({ apiKey: API_KEY! });
+export async function createTestClient(): Promise<MemoryClient> {
+  const client = new MemoryClient({ apiKey: API_KEY! });
+  await client.ping();
+  return client;
 }
 
 /**
@@ -63,10 +67,11 @@ export async function waitForMemories(
   maxRetries = 4,
 ): Promise<Memory[]> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const memories = await withRetry(() =>
-      client.getAll({ filters: { userId } }),
+    const response = await withRetry(() =>
+      client.getAll({ filters: { user_id: userId } }),
     );
-    if (Array.isArray(memories) && memories.length >= minCount) {
+    const memories = response.results ?? [];
+    if (memories.length >= minCount) {
       return memories;
     }
     if (attempt < maxRetries) {
@@ -92,8 +97,9 @@ export async function waitForSearchResults(
   maxRetries = 4,
 ): Promise<Memory[]> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    const results = await withRetry(() => client.search(query, options));
-    if (Array.isArray(results) && results.length > 0) {
+    const response = await withRetry(() => client.search(query, options));
+    const results = response?.results ?? [];
+    if (results.length > 0) {
       return results;
     }
     if (attempt < maxRetries) {

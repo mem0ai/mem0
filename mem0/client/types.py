@@ -2,6 +2,9 @@
 
 These models provide IDE autocompletion, runtime validation, and type safety.
 Methods accept both typed options and **kwargs for backward compatibility.
+
+Identity fields (user_id, agent_id, app_id, run_id) must be passed inside
+the ``filters`` dict — the v3 API does not accept them at the top level.
 """
 
 from typing import Any, Dict, List, Optional, Union
@@ -9,18 +12,16 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 
 
-class EntityOptions(BaseModel):
-    """Identity options for add/delete operations (top-level entity IDs)."""
+class AddMemoryOptions(BaseModel):
+    """Options for the add() method.
 
-    user_id: Optional[str] = Field(default=None, description="The user ID to associate with the memory")
-    agent_id: Optional[str] = Field(default=None, description="The agent ID to associate with the memory")
-    app_id: Optional[str] = Field(default=None, description="The app ID to associate with the memory")
-    run_id: Optional[str] = Field(default=None, description="The run ID to associate with the memory")
+    Identity fields (user_id, agent_id, app_id, run_id) must be passed inside
+    the ``filters`` dict — the v3 API does not accept them at the top level.
+    """
 
-
-class AddMemoryOptions(EntityOptions):
-    """Options for the add() method."""
-
+    filters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Filters containing entity IDs (e.g. {'user_id': '...'})"
+    )
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata for the memory")
     infer: Optional[bool] = Field(default=None, description="Whether to infer memories from the input")
     custom_categories: Optional[List[Dict[str, Any]]] = Field(
@@ -72,10 +73,16 @@ class GetAllMemoryOptions(BaseModel):
     categories: Optional[List[str]] = Field(default=None, description="Categories to filter by")
 
 
-class DeleteAllMemoryOptions(EntityOptions):
-    """Options for the delete_all() method."""
+class DeleteAllMemoryOptions(BaseModel):
+    """Options for the delete_all() method.
 
-    pass
+    Identity fields (user_id, agent_id, app_id, run_id) must be passed inside
+    the ``filters`` dict — the API does not accept them at the top level.
+    """
+
+    filters: Optional[Dict[str, Any]] = Field(
+        default=None, description="Filters containing entity IDs (e.g. {'user_id': '...'})"
+    )
 
 
 class UpdateMemoryOptions(BaseModel):

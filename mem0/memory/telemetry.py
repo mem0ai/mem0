@@ -88,6 +88,12 @@ class AnonymousTelemetry:
         if self.posthog is None:
             return
 
+        # Determine distinct_id, skip if None to prevent crashes
+        distinct_id = self.user_id if user_email is None else user_email
+        if distinct_id is None:
+            _logger.debug("Skipping telemetry event %r: no distinct_id available", event_name)
+            return
+
         if properties is None:
             properties = {}
         properties = {
@@ -101,8 +107,10 @@ class AnonymousTelemetry:
             "machine": platform.machine(),
             **properties,
         }
-        distinct_id = self.user_id if user_email is None else user_email
-        self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
+        try:
+            self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
+        except Exception as e:
+            _logger.debug("Failed to capture telemetry event %r: %s", event_name, e)
 
     def close(self):
         if self.posthog is not None:
@@ -158,39 +166,52 @@ atexit.register(client_telemetry.close)
 
 
 def capture_event(event_name, memory_instance, additional_data=None):
+    """Capture telemetry event for OSS Memory instances.
+
+    This function is designed to never raise exceptions - telemetry failures
+    should not affect the main application flow.
+    """
     if not MEM0_TELEMETRY:
         return
 
-    oss_telemetry = _get_oss_telemetry()
-    if oss_telemetry is None:
-        return
+    try:
+        oss_telemetry = _get_oss_telemetry()
+        if oss_telemetry is None:
+            return
 
-    event_data = {
-        "collection": memory_instance.collection_name,
-        "vector_size": memory_instance.embedding_model.config.embedding_dims,
-        "history_store": "sqlite",
-        "graph_store": f"{memory_instance.graph.__class__.__module__}.{memory_instance.graph.__class__.__name__}"
-        if memory_instance.config.graph_store.config
-        else None,
-        "vector_store": f"{memory_instance.vector_store.__class__.__module__}.{memory_instance.vector_store.__class__.__name__}",
-        "llm": f"{memory_instance.llm.__class__.__module__}.{memory_instance.llm.__class__.__name__}",
-        "embedding_model": f"{memory_instance.embedding_model.__class__.__module__}.{memory_instance.embedding_model.__class__.__name__}",
-        "function": f"{memory_instance.__class__.__module__}.{memory_instance.__class__.__name__}.{memory_instance.api_version}",
-    }
-    if additional_data:
-        event_data.update(additional_data)
+        event_data = {
+            "collection": memory_instance.collection_name,
+            "vector_size": memory_instance.embedding_model.config.embedding_dims,
+            "history_store": "sqlite",
+            "vector_store": f"{memory_instance.vector_store.__class__.__module__}.{memory_instance.vector_store.__class__.__name__}",
+            "llm": f"{memory_instance.llm.__class__.__module__}.{memory_instance.llm.__class__.__name__}",
+            "embedding_model": f"{memory_instance.embedding_model.__class__.__module__}.{memory_instance.embedding_model.__class__.__name__}",
+            "function": f"{memory_instance.__class__.__module__}.{memory_instance.__class__.__name__}.{memory_instance.api_version}",
+        }
+        if additional_data:
+            event_data.update(additional_data)
 
-    oss_telemetry.capture_event(event_name, event_data)
+        oss_telemetry.capture_event(event_name, event_data)
+    except Exception as e:
+        _logger.debug("Failed to capture OSS telemetry event %r: %s", event_name, e)
 
 
 def capture_client_event(event_name, instance, additional_data=None):
+    """Capture telemetry event for hosted MemoryClient instances.
+
+    This function is designed to never raise exceptions - telemetry failures
+    should not affect the main application flow.
+    """
     if not MEM0_TELEMETRY:
         return
 
-    event_data = {
-        "function": f"{instance.__class__.__module__}.{instance.__class__.__name__}",
-    }
-    if additional_data:
-        event_data.update(additional_data)
+    try:
+        event_data = {
+            "function": f"{instance.__class__.__module__}.{instance.__class__.__name__}",
+        }
+        if additional_data:
+            event_data.update(additional_data)
 
-    client_telemetry.capture_event(event_name, event_data, instance.user_email)
+        client_telemetry.capture_event(event_name, event_data, instance.user_email)
+    except Exception as e:
+        _logger.debug("Failed to capture client telemetry event %r: %s", event_name, e)

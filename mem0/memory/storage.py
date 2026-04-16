@@ -2,6 +2,7 @@ import logging
 import sqlite3
 import threading
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,7 @@ class SQLiteManager:
         self._lock = threading.Lock()
         self._migrate_history_table()
         self._create_history_table()
+        self._create_messages_table()
 
     def _migrate_history_table(self) -> None:
         """
@@ -123,6 +125,28 @@ class SQLiteManager:
                 logger.error(f"Failed to create history table: {e}")
                 raise
 
+    def _create_messages_table(self) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                self.connection.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS messages (
+                        id TEXT PRIMARY KEY,
+                        session_scope TEXT,
+                        role TEXT,
+                        content TEXT,
+                        name TEXT,
+                        created_at DATETIME
+                    )
+                """
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to create messages table: {e}")
+                raise
+
     def add_history(
         self,
         memory_id: str,
@@ -166,6 +190,40 @@ class SQLiteManager:
                 logger.error(f"Failed to add history record: {e}")
                 raise
 
+    def batch_add_history(self, records: List[Dict[str, Any]]) -> None:
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                self.connection.executemany(
+                    """
+                    INSERT INTO history (
+                        id, memory_id, old_memory, new_memory, event,
+                        created_at, updated_at, is_deleted, actor_id, role
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    [
+                        (
+                            str(uuid.uuid4()),
+                            record.get("memory_id"),
+                            record.get("old_memory"),
+                            record.get("new_memory"),
+                            record.get("event"),
+                            record.get("created_at"),
+                            record.get("updated_at"),
+                            record.get("is_deleted", 0),
+                            record.get("actor_id"),
+                            record.get("role"),
+                        )
+                        for record in records
+                    ],
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to batch add history records: {e}")
+                raise
+
     def get_history(self, memory_id: str) -> List[Dict[str, Any]]:
         with self._lock:
             cur = self.connection.execute(
@@ -196,18 +254,89 @@ class SQLiteManager:
             for r in rows
         ]
 
+    def save_messages(self, messages: List[Dict[str, Any]], session_scope: str) -> None:
+        if not messages:
+            return
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                now = datetime.now(timezone.utc).isoformat()
+                for message in messages:
+                    self.connection.execute(
+                        """
+                        INSERT INTO messages (id, session_scope, role, content, name, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            str(uuid.uuid4()),
+                            session_scope,
+                            message.get("role"),
+                            message.get("content"),
+                            message.get("name"),
+                            now,
+                        ),
+                    )
+                # Evict old messages beyond the most recent 10 for this scope.
+                # Wrapped in a derived table to force SQLite to materialize the
+                # ORDER BY before the outer NOT IN evaluates it.
+                self.connection.execute(
+                    """
+                    DELETE FROM messages WHERE session_scope = ? AND id NOT IN (
+                        SELECT id FROM (
+                            SELECT id FROM messages WHERE session_scope = ? ORDER BY created_at DESC LIMIT 10
+                        )
+                    )
+                """,
+                    (session_scope, session_scope),
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to save messages: {e}")
+                raise
+
+    def get_last_messages(self, session_scope: str, limit: int = 10) -> List[Dict[str, Any]]:
+        with self._lock:
+            # Subquery picks the latest N rows (DESC + LIMIT), outer query
+            # re-sorts them chronologically (ASC) for the caller.
+            cur = self.connection.execute(
+                """
+                SELECT role, content, name, created_at FROM (
+                    SELECT role, content, name, created_at
+                    FROM messages
+                    WHERE session_scope = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                ) ORDER BY created_at ASC
+            """,
+                (session_scope, limit),
+            )
+            rows = cur.fetchall()
+
+        return [
+            {
+                "role": r[0],
+                "content": r[1],
+                "name": r[2],
+                "created_at": r[3],
+            }
+            for r in rows
+        ]
+
     def reset(self) -> None:
-        """Drop and recreate the history table."""
+        """Drop and recreate the history and messages tables."""
         with self._lock:
             try:
                 self.connection.execute("BEGIN")
                 self.connection.execute("DROP TABLE IF EXISTS history")
+                self.connection.execute("DROP TABLE IF EXISTS messages")
                 self.connection.execute("COMMIT")
-                self._create_history_table()
             except Exception as e:
                 self.connection.execute("ROLLBACK")
-                logger.error(f"Failed to reset history table: {e}")
+                logger.error(f"Failed to reset tables: {e}")
                 raise
+        self._create_history_table()
+        self._create_messages_table()
 
     def close(self) -> None:
         if self.connection:

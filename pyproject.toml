@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "2.0.0b0"
+version = "2.0.0b1"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "support@mem0.ai" }
@@ -14,7 +14,7 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.9,<4.0"
 dependencies = [
-    "qdrant-client>=1.9.1",
+    "qdrant-client>=1.12.0",
     "pydantic>=2.7.3",
     "openai>=1.90.0",
     "posthog>=4.5.0",
@@ -24,14 +24,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-graph = [
-    "langchain-neo4j>=0.4.0",
-    "langchain-aws>=0.2.23",
-    "langchain-memgraph>=0.1.0",
-    "neo4j>=5.23.1",
-    "rank-bm25>=0.2.2",
-    "kuzu>=0.11.0",
-    "apache-age-python>=0.0.6",
+nlp = [
+    "spacy>=3.7.0",
 ]
 vector_stores = [
     "vecs>=0.4.0",
@@ -41,7 +35,7 @@ vector_stores = [
     "pinecone<=7.3.0",
     "pinecone-text>=0.10.0",
     "faiss-cpu>=1.7.4",
-    "upstash-vector>=0.1.0",
+    "upstash-vector>=0.6.0",
     "azure-search-documents>=11.4.0b8",
     "psycopg>=3.2.8",
     "psycopg-pool>=3.2.6,<4.0.0",
@@ -70,6 +64,7 @@ llms = [
 ]
 extras = [
     "boto3>=1.34.0",
+    "langchain>=0.1.0",
     "langchain-community>=0.0.0",
     "sentence-transformers>=5.0.0",
     "elasticsearch>=8.0.0,<9.0.0",
@@ -107,7 +102,6 @@ only-include = ["mem0"]
 python = "3.9"
 features = [
   "test",
-  "graph",
   "vector_stores",
   "llms",
   "extras",
@@ -117,7 +111,6 @@ features = [
 python = "3.10"
 features = [
   "test",
-  "graph",
   "vector_stores",
   "llms",
   "extras",
@@ -127,7 +120,6 @@ features = [
 python = "3.11"
 features = [
   "test",
-  "graph",
   "vector_stores",
   "llms",
   "extras",
@@ -137,7 +129,6 @@ features = [
 python = "3.12"
 features = [
   "test",
-  "graph",
   "vector_stores",
   "llms",
   "extras",

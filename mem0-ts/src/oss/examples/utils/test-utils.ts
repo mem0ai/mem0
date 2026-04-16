@@ -64,14 +64,14 @@ export async function runTests(memory: Memory) {
     // Get all memories
     console.log("\nGetting all memories...");
     const allMemories = await memory.getAll({
-      userId: "john",
+      filters: { user_id: "john" },
     });
     console.log("All memories:", allMemories);
 
     // Search for memories
     console.log("\nSearching memories...");
     const searchResult = await memory.search("What do you know about Paris?", {
-      userId: "john",
+      filters: { user_id: "john" },
     });
     console.log("Search results:", searchResult);
 

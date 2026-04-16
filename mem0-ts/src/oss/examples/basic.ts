@@ -82,14 +82,14 @@ async function runTests(memory: Memory) {
     // Get all memories
     console.log("\nGetting all memories...");
     const allMemories = await memory.getAll({
-      userId: "john",
+      filters: { user_id: "john" },
     });
     console.log("All memories:", allMemories);
 
     // Search for memories
     console.log("\nSearching memories...");
     const searchResult = await memory.search("What do you know about Paris?", {
-      userId: "john",
+      filters: { user_id: "john" },
     });
     console.log("Search results:", searchResult);
 
@@ -292,105 +292,12 @@ async function demoRedis() {
   await runTests(memory);
 }
 
-async function demoGraphMemory() {
-  console.log("\n=== Testing Graph Memory Store ===\n");
-
-  const memory = new Memory({
-    version: "v1.1",
-    embedder: {
-      provider: "openai",
-      config: {
-        apiKey: process.env.OPENAI_API_KEY || "",
-        model: "text-embedding-3-small",
-      },
-    },
-    vectorStore: {
-      provider: "memory",
-      config: {
-        collectionName: "memories",
-        dimension: 1536,
-      },
-    },
-    llm: {
-      provider: "openai",
-      config: {
-        apiKey: process.env.OPENAI_API_KEY || "",
-        model: "gpt-4-turbo-preview",
-      },
-    },
-    graphStore: {
-      provider: "neo4j",
-      config: {
-        url: process.env.NEO4J_URL || "neo4j://localhost:7687",
-        username: process.env.NEO4J_USERNAME || "neo4j",
-        password: process.env.NEO4J_PASSWORD || "password",
-      },
-      llm: {
-        provider: "openai",
-        config: {
-          model: "gpt-4-turbo-preview",
-        },
-      },
-    },
-    historyDbPath: "memory.db",
-  });
-
-  try {
-    // Reset all memories
-    await memory.reset();
-
-    // Add memories with relationships
-    const result = await memory.add(
-      [
-        {
-          role: "user",
-          content: "Alice is Bob's sister and works as a doctor.",
-        },
-        {
-          role: "assistant",
-          content:
-            "I understand that Alice and Bob are siblings and Alice is a medical professional.",
-        },
-        { role: "user", content: "Bob is married to Carol who is a teacher." },
-      ],
-      {
-        userId: "john",
-      },
-    );
-    console.log("Added memories with relationships:", result);
-
-    // Search for connected information
-    const searchResult = await memory.search(
-      "Tell me about Bob's family connections",
-      {
-        userId: "john",
-      },
-    );
-    console.log("Search results with graph relationships:", searchResult);
-  } catch (error) {
-    console.error("Error in graph memory demo:", error);
-  }
-}
-
 async function main() {
   // Test in-memory store
   await demoMemoryStore();
 
   // Test in-memory store with Ollama
   await demoLocalMemory();
-
-  // Test graph memory if Neo4j environment variables are set
-  if (
-    process.env.NEO4J_URL &&
-    process.env.NEO4J_USERNAME &&
-    process.env.NEO4J_PASSWORD
-  ) {
-    await demoGraphMemory();
-  } else {
-    console.log(
-      "\nSkipping Graph Memory test - Neo4j environment variables not set",
-    );
-  }
 
   // Test PGVector store if environment variables are set
   if (process.env.PGVECTOR_DB) {
