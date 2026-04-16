@@ -210,7 +210,6 @@ Key differentiators:
 - [Controlling Memory Ingestion](https://docs.mem0.ai/cookbooks/essentials/controlling-memory-ingestion): Fine-tune what gets stored in memory and when
 - [Tagging and Organizing Memories](https://docs.mem0.ai/cookbooks/essentials/tagging-and-organizing-memories): Advanced memory organization and categorization
 - [Exporting Memories](https://docs.mem0.ai/cookbooks/essentials/exporting-memories): Backup and transfer memory data between systems
-- [Choosing Memory Architecture](https://docs.mem0.ai/cookbooks/essentials/choosing-memory-architecture-vector-vs-graph): Vector vs Graph memory architectures comparison
 
 ### AI Companion Examples
 - [Quickstart Demo](https://docs.mem0.ai/cookbooks/companions/quickstart-demo): Quick demo of building an AI companion with memory
