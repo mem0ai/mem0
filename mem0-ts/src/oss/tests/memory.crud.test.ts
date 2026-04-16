@@ -279,10 +279,9 @@ describe("Memory - deleteAll()", () => {
       .mockResolvedValueOnce([[]]); // Third call returns 0
 
     // 3. Spy on deleteMemory to track calls
-    const deleteSpy = jest.spyOn(
-      memoryWithMock as any,
-      "deleteMemory",
-    ).mockResolvedValue({ message: "Memory deleted successfully!" });
+    const deleteSpy = jest
+      .spyOn(memoryWithMock as any, "deleteMemory")
+      .mockResolvedValue({ message: "Memory deleted successfully!" });
 
     // 4. Call the function
     await memoryWithMock.deleteAll({ userId });
