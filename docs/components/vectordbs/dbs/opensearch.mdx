@@ -72,7 +72,7 @@ m.add(messages, user_id="alice", metadata={"category": "movies"})
 ### Search Memories
 
 ```python
-results = m.search("What kind of movies does Alice like?", user_id="alice")
+results = m.search("What kind of movies does Alice like?", filters={"user_id": "alice"})
 ```
 
 ### Features

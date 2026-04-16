@@ -130,7 +130,7 @@ memory = Memory.from_config_file("config.yaml")
 </Tabs>
 
 <Info icon="check">
-  Run `memory.add(["Remember my favorite cafe in Tokyo."], user_id="alex")` and then `memory.search("favorite cafe", user_id="alex")`. You should see the Qdrant collection populate and the reranker mark the memory as a top hit.
+  Run `memory.add(["Remember my favorite cafe in Tokyo."], user_id="alex")` and then `memory.search("favorite cafe", filters={"user_id": "alex"})`. You should see the Qdrant collection populate and the reranker mark the memory as a top hit.
 </Info>
 
 ## Tune component settings
