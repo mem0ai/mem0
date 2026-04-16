@@ -106,7 +106,7 @@ const memory = new Memory({
 
 <CodeGroup>
 ```ts Get all memories
-const allMemories = await memory.getAll({ userId: "alice" });
+const allMemories = await memory.getAll({ filters: { userId: "alice" } });
 console.log(allMemories);
 ```
 
@@ -116,7 +116,7 @@ console.log(singleMemory);
 ```
 
 ```ts Search memories
-const result = await memory.search("What do you know about me?", { userId: "alice" });
+const result = await memory.search("What do you know about me?", { filters: { userId: "alice" } });
 console.log(result);
 ```
 

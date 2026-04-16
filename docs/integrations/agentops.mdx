@@ -111,7 +111,7 @@ def demonstrate_sync_memory(local_config, sample_messages, sample_preferences, u
             else:
                 print("No results found")
 
-        all_memories = memory.get_all(user_id=user_id)
+        all_memories = memory.get_all(filters={"user_id": user_id})
         if all_memories and "results" in all_memories:
             print(f"Total memories: {len(all_memories['results'])}")
 
