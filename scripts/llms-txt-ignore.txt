@@ -1,0 +1,11 @@
+# Page path prefixes (relative to docs/, without .mdx) that intentionally
+# stay out of docs/llms.txt. One prefix per line. Lines starting with '#'
+# are comments.
+#
+# Why each prefix is here:
+#   _snippets/   — reusable MDX fragments, not standalone pages
+#   templates/   — authoring templates for new docs, not user-facing
+#   changelog/   — versioned release notes; one rollup link lives in the index
+_snippets/
+templates/
+changelog/

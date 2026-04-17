@@ -35,6 +35,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `cookbooks/` | Jupyter notebooks — customer support chatbot, AutoGen integration |
 | `embedchain/` | Legacy Embedchain RAG framework (maintained separately, Poetry-based) |
 | `pr-reviews/` | Pull request review materials |
+| `scripts/` | Repo-wide utility scripts (e.g., `check-llms-txt-coverage.py` for docs/llms.txt sync) |
 
 ### Core Package Dependencies
 
@@ -433,6 +434,7 @@ To add a new LLM, embedding, vector store, or reranker provider:
 |----------|------|---------|
 | Issue Labeler | `issue-labeler.yml` | Automatic issue labeling |
 | Stale Bot | `stale.yml` | Marks stale issues and PRs |
+| llms.txt Check | `docs-llms-txt-check.yml` | Blocks PRs touching `docs/**/*.mdx` when `docs/llms.txt` is out of sync. Fix locally with `python scripts/check-llms-txt-coverage.py --write`. |
 
 ## Task Completion Guidelines
 
@@ -451,6 +453,7 @@ These guidelines outline typical artifacts for different task types. Use judgmen
 2. **Unit tests**: Comprehensive test coverage for new functionality
 3. **Documentation**: Update relevant docs in `docs/` for public APIs
 4. **Examples**: Add usage examples if the feature introduces new user-facing behavior
+5. **llms.txt**: Any new `.mdx` page under `docs/` must be linked in `docs/llms.txt` with a scope tag (`[Platform]` / `[OSS]` / `[Both]`) and a `Use when ...` description. The `docs-llms-txt-check.yml` workflow runs on every PR that touches docs and **fails the check** if the index is out of sync. To fix: run `python scripts/check-llms-txt-coverage.py --write` locally to scaffold placeholders under `## Unclassified - needs triage`, then replace the `[TODO: ...]` tags, rewrite descriptions as `Use when ...`, move entries into the right section, and delete the triage heading when empty.
 
 ### New Provider (LLM / Embedding / Vector Store / Reranker)
 
