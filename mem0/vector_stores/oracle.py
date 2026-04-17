@@ -183,6 +183,8 @@ class OracleDB(VectorStoreBase):
         }
         normalized.update(index)
         normalized["type"] = str(normalized["type"]).lower()
+        if normalized.get("target_accuracy") is None:
+            normalized["target_accuracy"] = self.target_accuracy
         normalized["target_accuracy"] = self._validate_accuracy(normalized["target_accuracy"])
 
         if normalized["type"] not in {"hnsw", "ivf"}:
