@@ -244,15 +244,27 @@ def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
 
 @app.post("/generate-instructions", summary="Generate custom instructions from a use case")
 def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify_auth)):
-    """Generate custom instructions tailored to a use case."""
+    """Generate custom instructions and a contextual test message tailored to a use case."""
     try:
+        llm = get_memory_instance().llm
         prompt = (
-            "You are configuring a memory system. Given the use case below, write a short paragraph of custom "
-            "instructions that tells the memory extraction system what kinds of facts, preferences, and context "
-            f"to prioritize extracting and remembering. Be specific to the use case.\n\nUse case: {req.use_case}"
+            "You are configuring a memory system. Given the use case below, produce two things:\n"
+            "1. INSTRUCTIONS: A short paragraph of custom instructions telling the memory extraction system "
+            "what kinds of facts, preferences, and context to prioritize. Be specific to the use case.\n"
+            "2. TEST_MESSAGE: A single realistic sentence a user in this use case would say, suitable for "
+            "testing that the memory system works.\n\n"
+            "Respond in exactly this format (no markdown, no extra text):\n"
+            "INSTRUCTIONS: <your instructions>\n"
+            f"TEST_MESSAGE: <your test message>\n\nUse case: {req.use_case}"
         )
-        response = get_memory_instance().llm.generate_response([{"role": "user", "content": prompt}])
-        return {"custom_instructions": response}
+        response = llm.generate_response([{"role": "user", "content": prompt}])
+        instructions = response
+        test_message = "I like to hike on weekends."
+        if "INSTRUCTIONS:" in response and "TEST_MESSAGE:" in response:
+            parts = response.split("TEST_MESSAGE:")
+            instructions = parts[0].replace("INSTRUCTIONS:", "").strip()
+            test_message = parts[1].strip()
+        return {"custom_instructions": instructions, "test_message": test_message}
     except Exception as e:
         logging.exception("Error in generate_instructions:")
         raise HTTPException(status_code=500, detail=str(e))
@@ -293,7 +305,7 @@ def _serialize_memory(row: Any) -> Dict[str, Any]:
 
 
 def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
-    results = get_memory_instance().vector_store.list(limit=limit)
+    results = get_memory_instance().vector_store.list(top_k=limit)
     rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
     return {"results": [_serialize_memory(row) for row in rows]}
 

@@ -1,20 +1,37 @@
 "use client";
 
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/data-table";
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { EmptyState } from "@/components/self-hosted/empty-state";
+import DeleteConfirmationModal from "@/components/ui/delete-confirmation-modal";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
+import { toast } from "@/components/ui/use-toast";
+import { getErrorMessage } from "@/lib/error-message";
 import { api } from "@/utils/api";
 import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
-import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { Memory } from "@/types/api";
+
+const PAGE_SIZE = 20;
 
 export default function MemoriesPage() {
   const [userId, setUserId] = useState("");
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
+  const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
+  const [page, setPage] = useState(0);
 
   const {
     data: memories = [],
@@ -29,6 +46,29 @@ export default function MemoriesPage() {
     },
     { errorToast: "Failed to load memories", initialData: [] },
   );
+
+  const totalPages = Math.ceil(memories.length / PAGE_SIZE);
+  const paginatedMemories = memories.slice(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE,
+  );
+
+  const handleDelete = async () => {
+    if (!memoryToDelete) return;
+    try {
+      await api.delete(MEMORY_ENDPOINTS.BY_ID(memoryToDelete.id));
+      toast({ title: "Memory deleted", variant: "success" });
+      if (selectedMemory?.id === memoryToDelete.id) setSelectedMemory(null);
+      setMemoryToDelete(null);
+      void refetch();
+    } catch (error) {
+      toast({
+        title: "Failed to delete memory",
+        description: getErrorMessage(error),
+        variant: "destructive",
+      });
+    }
+  };
 
   const columns = [
     {
@@ -69,7 +109,12 @@ export default function MemoriesPage() {
           placeholder="Filter by User ID (optional)"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && refetch()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              setPage(0);
+              refetch();
+            }
+          }}
           className="w-64"
         />
       </div>
@@ -82,39 +127,130 @@ export default function MemoriesPage() {
           description="Add memories via the API to see them here."
         />
       ) : (
-        <DataTable
-          data={memories}
-          columns={columns}
-          getRowKey={(row) => row.id}
-          onRowClick={(row) => setSelectedMemory(row)}
-        />
+        <>
+          <Card className="border-memBorder-primary overflow-hidden">
+            <DataTable
+              data={paginatedMemories}
+              columns={columns}
+              getRowKey={(row) => row.id}
+              onRowClick={(row) => setSelectedMemory(row)}
+              getRowClassName={(row) =>
+                selectedMemory?.id === row.id
+                  ? "bg-surface-default-tertiary"
+                  : undefined
+              }
+            />
+          </Card>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm text-onSurface-default-tertiary">
+              <span>
+                {page * PAGE_SIZE + 1}–
+                {Math.min((page + 1) * PAGE_SIZE, memories.length)} of{" "}
+                {memories.length}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {selectedMemory && (
-        <Card className="border-memBorder-primary">
-          <CardContent className="p-4 space-y-2">
-            <div className="flex justify-between items-start">
-              <p className="text-sm font-medium">Memory Detail</p>
-              <button
-                onClick={() => setSelectedMemory(null)}
-                className="text-xs text-onSurface-default-tertiary hover:underline"
+      <Sheet
+        open={!!selectedMemory}
+        onOpenChange={(open) => {
+          if (!open) setSelectedMemory(null);
+        }}
+      >
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Memory Detail</SheetTitle>
+            <SheetDescription className="sr-only">
+              View memory content and metadata
+            </SheetDescription>
+          </SheetHeader>
+          {selectedMemory && (
+            <div className="mt-6 space-y-4">
+              <div className="space-y-1">
+                <Label className="text-xs text-onSurface-default-tertiary">
+                  Content
+                </Label>
+                <p className="text-sm">{selectedMemory.memory}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-onSurface-default-tertiary">
+                    ID
+                  </Label>
+                  <p className="text-xs font-mono break-all">
+                    {selectedMemory.id}
+                  </p>
+                </div>
+                {selectedMemory.user_id && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-onSurface-default-tertiary">
+                      User
+                    </Label>
+                    <p className="text-sm">{selectedMemory.user_id}</p>
+                  </div>
+                )}
+                {selectedMemory.agent_id && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-onSurface-default-tertiary">
+                      Agent
+                    </Label>
+                    <p className="text-sm">{selectedMemory.agent_id}</p>
+                  </div>
+                )}
+                {selectedMemory.created_at && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-onSurface-default-tertiary">
+                      Created
+                    </Label>
+                    <p className="text-sm">
+                      {new Date(selectedMemory.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-onSurface-danger-primary"
+                onClick={() => setMemoryToDelete(selectedMemory)}
               >
-                Close
-              </button>
+                <Trash2 className="size-3.5 mr-1" />
+                Delete memory
+              </Button>
             </div>
-            <p className="text-sm">{selectedMemory.memory}</p>
-            <div className="flex gap-4 text-xs text-onSurface-default-tertiary">
-              <span>ID: {selectedMemory.id}</span>
-              {selectedMemory.user_id && (
-                <span>User: {selectedMemory.user_id}</span>
-              )}
-              {selectedMemory.agent_id && (
-                <span>Agent: {selectedMemory.agent_id}</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <DeleteConfirmationModal
+        isOpen={!!memoryToDelete}
+        onClose={() => setMemoryToDelete(null)}
+        onConfirm={handleDelete}
+        title="Delete memory"
+        description="This memory will be permanently removed. This cannot be undone."
+        itemName={memoryToDelete?.id ?? ""}
+        confirmButtonText="Delete"
+      />
     </div>
   );
 }

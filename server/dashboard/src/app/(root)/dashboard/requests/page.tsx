@@ -24,7 +24,8 @@ type RequestLog = {
   authType: string;
 };
 
-const REQUEST_LOG_LIMIT = 50;
+const REQUEST_LOG_LIMIT = 200;
+const PAGE_SIZE = 20;
 
 const getStatusClassName = (statusCode: number) => {
   if (statusCode >= 500) {
@@ -81,6 +82,7 @@ const normalizeLog = (entry: ApiRequestLog): RequestLog => {
 
 export default function RequestsPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   const {
     data: logs = [],
@@ -183,7 +185,10 @@ export default function RequestsPage() {
         </div>
         <Button
           variant="outline"
-          onClick={() => void refetch()}
+          onClick={() => {
+            setPage(0);
+            void refetch();
+          }}
           disabled={isLoading}
         >
           <RefreshCw className="size-4 mr-2" />
@@ -231,7 +236,41 @@ export default function RequestsPage() {
           image="requests"
         />
       ) : (
-        <DataTable data={logs} columns={columns} getRowKey={(row) => row.id} />
+        <>
+          <Card className="border-memBorder-primary overflow-hidden">
+            <DataTable
+              data={logs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)}
+              columns={columns}
+              getRowKey={(row) => row.id}
+            />
+          </Card>
+          {logs.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between text-sm text-onSurface-default-tertiary">
+              <span>
+                {page * PAGE_SIZE + 1}–
+                {Math.min((page + 1) * PAGE_SIZE, logs.length)} of {logs.length}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={(page + 1) * PAGE_SIZE >= logs.length}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

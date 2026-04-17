@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -219,7 +220,13 @@ export default function ApiKeysPage() {
           description="Create your first API key to start using the Mem0 API."
         />
       ) : (
-        <DataTable data={keys} columns={columns} getRowKey={(row) => row.id} />
+        <Card className="border-memBorder-primary overflow-hidden">
+          <DataTable
+            data={keys}
+            columns={columns}
+            getRowKey={(row) => row.id}
+          />
+        </Card>
       )}
 
       <DeleteConfirmationModal

@@ -39,19 +39,7 @@ const USE_CASE_PRESETS = [
   "Therapy / journaling",
 ];
 
-const USE_CASE_TEST_MESSAGES: Record<string, string> = {
-  "Personal assistant":
-    "I prefer morning meetings and I'm allergic to shellfish.",
-  "Coding agent":
-    "Our codebase uses TypeScript with strict mode and we deploy via GitHub Actions.",
-  "Customer support":
-    "Customer John prefers email communication and has a premium subscription.",
-  Research:
-    "The 2024 study by Chen et al. found that retrieval-augmented generation improves factual accuracy by 23%.",
-  "Therapy / journaling":
-    "I've been feeling anxious about work deadlines lately.",
-  default: "I like to hike on weekends.",
-};
+const DEFAULT_TEST_MESSAGE = "I like to hike on weekends.";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -77,6 +65,7 @@ export default function SetupPage() {
 
   const [useCase, setUseCase] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
+  const [testMessage, setTestMessage] = useState(DEFAULT_TEST_MESSAGE);
   const [isGeneratingInstructions, setIsGeneratingInstructions] =
     useState(false);
 
@@ -184,9 +173,6 @@ export default function SetupPage() {
     e.preventDefault();
     router.push("/dashboard/requests");
   };
-
-  const testMessage =
-    USE_CASE_TEST_MESSAGES[useCase] ?? USE_CASE_TEST_MESSAGES["default"];
 
   const handleTest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -476,6 +462,9 @@ export default function SetupPage() {
                           },
                         );
                         setCustomInstructions(res.data.custom_instructions);
+                        if (res.data.test_message) {
+                          setTestMessage(res.data.test_message);
+                        }
                       } catch (err) {
                         setError(
                           getErrorMessage(

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/data-table";
 import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { EmptyState } from "@/components/self-hosted/empty-state";
@@ -109,11 +110,13 @@ export default function EntitiesPage() {
           description="Entities appear once memories are stored with a user_id, agent_id, or run_id."
         />
       ) : (
-        <DataTable
-          data={entities}
-          columns={columns}
-          getRowKey={(row) => `${row.type}:${row.id}`}
-        />
+        <Card className="border-memBorder-primary overflow-hidden">
+          <DataTable
+            data={entities}
+            columns={columns}
+            getRowKey={(row) => `${row.type}:${row.id}`}
+          />
+        </Card>
       )}
 
       <DeleteConfirmationModal
