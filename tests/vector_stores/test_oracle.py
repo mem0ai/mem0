@@ -71,8 +71,10 @@ class TestOracleDB(unittest.TestCase):
             self.create_store(collection_name="bad-name")
 
     def test_rejects_unsupported_metric(self):
-        with self.assertRaises(ValueError):
-            self.create_store(distance="JACCARD")
+        for distance in ("HAMMING", "JACCARD"):
+            with self.subTest(distance=distance):
+                with self.assertRaises(ValueError):
+                    self.create_store(distance=distance)
 
     def test_rejects_unsupported_search_mode(self):
         with self.assertRaises(ValueError):
@@ -179,7 +181,7 @@ class TestOracleDB(unittest.TestCase):
         listed = store.list(filters={"user_id": "alice"}, top_k=1)
         self.assertEqual(listed[0].id, "memory-1")
 
-        self.mock_cursor.fetchone.return_value = ("MEM0_TEST",)
+        self.mock_cursor.fetchone.side_effect = [("MEM0_TEST",), None, None, None, None]
         store.reset()
         sql = self.executed_sql()
         self.assertIn("DROP TABLE MEM0_TEST PURGE", sql)
