@@ -32,6 +32,7 @@ _SUPPORTED_DISTANCES = {
 _DISTANCE_ALIASES = {"L2_SQUARED": "EUCLIDEAN_SQUARED"}
 _VECTOR_FORMAT_TO_ARRAY_TYPE = {"FLOAT32": "f", "FLOAT64": "d"}
 _FILTER_COLUMN_MAP = {"user_id": "USER_ID", "agent_id": "AGENT_ID", "run_id": "RUN_ID"}
+_VECTOR_INDEX_FALLBACK_ERRORS = ("ORA-51962", "vector memory area is out of space")
 
 
 class OutputData(BaseModel):
@@ -60,6 +61,7 @@ class OracleDB(VectorStoreBase):
         target_accuracy: int = 90,
         auto_create: bool = True,
         index: Optional[dict] = None,
+        index_fallback_to_exact: bool = True,
         minconn: int = 1,
         maxconn: int = 5,
         increment: int = 1,
@@ -86,6 +88,8 @@ class OracleDB(VectorStoreBase):
             target_accuracy: Query-time target accuracy for approximate search.
             auto_create: Whether to create the table and indexes automatically.
             index: Optional HNSW or IVF index configuration.
+            index_fallback_to_exact: Fall back to exact search if managed vector
+                index creation fails due to environment limits.
             connection_pool: Existing oracledb connection pool.
         """
         self.collection_name = self._validate_identifier(collection_name)
@@ -95,7 +99,10 @@ class OracleDB(VectorStoreBase):
         self.search_mode = self._validate_search_mode(search_mode)
         self.target_accuracy = self._validate_accuracy(target_accuracy)
         self.index = self._normalize_index_config(index)
+        self.index_fallback_to_exact = bool(index_fallback_to_exact)
         self._owns_pool = connection_pool is None
+        self._vector_index_available = False
+        self._fallback_to_exact_activated = False
 
         if thick_mode:
             if lib_dir:
@@ -191,6 +198,11 @@ class OracleDB(VectorStoreBase):
 
         return normalized
 
+    @staticmethod
+    def _is_vector_index_fallback_error(exc: Exception) -> bool:
+        message = str(exc)
+        return any(marker in message for marker in _VECTOR_INDEX_FALLBACK_ERRORS)
+
     @contextmanager
     def _get_cursor(self, commit: bool = False):
         """Get an Oracle cursor from the connection pool and manage commit/rollback."""
@@ -266,38 +278,54 @@ class OracleDB(VectorStoreBase):
 
         index_name = self._vector_index_name()
         if self._index_exists(cur, index_name):
+            self._vector_index_available = True
             return
 
         accuracy = self._validate_accuracy(self.index["target_accuracy"])
         parallel = self.index.get("parallel")
         parallel_clause = f" PARALLEL {int(parallel)}" if parallel else ""
 
-        if self.index["type"] == "hnsw":
-            neighbors = int(self.index.get("neighbors", 40))
-            efconstruction = int(self.index.get("efconstruction", 500))
+        try:
+            if self.index["type"] == "hnsw":
+                neighbors = int(self.index.get("neighbors", 40))
+                efconstruction = int(self.index.get("efconstruction", 500))
+                cur.execute(
+                    f"""
+                    CREATE VECTOR INDEX {index_name}
+                    ON {self.collection_name} (EMBEDDING)
+                    ORGANIZATION INMEMORY NEIGHBOR GRAPH
+                    DISTANCE {self.distance}
+                    WITH TARGET ACCURACY {accuracy}
+                    PARAMETERS (TYPE HNSW, NEIGHBORS {neighbors}, EFCONSTRUCTION {efconstruction}){parallel_clause}
+                    """
+                )
+                self._vector_index_available = True
+                return
+
+            neighbor_partitions = int(self.index.get("neighbor_partitions", 100))
             cur.execute(
                 f"""
                 CREATE VECTOR INDEX {index_name}
                 ON {self.collection_name} (EMBEDDING)
-                ORGANIZATION INMEMORY NEIGHBOR GRAPH
+                ORGANIZATION NEIGHBOR PARTITIONS
                 DISTANCE {self.distance}
                 WITH TARGET ACCURACY {accuracy}
-                PARAMETERS (TYPE HNSW, NEIGHBORS {neighbors}, EFCONSTRUCTION {efconstruction}){parallel_clause}
+                PARAMETERS (TYPE IVF, NEIGHBOR PARTITIONS {neighbor_partitions}){parallel_clause}
                 """
             )
-            return
-
-        neighbor_partitions = int(self.index.get("neighbor_partitions", 100))
-        cur.execute(
-            f"""
-            CREATE VECTOR INDEX {index_name}
-            ON {self.collection_name} (EMBEDDING)
-            ORGANIZATION NEIGHBOR PARTITIONS
-            DISTANCE {self.distance}
-            WITH TARGET ACCURACY {accuracy}
-            PARAMETERS (TYPE IVF, NEIGHBOR PARTITIONS {neighbor_partitions}){parallel_clause}
-            """
-        )
+            self._vector_index_available = True
+        except oracledb.DatabaseError as exc:
+            if self.index_fallback_to_exact and self._is_vector_index_fallback_error(exc):
+                self._vector_index_available = False
+                self._fallback_to_exact_activated = True
+                if self.search_mode == "approx":
+                    self.search_mode = "exact"
+                logger.warning(
+                    "Oracle vector index creation failed; falling back to exact search without a provider-managed vector index.",
+                    exc_info=True,
+                )
+                return
+            raise
 
     def create_col(self) -> None:
         """Create the Oracle table and optional AI Vector Search index."""

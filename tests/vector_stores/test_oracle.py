@@ -162,6 +162,21 @@ class TestOracleDB(unittest.TestCase):
         self.assertNotIn("FETCH APPROX", sql)
         self.assertNotIn("FETCH EXACT", sql)
 
+    def test_falls_back_to_exact_when_hnsw_creation_runs_out_of_space(self):
+        def execute_side_effect(sql, *args, **kwargs):
+            if "CREATE VECTOR INDEX" in str(sql):
+                raise Exception("ORA-51962: The vector memory area is out of space for the current container.")
+            return MagicMock()
+
+        self.mock_cursor.execute.side_effect = execute_side_effect
+        with patch("mem0.vector_stores.oracle.oracledb.DatabaseError", Exception):
+            store = self.create_store(search_mode="approx", index={"create": True, "type": "hnsw"})
+            store.create_col()
+
+        self.assertEqual(store.search_mode, "exact")
+        self.assertFalse(store._vector_index_available)
+        self.assertTrue(store._fallback_to_exact_activated)
+
     def test_delete_updates_get_list_and_reset(self):
         store = self.create_store(index={"create": False})
 

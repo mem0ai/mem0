@@ -9,6 +9,10 @@ Oracle AI Database supports native vector storage and similarity search through 
   This provider is available in the Python implementation. It does not add TypeScript support.
 </Note>
 
+<Note>
+  The Oracle provider defaults are tuned for OCI-style deployments and prefer Oracle AI Vector Search capabilities first. By default, Mem0 uses approximate search with a provider-managed HNSW index. If that index cannot be created because the environment is too constrained, the provider falls back to exact search automatically.
+</Note>
+
 ### Installation
 
 Install Mem0 with vector store dependencies, or install `oracledb` alongside Mem0.
@@ -42,6 +46,7 @@ config = {
             "search_mode": "approx",
             "target_accuracy": 90,
             "auto_create": True,
+            "index_fallback_to_exact": True,
             "index": {
                 "create": True,
                 "type": "hnsw",
@@ -85,6 +90,24 @@ DISTANCE COSINE
 WITH TARGET ACCURACY 90
 PARAMETERS (TYPE HNSW, NEIGHBORS 40, EFCONSTRUCTION 500);
 ```
+
+### OCI recommended configuration
+
+For OCI or larger Oracle AI Database environments, the recommended configuration is to keep the defaults and let Mem0 create a provider-managed HNSW index for approximate search.
+
+```python
+"search_mode": "approx",
+"index_fallback_to_exact": True,
+"index": {
+    "create": True,
+    "type": "hnsw",
+    "target_accuracy": 90,
+    "neighbors": 40,
+    "efconstruction": 500,
+}
+```
+
+If the runtime environment cannot allocate enough vector memory for the managed vector index, Mem0 falls back to exact search automatically when `index_fallback_to_exact` is enabled.
 
 ### IVF index
 
@@ -159,6 +182,7 @@ filters = {
 | `target_accuracy` | Query-time target accuracy for approximate search | `90` |
 | `auto_create` | Create the table and indexes automatically | `True` |
 | `index` | HNSW or IVF vector index configuration | HNSW |
+| `index_fallback_to_exact` | Fall back to exact search if provider-managed vector index creation is unavailable | `True` |
 | `minconn` | Minimum number of pool connections | `1` |
 | `maxconn` | Maximum number of pool connections | `5` |
 | `increment` | Connection pool increment | `1` |

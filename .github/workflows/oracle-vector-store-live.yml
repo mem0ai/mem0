@@ -68,11 +68,12 @@ jobs:
               collection_name=collection_name,
               embedding_model_dims=3,
               distance="COSINE",
-              search_mode="exact",
+              search_mode="approx",
               target_accuracy=90,
               auto_create=True,
+              index_fallback_to_exact=True,
               index={
-                  "create": False,
+                  "create": True,
                   "type": "hnsw",
                   "target_accuracy": 90,
                   "neighbors": 32,
@@ -101,6 +102,7 @@ jobs:
           assert len(approx) == 1
           assert approx[0].id == "memory-a"
 
+          db.search_mode = "exact"
           exact = db.search(
               query="sci-fi",
               vectors=[0.11, 0.21, 0.31],

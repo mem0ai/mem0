@@ -40,6 +40,10 @@ class OracleConfig(BaseModel):
     target_accuracy: int = Field(90, ge=1, le=100, description="Query-time target accuracy for approximate search")
     auto_create: bool = Field(True, description="Whether to create the table and indexes automatically")
     index: Optional[OracleIndexConfig] = Field(default_factory=OracleIndexConfig, description="Vector index settings")
+    index_fallback_to_exact: bool = Field(
+        True,
+        description="Fall back to exact search when provider-managed vector index creation is unavailable",
+    )
     minconn: int = Field(1, ge=1, description="Minimum number of connections in the pool")
     maxconn: int = Field(5, ge=1, description="Maximum number of connections in the pool")
     increment: int = Field(1, ge=1, description="Connection pool increment")
