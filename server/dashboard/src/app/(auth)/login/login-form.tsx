@@ -130,9 +130,11 @@ export default function LoginForm() {
                 <p className="typo-body-sm text-white">Michael Tong</p>
                 <p className="typo-body-xs text-white">CTO, RevisionDojo</p>
               </div>
-              <img
+              <Image
                 src="/images/micheal.png"
                 alt="Michael Tong"
+                width={32}
+                height={32}
                 className="size-8 rounded-full object-cover"
               />
             </div>
@@ -141,23 +143,29 @@ export default function LoginForm() {
             <p className="typo-body text-white">Trusted by 100k+ Developers</p>
             <div className="flex items-center justify-center gap-8 text-white">
               <div className="h-6 shrink-0">
-                <img
+                <Image
                   src="/images/logos/aws.svg"
                   alt="AWS"
+                  width={41}
+                  height={24}
                   className="size-full object-contain"
                 />
               </div>
               <div className="h-5 shrink-0">
-                <img
+                <Image
                   src="/images/logos/nvidia.svg"
                   alt="NVIDIA"
+                  width={109}
+                  height={21}
                   className="size-full object-contain"
                 />
               </div>
               <div className="h-[21px] shrink-0">
-                <img
+                <Image
                   src="/images/vercel.png"
                   alt="Vercel"
+                  width={66}
+                  height={21}
                   className="size-full object-contain"
                 />
               </div>
