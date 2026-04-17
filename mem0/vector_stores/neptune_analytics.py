@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 import uuid
 from typing import Dict, List, Optional
@@ -35,6 +36,7 @@ class NeptuneAnalyticsVector(VectorStoreBase):
     _FIELD_SCORE = 'score'
     _FIELD_LABEL = 'label'
     _TIMEZONE =  "UTC"
+    _VALID_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
     def __init__(
         self,
@@ -155,19 +157,24 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             filters = {}
         filters[self._FIELD_LABEL] = self.collection_name
 
-        filter_clause = self._get_node_filter_clause(filters)
+        filter_obj = self._get_node_filter_clause(filters)
 
-        query_string = f"""
-            CALL neptune.algo.vectors.topKByEmbeddingWithFiltering({{
-                    topK: {top_k},
-                    embedding: {vectors}
-                    {filter_clause}
-                  }}
+        query_string = """
+            CALL neptune.algo.vectors.topKByEmbeddingWithFiltering({
+                    topK: $top_k,
+                    embedding: $vectors,
+                    nodeFilter: $node_filter
+                  }
                 )
             YIELD node, score
             RETURN node as n, score
             """
-        query_response = self.execute_query(query_string)
+        params = {
+            "top_k": top_k,
+            "vectors": vectors,
+            "node_filter": filter_obj
+        }
+        query_response = self.execute_query(query_string, params)
         if len(query_response) > 0:
             return self._parse_query_responses(query_response, with_score=True)
         else :
@@ -322,10 +329,11 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         Returns:
             List[OutputData]: List of vectors with their metadata.
         """
-        where_clause = self._get_where_clause(filters) if filters else ""
+        where_clause, filter_params = self._get_where_clause(filters) if filters else ("", {})
 
         para = {
             "limit": top_k,
+            **filter_params
         }
         query_string = f"""
             MATCH (n :{self.collection_name})
@@ -399,8 +407,8 @@ class NeptuneAnalyticsVector(VectorStoreBase):
         return self.graph.query(query_string, params)
 
 
-    @staticmethod
-    def _get_where_clause(filters: dict):
+    @classmethod
+    def _get_where_clause(cls, filters: dict):
         """
         Build WHERE clause for Cypher queries from filters.
         
@@ -408,18 +416,23 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             filters (dict): Filter conditions as key-value pairs.
             
         Returns:
-            str: Formatted WHERE clause for Cypher query.
+            tuple: (where_clause_string, params_dict)
         """
-        where_clause = ""
+        where_clauses = []
+        params = {}
         for i, (k, v) in enumerate(filters.items()):
-            if i == 0:
-                where_clause += f"WHERE n.{k} = '{v}' "
-            else:
-                where_clause += f"AND n.{k} = '{v}' "
-        return where_clause
+            if not cls._VALID_IDENTIFIER.match(k):
+                logger.warning(f"Skipping invalid filter key: {k}")
+                continue
+            param_name = f"filter_{i}"
+            where_clauses.append(f"n.`{k}` = ${param_name}")
+            params[param_name] = v
+        
+        where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
+        return where_clause, params
 
-    @staticmethod
-    def _get_node_filter_clause(filters: dict):
+    @classmethod
+    def _get_node_filter_clause(cls, filters: dict):
         """
         Build node filter clause for vector search operations.
 
@@ -430,19 +443,21 @@ class NeptuneAnalyticsVector(VectorStoreBase):
             filters (dict): Filter conditions as key-value pairs.
 
         Returns:
-            str: Formatted node filter clause for vector search.
+            dict: Node filter object for parameterized query.
         """
         conditions = []
         for k, v in filters.items():
-            conditions.append(f"{{equals:{{property: '{k}', value: '{v}'}}}}")
+            if not cls._VALID_IDENTIFIER.match(k):
+                logger.warning(f"Skipping invalid filter key: {k}")
+                continue
+            conditions.append({"equals": {"property": k, "value": v}})
 
+        if not conditions:
+            return {}
         if len(conditions) == 1:
-            filter_clause = f", nodeFilter: {conditions[0]}"
+            return conditions[0]
         else:
-            filter_clause = f"""
-                      , nodeFilter: {{andAll: [ {", ".join(conditions)} ]}} 
-                  """
-        return filter_clause
+            return {"andAll": conditions}
 
 
     @staticmethod
