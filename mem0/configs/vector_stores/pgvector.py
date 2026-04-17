@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+
 class PGVectorConfig(BaseModel):
     dbname: str = Field("postgres", description="Default name for the database")
     collection_name: str = Field("mem0", description="Default name for the collection")
@@ -19,6 +20,7 @@ class PGVectorConfig(BaseModel):
     sslmode: Optional[str] = Field(None, description="SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')")
     connection_string: Optional[str] = Field(None, description="PostgreSQL connection string (overrides individual connection parameters)")
     connection_pool: Optional[Any] = Field(None, description="psycopg connection pool object (overrides connection string and individual parameters)")
+
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):

@@ -2,7 +2,9 @@ import json
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
+from mem0.configs.vector_stores.azure_mysql import AzureMySQLConfig
 from mem0.vector_stores.azure_mysql import AzureMySQL, OutputData
 
 
@@ -268,3 +270,36 @@ def test_output_data_model():
     assert data.id == "test_id"
     assert data.score == 0.95
     assert data.payload == {"text": "test"}
+
+
+INJECTION_PAYLOADS = [
+    "memories; DROP TABLE users; --",
+    "memories` OR 1=1; --",
+    "memories:Label {prop: 'val'}) DELETE n; --",
+    "valid_name OR 1=1",
+    "1_starts_with_digit",
+    "has space",
+    "",
+]
+
+class TestAzureMySQLConfigCollectionNameValidation:
+    def test_accepts_valid_identifier(self):
+        config = AzureMySQLConfig(
+            collection_name="valid_name",
+            host="host",
+            user="user",
+            database="db",
+            password="pw",
+        )
+        assert config.collection_name == "valid_name"
+
+    @pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
+    def test_rejects_injection_payload(self, payload):
+        with pytest.raises(ValidationError, match="Invalid collection_name"):
+            AzureMySQLConfig(
+                collection_name=payload,
+                host="host",
+                user="user",
+                database="db",
+                password="pw",
+            )
