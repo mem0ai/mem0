@@ -25,7 +25,13 @@ pip install "mem0ai[vector_stores]"
 pip install oracledb
 ```
 
+For OCI deployments with Oracle Autonomous AI Database, `python-oracledb` thin mode with an Oracle wallet is the recommended starting point.
+
 ### Usage
+
+#### OCI / Autonomous AI Database recommended
+
+For OCI-backed Mem0 deployments, use the database service alias from your Oracle Autonomous AI Database wallet and keep Oracle AI Vector Search enabled for approximate retrieval.
 
 ```python Python
 import os
@@ -37,9 +43,12 @@ config = {
     "vector_store": {
         "provider": "oracle",
         "config": {
-            "dsn": "localhost:1521/FREEPDB1",
+            "dsn": "mem0aidb_high",
             "user": "mem0",
             "password": "password",
+            "config_dir": "/opt/oracle/wallet",
+            "wallet_location": "/opt/oracle/wallet",
+            "wallet_password": "wallet-password",
             "collection_name": "mem0",
             "embedding_model_dims": 1536,
             "distance": "COSINE",
@@ -65,6 +74,43 @@ messages = [
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
 ```
+
+This is the recommended production baseline for OCI with Oracle Autonomous AI Database:
+
+- Use the wallet service alias as `dsn`.
+- Use `wallet_password` for the password that was set when the wallet was downloaded. It is separate from the database user password.
+- Keep `search_mode="approx"` and `index.type="hnsw"` so Mem0 uses Oracle AI Vector Search by default.
+- Leave `index_fallback_to_exact=True` enabled so the same config still works in smaller test environments.
+- Keep `thick_mode=False` unless you specifically need Oracle Client features outside the default thin-mode path.
+
+For a minimal runnable example using FastEmbed and agent-scoped memory add/search, see `examples/misc/oracle_aidb_agent_memory.py`.
+
+#### Local development / Oracle Free
+
+For local Oracle Free containers or smaller development environments, start with exact search if you want the most predictable setup.
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "oracle",
+        "config": {
+            "dsn": "localhost:1521/FREEPDB1",
+            "user": "mem0",
+            "password": "password",
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "distance": "COSINE",
+            "search_mode": "exact",
+            "auto_create": True,
+            "index": {
+                "create": False,
+            },
+        },
+    }
+}
+```
+
+If you want local development to stay closer to OCI, keep the OCI-style configuration and rely on `index_fallback_to_exact=True` to degrade gracefully when managed HNSW index creation is unavailable.
 
 ### HNSW index
 
