@@ -27,7 +27,6 @@ _SUPPORTED_DISTANCES = {
     "DOT",
     "EUCLIDEAN",
     "EUCLIDEAN_SQUARED",
-    "HAMMING",
     "MANHATTAN",
 }
 _DISTANCE_ALIASES = {"L2_SQUARED": "EUCLIDEAN_SQUARED"}
@@ -82,7 +81,7 @@ class OracleDB(VectorStoreBase):
             password: Oracle Database password.
             vector_format: Oracle VECTOR storage format. Supported: FLOAT32, FLOAT64.
             distance: VECTOR_DISTANCE metric. Supported: COSINE, DOT, EUCLIDEAN,
-                EUCLIDEAN_SQUARED, HAMMING, MANHATTAN.
+                EUCLIDEAN_SQUARED, MANHATTAN.
             search_mode: `approx`, `exact`, or `auto`.
             target_accuracy: Query-time target accuracy for approximate search.
             auto_create: Whether to create the table and indexes automatically.
