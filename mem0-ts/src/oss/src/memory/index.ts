@@ -1300,9 +1300,20 @@ export class Memory {
       );
     }
 
-    const [memories] = await this.vectorStore.list(filters);
-    for (const memory of memories) {
-      await this.deleteMemory(memory.id);
+    // Use a large batch size and re-list from the start after each batch.
+    // Offset-based pagination is deliberately avoided: as memories are deleted
+    // the remaining items shift, so re-querying from offset 0 after each batch
+    // is the safest way to drain all pages.
+    const DELETE_BATCH_SIZE = 1000;
+    let deletedCount = 0;
+
+    let [memories] = await this.vectorStore.list(filters, DELETE_BATCH_SIZE);
+    while (memories.length > 0) {
+      for (const memory of memories) {
+        await this.deleteMemory(memory.id);
+        deletedCount++;
+      }
+      [memories] = await this.vectorStore.list(filters, DELETE_BATCH_SIZE);
     }
 
     return { message: "Memories deleted successfully!" };
