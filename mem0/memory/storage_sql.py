@@ -39,10 +39,10 @@ class SQLHistoryStore(HistoryStoreBase):
             - ``postgresql://user:pass@host:5432/dbname``
             - ``mysql+pymysql://user:pass@host/dbname``
             - ``sqlite:///path/to/history.db``
-        table_name: Name of the history table. Defaults to ``mem0_history``.
+        table_name: Name of the history table. Defaults to ``history``.
     """
 
-    def __init__(self, url: str, table_name: str = "mem0_history"):
+    def __init__(self, url: str, table_name: str = "history"):
         self.table_name = table_name
         self.engine = create_engine(url)
         self.metadata = MetaData()
