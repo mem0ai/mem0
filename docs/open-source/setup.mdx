@@ -101,7 +101,7 @@ On a fresh install the dashboard redirects to `/setup`. Each step submits on Ent
 | **Memories** | Browse and search the memories your server has stored. |
 | **Entities** | Distinct `user_id` / `agent_id` / `run_id` values with memory counts and cascade-delete. |
 | **API Keys** | Issue per-user keys, label them, and revoke. |
-| **Configuration** | Runtime override for LLM and embedder. Resets on container restart — environment is the source of truth. |
+| **Configuration** | Runtime override for LLM and embedder. Changes persist to the app database and reapply on restart, layered over the values from your `.env`. |
 | **Settings** | Account and session controls. |
 
 For the underlying endpoints (including `/auth/*`, `/api-keys`, `/requests`, `/entities`), see the [REST API reference](/open-source/features/rest-api).
@@ -122,7 +122,7 @@ The server prints an unmissable startup banner when it detects the "upgraded but
 
 ### Other changes in this release
 
-- Dashboard ships alongside the API in the same container.
+- Dashboard ships as a second container in the reference Compose stack, wired to the API over the internal Docker network.
 - New tables: `users`, `api_keys`, `request_logs`. Alembic handles the migration automatically on first boot.
 - Graph memory remains a library feature; the bundled FastAPI server does not wire up a graph store. See [Graph Memory](/open-source/features/graph-memory).
 

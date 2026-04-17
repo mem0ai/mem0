@@ -72,7 +72,7 @@ Once logged in, the dashboard exposes:
 - **Memories** — browse memories, filter by user ID.
 - **Entities** — list every `user_id`, `agent_id`, and `run_id` that owns memories, with counts. Delete an entity to cascade-delete its memories.
 - **API Keys** — create, label, and revoke per-user keys.
-- **Configuration** — runtime LLM and embedder override. Changes apply to the running process and reset on restart; edit `.env` to persist.
+- **Configuration** — runtime LLM and embedder override. Changes persist to the app database and reapply on restart, layered over the values from your `.env`.
 - **Settings** — account profile and password.
 
 ## Reference
