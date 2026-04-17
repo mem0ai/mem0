@@ -39,6 +39,7 @@ vector_stores = [
     "azure-search-documents>=11.4.0b8",
     "psycopg>=3.2.8",
     "psycopg-pool>=3.2.6,<4.0.0",
+    "oracledb>=2.5.0",
     "pymongo>=4.13.2",
     "pymochow>=2.2.9",
     "pymysql>=1.1.0",
