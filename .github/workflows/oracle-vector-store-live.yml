@@ -2,6 +2,15 @@ name: oracle-vector-store-live
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/oracle-vector-store
+    paths:
+      - "mem0/vector_stores/oracle.py"
+      - "mem0/configs/vector_stores/oracle.py"
+      - "tests/vector_stores/test_oracle.py"
+      - ".github/workflows/oracle-vector-store-live.yml"
+      - "pyproject.toml"
 
 jobs:
   smoke-test-live-oracle:
