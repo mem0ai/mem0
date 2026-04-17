@@ -33,7 +33,6 @@ This keeps memory retrieval inside ADK's turn flow, lets `PreloadMemoryTool` inj
 
 ```python
 from google.adk.agents import Agent
-from google.adk.agents.callback_context import CallbackContext
 from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
 from google.adk.memory.memory_entry import MemoryEntry
 from google.adk.runners import Runner
@@ -47,7 +46,7 @@ class Mem0MemoryService(BaseMemoryService):
     def __init__(self):
         self.client = MemoryClient()
 
-    async def search_memory(self, *, app_name, user_id, query):
+    async def search_memory(self, *, _app_name, user_id, query):
         results = self.client.search(
             query=query,
             filters={"user_id": user_id},
@@ -86,35 +85,37 @@ class Mem0MemoryService(BaseMemoryService):
             self.client.add(messages, user_id=session.user_id)
 
 
-async def auto_save_session_to_memory(callback_context: CallbackContext):
-    memory_service = callback_context._invocation_context.memory_service
-    session = callback_context._invocation_context.session
-
-    if memory_service and session:
-        await memory_service.add_session_to_memory(session)
-
-
 agent = Agent(
     name="personal_assistant",
     model="gemini-2.0-flash",
     instruction="Use preloaded memories to personalize responses.",
     tools=[PreloadMemoryTool()],
-    after_agent_callback=auto_save_session_to_memory,
 )
 
 session_service = InMemorySessionService()
+memory_service = Mem0MemoryService()
 runner = Runner(
     agent=agent,
     app_name="memory_assistant",
     session_service=session_service,
-    memory_service=Mem0MemoryService(),
+    memory_service=memory_service,
 )
+
+session = await session_service.create_session(
+    app_name="memory_assistant",
+    user_id="alice",
+    session_id="session_alice",
+)
+
+# ... run the agent with this session ...
+
+await memory_service.add_session_to_memory(session)
 ```
 
 Why this is the recommended approach:
 
 1. `PreloadMemoryTool` automatically injects relevant memories at the beginning of each turn.
-2. `add_session_to_memory()` keeps memory writes inside ADK's lifecycle instead of depending on the model to call a tool.
+2. `add_session_to_memory()` lets your application persist the completed session without depending on the model to call a tool.
 3. Passing `memory_service` to `Runner` makes the memory layer reusable across multiple agents and sessions.
 
 ## Alternative: Explicit Function Tools
