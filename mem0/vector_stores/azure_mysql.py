@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
@@ -24,6 +25,10 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+# Filter keys are interpolated into `JSON_EXTRACT(payload, '$.<key>')` strings,
+# so we whitelist identifier-safe keys and skip anything else (logged as a warning).
+_VALID_FILTER_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class OutputData(BaseModel):
@@ -263,6 +268,9 @@ class AzureMySQL(VectorStoreBase):
 
         if filters:
             for k, v in filters.items():
+                if not _VALID_FILTER_KEY.match(k):
+                    logger.warning("Skipping invalid filter key: %r", k)
+                    continue
                 filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
                 filter_params.extend([f"$.{k}", json.dumps(v)])
 
@@ -423,6 +431,9 @@ class AzureMySQL(VectorStoreBase):
 
         if filters:
             for k, v in filters.items():
+                if not _VALID_FILTER_KEY.match(k):
+                    logger.warning("Skipping invalid filter key: %r", k)
+                    continue
                 filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
                 filter_params.extend([f"$.{k}", json.dumps(v)])
 
