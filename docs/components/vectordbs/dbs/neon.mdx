@@ -50,7 +50,11 @@ const config = {
   vectorStore: {
     provider: 'pgvector',
     config: {
-      connectionString: 'postgresql://USER:PASSWORD@EP-XXXX.us-east-1.aws.neon.tech/neondb?sslmode=require',
+      user: 'USER',
+      password: 'PASSWORD',
+      host: 'EP-XXXX.us-east-1.aws.neon.tech',
+      port: 5432,
+      dbname: 'neondb',
       collectionName: 'mem0_neon',
       embeddingModelDims: 1536,
     },
@@ -71,6 +75,7 @@ await memory.add(
 ### Notes
 
 - Use the `pgvector` provider for Neon.
-- Prefer `connection_string` / `connectionString` for Neon instead of splitting host, port, and credentials manually.
-- Keep `sslmode=require` in the connection string for hosted Neon databases.
+- Python can use `connection_string` for Neon.
+- The current TypeScript OSS `pgvector` store expects `user`, `password`, `host`, `port`, and optional `dbname`.
+- Keep `sslmode=require` in the Python connection string for hosted Neon databases.
 - The rest of the available configuration options are the same as [pgvector](/components/vectordbs/dbs/pgvector).
