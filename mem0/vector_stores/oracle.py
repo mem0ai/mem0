@@ -33,6 +33,7 @@ _DISTANCE_ALIASES = {"L2_SQUARED": "EUCLIDEAN_SQUARED"}
 _VECTOR_FORMAT_TO_ARRAY_TYPE = {"FLOAT32": "f", "FLOAT64": "d"}
 _FILTER_COLUMN_MAP = {"user_id": "USER_ID", "agent_id": "AGENT_ID", "run_id": "RUN_ID"}
 _VECTOR_INDEX_FALLBACK_ERRORS = ("ORA-51962", "vector memory area is out of space")
+_KEYWORD_LABEL = 1
 
 
 class OutputData(BaseModel):
@@ -103,6 +104,7 @@ class OracleDB(VectorStoreBase):
         self._owns_pool = connection_pool is None
         self._vector_index_available = False
         self._fallback_to_exact_activated = False
+        self._keyword_search_available = False
 
         if thick_mode:
             if lib_dir:
@@ -235,6 +237,9 @@ class OracleDB(VectorStoreBase):
         index_type = str(self.index["type"]).upper()
         return self._validate_identifier(f"{self.collection_name}_{index_type}_IDX"[:128])
 
+    def _json_search_index_name(self) -> str:
+        return self._validate_identifier(f"{self.collection_name}_JSON_SEARCH_IDX"[:128])
+
     def _to_vector_bind(self, vector: Sequence[float]) -> array.array:
         if isinstance(vector, array.array):
             return vector
@@ -327,6 +332,28 @@ class OracleDB(VectorStoreBase):
                 return
             raise
 
+    def _create_json_search_index(self, cur) -> None:
+        index_name = self._json_search_index_name()
+        if self._index_exists(cur, index_name):
+            self._keyword_search_available = True
+            return
+
+        try:
+            cur.execute(
+                f"""
+                CREATE SEARCH INDEX {index_name}
+                ON {self.collection_name} (PAYLOAD)
+                FOR JSON PARAMETERS ('SEARCH_ON TEXT SYNC (ON COMMIT)')
+                """
+            )
+            self._keyword_search_available = True
+        except oracledb.DatabaseError:
+            logger.warning(
+                "Oracle JSON search index creation failed; keyword and hybrid retrieval will stay disabled until the index is available.",
+                exc_info=True,
+            )
+            self._keyword_search_available = False
+
     def create_col(self) -> None:
         """Create the Oracle table and optional AI Vector Search index."""
         with self._get_cursor(commit=True) as cur:
@@ -347,6 +374,7 @@ class OracleDB(VectorStoreBase):
                 )
             self._create_metadata_indexes(cur)
             self._create_vector_index(cur)
+            self._create_json_search_index(cur)
 
     def insert(self, vectors: list[list[float]], payloads=None, ids=None) -> None:
         """Insert vectors and payloads into Oracle AI Database."""
@@ -409,6 +437,69 @@ class OracleDB(VectorStoreBase):
             return f"FETCH APPROX FIRST {top_k} ROWS ONLY WITH TARGET ACCURACY {self.target_accuracy}"
         return f"FETCH FIRST {top_k} ROWS ONLY"
 
+    def _normalize_distance_score(self, distance: Optional[float]) -> float:
+        """Convert Oracle VECTOR_DISTANCE output into a similarity score for Mem0 ranking."""
+        if distance is None:
+            return 0.0
+
+        distance_value = float(distance)
+        metric = self.distance.upper()
+
+        if metric == "COSINE":
+            return max(0.0, min(1.0, 1.0 - distance_value))
+
+        if metric == "DOT":
+            similarity = -distance_value
+            bounded_similarity = 0.5 * (1.0 + (similarity / (1.0 + abs(similarity))))
+            return max(0.0, min(1.0, bounded_similarity))
+
+        return 1.0 / (1.0 + max(distance_value, 0.0))
+
+    @staticmethod
+    def _sanitize_keyword_query(query: str) -> Optional[str]:
+        terms = re.findall(r"\w+", str(query or "").lower())
+        if not terms:
+            return None
+        return " | ".join(terms)
+
+    def keyword_search(self, query: str, top_k: int = 5, filters: Optional[dict] = None):
+        if not self._keyword_search_available:
+            with self._get_cursor() as cur:
+                if not self._index_exists(cur, self._json_search_index_name()):
+                    return None
+                self._keyword_search_available = True
+
+        keyword_query = self._sanitize_keyword_query(query)
+        if not keyword_query:
+            return []
+
+        filter_clause, params = self._build_filter_clause(filters)
+        params["keyword_query"] = keyword_query
+
+        keyword_condition = (
+            f"JSON_TEXTCONTAINS(PAYLOAD, '$.text_lemmatized', :keyword_query, {_KEYWORD_LABEL})"
+        )
+        if filter_clause:
+            where_clause = f"{filter_clause} AND {keyword_condition}"
+        else:
+            where_clause = f"WHERE {keyword_condition}"
+
+        sql = f"""
+            SELECT ID, SCORE({_KEYWORD_LABEL}) AS SCORE, PAYLOAD
+            FROM {self.collection_name}
+            {where_clause}
+            ORDER BY SCORE({_KEYWORD_LABEL}) DESC
+            FETCH FIRST {int(top_k)} ROWS ONLY
+        """
+
+        with self._get_cursor() as cur:
+            cur.execute(sql, params)
+            results = cur.fetchall()
+
+        return [
+            OutputData(id=str(row[0]), score=float(row[1]), payload=self._payload_from_db(row[2])) for row in results
+        ]
+
     def search(
         self,
         query: str,
@@ -441,7 +532,12 @@ class OracleDB(VectorStoreBase):
             results = cur.fetchall()
 
         return [
-            OutputData(id=str(row[0]), score=float(row[1]), payload=self._payload_from_db(row[2])) for row in results
+            OutputData(
+                id=str(row[0]),
+                score=self._normalize_distance_score(row[1]),
+                payload=self._payload_from_db(row[2]),
+            )
+            for row in results
         ]
 
     def delete(self, vector_id: str) -> None:

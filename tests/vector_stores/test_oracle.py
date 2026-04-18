@@ -90,6 +90,8 @@ class TestOracleDB(unittest.TestCase):
         self.assertIn("CREATE INDEX MEM0_TEST_USER_ID_IDX", sql)
         self.assertIn("CREATE INDEX MEM0_TEST_AGENT_ID_IDX", sql)
         self.assertIn("CREATE INDEX MEM0_TEST_RUN_ID_IDX", sql)
+        self.assertIn("CREATE SEARCH INDEX MEM0_TEST_JSON_SEARCH_IDX", sql)
+        self.assertIn("FOR JSON PARAMETERS ('SEARCH_ON TEXT SYNC (ON COMMIT)')", sql)
 
     def test_create_col_creates_hnsw_vector_index(self):
         store = self.create_store(
@@ -146,6 +148,7 @@ class TestOracleDB(unittest.TestCase):
         self.assertIn("FETCH APPROX FIRST 2 ROWS ONLY WITH TARGET ACCURACY 90", sql)
         self.assertIsInstance(params["query_vector"], array.array)
         self.assertEqual(results[0].id, "memory-1")
+        self.assertAlmostEqual(results[0].score, 0.88)
         self.assertEqual(results[0].payload["category"], "movies")
 
     def test_search_uses_exact_fetch_clause(self):
@@ -161,6 +164,38 @@ class TestOracleDB(unittest.TestCase):
         self.assertIn("FETCH FIRST 3 ROWS ONLY", sql)
         self.assertNotIn("FETCH APPROX", sql)
         self.assertNotIn("FETCH EXACT", sql)
+
+    def test_search_normalizes_euclidean_distance_scores(self):
+        store = self.create_store(distance="EUCLIDEAN")
+        self.mock_cursor.fetchall.return_value = [("memory-1", 3.0, '{"category": "movies"}')]
+
+        results = store.search("movie preference", [0.1, 0.2, 0.3], top_k=1, filters={"user_id": "alice"})
+
+        sql = self.mock_cursor.execute.call_args.args[0]
+        self.assertIn("VECTOR_DISTANCE(EMBEDDING, :query_vector, EUCLIDEAN)", sql)
+        self.assertAlmostEqual(results[0].score, 0.25)
+
+    def test_keyword_search_uses_json_textcontains_and_filters(self):
+        store = self.create_store()
+        store._keyword_search_available = True
+        self.mock_cursor.fetchall.return_value = [("memory-1", 12, '{"category": "movies"}')]
+
+        results = store.keyword_search(
+            "vector memory",
+            top_k=2,
+            filters={"agent_id": "agent-1", "category": "movies"},
+        )
+
+        sql = self.mock_cursor.execute.call_args.args[0]
+        params = self.mock_cursor.execute.call_args.args[1]
+        self.assertIn("JSON_TEXTCONTAINS(PAYLOAD, '$.text_lemmatized', :keyword_query, 1)", sql)
+        self.assertIn("AGENT_ID = :filter_0", sql)
+        self.assertIn("JSON_VALUE(PAYLOAD, '$.category') = :filter_1", sql)
+        self.assertIn("ORDER BY SCORE(1) DESC", sql)
+        self.assertIn("FETCH FIRST 2 ROWS ONLY", sql)
+        self.assertEqual(params["keyword_query"], "vector | memory")
+        self.assertEqual(results[0].id, "memory-1")
+        self.assertEqual(results[0].payload["category"], "movies")
 
     def test_falls_back_to_exact_when_hnsw_creation_runs_out_of_space(self):
         def execute_side_effect(sql, *args, **kwargs):
@@ -196,7 +231,7 @@ class TestOracleDB(unittest.TestCase):
         listed = store.list(filters={"user_id": "alice"}, top_k=1)
         self.assertEqual(listed[0].id, "memory-1")
 
-        self.mock_cursor.fetchone.side_effect = [("MEM0_TEST",), None, None, None, None]
+        self.mock_cursor.fetchone.side_effect = [("MEM0_TEST",), None, None, None, None, None]
         store.reset()
         sql = self.executed_sql()
         self.assertIn("DROP TABLE MEM0_TEST PURGE", sql)

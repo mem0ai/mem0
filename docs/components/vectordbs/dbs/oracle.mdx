@@ -83,7 +83,7 @@ This is the recommended production baseline for OCI with Oracle Autonomous AI Da
 - Leave `index_fallback_to_exact=True` enabled so the same config still works in smaller test environments.
 - Keep `thick_mode=False` unless you specifically need Oracle Client features outside the default thin-mode path.
 
-For a minimal runnable example using FastEmbed and agent-scoped memory add/search, see `examples/misc/oracle_aidb_agent_memory.py`.
+If you want to validate the Oracle wallet, temporary collection creation, HNSW index creation, insert, and search before wiring a full `Memory.from_config(...)` flow, run `examples/misc/oracle_aidb_vector_store.py`.
 
 #### Local development / Oracle Free
 
@@ -199,6 +199,18 @@ Use `auto` to omit the exact or approximate row limiting keyword and let Oracle 
 ```python
 "search_mode": "auto"
 ```
+
+### Keyword and hybrid retrieval
+
+The Oracle provider creates a JSON search index on `PAYLOAD` so Mem0 can run Oracle Text keyword search against the `text_lemmatized` field.
+
+This enables Mem0 hybrid retrieval to combine:
+
+- Oracle AI Vector Search semantic retrieval
+- Oracle Text keyword retrieval
+- Mem0 entity-based boosting in the core ranking flow
+
+If the JSON search index cannot be created, vector search still works, but keyword and hybrid retrieval stay unavailable until the index is available.
 
 ### Metadata filtering
 
