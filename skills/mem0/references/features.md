@@ -5,7 +5,7 @@ Additional platform capabilities beyond core CRUD operations.
 ## Table of Contents
 
 - [Advanced Retrieval](#advanced-retrieval)
-- [Graph Memory](#graph-memory)
+- [Entity Linking](#entity-linking)
 - [Custom Categories](#custom-categories)
 - [Custom Instructions](#custom-instructions)
 - [Criteria Retrieval](#criteria-retrieval)
@@ -18,124 +18,58 @@ Additional platform capabilities beyond core CRUD operations.
 
 ## Advanced Retrieval
 
-Three enhancement options for tuning search precision, recall, and latency.
+### Hybrid Search (v3 Default)
 
-### Keyword Search (`keyword_search=True`)
+v3 uses multi-signal hybrid search combining:
+- **Semantic search** (vector similarity)
+- **BM25 keyword search** (normalized term matching)
+- **Entity matching** (entity graph boost)
 
-Expands results to include memories with specific terms, names, and technical keywords.
-
-- Latency: +10ms
-- Recall: Significantly increased
-- Best for: entity-heavy queries, comprehensive coverage
+This is automatic — no configuration needed.
 
 ### Reranking (`rerank=True`)
 
 Deep semantic reordering of results — most relevant first.
 
 - Latency: +150-200ms
-- Accuracy: Significantly improved
+- Default: `False` (was `True` in v2)
 - Best for: user-facing results, top-N precision
-
-### Filter Memories (`filter_memories=True`)
-
-Precision filtering — removes low-relevance results entirely.
-
-- Latency: +200-300ms
-- Precision: Maximized
-- Best for: safety-critical applications, production systems
-
-### Recommended Combinations
 
 **Python:**
 ```python
-# Fast & broad
-results = client.search(query, keyword_search=True, user_id="user123")
-
-# Balanced (recommended for most apps)
-results = client.search(query, keyword_search=True, rerank=True, user_id="user123")
-
-# High precision (critical apps)
-results = client.search(query, rerank=True, filter_memories=True, user_id="user123")
+results = client.search(query, filters={"user_id": "user123"}, rerank=True)
 ```
 
 **TypeScript:**
 ```typescript
 const results = await client.search(query, {
-    user_id: 'user123',
-    keyword_search: true,
+    filters: { user_id: 'user123' },
     rerank: true,
 });
 ```
 
 ---
 
-## Graph Memory
+## Entity Linking
 
-Entity-level knowledge graph that creates relationships between memories.
+v3 replaces graph memory with built-in entity linking. Entities (proper nouns, quoted text, compound noun phrases) are automatically extracted and linked across memories.
 
 ### How It Works
 
-1. **Extraction**: LLM analyzes conversation and identifies entities and relationships
-2. **Storage**: Embeddings go to vector store; entity nodes and edges go to graph store
-3. **Retrieval**: Vector search returns semantic matches; graph relations are appended to results
+1. **Extraction**: During `add()`, entities are automatically extracted from memory text
+2. **Storage**: Entities are stored in a parallel collection (`{collection}_entities`)
+3. **Retrieval**: During `search()`, query entities are matched and used to boost relevant memories
 
-Graph relations **augment** vector results without reordering them. Vector similarity always determines hit sequence.
+Entity linking is automatic — no configuration required. The boost is folded into the combined `score` on each result.
 
-### Enabling Graph Memory
+### v2 Migration Note
 
-**Per request:**
-```python
-client.add(messages, user_id="alice", enable_graph=True)
-client.search("query", user_id="alice", enable_graph=True)
-client.get_all(filters={"AND": [{"user_id": "alice"}]}, enable_graph=True)
-```
+If you were using `enable_graph=True` in v2:
+- Remove `enable_graph` from all API calls
+- Remove `graph_store` from OSS configuration
+- Entity relationships are now consumed through retrieval ranking, not exposed as a separate `relations` array
 
-**Project-level (default for all operations):**
-```python
-client.project.update(enable_graph=True)
-```
-
-```javascript
-await client.updateProject({ enable_graph: true });
-```
-
-### Relation Structure
-
-Each relation in the response contains:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `source` | string | Source entity name |
-| `source_type` | string | Source entity type (e.g., "Person") |
-| `relationship` | string | Relationship label (e.g., "lives_in") |
-| `target` | string | Target entity name |
-| `target_type` | string | Target entity type (e.g., "City") |
-| `score` | number | Confidence score |
-
-**Example:**
-```json
-{
-  "relations": [
-    {
-      "source": "Joseph",
-      "source_type": "Person",
-      "relationship": "lives_in",
-      "target": "Seattle",
-      "target_type": "City",
-      "score": 0.92
-    }
-  ]
-}
-```
-
-### Technical Notes
-
-- Graph Memory adds processing time; see docs for current plan availability
-- Works optimally with rich conversation histories containing entity relationships
-- Best suited for long-running assistants tracking evolving information
-- Graph writes and reads toggle independently per request
-- Multi-agent context supported via `user_id`, `agent_id`, `run_id` scoping
-- Add operations are asynchronous; graph metadata may not be immediately available
+See the [v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.
 
 ---
 
@@ -160,7 +94,7 @@ client.project.update(custom_categories=new_categories)
 ```
 
 ```javascript
-await client.updateProject({ custom_categories: new_categories });
+await client.updateProject({ customCategories: newCategories });
 ```
 
 **Retrieve active categories:**
@@ -185,7 +119,7 @@ client.project.update(custom_instructions="Your guidelines here...")
 ```
 
 ```javascript
-await client.updateProject({ custom_instructions: "Your guidelines here..." });
+await client.updateProject({ customInstructions: "Your guidelines here..." });
 ```
 
 ### Template Structure
@@ -229,7 +163,7 @@ client.project.update(retrieval_criteria=retrieval_criteria)
 
 ```typescript
 await client.updateProject({
-    retrieval_criteria: [
+    retrievalCriteria: [
         { name: 'joy', description: 'Positive emotions', weight: 3 },
         { name: 'urgency', description: 'Time-sensitive items', weight: 4 },
     ],
@@ -281,7 +215,7 @@ for item in feedback_data:
 ```typescript
 await client.feedback('mem-123', {
     feedback: 'POSITIVE',
-    feedback_reason: 'Accurately captured dietary preference',
+    feedbackReason: 'Accurately captured dietary preference',
 });
 ```
 

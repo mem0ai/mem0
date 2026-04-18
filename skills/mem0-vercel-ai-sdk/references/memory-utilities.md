@@ -79,8 +79,7 @@ async function retrieveMemories(
 1. Flattens the prompt to a plain string (extracts text from `LanguageModelV2Prompt` parts)
 2. Calls `searchInternalMemories` (`POST /v2/memories/search/`)
 3. Formats each memory as `"Memory: {memory.memory}\n\n"`
-4. If `enable_graph: true`, also appends graph relations as `"Relation: {source} -> {relationship} -> {target}\n\n"`
-5. Wraps everything in a system prompt preamble
+4. Wraps everything in a system prompt preamble
 
 **Returns:** A **string** containing the formatted system prompt with embedded memories. Returns `""` (empty string) if no memories found.
 
@@ -91,17 +90,13 @@ System Message: These are the memories I have stored. Give more weightage to the
 Memory: User loves Italian food
 
 Memory: User is vegetarian
-
-HERE ARE THE GRAPHS RELATIONS FOR THE PREFERENCES OF THE USER:
-
-Relation: Alice -> likes -> Italian cuisine
 ```
 
 ---
 
 ## `getMemories(prompt, config?)`
 
-Retrieves memories and returns the **raw memory array** (or full response if graph is enabled).
+Retrieves memories and returns the **raw memory array**.
 
 ```typescript
 import { getMemories } from "@mem0/vercel-ai-provider";
@@ -111,14 +106,6 @@ const memories = await getMemories("What are my preferences?", {
   mem0ApiKey: "m0-xxx",
 });
 // Returns: [{ memory: "User loves Italian food", id: "...", ... }, ...]
-
-// With graph enabled:
-const graphMemories = await getMemories("What are my preferences?", {
-  user_id: "alice",
-  mem0ApiKey: "m0-xxx",
-  enable_graph: true,
-});
-// Returns: { results: [...], relations: [...] }
 ```
 
 **Signature:**
@@ -140,10 +127,9 @@ async function getMemories(
 **Behavior:**
 1. Flattens the prompt to a plain string
 2. Calls `searchInternalMemories` (`POST /v2/memories/search/`)
-3. If `enable_graph` is **not** set: returns `memories.results` (the array of memory objects)
-4. If `enable_graph` is set: returns the full response object (with both `results` and `relations`)
+3. Returns `memories.results` (the array of memory objects)
 
-**Returns:** Memory object array, or full response object when graph is enabled.
+**Returns:** Memory object array.
 
 ---
 
@@ -184,7 +170,7 @@ async function searchMemories(
 
 **Returns:** The complete API response object. On error, returns `[]`.
 
-**Note:** Unlike `getMemories`, this always returns the full response regardless of `enable_graph` setting.
+**Note:** Unlike `getMemories`, this always returns the full response.
 
 ---
 
@@ -193,8 +179,8 @@ async function searchMemories(
 | Function | Returns | Use when |
 |----------|---------|----------|
 | `retrieveMemories` | Formatted system prompt **string** | Injecting directly into a `system` parameter for `generateText`/`streamText` |
-| `getMemories` | Memory **array** (or full response if `enable_graph`) | Processing memories programmatically (filtering, transforming, counting) |
-| `searchMemories` | Full API **response** (results + relations) | Need relations, similarity scores, or complete metadata regardless of graph setting |
+| `getMemories` | Memory **array** | Processing memories programmatically (filtering, transforming, counting) |
+| `searchMemories` | Full API **response** (results + relations) | Need relations, similarity scores, or complete metadata |
 | `addMemories` | API response | Storing new conversation messages as memories |
 
 ## Internal: `searchInternalMemories(query, config?, top_k?)`
@@ -210,15 +196,13 @@ async function searchInternalMemories(
 ```
 
 **Behavior:**
-1. Builds an `OR` filter from entity identifiers (`user_id`, `app_id`, `agent_id`, `run_id`)
-2. Resolves org/project identifiers (`org_id` takes precedence over `org_name`)
+1. Builds a `filters` object from entity identifiers (`user_id`, `app_id`, `agent_id`, `run_id`)
+2. Resolves entity identifiers
 3. Loads the API key from `config.mem0ApiKey` or `MEM0_API_KEY` env var
 4. Calls `POST {host}/v2/memories/search/` with:
    - `query`: the search string
-   - `filters`: the OR filter object
+   - `filters`: the filter object with entity identifiers
    - `top_k`: from config or default 5
-   - `version`: `"v2"`
-   - `output_format`: `"v1.1"`
    - All other config fields spread into the request body
 
 **Default host:** `https://api.mem0.ai`
@@ -264,10 +248,6 @@ All fields are optional. Used across all utility functions.
 | `app_id` | `string` | -- | Scope memories to an application |
 | `agent_id` | `string` | -- | Scope memories to an agent |
 | `run_id` | `string` | -- | Scope memories to a session/run |
-| `org_name` | `string` | -- | Organization name (fallback if `org_id` not set) |
-| `project_name` | `string` | -- | Project name (fallback if `org_id` not set) |
-| `org_id` | `string` | -- | Organization ID (takes precedence) |
-| `project_id` | `string` | -- | Project ID |
 | `metadata` | `Record<string, any>` | -- | Custom metadata |
 | `filters` | `Record<string, any>` | -- | Custom search filters |
 | `infer` | `boolean` | -- | Enable inference |
@@ -277,8 +257,4 @@ All fields are optional. Used across all utility functions.
 | `top_k` | `number` | `5` | Number of memories to retrieve |
 | `threshold` | `number` | -- | Minimum similarity score |
 | `rerank` | `boolean` | -- | Enable re-ranking |
-| `enable_graph` | `boolean` | -- | Enable graph memory (relations) |
 | `host` | `string` | `https://api.mem0.ai` | Custom API host |
-| `output_format` | `string` | -- | Output format version |
-| `filter_memories` | `boolean` | -- | Enable memory filtering |
-| `async_mode` | `boolean` | -- | Enable async processing |
