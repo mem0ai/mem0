@@ -345,6 +345,7 @@ class Memory(MemoryBase):
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
+        self.use_input_language = self.config.use_input_language
 
         # Initialize reranker if configured
         self.reranker = None
@@ -733,6 +734,7 @@ class Memory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            use_input_language=self.use_input_language,
         )
 
         try:
@@ -1801,6 +1803,7 @@ class AsyncMemory(MemoryBase):
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
+        self.use_input_language = self.config.use_input_language
         self._entity_store = None
 
         # Initialize reranker if configured
@@ -2140,6 +2143,7 @@ class AsyncMemory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            use_input_language=self.use_input_language,
         )
 
         try:
