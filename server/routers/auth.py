@@ -10,13 +10,15 @@ from auth import (
     create_access_token,
     create_refresh_token,
     decode_token,
+    dummy_verify_password,
     hash_password,
     require_auth,
     verify_password,
 )
 from db import get_db
 from models import User
-from telemetry import capture_onboarding_completed
+from schemas import MessageResponse
+from telemetry import capture_admin_registered, capture_onboarding_completed
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -25,7 +27,10 @@ class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
-    source: str = "api"
+
+
+class OnboardingCompleteRequest(BaseModel):
+    use_case: str
 
 
 class LoginRequest(BaseModel):
@@ -69,9 +74,6 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     if db.scalar(select(func.count(User.id))) > 0:
         raise HTTPException(status_code=403, detail="Registration is closed. An admin account already exists.")
 
-    if db.scalar(select(User).where(User.email == body.email)):
-        raise HTTPException(status_code=409, detail="Email already registered.")
-
     user = User(
         name=body.name,
         email=body.email,
@@ -82,7 +84,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    capture_onboarding_completed(email=body.email, source=body.source)
+    capture_admin_registered(email=body.email)
 
     return TokenResponse(
         access_token=create_access_token(str(user.id), user.role),
@@ -93,7 +95,10 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == body.email))
-    if user is None or not verify_password(body.password, user.password_hash):
+    if user is None:
+        dummy_verify_password()
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    if not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
     user.last_login_at = datetime.now(timezone.utc)
@@ -124,3 +129,10 @@ def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def me(user: User = Depends(require_auth)):
     return user
+
+
+@router.post("/onboarding-complete", response_model=MessageResponse)
+def onboarding_complete(body: OnboardingCompleteRequest, user: User = Depends(require_auth)):
+    """Fire the one-shot telemetry event after the setup wizard reaches its success state."""
+    capture_onboarding_completed(email=user.email, use_case=body.use_case)
+    return MessageResponse(message="Onboarding completed.")

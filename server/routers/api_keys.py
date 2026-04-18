@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from auth import generate_api_key, require_auth
 from db import get_db
 from models import APIKey, User
+from schemas import MessageResponse
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 
@@ -74,7 +75,7 @@ def create_key(body: CreateKeyRequest, user: User = Depends(require_auth), db: S
     )
 
 
-@router.delete("/{key_id}")
+@router.delete("/{key_id}", response_model=MessageResponse)
 def revoke_key(key_id: str, user: User = Depends(require_auth), db: Session = Depends(get_db)):
     api_key = db.get(APIKey, key_id)
     if api_key is None or api_key.created_by != user.id:
@@ -84,4 +85,4 @@ def revoke_key(key_id: str, user: User = Depends(require_auth), db: Session = De
 
     api_key.revoked_at = datetime.now(timezone.utc)
     db.commit()
-    return {"message": "API key revoked."}
+    return MessageResponse(message="API key revoked.")

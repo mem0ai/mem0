@@ -5,7 +5,7 @@ interface Column<T> {
   key: keyof T;
   label: string;
   icon?: LucideIcon;
-  render?: (value: any, row: T) => ReactNode;
+  render?(value: T[keyof T], row: T): ReactNode;
   className?: string;
   width?: number | "auto";
   align?: "left" | "center" | "right";

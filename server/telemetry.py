@@ -1,8 +1,13 @@
-"""Anonymous telemetry. Sends a single `onboarding_completed` event per install.
+"""Anonymous telemetry. Sends at most two events per install:
+
+- `admin_registered` — fires when the first admin account is created (wizard or API).
+- `onboarding_completed` — fires when the setup wizard reaches its final success state
+  (so dashboard installs emit both; API-only installs emit only the first).
 
 Enabled by default (matching the mem0 OSS library). Opt out with `MEM0_TELEMETRY=false`.
-Fires to the same PostHog project the library uses. No PII — only the signup source,
-email domain, server version, and a randomly generated install UUID.
+Fires to the same PostHog project the library uses. Shared properties: email domain,
+server version, and a randomly generated install UUID. `onboarding_completed` also
+carries the operator's freeform use-case string.
 """
 
 import json
@@ -70,13 +75,13 @@ def log_status() -> None:
         logging.info("telemetry: anonymous telemetry is enabled. Set MEM0_TELEMETRY=false to disable.")
 
 
-def capture_onboarding_completed(email: str, source: str) -> None:
+def _capture_once(email: str, event: str, state_key: str, extra: dict[str, Any] | None = None) -> None:
     if not ENABLED:
         return
 
     with _lock:
         state = _load_state()
-        if state.get("onboarding_sent_at"):
+        if state.get(state_key):
             return
 
         client = _get_client()
@@ -86,14 +91,22 @@ def capture_onboarding_completed(email: str, source: str) -> None:
         try:
             client.capture(
                 distinct_id=_install_id(state),
-                event="onboarding_completed",
+                event=event,
                 properties={
-                    "source": source,
                     "email_domain": email.rsplit("@", 1)[-1].lower() if "@" in email else "unknown",
                     "server_version": mem0.__version__,
+                    **(extra or {}),
                 },
             )
-            state["onboarding_sent_at"] = datetime.now(timezone.utc).isoformat()
+            state[state_key] = datetime.now(timezone.utc).isoformat()
             _save_state(state)
         except Exception:
-            logging.exception("telemetry: failed to send onboarding event")
+            logging.exception("telemetry: failed to send %s event", event)
+
+
+def capture_admin_registered(email: str) -> None:
+    _capture_once(email, "admin_registered", "admin_registered_sent_at")
+
+
+def capture_onboarding_completed(email: str, use_case: str) -> None:
+    _capture_once(email, "onboarding_completed", "onboarding_sent_at", {"use_case": use_case})

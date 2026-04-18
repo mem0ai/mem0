@@ -18,6 +18,7 @@ from routers import auth as auth_router
 from routers import api_keys as api_keys_router
 from routers import entities as entities_router
 from routers import requests as requests_router
+from schemas import MessageResponse
 from server_state import get_current_config, get_memory_instance, initialize_state, set_session_factory, update_config
 
 load_dotenv()
@@ -373,18 +374,18 @@ def memory_history(memory_id: str, _auth=Depends(verify_auth)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/memories/{memory_id}", summary="Delete a memory")
+@app.delete("/memories/{memory_id}", summary="Delete a memory", response_model=MessageResponse)
 def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Delete a specific memory by ID."""
     try:
         get_memory_instance().delete(memory_id=memory_id)
-        return {"message": "Memory deleted successfully"}
+        return MessageResponse(message="Memory deleted successfully")
     except Exception as e:
         logging.exception("Error in delete_memory:")
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.delete("/memories", summary="Delete all memories")
+@app.delete("/memories", summary="Delete all memories", response_model=MessageResponse)
 def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
@@ -399,7 +400,7 @@ def delete_all_memories(
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
         get_memory_instance().delete_all(**params)
-        return {"message": "All relevant memories deleted"}
+        return MessageResponse(message="All relevant memories deleted")
     except Exception as e:
         logging.exception("Error in delete_all_memories:")
         raise HTTPException(status_code=500, detail=str(e))

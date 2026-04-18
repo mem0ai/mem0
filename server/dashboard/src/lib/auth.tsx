@@ -101,7 +101,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name,
         email,
         password,
-        source: "dashboard",
       });
       setAccessToken(res.data.access_token);
       await storeRefreshToken(res.data.refresh_token);

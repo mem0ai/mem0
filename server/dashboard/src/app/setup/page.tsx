@@ -12,7 +12,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/error-message";
 import { cn } from "@/lib/utils";
 import { api } from "@/utils/api";
-import { API_KEY_ENDPOINTS, MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
+import {
+  API_KEY_ENDPOINTS,
+  AUTH_ENDPOINTS,
+  MEMORY_ENDPOINTS,
+} from "@/utils/api-endpoints";
 import { getEffectiveConfig } from "@/utils/self-hosted-config";
 
 const STEPS = [
@@ -194,6 +198,9 @@ export default function SetupPage() {
       }
 
       setTestSuccess(true);
+      void api
+        .post(AUTH_ENDPOINTS.ONBOARDING_COMPLETE, { use_case: useCase })
+        .catch(() => {});
     } catch (err) {
       setError(getErrorMessage(err, "Test failed"));
     } finally {

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from auth import verify_auth
+from schemas import MessageResponse
 from server_state import get_memory_instance
 
 router = APIRouter(prefix="/entities", tags=["entities"])
@@ -67,11 +68,11 @@ def list_entities(_auth=Depends(verify_auth)):
     ]
 
 
-@router.delete("/{entity_type}/{entity_id}")
+@router.delete("/{entity_type}/{entity_id}", response_model=MessageResponse)
 def delete_entity(entity_type: EntityType, entity_id: str, _auth=Depends(verify_auth)):
     try:
         get_memory_instance().delete_all(**{TYPE_TO_FIELD[entity_type]: entity_id})
     except Exception as e:
         logging.exception("Error deleting entity")
         raise HTTPException(status_code=500, detail=str(e))
-    return {"message": "Entity deleted"}
+    return MessageResponse(message="Entity deleted")

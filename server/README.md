@@ -56,7 +56,12 @@ This is the supported recovery path. Anyone with shell access to the host alread
 
 ## Telemetry
 
-Enabled by default, matching the Mem0 OSS library. Sends exactly one `onboarding_completed` event per install to the same anonymous PostHog project the library uses, containing the signup source (`dashboard` or `api`), email domain, server version, and a randomly generated install UUID. No PII is collected. Set `MEM0_TELEMETRY=false` to opt out.
+Enabled by default, matching the Mem0 OSS library. Sends at most two events per install to the same anonymous PostHog project the library uses:
+
+- `admin_registered` — fired when the first admin is created (wizard or direct API call). Properties: email domain, server version, install UUID.
+- `onboarding_completed` — fired when the setup wizard reaches its final success state. Carries the same properties plus the freeform `use_case` the operator entered. API-only bootstraps never emit this event.
+
+Set `MEM0_TELEMETRY=false` to opt out.
 
 ## Local URLs
 

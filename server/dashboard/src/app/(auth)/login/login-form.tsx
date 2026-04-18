@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/error-message";
-import { AUTH_ENDPOINTS } from "@/utils/api-endpoints";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -31,13 +30,6 @@ export default function LoginForm() {
       router.push(searchParams.get("next") || "/dashboard/requests");
     }
   }, [user, isLoading, router, searchParams]);
-
-  useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}${AUTH_ENDPOINTS.SETUP_STATUS}`)
-      .then((res) => res.ok && res.json())
-      .then((data) => data?.needsSetup && router.push("/setup"))
-      .catch(() => {});
-  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -30,6 +30,11 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
+def dummy_verify_password() -> None:
+    """Burn the same bcrypt cycles as a real verify so login timing doesn't leak whether an email exists."""
+    pwd_context.dummy_verify()
+
+
 def generate_api_key() -> tuple[str, str, str]:
     """Returns (full_key, prefix, hash)."""
     raw = secrets.token_urlsafe(32)

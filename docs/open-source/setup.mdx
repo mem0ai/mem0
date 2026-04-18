@@ -124,7 +124,6 @@ The server prints an unmissable startup banner when it detects the "upgraded but
 
 - Dashboard ships as a second container in the reference Compose stack, wired to the API over the internal Docker network.
 - New tables: `users`, `api_keys`, `request_logs`. Alembic handles the migration automatically on first boot.
-- Graph memory remains a library feature; the bundled FastAPI server does not wire up a graph store. See [Graph Memory](/open-source/features/graph-memory).
 
 ---
 
