@@ -40,16 +40,12 @@ client.add(messages, user_id="alice")
 
 # With metadata
 client.add(messages, user_id="alice", metadata={"source": "onboarding"})
-
-# With graph memory
-client.add(messages, user_id="alice", enable_graph=True)
 ```
 
 **TypeScript:**
 ```typescript
-await client.add(messages, { user_id: "alice" });
-await client.add(messages, { user_id: "alice", metadata: { source: "onboarding" } });
-await client.add(messages, { user_id: "alice", enable_graph: true });
+await client.add(messages, { userId: "alice" });
+await client.add(messages, { userId: "alice", metadata: { source: "onboarding" } });
 ```
 
 ### Parameters
@@ -61,31 +57,13 @@ await client.add(messages, { user_id: "alice", enable_graph: true });
 | `agent_id` | string | Agent identifier |
 | `run_id` | string | Session identifier |
 | `metadata` | object | Custom key-value pairs |
-| `enable_graph` | boolean | Activate knowledge graph |
 | `infer` | boolean | If `false`, store raw text without inference (default: `true`) |
-| `immutable` | boolean | Prevents modification after creation |
-| `expiration_date` | string | Auto-expiry date (`YYYY-MM-DD`) |
-| `includes` | string | Preference filters for inclusion |
-| `excludes` | string | Preference filters for exclusion |
-| `async_mode` | boolean | Async processing (default: `true`). Set `false` to wait |
 
 ### Advanced Add Options
 
 ```python
-# Immutable -- cannot be modified or overwritten
-client.add(messages, user_id="alice", immutable=True)
-
-# Expiring memory
-client.add(messages, user_id="alice", expiration_date="2025-12-31")
-
-# Selective extraction
-client.add(messages, user_id="alice", includes="dietary preferences", excludes="payment info")
-
 # Agent + session scoping
 client.add(messages, user_id="alice", agent_id="nutrition-agent", run_id="session-456")
-
-# Synchronous processing (wait for completion)
-client.add(messages, user_id="alice", async_mode=False)
 
 # Raw text -- skip LLM inference
 client.add(
@@ -101,7 +79,7 @@ client.add(
 
 **Python:**
 ```python
-results = client.search("dietary preferences?", user_id="alice")
+results = client.search("dietary preferences?", filters={"user_id": "alice"})
 
 # With filters and reranking
 results = client.search(
@@ -111,20 +89,14 @@ results = client.search(
     rerank=True,
     threshold=0.5
 )
-
-# With graph relations
-results = client.search("colleagues", user_id="alice", enable_graph=True)
-
-# Keyword search
-results = client.search("vegetarian", user_id="alice", keyword_search=True)
 ```
 
 **TypeScript:**
 ```typescript
-const results = await client.search("dietary preferences", { user_id: "alice" });
+const results = await client.search("dietary preferences", { filters: { user_id: "alice" } });
 const results = await client.search("work experience", {
     filters: { AND: [{ user_id: "alice" }, { categories: { contains: "professional_details" } }] },
-    top_k: 5,
+    topK: 5,
     rerank: true,
 });
 ```
@@ -134,19 +106,17 @@ const results = await client.search("work experience", {
 | Name | Type | Description |
 |------|------|-------------|
 | `query` | string | Natural language search query |
-| `user_id` | string | Filter by user |
-| `filters` | object | V2 filter object (AND/OR operators) |
-| `top_k` | number | Number of results (default: 10) |
-| `rerank` | boolean | Enable reranking for better relevance |
-| `threshold` | number | Minimum similarity score (default: 0.3) |
-| `keyword_search` | boolean | Use keyword-based search |
-| `enable_graph` | boolean | Include graph relations |
+| `filters` | object | Filter object (AND/OR operators). Use `{"user_id": "..."}` to filter by user |
+| `top_k` | number | Number of results (default: 10 for Platform) |
+| `rerank` | boolean | Enable reranking for better relevance (default: `false`) |
+| `threshold` | number | Minimum similarity score (default: 0.1) |
 
 ### Common Filter Patterns
 
+**Python:**
 ```python
-# Single user (shorthand)
-client.search("query", user_id="alice")
+# Single user filter
+filters={"user_id": "alice"}
 
 # OR across agents
 filters={"OR": [{"user_id": "alice"}, {"agent_id": {"in": ["travel-agent", "sports-agent"]}}]}
@@ -179,6 +149,21 @@ filters={"AND": [
 ]}
 ```
 
+**TypeScript:**
+```typescript
+// Single user filter
+filters: { user_id: "alice" }
+
+// OR across agents
+filters: { OR: [{ user_id: "alice" }, { agent_id: { in: ["travel-agent", "sports-agent"] } }] }
+
+// Category filtering (partial match)
+filters: { AND: [{ user_id: "alice" }, { categories: { contains: "finance" } }] }
+
+// Category filtering (exact match)
+filters: { AND: [{ user_id: "alice" }, { categories: { in: ["personal_information"] } }] }
+```
+
 ---
 
 ## get() / getAll() -- Retrieve Memories
@@ -189,7 +174,7 @@ filters={"AND": [
 memory = client.get(memory_id="ea925981-...")
 
 # All memories for a user
-memories = client.get_all(filters={"AND": [{"user_id": "alice"}]})
+memories = client.get_all(filters={"user_id": "alice"})
 
 # With date range
 memories = client.get_all(
@@ -198,15 +183,12 @@ memories = client.get_all(
         {"created_at": {"gte": "2024-07-01", "lte": "2024-07-31"}}
     ]}
 )
-
-# With graph data
-memories = client.get_all(filters={"AND": [{"user_id": "alice"}]}, enable_graph=True)
 ```
 
 **TypeScript:**
 ```typescript
 const memory = await client.get("ea925981-...");
-const memories = await client.getAll({ filters: { AND: [{ user_id: "alice" }] } });
+const memories = await client.getAll({ filters: { user_id: "alice" } });
 ```
 
 **Note:** `get_all` requires at least one of `user_id`, `agent_id`, `app_id`, or `run_id` in filters.
@@ -226,8 +208,6 @@ client.update(memory_id="ea925981-...", text="Updated", metadata={"verified": Tr
 await client.update("ea925981-...", { text: "Updated: vegan since 2024" });
 ```
 
-Cannot update immutable memories.
-
 ---
 
 ## delete() / deleteAll() -- Remove Memories
@@ -241,7 +221,7 @@ client.delete_all(user_id="alice")  # Irreversible bulk delete
 **TypeScript:**
 ```typescript
 await client.delete("ea925981-...");
-await client.deleteAll({ user_id: "alice" });
+await client.deleteAll({ userId: "alice" });
 ```
 
 ---
@@ -301,10 +281,73 @@ data = client.get_memory_export(memory_export_id=export["id"])
 2. **SQL operators rejected** -- use `gte`, `lt`, etc. Not `>=`, `<`.
 3. **Metadata filtering is limited** -- only top-level keys with `eq`, `contains`, `ne`.
 4. **Wildcard `*` excludes null** -- only matches non-null values.
-5. **Default threshold is 0.3** -- increase for stricter matching.
+5. **Default threshold is 0.1** -- increase for stricter matching.
 6. **Async processing** -- memories process asynchronously. Wait 2-3s after `add()` before searching.
-7. **Immutable memories** -- cannot be updated or deleted once created.
 
 ## Naming Conventions
 
-Python uses `snake_case` (`user_id`, `memory_id`, `get_all`). TypeScript uses `camelCase` for methods (`getAll`, `deleteAll`, `batchUpdate`) but `snake_case` for API parameters (`user_id`, `agent_id`).
+Python uses `snake_case` everywhere (`user_id`, `memory_id`, `get_all`). TypeScript uses `camelCase` for methods (`getAll`, `deleteAll`, `batchUpdate`) and top-level parameters (`userId`, `topK`, `pageSize`), but filter keys use `snake_case` (`user_id`, `agent_id`).
+
+---
+
+## v2 to v3 Migration
+
+### Breaking Changes in v3
+
+**1. Entity IDs in search() and getAll()**
+
+v3 requires entity IDs (`user_id`, `agent_id`, `run_id`) inside `filters` instead of as top-level parameters:
+
+```python
+# v2 (deprecated)
+client.search("query", user_id="alice")
+client.get_all(user_id="alice")
+
+# v3
+client.search("query", filters={"user_id": "alice"})
+client.get_all(filters={"user_id": "alice"})
+```
+
+```typescript
+// v2 (deprecated)
+await client.search("query", { user_id: "alice" });
+await client.getAll({ user_id: "alice" });
+
+// v3
+await client.search("query", { filters: { user_id: "alice" } });
+await client.getAll({ filters: { user_id: "alice" } });
+```
+
+**2. TypeScript Parameter Naming**
+
+v3 TypeScript uses camelCase for all parameters:
+
+| v2 | v3 |
+|----|-----|
+| `user_id` | `userId` |
+| `agent_id` | `agentId` |
+| `run_id` | `runId` |
+| `top_k` | `topK` |
+| `page_size` | `pageSize` |
+
+**3. Default Values Changed**
+
+| Parameter | v2 Default | v3 Default |
+|-----------|------------|------------|
+| `threshold` | 0.3 | 0.1 |
+| `rerank` | (not specified) | `false` |
+
+**4. Removed Parameters**
+
+The following parameters are no longer supported:
+
+| Parameter | Status |
+|-----------|--------|
+| `enable_graph` | Removed from add/search/getAll |
+| `keyword_search` | Removed from search |
+| `filter_memories` | Removed |
+| `immutable` | Removed from add |
+| `expiration_date` | Removed from add |
+| `includes` | Removed from add |
+| `excludes` | Removed from add |
+| `async_mode` | Removed from add |

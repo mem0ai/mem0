@@ -41,23 +41,18 @@ const messages = [
     { role: 'user', content: "I'm a vegetarian and allergic to nuts." },
     { role: 'assistant', content: "Got it! I'll remember that." },
 ];
-await client.add(messages, { user_id: 'alice' });
+await client.add(messages, { userId: 'alice' });
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `messages` | `Message[]` | Array of `{role, content}` objects |
-| `options.user_id` | string | User identifier |
-| `options.agent_id` | string | Agent identifier |
-| `options.app_id` | string | Application identifier |
-| `options.run_id` | string | Session identifier |
+| `options.userId` | string | User identifier |
+| `options.agentId` | string | Agent identifier |
+| `options.appId` | string | Application identifier |
+| `options.runId` | string | Session identifier |
 | `options.metadata` | object | Custom key-value pairs |
-| `options.enable_graph` | boolean | Activate knowledge graph |
 | `options.infer` | boolean | If false, store raw text (default: true) |
-| `options.immutable` | boolean | Prevent future modification |
-| `options.expiration_date` | string | Auto-expiry (`YYYY-MM-DD`) |
-| `options.includes` | string | Preference filter for inclusion |
-| `options.excludes` | string | Preference filter for exclusion |
 
 **Returns:** `Promise<any>` -- list of events
 
@@ -66,7 +61,7 @@ await client.add(messages, { user_id: 'alice' });
 Search memories by semantic similarity.
 
 ```typescript
-const results = await client.search('dietary preferences', { user_id: 'alice' });
+const results = await client.search('dietary preferences', { filters: { user_id: 'alice' }, topK: 20 });
 for (const mem of results.results) {
     console.log(mem.memory, mem.score);
 }
@@ -75,17 +70,12 @@ for (const mem of results.results) {
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `query` | string | Natural language search query |
-| `options.user_id` | string | Filter by user |
-| `options.agent_id` | string | Filter by agent |
-| `options.filters` | object | V2 filter object (`AND`/`OR`/`NOT`) |
-| `options.top_k` | number | Number of results (default: 10) |
-| `options.rerank` | boolean | Enable semantic reranking |
-| `options.threshold` | number | Minimum similarity (default: 0.3) |
-| `options.keyword_search` | boolean | Enable keyword search |
-| `options.enable_graph` | boolean | Include graph relations |
-| `options.filter_memories` | boolean | Precision filtering |
+| `options.filters` | object | Filter object with entity IDs (`user_id`, `agent_id`, etc.) and/or `AND`/`OR`/`NOT` conditions |
+| `options.topK` | number | Number of results (default: 20) |
+| `options.rerank` | boolean | Enable semantic reranking (default: false) |
+| `options.threshold` | number | Minimum similarity (default: 0.1) |
 
-**Returns:** `Promise<SearchResult>` -- `{results: [{id, memory, score, ...}], relations: [...]}`
+**Returns:** `Promise<SearchResult>` -- `{results: [{id, memory, score, ...}]}`
 
 #### get(memoryId)
 
@@ -98,7 +88,7 @@ const memory = await client.get('ea925981-...');
 Retrieve all memories. Requires at least one entity identifier in filters.
 
 ```typescript
-const memories = await client.getAll({ user_id: 'alice' });
+const memories = await client.getAll({ filters: { user_id: 'alice' } });
 // With filters
 const filtered = await client.getAll({
     filters: { AND: [{ user_id: 'alice' }, { categories: { contains: 'health' } }] },
@@ -107,11 +97,9 @@ const filtered = await client.getAll({
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `options.user_id` | string | Filter by user |
-| `options.filters` | object | V2 filter object |
+| `options.filters` | object | Filter object with entity IDs (`user_id`, `agent_id`, etc.) and/or `AND`/`OR`/`NOT` conditions |
 | `options.page` | number | Page number |
-| `options.page_size` | number | Results per page |
-| `options.enable_graph` | boolean | Include graph relations |
+| `options.pageSize` | number | Results per page |
 
 #### update(memoryId, data)
 
@@ -136,14 +124,14 @@ await client.delete('ea925981-...');
 #### deleteAll(options?)
 
 ```typescript
-await client.deleteAll({ user_id: 'alice' });
+await client.deleteAll({ userId: 'alice' });
 ```
 
 #### history(memoryId)
 
 ```typescript
 const history = await client.history('ea925981-...');
-// Returns: [{previous_value, new_value, action, timestamps}]
+// Returns: [{previousValue, newValue, action, timestamps}]
 ```
 
 ---
@@ -179,8 +167,8 @@ const users = await client.users();
 #### deleteUser(data) / deleteUsers(data)
 
 ```typescript
-await client.deleteUser({ user_id: 'alice' });  // Single entity
-await client.deleteUsers({ agent_id: 'bot-1' }); // Flexible
+await client.deleteUser({ userId: 'alice' });  // Single entity
+await client.deleteUsers({ agentId: 'bot-1' }); // Flexible
 ```
 
 ---
@@ -189,13 +177,12 @@ await client.deleteUsers({ agent_id: 'bot-1' }); // Flexible
 
 ```typescript
 // Get project config
-const config = await client.getProject({ fields: ['custom_categories'] });
+const config = await client.getProject({ fields: ['customCategories'] });
 
 // Update project settings
 await client.updateProject({
-    custom_instructions: 'Extract dietary preferences and health info',
-    custom_categories: [{ health: 'Medical and dietary info' }],
-    enable_graph: true,
+    customInstructions: 'Extract dietary preferences and health info',
+    customCategories: [{ health: 'Medical and dietary info' }],
 });
 ```
 
@@ -205,25 +192,25 @@ await client.updateProject({
 
 ```typescript
 // List
-const webhooks = await client.getWebhooks({ project_id: 'proj_123' });
+const webhooks = await client.getWebhooks({ projectId: 'proj_123' });
 
 // Create
 const webhook = await client.createWebhook({
     url: 'https://your-app.com/webhook',
     name: 'Memory Logger',
-    project_id: 'proj_123',
-    event_types: ['memory_add', 'memory_update'],
+    projectId: 'proj_123',
+    eventTypes: ['memory_add', 'memory_update'],
 });
 
 // Update
 await client.updateWebhook({
-    webhook_id: 'wh_123',
+    webhookId: 'wh_123',
     name: 'Updated Logger',
     url: 'https://new-url.com',
 });
 
 // Delete
-await client.deleteWebhook({ webhook_id: 'wh_123' });
+await client.deleteWebhook({ webhookId: 'wh_123' });
 ```
 
 ---
@@ -232,9 +219,9 @@ await client.deleteWebhook({ webhook_id: 'wh_123' });
 
 ```typescript
 await client.feedback({
-    memory_id: 'mem-123',
+    memoryId: 'mem-123',
     feedback: 'POSITIVE',
-    feedback_reason: 'Accurately captured preference',
+    feedbackReason: 'Accurately captured preference',
 });
 ```
 
@@ -248,7 +235,7 @@ const exportReq = await client.createMemoryExport({
     filters: { user_id: 'alice' },
 });
 
-const result = await client.getMemoryExport({ memory_export_id: exportReq.id });
+const result = await client.getMemoryExport({ memoryExportId: exportReq.id });
 ```
 
 ---
@@ -259,14 +246,12 @@ Key interfaces from `mem0.types.ts`:
 
 ```typescript
 interface Message { role: string; content: string; }
-interface Memory { id: string; memory: string; user_id: string; categories: string[]; score?: number; /* ... */ }
-interface MemoryOptions { user_id?: string; agent_id?: string; app_id?: string; run_id?: string; metadata?: object; /* ... */ }
-interface SearchOptions { user_id?: string; filters?: object; top_k?: number; rerank?: boolean; threshold?: number; /* ... */ }
-interface MemoryHistory { id: string; memory_id: string; previous_value: string; new_value: string; action: string; /* ... */ }
-interface FeedbackPayload { memory_id: string; feedback: string; feedback_reason?: string; }
-interface WebhookCreatePayload { url: string; name: string; project_id: string; event_types: string[]; }
-enum OutputFormat { v1_0 = 'v1.0', v1_1 = 'v1.1' }
-enum API_VERSION { v1 = 'v1', v2 = 'v2' }
+interface Memory { id: string; memory: string; userId: string; categories: string[]; score?: number; /* ... */ }
+interface MemoryOptions { userId?: string; agentId?: string; appId?: string; runId?: string; metadata?: object; /* ... */ }
+interface SearchOptions { filters?: object; topK?: number; rerank?: boolean; threshold?: number; /* ... */ }
+interface MemoryHistory { id: string; memoryId: string; previousValue: string; newValue: string; action: string; /* ... */ }
+interface FeedbackPayload { memoryId: string; feedback: string; feedbackReason?: string; }
+interface WebhookCreatePayload { url: string; name: string; projectId: string; eventTypes: string[]; }
 ```
 
 ---
@@ -296,7 +281,7 @@ const config = {
     llm: {
         provider: 'openai',        // openai, groq, anthropic, google, ollama, lmstudio, mistral, azure
         config: {
-            model: 'gpt-4o-mini',
+            model: 'gpt-5-mini',
             apiKey: 'sk-xxx',
         },
     },
@@ -315,17 +300,8 @@ const config = {
             port: 6333,
         },
     },
-    graphStore: {                   // Optional
-        provider: 'neo4j',
-        config: {
-            url: 'neo4j://localhost:7687',
-            username: 'neo4j',
-            password: 'password',
-        },
-    },
     historyDbPath: 'history.db',
-    customPrompt: '...',
-    enableGraph: false,
+    customInstructions: '...',
     disableHistory: false,
 };
 
@@ -363,17 +339,14 @@ await m.add([
 #### search(query, config)
 
 ```typescript
-const results = await m.search('dietary preferences', { userId: 'alice', limit: 5 });
+const results = await m.search('dietary preferences', { filters: { user_id: 'alice' }, topK: 5 });
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `query` | string | Search query |
-| `config.userId` | string | Filter by user |
-| `config.agentId` | string | Filter by agent |
-| `config.runId` | string | Filter by run |
-| `config.limit` | number | Max results (default: 100) |
-| `config.filters` | object | Advanced filters |
+| `config.filters` | object | Filter object with entity IDs (`user_id`, `agent_id`, `run_id`, etc.) |
+| `config.topK` | number | Max results (default: 20) |
 
 #### get(memoryId) / getAll(config) / update(memoryId, data) / delete(memoryId) / deleteAll(config) / history(memoryId)
 
@@ -401,12 +374,45 @@ await m.reset();
 | **Auth** | API key required (`MEM0_API_KEY`) | No API key -- config-based |
 | **Execution** | API calls to `api.mem0.ai` | Local execution |
 | **Infrastructure** | Fully managed | Self-managed vector DB, embedder, LLM |
-| **Param style** | `snake_case` in options (`user_id`) | `camelCase` in config (`userId`) |
+| **Param style** | Top-level: `camelCase` (`userId`, `topK`), filter keys: `snake_case` (`user_id`) | Top-level: `camelCase` (`userId`, `topK`), filter keys: `snake_case` (`user_id`) |
 | **Batch ops** | `batchUpdate`, `batchDelete` | Not available |
 | **Webhooks** | Full CRUD | Not available |
 | **Export** | `createMemoryExport` | Not available |
 | **Feedback** | `feedback()` | Not available |
 | **Project mgmt** | `getProject`, `updateProject` | Not available |
 | **User listing** | `users()`, `deleteUser()` | Not available |
-| **Graph store** | Platform-managed | Self-managed (Neo4j) |
 | **History** | Platform-managed | SQLite (configurable) |
+
+---
+
+## v2 Compatibility
+
+If you're using SDK v2.x:
+
+**Naming Changes:**
+- Top-level params now use camelCase: `topK`, `rerank` (not `top_k`)
+- Filter keys use snake_case: `user_id`, `agent_id`
+- OSS: `limit` renamed to `topK`
+
+**API Changes:**
+```typescript
+// v2 - top-level entity IDs, snake_case
+await client.search("query", { user_id: "alice", top_k: 20 });
+
+// v3 - filters object with snake_case keys, camelCase top-level params
+await client.search("query", { filters: { user_id: "alice" }, topK: 20 });
+```
+
+**Default Changes:**
+| Param | v2 | v3 |
+|-------|----|----|
+| `topK` | 100 | 20 |
+| `threshold` | none | 0.1 |
+| `rerank` | true | false |
+
+**Removed:**
+- `OutputFormat` and `API_VERSION` enums
+- `organizationId`, `projectId` from constructor
+- `enableGraph`, `asyncMode`, `outputFormat`, `immutable`, `expirationDate`, `filterMemories`, `batchSize`, `forceAddOnly`, `includes`, `excludes`, `keywordSearch`
+
+See the [v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.

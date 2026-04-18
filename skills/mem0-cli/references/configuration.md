@@ -24,8 +24,7 @@ The restricted permissions ensure API keys are not world-readable.
     "user_id": "",
     "agent_id": "",
     "app_id": "",
-    "run_id": "",
-    "enable_graph": false
+    "run_id": ""
   },
   "platform": {
     "api_key": "",
@@ -43,7 +42,6 @@ The restricted permissions ensure API keys are not world-readable.
 | `defaults.agent_id` | string | `""` | Default agent ID for scoping commands. |
 | `defaults.app_id` | string | `""` | Default app ID for scoping commands. |
 | `defaults.run_id` | string | `""` | Default run ID for scoping commands. |
-| `defaults.enable_graph` | boolean | `false` | Default graph memory extraction toggle. |
 | `platform.api_key` | string | `""` | API key for the Mem0 Platform. |
 | `platform.base_url` | string | `"https://api.mem0.ai"` | Base URL for API requests. |
 
@@ -127,7 +125,6 @@ Reads a single configuration value. The key uses dotted notation.
 ```bash
 mem0 config get platform.api_key     # prints: m0-x...xxxx (redacted)
 mem0 config get defaults.user_id     # prints: alice
-mem0 config get defaults.enable_graph # prints: false
 ```
 
 **Valid keys:**
@@ -137,7 +134,6 @@ mem0 config get defaults.enable_graph # prints: false
 - `defaults.agent_id`
 - `defaults.app_id`
 - `defaults.run_id`
-- `defaults.enable_graph`
 
 Unknown keys print an error message.
 
@@ -148,7 +144,6 @@ Sets a configuration value and saves the config file.
 ```bash
 mem0 config set defaults.user_id alice
 mem0 config set platform.base_url https://api.mem0.ai
-mem0 config set defaults.enable_graph true
 ```
 
 **Type coercion:**
@@ -178,20 +173,6 @@ Environment variables override config file values but are overridden by CLI flag
 | `MEM0_AGENT_ID` | `defaults.agent_id` | string | `""` |
 | `MEM0_APP_ID` | `defaults.app_id` | string | `""` |
 | `MEM0_RUN_ID` | `defaults.run_id` | string | `""` |
-| `MEM0_ENABLE_GRAPH` | `defaults.enable_graph` | boolean | `false` |
-
-### Boolean Parsing for `MEM0_ENABLE_GRAPH`
-
-Accepted truthy values (case-insensitive): `"true"`, `"1"`, `"yes"`. Everything else is treated as `false`.
-
-```bash
-export MEM0_ENABLE_GRAPH=true   # enabled
-export MEM0_ENABLE_GRAPH=1      # enabled
-export MEM0_ENABLE_GRAPH=yes    # enabled
-export MEM0_ENABLE_GRAPH=false  # disabled
-export MEM0_ENABLE_GRAPH=0      # disabled
-export MEM0_ENABLE_GRAPH=""     # disabled
-```
 
 ---
 
@@ -200,8 +181,8 @@ export MEM0_ENABLE_GRAPH=""     # disabled
 Configuration values are resolved in this order (highest priority first):
 
 ```
-1. CLI flags        --api-key, --user-id, --base-url, --graph, --no-graph, etc.
-2. Environment vars MEM0_API_KEY, MEM0_USER_ID, MEM0_ENABLE_GRAPH, etc.
+1. CLI flags        --api-key, --user-id, --base-url, etc.
+2. Environment vars MEM0_API_KEY, MEM0_USER_ID, etc.
 3. Config file      ~/.mem0/config.json
 4. Defaults         Hardcoded defaults (empty strings, false, https://api.mem0.ai)
 ```
@@ -241,4 +222,3 @@ The `config get` and `config set` commands use dotted key paths. Here is the ful
 | `defaults.agent_id` | defaults | agent_id |
 | `defaults.app_id` | defaults | app_id |
 | `defaults.run_id` | defaults | run_id |
-| `defaults.enable_graph` | defaults | enable_graph |
