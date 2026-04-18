@@ -967,7 +967,7 @@ function registerHooks(
         content: `Current date: ${timestamp}. The user is identified as "${cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
       });
 
-      const addOpts = buildAddOptions(undefined, sessionId, sessionId);
+      const addOpts = buildAddOptions(undefined, undefined, sessionId);
       const captureStart = Date.now();
       provider
         .add(formattedMessages, addOpts)

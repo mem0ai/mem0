@@ -1,11 +1,12 @@
 import { Type } from "@sinclair/typebox";
 import type { AddOptions } from "../types.ts";
 import { isSubagentSession } from "../isolation.ts";
+import { isNoiseMessage, stripNoiseFromContent } from "../filtering.ts";
 // v3.0.0: resolveCategories/ttlToExpirationDate removed - expiration_date/immutable no longer supported
 import type { ToolDeps } from "./index.ts";
 
 export function createMemoryAddTool(deps: ToolDeps) {
-  const { api, cfg, provider, resolveUserId, getCurrentSessionId, buildAddOptions, buildSearchOptions, skillsActive } = deps;
+  const { api, provider, resolveUserId, getCurrentSessionId, buildAddOptions, buildSearchOptions, skillsActive } = deps;
 
   return {
     name: "memory_add",
@@ -28,9 +29,18 @@ export function createMemoryAddTool(deps: ToolDeps) {
         userId?: string; agentId?: string; metadata?: Record<string, unknown>; longTerm?: boolean;
       };
 
-      const allFacts: string[] = p.facts?.length ? p.facts : (p.text ? [p.text] : []);
-      if (allFacts.length === 0) {
+      const rawFacts: string[] = p.facts?.length ? p.facts : (p.text ? [p.text] : []);
+      if (rawFacts.length === 0) {
         return { content: [{ type: "text", text: "No facts provided. Pass 'text' or 'facts' array." }], details: { error: "missing_facts" } };
+      }
+
+      // Filter out noise and clean the facts before storing
+      const allFacts = rawFacts
+        .map((f) => stripNoiseFromContent(f))
+        .filter((f) => f.length > 0 && !isNoiseMessage(f));
+
+      if (allFacts.length === 0) {
+        return { content: [{ type: "text", text: "All provided facts were filtered as noise. Nothing stored." }], details: { error: "all_noise" } };
       }
 
       const start = Date.now();

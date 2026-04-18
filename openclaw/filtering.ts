@@ -14,9 +14,24 @@ const NOISE_MESSAGE_PATTERNS: RegExp[] = [
   /^(HEARTBEAT_OK|NO_REPLY)$/i,
   /^Current time:.*\d{4}/,
   /^Pre-compaction memory flush/i,
-  /^(ok|yes|no|sir|sure|thanks|done|good|nice|cool|got it|it's on|continue)$/i,
+  /^(ok|yes|no|sir|sure|thanks|done|good|nice|cool|got it|it's on|continue|alright|okay|yep|nope|uh-huh|mm-hmm|hmm)$/i,
   /^System: \[.*\] (Slack message edited|Gateway restart|Exec (failed|completed))/,
   /^System: \[.*\] ⚠️ Post-Compaction Audit:/,
+  // JSON-only messages (tool results, metadata)
+  /^[\s]*\{[\s\S]*\}[\s]*$/,
+  /^[\s]*\[[\s\S]*\][\s]*$/,
+  // Empty or whitespace-only after trimming
+  /^[\s\n\r]*$/,
+  // Technical noise patterns
+  /^(Error|Warning|Info|Debug):/i,
+  /^(Loading|Loaded|Fetching|Fetched|Processing|Processed)\b/i,
+  /^\[[\d:T\-\.Z]+\]/,  // Timestamps like [2024-01-01T12:00:00.000Z]
+  /^(SUCCESS|FAILURE|PENDING|COMPLETED|FAILED)$/i,
+  // Tool/function call noise
+  /^(Calling|Called|Invoking|Invoked|Executing|Executed)\s+(function|tool|method)/i,
+  /^Tool (call|result|output):/i,
+  // Single emoji or very short messages
+  /^[\p{Emoji}\s]{1,5}$/u,
 ];
 
 /** Patterns for session-specific technical content that should not be stored as memories. */
@@ -65,6 +80,31 @@ const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> =
     {
       pattern:
         /Replied message \(untrusted, for context\):\s*```json[\s\S]*?```/g,
+      replacement: "",
+    },
+    // Strip embedded JSON blocks that might contain metadata
+    {
+      pattern: /```json\s*\{[\s\S]*?\}\s*```/g,
+      replacement: "",
+    },
+    // Strip code blocks that are just tool outputs
+    {
+      pattern: /```(?:text|output|result|log)\s*[\s\S]*?```/gi,
+      replacement: "",
+    },
+    // Strip inline tool call IDs
+    {
+      pattern: /\[tool_call_id:[^\]]+\]/g,
+      replacement: "",
+    },
+    // Strip memory IDs from responses
+    {
+      pattern: /\(id:\s*[a-f0-9-]+\)/gi,
+      replacement: "",
+    },
+    // Strip session/run IDs
+    {
+      pattern: /(?:session|run|agent)[_-]?(?:id|key)?:\s*[a-zA-Z0-9_:-]+/gi,
       replacement: "",
     },
   ];
