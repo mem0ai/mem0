@@ -28,6 +28,7 @@ import type {
 import { createProvider, providerToBackend } from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
 import type { FileConfig } from "./config.ts";
+import { createPublicArtifactsProvider } from "./public-artifacts.ts";
 import { filterMessagesForExtraction } from "./filtering.ts";
 import {
   effectiveUserId,
@@ -76,6 +77,7 @@ export {
 export {
   isNoiseMessage,
   isGenericAssistantMessage,
+  isSessionSpecificContent,
   stripNoiseFromContent,
   filterMessagesForExtraction,
 } from "./filtering.ts";
@@ -191,18 +193,38 @@ const memoryPlugin = definePluginEntry({
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
     );
 
+    // ========================================================================
+    // Public Artifacts (for memory-wiki bridge mode)
+    // ========================================================================
+    if (typeof api.registerMemoryCapability === "function") {
+      api.registerMemoryCapability({
+        publicArtifacts: createPublicArtifactsProvider({
+          provider,
+          cfg,
+          get stateDir() {
+            return pluginStateDir;
+          },
+          effectiveUserId: _effectiveUserId,
+        }),
+      });
+      api.logger.debug("openclaw-mem0: publicArtifacts capability registered");
+    }
+
     // Helper: build add options
     function buildAddOptions(
       userIdOverride?: string,
       runId?: string,
       sessionKey?: string,
     ): AddOptions {
-      // v3.0.0: removed output_format
+      // v3.0.0: removed output_format, customPrompt renamed to customInstructions
       const opts: AddOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
         source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
+      // Pass customInstructions and customCategories to control what Mem0 extracts
+      if (cfg.customInstructions) opts.custom_instructions = cfg.customInstructions;
+      if (cfg.customCategories) opts.custom_categories = cfg.customCategories;
       return opts;
     }
 

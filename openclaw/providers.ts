@@ -111,18 +111,18 @@ class PlatformProvider implements Mem0Provider {
     options: AddOptions,
   ): Promise<AddResult> {
     await this.ensureClient();
-    // v3.0.0: user_id stays top-level for add()
-    const opts: Record<string, unknown> = { user_id: options.user_id };
-    if (options.run_id) opts.run_id = options.run_id;
+    // v3.0.0: SDK uses camelCase (userId, runId, etc.) - it converts to snake_case internally
+    const opts: Record<string, unknown> = { userId: options.user_id };
+    if (options.run_id) opts.runId = options.run_id;
     if (options.custom_instructions)
-      opts.custom_instructions = options.custom_instructions;
+      opts.customInstructions = options.custom_instructions;
     if (options.custom_categories)
-      opts.custom_categories = options.custom_categories;
+      opts.customCategories = options.custom_categories;
     if (options.source) opts.source = options.source;
     // Agentic harness: direct storage bypass
     if (options.infer !== undefined) opts.infer = options.infer;
     if (options.deduced_memories)
-      opts.deduced_memories = options.deduced_memories;
+      opts.deducedMemories = options.deduced_memories;
     if (options.metadata) opts.metadata = options.metadata;
 
     const result = await this.client.add(messages, opts);
@@ -131,13 +131,15 @@ class PlatformProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    // v3.0.0: user_id must be in filters, not top-level
+    // v3.0.0: SDK uses camelCase options, userId must be in filters
     const opts: Record<string, unknown> = {};
-    if (options.top_k != null) opts.top_k = options.top_k;
+    if (options.top_k != null) opts.topK = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
     if (options.categories != null) opts.categories = options.categories;
 
     // Build filters with user_id/run_id inside (v3.0.0 requirement)
+    // Filters use snake_case as they're passed directly to the API
+    // Note: source is NOT a valid filter field - only used when adding
     const baseFilters: Record<string, unknown> = { user_id: options.user_id };
     if (options.run_id) baseFilters.run_id = options.run_id;
 
@@ -159,14 +161,14 @@ class PlatformProvider implements Mem0Provider {
 
   async getAll(options: ListOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    // v3.0.0: user_id must be in filters, not top-level
-    const opts: Record<string, unknown> = {
-      filters: { user_id: options.user_id },
-    };
-    if (options.run_id) {
-      (opts.filters as Record<string, unknown>).run_id = options.run_id;
-    }
-    if (options.page_size != null) opts.page_size = options.page_size;
+    // v3.0.0: SDK uses camelCase options, userId must be in filters
+    // Filters use snake_case as they're passed directly to the API
+    // Note: source is NOT a valid filter field - only used when adding
+    const filters: Record<string, unknown> = { user_id: options.user_id };
+    if (options.run_id) filters.run_id = options.run_id;
+
+    const opts: Record<string, unknown> = { filters };
+    if (options.page_size != null) opts.pageSize = options.page_size;
 
     const results = await this.client.getAll(opts);
     if (Array.isArray(results)) return results.map(normalizeMemoryItem);
@@ -188,7 +190,8 @@ class PlatformProvider implements Mem0Provider {
 
   async deleteAll(userId: string): Promise<void> {
     await this.ensureClient();
-    await this.client.deleteAll({ user_id: userId });
+    // v3.0.0: SDK uses camelCase
+    await this.client.deleteAll({ userId });
   }
 
   async history(memoryId: string): Promise<
@@ -339,7 +342,8 @@ class OSSProvider implements Mem0Provider {
       }
     }
 
-    await mem.getAll({ userId: "__mem0_warmup__" });
+    // v3.0.0: entity IDs must be in filters, not top-level
+    await mem.getAll({ filters: { user_id: "__mem0_warmup__" } });
 
     this.memory = mem;
   }
@@ -375,15 +379,23 @@ class OSSProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureMemory();
-    // v3.0.0: userId must be in filters, not top-level; limit renamed to topK
+    // v3.0.0: entity IDs must be in filters, not top-level; limit renamed to topK
     const opts: Record<string, unknown> = {};
     if (options.top_k != null) opts.topK = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
 
-    // Build filters with userId/runId inside (v3.0.0 requirement)
-    const filters: Record<string, unknown> = { userId: options.user_id };
-    if (options.run_id) filters.runId = options.run_id;
-    opts.filters = filters;
+    // Build filters with user_id/run_id inside (v3.0.0 requirement)
+    // Filters use snake_case as they're passed directly to the vector store
+    // Note: source is NOT a valid filter field - only used when adding
+    const baseFilters: Record<string, unknown> = { user_id: options.user_id };
+    if (options.run_id) baseFilters.run_id = options.run_id;
+
+    // Merge with any additional user-provided filters
+    if (options.filters) {
+      opts.filters = { AND: [baseFilters, options.filters] };
+    } else {
+      opts.filters = baseFilters;
+    }
 
     const results = await this.memory.search(query, opts);
     const normalized = normalizeSearchResults(results);
@@ -406,10 +418,15 @@ class OSSProvider implements Mem0Provider {
 
   async getAll(options: ListOptions): Promise<MemoryItem[]> {
     await this.ensureMemory();
-    // v3.0.0: userId must be in filters, not top-level
-    const filters: Record<string, unknown> = { userId: options.user_id };
-    if (options.run_id) filters.runId = options.run_id;
+    // v3.0.0: entity IDs must be in filters, not top-level
+    // Filters use snake_case as they're passed directly to the vector store
+    // Note: source is NOT a valid filter field - only used when adding
+    const filters: Record<string, unknown> = { user_id: options.user_id };
+    if (options.run_id) filters.run_id = options.run_id;
+
+    // OSS SDK uses topK for limiting results (not pageSize like Platform)
     const getAllOpts: Record<string, unknown> = { filters };
+    if (options.page_size != null) getAllOpts.topK = options.page_size;
 
     const results = await this.memory.getAll(getAllOpts);
     if (Array.isArray(results)) return results.map(normalizeMemoryItem);

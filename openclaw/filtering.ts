@@ -19,6 +19,23 @@ const NOISE_MESSAGE_PATTERNS: RegExp[] = [
   /^System: \[.*\] ⚠️ Post-Compaction Audit:/,
 ];
 
+/** Patterns for session-specific technical content that should not be stored as memories. */
+const SESSION_SPECIFIC_PATTERNS: RegExp[] = [
+  // Tool availability discussions
+  /tools?\s+(are|is)\s+(not\s+)?(exposed|available|accessible)/i,
+  /plugin\s+(does not|doesn't)\s+expose/i,
+  /I\s+(do not|don't)\s+(currently\s+)?see\s+.*tools?\s+exposed/i,
+  /memory_(search|get|add|update|delete|list)\s+(tool|is|are)/i,
+  // Session-specific capability statements
+  /in\s+this\s+session/i,
+  /my\s+(live\s+)?callable\s+tool\s+registry/i,
+  /tools?\s+I\s+(have|currently have)\s+access\s+to/i,
+  // Plugin/capability status statements
+  /openclaw-mem0\s+plugin/i,
+  /memory\s+wiki.*capability/i,
+  /workspace\s+memory\s+files/i,
+];
+
 /** Content fragments that should be stripped from otherwise-valid messages. */
 const NOISE_CONTENT_PATTERNS: Array<{ pattern: RegExp; replacement: string }> =
   [
@@ -82,6 +99,20 @@ export function isNoiseMessage(content: string): boolean {
 }
 
 /**
+ * Check whether a message contains session-specific technical content
+ * that should not be stored (tool availability discussions, plugin
+ * capability statements, etc.). These are facts about the current session
+ * that have no value in future sessions.
+ */
+export function isSessionSpecificContent(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+  // Check if multiple session-specific patterns match (more confident filtering)
+  const matches = SESSION_SPECIFIC_PATTERNS.filter((p) => p.test(trimmed));
+  return matches.length >= 2;
+}
+
+/**
  * Check whether an assistant message is a generic acknowledgment with no
  * extractable facts (e.g. "I see you've shared an update. How can I help?").
  * Only applies to short assistant messages — longer responses likely contain
@@ -120,7 +151,7 @@ function truncateMessage(content: string): string {
 
 /**
  * Full pre-extraction pipeline: drop noise messages, strip noise fragments,
- * and truncate remaining messages to a reasonable length.
+ * filter session-specific content, and truncate remaining messages.
  */
 export function filterMessagesForExtraction(
   messages: Array<{ role: string; content: string }>,
@@ -131,6 +162,8 @@ export function filterMessagesForExtraction(
     // Drop generic assistant acknowledgments that contain no facts
     if (msg.role === "assistant" && isGenericAssistantMessage(msg.content))
       continue;
+    // Drop session-specific technical content (tool availability, plugin capabilities)
+    if (isSessionSpecificContent(msg.content)) continue;
     const cleaned = stripNoiseFromContent(msg.content);
     if (!cleaned) continue;
     filtered.push({ role: msg.role, content: truncateMessage(cleaned) });

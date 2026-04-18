@@ -36,7 +36,7 @@ export interface AddOptions {
   user_id: string;
   run_id?: string;
   custom_instructions?: string;
-  custom_categories?: Array<Record<string, string>>;
+  custom_categories?: Record<string, string>;
   source?: string;
   // Agentic harness additions
   infer?: boolean;
@@ -127,7 +127,7 @@ export interface MemoryItem {
 export interface AddResultItem {
   id: string;
   memory: string;
-  event: "ADD";
+  event: "ADD" | "UPDATE" | "DELETE" | "NOOP";
 }
 
 export interface AddResult {

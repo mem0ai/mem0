@@ -77,13 +77,16 @@ export function createMemoryAddTool(deps: ToolDeps) {
         await provider.search(combinedText.slice(0, 200), dedupOpts);
 
         const result = await provider.add([{ role: "user", content: combinedText }], buildAddOptions(uid, runId, currentSessionId));
-        // v3.0.0: only ADD events returned (UPDATE/DELETE/NOOP removed)
-        const count = result.results?.length ?? 0;
-        const summary = count > 0 ? `${count} added` : "No new memories extracted";
+        const added = result.results?.filter((r) => r.event === "ADD") ?? [];
+        const updated = result.results?.filter((r) => r.event === "UPDATE") ?? [];
+        const summary = [];
+        if (added.length > 0) summary.push(`${added.length} added`);
+        if (updated.length > 0) summary.push(`${updated.length} updated`);
+        if (summary.length === 0) summary.push("No new memories extracted");
 
         deps.captureToolEvent("memory_add", { success: true, latency_ms: Date.now() - start, fact_count: allFacts.length });
         return {
-          content: [{ type: "text", text: `Stored: ${summary}. ${result.results?.map((r) => r.memory).join("; ") ?? ""}` }],
+          content: [{ type: "text", text: `Stored: ${summary.join(", ")}. ${result.results?.map((r) => `[${r.event}] ${r.memory}`).join("; ") ?? ""}` }],
           details: { action: "stored", results: result.results },
         };
       } catch (err) {

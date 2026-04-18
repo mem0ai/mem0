@@ -107,13 +107,14 @@ describe("registerAllTools", () => {
     ]);
   });
 
-  it("registers tools without a second argument (required, not optional)", () => {
+  it("registers tools with optional: false metadata", () => {
     const ctx = createMockToolDeps();
     registerAllTools(ctx);
 
     const calls = (ctx.api.registerTool as ReturnType<typeof vi.fn>).mock.calls;
     for (const call of calls) {
-      expect(call).toHaveLength(1);
+      expect(call).toHaveLength(2);
+      expect(call[1]).toEqual({ optional: false });
     }
   });
 });

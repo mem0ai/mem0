@@ -161,3 +161,13 @@ export function getBaseUrl(): string {
   const auth = readPluginAuth();
   return auth.baseUrl || DEFAULT_BASE_URL;
 }
+
+/** Remove anonymousTelemetryId from config (after PostHog aliasing) */
+export function clearAnonymousTelemetryId(): void {
+  const full = readFullConfig() as any;
+  const cfg = full?.plugins?.entries?.[PLUGIN_ID]?.config;
+  if (cfg && "anonymousTelemetryId" in cfg) {
+    delete cfg.anonymousTelemetryId;
+    writeFullConfig(full);
+  }
+}

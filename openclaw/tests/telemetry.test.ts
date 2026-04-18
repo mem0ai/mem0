@@ -24,7 +24,7 @@ describe("telemetry", () => {
   });
 
   it("exports PLUGIN_VERSION", () => {
-    expect(PLUGIN_VERSION).toBe("1.0.6");
+    expect(PLUGIN_VERSION).toBe("1.0.7");
   });
 
   it("captureEvent does not throw", () => {

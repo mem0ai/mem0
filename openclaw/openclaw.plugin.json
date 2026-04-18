@@ -1,10 +1,17 @@
 {
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
-  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. Injects recalled memories into agent context (auto-recall) and extracts facts after each turn (auto-capture). Both configurable via autoRecall/autoCapture settings.",
+  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. PLATFORM MODE: Sends conversation data to mem0.ai cloud (requires MEM0_API_KEY). OPEN-SOURCE MODE: Stores vectors locally (~/.mem0/history.db) but uses external APIs for embeddings/LLM (default: OpenAI, requires OPENAI_API_KEY). Auto-recall injects memories before agent turns; auto-capture extracts facts after turns. Both configurable via autoRecall/autoCapture settings. Config stored in ~/.openclaw/openclaw.json.",
   "version": "1.0.7",
   "kind": "memory",
   "skills": ["skills"],
+  "commandAliases": [
+    {
+      "name": "mem0",
+      "cliCommand": "mem0",
+      "description": "Mem0 memory plugin commands"
+    }
+  ],
   "contracts": {
     "tools": [
       "memory_search", "memory_add", "memory_get", "memory_list",
@@ -13,7 +20,7 @@
   },
   "providerAuthEnvVars": {
     "mem0": ["MEM0_API_KEY"],
-    "openclaw-mem0-oss": ["OPENAI_API_KEY"]
+    "openclaw-mem0-oss": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "AZURE_OPENAI_API_KEY", "COHERE_API_KEY"]
   },
   "providerAuthChoices": [
     {
