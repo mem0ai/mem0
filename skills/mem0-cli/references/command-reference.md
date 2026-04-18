@@ -77,12 +77,8 @@ Add a memory from text, messages, file, or stdin.
 | `--messages <json>` | string | - | Conversation messages as JSON array (e.g. `'[{"role":"user","content":"..."}]'`). |
 | `-f, --file <path>` | path | - | Read messages from a JSON file. |
 | `-m, --metadata <json>` | string | - | Custom metadata as JSON object (e.g. `'{"source":"cli"}'`). |
-| `--immutable` | boolean | false | Prevent future updates to this memory. |
 | `--no-infer` | boolean | false | Skip inference; store the text verbatim. |
-| `--expires <date>` | string | - | Expiration date in `YYYY-MM-DD` format. |
 | `--categories <cats>` | string | - | Categories as JSON array or comma-separated string. |
-| `--graph` | boolean | false | Enable graph memory extraction for this call. |
-| `--no-graph` | boolean | false | Disable graph memory extraction for this call. |
 | `-o, --output <fmt>` | string | `text` | Output format: `text`, `json`, `quiet`. |
 
 **Input priority:** `--file` > `--messages` > text argument > stdin (if piped and no text).
@@ -134,13 +130,10 @@ Search memories by semantic query.
 | `--app-id <id>` | string | - | Filter by app. |
 | `--run-id <id>` | string | - | Filter by run. |
 | `-k, --top-k, --limit <n>` | integer | 10 | Maximum number of results to return. |
-| `--threshold <score>` | float | 0.3 | Minimum similarity score (0.0 to 1.0). |
+| `--threshold <score>` | float | 0.1 | Minimum similarity score (0.0 to 1.0). |
 | `--rerank` | boolean | false | Enable reranking for improved relevance (Platform only). |
-| `--keyword` | boolean | false | Use keyword search instead of semantic. |
 | `--filter <json>` | string | - | Advanced filter expression as JSON (AND/OR operators). |
 | `--fields <list>` | string | - | Comma-separated list of fields to return. |
-| `--graph` | boolean | false | Enable graph in search. |
-| `--no-graph` | boolean | false | Disable graph in search. |
 | `-o, --output <fmt>` | string | `text` | Output format: `text`, `json`, `table`. |
 
 **Examples:**
@@ -200,8 +193,6 @@ List memories with optional filters and pagination.
 | `--category <name>` | string | - | Filter by category. |
 | `--after <date>` | string | - | Created after (YYYY-MM-DD). |
 | `--before <date>` | string | - | Created before (YYYY-MM-DD). |
-| `--graph` | boolean | false | Enable graph in listing. |
-| `--no-graph` | boolean | false | Disable graph in listing. |
 | `-o, --output <fmt>` | string | `table` | Output format: `text`, `json`, `table`. |
 
 **Examples:**
@@ -373,7 +364,7 @@ Get a single configuration value.
 |------|------|----------|-------------|
 | `key` | string | Yes | Dotted config key (e.g. `platform.api_key`, `defaults.user_id`). |
 
-**Valid keys:** `platform.api_key`, `platform.base_url`, `defaults.user_id`, `defaults.agent_id`, `defaults.app_id`, `defaults.run_id`, `defaults.enable_graph`.
+**Valid keys:** `platform.api_key`, `platform.base_url`, `defaults.user_id`, `defaults.agent_id`, `defaults.app_id`, `defaults.run_id`.
 
 API key values are always redacted in output.
 
@@ -404,7 +395,6 @@ Set a configuration value.
 ```bash
 mem0 config set defaults.user_id alice
 mem0 config set platform.base_url https://api.mem0.ai
-mem0 config set defaults.enable_graph true
 ```
 
 ---
@@ -635,20 +625,6 @@ else:
 ```
 
 This applies to commands with `resolveIds: true`: `add`, `search`, `list`, `delete`, `import`.
-
----
-
-## Graph Tri-State
-
-The `enable_graph` parameter follows a three-level precedence:
-
-```
---no-graph  (explicit disable)  >  --graph  (explicit enable)  >  config default
-```
-
-If `--no-graph` is passed, graph is disabled regardless of other settings. If `--graph` is passed (without `--no-graph`), graph is enabled. If neither is passed, the config value `defaults.enable_graph` is used.
-
-This applies to commands with `resolveGraph: true`: `add`, `search`, `list`.
 
 ---
 
