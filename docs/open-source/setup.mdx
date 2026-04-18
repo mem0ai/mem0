@@ -4,7 +4,7 @@ description: "Stand up the Mem0 REST server and dashboard in a few minutes — a
 icon: "rocket-launch"
 ---
 
-The self-hosted bundle ships the REST API and a web dashboard together. New installs run a one-time setup wizard that creates the admin account, reviews your LLM and embedder config, and generates your first API key.
+The self-hosted bundle ships the REST API and a web dashboard together. There are two ways to get started: a browser-first path that walks you through a setup wizard, or an agent-first path that provisions everything from the command line.
 
 <Info>
   **Use this page when…**
@@ -48,48 +48,59 @@ Copy `server/.env.example` to `server/.env` and fill in the required values. The
 
 ## Start the stack
 
-From the repo root:
+Pick the path that fits your workflow.
+
+### Browser-first (setup wizard)
+
+```bash
+cd server
+make up
+```
+
+This starts the containers and runs database migrations. The REST API listens on `http://localhost:8888` and the dashboard on `http://localhost:3000`.
+
+Open `http://localhost:3000` — since no admin account exists yet, the dashboard redirects to the one-time setup wizard at `/setup`. See [Run the setup wizard](#run-the-setup-wizard) below.
+
+### Agent-first (command line)
 
 ```bash
 cd server
 make bootstrap
 ```
 
-`make bootstrap` starts the containers, runs database migrations, and opens the dashboard at `http://localhost:3000`. The REST API listens on `http://localhost:8888`.
+`make bootstrap` starts the same containers, then automatically creates the admin account and generates the first API key via the CLI. The admin credentials and API key are printed to your terminal — no browser required.
+
+You can override the generated credentials:
+
+```bash
+make bootstrap EMAIL=admin@company.com PASSWORD='strong-password' NAME='Admin'
+```
+
+Because `make bootstrap` already creates the admin, the setup wizard is skipped. Opening `http://localhost:3000` takes you straight to the login page.
 
 <Tip>
-  Prefer raw Docker Compose? `docker compose up` works too — the dashboard still boots at port `3000` and the API at port `8888`.
+  For machine-readable output (useful in CI), run `OUTPUT=json make seed` after `make up`.
 </Tip>
 
 ---
 
 ## Run the setup wizard
 
-On a fresh install the dashboard redirects to `/setup`. Each step submits on Enter.
+<Info>
+  This section applies to the **browser-first** path (`make up`). If you used `make bootstrap`, the admin and API key were already created — skip ahead to [What the dashboard gives you](#what-the-dashboard-gives-you).
+</Info>
 
-<Frame>
-  {/* TODO: screenshot — /setup step 1, admin account */}
-</Frame>
+On a fresh install the dashboard redirects to `/setup`. Each step submits on Enter.
 
 **1. Create the admin account.** Name, email, password. This account becomes the first admin; subsequent calls to `POST /auth/register` return `403`.
 
-<Frame>
-  {/* TODO: screenshot — /setup step 2, config review */}
-</Frame>
-
 **2. Review the effective config.** Read-only display of the LLM and embedder the server is running with, sourced from your environment. If anything is wrong here, stop the stack, fix the `.env`, and restart — the dashboard intentionally does not let you change provider secrets at runtime.
-
-<Frame>
-  {/* TODO: screenshot — /setup step 3, API key */}
-</Frame>
 
 **3. Generate your first API key.** The full `m0sk_...` value is shown **once**. Copy it immediately — the server only stores the prefix and a bcrypt hash.
 
-<Frame>
-  {/* TODO: screenshot — /setup step 4, test curl */}
-</Frame>
+**4. Tell us your use case.** Pick a preset or describe your use case in a few words. Mem0 generates custom instructions that tell the memory system what to prioritize. You can edit the instructions before saving, or skip this step entirely.
 
-**4. Test the key.** A ready-to-paste `curl` exercises `POST /memories` against your new key. Success lands you in the dashboard at `/dashboard/requests`, where you'll see the test call in the live audit log.
+**5. Test the key.** A ready-to-paste `curl` exercises `POST /memories` against your new key. Click "Run Test" to fire it from the browser. Success lands you in the dashboard at `/dashboard/requests`, where you'll see the test call in the live audit log.
 
 ---
 
