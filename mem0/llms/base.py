@@ -1,7 +1,22 @@
+import re
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Union
 
 from mem0.configs.llms.base import BaseLlmConfig
+
+# Reasoning models (OpenAI o-series and GPT-5 family) reject parameters like
+# temperature. A substring check ("gpt-5" in name) misfires on model names
+# such as "gpt-5.4-mini" that happen to share a prefix but support the full
+# chat-completion parameter set. Match explicitly:
+#   o1, o3, o4, o5 (with optional "-suffix" like -preview, -mini, -pro)
+#   gpt-5 exactly, or gpt-5 followed by an alphabetic suffix (gpt-5o),
+#     each optionally followed by "-suffix" (gpt-5-mini, gpt-5o-mini).
+# A digit or "." after the core identifier breaks the match, so gpt-5.4-mini,
+# gpt-5.5, etc. are treated as regular chat models.
+_REASONING_MODEL_PATTERN = re.compile(
+    r"^(?:o[1-9])(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$"
+    r"|^gpt-5[a-z]*(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$"
+)
 
 
 class LLMBase(ABC):
@@ -43,26 +58,14 @@ class LLMBase(ABC):
     def _is_reasoning_model(self, model: str) -> bool:
         """
         Check if the model is a reasoning model or GPT-5 series that doesn't support certain parameters.
-        
+
         Args:
             model: The model name to check
-            
+
         Returns:
             bool: True if the model is a reasoning model or GPT-5 series
         """
-        reasoning_models = {
-            "o1", "o1-preview", "o3-mini", "o3",
-            "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
-        }
-        
-        if model.lower() in reasoning_models:
-            return True
-        
-        model_lower = model.lower()
-        if any(reasoning_model in model_lower for reasoning_model in ["gpt-5", "o1", "o3"]):
-            return True
-            
-        return False
+        return bool(_REASONING_MODEL_PATTERN.match(model.lower()))
 
     def _get_supported_params(self, **kwargs) -> Dict:
         """
