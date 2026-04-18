@@ -5,13 +5,6 @@
   "version": "1.0.7",
   "kind": "memory",
   "skills": ["skills"],
-  "commandAliases": [
-    {
-      "name": "mem0",
-      "cliCommand": "mem0",
-      "description": "Mem0 memory plugin commands"
-    }
-  ],
   "contracts": {
     "tools": [
       "memory_search", "memory_add", "memory_get", "memory_list",
@@ -183,6 +176,9 @@
           },
           "historyDbPath": {
             "type": "string"
+          },
+          "disableHistory": {
+            "type": "boolean"
           }
         }
       },

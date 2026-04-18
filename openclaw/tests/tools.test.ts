@@ -37,7 +37,6 @@ function createMockToolDeps(overrides = {}): ToolDeps {
       searchThreshold: 0.5,
       customInstructions: "test",
       customCategories: {},
-      customPrompt: "test",
     } as any,
     provider: {
       search: vi

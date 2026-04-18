@@ -111,21 +111,19 @@ class PlatformProvider implements Mem0Provider {
     options: AddOptions,
   ): Promise<AddResult> {
     await this.ensureClient();
+    // v3.0.0: user_id stays top-level for add()
     const opts: Record<string, unknown> = { user_id: options.user_id };
     if (options.run_id) opts.run_id = options.run_id;
     if (options.custom_instructions)
       opts.custom_instructions = options.custom_instructions;
     if (options.custom_categories)
       opts.custom_categories = options.custom_categories;
-    if (options.output_format) opts.output_format = options.output_format;
     if (options.source) opts.source = options.source;
     // Agentic harness: direct storage bypass
     if (options.infer !== undefined) opts.infer = options.infer;
     if (options.deduced_memories)
       opts.deduced_memories = options.deduced_memories;
     if (options.metadata) opts.metadata = options.metadata;
-    if (options.expiration_date) opts.expiration_date = options.expiration_date;
-    if (options.immutable) opts.immutable = options.immutable;
 
     const result = await this.client.add(messages, opts);
     return normalizeAddResult(result);
@@ -133,19 +131,13 @@ class PlatformProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
-    const opts: Record<string, unknown> = {
-      api_version: "v2",
-      user_id: options.user_id,
-    };
-    if (options.run_id) opts.run_id = options.run_id;
+    // v3.0.0: user_id must be in filters, not top-level
+    const opts: Record<string, unknown> = {};
     if (options.top_k != null) opts.top_k = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
-    if (options.keyword_search != null)
-      opts.keyword_search = options.keyword_search;
-    if (options.reranking != null) opts.rerank = options.reranking;
-    if (options.filter_memories != null)
-      opts.filter_memories = options.filter_memories;
     if (options.categories != null) opts.categories = options.categories;
+
+    // Build filters with user_id/run_id inside (v3.0.0 requirement)
     const baseFilters: Record<string, unknown> = { user_id: options.user_id };
     if (options.run_id) baseFilters.run_id = options.run_id;
 
@@ -167,13 +159,11 @@ class PlatformProvider implements Mem0Provider {
 
   async getAll(options: ListOptions): Promise<MemoryItem[]> {
     await this.ensureClient();
+    // v3.0.0: user_id must be in filters, not top-level
     const opts: Record<string, unknown> = {
-      api_version: "v2",
-      user_id: options.user_id,
       filters: { user_id: options.user_id },
     };
     if (options.run_id) {
-      opts.run_id = options.run_id;
       (opts.filters as Record<string, unknown>).run_id = options.run_id;
     }
     if (options.page_size != null) opts.page_size = options.page_size;
@@ -226,7 +216,7 @@ class OSSProvider implements Mem0Provider {
 
   constructor(
     private readonly ossConfig?: Mem0Config["oss"],
-    private readonly customPrompt?: string,
+    private readonly customInstructions?: string,
     private readonly resolvePath?: (p: string) => string,
   ) {}
 
@@ -241,7 +231,8 @@ class OSSProvider implements Mem0Provider {
   }
 
   private _buildConfig(disableHistory = false): Record<string, unknown> {
-    const config: Record<string, unknown> = { version: "v1.1" };
+    // v3.0.0: removed version field
+    const config: Record<string, unknown> = {};
 
     const defaultEmbedder = {
       provider: "openai",
@@ -299,7 +290,8 @@ class OSSProvider implements Mem0Provider {
       config.disableHistory = true;
     }
 
-    if (this.customPrompt) config.customPrompt = this.customPrompt;
+    // v3.0.0: customPrompt renamed to customInstructions
+    if (this.customInstructions) config.customInstructions = this.customInstructions;
     return config;
   }
 
@@ -364,9 +356,7 @@ class OSSProvider implements Mem0Provider {
     // Agentic harness: direct storage bypass
     if (options.infer !== undefined) addOpts.infer = options.infer;
     if (options.metadata) addOpts.metadata = options.metadata;
-    if (options.expiration_date)
-      addOpts.expirationDate = options.expiration_date;
-    if (options.immutable) addOpts.immutable = options.immutable;
+    // v3.0.0: removed expiration_date, immutable
 
     // OSS SDK doesn't support deduced_memories — when infer=false, it stores
     // raw message content directly. Rewrite messages to contain the facts so
@@ -385,16 +375,15 @@ class OSSProvider implements Mem0Provider {
 
   async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
     await this.ensureMemory();
-    // OSS SDK uses camelCase: userId/runId, not user_id/run_id
-    const opts: Record<string, unknown> = { userId: options.user_id };
-    if (options.run_id) opts.runId = options.run_id;
-    if (options.limit != null) opts.limit = options.limit;
-    else if (options.top_k != null) opts.limit = options.top_k;
-    if (options.keyword_search != null)
-      opts.keyword_search = options.keyword_search;
-    if (options.reranking != null) opts.reranking = options.reranking;
-    if (options.source) opts.source = options.source;
+    // v3.0.0: userId must be in filters, not top-level; limit renamed to topK
+    const opts: Record<string, unknown> = {};
+    if (options.top_k != null) opts.topK = options.top_k;
     if (options.threshold != null) opts.threshold = options.threshold;
+
+    // Build filters with userId/runId inside (v3.0.0 requirement)
+    const filters: Record<string, unknown> = { userId: options.user_id };
+    if (options.run_id) filters.runId = options.run_id;
+    opts.filters = filters;
 
     const results = await this.memory.search(query, opts);
     const normalized = normalizeSearchResults(results);
@@ -417,10 +406,11 @@ class OSSProvider implements Mem0Provider {
 
   async getAll(options: ListOptions): Promise<MemoryItem[]> {
     await this.ensureMemory();
-    // OSS SDK uses camelCase: userId/runId, not user_id/run_id
-    const getAllOpts: Record<string, unknown> = { userId: options.user_id };
-    if (options.run_id) getAllOpts.runId = options.run_id;
-    if (options.source) getAllOpts.source = options.source;
+    // v3.0.0: userId must be in filters, not top-level
+    const filters: Record<string, unknown> = { userId: options.user_id };
+    if (options.run_id) filters.runId = options.run_id;
+    const getAllOpts: Record<string, unknown> = { filters };
+
     const results = await this.memory.getAll(getAllOpts);
     if (Array.isArray(results)) return results.map(normalizeMemoryItem);
     if (results?.results && Array.isArray(results.results))
@@ -476,7 +466,8 @@ export function createProvider(
   api: OpenClawPluginApi,
 ): Mem0Provider {
   if (cfg.mode === "open-source") {
-    return new OSSProvider(cfg.oss, cfg.customPrompt, (p) =>
+    // v3.0.0: use customInstructions (was customPrompt)
+    return new OSSProvider(cfg.oss, cfg.customInstructions, (p) =>
       api.resolvePath(p),
     );
   }
@@ -502,6 +493,7 @@ export function providerToBackend(
   return {
     async add(content, messages, opts = {}) {
       const msgs = messages ?? (content ? [{ role: "user", content }] : []);
+      // v3.0.0: removed immutable, expiration_date
       const result = await provider.add(
         msgs as Array<{ role: string; content: string }>,
         {
@@ -509,21 +501,18 @@ export function providerToBackend(
           source: "OPENCLAW",
           ...(opts.runId && { run_id: opts.runId }),
           ...(opts.metadata && { metadata: opts.metadata }),
-          ...(opts.immutable && { immutable: true }),
           ...(opts.infer === false && { infer: false }),
-          ...(opts.expires && { expiration_date: opts.expires }),
         },
       );
       return result as unknown as Record<string, unknown>;
     },
 
     async search(query, opts = {}) {
+      // v3.0.0: removed keyword_search, reranking
       const results = await provider.search(query, {
         user_id: opts.userId ?? userId,
         top_k: opts.topK,
         threshold: opts.threshold,
-        keyword_search: opts.keyword,
-        reranking: opts.rerank,
         filters: opts.filters,
         source: "OPENCLAW",
       });

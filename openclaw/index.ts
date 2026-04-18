@@ -197,18 +197,17 @@ const memoryPlugin = definePluginEntry({
       runId?: string,
       sessionKey?: string,
     ): AddOptions {
+      // v3.0.0: removed output_format
       const opts: AddOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
         source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
-      if (cfg.mode === "platform") {
-        opts.output_format = "v1.1";
-      }
       return opts;
     }
 
     // Helper: build search options (skills config overrides legacy defaults)
+    // v3.0.0: removed keyword_search, reranking, filter_memories, limit
     function buildSearchOptions(
       userIdOverride?: string,
       limit?: number,
@@ -219,13 +218,9 @@ const memoryPlugin = definePluginEntry({
       const opts: SearchOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
         top_k: limit ?? cfg.topK,
-        limit: limit ?? cfg.topK,
         threshold: recallCfg?.threshold ?? cfg.searchThreshold,
-        keyword_search: recallCfg?.keywordSearch !== false,
-        reranking: recallCfg?.rerank !== false,
         source: "OPENCLAW",
       };
-      if (recallCfg?.filterMemories) opts.filter_memories = true;
       if (runId) opts.run_id = runId;
       return opts;
     }

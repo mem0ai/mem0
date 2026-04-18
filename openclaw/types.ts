@@ -12,8 +12,7 @@ export type Mem0Config = {
   baseUrl?: string;
   customInstructions: string;
   customCategories: Record<string, string>;
-  // OSS-specific
-  customPrompt?: string;
+  // OSS-specific (customPrompt renamed to customInstructions in v3.0.0)
   oss?: {
     embedder?: { provider: string; config: Record<string, unknown> };
     vectorStore?: { provider: string; config: Record<string, unknown> };
@@ -38,14 +37,11 @@ export interface AddOptions {
   run_id?: string;
   custom_instructions?: string;
   custom_categories?: Array<Record<string, string>>;
-  output_format?: string;
   source?: string;
   // Agentic harness additions
   infer?: boolean;
   deduced_memories?: string[];
   metadata?: Record<string, unknown>;
-  expiration_date?: string;
-  immutable?: boolean;
 }
 
 export interface SearchOptions {
@@ -53,10 +49,6 @@ export interface SearchOptions {
   run_id?: string;
   top_k?: number;
   threshold?: number;
-  limit?: number;
-  keyword_search?: boolean;
-  reranking?: boolean;
-  filter_memories?: boolean;
   categories?: string[];
   filters?: Record<string, unknown>;
   source?: string;
@@ -135,7 +127,7 @@ export interface MemoryItem {
 export interface AddResultItem {
   id: string;
   memory: string;
-  event: "ADD" | "UPDATE" | "DELETE" | "NOOP";
+  event: "ADD";
 }
 
 export interface AddResult {

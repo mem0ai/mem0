@@ -1,7 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import type { AddOptions } from "../types.ts";
 import { isSubagentSession } from "../isolation.ts";
-import { resolveCategories, ttlToExpirationDate } from "../skill-loader.ts";
+// v3.0.0: resolveCategories/ttlToExpirationDate removed - expiration_date/immutable no longer supported
 import type { ToolDeps } from "./index.ts";
 
 export function createMemoryAddTool(deps: ToolDeps) {
@@ -53,21 +53,12 @@ export function createMemoryAddTool(deps: ToolDeps) {
             ...(category && { category }),
             ...(importance !== undefined && { importance }),
           };
-          const categories = resolveCategories(cfg.skills);
-          const catConfig = category ? categories[category] : undefined;
-          const expirationDate = catConfig ? ttlToExpirationDate(catConfig.ttl) : undefined;
-          const isImmutable = catConfig?.immutable ?? false;
 
           const addOpts: AddOptions = {
             user_id: uid, source: "OPENCLAW", infer: false,
             deduced_memories: allFacts, metadata: parsedMetadata ?? {},
-            ...(expirationDate && { expiration_date: expirationDate }),
-            ...(isImmutable && { immutable: true }),
           };
           if (runId) addOpts.run_id = runId;
-          if (cfg.mode === "platform") {
-            addOpts.output_format = "v1.1";
-          }
 
           const result = await provider.add([{ role: "user", content: allFacts.join("\n") }], addOpts);
           const count = result.results?.length ?? 0;
@@ -86,16 +77,13 @@ export function createMemoryAddTool(deps: ToolDeps) {
         await provider.search(combinedText.slice(0, 200), dedupOpts);
 
         const result = await provider.add([{ role: "user", content: combinedText }], buildAddOptions(uid, runId, currentSessionId));
-        const added = result.results?.filter((r) => r.event === "ADD") ?? [];
-        const updated = result.results?.filter((r) => r.event === "UPDATE") ?? [];
-        const summary = [];
-        if (added.length > 0) summary.push(`${added.length} added`);
-        if (updated.length > 0) summary.push(`${updated.length} updated`);
-        if (summary.length === 0) summary.push("No new memories extracted");
+        // v3.0.0: only ADD events returned (UPDATE/DELETE/NOOP removed)
+        const count = result.results?.length ?? 0;
+        const summary = count > 0 ? `${count} added` : "No new memories extracted";
 
         deps.captureToolEvent("memory_add", { success: true, latency_ms: Date.now() - start, fact_count: allFacts.length });
         return {
-          content: [{ type: "text", text: `Stored: ${summary.join(", ")}. ${result.results?.map((r) => `[${r.event}] ${r.memory}`).join("; ") ?? ""}` }],
+          content: [{ type: "text", text: `Stored: ${summary}. ${result.results?.map((r) => r.memory).join("; ") ?? ""}` }],
           details: { action: "stored", results: result.results },
         };
       } catch (err) {

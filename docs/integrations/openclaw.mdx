@@ -18,11 +18,32 @@ The plugin provides:
 
 Both auto-recall and auto-capture run silently with no manual configuration required.
 
+## Requirements
+
+- **OpenClaw**: `>=2026.3.28` (plugin API and gateway version)
+- **Node.js**: 18+ (for open-source mode)
+
 ## Installation
 
 ```bash
 openclaw plugins install @mem0/openclaw-mem0
 ```
+
+Then select this plugin as the active memory backend in your `openclaw.json`:
+
+```json5
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    }
+  }
+}
+```
+
+<Warning>
+OpenClaw treats memory plugins as an exclusive slot. Installing the plugin alone does **not** activate it — you must also set `plugins.slots.memory` as shown above.
+</Warning>
 
 ## Setup and Configuration
 
@@ -47,12 +68,20 @@ All memories are scoped to this `userId` — different values create separate me
 Add to your `openclaw.json`:
 
 ```json5
-// plugins.entries
-"openclaw-mem0": {
-  "enabled": true,
-  "config": {
-    "apiKey": "${MEM0_API_KEY}",
-    "userId": "alice"  // any unique identifier you choose for this user
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    },
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "apiKey": "${MEM0_API_KEY}",
+          "userId": "alice"  // any unique identifier you choose for this user
+        }
+      }
+    }
   }
 }
 ```
@@ -62,11 +91,20 @@ Add to your `openclaw.json`:
 No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings/LLM.
 
 ```json5
-"openclaw-mem0": {
-  "enabled": true,
-  "config": {
-    "mode": "open-source",
-    "userId": "alice"  // any unique identifier you choose for this user
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    },
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "mode": "open-source",
+          "userId": "alice"  // any unique identifier you choose for this user
+        }
+      }
+    }
   }
 }
 ```
@@ -74,13 +112,25 @@ No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings/LLM.
 Sensible defaults work out of the box. To customize the embedder, vector store, or LLM:
 
 ```json5
-"config": {
-  "mode": "open-source",
-  "userId": "your-user-id",
-  "oss": {
-    "embedder": { "provider": "openai", "config": { "model": "text-embedding-3-small" } },
-    "vectorStore": { "provider": "qdrant", "config": { "host": "localhost", "port": 6333 } },
-    "llm": { "provider": "openai", "config": { "model": "gpt-4o" } }
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    },
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "mode": "open-source",
+          "userId": "your-user-id",
+          "oss": {
+            "embedder": { "provider": "openai", "config": { "model": "text-embedding-3-small" } },
+            "vectorStore": { "provider": "qdrant", "config": { "host": "localhost", "port": 6333 } },
+            "llm": { "provider": "openai", "config": { "model": "gpt-4o" } }
+          }
+        }
+      }
+    }
   }
 }
 ```
@@ -93,7 +143,7 @@ Memories are organized into two scopes:
 
 - **Session (short-term)** — Auto-capture stores memories scoped to the current session via Mem0's `run_id` / `runId` parameter. These are contextual to the ongoing conversation.
 
-- **User (long-term)** — The agent can explicitly store long-term memories using the `memory_store` tool (with `longTerm: true`, the default). These persist across all sessions for the user.
+- **User (long-term)** — The agent can explicitly store long-term memories using the `memory_add` tool (with `longTerm: true`, the default). These persist across all sessions for the user.
 
 During **auto-recall**, the plugin searches both scopes and presents them separately — long-term memories first, then session memories — so the agent has full context.
 
@@ -164,8 +214,70 @@ openclaw mem0 list --user-id alice --top-k 20
 | `oss.llm.provider` | `string` | `"openai"` | LLM provider (`"openai"`, `"anthropic"`, `"ollama"`, etc.) |
 | `oss.llm.config` | `object` | — | Provider config: `apiKey`, `model`, `baseURL`, `temperature` |
 | `oss.historyDbPath` | `string` | — | SQLite path for memory edit history |
+| `oss.disableHistory` | `boolean` | `false` | Disable memory edit history tracking |
 
 Everything inside `oss` is optional — defaults use OpenAI embeddings (`text-embedding-3-small`), in-memory vector store, and OpenAI LLM.
+
+## Plugin Management
+
+### Updating the Plugin
+
+```bash
+openclaw plugins update @mem0/openclaw-mem0
+```
+
+<Note>Use the npm package name (`@mem0/openclaw-mem0`) for plugin management commands, not the plugin ID (`openclaw-mem0`).</Note>
+
+### Checking Plugin Status
+
+```bash
+openclaw plugins list
+openclaw plugins inspect openclaw-mem0
+```
+
+## Troubleshooting
+
+### "plugins.allow excludes mem0" Error
+
+If you see an error like:
+
+```
+[openclaw] Failed to start CLI: Error: The `openclaw mem0` command is unavailable 
+because `plugins.allow` excludes "mem0". Add "mem0" to `plugins.allow` if you want 
+that bundled plugin CLI surface.
+```
+
+Add `mem0` to your `plugins.allow` list in `openclaw.json`:
+
+```json5
+{
+  "plugins": {
+    "allow": ["mem0"],
+    "slots": {
+      "memory": "openclaw-mem0"
+    }
+  }
+}
+```
+
+### Plugin Not Activating
+
+If the plugin installs but doesn't work:
+
+1. Verify `plugins.slots.memory` is set to `"openclaw-mem0"` (not the npm package name)
+2. Check `openclaw plugins list --enabled` to confirm the plugin is loaded
+3. Run `openclaw mem0 status` to verify configuration
+
+### Plugin Update Not Working
+
+If `openclaw plugins update` fails:
+
+1. Use the full npm package name: `openclaw plugins update @mem0/openclaw-mem0`
+2. If that fails, uninstall and reinstall:
+   ```bash
+   openclaw plugins uninstall openclaw-mem0
+   openclaw plugins install @mem0/openclaw-mem0
+   ```
 
 ## Key Features
 

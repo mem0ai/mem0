@@ -15,6 +15,20 @@ Your agent forgets everything between sessions. This plugin fixes that — it wa
 openclaw plugins install @mem0/openclaw-mem0
 ```
 
+Then select this plugin as the active memory backend in your `openclaw.json`:
+
+```json5
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    }
+  }
+}
+```
+
+> **Note:** OpenClaw memory plugins load through an exclusive slot, so install alone does not activate the plugin. You must set `plugins.slots.memory` as shown above.
+
 ### Platform (Mem0 Cloud)
 
 Get an API key from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys):
@@ -26,11 +40,20 @@ openclaw mem0 init --api-key <your-key> --user-id <your-user-id>
 Or configure manually in `openclaw.json`:
 
 ```json5
-"openclaw-mem0": {
-  "enabled": true,
-  "config": {
-    "apiKey": "${MEM0_API_KEY}",
-    "userId": "alice"
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    },
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "apiKey": "${MEM0_API_KEY}",
+          "userId": "alice"
+        }
+      }
+    }
   }
 }
 ```
@@ -42,11 +65,20 @@ No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings and LLM. Ve
 Defaults: `text-embedding-3-small` for embeddings, `gpt-5.4` for fact extraction.
 
 ```json5
-"openclaw-mem0": {
-  "enabled": true,
-  "config": {
-    "mode": "open-source",
-    "userId": "alice"
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    },
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "mode": "open-source",
+          "userId": "alice"
+        }
+      }
+    }
   }
 }
 ```

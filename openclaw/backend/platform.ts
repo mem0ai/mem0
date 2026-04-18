@@ -107,9 +107,7 @@ export class PlatformBackend implements Backend {
     if (opts.appId) payload.app_id = opts.appId;
     if (opts.runId) payload.run_id = opts.runId;
     if (opts.metadata) payload.metadata = opts.metadata;
-    if (opts.immutable) payload.immutable = true;
     if (opts.infer === false) payload.infer = false;
-    if (opts.expires) payload.expiration_date = opts.expires;
     if (opts.categories) payload.categories = opts.categories;
 
     return (await this._request("POST", "/v1/memories/", {
@@ -168,7 +166,6 @@ export class PlatformBackend implements Backend {
     });
     if (apiFilters) payload.filters = apiFilters;
     if (opts.rerank) payload.rerank = true;
-    if (opts.keyword) payload.keyword_search = true;
     if (opts.fields) payload.fields = opts.fields;
 
     const result = (await this._request("POST", "/v2/memories/search/", {
