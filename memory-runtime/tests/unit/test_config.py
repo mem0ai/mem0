@@ -31,8 +31,9 @@ class SettingsTests(unittest.TestCase):
                 debug=False,
                 api_prefix="/v1",
                 api_port=8080,
-                postgres_dsn="postgresql://postgres:postgres@localhost:5432/memory_runtime",
+                postgres_dsn="sqlite+pysqlite:///./memory_runtime.db",
                 redis_url="redis://localhost:6379/0",
+                auto_create_tables=True,
             ),
         )
 

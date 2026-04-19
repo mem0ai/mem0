@@ -18,8 +18,13 @@ class Settings:
     debug: bool = False
     api_prefix: str = "/v1"
     api_port: int = 8080
-    postgres_dsn: str = "postgresql://postgres:postgres@localhost:5432/memory_runtime"
+    postgres_dsn: str = "sqlite+pysqlite:///./memory_runtime.db"
     redis_url: str = "redis://localhost:6379/0"
+    auto_create_tables: bool = True
+
+    @property
+    def database_url(self) -> str:
+        return self.postgres_dsn
 
 
 @lru_cache(maxsize=1)
@@ -32,7 +37,8 @@ def get_settings() -> Settings:
         api_port=int(os.getenv("MEMORY_RUNTIME_API_PORT", "8080")),
         postgres_dsn=os.getenv(
             "MEMORY_RUNTIME_POSTGRES_DSN",
-            "postgresql://postgres:postgres@localhost:5432/memory_runtime",
+            "sqlite+pysqlite:///./memory_runtime.db",
         ),
         redis_url=os.getenv("MEMORY_RUNTIME_REDIS_URL", "redis://localhost:6379/0"),
+        auto_create_tables=_to_bool(os.getenv("MEMORY_RUNTIME_AUTO_CREATE_TABLES"), default=True),
     )

@@ -43,6 +43,9 @@ cp .env.example .env
 - `MEMORY_RUNTIME_POSTGRES_DSN`
 - `MEMORY_RUNTIME_REDIS_URL`
 
+По умолчанию локальный scaffold использует SQLite-файл для безопасного старта без внешней БД.
+Для Docker и реального runtime используется явный Postgres DSN из `.env`.
+
 ## Установка dev-зависимостей
 
 ```bash
@@ -77,6 +80,7 @@ docker compose up --build
 
 - конфигурацию по умолчанию и через environment variables
 - health endpoint
+- namespace and agent API baseline
 
 Команды запуска:
 
@@ -84,6 +88,13 @@ docker compose up --build
 cd memory-runtime
 make test-unittest
 make test
+```
+
+Миграции:
+
+```bash
+cd memory-runtime
+make migrate
 ```
 
 ## Quality workflow

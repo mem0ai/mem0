@@ -9,9 +9,12 @@ description = "Autonomous memory runtime for agent systems"
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 dependencies = [
+    "alembic>=1.13.0",
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
     "pydantic>=2.7.0",
+    "psycopg[binary]>=3.2.0",
+    "sqlalchemy>=2.0.0",
 ]
 
 [project.optional-dependencies]

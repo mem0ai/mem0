@@ -8,7 +8,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      MEMORY_RUNTIME_POSTGRES_DSN: postgresql://postgres:postgres@postgres:5432/memory_runtime
+      MEMORY_RUNTIME_POSTGRES_DSN: postgresql+psycopg://postgres:postgres@postgres:5432/memory_runtime
       MEMORY_RUNTIME_REDIS_URL: redis://redis:6379/0
     depends_on:
       - postgres

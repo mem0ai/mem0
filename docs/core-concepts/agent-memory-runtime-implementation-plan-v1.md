@@ -40,6 +40,33 @@
 - базовые тесты проходят
 - документация синхронизирована с кодом
 
+### Текущий прогресс `Phase B`
+
+В сервисе уже реализован первый data-model срез:
+
+- `SQLAlchemy` database layer
+- `Alembic` scaffold и initial migration
+- модели `namespaces`, `agents`, `memory_spaces`, `memory_events`
+- repository layer для namespace/agent/space
+- API endpoints:
+  - `POST /v1/namespaces`
+  - `GET /v1/namespaces/{id}`
+  - `POST /v1/namespaces/{id}/agents`
+- auto-provisioning default memory spaces for agents
+- integration tests на миграции и repositories
+- component tests на namespace API
+
+### Статус `Phase B`
+
+`Phase B` считается завершенной в ее первом запланированном объеме.
+
+Подтверждение:
+
+- core tables описаны и покрыты migration test
+- repository layer реализован
+- namespace management endpoints реализованы
+- unit/component/integration suite проходит
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:

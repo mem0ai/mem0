@@ -23,3 +23,6 @@ format:
 
 smoke:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v
+
+migrate:
+	.venv/bin/alembic upgrade head

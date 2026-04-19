@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 
+from app.database import init_database
 from app.dependencies import get_app_settings
 from app.routers.health import router as health_router
+from app.routers.namespaces import router as namespaces_router
 
 
 def create_app() -> FastAPI:
@@ -15,6 +17,10 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(health_router)
+    app.include_router(namespaces_router, prefix=settings.api_prefix)
+
+    if settings.auto_create_tables:
+        init_database()
 
     @app.get("/", tags=["meta"])
     async def root() -> dict[str, str]:
