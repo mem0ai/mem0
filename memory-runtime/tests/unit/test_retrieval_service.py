@@ -112,3 +112,43 @@ class RetrievalServiceContractTests(unittest.TestCase):
         expected = json.loads(fixture_path.read_text())
 
         self.assertEqual(brief, expected)
+
+    def test_collect_selected_space_types_preserves_shared_space(self) -> None:
+        from app.services.retrieval import RetrievalCandidate, RetrievalService
+
+        selected = RetrievalService.collect_selected_space_types(
+            [
+                RetrievalCandidate(
+                    episode_id="ep-shared",
+                    space_type="shared-space",
+                    event_type="architecture_decision",
+                    summary="architecture_decision: Shared stack uses Postgres and Redis.",
+                    raw_text="assistant: Shared stack uses Postgres and Redis.",
+                    importance_hint="high",
+                    created_at="2026-04-20T09:00:00+00:00",
+                    session_id="run_a",
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-agent",
+                    space_type="agent-core",
+                    event_type="policy_update",
+                    summary="policy_update: Keep private formatting guidance isolated.",
+                    raw_text="assistant: Keep private formatting guidance isolated.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T09:05:00+00:00",
+                    session_id="run_b",
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-shared-2",
+                    space_type="shared-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: Shared deployment notes.",
+                    raw_text="assistant: Shared deployment notes.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T09:10:00+00:00",
+                    session_id="run_c",
+                ),
+            ]
+        )
+
+        self.assertEqual(selected, ["shared-space", "agent-core"])

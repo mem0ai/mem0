@@ -756,7 +756,33 @@ erDiagram
 }
 ```
 
-### 11.4 Explicit memory ops
+### 11.4 Adapter contracts
+
+`POST /v1/adapters/openclaw/events`
+
+Записать событие через контракт интеграции `OpenClaw`.
+`source_system` фиксируется адаптером и не передается снаружи.
+
+`POST /v1/adapters/openclaw/recall`
+
+Сделать recall через контракт интеграции `OpenClaw`.
+
+`POST /v1/adapters/bunkerai/events`
+
+Записать событие через контракт интеграции `BunkerAI`.
+
+`POST /v1/adapters/bunkerai/recall`
+
+Сделать recall через контракт интеграции `BunkerAI`.
+
+Адаптерный слой в текущей реализации:
+
+- валидирует, что namespace поддерживает нужный `source_system`
+- валидирует, что агент принадлежит нужному adapter/source-system
+- оборачивает базовые `events/recall` ответы в стабильный integration contract
+- сохраняет межагентную видимость только для `shared-space`
+
+### 11.5 Explicit memory ops
 
 `POST /v1/memories`
 
@@ -774,7 +800,7 @@ erDiagram
 
 Посмотреть историю memory unit.
 
-### 11.5 Space inspection
+### 11.6 Space inspection
 
 `GET /v1/spaces/{space_id}/memories`
 
@@ -987,12 +1013,12 @@ stateDiagram-v2
 
 - реализовать lifecycle jobs
 - добавить audit trail и recall traces
-- интегрировать OpenClaw adapter
+- интегрировать OpenClaw adapter в TypeScript client/runtime
 
 ### Sprint 5
 
-- добавить BunkerAI adapter
-- включить shared namespace mode
+- добавить BunkerAI adapter в клиентский runtime
+- расширить shared namespace mode до long-term `memory_units` retrieval
 - настроить usefulness signals и базовую автооптимизацию
 
 ## 18. Ключевые риски
@@ -1048,8 +1074,8 @@ stateDiagram-v2
 - SQL schema v1
 - job runner technology
 - конфигурационную модель retention policies
-- адаптерный контракт для `OpenClaw`
-- адаптерный контракт для `BunkerAI`
+- evolution-политику adapter contracts для `OpenClaw`
+- evolution-политику adapter contracts для `BunkerAI`
 - где кончается `mem0-core` и начинается `memory-runtime`
 
 ## 20. Следующий артефакт

@@ -7,6 +7,7 @@
 - FastAPI приложение
 - конфигурация через environment variables
 - health endpoint
+- namespace, event, recall, and adapter APIs
 - Dockerfile
 - Docker Compose для локального старта
 - минимальная test harness
@@ -74,6 +75,23 @@ docker compose up --build
 - `http://localhost:8080/healthz`
 - `http://localhost:8080/docs`
 
+## API surface
+
+Уже реализованы:
+
+- `POST /v1/namespaces`
+- `GET /v1/namespaces/{namespace_id}`
+- `POST /v1/namespaces/{namespace_id}/agents`
+- `POST /v1/events`
+- `POST /v1/recall`
+- `POST /v1/adapters/openclaw/events`
+- `POST /v1/adapters/openclaw/recall`
+- `POST /v1/adapters/bunkerai/events`
+- `POST /v1/adapters/bunkerai/recall`
+
+Адаптерные endpoints фиксируют source-system contract для интеграций и работают поверх того же ingestion/recall pipeline.
+В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
+
 ## Тесты
 
 Базовые scaffold-тесты покрывают:
@@ -85,6 +103,8 @@ docker compose up --build
 - recall baseline and `MemoryBrief` structure
 - consolidation jobs, worker processing, and `memory_units` baseline
 - lifecycle jobs, decay/archive/eviction baseline, and internal metrics counters
+- adapter contracts for `OpenClaw` and `BunkerAI`
+- shared namespace e2e scenario for cross-agent memory exchange
 
 Команды запуска:
 

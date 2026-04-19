@@ -80,16 +80,7 @@ class RetrievalService:
 
         ranked = self.rank_candidates(payload.query, candidates, payload.session_id)
         brief_dict = self.build_memory_brief(ranked)
-        selected_space_types = [
-            space_type
-            for space_type, items in {
-                "agent-core": brief_dict["standing_procedures"],
-                "project-space": brief_dict["active_project_context"] + brief_dict["prior_decisions"],
-                "shared-space": brief_dict["active_project_context"] + brief_dict["critical_facts"],
-                "session-space": brief_dict["recent_session_carryover"],
-            }.items()
-            if items
-        ]
+        selected_space_types = self.collect_selected_space_types(ranked)
 
         selected_count = sum(len(items) for items in brief_dict.values())
         return RecallResponse(
@@ -146,6 +137,14 @@ class RetrievalService:
                 brief[slot].append(item)
                 seen[slot].add(item)
         return brief
+
+    @staticmethod
+    def collect_selected_space_types(ranked_candidates: list[RetrievalCandidate]) -> list[str]:
+        selected_space_types: list[str] = []
+        for candidate in ranked_candidates:
+            if candidate.space_type not in selected_space_types:
+                selected_space_types.append(candidate.space_type)
+        return selected_space_types
 
     @staticmethod
     def _extract_event_type(summary: str) -> str:

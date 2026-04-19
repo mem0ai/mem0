@@ -2,6 +2,7 @@ from fastapi import FastAPI
 
 from app.database import init_database
 from app.dependencies import get_app_settings
+from app.routers.adapters import router as adapters_router
 from app.routers.events import router as events_router
 from app.routers.health import router as health_router
 from app.routers.namespaces import router as namespaces_router
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(namespaces_router, prefix=settings.api_prefix)
+    app.include_router(adapters_router, prefix=settings.api_prefix)
     app.include_router(events_router, prefix=settings.api_prefix)
     app.include_router(recall_router, prefix=settings.api_prefix)
 

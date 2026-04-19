@@ -484,6 +484,20 @@ Definition of Done:
 - есть contract tests на оба адаптера
 - есть e2e shared namespace scenario
 
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- реализованы `POST /v1/adapters/openclaw/events` и `POST /v1/adapters/openclaw/recall`
+- реализованы `POST /v1/adapters/bunkerai/events` и `POST /v1/adapters/bunkerai/recall`
+- adapter layer валидирует namespace support и source-system ownership агента
+- `shared-space` доступен между агентами в shared namespace
+- `agent-core` не протекает между агентами
+- есть component contract tests на оба адаптера
+- есть integration/e2e тест на межагентный shared recall
+
 ## 6. Первые технические backlog items
 
 ### Iteration 1

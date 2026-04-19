@@ -57,7 +57,11 @@ class EpisodeRepository:
         )
 
         if agent_id is not None:
-            stmt = stmt.where((Episode.agent_id == agent_id) | (Episode.agent_id.is_(None)))
+            stmt = stmt.where(
+                (Episode.agent_id == agent_id)
+                | (Episode.agent_id.is_(None))
+                | (MemorySpace.space_type == "shared-space")
+            )
 
         if session_id is not None:
             stmt = stmt.order_by((Episode.session_id == session_id).desc(), Episode.created_at.desc())
