@@ -171,6 +171,20 @@ cd /Users/slava/Documents/mem0-src/memory-runtime
 make test-e2e
 ```
 
+### Unified preflight check
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make preflight
+```
+
+Результат:
+
+- подтверждается доступность `healthz`, `/metrics` и `/v1/observability/stats`
+- проверяется worker round-trip на тестовом событии
+- проверяется recall round-trip на том же контуре
+- JSON report сохраняется в `.artifacts/openclaw_preflight_report.json`
+
 ### Full synthetic pilot smoke
 
 ```bash

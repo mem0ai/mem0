@@ -164,6 +164,7 @@ cd memory-runtime
 make test-unittest
 make test
 make test-e2e
+make preflight
 make pilot-smoke
 make pilot-scenarios
 make quality-eval
@@ -175,6 +176,7 @@ make show-last-quality-eval
 make reset-pilot
 ```
 
+`make preflight` прогоняет единый runtime preflight check и сохраняет JSON report в `.artifacts/openclaw_preflight_report.json`.
 `make pilot-smoke` поднимает Docker stack, прогоняет synthetic OpenClaw pilot contour и сохраняет JSON report в `.artifacts/openclaw_pilot_smoke_report.json`.
 `make pilot-scenarios` прогоняет 5 наиболее важных OpenClaw pilot scenarios и сохраняет JSON report в `.artifacts/openclaw_pilot_scenarios_report.json`.
 `make quality-eval` прогоняет 10 golden recall scenarios, печатает JSON report и служит регрессионным барьером для retrieval tuning.

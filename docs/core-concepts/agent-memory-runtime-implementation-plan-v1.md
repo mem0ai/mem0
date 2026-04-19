@@ -866,6 +866,25 @@ Definition of Done:
 - каждая проверка сохраняет trace и jobs snapshot для быстрого разбора failure
 - live pilot scenarios теперь частично автоматизированы и не зависят только от ручного walkthrough
 
+### Unified Preflight Check
+
+До живого pilot в проект добавлен единый preflight gate:
+
+- отдельный runner `make preflight`
+- проверяются `healthz`, `/metrics`, `/v1/observability/stats`, worker round-trip и recall round-trip
+- machine-readable report сохраняется в `.artifacts/openclaw_preflight_report.json`
+- preflight можно запускать перед каждым live pilot без ручной пошаговой диагностики
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- preflight проходит green на synthetic contour
+- один прогон подтверждает не только доступность API, но и работоспособность worker + recall path
+- оператор получает компактный verdict `pass/fail` вместо ручной проверки нескольких эндпоинтов
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

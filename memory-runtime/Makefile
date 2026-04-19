@@ -1,4 +1,4 @@
-.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e pilot-smoke pilot-scenarios quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot show-last-smoke show-last-quality-eval
+.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e preflight pilot-smoke pilot-scenarios quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot show-last-smoke show-last-quality-eval
 
 PYTHON ?= python3
 PORT ?= 8080
@@ -20,6 +20,9 @@ test:
 
 test-e2e:
 	$(PYTHON) -m pytest tests/e2e
+
+preflight:
+	bash scripts/openclaw_preflight.sh
 
 pilot-smoke:
 	bash scripts/openclaw_pilot_smoke.sh
