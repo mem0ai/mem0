@@ -352,8 +352,9 @@
 - harness воспроизводимо прогоняет recall scenarios
 - golden scenarios проходят после retrieval tuning
 - harness стал регрессионным барьером для recall quality
-- quality pack расширен до `5` golden recall scenarios
+- quality pack расширен до `10` golden recall scenarios
 - durable / architecture-oriented queries больше не тянут `session-space` без явного session intent
+- recall regression suite теперь покрывает architecture, procedures, session carryover, durable boundaries, integrations, storage boundaries, shared-memory concepts и noise resistance
 
 ### Pilot Scenario Pack
 

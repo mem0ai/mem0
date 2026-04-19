@@ -88,5 +88,93 @@
       "book flights for the conference",
       "temporary scratch note"
     ]
+  },
+  {
+    "id": "integration-surface",
+    "description": "Recall should surface the current integration surface without leaking session scratch work.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "Which integration surfaces already exist for the memory runtime?",
+      "context_budget_tokens": 900
+    },
+    "must_contain": [
+      "adapter APIs for OpenClaw and BunkerAI"
+    ],
+    "must_not_contain": [
+      "Temporary naming experiment",
+      "Finalize the demo title slide"
+    ]
+  },
+  {
+    "id": "debugging-procedure",
+    "description": "Recall should prioritize operational guidance for lifecycle debugging.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "How should I start debugging lifecycle issues?",
+      "context_budget_tokens": 800
+    },
+    "must_contain": [
+      "inspect observability stats before debugging lifecycle issues"
+    ],
+    "must_not_contain": [
+      "book flights for the conference"
+    ]
+  },
+  {
+    "id": "primary-storage-boundary",
+    "description": "Recall should distinguish primary runtime storage from scratch-only storage.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "What primary runtime storage should I keep in mind?",
+      "context_budget_tokens": 900
+    },
+    "must_contain": [
+      "Postgres, Redis, and pgvector as the baseline stack"
+    ],
+    "must_not_contain": [
+      "SQLite is only for local scratch experiments"
+    ]
+  },
+  {
+    "id": "shared-memory-concept",
+    "description": "Recall should surface shared-memory collaboration concepts without mixing in active session chatter.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "How do linked agents collaborate through memory?",
+      "context_budget_tokens": 850
+    },
+    "must_contain": [
+      "Shared namespaces allow linked agents to collaborate through shared memory"
+    ],
+    "must_not_contain": [
+      "pilot acceptance checklist",
+      "Finalize the demo title slide"
+    ]
+  },
+  {
+    "id": "current-session-focus",
+    "description": "Recall should keep current session focus compact and avoid unrelated platform context.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "What am I working on right now in this session?",
+      "context_budget_tokens": 700
+    },
+    "must_contain": [
+      "draft the pilot acceptance checklist",
+      "Finalize the demo title slide"
+    ],
+    "must_not_contain": [
+      "adapter APIs for OpenClaw and BunkerAI"
+    ]
   }
 ]

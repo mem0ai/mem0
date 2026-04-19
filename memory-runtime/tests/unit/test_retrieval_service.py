@@ -178,7 +178,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
             context_budget_tokens=800,
         )
 
-        self.assertEqual([candidate.episode_id for candidate in selected], ["ep-policy"])
+        self.assertEqual([candidate.episode_id for candidate in selected], ["ep-policy", "ep-runtime"])
 
     def test_rank_candidates_prefers_durable_project_context_over_active_session_scratch(self) -> None:
         from app.services.retrieval import RetrievalCandidate, RetrievalService
@@ -254,6 +254,74 @@ class RetrievalServiceContractTests(unittest.TestCase):
         )
 
         self.assertEqual([candidate.episode_id for candidate in selected], ["ep-stack"])
+
+    def test_rank_candidates_prefers_integration_memory_for_integration_query(self) -> None:
+        from app.services.retrieval import RetrievalCandidate, RetrievalService
+
+        ranked = RetrievalService.rank_candidates(
+            query="Which integration surfaces already exist for the memory runtime?",
+            candidates=[
+                RetrievalCandidate(
+                    episode_id="ep-architecture",
+                    space_type="project-space",
+                    event_type="architecture_decision",
+                    summary="architecture_decision: We decided to keep the memory runtime Python-first architecture for v1.",
+                    raw_text="assistant: We decided to keep the memory runtime Python-first architecture for v1.",
+                    importance_hint="high",
+                    created_at="2026-04-20T09:00:00+00:00",
+                    session_id="run_1",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-integration",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: The runtime exposes adapter APIs for OpenClaw and BunkerAI.",
+                    raw_text="assistant: The runtime exposes adapter APIs for OpenClaw and BunkerAI.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T08:00:00+00:00",
+                    session_id="run_1",
+                    usefulness_score=0.0,
+                ),
+            ],
+            active_session_id=None,
+        )
+
+        self.assertEqual(ranked[0].episode_id, "ep-integration")
+
+    def test_rank_candidates_penalizes_scratch_storage_for_primary_runtime_query(self) -> None:
+        from app.services.retrieval import RetrievalCandidate, RetrievalService
+
+        ranked = RetrievalService.rank_candidates(
+            query="What primary runtime storage should I keep in mind?",
+            candidates=[
+                RetrievalCandidate(
+                    episode_id="ep-stack",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: The memory runtime uses Postgres, Redis, and pgvector as the baseline stack.",
+                    raw_text="assistant: The memory runtime uses Postgres, Redis, and pgvector as the baseline stack.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T09:00:00+00:00",
+                    session_id="run_1",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-scratch",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: SQLite is only for local scratch experiments and not the primary runtime database.",
+                    raw_text="assistant: SQLite is only for local scratch experiments and not the primary runtime database.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T10:00:00+00:00",
+                    session_id="run_1",
+                    usefulness_score=0.0,
+                ),
+            ],
+            active_session_id=None,
+        )
+
+        self.assertEqual(ranked[0].episode_id, "ep-stack")
 
     def test_build_memory_brief_matches_golden_fixture(self) -> None:
         from app.services.retrieval import RetrievalCandidate, RetrievalService

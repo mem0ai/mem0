@@ -43,6 +43,8 @@ STOPWORDS = {
 }
 SESSION_INTENT_TOKENS = {"current", "currently", "session", "active", "working"}
 LONG_TERM_INTENT_TOKENS = {"durable", "project", "context", "architecture", "long", "term"}
+INTEGRATION_INTENT_TOKENS = {"integration", "integrations", "adapter", "adapters", "surface", "surfaces"}
+PRIMARY_RUNTIME_INTENT_TOKENS = {"primary", "runtime", "storage", "database", "stack"}
 PROCEDURAL_INTENT_TOKENS = {
     "present",
     "update",
@@ -56,6 +58,8 @@ PROCEDURAL_INTENT_TOKENS = {
     "policy",
 }
 INFRASTRUCTURE_TOKENS = {"worker", "postgres", "redis", "pgvector", "database", "stack", "deployment"}
+INTEGRATION_TOKENS = {"openclaw", "bunkerai", "adapter", "adapters", "integration", "integrations"}
+SCRATCH_TOKENS = {"scratch", "temporary", "experiment", "experiments", "deprecated"}
 MAX_ITEMS_BY_SLOT = {
     "critical_facts": 1,
     "active_project_context": 2,
@@ -218,11 +222,17 @@ class RetrievalService:
         query_tokens = cls._normalize_tokens(query)
         explicit_session_intent = bool(query_tokens & SESSION_INTENT_TOKENS)
         long_term_intent = bool(query_tokens & LONG_TERM_INTENT_TOKENS)
+        integration_intent = bool(query_tokens & INTEGRATION_INTENT_TOKENS)
+        primary_runtime_intent = bool(query_tokens & PRIMARY_RUNTIME_INTENT_TOKENS)
 
         for candidate in ranked_candidates:
             score, _recency = cls._score_candidate(query, candidate, active_session_id)
             slot = cls._slot_for_candidate(candidate)
-            if candidate.space_type == "session-space" and long_term_intent and not explicit_session_intent:
+            if (
+                candidate.space_type == "session-space"
+                and (long_term_intent or integration_intent or primary_runtime_intent)
+                and not explicit_session_intent
+            ):
                 continue
             if slot_counts[slot] >= MAX_ITEMS_BY_SLOT[slot]:
                 continue
@@ -339,11 +349,13 @@ class RetrievalService:
 
         session_boost = 0.0
         long_term_intent = bool(query_tokens & LONG_TERM_INTENT_TOKENS)
+        integration_intent = bool(query_tokens & INTEGRATION_INTENT_TOKENS)
+        primary_runtime_intent = bool(query_tokens & PRIMARY_RUNTIME_INTENT_TOKENS)
         if active_session_id and candidate.session_id == active_session_id:
             session_boost += 1.0
             if query_tokens & SESSION_INTENT_TOKENS:
                 session_boost += 2.0
-            if long_term_intent and candidate.space_type == "session-space":
+            if (long_term_intent or integration_intent or primary_runtime_intent) and candidate.space_type == "session-space":
                 session_boost -= 2.25
         elif query_tokens & SESSION_INTENT_TOKENS and candidate.space_type != "session-space":
             session_boost -= 0.75
@@ -367,7 +379,25 @@ class RetrievalService:
         candidate_tokens = cls._normalize_tokens(f"{candidate.summary} {candidate.raw_text}")
         if long_term_intent and candidate.space_type in {"project-space", "shared-space"}:
             if candidate_tokens & INFRASTRUCTURE_TOKENS:
-                architectural_boost += 1.5
+                architectural_boost += 2.0
+
+        integration_boost = 0.0
+        if integration_intent:
+            if candidate.space_type in {"project-space", "shared-space"} and candidate_tokens & INTEGRATION_TOKENS:
+                integration_boost += 4.0
+            elif candidate.space_type in {"project-space", "shared-space"}:
+                integration_boost -= 1.25
+            elif candidate.space_type == "session-space":
+                integration_boost -= 1.0
+
+        storage_boost = 0.0
+        if primary_runtime_intent and candidate.space_type in {"project-space", "shared-space"}:
+            if candidate_tokens & INFRASTRUCTURE_TOKENS:
+                storage_boost += 2.0
+            if candidate_tokens & SCRATCH_TOKENS:
+                storage_boost -= 5.0
+            if {"not", "primary"} <= candidate_tokens:
+                storage_boost -= 2.0
 
         total = (
             overlap * 10.0
@@ -378,6 +408,8 @@ class RetrievalService:
             + topical_penalty
             + procedural_boost
             + architectural_boost
+            + integration_boost
+            + storage_boost
         )
         return total, recency
 

@@ -161,7 +161,7 @@ class RecallApiTests(unittest.TestCase):
                 "messages": [
                     {
                         "role": "assistant",
-                        "content": "The memory runtime uses Postgres and Redis as the core stack for durable work.",
+                        "content": "The memory runtime writes operator breadcrumbs to the ledger table.",
                     }
                 ],
             },
@@ -178,7 +178,7 @@ class RecallApiTests(unittest.TestCase):
                 "messages": [
                     {
                         "role": "assistant",
-                        "content": "The database stack for the memory runtime uses SQLite for temporary scratch notes during experiments.",
+                        "content": "The memory runtime writes operator breadcrumbs to the scratchpad table.",
                     }
                 ],
             },
@@ -192,7 +192,7 @@ class RecallApiTests(unittest.TestCase):
             json={
                 "namespace_id": self.namespace_id,
                 "agent_id": self.agent_id,
-                "query": "What database stack does the memory runtime use?",
+                "query": "What table does the memory runtime write operator breadcrumbs to?",
                 "context_budget_tokens": 800,
                 "space_filter": ["project-space"],
             },
@@ -200,7 +200,7 @@ class RecallApiTests(unittest.TestCase):
         self.assertEqual(baseline.status_code, 200)
         baseline_payload = baseline.json()
         self.assertTrue(baseline_payload["brief"]["active_project_context"])
-        self.assertIn("SQLite for temporary scratch notes", baseline_payload["brief"]["active_project_context"][0])
+        self.assertIn("scratchpad table", baseline_payload["brief"]["active_project_context"][0])
 
         feedback = self.client.post(
             "/v1/recall/feedback",
@@ -209,7 +209,7 @@ class RecallApiTests(unittest.TestCase):
                 "agent_id": self.agent_id,
                 "helpful": True,
                 "episode_ids": [older.json()["episode_id"]],
-                "query": "What database stack does the memory runtime use?",
+                "query": "What table does the memory runtime write operator breadcrumbs to?",
             },
         )
         self.assertEqual(feedback.status_code, 200)
@@ -219,7 +219,7 @@ class RecallApiTests(unittest.TestCase):
             json={
                 "namespace_id": self.namespace_id,
                 "agent_id": self.agent_id,
-                "query": "What database stack does the memory runtime use?",
+                "query": "What table does the memory runtime write operator breadcrumbs to?",
                 "context_budget_tokens": 800,
                 "space_filter": ["project-space"],
             },
@@ -227,4 +227,4 @@ class RecallApiTests(unittest.TestCase):
         self.assertEqual(after_feedback.status_code, 200)
         updated_payload = after_feedback.json()
         self.assertTrue(updated_payload["brief"]["active_project_context"])
-        self.assertIn("Postgres and Redis as the core stack", updated_payload["brief"]["active_project_context"][0])
+        self.assertIn("ledger table", updated_payload["brief"]["active_project_context"][0])

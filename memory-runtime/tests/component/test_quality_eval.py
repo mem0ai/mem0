@@ -76,6 +76,36 @@ class QualityEvalTests(unittest.TestCase):
             content="The OpenClaw pilot uses a dedicated memory worker for background jobs.",
         )
         self._event(
+            session_id="eval_run_baseline",
+            event_type="conversation_turn",
+            space_hint="project-space",
+            content="The runtime exposes adapter APIs for OpenClaw and BunkerAI.",
+        )
+        self._event(
+            session_id="eval_run_baseline",
+            event_type="conversation_turn",
+            space_hint="project-space",
+            content="SQLite is only for local scratch experiments and not the primary runtime database.",
+        )
+        self._event(
+            session_id="eval_run_baseline",
+            event_type="policy_update",
+            space_hint="agent-core",
+            content="Always inspect observability stats before debugging lifecycle issues.",
+        )
+        self._event(
+            session_id="eval_run_baseline",
+            event_type="conversation_turn",
+            space_hint="project-space",
+            content="Shared namespaces allow linked agents to collaborate through shared memory.",
+        )
+        self._event(
+            session_id="eval_run_active",
+            event_type="conversation_turn",
+            space_hint="session-space",
+            content="Finalize the demo title slide before the OpenClaw pilot starts.",
+        )
+        self._event(
             session_id="eval_run_old",
             event_type="conversation_turn",
             space_hint="project-space",
@@ -136,7 +166,7 @@ class QualityEvalTests(unittest.TestCase):
 
         report = run_quality_eval(self.client, scenarios=materialized)
 
-        self.assertEqual(report["total"], 5)
+        self.assertEqual(report["total"], 10)
         self.assertEqual(report["failed"], 0)
-        self.assertEqual(report["passed"], 5)
+        self.assertEqual(report["passed"], 10)
         self.assertTrue(all(result["passed"] for result in report["results"]))
