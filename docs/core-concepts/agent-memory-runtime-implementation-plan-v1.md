@@ -330,6 +330,7 @@
 - есть e2e smoke на OpenClaw adapter contour
 - readiness contour включает healthchecks для `postgres`, `redis` и heartbeat-based `memory-worker`
 - observability показывает backlog age и stalled running jobs
+- есть автоматизированная команда `make pilot-smoke` с JSON report для synthetic OpenClaw pilot
 - документация для ручного пилота зафиксирована
 
 ## 1. Цели этапа

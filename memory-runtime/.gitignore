@@ -3,5 +3,6 @@ __pycache__/
 .ruff_cache/
 .coverage
 .venv/
+.artifacts/
 dist/
 build/

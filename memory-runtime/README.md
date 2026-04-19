@@ -156,7 +156,10 @@ cd memory-runtime
 make test-unittest
 make test
 make test-e2e
+make pilot-smoke
 ```
+
+`make pilot-smoke` поднимает Docker stack, прогоняет synthetic OpenClaw pilot contour и сохраняет JSON report в `.artifacts/openclaw_pilot_smoke_report.json`.
 
 Миграции:
 

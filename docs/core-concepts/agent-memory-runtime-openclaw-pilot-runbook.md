@@ -159,6 +159,19 @@ cd /Users/slava/Documents/mem0-src/memory-runtime
 make test-e2e
 ```
 
+### Full synthetic pilot smoke
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make pilot-smoke
+```
+
+Результат:
+
+- stack поднимается автоматически
+- synthetic OpenClaw flow прогоняется end-to-end
+- JSON report сохраняется в `.artifacts/openclaw_pilot_smoke_report.json`
+
 ## Если что-то пошло не так
 
 Сначала проверить:
