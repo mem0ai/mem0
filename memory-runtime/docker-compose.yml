@@ -19,6 +19,20 @@ services:
       timeout: 5s
       retries: 5
 
+  memory-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      MEMORY_RUNTIME_POSTGRES_DSN: postgresql+psycopg://postgres:postgres@postgres:5432/memory_runtime
+      MEMORY_RUNTIME_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    command: ["python", "-m", "app.workers.main"]
+
   postgres:
     image: pgvector/pgvector:pg16
     environment:

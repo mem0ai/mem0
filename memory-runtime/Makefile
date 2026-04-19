@@ -1,4 +1,4 @@
-.PHONY: install-dev run test test-unittest lint format smoke
+.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e
 
 PYTHON ?= python3
 PORT ?= 8080
@@ -9,8 +9,17 @@ install-dev:
 run:
 	uvicorn app.main:app --reload --host 0.0.0.0 --port $(PORT)
 
+run-worker:
+	$(PYTHON) -m app.workers.main
+
+run-worker-once:
+	$(PYTHON) -m app.workers.main --once
+
 test:
 	$(PYTHON) -m pytest tests
+
+test-e2e:
+	$(PYTHON) -m pytest tests/e2e
 
 test-unittest:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py' -v

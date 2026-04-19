@@ -41,6 +41,7 @@ cp .env.example .env
 - `MEMORY_RUNTIME_ENV`
 - `MEMORY_RUNTIME_DEBUG`
 - `MEMORY_RUNTIME_API_PORT`
+- `MEMORY_RUNTIME_WORKER_POLL_SECONDS`
 - `MEMORY_RUNTIME_POSTGRES_DSN`
 - `MEMORY_RUNTIME_REDIS_URL`
 - `MEMORY_RUNTIME_MEM0_BRIDGE_ENABLED`
@@ -63,6 +64,7 @@ python3 -m pip install -e '.[dev]'
 ```bash
 cd memory-runtime
 make run
+make run-worker
 ```
 
 ## Docker Compose
@@ -78,6 +80,16 @@ docker compose up --build
 - `http://localhost:8080`
 - `http://localhost:8080/healthz`
 - `http://localhost:8080/docs`
+
+Compose baseline теперь поднимает:
+
+- `memory-api`
+- `memory-worker`
+- `postgres`
+- `redis`
+
+Для первого живого MVP-пилота с `OpenClaw` смотри runbook:
+- [agent-memory-runtime-openclaw-pilot-runbook.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-openclaw-pilot-runbook.md)
 
 ## API surface
 
@@ -122,6 +134,7 @@ docker compose up --build
 - adapter contracts for `OpenClaw` and `BunkerAI`
 - OpenClaw runtime adapter coverage for bootstrap, search, list, get, and delete
 - shared namespace e2e scenario for cross-agent memory exchange
+- OpenClaw pilot e2e continuity flow
 - Prometheus-style metrics exporter and observability stats endpoint
 - recall feedback loop and usefulness-aware reranking
 - mem0 bridge unit coverage without external network dependency
@@ -132,6 +145,7 @@ docker compose up --build
 cd memory-runtime
 make test-unittest
 make test
+make test-e2e
 ```
 
 Миграции:

@@ -12,6 +12,7 @@ class SettingsTests(unittest.TestCase):
             "MEMORY_RUNTIME_DEBUG",
             "MEMORY_RUNTIME_API_PREFIX",
             "MEMORY_RUNTIME_API_PORT",
+            "MEMORY_RUNTIME_WORKER_POLL_SECONDS",
             "MEMORY_RUNTIME_POSTGRES_DSN",
             "MEMORY_RUNTIME_REDIS_URL",
         ):
@@ -31,6 +32,7 @@ class SettingsTests(unittest.TestCase):
                 debug=False,
                 api_prefix="/v1",
                 api_port=8080,
+                worker_poll_seconds=2.0,
                 postgres_dsn="sqlite+pysqlite:///./memory_runtime.db",
                 redis_url="redis://localhost:6379/0",
                 auto_create_tables=True,
@@ -43,6 +45,7 @@ class SettingsTests(unittest.TestCase):
         os.environ["MEMORY_RUNTIME_DEBUG"] = "true"
         os.environ["MEMORY_RUNTIME_API_PREFIX"] = "/api"
         os.environ["MEMORY_RUNTIME_API_PORT"] = "9090"
+        os.environ["MEMORY_RUNTIME_WORKER_POLL_SECONDS"] = "0.5"
         os.environ["MEMORY_RUNTIME_POSTGRES_DSN"] = "postgresql://db/test"
         os.environ["MEMORY_RUNTIME_REDIS_URL"] = "redis://cache/1"
         get_settings.cache_clear()
@@ -54,5 +57,6 @@ class SettingsTests(unittest.TestCase):
         self.assertTrue(settings.debug)
         self.assertEqual(settings.api_prefix, "/api")
         self.assertEqual(settings.api_port, 9090)
+        self.assertEqual(settings.worker_poll_seconds, 0.5)
         self.assertEqual(settings.postgres_dsn, "postgresql://db/test")
         self.assertEqual(settings.redis_url, "redis://cache/1")

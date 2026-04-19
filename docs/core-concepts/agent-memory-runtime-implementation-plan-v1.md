@@ -308,6 +308,26 @@
 - Python component tests и TypeScript tests проходят
 - test suite и lint проходят
 
+### OpenClaw Pilot Readiness
+
+После `Phase J` в проекте реализован readiness contour для первого `OpenClaw-only` MVP-пилота:
+
+- отдельный `memory-worker` entrypoint
+- Docker Compose поднимает и API, и worker
+- локальный dev flow включает `make run-worker` и `make run-worker-once`
+- добавлен e2e acceptance test на continuity flow `bootstrap -> ingest -> consolidate -> recall`
+- подготовлен отдельный pilot runbook
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- pilot flow воспроизводим локально через Docker и через local dev commands
+- есть e2e smoke на OpenClaw adapter contour
+- документация для ручного пилота зафиксирована
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:
