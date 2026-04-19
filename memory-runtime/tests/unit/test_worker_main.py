@@ -25,6 +25,23 @@ class WorkerMainTests(unittest.TestCase):
         self.assertEqual(run_pending_jobs.call_count, 2)
         sleep.assert_called_once_with(0.25)
 
+    @patch("app.workers.main.time.sleep")
+    @patch("app.workers.main.init_database", side_effect=[RuntimeError("db down"), None])
+    def test_initialize_database_with_retry_retries_until_success(self, init_database, sleep) -> None:
+        worker_main.initialize_database_with_retry(poll_seconds=0.5, max_attempts=3)
+
+        self.assertEqual(init_database.call_count, 2)
+        sleep.assert_called_once_with(0.5)
+
+    @patch("app.workers.main.time.sleep")
+    @patch("app.workers.main.init_database", side_effect=RuntimeError("db down"))
+    def test_initialize_database_with_retry_raises_after_max_attempts(self, init_database, sleep) -> None:
+        with self.assertRaises(RuntimeError):
+            worker_main.initialize_database_with_retry(poll_seconds=0.5, max_attempts=2)
+
+        self.assertEqual(init_database.call_count, 2)
+        self.assertEqual(sleep.call_count, 1)
+
     @patch("app.workers.main.run_once", return_value=1)
     def test_main_once_returns_zero(self, run_once) -> None:
         exit_code = worker_main.main(["--once"])
