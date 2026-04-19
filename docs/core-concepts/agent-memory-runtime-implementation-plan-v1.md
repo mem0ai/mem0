@@ -700,6 +700,7 @@ Definition of Done:
 - подключен реальный `OpenClaw` конфиг
 - pilot scenarios прогнаны на живом контуре
 - собран список реальных findings по recall, consolidation и эксплуатации
+- post-pilot results и backlog зафиксированы через единые шаблоны
 
 Definition of Done:
 
@@ -710,6 +711,12 @@ Definition of Done:
 Статус:
 
 - `planned`
+
+Подготовленные артефакты:
+
+- `agent-memory-runtime-openclaw-pilot-result-template.md`
+- `agent-memory-runtime-openclaw-finding-template.md`
+- `agent-memory-runtime-openclaw-post-pilot-backlog-template.md`
 
 ### Phase L. Consolidation Tuning
 

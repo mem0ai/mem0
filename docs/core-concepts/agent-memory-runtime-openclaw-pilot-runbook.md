@@ -12,6 +12,9 @@
 
 - [OpenClaw Pilot Scenarios](./agent-memory-runtime-openclaw-pilot-scenarios.md)
 - [OpenClaw Troubleshooting Cheatsheet](./agent-memory-runtime-openclaw-troubleshooting.md)
+- [Pilot Result Template](./agent-memory-runtime-openclaw-pilot-result-template.md)
+- [Finding Template](./agent-memory-runtime-openclaw-finding-template.md)
+- [Post-Pilot Backlog Template](./agent-memory-runtime-openclaw-post-pilot-backlog-template.md)
 
 ## Цель пилота
 
@@ -235,3 +238,11 @@ make reset-pilot
 Более короткий symptom-driven cheatsheet:
 
 - [OpenClaw Troubleshooting Cheatsheet](./agent-memory-runtime-openclaw-troubleshooting.md)
+
+## Что заполнить после живого пилота
+
+Сразу после прогона полезно заполнить:
+
+- [Pilot Result Template](./agent-memory-runtime-openclaw-pilot-result-template.md)
+- [Finding Template](./agent-memory-runtime-openclaw-finding-template.md) для каждого значимого сбоя или неожиданного поведения
+- [Post-Pilot Backlog Template](./agent-memory-runtime-openclaw-post-pilot-backlog-template.md) для перевода findings в рабочий план
