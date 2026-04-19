@@ -64,6 +64,18 @@ class QualityEvalTests(unittest.TestCase):
             content="In this session I need to draft the pilot acceptance checklist.",
         )
         self._event(
+            session_id="eval_run_active",
+            event_type="conversation_turn",
+            space_hint="session-space",
+            content="Temporary naming experiment: maybe rename the runtime endpoint later.",
+        )
+        self._event(
+            session_id="eval_run_baseline",
+            event_type="conversation_turn",
+            space_hint="project-space",
+            content="The OpenClaw pilot uses a dedicated memory worker for background jobs.",
+        )
+        self._event(
             session_id="eval_run_old",
             event_type="conversation_turn",
             space_hint="project-space",
@@ -124,7 +136,7 @@ class QualityEvalTests(unittest.TestCase):
 
         report = run_quality_eval(self.client, scenarios=materialized)
 
-        self.assertEqual(report["total"], 3)
+        self.assertEqual(report["total"], 5)
         self.assertEqual(report["failed"], 0)
-        self.assertEqual(report["passed"], 3)
+        self.assertEqual(report["passed"], 5)
         self.assertTrue(all(result["passed"] for result in report["results"]))

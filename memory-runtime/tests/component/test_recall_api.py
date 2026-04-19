@@ -145,9 +145,8 @@ class RecallApiTests(unittest.TestCase):
         self.assertTrue(
             any("concise architecture summaries" in item for item in payload["brief"]["standing_procedures"])
         )
-        self.assertTrue(
-            any("Phase D recall MVP" in item for item in payload["brief"]["recent_session_carryover"])
-        )
+        self.assertFalse(payload["brief"]["recent_session_carryover"])
+        self.assertNotIn("session-space", payload["trace"]["selected_space_types"])
 
     def test_positive_feedback_promotes_useful_episode_in_later_recall(self) -> None:
         older = self.client.post(

@@ -50,5 +50,43 @@
     "must_not_contain": [
       "old deprecated deployment note"
     ]
+  },
+  {
+    "id": "long-term-boundary",
+    "description": "Recall for durable project context should not leak active session scratch work.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "What durable project context should I keep in mind for the memory runtime?",
+      "context_budget_tokens": 900
+    },
+    "must_contain": [
+      "Postgres, Redis, and pgvector as the baseline stack",
+      "dedicated memory worker for background jobs"
+    ],
+    "must_not_contain": [
+      "pilot acceptance checklist",
+      "Temporary naming experiment"
+    ]
+  },
+  {
+    "id": "architecture-noise-resistance",
+    "description": "Recall should keep architecture-relevant knowledge and suppress known noise.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "What is relevant for architecture work on the memory runtime right now?",
+      "context_budget_tokens": 1000
+    },
+    "must_contain": [
+      "Python-first architecture",
+      "Postgres, Redis, and pgvector as the baseline stack"
+    ],
+    "must_not_contain": [
+      "book flights for the conference",
+      "temporary scratch note"
+    ]
   }
 ]
