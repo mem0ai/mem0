@@ -828,6 +828,25 @@ Definition of Done:
 - harness проверяет не только `pass/fail`, но и средний объем полезного recall через `avg_selected_count`
 - ключевые continuity-сценарии теперь можно прогонять до live OpenClaw pilot без ручной подготовки окружения
 
+### Before/After Regression Harness
+
+До живого pilot в проект добавлен before/after regression harness для eval artifacts:
+
+- единый compare runner `make compare-eval BEFORE=... AFTER=...`
+- compare logic для quality, lifecycle, adversarial и continuity reports
+- явное различение `improved`, `regressed`, `unchanged`, `skipped`
+- fail verdict при регрессии по критичным quality metrics
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- harness умеет сравнивать machine-readable reports без ручного анализа JSON
+- critical regressions по `pass_rate`, `required_hit_rate`, `forbidden_leak_rate`, `action_match_rate`, `status_match_rate`, `false_accepts` и `false_rejects` теперь ловятся автоматически
+- шаги retrieval/consolidation tuning можно сравнивать до и после изменения на одном и том же eval pack
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

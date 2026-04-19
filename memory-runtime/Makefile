@@ -1,4 +1,4 @@
-.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e pilot-smoke quality-eval lifecycle-eval continuity-benchmark reset-pilot show-last-smoke show-last-quality-eval
+.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e pilot-smoke quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot show-last-smoke show-last-quality-eval
 
 PYTHON ?= python3
 PORT ?= 8080
@@ -32,6 +32,9 @@ lifecycle-eval:
 
 continuity-benchmark:
 	$(PYTHON) -m app.continuity_benchmark
+
+compare-eval:
+	bash scripts/compare_eval_reports.sh "$(BEFORE)" "$(AFTER)"
 
 reset-pilot:
 	bash scripts/openclaw_reset_pilot.sh
