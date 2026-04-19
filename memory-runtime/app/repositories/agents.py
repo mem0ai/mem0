@@ -34,3 +34,10 @@ class AgentRepository:
     def get_by_name(self, namespace_id: str, name: str) -> Agent | None:
         stmt = select(Agent).where(Agent.namespace_id == namespace_id, Agent.name == name)
         return self.session.execute(stmt).scalar_one_or_none()
+
+    def get_by_external_ref(self, namespace_id: str, external_ref: str) -> Agent | None:
+        stmt = select(Agent).where(
+            Agent.namespace_id == namespace_id,
+            Agent.external_ref == external_ref,
+        )
+        return self.session.execute(stmt).scalar_one_or_none()

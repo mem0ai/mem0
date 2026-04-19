@@ -84,6 +84,35 @@ class AdaptersApiTests(unittest.TestCase):
         self.assertEqual(payload["event"]["project_id"], "cluster-alpha")
         self.assertIsNotNone(payload["event"]["episode_id"])
 
+    def test_openclaw_bootstrap_creates_or_reuses_namespace_scope(self) -> None:
+        response = self.client.post(
+            "/v1/adapters/openclaw/bootstrap",
+            json={
+                "namespace_name": "openclaw:user:primary",
+                "agent_name": "primary",
+                "external_ref": "openclaw:user:primary",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["adapter"], "openclaw")
+        self.assertEqual(payload["namespace_name"], "openclaw:user:primary")
+        self.assertTrue(payload["namespace_id"])
+        self.assertTrue(payload["agent_id"])
+
+        second = self.client.post(
+            "/v1/adapters/openclaw/bootstrap",
+            json={
+                "namespace_name": "openclaw:user:primary",
+                "agent_name": "primary",
+                "external_ref": "openclaw:user:primary",
+            },
+        )
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(second.json()["namespace_id"], payload["namespace_id"])
+        self.assertEqual(second.json()["agent_id"], payload["agent_id"])
+
     def test_bunkerai_adapter_recall_contract_wraps_recall_response(self) -> None:
         self.client.post(
             "/v1/adapters/bunkerai/events",
@@ -174,3 +203,59 @@ class AdaptersApiTests(unittest.TestCase):
         self.assertIn("Postgres, Redis, and pgvector", flattened_brief)
         self.assertNotIn("bulletless status format", flattened_brief)
         self.assertIn("shared-space", payload["trace"]["selected_space_types"])
+
+    def test_openclaw_search_list_get_and_delete_memory_contract(self) -> None:
+        event = self.client.post(
+            "/v1/adapters/openclaw/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "session_id": "run_oc_4",
+                "event_type": "conversation_turn",
+                "space_hint": "project-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "The runtime provider should support search, list, get, and delete flows.",
+                    }
+                ],
+            },
+        )
+        self.assertEqual(event.status_code, 201)
+        episode_id = event.json()["event"]["episode_id"]
+
+        search = self.client.post(
+            "/v1/adapters/openclaw/search",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "query": "Which provider flows should the runtime support?",
+                "limit": 5,
+            },
+        )
+        self.assertEqual(search.status_code, 200)
+        search_payload = search.json()
+        self.assertTrue(search_payload["results"])
+        self.assertEqual(search_payload["results"][0]["resource_kind"], "episode")
+
+        listed = self.client.get(
+            f"/v1/adapters/openclaw/memories?namespace_id={self.namespace_id}&agent_id={self.openclaw_agent_id}"
+        )
+        self.assertEqual(listed.status_code, 200)
+        self.assertTrue(any(item["id"] == episode_id for item in listed.json()["results"]))
+
+        fetched = self.client.get(
+            f"/v1/adapters/openclaw/memories/{episode_id}?namespace_id={self.namespace_id}&agent_id={self.openclaw_agent_id}"
+        )
+        self.assertEqual(fetched.status_code, 200)
+        self.assertIn("search, list, get, and delete", fetched.json()["memory"])
+
+        deleted = self.client.delete(
+            f"/v1/adapters/openclaw/memories/{episode_id}?namespace_id={self.namespace_id}&agent_id={self.openclaw_agent_id}"
+        )
+        self.assertEqual(deleted.status_code, 204)
+
+        missing = self.client.get(
+            f"/v1/adapters/openclaw/memories/{episode_id}?namespace_id={self.namespace_id}&agent_id={self.openclaw_agent_id}"
+        )
+        self.assertEqual(missing.status_code, 404)

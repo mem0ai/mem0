@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.models.memory_unit import MemoryUnit
+from app.models.memory_space import MemorySpace
 
 
 class MemoryUnitRepository:
@@ -63,3 +64,32 @@ class MemoryUnitRepository:
 
     def get_by_id(self, memory_unit_id: str) -> MemoryUnit | None:
         return self.session.get(MemoryUnit, memory_unit_id)
+
+    def list_active_with_space(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str | None,
+    ) -> list[tuple[MemoryUnit, str]]:
+        stmt: Select[tuple[MemoryUnit, str]] = (
+            select(MemoryUnit, MemorySpace.space_type)
+            .join(MemorySpace, MemoryUnit.primary_space_id == MemorySpace.id)
+            .where(MemoryUnit.namespace_id == namespace_id)
+            .where(MemoryUnit.status == "active")
+            .order_by(MemoryUnit.updated_at.desc())
+        )
+        if agent_id is not None:
+            stmt = stmt.where(MemoryUnit.agent_id == agent_id)
+        return list(self.session.execute(stmt).all())
+
+    def get_with_space(self, memory_unit_id: str) -> tuple[MemoryUnit, str] | None:
+        stmt: Select[tuple[MemoryUnit, str]] = (
+            select(MemoryUnit, MemorySpace.space_type)
+            .join(MemorySpace, MemoryUnit.primary_space_id == MemorySpace.id)
+            .where(MemoryUnit.id == memory_unit_id)
+        )
+        return self.session.execute(stmt).one_or_none()
+
+    def delete(self, memory_unit: MemoryUnit) -> None:
+        self.session.delete(memory_unit)
+        self.session.flush()

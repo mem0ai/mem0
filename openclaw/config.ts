@@ -171,6 +171,7 @@ const ALLOWED_KEYS = [
   "searchThreshold",
   "topK",
   "oss",
+  "runtime",
 ];
 
 function assertAllowedKeys(
@@ -191,9 +192,13 @@ export const mem0ConfigSchema = {
     const cfg = value as Record<string, unknown>;
     assertAllowedKeys(cfg, ALLOWED_KEYS, "openclaw-mem0 config");
 
-    // Accept both "open-source" and legacy "oss" as open-source mode; everything else is platform
+    // Accept both "open-source" and legacy "oss" as open-source mode.
     const mode: Mem0Mode =
-      cfg.mode === "oss" || cfg.mode === "open-source" ? "open-source" : "platform";
+      cfg.mode === "oss" || cfg.mode === "open-source"
+        ? "open-source"
+        : cfg.mode === "runtime"
+          ? "runtime"
+          : "platform";
 
     // Platform mode requires apiKey
     if (mode === "platform") {
@@ -204,12 +209,25 @@ export const mem0ConfigSchema = {
       }
     }
 
+    if (mode === "runtime") {
+      if (!cfg.runtime || typeof cfg.runtime !== "object" || Array.isArray(cfg.runtime)) {
+        throw new Error("runtime config is required for runtime mode");
+      }
+    }
+
     // Resolve env vars in oss config
     let ossConfig: Mem0Config["oss"];
     if (cfg.oss && typeof cfg.oss === "object" && !Array.isArray(cfg.oss)) {
       ossConfig = resolveEnvVarsDeep(
         cfg.oss as Record<string, unknown>,
       ) as unknown as Mem0Config["oss"];
+    }
+
+    let runtimeConfig: Mem0Config["runtime"];
+    if (cfg.runtime && typeof cfg.runtime === "object" && !Array.isArray(cfg.runtime)) {
+      runtimeConfig = resolveEnvVarsDeep(
+        cfg.runtime as Record<string, unknown>,
+      ) as unknown as Mem0Config["runtime"];
     }
 
     return {
@@ -241,6 +259,7 @@ export const mem0ConfigSchema = {
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
       oss: ossConfig,
+      runtime: runtimeConfig,
     };
   },
 };

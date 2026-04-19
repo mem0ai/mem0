@@ -51,3 +51,43 @@ class AdapterRecallResponse(BaseModel):
     source_system: str
     brief: MemoryBrief
     trace: RecallTrace
+
+
+class AdapterBootstrapRequest(BaseModel):
+    namespace_name: str = Field(..., min_length=3, max_length=255)
+    agent_name: str = Field(default="primary", min_length=2, max_length=255)
+    external_ref: str | None = Field(default=None, max_length=255)
+
+
+class AdapterBootstrapResponse(BaseModel):
+    adapter: str
+    source_system: str
+    namespace_id: str
+    namespace_name: str
+    agent_id: str
+    agent_name: str
+
+
+class AdapterMemorySearchRequest(BaseModel):
+    namespace_id: str
+    agent_id: str | None = None
+    session_id: str | None = None
+    query: str = Field(..., min_length=3)
+    limit: int = Field(default=5, gt=0, le=50)
+
+
+class AdapterMemoryRead(BaseModel):
+    id: str
+    memory: str
+    resource_kind: str
+    space_type: str
+    score: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    metadata: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
+
+
+class AdapterMemorySearchResponse(BaseModel):
+    adapter: str
+    source_system: str
+    results: list[AdapterMemoryRead] = Field(default_factory=list)

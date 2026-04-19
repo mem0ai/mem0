@@ -786,6 +786,11 @@ erDiagram
 
 ### 11.4 Adapter contracts
 
+`POST /v1/adapters/openclaw/bootstrap`
+
+Создать или переиспользовать isolated namespace и default agent scope для OpenClaw runtime-provider.
+Используется как первый handshake перед operational calls.
+
 `POST /v1/adapters/openclaw/events`
 
 Записать событие через контракт интеграции `OpenClaw`.
@@ -794,6 +799,22 @@ erDiagram
 `POST /v1/adapters/openclaw/recall`
 
 Сделать recall через контракт интеграции `OpenClaw`.
+
+`POST /v1/adapters/openclaw/search`
+
+Поиск по памяти в форме, совместимой с provider-side memory search.
+
+`GET /v1/adapters/openclaw/memories`
+
+Список memories для session или long-term scope.
+
+`GET /v1/adapters/openclaw/memories/{memory_id}`
+
+Получить memory по id.
+
+`DELETE /v1/adapters/openclaw/memories/{memory_id}`
+
+Удалить memory по id.
 
 `POST /v1/adapters/bunkerai/events`
 
@@ -809,6 +830,30 @@ erDiagram
 - валидирует, что агент принадлежит нужному adapter/source-system
 - оборачивает базовые `events/recall` ответы в стабильный integration contract
 - сохраняет межагентную видимость только для `shared-space`
+- для OpenClaw поддерживает полный provider-style flow: `bootstrap -> add/search/list/get/delete`
+
+### 11.4.1 OpenClaw runtime mode
+
+В `openclaw` добавлен третий backend mode: `runtime`.
+
+Он нужен для сценария, где:
+
+- `memory-runtime` становится главным memory service
+- OpenClaw больше не зависит от прямого SDK-подключения к Mem0 Cloud/OSS
+- runtime сам владеет namespace bootstrap, event ingestion и retrieval orchestration
+
+Минимальный config shape:
+
+```json
+{
+  "mode": "runtime",
+  "runtime": {
+    "baseUrl": "http://memory-runtime:8080",
+    "apiKey": "optional",
+    "agentName": "primary"
+  }
+}
+```
 
 ### 11.5 Observability
 

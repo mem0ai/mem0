@@ -1,6 +1,6 @@
 # @mem0/openclaw-mem0
 
-Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, powered by [Mem0](https://mem0.ai).
+Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, powered by [Mem0](https://mem0.ai) or an external `memory-runtime`.
 
 Your agent forgets everything between sessions. This plugin fixes that. It watches conversations, extracts what matters, and brings it back when relevant — automatically.
 
@@ -141,6 +141,32 @@ Sensible defaults out of the box. To customize the embedder, vector store, or LL
 
 All `oss` fields are optional. See [Mem0 OSS docs](https://docs.mem0.ai/open-source/node-quickstart) for providers.
 
+### Runtime (Agent Memory Runtime)
+
+Use this mode when OpenClaw should talk to the standalone `memory-runtime` service instead of Mem0 Cloud or direct OSS SDKs.
+
+```json5
+"openclaw-mem0": {
+  "enabled": true,
+  "config": {
+    "mode": "runtime",
+    "userId": "alice",
+    "runtime": {
+      "baseUrl": "http://localhost:8080",
+      "apiKey": "${MEMORY_RUNTIME_API_KEY}",
+      "agentName": "primary"
+    }
+  }
+}
+```
+
+How it works in this mode:
+
+- the plugin bootstraps a namespace/agent scope through `POST /v1/adapters/openclaw/bootstrap`
+- auto-capture writes conversation turns through the runtime adapter events endpoint
+- search, list, get, and delete operate through the runtime adapter contract instead of direct Mem0 SDK calls
+- runtime-managed ids are encoded as stable OpenClaw memory ids, so existing tools continue to work
+
 ## Agent tools
 
 The agent gets five tools it can call during conversations:
@@ -181,7 +207,7 @@ openclaw mem0 stats --agent researcher
 
 | Key | Type | Default | |
 |-----|------|---------|---|
-| `mode` | `"platform"` \| `"open-source"` | `"platform"` | Which backend to use |
+| `mode` | `"platform"` \| `"open-source"` \| `"runtime"` | `"platform"` | Which backend to use |
 | `userId` | `string` | `"default"` | Any unique identifier you choose for the user (e.g. `"alice"`, `"user_123"`). All memories are scoped to this value. Not found in any dashboard — you define it yourself. |
 | `autoRecall` | `boolean` | `true` | Inject memories before each turn |
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
@@ -218,6 +244,14 @@ Works with zero extra config. The `oss` block lets you swap out any component:
 Everything inside `oss` is optional — defaults use OpenAI embeddings (`text-embedding-3-small`), in-memory vector store, and OpenAI LLM. Override only what you need.
 
 > **SQLite resilience:** If the history DB fails to initialize (e.g. native binding resolution under jiti), the plugin automatically retries with history disabled. Core memory operations (add, search, get, delete) work without the history DB.
+
+### Runtime mode
+
+| Key | Type | Default | |
+|-----|------|---------|---|
+| `runtime.baseUrl` | `string` | — | **Required.** Base URL of the `memory-runtime` service |
+| `runtime.apiKey` | `string` | — | Optional API key passed as `x-api-key` |
+| `runtime.agentName` | `string` | `"primary"` | Agent name used during bootstrap if runtime scope does not exist yet |
 
 ## License
 

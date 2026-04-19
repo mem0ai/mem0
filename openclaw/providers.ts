@@ -290,6 +290,182 @@ class OSSProvider implements Mem0Provider {
 }
 
 // ============================================================================
+// Memory Runtime Provider
+// ============================================================================
+
+type RuntimeScope = {
+  namespaceId: string;
+  namespaceName: string;
+  agentId: string;
+  agentName: string;
+};
+
+function encodeRuntimeId(scope: RuntimeScope, resourceKind: string, id: string): string {
+  return `rt:${scope.namespaceId}:${resourceKind}:${id}`;
+}
+
+function decodeRuntimeId(memoryId: string): { namespaceId: string; resourceKind: string; id: string } {
+  const parts = memoryId.split(":");
+  if (parts.length !== 4 || parts[0] !== "rt") {
+    throw new Error(`Unsupported runtime memory id: ${memoryId}`);
+  }
+  return {
+    namespaceId: parts[1]!,
+    resourceKind: parts[2]!,
+    id: parts[3]!,
+  };
+}
+
+class MemoryRuntimeProvider implements Mem0Provider {
+  private scopeCache = new Map<string, Promise<RuntimeScope>>();
+
+  constructor(
+    private readonly runtimeConfig: NonNullable<Mem0Config["runtime"]>,
+  ) { }
+
+  async add(
+    messages: Array<{ role: string; content: string }>,
+    options: AddOptions,
+  ): Promise<AddResult> {
+    const scope = await this.ensureScope(options.user_id);
+    const response = await this.request("POST", "/v1/adapters/openclaw/events", {
+      namespace_id: scope.namespaceId,
+      agent_id: scope.agentId,
+      session_id: options.run_id,
+      event_type: "conversation_turn",
+      space_hint: options.run_id ? "session-space" : "project-space",
+      messages,
+      metadata: {},
+    });
+
+    const memoryText = messages.map((message) => message.content).join("\n");
+    return {
+      results: [
+        {
+          id: encodeRuntimeId(scope, "episode", response.event.episode_id),
+          memory: memoryText,
+          event: "ADD",
+        },
+      ],
+    };
+  }
+
+  async search(query: string, options: SearchOptions): Promise<MemoryItem[]> {
+    const scope = await this.ensureScope(options.user_id);
+    const response = await this.request("POST", "/v1/adapters/openclaw/search", {
+      namespace_id: scope.namespaceId,
+      agent_id: scope.agentId,
+      session_id: options.run_id,
+      query,
+      limit: options.limit ?? options.top_k ?? 5,
+    });
+
+    return (response.results ?? []).map((item: any) => ({
+      id: encodeRuntimeId(scope, item.resource_kind ?? "memory", item.id),
+      memory: item.memory ?? "",
+      user_id: options.user_id,
+      score: item.score,
+      metadata: {
+        ...(item.metadata ?? {}),
+        resource_kind: item.resource_kind,
+        space_type: item.space_type,
+      },
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    }));
+  }
+
+  async get(memoryId: string): Promise<MemoryItem> {
+    const decoded = decodeRuntimeId(memoryId);
+    const response = await this.request(
+      "GET",
+      `/v1/adapters/openclaw/memories/${decoded.id}?namespace_id=${encodeURIComponent(decoded.namespaceId)}`,
+    );
+    return {
+      id: memoryId,
+      memory: response.memory ?? "",
+      metadata: {
+        ...(response.metadata ?? {}),
+        resource_kind: response.resource_kind,
+        space_type: response.space_type,
+      },
+      created_at: response.created_at,
+      updated_at: response.updated_at,
+    };
+  }
+
+  async getAll(options: ListOptions): Promise<MemoryItem[]> {
+    const scope = await this.ensureScope(options.user_id);
+    const search = new URLSearchParams({
+      namespace_id: scope.namespaceId,
+      agent_id: scope.agentId,
+    });
+    if (options.run_id) search.set("session_id", options.run_id);
+    const response = await this.request("GET", `/v1/adapters/openclaw/memories?${search.toString()}`);
+
+    return (response.results ?? []).map((item: any) => ({
+      id: encodeRuntimeId(scope, item.resource_kind ?? "memory", item.id),
+      memory: item.memory ?? "",
+      user_id: options.user_id,
+      score: item.score,
+      metadata: {
+        ...(item.metadata ?? {}),
+        resource_kind: item.resource_kind,
+        space_type: item.space_type,
+      },
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    }));
+  }
+
+  async delete(memoryId: string): Promise<void> {
+    const decoded = decodeRuntimeId(memoryId);
+    await this.request(
+      "DELETE",
+      `/v1/adapters/openclaw/memories/${decoded.id}?namespace_id=${encodeURIComponent(decoded.namespaceId)}`,
+    );
+  }
+
+  private async ensureScope(userId: string): Promise<RuntimeScope> {
+    const existing = this.scopeCache.get(userId);
+    if (existing) return existing;
+
+    const pending = this.request("POST", "/v1/adapters/openclaw/bootstrap", {
+      namespace_name: userId,
+      agent_name: this.runtimeConfig.agentName ?? "primary",
+      external_ref: userId,
+    }).then((payload) => ({
+      namespaceId: payload.namespace_id,
+      namespaceName: payload.namespace_name,
+      agentId: payload.agent_id,
+      agentName: payload.agent_name,
+    }));
+
+    this.scopeCache.set(userId, pending);
+    return pending;
+  }
+
+  private async request(method: string, path: string, body?: unknown): Promise<any> {
+    const headers: Record<string, string> = {};
+    if (body !== undefined) headers["content-type"] = "application/json";
+    if (this.runtimeConfig.apiKey) headers["x-api-key"] = this.runtimeConfig.apiKey;
+
+    const response = await fetch(`${this.runtimeConfig.baseUrl.replace(/\/$/, "")}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Memory runtime request failed (${response.status}): ${text}`);
+    }
+    if (response.status === 204) return {};
+    return response.json();
+  }
+}
+
+// ============================================================================
 // Provider Factory
 // ============================================================================
 
@@ -297,6 +473,10 @@ export function createProvider(
   cfg: Mem0Config,
   api: OpenClawPluginApi,
 ): Mem0Provider {
+  if (cfg.mode === "runtime") {
+    return new MemoryRuntimeProvider(cfg.runtime!);
+  }
+
   if (cfg.mode === "open-source") {
     return new OSSProvider(cfg.oss, cfg.customPrompt, (p) =>
       api.resolvePath(p),

@@ -275,6 +275,39 @@
 - `mem0 bridge` включается конфигом и не ломает локальный deterministic dev flow
 - test suite и lint проходят
 
+### Текущий прогресс `Phase J`
+
+В экосистеме уже реализован первый реальный integration path `OpenClaw -> memory-runtime`:
+
+- в `openclaw` добавлен новый backend mode: `runtime`
+- `MemoryRuntimeProvider` реализует `bootstrap`, `add`, `search`, `getAll`, `get`, `delete` поверх HTTP-contract memory-runtime
+- в `memory-runtime` добавлены OpenClaw-specific adapter endpoints:
+  - `POST /v1/adapters/openclaw/bootstrap`
+  - `POST /v1/adapters/openclaw/search`
+  - `GET /v1/adapters/openclaw/memories`
+  - `GET /v1/adapters/openclaw/memories/{id}`
+  - `DELETE /v1/adapters/openclaw/memories/{id}`
+- bootstrap автоматически создает или переиспользует isolated namespace, агента и default spaces
+- OpenClaw получает стабильные runtime ids и может работать с session и long-term memories через единый provider
+
+Тестовое покрытие для этого слоя включает:
+
+- component contract tests для новых OpenClaw adapter endpoints в `memory-runtime`
+- `vitest` coverage для `MemoryRuntimeProvider` в `openclaw`
+- полный `openclaw` test suite и TypeScript compile check
+
+### Статус `Phase J`
+
+`Phase J` считается завершенной в первом рабочем объеме.
+
+Подтверждение:
+
+- `OpenClaw` умеет работать через `memory-runtime`, а не только напрямую через Mem0 Cloud/OSS
+- adapter contract закрывает bootstrap, search, list, get и delete memory flows
+- provider lazy-bootstraps namespace/agent scope и кэширует его в runtime path
+- Python component tests и TypeScript tests проходят
+- test suite и lint проходят
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:

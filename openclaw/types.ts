@@ -2,7 +2,7 @@
  * Shared type definitions for the OpenClaw Mem0 plugin.
  */
 
-export type Mem0Mode = "platform" | "open-source";
+export type Mem0Mode = "platform" | "open-source" | "runtime";
 
 export type Mem0Config = {
   mode: Mem0Mode;
@@ -21,6 +21,11 @@ export type Mem0Config = {
     llm?: { provider: string; config: Record<string, unknown> };
     historyDbPath?: string;
     disableHistory?: boolean;
+  };
+  runtime?: {
+    baseUrl: string;
+    apiKey?: string;
+    agentName?: string;
   };
   // Shared
   userId: string;

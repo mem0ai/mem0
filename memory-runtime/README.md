@@ -91,12 +91,18 @@ docker compose up --build
 - `POST /v1/recall`
 - `POST /v1/recall/feedback`
 - `GET /v1/observability/stats`
+- `POST /v1/adapters/openclaw/bootstrap`
 - `POST /v1/adapters/openclaw/events`
 - `POST /v1/adapters/openclaw/recall`
+- `POST /v1/adapters/openclaw/search`
+- `GET /v1/adapters/openclaw/memories`
+- `GET /v1/adapters/openclaw/memories/{memory_id}`
+- `DELETE /v1/adapters/openclaw/memories/{memory_id}`
 - `POST /v1/adapters/bunkerai/events`
 - `POST /v1/adapters/bunkerai/recall`
 
 Адаптерные endpoints фиксируют source-system contract для интеграций и работают поверх того же ingestion/recall pipeline.
+Для `OpenClaw` добавлен отдельный runtime-contract: плагин сначала вызывает `bootstrap`, затем использует `events/search/list/get/delete` как transport-поверхность вместо прямого подключения к `mem0`.
 В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
 `/metrics` отдает Prometheus-compatible экспорт counters и job gauges, а `/v1/observability/stats` дает JSON-срез для локальной диагностики и dashboard bootstrap.
 `/v1/recall/feedback` записывает usefulness signals, которые потом участвуют в последующем ranking.
@@ -114,6 +120,7 @@ docker compose up --build
 - consolidation jobs, worker processing, and `memory_units` baseline
 - lifecycle jobs, decay/archive/eviction baseline, and internal metrics counters
 - adapter contracts for `OpenClaw` and `BunkerAI`
+- OpenClaw runtime adapter coverage for bootstrap, search, list, get, and delete
 - shared namespace e2e scenario for cross-agent memory exchange
 - Prometheus-style metrics exporter and observability stats endpoint
 - recall feedback loop and usefulness-aware reranking

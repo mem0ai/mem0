@@ -69,3 +69,28 @@ class EpisodeRepository:
             stmt = stmt.order_by(Episode.created_at.desc())
 
         return list(self.session.execute(stmt).all())
+
+    def list_by_session(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str | None,
+        session_id: str,
+    ) -> list[tuple[Episode, str]]:
+        stmt: Select[tuple[Episode, str]] = (
+            select(Episode, MemorySpace.space_type)
+            .join(MemorySpace, Episode.space_id == MemorySpace.id)
+            .where(Episode.namespace_id == namespace_id)
+            .where(Episode.session_id == session_id)
+            .order_by(Episode.created_at.desc())
+        )
+        if agent_id is not None:
+            stmt = stmt.where(Episode.agent_id == agent_id)
+        return list(self.session.execute(stmt).all())
+
+    def get_by_id(self, episode_id: str) -> Episode | None:
+        return self.session.get(Episode, episode_id)
+
+    def delete(self, episode: Episode) -> None:
+        self.session.delete(episode)
+        self.session.flush()

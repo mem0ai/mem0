@@ -53,3 +53,6 @@ class MemorySpaceRepository:
             MemorySpace.space_type == "shared-space",
         )
         return self.session.execute(stmt).scalar_one_or_none()
+
+    def get_by_id(self, space_id: str) -> MemorySpace | None:
+        return self.session.get(MemorySpace, space_id)
