@@ -244,6 +244,13 @@ sequenceDiagram
 - lifecycle decisions
 - usefulness signals
 
+В текущей реализации baseline уже включает:
+
+- `GET /metrics` в Prometheus text exposition формате
+- `GET /v1/observability/stats` для JSON-среза counters и состояния job queue
+- runtime counters для recall, consolidation, lifecycle и worker outcomes
+- job gauges по `status` и по паре `job_type + status`
+
 ## 6. Namespace model
 
 Система должна поддерживать два режима:
@@ -782,7 +789,29 @@ erDiagram
 - оборачивает базовые `events/recall` ответы в стабильный integration contract
 - сохраняет межагентную видимость только для `shared-space`
 
-### 11.5 Explicit memory ops
+### 11.5 Observability
+
+`GET /metrics`
+
+Вернуть Prometheus-compatible метрики runtime.
+
+Экспортируются:
+
+- runtime counters
+- recall counters
+- worker success/failure counters
+- job gauges по status
+- job gauges по type/status
+
+`GET /v1/observability/stats`
+
+Вернуть JSON-срез:
+
+- `metrics`
+- `jobs.by_status`
+- `jobs.by_type`
+
+### 11.6 Explicit memory ops
 
 `POST /v1/memories`
 
@@ -800,7 +829,7 @@ erDiagram
 
 Посмотреть историю memory unit.
 
-### 11.6 Space inspection
+### 11.7 Space inspection
 
 `GET /v1/spaces/{space_id}/memories`
 

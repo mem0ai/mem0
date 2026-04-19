@@ -79,11 +79,13 @@ docker compose up --build
 
 Уже реализованы:
 
+- `GET /metrics`
 - `POST /v1/namespaces`
 - `GET /v1/namespaces/{namespace_id}`
 - `POST /v1/namespaces/{namespace_id}/agents`
 - `POST /v1/events`
 - `POST /v1/recall`
+- `GET /v1/observability/stats`
 - `POST /v1/adapters/openclaw/events`
 - `POST /v1/adapters/openclaw/recall`
 - `POST /v1/adapters/bunkerai/events`
@@ -91,6 +93,7 @@ docker compose up --build
 
 Адаптерные endpoints фиксируют source-system contract для интеграций и работают поверх того же ingestion/recall pipeline.
 В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
+`/metrics` отдает Prometheus-compatible экспорт counters и job gauges, а `/v1/observability/stats` дает JSON-срез для локальной диагностики и dashboard bootstrap.
 
 ## Тесты
 
@@ -105,6 +108,7 @@ docker compose up --build
 - lifecycle jobs, decay/archive/eviction baseline, and internal metrics counters
 - adapter contracts for `OpenClaw` and `BunkerAI`
 - shared namespace e2e scenario for cross-agent memory exchange
+- Prometheus-style metrics exporter and observability stats endpoint
 
 Команды запуска:
 

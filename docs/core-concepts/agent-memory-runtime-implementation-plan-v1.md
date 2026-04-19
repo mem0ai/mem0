@@ -191,6 +191,62 @@
 - controllable-clock lifecycle tests проходят
 - test suite и lint проходят
 
+### Текущий прогресс `Phase G`
+
+В сервисе уже реализован первый adapter-срез:
+
+- `POST /v1/adapters/openclaw/events`
+- `POST /v1/adapters/openclaw/recall`
+- `POST /v1/adapters/bunkerai/events`
+- `POST /v1/adapters/bunkerai/recall`
+- validation layer для namespace support и source-system ownership
+- межагентный `shared-space` recall при сохранении приватности `agent-core`
+
+Тестовое покрытие для этого слоя включает:
+
+- component contract tests для `OpenClaw`
+- component contract tests для `BunkerAI`
+- integration test на cross-agent shared recall
+
+### Статус `Phase G`
+
+`Phase G` считается завершенной в первом рабочем объеме.
+
+Подтверждение:
+
+- adapter contracts реализованы
+- shared namespace mode работает для cross-agent recall
+- приватные пространства агента не протекают между интеграциями
+- test suite и lint проходят
+
+### Текущий прогресс `Phase H`
+
+В сервисе уже реализован первый observability/export слой:
+
+- `GET /metrics`
+- `GET /v1/observability/stats`
+- Prometheus-compatible exporter для runtime counters
+- gauges по job status и job type/status
+- recall counters
+- worker failure counters
+
+Тестовое покрытие для этого слоя включает:
+
+- unit tests на rendering Prometheus payload
+- component tests на `/metrics`
+- component tests на `/v1/observability/stats`
+
+### Статус `Phase H`
+
+`Phase H` считается завершенной в первом рабочем объеме.
+
+Подтверждение:
+
+- внешний metrics exporter реализован
+- operational JSON stats endpoint реализован
+- counters для recall/jobs/lifecycle/consolidation экспортируются наружу
+- test suite и lint проходят
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:

@@ -46,6 +46,7 @@ class WorkerRunner:
                     processed += 1
                 except Exception as exc:  # noqa: BLE001
                     jobs.mark_failed(job, str(exc))
+                    increment_metric("jobs_failed_total")
                     session.commit()
                     raise
             return processed

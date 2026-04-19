@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.repositories.episodes import EpisodeRepository
 from app.repositories.namespaces import NamespaceRepository
 from app.schemas.recall import MemoryBrief, RecallRequest, RecallResponse, RecallTrace
+from app.telemetry.metrics import increment_metric
 
 
 TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
@@ -83,6 +84,9 @@ class RetrievalService:
         selected_space_types = self.collect_selected_space_types(ranked)
 
         selected_count = sum(len(items) for items in brief_dict.values())
+        increment_metric("recall_requests_total")
+        increment_metric("recall_candidates_total", len(candidates))
+        increment_metric("recall_selected_total", selected_count)
         return RecallResponse(
             brief=MemoryBrief(**brief_dict),
             trace=RecallTrace(

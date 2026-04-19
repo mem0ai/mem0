@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.models.job import Job
@@ -47,3 +47,17 @@ class JobRepository:
         job.error_text = error_text
         job.finished_at = _utcnow()
         self.session.flush()
+
+    def count_by_status(self) -> dict[str, int]:
+        stmt = select(Job.status, func.count(Job.id)).group_by(Job.status)
+        return {
+            status: count
+            for status, count in self.session.execute(stmt).all()
+        }
+
+    def count_by_type_and_status(self) -> dict[tuple[str, str], int]:
+        stmt = select(Job.job_type, Job.status, func.count(Job.id)).group_by(Job.job_type, Job.status)
+        return {
+            (job_type, status): count
+            for job_type, status, count in self.session.execute(stmt).all()
+        }
