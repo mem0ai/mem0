@@ -108,7 +108,7 @@ class QualityEvalTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 201)
 
-    def test_run_quality_eval_reports_current_baseline_findings(self) -> None:
+    def test_run_quality_eval_passes_golden_recall_scenarios(self) -> None:
         fixture_path = (
             Path(__file__).resolve().parents[1]
             / "fixtures"
@@ -125,9 +125,6 @@ class QualityEvalTests(unittest.TestCase):
         report = run_quality_eval(self.client, scenarios=materialized)
 
         self.assertEqual(report["total"], 3)
-        self.assertEqual(report["failed"], 3)
-        self.assertEqual(report["passed"], 0)
-        self.assertEqual(
-            [result["id"] for result in report["results"] if not result["passed"]],
-            ["architecture-decisions", "procedures-vs-project", "session-carryover"],
-        )
+        self.assertEqual(report["failed"], 0)
+        self.assertEqual(report["passed"], 3)
+        self.assertTrue(all(result["passed"] for result in report["results"]))

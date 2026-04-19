@@ -161,7 +161,7 @@ make quality-eval
 ```
 
 `make pilot-smoke` поднимает Docker stack, прогоняет synthetic OpenClaw pilot contour и сохраняет JSON report в `.artifacts/openclaw_pilot_smoke_report.json`.
-`make quality-eval` прогоняет golden recall scenarios и печатает JSON report по качеству retrieval baseline.
+`make quality-eval` прогоняет golden recall scenarios, печатает JSON report и служит регрессионным барьером для retrieval tuning.
 
 Миграции:
 

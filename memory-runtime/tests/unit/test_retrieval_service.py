@@ -94,6 +94,92 @@ class RetrievalServiceContractTests(unittest.TestCase):
 
         self.assertEqual(ranked[0].episode_id, "ep-helpful")
 
+    def test_rank_candidates_prefers_agent_core_for_procedural_queries(self) -> None:
+        from app.services.retrieval import RetrievalCandidate, RetrievalService
+
+        ranked = RetrievalService.rank_candidates(
+            query="How should the agent present architecture updates?",
+            candidates=[
+                RetrievalCandidate(
+                    episode_id="ep-project-note",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: This is only a temporary scratch note and should not dominate recall.",
+                    raw_text="assistant: This is only a temporary scratch note and should not dominate recall.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T10:10:00+00:00",
+                    session_id="run_2",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-policy",
+                    space_type="agent-core",
+                    event_type="policy_update",
+                    summary="policy_update: Always produce concise architecture summaries before implementation details.",
+                    raw_text="assistant: Always produce concise architecture summaries before implementation details.",
+                    importance_hint="high",
+                    created_at="2026-04-20T09:00:00+00:00",
+                    session_id="run_1",
+                    usefulness_score=0.0,
+                ),
+            ],
+            active_session_id="run_2",
+        )
+
+        self.assertEqual(ranked[0].episode_id, "ep-policy")
+
+    def test_select_candidates_for_brief_skips_low_signal_project_noise(self) -> None:
+        from app.services.retrieval import RetrievalCandidate, RetrievalService
+
+        ranked = RetrievalService.rank_candidates(
+            query="How should the agent present architecture updates?",
+            candidates=[
+                RetrievalCandidate(
+                    episode_id="ep-policy",
+                    space_type="agent-core",
+                    event_type="policy_update",
+                    summary="policy_update: Always produce concise architecture summaries before implementation details.",
+                    raw_text="assistant: Always produce concise architecture summaries before implementation details.",
+                    importance_hint="high",
+                    created_at="2026-04-20T09:00:00+00:00",
+                    session_id="run_1",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-runtime",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: The memory runtime uses Postgres, Redis, and pgvector as the baseline stack.",
+                    raw_text="assistant: The memory runtime uses Postgres, Redis, and pgvector as the baseline stack.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T09:05:00+00:00",
+                    session_id="run_1",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-noise",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: This is only a temporary scratch note and should not dominate recall.",
+                    raw_text="assistant: This is only a temporary scratch note and should not dominate recall.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T10:10:00+00:00",
+                    session_id="run_3",
+                    usefulness_score=0.0,
+                ),
+            ],
+            active_session_id="run_2",
+        )
+
+        selected = RetrievalService.select_candidates_for_brief(
+            query="How should the agent present architecture updates?",
+            ranked_candidates=ranked,
+            active_session_id="run_2",
+            context_budget_tokens=800,
+        )
+
+        self.assertEqual([candidate.episode_id for candidate in selected], ["ep-policy"])
+
     def test_build_memory_brief_matches_golden_fixture(self) -> None:
         from app.services.retrieval import RetrievalCandidate, RetrievalService
 

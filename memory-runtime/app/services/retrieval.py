@@ -38,6 +38,28 @@ STOPWORDS = {
     "any",
     "we",
     "keep",
+    "how",
+    "should",
+}
+SESSION_INTENT_TOKENS = {"current", "currently", "session", "active", "working", "now"}
+PROCEDURAL_INTENT_TOKENS = {
+    "present",
+    "update",
+    "updates",
+    "format",
+    "style",
+    "guideline",
+    "guidelines",
+    "procedure",
+    "procedures",
+    "policy",
+}
+MAX_ITEMS_BY_SLOT = {
+    "critical_facts": 1,
+    "active_project_context": 2,
+    "prior_decisions": 2,
+    "standing_procedures": 2,
+    "recent_session_carryover": 2,
 }
 
 
@@ -105,9 +127,15 @@ class RetrievalService:
         candidates.extend(external_candidates)
 
         ranked = self.rank_candidates(payload.query, candidates, payload.session_id)
-        brief_dict = self.build_memory_brief(ranked)
-        selected_space_types = self.collect_selected_space_types(ranked)
-        selected_episode_ids = self.collect_selected_episode_ids(ranked)
+        selected = self.select_candidates_for_brief(
+            payload.query,
+            ranked,
+            active_session_id=payload.session_id,
+            context_budget_tokens=payload.context_budget_tokens,
+        )
+        brief_dict = self.build_memory_brief(selected)
+        selected_space_types = self.collect_selected_space_types(selected)
+        selected_episode_ids = self.collect_selected_episode_ids(selected)
 
         selected_count = sum(len(items) for items in brief_dict.values())
         increment_metric("recall_requests_total")
@@ -162,16 +190,45 @@ class RetrievalService:
         candidates: list[RetrievalCandidate],
         active_session_id: str | None = None,
     ) -> list[RetrievalCandidate]:
-        def score(candidate: RetrievalCandidate) -> tuple[float, float]:
-            overlap = cls._token_overlap(query, f"{candidate.summary} {candidate.raw_text}")
-            importance = {"high": 2.0, "medium": 1.0, "normal": 0.0}.get(candidate.importance_hint, 0.0)
-            session_boost = 1.0 if active_session_id and candidate.session_id == active_session_id else 0.0
-            recency = cls._recency_score(candidate.created_at)
-            usefulness = candidate.usefulness_score * 3.0
-            total = overlap * 10.0 + importance + session_boost + recency + usefulness
-            return total, recency
+        return sorted(
+            candidates,
+            key=lambda candidate: cls._score_candidate(query, candidate, active_session_id),
+            reverse=True,
+        )
 
-        return sorted(candidates, key=score, reverse=True)
+    @classmethod
+    def select_candidates_for_brief(
+        cls,
+        query: str,
+        ranked_candidates: list[RetrievalCandidate],
+        *,
+        active_session_id: str | None,
+        context_budget_tokens: int,
+    ) -> list[RetrievalCandidate]:
+        if not ranked_candidates:
+            return []
+
+        max_items = max(3, min(8, context_budget_tokens // 250))
+        top_score, _recency = cls._score_candidate(query, ranked_candidates[0], active_session_id)
+        min_score = max(1.25, top_score * 0.22)
+        slot_counts = {slot: 0 for slot in MAX_ITEMS_BY_SLOT}
+        selected: list[RetrievalCandidate] = []
+
+        for candidate in ranked_candidates:
+            score, _recency = cls._score_candidate(query, candidate, active_session_id)
+            slot = cls._slot_for_candidate(candidate)
+            if slot_counts[slot] >= MAX_ITEMS_BY_SLOT[slot]:
+                continue
+            if score < min_score and not (active_session_id and candidate.session_id == active_session_id):
+                continue
+            selected.append(candidate)
+            slot_counts[slot] += 1
+            if len(selected) >= max_items:
+                break
+
+        if selected:
+            return selected
+        return ranked_candidates[: min(2, len(ranked_candidates))]
 
     @classmethod
     def build_memory_brief(cls, ranked_candidates: list[RetrievalCandidate]) -> dict[str, list[str]]:
@@ -259,6 +316,53 @@ class RetrievalService:
             parsed = parsed.replace(tzinfo=timezone.utc)
         age_seconds = max((datetime.now(timezone.utc) - parsed).total_seconds(), 0)
         return 1.0 / (1.0 + age_seconds / 3600)
+
+    @classmethod
+    def _score_candidate(
+        cls,
+        query: str,
+        candidate: RetrievalCandidate,
+        active_session_id: str | None,
+    ) -> tuple[float, float]:
+        query_tokens = cls._normalize_tokens(query)
+        overlap = cls._token_overlap(query, f"{candidate.summary} {candidate.raw_text}")
+        importance = {"high": 2.0, "medium": 1.0, "normal": 0.0}.get(candidate.importance_hint, 0.0)
+        recency = cls._recency_score(candidate.created_at)
+        usefulness = candidate.usefulness_score * 3.0
+
+        session_boost = 0.0
+        if active_session_id and candidate.session_id == active_session_id:
+            session_boost += 1.0
+            if query_tokens & SESSION_INTENT_TOKENS:
+                session_boost += 2.0
+        elif query_tokens & SESSION_INTENT_TOKENS and candidate.space_type != "session-space":
+            session_boost -= 0.75
+
+        topical_penalty = 0.0
+        if overlap == 0.0 and candidate.space_type == "session-space":
+            topical_penalty -= 0.5
+
+        procedural_boost = 0.0
+        if query_tokens & PROCEDURAL_INTENT_TOKENS:
+            if candidate.space_type == "agent-core" or candidate.event_type in {
+                "policy_update",
+                "procedure",
+                "rule",
+            }:
+                procedural_boost += 2.5
+            elif candidate.space_type in {"project-space", "shared-space"} and overlap == 0.0:
+                procedural_boost -= 0.75
+
+        total = (
+            overlap * 10.0
+            + importance
+            + session_boost
+            + recency
+            + usefulness
+            + topical_penalty
+            + procedural_boost
+        )
+        return total, recency
 
     def _external_candidates(
         self,

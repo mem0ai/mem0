@@ -340,7 +340,8 @@
 - golden scenarios для recall quality
 - reusable eval runner
 - `make quality-eval`
-- component coverage на baseline findings
+- component coverage на passing golden scenarios
+- retrieval selection tuning, ограничивающий low-signal noise в `MemoryBrief`
 
 Статус:
 
