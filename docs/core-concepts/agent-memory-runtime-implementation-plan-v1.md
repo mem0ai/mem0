@@ -673,6 +673,104 @@ Definition of Done:
 - есть component contract tests на оба адаптера
 - есть integration/e2e тест на межагентный shared recall
 
+### MVP Pilot Readiness Milestone
+
+Перед живым `OpenClaw` pilot дополнительно выполнены три самые важные readiness-задачи:
+
+- `quality eval harness`
+- `retrieval tuning`
+- `pilot scenario pack`
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- `make quality-eval` прогоняет golden recall scenarios
+- retrieval selection отсеивает low-signal noise в `MemoryBrief`
+- для живого пилота есть отдельный сценарный пакет с acceptance expectations
+
+### Phase K. Real OpenClaw Pilot
+
+Результат:
+
+- подключен реальный `OpenClaw` конфиг
+- pilot scenarios прогнаны на живом контуре
+- собран список реальных findings по recall, consolidation и эксплуатации
+
+Definition of Done:
+
+- пройдены 5 приоритетных pilot scenarios
+- для каждого сценария зафиксированы `passed/failed`, recall trace и observability evidence
+- сформирован post-pilot backlog по реальным findings
+
+Статус:
+
+- `planned`
+
+### Phase L. Consolidation Tuning
+
+Результат:
+
+- smarter merge rules
+- contradiction handling
+- более точная классификация `fact / decision / procedure / episodic summary`
+
+Definition of Done:
+
+- есть regression tests на merge/update semantics
+- consolidation меньше плодит дубли и лучше сохраняет смысловые различия
+- pilot findings по consolidation закрыты или переведены в явные follow-ups
+
+Статус:
+
+- `in_progress`
+
+Подтверждение текущего объема:
+
+- decision-like `conversation_turn` в `project-space` теперь поднимаются до `decision`
+- procedural guidance теперь поднимается до `procedure` даже без явного `policy_update`
+- merge key canonicalization схлопывает близкие phrasing variants
+- явные противоречащие facts теперь `supersede` предыдущую active memory в том же пространстве
+- добавлены regression tests на semantic merge и contradiction supersede
+
+### Phase M. Operational Polish
+
+Результат:
+
+- reset/cleanup flow для pilot environment
+- команды для просмотра последних smoke/eval reports
+- troubleshooting cheatsheet по типовым operational симптомам
+
+Definition of Done:
+
+- pilot environment можно быстро поднять, сбросить и прогнать повторно
+- последние smoke/eval результаты доступны без ручного поиска по артефактам
+- базовые operational failures локализуются по runbook за несколько минут
+
+Статус:
+
+- `planned`
+
+### Phase N. Memory Poisoning Baseline
+
+Результат:
+
+- базовая фильтрация instruction-like memory candidates
+- low-trust / suspicious marking
+- минимальная защита качества от prompt-like мусора в durable memory
+
+Definition of Done:
+
+- suspicious imperative content не поднимается в long-term автоматически без явной причины
+- есть regression tests на типовые poisoning patterns
+- recall quality не деградирует на чистых сценариях после включения baseline filters
+
+Статус:
+
+- `planned`
+
 ## 6. Первые технические backlog items
 
 ### Iteration 1

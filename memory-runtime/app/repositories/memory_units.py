@@ -23,6 +23,7 @@ class MemoryUnitRepository:
         summary: str,
         merge_key: str,
         created_from_episode_id: str | None,
+        supersedes_memory_id: str | None = None,
         importance_score: float = 0.0,
         confidence_score: float = 0.8,
         freshness_score: float = 1.0,
@@ -38,6 +39,7 @@ class MemoryUnitRepository:
             summary=summary,
             merge_key=merge_key,
             created_from_episode_id=created_from_episode_id,
+            supersedes_memory_id=supersedes_memory_id,
             importance_score=importance_score,
             confidence_score=confidence_score,
             freshness_score=freshness_score,
@@ -61,6 +63,21 @@ class MemoryUnitRepository:
             MemoryUnit.status == "active",
         )
         return self.session.execute(stmt).scalar_one_or_none()
+
+    def list_active_in_space(
+        self,
+        *,
+        namespace_id: str,
+        primary_space_id: str,
+        kind: str,
+    ) -> list[MemoryUnit]:
+        stmt = select(MemoryUnit).where(
+            MemoryUnit.namespace_id == namespace_id,
+            MemoryUnit.primary_space_id == primary_space_id,
+            MemoryUnit.kind == kind,
+            MemoryUnit.status == "active",
+        )
+        return list(self.session.execute(stmt).scalars().all())
 
     def get_by_id(self, memory_unit_id: str) -> MemoryUnit | None:
         return self.session.get(MemoryUnit, memory_unit_id)

@@ -137,3 +137,94 @@ class ConsolidationPipelineTests(unittest.TestCase):
 
         self.assertEqual(memory_units_count, 1)
         self.assertEqual([row[0] for row in audit_actions], ["memory_unit_created", "memory_unit_merged"])
+
+    def test_worker_merges_semantically_equivalent_decision_phrasings(self) -> None:
+        first_payload = {
+            "namespace_id": self.namespace_id,
+            "agent_id": self.agent_id,
+            "session_id": "run_123",
+            "source_system": "openclaw",
+            "event_type": "conversation_turn",
+            "space_hint": "project-space",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "We decided to keep the memory runtime Python-first for v1.",
+                }
+            ],
+        }
+        second_payload = {
+            **first_payload,
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "Keep the memory runtime Python-first for v1.",
+                }
+            ],
+        }
+        self.client.post("/v1/events", json=first_payload)
+        self.client.post("/v1/events", json=second_payload)
+
+        processed = WorkerRunner.run_pending_jobs()
+
+        self.assertEqual(processed, 2)
+        with get_engine().connect() as connection:
+            row = connection.execute(
+                text("SELECT kind, COUNT(*) FROM memory_units GROUP BY kind")
+            ).fetchone()
+            audit_actions = connection.execute(
+                text("SELECT action FROM audit_log ORDER BY created_at ASC")
+            ).fetchall()
+
+        self.assertIsNotNone(row)
+        self.assertEqual(row[0], "decision")
+        self.assertEqual(row[1], 1)
+        self.assertEqual([item[0] for item in audit_actions], ["memory_unit_created", "memory_unit_merged"])
+
+    def test_worker_supersedes_contradictory_fact_in_same_space(self) -> None:
+        first_payload = {
+            "namespace_id": self.namespace_id,
+            "agent_id": self.agent_id,
+            "session_id": "run_123",
+            "source_system": "openclaw",
+            "event_type": "conversation_turn",
+            "space_hint": "project-space",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "We use Postgres as the primary database for memory-runtime.",
+                }
+            ],
+        }
+        second_payload = {
+            **first_payload,
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "We do not use Postgres as the primary database for memory-runtime.",
+                }
+            ],
+        }
+        self.client.post("/v1/events", json=first_payload)
+        self.client.post("/v1/events", json=second_payload)
+
+        processed = WorkerRunner.run_pending_jobs()
+
+        self.assertEqual(processed, 2)
+        with get_engine().connect() as connection:
+            memory_rows = connection.execute(
+                text(
+                    "SELECT status, supersedes_memory_id, content FROM memory_units ORDER BY created_at ASC"
+                )
+            ).fetchall()
+            audit_actions = connection.execute(
+                text("SELECT action FROM audit_log ORDER BY created_at ASC")
+            ).fetchall()
+
+        self.assertEqual(len(memory_rows), 2)
+        self.assertEqual(memory_rows[0][0], "superseded")
+        self.assertIsNone(memory_rows[0][1])
+        self.assertEqual(memory_rows[1][0], "active")
+        self.assertIsNotNone(memory_rows[1][1])
+        self.assertIn("do not use Postgres", memory_rows[1][2])
+        self.assertEqual([item[0] for item in audit_actions], ["memory_unit_created", "memory_unit_superseded"])

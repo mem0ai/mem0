@@ -123,6 +123,11 @@ Readiness baseline теперь включает:
 Адаптерные endpoints фиксируют source-system contract для интеграций и работают поверх того же ingestion/recall pipeline.
 Для `OpenClaw` добавлен отдельный runtime-contract: плагин сначала вызывает `bootstrap`, затем использует `events/search/list/get/delete` как transport-поверхность вместо прямого подключения к `mem0`.
 Long-term `search/list` в adapter contract теперь возвращают только long-term candidates и не подтягивают `session-space`; уже консолидированные эпизоды не дублируются рядом с `memory_units`.
+Consolidation baseline теперь умеет:
+- повышать decision-like `conversation_turn` до `decision`
+- повышать procedural guidance до `procedure`
+- canonicalize phrasing variants для более устойчивого merge
+- supersede явные противоречащие long-term memories в пределах одного пространства вместо наивного сосуществования конфликтующих фактов
 В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
 `/metrics` отдает Prometheus-compatible экспорт counters и job gauges, а `/v1/observability/stats` дает JSON-срез для локальной диагностики и dashboard bootstrap.
 Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`) теперь считаются из shared DB state (`jobs` и `audit_log`), а не только из process-local памяти.
@@ -140,6 +145,7 @@ Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`)
 - event ingestion and episode creation baseline
 - recall baseline and `MemoryBrief` structure
 - consolidation jobs, worker processing, and `memory_units` baseline
+- consolidation regressions for semantic merge, kind inference, and contradictory memory supersede
 - lifecycle jobs, decay/archive/eviction baseline, and internal metrics counters
 - adapter contracts for `OpenClaw` and `BunkerAI`
 - OpenClaw runtime adapter coverage for bootstrap, search, list, get, and delete
