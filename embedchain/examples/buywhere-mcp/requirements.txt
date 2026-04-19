@@ -1,0 +1,5 @@
+streamlit>=1.28.0
+embedchain>=0.1.100
+openai>=1.0.0
+httpx>=0.25.0
+python-dotenv>=1.0.0
