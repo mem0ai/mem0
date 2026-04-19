@@ -771,6 +771,25 @@ Definition of Done:
 - `make quality-eval` теперь сохраняет report в `.artifacts/recall_quality_eval_report.json`
 - подготовлен symptom-driven troubleshooting cheatsheet для live pilot
 
+### Lifecycle Eval Baseline
+
+До живого pilot в проект добавлен отдельный lifecycle eval harness:
+
+- golden lifecycle scenarios
+- отдельный runner `make lifecycle-eval`
+- coverage для `decay`, `archive`, `evict` и `no-op`
+- machine-readable metrics по lifecycle quality
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- lifecycle eval сценарии проходят green
+- harness фиксирует `action_match_rate`, `status_match_rate`, `destructive_action_rate` и `mean_freshness_score`
+- важные активные memories не эвиктятся в golden scenarios вместе с мусором
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

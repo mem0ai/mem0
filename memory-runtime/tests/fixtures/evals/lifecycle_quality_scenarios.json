@@ -1,0 +1,104 @@
+[
+  {
+    "id": "project-memory-decays",
+    "description": "A week-old project memory should decay but stay active.",
+    "space_type": "project-space",
+    "memory_unit": {
+      "age_hours": 168,
+      "freshness_score": 1.0,
+      "importance_score": 0.5,
+      "access_count": 0,
+      "status": "active"
+    },
+    "expected": {
+      "action": "decayed",
+      "status": "active",
+      "freshness_max": 0.95
+    }
+  },
+  {
+    "id": "session-memory-archives",
+    "description": "Session memory older than the TTL should archive.",
+    "space_type": "session-space",
+    "memory_unit": {
+      "age_hours": 72,
+      "freshness_score": 0.9,
+      "importance_score": 0.4,
+      "access_count": 0,
+      "status": "active"
+    },
+    "expected": {
+      "action": "archived",
+      "status": "archived",
+      "freshness_min": 0.9
+    }
+  },
+  {
+    "id": "stale-low-value-project-evicts",
+    "description": "Low-value old project memory should evict after enough age.",
+    "space_type": "project-space",
+    "memory_unit": {
+      "age_hours": 1080,
+      "freshness_score": 0.2,
+      "importance_score": 0.1,
+      "access_count": 0,
+      "status": "active"
+    },
+    "expected": {
+      "action": "evicted",
+      "status": "evicted",
+      "freshness_max": 0.2
+    }
+  },
+  {
+    "id": "important-project-memory-stays-active",
+    "description": "Important accessed project memory should not evict even when old.",
+    "space_type": "project-space",
+    "memory_unit": {
+      "age_hours": 1080,
+      "freshness_score": 0.8,
+      "importance_score": 0.9,
+      "access_count": 5,
+      "status": "active"
+    },
+    "expected": {
+      "action": "decayed",
+      "status": "active",
+      "freshness_min": 0.1
+    }
+  },
+  {
+    "id": "shared-memory-decays-without-eviction",
+    "description": "Shared memory should decay more slowly and remain active at moderate age.",
+    "space_type": "shared-space",
+    "memory_unit": {
+      "age_hours": 336,
+      "freshness_score": 1.0,
+      "importance_score": 0.5,
+      "access_count": 1,
+      "status": "active"
+    },
+    "expected": {
+      "action": "decayed",
+      "status": "active",
+      "freshness_min": 0.5
+    }
+  },
+  {
+    "id": "already-archived-memory-noops",
+    "description": "Non-active memory should not transition again.",
+    "space_type": "project-space",
+    "memory_unit": {
+      "age_hours": 96,
+      "freshness_score": 0.3,
+      "importance_score": 0.2,
+      "access_count": 0,
+      "status": "archived"
+    },
+    "expected": {
+      "action": "none",
+      "status": "archived",
+      "freshness_min": 0.3
+    }
+  }
+]

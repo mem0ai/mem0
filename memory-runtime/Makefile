@@ -1,4 +1,4 @@
-.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e pilot-smoke quality-eval reset-pilot show-last-smoke show-last-quality-eval
+.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e pilot-smoke quality-eval lifecycle-eval reset-pilot show-last-smoke show-last-quality-eval
 
 PYTHON ?= python3
 PORT ?= 8080
@@ -26,6 +26,9 @@ pilot-smoke:
 
 quality-eval:
 	bash scripts/openclaw_quality_eval.sh
+
+lifecycle-eval:
+	$(PYTHON) -m app.lifecycle_eval
 
 reset-pilot:
 	bash scripts/openclaw_reset_pilot.sh
