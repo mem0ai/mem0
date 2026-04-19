@@ -4,5 +4,6 @@ __pycache__/
 .coverage
 .venv/
 .artifacts/
+memory_runtime.db
 dist/
 build/

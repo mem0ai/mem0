@@ -333,6 +333,25 @@
 - есть автоматизированная команда `make pilot-smoke` с JSON report для synthetic OpenClaw pilot
 - документация для ручного пилота зафиксирована
 
+### Retrieval Quality Eval Baseline
+
+До живого OpenClaw pilot в проекте добавлен отдельный quality eval harness:
+
+- golden scenarios для recall quality
+- reusable eval runner
+- `make quality-eval`
+- component coverage на baseline findings
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- harness воспроизводимо прогоняет recall scenarios
+- baseline deficits фиксируются в machine-readable report
+- это дает опорную точку перед retrieval tuning
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:

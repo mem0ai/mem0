@@ -1,0 +1,54 @@
+[
+  {
+    "id": "architecture-decisions",
+    "description": "Recall should surface durable architecture decisions and omit unrelated session chatter.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "What architecture decisions already exist for the memory runtime?",
+      "context_budget_tokens": 1000
+    },
+    "must_contain": [
+      "Python-first architecture",
+      "Postgres, Redis, and pgvector as the baseline stack"
+    ],
+    "must_not_contain": [
+      "book flights for the conference"
+    ]
+  },
+  {
+    "id": "procedures-vs-project",
+    "description": "Recall should include standing procedures and not lose them behind project context.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "How should the agent present architecture updates?",
+      "context_budget_tokens": 800
+    },
+    "must_contain": [
+      "concise architecture summaries before implementation details"
+    ],
+    "must_not_contain": [
+      "temporary scratch note"
+    ]
+  },
+  {
+    "id": "session-carryover",
+    "description": "Recall should preserve active session carryover for the current run.",
+    "request": {
+      "namespace_id": "EVAL_NAMESPACE_ID",
+      "agent_id": "EVAL_AGENT_ID",
+      "session_id": "eval_run_active",
+      "query": "What am I currently working on in this session?",
+      "context_budget_tokens": 700
+    },
+    "must_contain": [
+      "draft the pilot acceptance checklist"
+    ],
+    "must_not_contain": [
+      "old deprecated deployment note"
+    ]
+  }
+]
