@@ -759,7 +759,28 @@ erDiagram
     "standing_procedures": [],
     "recent_session_carryover": []
   },
-  "trace_id": "recall_abc123"
+  "trace": {
+    "candidate_count": 8,
+    "selected_count": 4,
+    "selected_space_types": ["project-space", "agent-core", "session-space"],
+    "selected_episode_ids": ["ep_123", "ep_456"]
+  }
+}
+```
+
+`POST /v1/recall/feedback`
+
+Записать usefulness feedback по выбранным эпизодам recall.
+
+Пример payload:
+
+```json
+{
+  "namespace_id": "cluster:project-alpha:shared",
+  "agent_id": "openclaw-planner",
+  "helpful": true,
+  "episode_ids": ["ep_123", "ep_456"],
+  "query": "What decisions already exist about the memory runtime architecture?"
 }
 ```
 
@@ -802,6 +823,8 @@ erDiagram
 - worker success/failure counters
 - job gauges по status
 - job gauges по type/status
+- mem0 bridge counters
+- recall feedback counters
 
 `GET /v1/observability/stats`
 
@@ -811,7 +834,22 @@ erDiagram
 - `jobs.by_status`
 - `jobs.by_type`
 
-### 11.6 Explicit memory ops
+### 11.6 Quality Loop And mem0 Bridge
+
+Quality loop в текущей реализации:
+
+- recall trace возвращает `selected_episode_ids`
+- feedback сохраняется в `audit_log`
+- retrieval ranking учитывает positive/negative usefulness score
+
+`mem0 bridge` в текущей реализации:
+
+- конфигурируется через environment variables
+- по умолчанию выключен
+- может синхронизировать consolidated memories во внешний `mem0`
+- может добавлять external recall candidates без обязательной зависимости для локальных тестов
+
+### 11.7 Explicit memory ops
 
 `POST /v1/memories`
 
@@ -829,7 +867,7 @@ erDiagram
 
 Посмотреть историю memory unit.
 
-### 11.7 Space inspection
+### 11.8 Space inspection
 
 `GET /v1/spaces/{space_id}/memories`
 

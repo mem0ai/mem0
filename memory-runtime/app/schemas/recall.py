@@ -24,6 +24,21 @@ class RecallTrace(BaseModel):
     candidate_count: int
     selected_count: int
     selected_space_types: list[str]
+    selected_episode_ids: list[str] = Field(default_factory=list)
+
+
+class RecallFeedbackRequest(BaseModel):
+    namespace_id: str
+    agent_id: str | None = None
+    helpful: bool
+    episode_ids: list[str] = Field(..., min_length=1)
+    query: str | None = None
+    notes: str | None = None
+
+
+class RecallFeedbackResponse(BaseModel):
+    recorded_count: int
+    helpful: bool
 
 
 class RecallResponse(BaseModel):

@@ -37,6 +37,14 @@ _METRIC_DEFINITIONS = {
         "counter",
         "Total recall requests handled by the runtime.",
     ),
+    "recall_feedback_positive_total": (
+        "counter",
+        "Total positive recall feedback signals recorded by the runtime.",
+    ),
+    "recall_feedback_negative_total": (
+        "counter",
+        "Total negative recall feedback signals recorded by the runtime.",
+    ),
     "recall_candidates_total": (
         "counter",
         "Total recall candidates considered by the runtime.",
@@ -44,6 +52,18 @@ _METRIC_DEFINITIONS = {
     "recall_selected_total": (
         "counter",
         "Total recall items selected into memory briefs.",
+    ),
+    "mem0_search_requests_total": (
+        "counter",
+        "Total mem0 bridge search requests issued by the runtime.",
+    ),
+    "mem0_sync_attempts_total": (
+        "counter",
+        "Total mem0 bridge sync attempts issued by the runtime.",
+    ),
+    "mem0_sync_success_total": (
+        "counter",
+        "Total successful mem0 bridge sync operations.",
     ),
 }
 _KNOWN_COUNTERS = set(_METRIC_DEFINITIONS)

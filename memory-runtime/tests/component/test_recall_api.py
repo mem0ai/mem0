@@ -131,6 +131,7 @@ class RecallApiTests(unittest.TestCase):
         payload = response.json()
         self.assertIn("brief", payload)
         self.assertIn("trace", payload)
+        self.assertIn("selected_episode_ids", payload["trace"])
         self.assertIn("prior_decisions", payload["brief"])
         self.assertIn("active_project_context", payload["brief"])
         self.assertIn("standing_procedures", payload["brief"])
@@ -147,3 +148,84 @@ class RecallApiTests(unittest.TestCase):
         self.assertTrue(
             any("Phase D recall MVP" in item for item in payload["brief"]["recent_session_carryover"])
         )
+
+    def test_positive_feedback_promotes_useful_episode_in_later_recall(self) -> None:
+        older = self.client.post(
+            "/v1/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.agent_id,
+                "session_id": "run_quality_1",
+                "source_system": "openclaw",
+                "event_type": "conversation_turn",
+                "space_hint": "project-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "The memory runtime uses Postgres and Redis as the core stack for durable work.",
+                    }
+                ],
+            },
+        )
+        newer = self.client.post(
+            "/v1/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.agent_id,
+                "session_id": "run_quality_2",
+                "source_system": "openclaw",
+                "event_type": "conversation_turn",
+                "space_hint": "project-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "The database stack for the memory runtime uses SQLite for temporary scratch notes during experiments.",
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(older.status_code, 201)
+        self.assertEqual(newer.status_code, 201)
+
+        baseline = self.client.post(
+            "/v1/recall",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.agent_id,
+                "query": "What database stack does the memory runtime use?",
+                "context_budget_tokens": 800,
+                "space_filter": ["project-space"],
+            },
+        )
+        self.assertEqual(baseline.status_code, 200)
+        baseline_payload = baseline.json()
+        self.assertTrue(baseline_payload["brief"]["active_project_context"])
+        self.assertIn("SQLite for temporary scratch notes", baseline_payload["brief"]["active_project_context"][0])
+
+        feedback = self.client.post(
+            "/v1/recall/feedback",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.agent_id,
+                "helpful": True,
+                "episode_ids": [older.json()["episode_id"]],
+                "query": "What database stack does the memory runtime use?",
+            },
+        )
+        self.assertEqual(feedback.status_code, 200)
+
+        after_feedback = self.client.post(
+            "/v1/recall",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.agent_id,
+                "query": "What database stack does the memory runtime use?",
+                "context_budget_tokens": 800,
+                "space_filter": ["project-space"],
+            },
+        )
+        self.assertEqual(after_feedback.status_code, 200)
+        updated_payload = after_feedback.json()
+        self.assertTrue(updated_payload["brief"]["active_project_context"])
+        self.assertIn("Postgres and Redis as the core stack", updated_payload["brief"]["active_project_context"][0])

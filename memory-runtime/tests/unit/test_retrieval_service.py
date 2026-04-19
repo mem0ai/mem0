@@ -41,6 +41,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
                     importance_hint="normal",
                     created_at="2026-04-20T10:05:00+00:00",
                     session_id="run_1",
+                    usefulness_score=0.0,
                 ),
                 RetrievalCandidate(
                     episode_id="ep-decision",
@@ -51,12 +52,47 @@ class RetrievalServiceContractTests(unittest.TestCase):
                     importance_hint="high",
                     created_at="2026-04-20T09:00:00+00:00",
                     session_id="run_0",
+                    usefulness_score=0.0,
                 ),
             ],
             active_session_id="run_1",
         )
 
         self.assertEqual(ranked[0].episode_id, "ep-decision")
+
+    def test_rank_candidates_prefers_positive_usefulness_feedback(self) -> None:
+        from app.services.retrieval import RetrievalCandidate, RetrievalService
+
+        ranked = RetrievalService.rank_candidates(
+            query="what database stack does the memory runtime use",
+            candidates=[
+                RetrievalCandidate(
+                    episode_id="ep-newer",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: The memory runtime uses SQLite for temporary scratch notes.",
+                    raw_text="assistant: The memory runtime uses SQLite for temporary scratch notes.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T10:10:00+00:00",
+                    session_id="run_2",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-helpful",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: The memory runtime uses Postgres and Redis as the core stack.",
+                    raw_text="assistant: The memory runtime uses Postgres and Redis as the core stack.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T09:00:00+00:00",
+                    session_id="run_1",
+                    usefulness_score=1.0,
+                ),
+            ],
+            active_session_id=None,
+        )
+
+        self.assertEqual(ranked[0].episode_id, "ep-helpful")
 
     def test_build_memory_brief_matches_golden_fixture(self) -> None:
         from app.services.retrieval import RetrievalCandidate, RetrievalService
@@ -71,6 +107,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
                 importance_hint="normal",
                 created_at="2026-04-20T08:00:00+00:00",
                 session_id="run_0",
+                usefulness_score=0.0,
             ),
             RetrievalCandidate(
                 episode_id="ep-decision",
@@ -81,6 +118,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
                 importance_hint="high",
                 created_at="2026-04-20T09:00:00+00:00",
                 session_id="run_0",
+                usefulness_score=0.0,
             ),
             RetrievalCandidate(
                 episode_id="ep-policy",
@@ -91,6 +129,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
                 importance_hint="high",
                 created_at="2026-04-20T09:30:00+00:00",
                 session_id="run_0",
+                usefulness_score=0.0,
             ),
             RetrievalCandidate(
                 episode_id="ep-session",
@@ -101,6 +140,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
                 importance_hint="normal",
                 created_at="2026-04-20T10:00:00+00:00",
                 session_id="run_123",
+                usefulness_score=0.0,
             ),
         ]
 
@@ -127,6 +167,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
                     importance_hint="high",
                     created_at="2026-04-20T09:00:00+00:00",
                     session_id="run_a",
+                    usefulness_score=0.0,
                 ),
                 RetrievalCandidate(
                     episode_id="ep-agent",
@@ -137,6 +178,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
                     importance_hint="normal",
                     created_at="2026-04-20T09:05:00+00:00",
                     session_id="run_b",
+                    usefulness_score=0.0,
                 ),
                 RetrievalCandidate(
                     episode_id="ep-shared-2",
@@ -147,6 +189,7 @@ class RetrievalServiceContractTests(unittest.TestCase):
                     importance_hint="normal",
                     created_at="2026-04-20T09:10:00+00:00",
                     session_id="run_c",
+                    usefulness_score=0.0,
                 ),
             ]
         )

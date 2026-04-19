@@ -43,9 +43,13 @@ cp .env.example .env
 - `MEMORY_RUNTIME_API_PORT`
 - `MEMORY_RUNTIME_POSTGRES_DSN`
 - `MEMORY_RUNTIME_REDIS_URL`
+- `MEMORY_RUNTIME_MEM0_BRIDGE_ENABLED`
+- `MEMORY_RUNTIME_MEM0_BASE_URL`
+- `MEMORY_RUNTIME_MEM0_API_KEY`
 
 По умолчанию локальный scaffold использует SQLite-файл для безопасного старта без внешней БД.
 Для Docker и реального runtime используется явный Postgres DSN из `.env`.
+`mem0 bridge` по умолчанию выключен и включается только явной конфигурацией.
 
 ## Установка dev-зависимостей
 
@@ -85,6 +89,7 @@ docker compose up --build
 - `POST /v1/namespaces/{namespace_id}/agents`
 - `POST /v1/events`
 - `POST /v1/recall`
+- `POST /v1/recall/feedback`
 - `GET /v1/observability/stats`
 - `POST /v1/adapters/openclaw/events`
 - `POST /v1/adapters/openclaw/recall`
@@ -94,6 +99,8 @@ docker compose up --build
 Адаптерные endpoints фиксируют source-system contract для интеграций и работают поверх того же ingestion/recall pipeline.
 В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
 `/metrics` отдает Prometheus-compatible экспорт counters и job gauges, а `/v1/observability/stats` дает JSON-срез для локальной диагностики и dashboard bootstrap.
+`/v1/recall/feedback` записывает usefulness signals, которые потом участвуют в последующем ranking.
+При включенном `mem0 bridge` runtime может синхронизировать long-term memories в `mem0` и использовать его как внешний recall source.
 
 ## Тесты
 
@@ -109,6 +116,8 @@ docker compose up --build
 - adapter contracts for `OpenClaw` and `BunkerAI`
 - shared namespace e2e scenario for cross-agent memory exchange
 - Prometheus-style metrics exporter and observability stats endpoint
+- recall feedback loop and usefulness-aware reranking
+- mem0 bridge unit coverage without external network dependency
 
 Команды запуска:
 

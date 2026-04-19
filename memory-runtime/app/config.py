@@ -21,6 +21,10 @@ class Settings:
     postgres_dsn: str = "sqlite+pysqlite:///./memory_runtime.db"
     redis_url: str = "redis://localhost:6379/0"
     auto_create_tables: bool = True
+    mem0_bridge_enabled: bool = False
+    mem0_base_url: str | None = None
+    mem0_api_key: str | None = None
+    mem0_timeout_seconds: float = 5.0
 
     @property
     def database_url(self) -> str:
@@ -41,4 +45,8 @@ def get_settings() -> Settings:
         ),
         redis_url=os.getenv("MEMORY_RUNTIME_REDIS_URL", "redis://localhost:6379/0"),
         auto_create_tables=_to_bool(os.getenv("MEMORY_RUNTIME_AUTO_CREATE_TABLES"), default=True),
+        mem0_bridge_enabled=_to_bool(os.getenv("MEMORY_RUNTIME_MEM0_BRIDGE_ENABLED"), default=False),
+        mem0_base_url=os.getenv("MEMORY_RUNTIME_MEM0_BASE_URL"),
+        mem0_api_key=os.getenv("MEMORY_RUNTIME_MEM0_API_KEY"),
+        mem0_timeout_seconds=float(os.getenv("MEMORY_RUNTIME_MEM0_TIMEOUT_SECONDS", "5.0")),
     )
