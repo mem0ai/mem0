@@ -83,6 +83,7 @@ docker compose up --build
 - namespace and agent API baseline
 - event ingestion and episode creation baseline
 - recall baseline and `MemoryBrief` structure
+- consolidation jobs, worker processing, and `memory_units` baseline
 
 Команды запуска:
 

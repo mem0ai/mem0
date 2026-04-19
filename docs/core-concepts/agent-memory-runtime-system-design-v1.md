@@ -358,19 +358,27 @@ flowchart TD
 
 Ниже логическая схема. Это не финальный SQL, а контракт на сущности.
 
-### 10.1 ER Diagram: Current Phase B Baseline
+### 10.1 ER Diagram: Current Implemented Baseline
 
-Ниже диаграмма отражает текущий уже реализованный baseline в коде `Phase B`: `namespaces`, `agents`, `memory_spaces`, `memory_events`.
+Ниже диаграмма отражает текущий уже реализованный baseline в коде по состоянию после `Phase E`.
 
 ```mermaid
 erDiagram
     NAMESPACES ||--o{ AGENTS : contains
     NAMESPACES ||--o{ MEMORY_SPACES : owns
     NAMESPACES ||--o{ MEMORY_EVENTS : scopes
+    NAMESPACES ||--o{ EPISODES : scopes
+    NAMESPACES ||--o{ MEMORY_UNITS : scopes
+    NAMESPACES ||--o{ AUDIT_LOG : records
     AGENTS ||--o{ MEMORY_SPACES : receives
     AGENTS ||--o{ MEMORY_EVENTS : produces
+    AGENTS ||--o{ EPISODES : participates_in
+    AGENTS ||--o{ MEMORY_UNITS : owns
     MEMORY_SPACES ||--o{ MEMORY_EVENTS : groups
+    MEMORY_SPACES ||--o{ EPISODES : groups
+    MEMORY_SPACES ||--o{ MEMORY_UNITS : stores
     MEMORY_SPACES ||--o{ MEMORY_SPACES : parent_of
+    EPISODES ||--o{ MEMORY_UNITS : promotes_to
 
     NAMESPACES {
         string id PK
@@ -400,6 +408,62 @@ erDiagram
         string parent_space_id FK
         datetime created_at
         datetime updated_at
+    }
+
+    EPISODES {
+        string id PK
+        string namespace_id FK
+        string agent_id FK
+        string space_id FK
+        string session_id
+        string start_event_id FK
+        string end_event_id FK
+        string summary
+        string raw_text
+        int token_count
+        string importance_hint
+        datetime created_at
+    }
+
+    MEMORY_UNITS {
+        string id PK
+        string namespace_id FK
+        string agent_id FK
+        string primary_space_id FK
+        string kind
+        string scope
+        string content
+        string summary
+        float importance_score
+        float confidence_score
+        float freshness_score
+        float durability_score
+        int access_count
+        string status
+        string merge_key
+        string created_from_episode_id FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    JOBS {
+        string id PK
+        string job_type
+        string status
+        int attempt_count
+        datetime available_at
+        datetime started_at
+        datetime finished_at
+    }
+
+    AUDIT_LOG {
+        string id PK
+        string namespace_id FK
+        string agent_id FK
+        string entity_type
+        string entity_id
+        string action
+        datetime created_at
     }
 
     MEMORY_EVENTS {

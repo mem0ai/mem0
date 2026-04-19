@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.repositories.agents import AgentRepository
 from app.repositories.episodes import EpisodeRepository
+from app.repositories.jobs import JobRepository
 from app.repositories.memory_events import MemoryEventRepository
 from app.repositories.memory_spaces import MemorySpaceRepository
 from app.repositories.namespaces import NamespaceRepository
@@ -26,6 +27,7 @@ class IngestionService:
         self.spaces = MemorySpaceRepository(session)
         self.events = MemoryEventRepository(session)
         self.episodes = EpisodeRepository(session)
+        self.jobs = JobRepository(session)
 
     def ingest_event(self, payload: EventCreate) -> EventRead:
         namespace = self.namespaces.get_by_id(payload.namespace_id)
@@ -86,6 +88,13 @@ class IngestionService:
             raw_text=raw_text,
             token_count=self.estimate_token_count(raw_text),
             importance_hint=self.estimate_importance_hint(payload.event_type, normalized_messages),
+        )
+        self.jobs.create(
+            job_type="memory_consolidation",
+            payload_json={
+                "episode_id": episode.id,
+                "space_type": space.space_type if space else "session-space",
+            },
         )
 
         self.session.commit()

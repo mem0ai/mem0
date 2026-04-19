@@ -129,6 +129,37 @@
 - golden test на expected brief проходит
 - test suite и lint проходят
 
+### Текущий прогресс `Phase E`
+
+В сервисе уже реализован первый consolidation-срез:
+
+- queue/job scaffold через таблицу `jobs`
+- `WorkerRunner` для обработки pending jobs
+- `memory_consolidation` job
+- таблица `memory_units`
+- таблица `audit_log`
+- `create / merge` semantics для memory units
+- enqueue consolidation job при ingestion
+
+Тестовое покрытие для этого слоя включает:
+
+- unit tests на memory attribute inference и merge key normalization
+- component tests на job enqueue при event ingestion
+- component tests на worker processing
+- component tests на merge duplicate consolidations into one memory unit
+
+### Статус `Phase E`
+
+`Phase E` считается завершенной в первом рабочем объеме.
+
+Подтверждение:
+
+- consolidation jobs создаются при ingestion
+- worker обрабатывает pending jobs
+- `memory_units` создаются и merge'ятся
+- `audit_log` заполняется
+- test suite и lint проходят
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:
@@ -385,6 +416,10 @@ Definition of Done:
 - есть integration tests API + queue + DB + worker
 - есть scenario tests short-term -> long-term
 - есть audit trail tests
+
+Статус:
+
+- `completed`
 
 ### Phase F. Lifecycle management
 

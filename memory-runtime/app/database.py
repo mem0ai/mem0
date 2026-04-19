@@ -48,7 +48,7 @@ def get_db_session() -> Generator[Session, None, None]:
 
 
 def init_database() -> None:
-    from app.models import agent, episode, memory_event, memory_space, namespace  # noqa: F401
+    from app.models import agent, audit_log, episode, job, memory_event, memory_space, memory_unit, namespace  # noqa: F401
 
     Base.metadata.create_all(bind=get_engine())
 
