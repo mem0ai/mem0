@@ -82,6 +82,7 @@ docker compose up --build
 - health endpoint
 - namespace and agent API baseline
 - event ingestion and episode creation baseline
+- recall baseline and `MemoryBrief` structure
 
 Команды запуска:
 

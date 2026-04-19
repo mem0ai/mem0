@@ -97,6 +97,38 @@
 - `episodes` инициализируются при ingestion
 - test suite и lint проходят
 
+### Текущий прогресс `Phase D`
+
+В сервисе уже реализован первый recall-срез:
+
+- `POST /v1/recall`
+- `scope resolution` по namespace mode
+- candidate gathering из `episodes`
+- детерминированный ranking на lexical overlap + importance + session affinity + recency
+- `MemoryBrief` builder v1
+- structured recall trace
+- golden fixture для expected brief shape
+
+Тестовое покрытие для этого слоя включает:
+
+- unit tests на `resolve_space_filters`
+- unit tests на ranking logic
+- golden test на `MemoryBrief`
+- component test на `POST /v1/recall`
+
+### Статус `Phase D`
+
+`Phase D` считается завершенной в MVP-объеме.
+
+Подтверждение:
+
+- `POST /v1/recall` реализован
+- brief builder возвращает ожидаемую структуру
+- recall API покрыт компонентным тестом
+- deterministic ranking logic покрыта unit tests
+- golden test на expected brief проходит
+- test suite и lint проходят
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:
@@ -333,6 +365,10 @@ Definition of Done:
 - есть golden tests на format и content structure `MemoryBrief`
 - есть contract tests на recall payloads
 - есть regression tests на ranking logic
+
+Статус:
+
+- `completed`
 
 ### Phase E. Consolidation pipeline
 
