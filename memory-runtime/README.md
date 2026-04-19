@@ -84,6 +84,7 @@ docker compose up --build
 - event ingestion and episode creation baseline
 - recall baseline and `MemoryBrief` structure
 - consolidation jobs, worker processing, and `memory_units` baseline
+- lifecycle jobs, decay/archive/eviction baseline, and internal metrics counters
 
 Команды запуска:
 

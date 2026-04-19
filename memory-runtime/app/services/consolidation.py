@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 from app.models.episode import Episode
 from app.repositories.audit_logs import AuditLogRepository
 from app.repositories.memory_spaces import MemorySpaceRepository
+from app.repositories.jobs import JobRepository
 from app.repositories.memory_units import MemoryUnitRepository
+from app.telemetry.metrics import increment_metric
 
 
 WS_RE = re.compile(r"\s+")
@@ -20,8 +22,9 @@ class ConsolidationService:
         self.memory_units = MemoryUnitRepository(session)
         self.spaces = MemorySpaceRepository(session)
         self.audit = AuditLogRepository(session)
+        self.jobs = JobRepository(session)
 
-    def consolidate_episode(self, episode: Episode, space_type: str) -> str:
+    def consolidate_episode(self, episode: Episode, space_type: str) -> tuple[str, str]:
         kind, scope = self.infer_memory_attributes(space_type=space_type, event_type=self._extract_event_type(episode.summary))
         content = self.build_memory_content(episode.summary)
         merge_key = self.normalize_merge_key(content)
@@ -55,8 +58,13 @@ class ConsolidationService:
                 action="memory_unit_created",
                 details_json={"episode_id": episode.id, "space_type": space_type},
             )
+            self.jobs.create(
+                job_type="memory_decay",
+                payload_json={"memory_unit_id": memory_unit.id, "space_type": space_type},
+            )
+            increment_metric("consolidation_created_total")
             self.session.flush()
-            return "created"
+            return "created", memory_unit.id
 
         existing.summary = episode.summary
         existing.content = content
@@ -70,8 +78,13 @@ class ConsolidationService:
             action="memory_unit_merged",
             details_json={"episode_id": episode.id, "space_type": space_type},
         )
+        self.jobs.create(
+            job_type="memory_decay",
+            payload_json={"memory_unit_id": existing.id, "space_type": space_type},
+        )
+        increment_metric("consolidation_merged_total")
         self.session.flush()
-        return "merged"
+        return "merged", existing.id
 
     @staticmethod
     def infer_memory_attributes(*, space_type: str, event_type: str) -> tuple[str, str]:

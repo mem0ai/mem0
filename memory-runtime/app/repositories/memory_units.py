@@ -60,3 +60,6 @@ class MemoryUnitRepository:
             MemoryUnit.status == "active",
         )
         return self.session.execute(stmt).scalar_one_or_none()
+
+    def get_by_id(self, memory_unit_id: str) -> MemoryUnit | None:
+        return self.session.get(MemoryUnit, memory_unit_id)

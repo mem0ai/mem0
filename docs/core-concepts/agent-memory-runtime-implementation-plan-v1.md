@@ -160,6 +160,37 @@
 - `audit_log` заполняется
 - test suite и lint проходят
 
+### Текущий прогресс `Phase F`
+
+В сервисе уже реализован первый lifecycle-срез:
+
+- `LifecycleService`
+- `memory_decay` jobs
+- baseline rules для `decay`, `archive`, `evict`
+- worker processing для lifecycle jobs
+- internal telemetry counters
+- controllable-clock unit tests для lifecycle transitions
+
+Тестовое покрытие для этого слоя включает:
+
+- unit tests на `evaluate_transition`
+- component tests на enqueue lifecycle jobs после consolidation
+- component tests на decay project memory
+- component tests на archive old session memory
+- metrics assertions для lifecycle counters
+
+### Статус `Phase F`
+
+`Phase F` считается завершенной в первом рабочем объеме.
+
+Подтверждение:
+
+- lifecycle jobs создаются и обрабатываются
+- decay/archive/eviction baseline реализован
+- internal counters работают
+- controllable-clock lifecycle tests проходят
+- test suite и lint проходят
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:
@@ -435,6 +466,10 @@ Definition of Done:
 - есть deterministic lifecycle tests
 - есть time-based tests с controllable clock
 - есть regression tests на non-lossy compression expectations
+
+Статус:
+
+- `completed`
 
 ### Phase G. Adapters
 
