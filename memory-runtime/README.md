@@ -164,10 +164,15 @@ make test
 make test-e2e
 make pilot-smoke
 make quality-eval
+make show-last-smoke
+make show-last-quality-eval
+make reset-pilot
 ```
 
 `make pilot-smoke` поднимает Docker stack, прогоняет synthetic OpenClaw pilot contour и сохраняет JSON report в `.artifacts/openclaw_pilot_smoke_report.json`.
 `make quality-eval` прогоняет golden recall scenarios, печатает JSON report и служит регрессионным барьером для retrieval tuning.
+`make show-last-smoke` и `make show-last-quality-eval` показывают последние сохраненные pilot reports.
+`make reset-pilot` сбрасывает compose stack, pilot reports и локальный pilot state для чистого повторного прогона.
 
 Миграции:
 

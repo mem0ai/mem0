@@ -751,7 +751,14 @@ Definition of Done:
 
 Статус:
 
-- `planned`
+- `in_progress`
+
+Подтверждение текущего объема:
+
+- добавлен `make reset-pilot`
+- добавлены `make show-last-smoke` и `make show-last-quality-eval`
+- `make quality-eval` теперь сохраняет report в `.artifacts/recall_quality_eval_report.json`
+- подготовлен symptom-driven troubleshooting cheatsheet для live pilot
 
 ### Phase N. Memory Poisoning Baseline
 

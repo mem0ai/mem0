@@ -11,6 +11,7 @@
 Связанный артефакт:
 
 - [OpenClaw Pilot Scenarios](./agent-memory-runtime-openclaw-pilot-scenarios.md)
+- [OpenClaw Troubleshooting Cheatsheet](./agent-memory-runtime-openclaw-troubleshooting.md)
 
 ## Цель пилота
 
@@ -180,6 +181,39 @@ make pilot-smoke
 - synthetic OpenClaw flow прогоняется end-to-end
 - JSON report сохраняется в `.artifacts/openclaw_pilot_smoke_report.json`
 
+### Recall quality eval report
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make quality-eval
+```
+
+Результат:
+
+- golden recall scenarios прогоняются against running runtime
+- JSON report сохраняется в `.artifacts/recall_quality_eval_report.json`
+
+### Показать последний smoke report
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make show-last-smoke
+```
+
+### Показать последний quality eval report
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make show-last-quality-eval
+```
+
+### Сбросить pilot environment
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make reset-pilot
+```
+
 ## Если что-то пошло не так
 
 Сначала проверить:
@@ -197,3 +231,7 @@ make pilot-smoke
 - worker не поднят, поэтому ingestion идет, но консолидация не происходит
 - используется session-scoped capture там, где ожидается long-term continuity
 - namespace/agent bootstrap не произошел, и adapter contract падает на валидации
+
+Более короткий symptom-driven cheatsheet:
+
+- [OpenClaw Troubleshooting Cheatsheet](./agent-memory-runtime-openclaw-troubleshooting.md)
