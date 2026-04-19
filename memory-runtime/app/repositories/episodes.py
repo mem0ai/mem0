@@ -91,6 +91,14 @@ class EpisodeRepository:
     def get_by_id(self, episode_id: str) -> Episode | None:
         return self.session.get(Episode, episode_id)
 
+    def get_by_event_id(self, event_id: str) -> Episode | None:
+        stmt = (
+            select(Episode)
+            .where(Episode.start_event_id == event_id)
+            .where(Episode.end_event_id == event_id)
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
+
     def delete(self, episode: Episode) -> None:
         self.session.delete(episode)
         self.session.flush()

@@ -63,6 +63,17 @@ class IngestionService:
             normalized_payload=normalized_payload,
         )
 
+        existing_event = self.events.get_by_dedupe_key(
+            namespace_id=payload.namespace_id,
+            agent_id=payload.agent_id,
+            dedupe_key=dedupe_key,
+        )
+        if existing_event is not None:
+            episode = self.episodes.get_by_event_id(existing_event.id)
+            if episode is None:
+                raise LookupError("Existing deduplicated event is missing its episode")
+            return self._build_event_read(existing_event, episode_id=episode.id)
+
         event = self.events.create(
             namespace_id=payload.namespace_id,
             agent_id=payload.agent_id,
@@ -100,21 +111,7 @@ class IngestionService:
         self.session.commit()
         self.session.refresh(event)
 
-        return EventRead(
-            id=event.id,
-            episode_id=episode.id,
-            namespace_id=event.namespace_id,
-            agent_id=event.agent_id,
-            space_id=event.space_id,
-            session_id=event.session_id,
-            project_id=event.project_id,
-            source_system=event.source_system,
-            event_type=event.event_type,
-            dedupe_key=event.dedupe_key,
-            event_ts=event.event_ts,
-            ingested_at=event.ingested_at,
-            payload_json=event.payload_json,
-        )
+        return self._build_event_read(event, episode_id=episode.id)
 
     @staticmethod
     def normalize_messages(messages: list[EventMessage]) -> list[EventMessage]:
@@ -178,6 +175,24 @@ class IngestionService:
     def _metadata_project_id(metadata: dict[str, str | int | float | bool | None]) -> str | None:
         project_id = metadata.get("project_id")
         return str(project_id) if project_id is not None else None
+
+    @staticmethod
+    def _build_event_read(event, *, episode_id: str) -> EventRead:
+        return EventRead(
+            id=event.id,
+            episode_id=episode_id,
+            namespace_id=event.namespace_id,
+            agent_id=event.agent_id,
+            space_id=event.space_id,
+            session_id=event.session_id,
+            project_id=event.project_id,
+            source_system=event.source_system,
+            event_type=event.event_type,
+            dedupe_key=event.dedupe_key,
+            event_ts=event.event_ts,
+            ingested_at=event.ingested_at,
+            payload_json=event.payload_json,
+        )
 
     def resolve_target_space(
         self,

@@ -108,7 +108,7 @@ class ConsolidationPipelineTests(unittest.TestCase):
         self.assertEqual(audit_count, 1)
         self.assertEqual(status, "completed")
 
-    def test_worker_merges_duplicate_consolidation_into_existing_memory_unit(self) -> None:
+    def test_duplicate_ingestion_does_not_enqueue_extra_consolidation_job(self) -> None:
         payload = {
             "namespace_id": self.namespace_id,
             "agent_id": self.agent_id,
@@ -128,7 +128,7 @@ class ConsolidationPipelineTests(unittest.TestCase):
 
         processed = WorkerRunner.run_pending_jobs()
 
-        self.assertEqual(processed, 2)
+        self.assertEqual(processed, 1)
         with get_engine().connect() as connection:
             memory_units_count = connection.execute(text("SELECT COUNT(*) FROM memory_units")).scalar_one()
             audit_actions = connection.execute(
@@ -136,7 +136,7 @@ class ConsolidationPipelineTests(unittest.TestCase):
             ).fetchall()
 
         self.assertEqual(memory_units_count, 1)
-        self.assertEqual([row[0] for row in audit_actions], ["memory_unit_created", "memory_unit_merged"])
+        self.assertEqual([row[0] for row in audit_actions], ["memory_unit_created"])
 
     def test_worker_merges_semantically_equivalent_decision_phrasings(self) -> None:
         first_payload = {

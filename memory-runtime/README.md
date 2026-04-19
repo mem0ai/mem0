@@ -156,6 +156,7 @@ Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`)
 - Prometheus-style metrics exporter and observability stats endpoint
 - recall feedback loop and usefulness-aware reranking
 - mem0 bridge unit coverage without external network dependency
+- idempotent ingestion for duplicate events on the same dedupe key
 
 Команды запуска:
 

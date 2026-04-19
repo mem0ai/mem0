@@ -885,6 +885,25 @@ Definition of Done:
 - один прогон подтверждает не только доступность API, но и работоспособность worker + recall path
 - оператор получает компактный verdict `pass/fail` вместо ручной проверки нескольких эндпоинтов
 
+### Ingestion Idempotency Baseline
+
+До живого pilot ingestion path усилен idempotency guard:
+
+- duplicate event delivery по одному и тому же `dedupe_key` больше не создает новый `memory_event`
+- duplicate delivery не создает новый `episode`
+- duplicate delivery не создает лишний `memory_consolidation` job
+- component tests покрывают повторную отправку одного и того же события через API
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- duplicate API submissions возвращают тот же `event_id` и `episode_id`
+- счетчики `memory_events`, `episodes` и `jobs` остаются стабильными при повторной доставке
+- риск дублей при ретраях ingestion path заметно снижен перед live pilot
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

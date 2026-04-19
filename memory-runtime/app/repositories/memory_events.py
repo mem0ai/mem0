@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.memory_event import MemoryEvent
@@ -41,3 +42,21 @@ class MemoryEventRepository:
         self.session.add(event)
         self.session.flush()
         return event
+
+    def get_by_dedupe_key(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str | None,
+        dedupe_key: str,
+    ) -> MemoryEvent | None:
+        stmt = (
+            select(MemoryEvent)
+            .where(MemoryEvent.namespace_id == namespace_id)
+            .where(MemoryEvent.dedupe_key == dedupe_key)
+        )
+        if agent_id is None:
+            stmt = stmt.where(MemoryEvent.agent_id.is_(None))
+        else:
+            stmt = stmt.where(MemoryEvent.agent_id == agent_id)
+        return self.session.execute(stmt).scalar_one_or_none()

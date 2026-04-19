@@ -87,3 +87,36 @@ class EventsApiTests(unittest.TestCase):
 
         self.assertEqual(events_count, 1)
         self.assertEqual(episodes_count, 1)
+
+    def test_duplicate_event_ingestion_is_idempotent(self) -> None:
+        payload = {
+            "namespace_id": self.namespace_id,
+            "agent_id": self.agent_id,
+            "session_id": "run_idempotent",
+            "source_system": "openclaw",
+            "event_type": "conversation_turn",
+            "messages": [
+                {"role": "user", "content": "Continue the memory plan"},
+                {"role": "assistant", "content": "I updated the architecture notes."},
+            ],
+        }
+
+        first = self.client.post("/v1/events", json=payload)
+        second = self.client.post("/v1/events", json=payload)
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        first_payload = first.json()
+        second_payload = second.json()
+        self.assertEqual(first_payload["id"], second_payload["id"])
+        self.assertEqual(first_payload["episode_id"], second_payload["episode_id"])
+        self.assertEqual(first_payload["dedupe_key"], second_payload["dedupe_key"])
+
+        with get_engine().connect() as connection:
+            events_count = connection.execute(text("SELECT COUNT(*) FROM memory_events")).scalar_one()
+            episodes_count = connection.execute(text("SELECT COUNT(*) FROM episodes")).scalar_one()
+            jobs_count = connection.execute(text("SELECT COUNT(*) FROM jobs")).scalar_one()
+
+        self.assertEqual(events_count, 1)
+        self.assertEqual(episodes_count, 1)
+        self.assertEqual(jobs_count, 1)
