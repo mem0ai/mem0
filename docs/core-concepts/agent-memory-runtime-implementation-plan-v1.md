@@ -790,6 +790,25 @@ Definition of Done:
 - harness фиксирует `action_match_rate`, `status_match_rate`, `destructive_action_rate` и `mean_freshness_score`
 - важные активные memories не эвиктятся в golden scenarios вместе с мусором
 
+### Adversarial Eval Baseline
+
+До живого pilot в проект добавлен adversarial eval suite:
+
+- golden adversarial scenarios
+- coverage для low-trust rejection и benign acceptance
+- false-accept / false-reject visibility
+- machine-readable report по устойчивости memory ingestion and consolidation
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- suite покрывает instruction override, prompt exfiltration, explicit memory poisoning и mixed malicious content
+- benign procedures и benign decisions по-прежнему проходят consolidation
+- adversarial report фиксирует `rejection_rate`, `acceptance_rate`, `false_accepts` и `false_rejects`
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

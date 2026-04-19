@@ -176,6 +176,7 @@ make reset-pilot
 `make quality-eval` прогоняет 10 golden recall scenarios, печатает JSON report и служит регрессионным барьером для retrieval tuning.
 В quality report теперь есть не только `pass/fail`, но и `required_hit_rate`, `forbidden_leak_rate`, `avg_selected_count` и `mean_scenario_score`.
 `make lifecycle-eval` прогоняет lifecycle scenarios для `decay/archive/evict/no-op` и печатает отдельный quality report по memory lifecycle.
+Adversarial eval suite теперь покрывает instruction override, prompt exfiltration, explicit memory poisoning, mixed malicious content и benign control cases.
 `make show-last-smoke` и `make show-last-quality-eval` показывают последние сохраненные pilot reports.
 `make reset-pilot` сбрасывает compose stack, pilot reports и локальный pilot state для чистого повторного прогона.
 
