@@ -165,6 +165,7 @@ make test-unittest
 make test
 make test-e2e
 make pilot-smoke
+make pilot-scenarios
 make quality-eval
 make lifecycle-eval
 make continuity-benchmark
@@ -175,6 +176,7 @@ make reset-pilot
 ```
 
 `make pilot-smoke` поднимает Docker stack, прогоняет synthetic OpenClaw pilot contour и сохраняет JSON report в `.artifacts/openclaw_pilot_smoke_report.json`.
+`make pilot-scenarios` прогоняет 5 наиболее важных OpenClaw pilot scenarios и сохраняет JSON report в `.artifacts/openclaw_pilot_scenarios_report.json`.
 `make quality-eval` прогоняет 10 golden recall scenarios, печатает JSON report и служит регрессионным барьером для retrieval tuning.
 В quality report теперь есть не только `pass/fail`, но и `required_hit_rate`, `forbidden_leak_rate`, `avg_selected_count` и `mean_scenario_score`.
 `make lifecycle-eval` прогоняет lifecycle scenarios для `decay/archive/evict/no-op` и печатает отдельный quality report по memory lifecycle.

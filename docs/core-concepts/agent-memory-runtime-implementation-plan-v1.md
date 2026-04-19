@@ -847,6 +847,25 @@ Definition of Done:
 - critical regressions по `pass_rate`, `required_hit_rate`, `forbidden_leak_rate`, `action_match_rate`, `status_match_rate`, `false_accepts` и `false_rejects` теперь ловятся автоматически
 - шаги retrieval/consolidation tuning можно сравнивать до и после изменения на одном и том же eval pack
 
+### Pilot Scenario Automation Subset
+
+До живого pilot в проект добавлен automation subset для пяти наиболее важных OpenClaw scenarios:
+
+- отдельный runner `make pilot-scenarios`
+- автоматизированы `durable architecture decision`, `standing procedure recall`, `active session carryover`, `cross-session continuity`, `noise resistance`
+- machine-readable report сохраняется в `.artifacts/openclaw_pilot_scenarios_report.json`
+- subset можно использовать как pre-pilot gate до ручного live прогона
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- pilot subset проходит green на synthetic contour
+- каждая проверка сохраняет trace и jobs snapshot для быстрого разбора failure
+- live pilot scenarios теперь частично автоматизированы и не зависят только от ручного walkthrough
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

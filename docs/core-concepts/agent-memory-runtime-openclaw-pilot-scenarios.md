@@ -4,6 +4,15 @@
 
 Документ нужен, чтобы тестировать память не “на глаз”, а по повторяемым сценариям с понятными критериями прохождения.
 
+Для пяти сценариев первого приоритета теперь существует автоматизированный synthetic runner:
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make pilot-scenarios
+```
+
+Он сохраняет JSON-отчет в `.artifacts/openclaw_pilot_scenarios_report.json` и служит pre-pilot gate до живого OpenClaw прогона.
+
 ## Как использовать этот набор
 
 - каждый сценарий прогоняется на чистом или заранее известном namespace

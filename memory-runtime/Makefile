@@ -1,4 +1,4 @@
-.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e pilot-smoke quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot show-last-smoke show-last-quality-eval
+.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e pilot-smoke pilot-scenarios quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot show-last-smoke show-last-quality-eval
 
 PYTHON ?= python3
 PORT ?= 8080
@@ -23,6 +23,9 @@ test-e2e:
 
 pilot-smoke:
 	bash scripts/openclaw_pilot_smoke.sh
+
+pilot-scenarios:
+	bash scripts/openclaw_pilot_scenarios.sh
 
 quality-eval:
 	bash scripts/openclaw_quality_eval.sh

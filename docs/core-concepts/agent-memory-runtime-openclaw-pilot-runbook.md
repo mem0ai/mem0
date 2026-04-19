@@ -184,6 +184,19 @@ make pilot-smoke
 - synthetic OpenClaw flow прогоняется end-to-end
 - JSON report сохраняется в `.artifacts/openclaw_pilot_smoke_report.json`
 
+### Automated pilot scenario subset
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make pilot-scenarios
+```
+
+Результат:
+
+- автоматизированно прогоняются 5 наиболее важных pilot-сценариев
+- JSON report сохраняется в `.artifacts/openclaw_pilot_scenarios_report.json`
+- прогон можно использовать как pre-pilot gate до live OpenClaw session
+
 ### Recall quality eval report
 
 ```bash
