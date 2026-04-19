@@ -77,6 +77,46 @@ flowchart LR
     P --> O
 ```
 
+### 4.1 Sequence Diagram: Full Memory Cycle
+
+Ниже показан целевой процесс полного цикла `event -> consolidation -> recall -> context injection`.
+
+```mermaid
+sequenceDiagram
+    participant A as Agent Client
+    participant G as Memory Gateway API
+    participant N as Ingestion and Normalization
+    participant W as Working Memory Engine
+    participant Q as Job Queue
+    participant C as Consolidation Engine
+    participant M as mem0-core
+    participant P as Postgres and pgvector
+    participant R as Retrieval Orchestrator
+
+    A->>G: POST /v1/events
+    G->>N: Normalize event
+    N->>W: Bind namespace, agent, project, session
+    W->>P: Write memory_events and update session-space
+    W->>Q: Enqueue consolidation job
+    G-->>A: 202 Accepted / event stored
+
+    Q->>C: Run consolidation job
+    C->>P: Load recent events / episode window
+    C->>M: Extract candidate memories
+    M-->>C: Candidate memory facts
+    C->>P: Merge / create / supersede long-term memory
+    C->>P: Write audit and history
+
+    A->>G: POST /v1/recall
+    G->>R: Resolve recall request
+    R->>P: Load candidates from active spaces
+    R->>M: Semantic search / rerank assist
+    M-->>R: Ranked candidates
+    R->>P: Write recall trace
+    R-->>G: Build memory brief
+    G-->>A: Memory brief for context injection
+```
+
 ## 5. Логическая декомпозиция
 
 ### 5.1 Memory Gateway API
@@ -317,6 +357,96 @@ flowchart TD
 ## 10. Предлагаемая схема таблиц
 
 Ниже логическая схема. Это не финальный SQL, а контракт на сущности.
+
+### 10.1 ER Diagram: Current Phase B Baseline
+
+Ниже диаграмма отражает текущий уже реализованный baseline в коде `Phase B`: `namespaces`, `agents`, `memory_spaces`, `memory_events`.
+
+```mermaid
+erDiagram
+    NAMESPACES ||--o{ AGENTS : contains
+    NAMESPACES ||--o{ MEMORY_SPACES : owns
+    NAMESPACES ||--o{ MEMORY_EVENTS : scopes
+    AGENTS ||--o{ MEMORY_SPACES : receives
+    AGENTS ||--o{ MEMORY_EVENTS : produces
+    MEMORY_SPACES ||--o{ MEMORY_EVENTS : groups
+    MEMORY_SPACES ||--o{ MEMORY_SPACES : parent_of
+
+    NAMESPACES {
+        string id PK
+        string name UK
+        string mode
+        json source_systems
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+
+    AGENTS {
+        string id PK
+        string namespace_id FK
+        string external_ref
+        string name
+        string source_system
+        datetime created_at
+    }
+
+    MEMORY_SPACES {
+        string id PK
+        string namespace_id FK
+        string agent_id FK
+        string space_type
+        string name
+        string parent_space_id FK
+        datetime created_at
+        datetime updated_at
+    }
+
+    MEMORY_EVENTS {
+        string id PK
+        string namespace_id FK
+        string agent_id FK
+        string space_id FK
+        string session_id
+        string project_id
+        string source_system
+        string event_type
+        json payload_json
+        datetime event_ts
+        datetime ingested_at
+        string dedupe_key
+    }
+```
+
+### 10.2 ER Diagram: Target Logical Model
+
+Ниже более широкая целевая модель для следующих фаз проекта.
+
+```mermaid
+erDiagram
+    NAMESPACES ||--o{ AGENTS : contains
+    NAMESPACES ||--o{ MEMORY_SPACES : owns
+    NAMESPACES ||--o{ MEMORY_EVENTS : scopes
+    NAMESPACES ||--o{ EPISODES : scopes
+    NAMESPACES ||--o{ MEMORY_UNITS : scopes
+    NAMESPACES ||--o{ AUDIT_LOG : records
+
+    AGENTS ||--o{ MEMORY_SPACES : receives
+    AGENTS ||--o{ MEMORY_EVENTS : emits
+    AGENTS ||--o{ EPISODES : participates_in
+    AGENTS ||--o{ MEMORY_UNITS : owns
+    AGENTS ||--o{ RECALL_REQUESTS : initiates
+
+    MEMORY_SPACES ||--o{ MEMORY_EVENTS : groups
+    MEMORY_SPACES ||--o{ EPISODES : groups
+    MEMORY_SPACES ||--o{ MEMORY_UNITS : stores
+
+    EPISODES ||--o{ MEMORY_UNITS : produces
+    MEMORY_UNITS ||--o{ MEMORY_LINKS : links_from
+    MEMORY_UNITS ||--o{ MEMORY_LINKS : links_to
+    RECALL_REQUESTS ||--o{ RECALL_RESULTS : yields
+    RECALL_REQUESTS ||--|| MEMORY_BRIEFS : materializes
+```
 
 ### `namespaces`
 
@@ -690,6 +820,37 @@ flowchart TD
 - short-lived unresolved context -> остается в `session-space`
 
 ## 15. Forgetting and lifecycle
+
+### 15.1 State Diagram: Memory Unit Lifecycle
+
+Ниже показан целевой жизненный цикл одной `memory unit` от момента появления сигнала до усиления, архивирования или вытеснения.
+
+```mermaid
+stateDiagram-v2
+    [*] --> EventCaptured
+    EventCaptured --> SessionCandidate: ingested
+    SessionCandidate --> CompactedEpisode: compacted
+    CompactedEpisode --> CandidateMemory: extracted
+
+    CandidateMemory --> Ignored: low_value_or_noise
+    CandidateMemory --> LongTermMemory: promoted
+
+    LongTermMemory --> Retrieved: selected_for_recall
+    Retrieved --> Reinforced: used_successfully
+    Reinforced --> LongTermMemory: score_updated
+
+    LongTermMemory --> Superseded: replaced_by_newer_memory
+    Superseded --> Archived: retained_for_history
+
+    LongTermMemory --> Decayed: low_access_or_stale
+    Decayed --> Archived: archive_policy
+    Decayed --> Evicted: eviction_policy
+    Decayed --> LongTermMemory: recalled_again
+
+    Ignored --> [*]
+    Archived --> [*]
+    Evicted --> [*]
+```
 
 ### Session-space
 
