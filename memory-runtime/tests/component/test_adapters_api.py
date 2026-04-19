@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.config import get_settings
 from app.database import Base, get_engine, reset_database_caches
 from app.main import create_app
+from app.workers.runner import WorkerRunner
 
 
 class AdaptersApiTests(unittest.TestCase):
@@ -259,3 +260,67 @@ class AdaptersApiTests(unittest.TestCase):
             f"/v1/adapters/openclaw/memories/{episode_id}?namespace_id={self.namespace_id}&agent_id={self.openclaw_agent_id}"
         )
         self.assertEqual(missing.status_code, 404)
+
+    def test_long_term_search_and_list_exclude_session_memory_and_deduplicate_consolidated_episodes(self) -> None:
+        self.client.post(
+            "/v1/adapters/openclaw/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "event_type": "architecture_decision",
+                "space_hint": "project-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "The pilot runtime stack is Postgres, Redis, and a dedicated memory worker.",
+                    }
+                ],
+            },
+        )
+        self.client.post(
+            "/v1/adapters/openclaw/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "session_id": "run_oc_session_scope",
+                "event_type": "conversation_turn",
+                "space_hint": "session-space",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Remember to prepare the runbook acceptance checklist for this session.",
+                    }
+                ],
+            },
+        )
+
+        processed = WorkerRunner.run_pending_jobs()
+        self.assertGreaterEqual(processed, 2)
+
+        listed = self.client.get(
+            f"/v1/adapters/openclaw/memories?namespace_id={self.namespace_id}&agent_id={self.openclaw_agent_id}"
+        )
+        self.assertEqual(listed.status_code, 200)
+        listed_memories = [item["memory"] for item in listed.json()["results"]]
+        durable_matches = [item for item in listed_memories if "dedicated memory worker" in item]
+        self.assertEqual(len(durable_matches), 1)
+        self.assertFalse(any("runbook acceptance checklist" in item for item in listed_memories))
+
+        search = self.client.post(
+            "/v1/adapters/openclaw/search",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "query": "What stack should the pilot runtime use?",
+                "limit": 5,
+            },
+        )
+        self.assertEqual(search.status_code, 200)
+        search_results = search.json()["results"]
+        search_memories = [item["memory"] for item in search_results]
+        self.assertTrue(any("dedicated memory worker" in item for item in search_memories))
+        self.assertFalse(any("runbook acceptance checklist" in item for item in search_memories))
+        self.assertEqual(
+            sum(1 for item in search_memories if "dedicated memory worker" in item),
+            1,
+        )

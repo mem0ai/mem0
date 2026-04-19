@@ -351,15 +351,17 @@ class AdapterService:
         namespace_id: str,
         agent_id: str | None,
     ) -> list[_AdapterMemoryCandidate]:
+        long_term_space_types = ["project-space", "agent-core", "shared-space"]
         memory_rows = self.memory_units.list_active_with_space(
             namespace_id=namespace_id,
             agent_id=agent_id,
+            space_types=long_term_space_types,
         )
         episode_rows = self.episodes.list_for_recall(
             namespace_id=namespace_id,
             agent_id=agent_id,
             session_id=None,
-            space_types=["project-space", "agent-core", "shared-space"],
+            space_types=long_term_space_types,
         )
         candidates: list[_AdapterMemoryCandidate] = [
             _AdapterMemoryCandidate(
@@ -376,8 +378,13 @@ class AdapterService:
             for memory, space_type in memory_rows
         ]
         known_ids = {candidate.id for candidate in candidates}
+        consolidated_episode_ids = {
+            memory.created_from_episode_id
+            for memory, _space_type in memory_rows
+            if memory.created_from_episode_id is not None
+        }
         for episode, space_type in episode_rows:
-            if episode.id in known_ids:
+            if episode.id in known_ids or episode.id in consolidated_episode_ids:
                 continue
             candidates.append(
                 _AdapterMemoryCandidate(

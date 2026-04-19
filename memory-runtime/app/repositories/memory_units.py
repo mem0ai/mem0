@@ -70,6 +70,7 @@ class MemoryUnitRepository:
         *,
         namespace_id: str,
         agent_id: str | None,
+        space_types: list[str] | None = None,
     ) -> list[tuple[MemoryUnit, str]]:
         stmt: Select[tuple[MemoryUnit, str]] = (
             select(MemoryUnit, MemorySpace.space_type)
@@ -80,6 +81,8 @@ class MemoryUnitRepository:
         )
         if agent_id is not None:
             stmt = stmt.where(MemoryUnit.agent_id == agent_id)
+        if space_types:
+            stmt = stmt.where(MemorySpace.space_type.in_(space_types))
         return list(self.session.execute(stmt).all())
 
     def get_with_space(self, memory_unit_id: str) -> tuple[MemoryUnit, str] | None:

@@ -304,6 +304,7 @@
 
 - `OpenClaw` умеет работать через `memory-runtime`, а не только напрямую через Mem0 Cloud/OSS
 - adapter contract закрывает bootstrap, search, list, get и delete memory flows
+- long-term `search/list` больше не протаскивают `session-space` и не дублируют уже консолидированные эпизоды
 - provider lazy-bootstraps namespace/agent scope и кэширует его в runtime path
 - Python component tests и TypeScript tests проходят
 - test suite и lint проходят

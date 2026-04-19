@@ -115,6 +115,7 @@ Compose baseline теперь поднимает:
 
 Адаптерные endpoints фиксируют source-system contract для интеграций и работают поверх того же ingestion/recall pipeline.
 Для `OpenClaw` добавлен отдельный runtime-contract: плагин сначала вызывает `bootstrap`, затем использует `events/search/list/get/delete` как transport-поверхность вместо прямого подключения к `mem0`.
+Long-term `search/list` в adapter contract теперь возвращают только long-term candidates и не подтягивают `session-space`; уже консолидированные эпизоды не дублируются рядом с `memory_units`.
 В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
 `/metrics` отдает Prometheus-compatible экспорт counters и job gauges, а `/v1/observability/stats` дает JSON-срез для локальной диагностики и dashboard bootstrap.
 `/v1/recall/feedback` записывает usefulness signals, которые потом участвуют в последующем ranking.
