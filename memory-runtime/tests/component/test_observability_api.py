@@ -1,8 +1,10 @@
 import os
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import Base, get_engine, reset_database_caches
@@ -121,6 +123,8 @@ class ObservabilityApiTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["recall_requests_total"], 0)
         self.assertEqual(payload["jobs"]["by_status"]["pending"], 1)
         self.assertEqual(payload["jobs"]["by_type"]["memory_consolidation"]["pending"], 1)
+        self.assertIsNotNone(payload["jobs"]["oldest_pending_age_seconds"])
+        self.assertEqual(payload["jobs"]["stalled_running_count"], 0)
 
     def test_stats_endpoint_uses_shared_db_metrics_for_worker_activity(self) -> None:
         self.client.post(
@@ -150,3 +154,31 @@ class ObservabilityApiTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["lifecycle_decayed_total"], 1)
         self.assertEqual(payload["metrics"]["recall_requests_total"], 0)
         self.assertEqual(payload["jobs"]["by_status"]["completed"], 2)
+
+    def test_stats_endpoint_reports_stalled_running_jobs(self) -> None:
+        self.client.post(
+            "/v1/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.agent_id,
+                "session_id": "run_metrics_4",
+                "source_system": "openclaw",
+                "event_type": "conversation_turn",
+                "messages": [
+                    {"role": "user", "content": "Create a job that will appear stalled."}
+                ],
+            },
+        )
+        stale_started_at = (datetime.now(timezone.utc) - timedelta(seconds=120)).isoformat()
+        with get_engine().begin() as connection:
+            connection.execute(
+                text("UPDATE jobs SET status = 'running', started_at = :started_at"),
+                {"started_at": stale_started_at},
+            )
+
+        response = self.client.get("/v1/observability/stats")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["jobs"]["by_status"]["running"], 1)
+        self.assertEqual(payload["jobs"]["stalled_running_count"], 1)

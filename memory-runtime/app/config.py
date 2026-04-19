@@ -19,6 +19,8 @@ class Settings:
     api_prefix: str = "/v1"
     api_port: int = 8080
     worker_poll_seconds: float = 2.0
+    worker_stale_after_seconds: float = 30.0
+    stalled_job_after_seconds: float = 60.0
     postgres_dsn: str = "sqlite+pysqlite:///./memory_runtime.db"
     redis_url: str = "redis://localhost:6379/0"
     auto_create_tables: bool = True
@@ -41,6 +43,8 @@ def get_settings() -> Settings:
         api_prefix=os.getenv("MEMORY_RUNTIME_API_PREFIX", "/v1"),
         api_port=int(os.getenv("MEMORY_RUNTIME_API_PORT", "8080")),
         worker_poll_seconds=float(os.getenv("MEMORY_RUNTIME_WORKER_POLL_SECONDS", "2.0")),
+        worker_stale_after_seconds=float(os.getenv("MEMORY_RUNTIME_WORKER_STALE_AFTER_SECONDS", "30.0")),
+        stalled_job_after_seconds=float(os.getenv("MEMORY_RUNTIME_STALLED_JOB_AFTER_SECONDS", "60.0")),
         postgres_dsn=os.getenv(
             "MEMORY_RUNTIME_POSTGRES_DSN",
             "sqlite+pysqlite:///./memory_runtime.db",

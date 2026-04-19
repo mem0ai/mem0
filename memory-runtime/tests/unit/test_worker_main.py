@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from app.workers import main as worker_main
@@ -48,3 +49,13 @@ class WorkerMainTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         run_once.assert_called_once()
+
+    @patch("app.workers.main.HEARTBEAT_PATH", new=Path("/tmp/memory_runtime_worker_heartbeat_test"))
+    def test_touch_heartbeat_writes_file(self) -> None:
+        try:
+            worker_main.HEARTBEAT_PATH.unlink(missing_ok=True)
+            worker_main.touch_heartbeat()
+
+            self.assertTrue(worker_main.HEARTBEAT_PATH.exists())
+        finally:
+            worker_main.HEARTBEAT_PATH.unlink(missing_ok=True)

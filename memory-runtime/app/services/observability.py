@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.repositories.audit_logs import AuditLogRepository
 from app.repositories.jobs import JobRepository
 from app.schemas.observability import JobStats, ObservabilityStats
@@ -13,6 +14,7 @@ class ObservabilityService:
         self.session = session
         self.jobs = JobRepository(session)
         self.audit = AuditLogRepository(session)
+        self.settings = get_settings()
 
     def metrics_payload(self) -> str:
         return render_prometheus_metrics(
@@ -34,6 +36,10 @@ class ObservabilityService:
             jobs=JobStats(
                 by_status=by_status,
                 by_type=by_type,
+                oldest_pending_age_seconds=self.jobs.oldest_pending_age_seconds(),
+                stalled_running_count=self.jobs.count_stalled_running(
+                    stale_after_seconds=self.settings.stalled_job_after_seconds
+                ),
             ),
         )
 

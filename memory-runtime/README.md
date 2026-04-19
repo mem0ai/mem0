@@ -88,6 +88,13 @@ Compose baseline теперь поднимает:
 - `postgres`
 - `redis`
 
+Readiness baseline теперь включает:
+
+- healthcheck для `postgres`
+- healthcheck для `redis`
+- heartbeat-based healthcheck для `memory-worker`
+- `service_healthy` dependencies для API и worker
+
 Для первого живого MVP-пилота с `OpenClaw` смотри runbook:
 - [agent-memory-runtime-openclaw-pilot-runbook.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-openclaw-pilot-runbook.md)
 
@@ -119,6 +126,7 @@ Long-term `search/list` в adapter contract теперь возвращают т
 В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
 `/metrics` отдает Prometheus-compatible экспорт counters и job gauges, а `/v1/observability/stats` дает JSON-срез для локальной диагностики и dashboard bootstrap.
 Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`) теперь считаются из shared DB state (`jobs` и `audit_log`), а не только из process-local памяти.
+`/v1/observability/stats` также показывает `oldest_pending_age_seconds` и `stalled_running_count`, чтобы было проще увидеть backlog или зависшие worker jobs.
 `/v1/recall/feedback` записывает usefulness signals, которые потом участвуют в последующем ranking.
 При включенном `mem0 bridge` runtime может синхронизировать long-term memories в `mem0` и использовать его как внешний recall source.
 

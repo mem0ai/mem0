@@ -11,8 +11,10 @@ services:
       MEMORY_RUNTIME_POSTGRES_DSN: postgresql+psycopg://postgres:postgres@postgres:5432/memory_runtime
       MEMORY_RUNTIME_REDIS_URL: redis://redis:6379/0
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8080/healthz')"]
       interval: 10s
@@ -29,10 +31,24 @@ services:
       MEMORY_RUNTIME_POSTGRES_DSN: postgresql+psycopg://postgres:postgres@postgres:5432/memory_runtime
       MEMORY_RUNTIME_REDIS_URL: redis://redis:6379/0
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     command: ["python", "-m", "app.workers.main"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from pathlib import Path; import os, sys, time; p = Path('/tmp/memory_runtime_worker_heartbeat'); stale = float(os.getenv('MEMORY_RUNTIME_WORKER_STALE_AFTER_SECONDS', '30.0')); sys.exit(0 if p.exists() and time.time() - p.stat().st_mtime <= stale else 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -44,11 +60,21 @@ services:
       - "5433:5432"
     volumes:
       - memory_runtime_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d memory_runtime"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   memory_runtime_pgdata:

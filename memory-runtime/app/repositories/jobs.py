@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
@@ -61,3 +61,36 @@ class JobRepository:
             (job_type, status): count
             for job_type, status, count in self.session.execute(stmt).all()
         }
+
+    def oldest_pending_age_seconds(self, *, now: datetime | None = None) -> float | None:
+        effective_now = now or _utcnow()
+        stmt = select(func.min(Job.available_at)).where(Job.status == "pending")
+        oldest = self.session.execute(stmt).scalar_one_or_none()
+        if oldest is None:
+            return None
+        return max((effective_now - self._normalize_datetime(oldest)).total_seconds(), 0.0)
+
+    def count_stalled_running(self, *, stale_after_seconds: float, now: datetime | None = None) -> int:
+        effective_now = now or _utcnow()
+        stale_started_before = effective_now - timedelta(seconds=stale_after_seconds)
+        stmt = (
+            select(Job.started_at)
+            .where(Job.status == "running")
+            .where(Job.started_at.is_not(None))
+        )
+        started_at_values = self.session.execute(stmt).scalars().all()
+        return sum(
+            1
+            for started_at in started_at_values
+            if self._normalize_datetime(started_at) <= stale_started_before
+        )
+
+    @staticmethod
+    def _normalize_datetime(value: datetime | str) -> datetime:
+        if isinstance(value, datetime):
+            parsed = value
+        else:
+            parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
