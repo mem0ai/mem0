@@ -81,6 +81,7 @@ docker compose up --build
 - конфигурацию по умолчанию и через environment variables
 - health endpoint
 - namespace and agent API baseline
+- event ingestion and episode creation baseline
 
 Команды запуска:
 

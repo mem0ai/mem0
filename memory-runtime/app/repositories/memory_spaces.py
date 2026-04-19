@@ -38,6 +38,14 @@ class MemorySpaceRepository:
         )
         return list(self.session.execute(stmt).scalars().all())
 
+    def get_by_type(self, *, namespace_id: str, agent_id: str | None, space_type: str) -> MemorySpace | None:
+        stmt = select(MemorySpace).where(
+            MemorySpace.namespace_id == namespace_id,
+            MemorySpace.agent_id == agent_id,
+            MemorySpace.space_type == space_type,
+        )
+        return self.session.execute(stmt).scalar_one_or_none()
+
     def get_shared_space(self, namespace_id: str) -> MemorySpace | None:
         stmt = select(MemorySpace).where(
             MemorySpace.namespace_id == namespace_id,

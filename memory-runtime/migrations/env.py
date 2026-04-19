@@ -6,7 +6,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.database import Base
-from app.models import Agent, MemoryEvent, MemorySpace, Namespace  # noqa: F401
+from app.models import Agent, Episode, MemoryEvent, MemorySpace, Namespace  # noqa: F401
 from app.config import get_settings
 
 config = context.config

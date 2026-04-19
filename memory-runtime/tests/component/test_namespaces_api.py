@@ -5,7 +5,7 @@ import unittest
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
-from app.database import reset_database_caches
+from app.database import Base, get_engine, reset_database_caches
 from app.main import create_app
 
 
@@ -18,6 +18,7 @@ class NamespaceApiTests(unittest.TestCase):
         os.environ["MEMORY_RUNTIME_ENV"] = "test"
         get_settings.cache_clear()
         reset_database_caches()
+        Base.metadata.create_all(bind=get_engine())
         self.client = TestClient(create_app())
 
     def tearDown(self) -> None:

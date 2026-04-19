@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.database import Base, get_engine, get_session_factory, reset_database_caches
-from app.models import Agent, MemorySpace, Namespace  # noqa: F401
+from app.models import Agent, Episode, MemoryEvent, MemorySpace, Namespace  # noqa: F401
+from app.repositories.episodes import EpisodeRepository
+from app.repositories.memory_events import MemoryEventRepository
 from app.repositories.agents import AgentRepository
 from app.repositories.memory_spaces import MemorySpaceRepository
 from app.repositories.namespaces import NamespaceRepository
@@ -63,3 +65,52 @@ class RepositoryTests(unittest.TestCase):
         self.assertIsNotNone(found_agent)
         self.assertEqual(len(found_spaces), 1)
         self.assertEqual(found_spaces[0].space_type, "agent-core")
+
+    def test_memory_event_and_episode_repositories(self) -> None:
+        namespaces = NamespaceRepository(self.session)
+        agents = AgentRepository(self.session)
+        spaces = MemorySpaceRepository(self.session)
+        events = MemoryEventRepository(self.session)
+        episodes = EpisodeRepository(self.session)
+
+        namespace = namespaces.create(
+            name="openclaw:agent:planner",
+            mode="isolated",
+            source_systems=["openclaw"],
+        )
+        agent = agents.create(namespace_id=namespace.id, name="planner", source_system="openclaw")
+        session_space = spaces.create(
+            namespace_id=namespace.id,
+            agent_id=agent.id,
+            space_type="session-space",
+            name="Session Space",
+        )
+        event = events.create(
+            namespace_id=namespace.id,
+            agent_id=agent.id,
+            space_id=session_space.id,
+            session_id="run_123",
+            project_id="mem-runtime",
+            source_system="openclaw",
+            event_type="conversation_turn",
+            payload_json={"messages": [{"role": "user", "content": "Continue the plan"}], "metadata": {}},
+            event_ts=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+            dedupe_key="dedupe-1",
+        )
+        episode = episodes.create(
+            namespace_id=namespace.id,
+            agent_id=agent.id,
+            space_id=session_space.id,
+            session_id="run_123",
+            start_event_id=event.id,
+            end_event_id=event.id,
+            summary="conversation_turn: Continue the plan",
+            raw_text="user: Continue the plan",
+            token_count=4,
+            importance_hint="normal",
+        )
+        self.session.commit()
+
+        self.assertIsNotNone(event.id)
+        self.assertIsNotNone(episode.id)
+        self.assertEqual(episode.start_event_id, event.id)

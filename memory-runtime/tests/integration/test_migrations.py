@@ -31,6 +31,6 @@ class MigrationTests(unittest.TestCase):
             inspector = inspect(engine)
             table_names = set(inspector.get_table_names())
             self.assertTrue(
-                {"agents", "memory_events", "memory_spaces", "namespaces"}.issubset(table_names)
+                {"agents", "episodes", "memory_events", "memory_spaces", "namespaces"}.issubset(table_names)
             )
             self.assertIn("alembic_version", table_names)

@@ -67,6 +67,36 @@
 - namespace management endpoints реализованы
 - unit/component/integration suite проходит
 
+### Текущий прогресс `Phase C`
+
+В сервисе уже реализован первый ingestion-срез:
+
+- `POST /v1/events`
+- event normalization
+- запись `memory_events`
+- базовый `episode formation v1`
+- привязка event к `session-space` по умолчанию для agent-scoped событий
+- поддержка `space_hint`
+- детерминированный `dedupe_key`
+
+Тестовое покрытие для этого слоя включает:
+
+- unit tests для normalization и dedupe logic
+- component tests для event ingestion API
+- integration tests для migration/repository слоя с `episodes`
+
+### Статус `Phase C`
+
+`Phase C` считается завершенной в первом рабочем объеме.
+
+Подтверждение:
+
+- `POST /v1/events` реализован
+- нормализация входа реализована
+- `memory_events` persistence работает
+- `episodes` инициализируются при ingestion
+- test suite и lint проходят
+
 ## 1. Цели этапа
 
 На этом этапе нужно подготовить основу для реализации нового сервиса так, чтобы:
@@ -283,6 +313,10 @@ Definition of Done:
 - есть component tests для API
 - есть unit tests на normalization/segmentation
 - есть integration tests с Postgres
+
+Статус:
+
+- `completed`
 
 ### Phase D. Retrieval MVP
 
