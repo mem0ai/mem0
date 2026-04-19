@@ -355,6 +355,7 @@
 - quality pack расширен до `10` golden recall scenarios
 - durable / architecture-oriented queries больше не тянут `session-space` без явного session intent
 - recall regression suite теперь покрывает architecture, procedures, session carryover, durable boundaries, integrations, storage boundaries, shared-memory concepts и noise resistance
+- quality report теперь включает `required_hit_rate`, `forbidden_leak_rate`, `avg_selected_count` и `mean_scenario_score`
 
 ### Pilot Scenario Pack
 

@@ -23,6 +23,12 @@ def run_quality_eval(
 ) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
     passed = 0
+    required_total = 0
+    required_hits = 0
+    forbidden_total = 0
+    forbidden_leaks = 0
+    total_selected = 0
+    scenario_scores: list[float] = []
 
     for scenario in scenarios:
         response = client.post("/v1/recall", json=scenario["request"])
@@ -30,11 +36,25 @@ def run_quality_eval(
         payload = response.json()
         flattened = _flatten_brief(payload["brief"])
 
-        missing = [text for text in scenario.get("must_contain", []) if text not in flattened]
-        unexpected = [text for text in scenario.get("must_not_contain", []) if text in flattened]
+        required = scenario.get("must_contain", [])
+        forbidden = scenario.get("must_not_contain", [])
+        missing = [text for text in required if text not in flattened]
+        unexpected = [text for text in forbidden if text in flattened]
         ok = not missing and not unexpected
         if ok:
             passed += 1
+        scenario_required_hits = len(required) - len(missing)
+        scenario_forbidden_leaks = len(unexpected)
+        required_total += len(required)
+        required_hits += scenario_required_hits
+        forbidden_total += len(forbidden)
+        forbidden_leaks += scenario_forbidden_leaks
+        selected_count = payload["trace"]["selected_count"]
+        total_selected += selected_count
+        required_hit_rate = (scenario_required_hits / len(required)) if required else 1.0
+        forbidden_leak_rate = (scenario_forbidden_leaks / len(forbidden)) if forbidden else 0.0
+        scenario_score = round((required_hit_rate + (1.0 - forbidden_leak_rate)) / 2.0, 4)
+        scenario_scores.append(scenario_score)
 
         results.append(
             {
@@ -43,16 +63,35 @@ def run_quality_eval(
                 "passed": ok,
                 "missing": missing,
                 "unexpected": unexpected,
+                "required_total": len(required),
+                "required_hits": scenario_required_hits,
+                "required_hit_rate": round(required_hit_rate, 4),
+                "forbidden_total": len(forbidden),
+                "forbidden_leaks": scenario_forbidden_leaks,
+                "forbidden_leak_rate": round(forbidden_leak_rate, 4),
+                "selected_count": selected_count,
+                "scenario_score": scenario_score,
                 "trace": payload["trace"],
             }
         )
 
     total = len(results)
+    metrics = {
+        "required_total": required_total,
+        "required_hits": required_hits,
+        "required_hit_rate": round((required_hits / required_total) if required_total else 1.0, 4),
+        "forbidden_total": forbidden_total,
+        "forbidden_leaks": forbidden_leaks,
+        "forbidden_leak_rate": round((forbidden_leaks / forbidden_total) if forbidden_total else 0.0, 4),
+        "avg_selected_count": round((total_selected / total) if total else 0.0, 4),
+        "mean_scenario_score": round((sum(scenario_scores) / total) if total else 1.0, 4),
+    }
     return {
         "total": total,
         "passed": passed,
         "failed": total - passed,
         "pass_rate": round((passed / total) if total else 1.0, 4),
+        "metrics": metrics,
         "results": results,
     }
 
