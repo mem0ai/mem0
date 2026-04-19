@@ -809,6 +809,25 @@ Definition of Done:
 - benign procedures и benign decisions по-прежнему проходят consolidation
 - adversarial report фиксирует `rejection_rate`, `acceptance_rate`, `false_accepts` и `false_rejects`
 
+### Continuity Benchmark Baseline
+
+До живого pilot в проект добавлен отдельный continuity benchmark harness:
+
+- cross-session continuity scenarios
+- отдельный runner `make continuity-benchmark`
+- coverage для durable architecture facts, standing procedures и integration context
+- machine-readable report по устойчивости recall после consolidation
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- benchmark green на baseline scenarios
+- harness проверяет не только `pass/fail`, но и средний объем полезного recall через `avg_selected_count`
+- ключевые continuity-сценарии теперь можно прогонять до live OpenClaw pilot без ручной подготовки окружения
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:
