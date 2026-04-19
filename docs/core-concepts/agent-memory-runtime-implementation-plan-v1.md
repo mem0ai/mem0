@@ -350,8 +350,21 @@
 Подтверждение:
 
 - harness воспроизводимо прогоняет recall scenarios
-- baseline deficits фиксируются в machine-readable report
-- это дает опорную точку перед retrieval tuning
+- golden scenarios проходят после retrieval tuning
+- harness стал регрессионным барьером для recall quality
+
+### Pilot Scenario Pack
+
+Перед живым `OpenClaw` pilot добавлен отдельный пакет сценариев:
+
+- наиболее импактные continuity scenarios
+- явные `must remember` и `must not remember` ожидания
+- привязка к evidence через recall/search/list/observability
+- единый формат ручной фиксации результатов
+
+Артефакт:
+
+- `docs/core-concepts/agent-memory-runtime-openclaw-pilot-scenarios.md`
 
 ## 1. Цели этапа
 

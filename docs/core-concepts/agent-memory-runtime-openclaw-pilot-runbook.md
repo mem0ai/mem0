@@ -8,6 +8,10 @@
 - подключаем `OpenClaw` через `runtime` mode
 - проверяем capture, consolidation, recall и worker lifecycle в одном живом контуре
 
+Связанный артефакт:
+
+- [OpenClaw Pilot Scenarios](./agent-memory-runtime-openclaw-pilot-scenarios.md)
+
 ## Цель пилота
 
 Подтвердить, что `OpenClaw` может использовать `memory-runtime` как внешний memory service и получать continuity между сессиями.
@@ -77,6 +81,10 @@ curl http://localhost:8080/v1/observability/stats
 ```
 
 ## Сценарии приемки
+
+Подробный набор сценариев и ожидаемых исходов вынесен в отдельный документ:
+
+- [OpenClaw Pilot Scenarios](./agent-memory-runtime-openclaw-pilot-scenarios.md)
 
 ### Сценарий 1. Bootstrap scope
 
