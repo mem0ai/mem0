@@ -128,6 +128,7 @@ Consolidation baseline теперь умеет:
 - повышать procedural guidance до `procedure`
 - canonicalize phrasing variants для более устойчивого merge
 - supersede явные противоречащие long-term memories в пределах одного пространства вместо наивного сосуществования конфликтующих фактов
+ - отклонять low-trust prompt-like и memory-poisoning candidates до их попадания в long-term memory
 В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
 `/metrics` отдает Prometheus-compatible экспорт counters и job gauges, а `/v1/observability/stats` дает JSON-срез для локальной диагностики и dashboard bootstrap.
 Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`) теперь считаются из shared DB state (`jobs` и `audit_log`), а не только из process-local памяти.
@@ -146,6 +147,7 @@ Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`)
 - recall baseline and `MemoryBrief` structure
 - consolidation jobs, worker processing, and `memory_units` baseline
 - consolidation regressions for semantic merge, kind inference, and contradictory memory supersede
+- low-trust consolidation rejection for prompt-like long-term poisoning attempts
 - lifecycle jobs, decay/archive/eviction baseline, and internal metrics counters
 - adapter contracts for `OpenClaw` and `BunkerAI`
 - OpenClaw runtime adapter coverage for bootstrap, search, list, get, and delete

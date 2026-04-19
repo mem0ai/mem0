@@ -778,7 +778,15 @@ Definition of Done:
 
 Статус:
 
-- `planned`
+- `in_progress`
+
+Подтверждение текущего объема:
+
+- long-term consolidation отклоняет явные instruction-override patterns
+- long-term consolidation отклоняет явные prompt-exfiltration patterns
+- long-term consolidation отклоняет явные memory-poisoning patterns вроде `save this to memory`
+- rejection фиксируется в `audit_log` как `memory_candidate_rejected_low_trust`
+- добавлены regression tests, подтверждающие что benign procedures не отбрасываются вместе с suspicious content
 
 ## 6. Первые технические backlog items
 

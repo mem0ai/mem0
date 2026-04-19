@@ -58,6 +58,28 @@ FILLER_TOKENS = {
     "always",
     "agent",
 }
+LOW_TRUST_PATTERNS = {
+    "instruction_override": (
+        "ignore previous instructions",
+        "ignore all previous instructions",
+        "disregard previous instructions",
+        "override your instructions",
+        "forget previous instructions",
+    ),
+    "prompt_exfiltration": (
+        "system prompt",
+        "developer message",
+        "reveal the prompt",
+        "show the prompt",
+    ),
+    "memory_poisoning": (
+        "save this to memory",
+        "store this in memory",
+        "persist this as durable memory",
+        "remember this forever",
+        "add this to long term memory",
+    ),
+}
 
 
 class ConsolidationService:
@@ -77,6 +99,23 @@ class ConsolidationService:
             event_type=event_type,
             content=content,
         )
+        low_trust_reason = self.detect_low_trust_reason(content) if scope == "long-term" else None
+        if low_trust_reason is not None:
+            self.audit.create(
+                namespace_id=episode.namespace_id,
+                agent_id=episode.agent_id,
+                entity_type="episode",
+                entity_id=episode.id,
+                action="memory_candidate_rejected_low_trust",
+                details_json={
+                    "space_type": space_type,
+                    "event_type": event_type,
+                    "reason": low_trust_reason,
+                    "classification": "low_trust",
+                },
+            )
+            self.session.flush()
+            return "ignored", episode.id
         merge_key = self.normalize_merge_key(content)
 
         existing = None
@@ -285,6 +324,14 @@ class ConsolidationService:
         if normalized.startswith(PROCEDURE_PREFIXES):
             return True
         return " first " in f" {normalized} " and " then " in f" {normalized} "
+
+    @staticmethod
+    def detect_low_trust_reason(content: str) -> str | None:
+        normalized = ConsolidationService._normalize_text(content)
+        for reason, phrases in LOW_TRUST_PATTERNS.items():
+            if any(phrase in normalized for phrase in phrases):
+                return reason
+        return None
 
     @staticmethod
     def is_negative_statement(content: str) -> bool:
