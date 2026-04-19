@@ -245,6 +245,7 @@
 - внешний metrics exporter реализован
 - operational JSON stats endpoint реализован
 - counters для recall/jobs/lifecycle/consolidation экспортируются наружу
+- worker-derived counters теперь собираются из shared DB state, а не зависят от process-local памяти API
 - test suite и lint проходят
 
 ### Текущий прогресс `Phase I`

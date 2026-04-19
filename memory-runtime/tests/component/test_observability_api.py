@@ -78,6 +78,7 @@ class ObservabilityApiTests(unittest.TestCase):
         )
         WorkerRunner.run_pending_jobs()
         WorkerRunner.run_pending_jobs()
+        reset_metrics()
 
         response = self.client.get("/metrics")
 
@@ -88,8 +89,10 @@ class ObservabilityApiTests(unittest.TestCase):
         )
         body = response.text
         self.assertIn("# HELP memory_runtime_recall_requests_total", body)
-        self.assertIn("memory_runtime_recall_requests_total 1", body)
+        self.assertIn("memory_runtime_recall_requests_total 0", body)
         self.assertIn("memory_runtime_jobs_processed_total 2", body)
+        self.assertIn("memory_runtime_consolidation_created_total 1", body)
+        self.assertIn("memory_runtime_lifecycle_decayed_total 1", body)
         self.assertIn('memory_runtime_job_status{status="completed"} 2', body)
         self.assertIn('memory_runtime_job_status_by_type{job_type="memory_consolidation",status="completed"} 1', body)
         self.assertIn('memory_runtime_job_status_by_type{job_type="memory_decay",status="completed"} 1', body)
@@ -118,3 +121,32 @@ class ObservabilityApiTests(unittest.TestCase):
         self.assertEqual(payload["metrics"]["recall_requests_total"], 0)
         self.assertEqual(payload["jobs"]["by_status"]["pending"], 1)
         self.assertEqual(payload["jobs"]["by_type"]["memory_consolidation"]["pending"], 1)
+
+    def test_stats_endpoint_uses_shared_db_metrics_for_worker_activity(self) -> None:
+        self.client.post(
+            "/v1/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.agent_id,
+                "session_id": "run_metrics_3",
+                "source_system": "openclaw",
+                "event_type": "architecture_decision",
+                "space_hint": "project-space",
+                "messages": [
+                    {"role": "assistant", "content": "Shared metrics should reflect completed worker jobs."}
+                ],
+            },
+        )
+        WorkerRunner.run_pending_jobs()
+        WorkerRunner.run_pending_jobs()
+        reset_metrics()
+
+        response = self.client.get("/v1/observability/stats")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["metrics"]["jobs_processed_total"], 2)
+        self.assertEqual(payload["metrics"]["consolidation_created_total"], 1)
+        self.assertEqual(payload["metrics"]["lifecycle_decayed_total"], 1)
+        self.assertEqual(payload["metrics"]["recall_requests_total"], 0)
+        self.assertEqual(payload["jobs"]["by_status"]["completed"], 2)

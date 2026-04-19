@@ -118,6 +118,7 @@ Compose baseline теперь поднимает:
 Long-term `search/list` в adapter contract теперь возвращают только long-term candidates и не подтягивают `session-space`; уже консолидированные эпизоды не дублируются рядом с `memory_units`.
 В shared namespace `shared-space` доступен межагентно, при этом `agent-core` остается приватным.
 `/metrics` отдает Prometheus-compatible экспорт counters и job gauges, а `/v1/observability/stats` дает JSON-срез для локальной диагностики и dashboard bootstrap.
+Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`) теперь считаются из shared DB state (`jobs` и `audit_log`), а не только из process-local памяти.
 `/v1/recall/feedback` записывает usefulness signals, которые потом участвуют в последующем ranking.
 При включенном `mem0 bridge` runtime может синхронизировать long-term memories в `mem0` и использовать его как внешний recall source.
 

@@ -65,3 +65,17 @@ class AuditLogRepository:
             entity_id: float(score or 0)
             for entity_id, score in self.session.execute(stmt).all()
         }
+
+    def count_by_action(self, actions: list[str]) -> dict[str, int]:
+        if not actions:
+            return {}
+
+        stmt = (
+            select(AuditLog.action, func.count(AuditLog.id))
+            .where(AuditLog.action.in_(actions))
+            .group_by(AuditLog.action)
+        )
+        return {
+            action: count
+            for action, count in self.session.execute(stmt).all()
+        }
