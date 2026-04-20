@@ -55,7 +55,14 @@ class OpenSearchDB(VectorStoreBase):
                         "dimension": self.embedding_model_dims,
                         "method": {"engine": "nmslib", "name": "hnsw", "space_type": "cosinesimil"},
                     },
-                    "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
+                    "metadata": {
+                        "type": "object",
+                        "properties": {
+                            "user_id": {"type": "keyword"},
+                            "agent_id": {"type": "keyword"},
+                            "run_id": {"type": "keyword"},
+                        },
+                    },
                 }
             },
         }
