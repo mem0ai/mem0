@@ -338,6 +338,64 @@ If `openclaw plugins update` fails:
    openclaw plugins install @mem0/openclaw-mem0
    ```
 
+## Privacy & Security
+
+### Data Flow
+
+| Mode | Where data goes | Storage |
+|------|----------------|---------|
+| **Platform** | Conversations sent to `api.mem0.ai` for extraction and storage | Mem0 cloud |
+| **Open-source** | Embeddings generated via configured provider (default: OpenAI API). Vectors stored locally. | `~/.mem0/vector_store.db` (SQLite) |
+
+### Disabling Auto-Capture and Auto-Recall
+
+Auto-capture and auto-recall are enabled by default. To disable either or both:
+
+```json5
+{
+  "plugins": {
+    "entries": {
+      "openclaw-mem0": {
+        "config": {
+          "autoCapture": false,  // stop sending conversations to Mem0
+          "autoRecall": false    // stop injecting memories into context
+        }
+      }
+    }
+  }
+}
+```
+
+With both disabled, the agent can still use memory tools (`memory_add`, `memory_search`, etc.) explicitly — only the automatic background behavior stops.
+
+### Credential Protection
+
+The plugin never stores API keys, tokens, or secrets as memories. Five independent layers enforce this:
+
+1. **Triage gate** — The extraction prompt rejects values matching known credential patterns (`sk-`, `m0-`, `ghp_`, `AKIA`, `Bearer`, `password=`, `token=`, `secret=`)
+2. **Dream cleanup** — Periodic memory consolidation deletes any memories that slipped through containing credential patterns
+3. **Extraction instructions** — Default extraction rules explicitly instruct the model to store only that a credential was configured, never the value
+4. **Configurable patterns** — Add custom credential patterns via `skills.triage.credentialPatterns`
+5. **CLI redaction** — `openclaw mem0 config show` redacts sensitive fields (`apiKey`, `oss.*.config.apiKey`)
+
+### API Key Storage
+
+Plugin config is stored in `~/.openclaw/openclaw.json` with file permissions `0o600` (owner-read-only). For production deployments, use environment variable references (`${MEM0_API_KEY}`) or SecretRef objects instead of plaintext keys.
+
+### Telemetry
+
+Anonymous usage telemetry (PostHog) is enabled by default to help improve the plugin. No conversation content or memory values are included — only event counts (recall, capture, tool usage, CLI commands).
+
+To opt out, set the environment variable:
+
+```bash
+export MEM0_TELEMETRY=false
+```
+
+### System Prompt Context
+
+The plugin injects memory-related instructions into the agent's system context via OpenClaw's `prependSystemContext` mechanism. This includes the memory triage protocol and recalled memories. This is the standard OpenClaw plugin SDK pattern for memory backends — no user-facing prompts are modified.
+
 ## Key Features
 
 1. **Zero Configuration** — Auto-recall and auto-capture work out of the box with no prompting required

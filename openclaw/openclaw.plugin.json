@@ -237,6 +237,21 @@
         }
       }
     },
-    "required": []
+    "required": ["mode"]
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "mem0",
+        "authMethods": ["api-key"],
+        "envVars": ["MEM0_API_KEY"]
+      },
+      {
+        "id": "openclaw-mem0-oss",
+        "authMethods": ["api-key"],
+        "envVars": ["OPENAI_API_KEY"]
+      }
+    ],
+    "requiresRuntime": false
   }
 }
