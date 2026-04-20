@@ -1,4 +1,29 @@
 declare module "openclaw/plugin-sdk" {
+  export interface MemoryArtifact {
+    id: string;
+    type: "memory" | "dream" | "digest" | "entity";
+    title: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+    createdAt?: string;
+    updatedAt?: string;
+  }
+
+  export interface PublicArtifactsProvider {
+    listArtifacts(options?: {
+      userId?: string;
+      types?: string[];
+      limit?: number;
+    }): Promise<MemoryArtifact[]>;
+  }
+
+  export interface MemoryCapabilityConfig {
+    promptBuilder?: (ctx: any) => Promise<string | null>;
+    flushPlanResolver?: (ctx: any) => Promise<any>;
+    runtime?: Record<string, unknown>;
+    publicArtifacts?: PublicArtifactsProvider;
+  }
+
   export interface OpenClawPluginApi {
     pluginConfig: Record<string, unknown>;
     logger: {
@@ -32,6 +57,7 @@ declare module "openclaw/plugin-sdk" {
       start: (...args: any[]) => void;
       stop: () => void;
     }): void;
+    registerMemoryCapability?(config: MemoryCapabilityConfig): void;
     [key: string]: unknown;
   }
 }

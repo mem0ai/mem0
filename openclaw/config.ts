@@ -147,6 +147,7 @@ export const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
 const ALLOWED_KEYS = [
   "mode",
   "apiKey",
+  "anonymousTelemetryId",
   "baseUrl",
   "userId",
   "userEmail",
@@ -215,6 +216,10 @@ export const mem0ConfigSchema = {
     return {
       mode,
       apiKey: resolvedApiKey,
+      anonymousTelemetryId:
+        typeof cfg.anonymousTelemetryId === "string"
+          ? cfg.anonymousTelemetryId
+          : undefined,
       baseUrl: resolvedBaseUrl,
       userId:
         typeof cfg.userId === "string" && cfg.userId
@@ -228,20 +233,19 @@ export const mem0ConfigSchema = {
             })(),
       autoCapture: cfg.autoCapture !== false,
       autoRecall: cfg.autoRecall !== false,
+      // v3.0.0: customPrompt renamed to customInstructions (backwards-compat: accept either)
       customInstructions:
         typeof cfg.customInstructions === "string"
           ? cfg.customInstructions
-          : DEFAULT_CUSTOM_INSTRUCTIONS,
+          : typeof cfg.customPrompt === "string"
+            ? cfg.customPrompt
+            : DEFAULT_CUSTOM_INSTRUCTIONS,
       customCategories:
         cfg.customCategories &&
         typeof cfg.customCategories === "object" &&
         !Array.isArray(cfg.customCategories)
           ? (cfg.customCategories as Record<string, string>)
           : DEFAULT_CUSTOM_CATEGORIES,
-      customPrompt:
-        typeof cfg.customPrompt === "string"
-          ? cfg.customPrompt
-          : DEFAULT_CUSTOM_INSTRUCTIONS,
       searchThreshold:
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,

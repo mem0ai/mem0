@@ -22,20 +22,13 @@ def memory_instance():
         patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
         patch("mem0.utils.factory.LlmFactory") as mock_llm,
         patch("mem0.memory.telemetry.capture_event"),
-        patch("mem0.memory.graph_memory.MemoryGraph"),
-        patch("mem0.memory.main.GraphStoreFactory") as mock_graph_store,
     ):
         mock_embedder.create.return_value = Mock()
         mock_vector_store.create.return_value = Mock()
         mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
-        
-        # Create a mock instance that won't try to access config attributes
-        mock_graph_instance = Mock()
-        mock_graph_store.create.return_value = mock_graph_instance
 
         config = MemoryConfig(version="v1.1")
-        config.graph_store.config = {"some_config": "value"}
         return Memory(config)
 
 
@@ -46,52 +39,29 @@ def memory_custom_instance():
         patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
         patch("mem0.utils.factory.LlmFactory") as mock_llm,
         patch("mem0.memory.telemetry.capture_event"),
-        patch("mem0.memory.graph_memory.MemoryGraph"),
-        patch("mem0.memory.main.GraphStoreFactory") as mock_graph_store,
     ):
         mock_embedder.create.return_value = Mock()
         mock_vector_store.create.return_value = Mock()
         mock_vector_store.create.return_value.search.return_value = []
         mock_llm.create.return_value = Mock()
-        
-        # Create a mock instance that won't try to access config attributes
-        mock_graph_instance = Mock()
-        mock_graph_store.create.return_value = mock_graph_instance
 
         config = MemoryConfig(
             version="v1.1",
-            custom_fact_extraction_prompt="custom prompt extracting memory in json format",
-            custom_update_memory_prompt="custom prompt determining memory update",
+            custom_instructions="custom prompt extracting memory in json format",
         )
-        config.graph_store.config = {"some_config": "value"}
         return Memory(config)
 
 
-@pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
-def test_add(memory_instance, version, enable_graph):
-    memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+def test_add(memory_instance):
     memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
-    memory_instance._add_to_graph = Mock(return_value=[])
 
     result = memory_instance.add(messages=[{"role": "user", "content": "Test message"}], user_id="test_user")
 
-    if enable_graph:
-        assert "results" in result
-        assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
-        assert "relations" in result
-        assert result["relations"] == []
-    else:
-        assert "results" in result
-        assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
+    assert "results" in result
+    assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
         [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True
-    )
-
-    # Remove the conditional assertion for _add_to_graph
-    memory_instance._add_to_graph.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}
     )
 
 
@@ -120,50 +90,31 @@ def test_get(memory_instance):
     assert result["metadata"] == {"extra_field": "extra_value"}
 
 
-@pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
-def test_search(memory_instance, version, enable_graph):
-    memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+def test_search(memory_instance):
     mock_memories = [
         Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"}, score=0.9),
         Mock(id="2", payload={"data": "Memory 2", "user_id": "test_user"}, score=0.8),
     ]
     memory_instance.vector_store.search = Mock(return_value=mock_memories)
+    memory_instance.vector_store.keyword_search = Mock(return_value=None)  # No BM25
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
-    memory_instance.graph.search = Mock(return_value=[{"relation": "test_relation"}])
 
-    result = memory_instance.search("test query", user_id="test_user")
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
+         patch("mem0.memory.main.extract_entities", return_value=[]):
+        result = memory_instance.search("test query", filters={"user_id": "test_user"})
 
-    if version == "v1.1":
-        assert "results" in result
-        assert len(result["results"]) == 2
-        assert result["results"][0]["id"] == "1"
-        assert result["results"][0]["memory"] == "Memory 1"
-        assert result["results"][0]["user_id"] == "test_user"
-        assert result["results"][0]["score"] == 0.9
-        if enable_graph:
-            assert "relations" in result
-            assert result["relations"] == [{"relation": "test_relation"}]
-        else:
-            assert "relations" not in result
-    else:
-        assert isinstance(result, dict)
-        assert "results" in result
-        assert len(result["results"]) == 2
-        assert result["results"][0]["id"] == "1"
-        assert result["results"][0]["memory"] == "Memory 1"
-        assert result["results"][0]["user_id"] == "test_user"
-        assert result["results"][0]["score"] == 0.9
+    assert "results" in result
+    assert len(result["results"]) == 2
+    assert result["results"][0]["id"] == "1"
+    assert result["results"][0]["memory"] == "Memory 1"
+    assert result["results"][0]["user_id"] == "test_user"
+    # Score is now combined score (semantic only since no BM25/entity), still 0.9
+    assert result["results"][0]["score"] == pytest.approx(0.9)
 
+    # Hybrid pipeline over-fetches: max(20*4, 60) = 80 (top_k default is now 20)
     memory_instance.vector_store.search.assert_called_once_with(
-        query="test query", vectors=[0.1, 0.2, 0.3], limit=100, filters={"user_id": "test_user"}
+        query="test query", vectors=[0.1, 0.2, 0.3], top_k=80, filters={"user_id": "test_user"}
     )
-    memory_instance.embedding_model.embed.assert_called_once_with("test query", "search")
-
-    if enable_graph:
-        memory_instance.graph.search.assert_called_once_with("test query", {"user_id": "test_user"}, 100)
-    else:
-        memory_instance.graph.search.assert_not_called()
 
 
 def test_update(memory_instance):
@@ -221,15 +172,11 @@ def test_delete(memory_instance):
     assert result["message"] == "Memory deleted successfully!"
 
 
-@pytest.mark.parametrize("version, enable_graph", [("v1.0", False), ("v1.1", True)])
-def test_delete_all(memory_instance, version, enable_graph):
-    memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+def test_delete_all(memory_instance):
     mock_memories = [Mock(id="1"), Mock(id="2")]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
     memory_instance.vector_store.reset = Mock()
     memory_instance._delete_memory = Mock()
-    memory_instance.graph.delete_all = Mock()
 
     result = memory_instance.delete_all(user_id="test_user")
 
@@ -237,99 +184,23 @@ def test_delete_all(memory_instance, version, enable_graph):
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 
-    if enable_graph:
-        memory_instance.graph.delete_all.assert_called_once_with({"user_id": "test_user"})
-    else:
-        memory_instance.graph.delete_all.assert_not_called()
-
     assert result["message"] == "Memories deleted successfully!"
 
 
-@pytest.mark.parametrize(
-    "version, enable_graph, expected_result",
-    [
-        ("v1.0", False, {"results": [{"id": "1", "memory": "Memory 1", "user_id": "test_user"}]}),
-        ("v1.1", False, {"results": [{"id": "1", "memory": "Memory 1", "user_id": "test_user"}]}),
-        (
-            "v1.1",
-            True,
-            {
-                "results": [{"id": "1", "memory": "Memory 1", "user_id": "test_user"}],
-                "relations": [{"source": "entity1", "relationship": "rel", "target": "entity2"}],
-            },
-        ),
-    ],
-)
-def test_get_all(memory_instance, version, enable_graph, expected_result):
-    memory_instance.config.version = version
-    memory_instance.enable_graph = enable_graph
+def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
-    memory_instance.graph.get_all = Mock(
-        return_value=[{"source": "entity1", "relationship": "rel", "target": "entity2"}]
-    )
 
-    result = memory_instance.get_all(user_id="test_user")
+    result = memory_instance.get_all(filters={"user_id": "test_user"})
 
     assert isinstance(result, dict)
     assert "results" in result
-    assert len(result["results"]) == len(expected_result["results"])
-    for expected_item, result_item in zip(expected_result["results"], result["results"]):
-        assert all(key in result_item for key in expected_item)
-        assert result_item["id"] == expected_item["id"]
-        assert result_item["memory"] == expected_item["memory"]
-        assert result_item["user_id"] == expected_item["user_id"]
+    assert len(result["results"]) == 1
+    assert result["results"][0]["id"] == "1"
+    assert result["results"][0]["memory"] == "Memory 1"
+    assert result["results"][0]["user_id"] == "test_user"
 
-    if enable_graph:
-        assert "relations" in result
-        assert result["relations"] == expected_result["relations"]
-    else:
-        assert "relations" not in result
-
-    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, limit=100)
-
-    if enable_graph:
-        memory_instance.graph.get_all.assert_called_once_with({"user_id": "test_user"}, 100)
-    else:
-        memory_instance.graph.get_all.assert_not_called()
-
-
-def test_custom_prompts(memory_custom_instance):
-    messages = [{"role": "user", "content": "Test message"}]
-    from mem0.embeddings.mock import MockEmbeddings
-
-    memory_custom_instance.llm.generate_response = Mock()
-    memory_custom_instance.llm.generate_response.return_value = '{"facts": ["fact1", "fact2"]}'
-    memory_custom_instance.embedding_model = MockEmbeddings()
-
-    with patch("mem0.memory.main.parse_messages", return_value="Test message") as mock_parse_messages:
-        with patch(
-            "mem0.memory.main.get_update_memory_messages", return_value="custom update memory prompt"
-        ) as mock_get_update_memory_messages:
-            memory_custom_instance.add(messages=messages, user_id="test_user")
-
-            ## custom prompt
-            ##
-            mock_parse_messages.assert_called_once_with(messages)
-
-            memory_custom_instance.llm.generate_response.assert_any_call(
-                messages=[
-                    {"role": "system", "content": memory_custom_instance.config.custom_fact_extraction_prompt},
-                    {"role": "user", "content": f"Input:\n{mock_parse_messages.return_value}"},
-                ],
-                response_format={"type": "json_object"},
-            )
-
-            ## custom update memory prompt
-            ##
-            mock_get_update_memory_messages.assert_called_once_with(
-                [], ["fact1", "fact2"], memory_custom_instance.config.custom_update_memory_prompt
-            )
-
-            memory_custom_instance.llm.generate_response.assert_any_call(
-                messages=[{"role": "user", "content": mock_get_update_memory_messages.return_value}],
-                response_format={"type": "json_object"},
-            )
+    memory_instance.vector_store.list.assert_called_once_with(filters={"user_id": "test_user"}, top_k=20)
 
 
 def test_no_telemetry_vector_store_when_disabled():
@@ -370,3 +241,110 @@ def test_telemetry_vector_store_created_when_enabled():
 
         # VectorStoreFactory.create should be called twice — user data + telemetry
         assert mock_vector_store.create.call_count == 2
+
+
+# =============================================================================
+# Input Validation Tests
+# =============================================================================
+
+
+class TestEntityIdValidation:
+    """Tests for entity ID validation (whitespace rejection and trimming)."""
+
+    def test_search_rejects_whitespace_only_user_id(self, memory_instance):
+        """Search should reject whitespace-only user_id in filters."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot be empty"):
+            memory_instance.search("test query", filters={"user_id": "   "})
+
+    def test_search_rejects_internal_whitespace_user_id(self, memory_instance):
+        """Search should reject user_id with internal whitespace."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.search("test query", filters={"user_id": "user 123"})
+
+    def test_search_rejects_tab_in_user_id(self, memory_instance):
+        """Search should reject user_id with tab character."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.search("test query", filters={"user_id": "user\t123"})
+
+    def test_get_all_rejects_whitespace_only_user_id(self, memory_instance):
+        """get_all should reject whitespace-only user_id in filters."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot be empty"):
+            memory_instance.get_all(filters={"user_id": "   "})
+
+    def test_get_all_rejects_internal_whitespace_user_id(self, memory_instance):
+        """get_all should reject user_id with internal whitespace."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.get_all(filters={"user_id": "user 123"})
+
+    def test_add_rejects_whitespace_only_user_id(self, memory_instance):
+        """add should reject whitespace-only user_id."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot be empty"):
+            memory_instance.add("test message", user_id="   ")
+
+    def test_add_rejects_internal_whitespace_user_id(self, memory_instance):
+        """add should reject user_id with internal whitespace."""
+        with pytest.raises(ValueError, match="Invalid user_id.*cannot contain whitespace"):
+            memory_instance.add("test message", user_id="user 123")
+
+
+class TestSearchParamValidation:
+    """Tests for search parameter validation (threshold and top_k)."""
+
+    def test_search_rejects_threshold_above_1(self, memory_instance):
+        """Search should reject threshold > 1."""
+        with pytest.raises(ValueError, match="Invalid threshold.*Must be between 0 and 1"):
+            memory_instance.search("test query", filters={"user_id": "test"}, threshold=1.5)
+
+    def test_search_rejects_negative_threshold(self, memory_instance):
+        """Search should reject negative threshold."""
+        with pytest.raises(ValueError, match="Invalid threshold.*Must be between 0 and 1"):
+            memory_instance.search("test query", filters={"user_id": "test"}, threshold=-0.5)
+
+    def test_search_rejects_negative_top_k(self, memory_instance):
+        """Search should reject negative top_k."""
+        with pytest.raises(ValueError, match="Invalid top_k.*Must be a non-negative"):
+            memory_instance.search("test query", filters={"user_id": "test"}, top_k=-5)
+
+    def test_get_all_rejects_negative_top_k(self, memory_instance):
+        """get_all should reject negative top_k."""
+        with pytest.raises(ValueError, match="Invalid top_k.*Must be a non-negative"):
+            memory_instance.get_all(filters={"user_id": "test"}, top_k=-1)
+
+    def test_search_accepts_threshold_zero(self, memory_instance):
+        """Search should accept threshold=0 (edge case)."""
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            result = memory_instance.search("test", filters={"user_id": "test"}, threshold=0)
+
+        assert "results" in result
+
+    def test_search_accepts_threshold_one(self, memory_instance):
+        """Search should accept threshold=1.0 (edge case)."""
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            result = memory_instance.search("test", filters={"user_id": "test"}, threshold=1.0)
+
+        assert "results" in result
+
+    def test_search_accepts_top_k_zero(self, memory_instance):
+        """Search should accept top_k=0."""
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
+
+        assert "results" in result

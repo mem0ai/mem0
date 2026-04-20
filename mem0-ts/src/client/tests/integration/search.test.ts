@@ -1,7 +1,7 @@
 /**
  * Integration tests: Search and history operations.
  *
- * Tests search v1, search v2, and memory history against the real API.
+ * Tests search, filtered search, and memory history against the real API.
  *
  * Run: MEM0_API_KEY=your-key npx jest search.test.ts --forceExit
  */
@@ -27,7 +27,7 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
 
   beforeAll(async () => {
     cleanup = suppressTelemetryNoise();
-    client = createTestClient();
+    client = await createTestClient();
     memoryIds = await seedTestMemories(client, TEST_USER_ID);
   });
 
@@ -36,14 +36,14 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
     cleanup();
   });
 
-  // ─── Search v1 ────────────────────────────────────────────
-  describe("search v1", () => {
+  // ─── Search ─────────────────────────────────────────────
+  describe("search", () => {
     test("searches memories by user_id and returns results with scores", async () => {
       // Search index may lag behind listing index — poll until ready
       const results = await waitForSearchResults(
         client,
         "What is my favorite color?",
-        { user_id: TEST_USER_ID },
+        { filters: { user_id: TEST_USER_ID } },
       );
 
       expect(Array.isArray(results)).toBe(true);
@@ -57,15 +57,14 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
     });
   });
 
-  // ─── Search v2 ────────────────────────────────────────────
-  describe("search v2", () => {
+  // ─── Search with filters ─────────────────────────────────
+  describe("search with filters", () => {
     test("searches with OR filters and returns results", async () => {
       const results = await waitForSearchResults(
         client,
         "What do you know about me?",
         {
           filters: { OR: [{ user_id: TEST_USER_ID }] },
-          api_version: "v2",
         },
       );
 
@@ -90,15 +89,15 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
 
       const entry = history[0];
       expect(typeof entry.id).toBe("string");
-      expect(typeof entry.memory_id).toBe("string");
+      expect(typeof entry.memoryId).toBe("string");
       expect(["ADD", "UPDATE", "DELETE", "NOOP"]).toContain(entry.event);
-      expect(new Date(entry.created_at).toString()).not.toBe("Invalid Date");
-      expect(new Date(entry.updated_at).toString()).not.toBe("Invalid Date");
+      expect(new Date(entry.createdAt).toString()).not.toBe("Invalid Date");
+      expect(new Date(entry.updatedAt).toString()).not.toBe("Invalid Date");
       expect(
-        entry.new_memory === null || typeof entry.new_memory === "string",
+        entry.newMemory === null || typeof entry.newMemory === "string",
       ).toBe(true);
       expect(
-        entry.old_memory === null || typeof entry.old_memory === "string",
+        entry.oldMemory === null || typeof entry.oldMemory === "string",
       ).toBe(true);
 
       const events = history.map((h) => h.event);
@@ -109,24 +108,24 @@ describeIntegration("MemoryClient Integration — Search & History", () => {
   // ─── Edge cases ─────────────────────────────────────────
   describe("edge cases", () => {
     test("search for non-existent user returns empty results", async () => {
-      const results = await client.search("anything", {
-        user_id: `nonexistent-user-${randomUUID()}`,
+      const response = await client.search("test search query", {
+        filters: { user_id: `nonexistent-user-${randomUUID()}` },
       });
 
-      expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(0);
+      expect(response).toHaveProperty("results");
+      expect(response.results).toHaveLength(0);
     });
 
-    test("search with limit param does not throw", async () => {
-      const results = await client.search(
+    test("search with top_k param does not throw", async () => {
+      const response = await client.search(
         "Tell me about integration test user",
         {
-          user_id: TEST_USER_ID,
-          limit: 1,
+          filters: { user_id: TEST_USER_ID },
+          topK: 1,
         },
       );
 
-      expect(Array.isArray(results)).toBe(true);
+      expect(response).toHaveProperty("results");
     });
   });
 });

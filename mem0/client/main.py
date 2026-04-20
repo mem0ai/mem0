@@ -2,13 +2,22 @@ import hashlib
 import logging
 import os
 import warnings
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 import httpx
 import requests
 
 from mem0.client.project import AsyncProject, Project
+from mem0.client.types import (
+    AddMemoryOptions,
+    DeleteAllMemoryOptions,
+    GetAllMemoryOptions,
+    ProjectUpdateOptions,
+    SearchMemoryOptions,
+    UpdateMemoryOptions,
+)
 from mem0.client.utils import api_error_handler
+
 # Exception classes are referenced in docstrings only
 from mem0.memory.setup import get_user_id, setup_config
 from mem0.memory.telemetry import capture_client_event
@@ -19,6 +28,9 @@ warnings.filterwarnings("default", category=DeprecationWarning)
 
 # Setup user config
 setup_config()
+
+# Entity parameters that must be passed via filters, not top-level
+ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
 
 
 class MemoryClient:
@@ -31,8 +43,6 @@ class MemoryClient:
         api_key (str): The API key for authenticating with the Mem0 API.
         host (str): The base URL for the Mem0 API.
         client (httpx.Client): The HTTP client used for making API requests.
-        org_id (str, optional): Organization ID.
-        project_id (str, optional): Project ID.
         user_id (str): Unique identifier for the user.
     """
 
@@ -40,8 +50,6 @@ class MemoryClient:
         self,
         api_key: Optional[str] = None,
         host: Optional[str] = None,
-        org_id: Optional[str] = None,
-        project_id: Optional[str] = None,
         client: Optional[httpx.Client] = None,
     ):
         """Initialize the MemoryClient.
@@ -52,8 +60,6 @@ class MemoryClient:
                      environment variable.
             host: The base URL for the Mem0 API. Defaults to
                   "https://api.mem0.ai".
-            org_id: The ID of the organization.
-            project_id: The ID of the project.
             client: A custom httpx.Client instance. If provided, it will be
                     used instead of creating a new one. Note that base_url and
                     headers will be set/overridden as needed.
@@ -63,8 +69,8 @@ class MemoryClient:
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
         self.host = host or "https://api.mem0.ai"
-        self.org_id = org_id
-        self.project_id = project_id
+        self.org_id = None
+        self.project_id = None
         self.user_id = get_user_id()
 
         if not self.api_key:
@@ -128,15 +134,16 @@ class MemoryClient:
             raise ValueError(f"Error: {error_message}")
 
     @api_error_handler
-    def add(self, messages, **kwargs) -> Dict[str, Any]:
+    def add(self, messages, options: Optional[AddMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
         """Add a new memory.
 
         Args:
             messages: A list of message dictionaries, a single message dictionary,
                      or a string. If a string is provided, it will be converted to
                      a user message.
+            options: Typed options for the add operation (AddMemoryOptions).
             **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      metadata, filters, async_mode.
+                      metadata, filters.
 
         Returns:
             A dictionary containing the API response in v1.1 format.
@@ -149,26 +156,18 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         # Handle different message input formats (align with OSS behavior)
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
         elif isinstance(messages, dict):
             messages = [messages]
         elif not isinstance(messages, list):
-            raise ValueError(
-                f"messages must be str, dict, or list[dict], got {type(messages).__name__}"
-            )
+            raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
         kwargs = self._prepare_params(kwargs)
-
-        # Set async_mode to True by default, but allow user override
-        if "async_mode" not in kwargs:
-            kwargs["async_mode"] = True
-
-        # Force v1.1 format for all add operations
-        kwargs["output_format"] = "v1.1"
         payload = self._prepare_payload(messages, kwargs)
-        response = self.client.post("/v1/memories/", json=payload)
+        response = self.client.post("/v3/memories/add/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -200,15 +199,15 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def get_all(self, **kwargs) -> Dict[str, Any]:
+    def get_all(self, options: Optional[GetAllMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
         """Retrieve all memories, with optional filtering.
 
         Args:
-            **kwargs: Optional parameters for filtering (user_id, agent_id,
-                      app_id, top_k, page, page_size).
+            options: Typed options for the get_all operation (GetAllMemoryOptions).
+            **kwargs: Optional parameters for filtering (filters, page, page_size).
 
         Returns:
-            A dictionary containing memories in v1.1 format: {"results": [...]}
+            A paginated dict: {"count": int, "next": str | None, "previous": str | None, "results": [...]}
 
         Raises:
             ValidationError: If the input data is invalid.
@@ -218,17 +217,25 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in get_all(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
+        kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
-        params.pop("async_mode", None)
 
         if "page" in params and "page_size" in params:
             query_params = {
                 "page": params.pop("page"),
                 "page_size": params.pop("page_size"),
             }
-            response = self.client.post("/v2/memories/", json=params, params=query_params)
+            response = self.client.post("/v3/memories/", json=params, params=query_params)
         else:
-            response = self.client.post("/v2/memories/", json=params)
+            response = self.client.post("/v3/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -236,26 +243,20 @@ class MemoryClient:
             "client.get_all",
             self,
             {
-                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "sync",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
-    def search(self, query: str, **kwargs) -> Dict[str, Any]:
+    def search(self, query: str, options: Optional[SearchMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
         """Search memories based on a query.
 
         Args:
             query: The search query string.
-            **kwargs: Additional parameters such as user_id, agent_id, app_id,
-                      top_k, filters.
+            options: Typed options for the search operation (SearchMemoryOptions).
+            **kwargs: Additional parameters such as filters, top_k, rerank.
 
         Returns:
             A dictionary containing search results in v1.1 format: {"results": [...]}
@@ -268,13 +269,19 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        payload = {"query": query}
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in search(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
+        kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
-        params.pop("async_mode", None)
+        payload = {"query": query, **params}
 
-        payload.update(params)
-
-        response = self.client.post("/v2/memories/search/", json=payload)
+        response = self.client.post("/v3/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -282,52 +289,42 @@ class MemoryClient:
             "client.search",
             self,
             {
-                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "sync",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     def update(
         self,
         memory_id: str,
-        text: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[Union[int, float, str]] = None,
+        options: Optional[UpdateMemoryOptions] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
-        """
-        Update a memory by ID.
+        """Update a memory by ID.
 
         Args:
-            memory_id (str): Memory ID.
-            text (str, optional): New content to update the memory with.
-            metadata (dict, optional): Metadata to update in the memory.
-            timestamp (int, float, or str, optional): Unix epoch timestamp or ISO 8601 string.
+            memory_id: The ID of the memory to update.
+            options: Typed options (UpdateMemoryOptions) with text, metadata,
+                     and/or timestamp fields.
+            **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
 
         Returns:
             Dict[str, Any]: The response from the server.
 
-        Example:
-            >>> client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
-            >>> client.update(memory_id="mem_123", timestamp="2025-01-15T12:00:00Z")
-        """
-        if text is None and metadata is None and timestamp is None:
-            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
+        Raises:
+            ValueError: If none of text, metadata, or timestamp are provided.
 
-        payload = {}
-        if text is not None:
-            payload["text"] = text
-        if metadata is not None:
-            payload["metadata"] = metadata
-        if timestamp is not None:
-            payload["timestamp"] = timestamp
+        Example:
+            >>> client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
+            >>> client.update("mem_123", text="Updated text")
+        """
+        payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        if not payload:
+            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "sync"})
         params = self._prepare_params()
@@ -360,10 +357,11 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete_all(self, **kwargs) -> Dict[str, str]:
+    def delete_all(self, options: Optional[DeleteAllMemoryOptions] = None, **kwargs) -> Dict[str, str]:
         """Delete all memories, with optional filtering.
 
         Args:
+            options: Typed options for the delete_all operation (DeleteAllMemoryOptions).
             **kwargs: Optional parameters for filtering (user_id, agent_id,
                       app_id).
 
@@ -378,6 +376,7 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
         response = self.client.delete("/v1/memories/", params=params)
         response.raise_for_status()
@@ -667,13 +666,10 @@ class MemoryClient:
     @api_error_handler
     def update_project(
         self,
+        options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
-        enable_graph: Optional[bool] = None,
-        version: Optional[str] = None,
-        inclusion_prompt: Optional[str] = None,
-        exclusion_prompt: Optional[str] = None,
         memory_depth: Optional[str] = None,
         usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
@@ -681,67 +677,51 @@ class MemoryClient:
         """Update the project settings.
 
         Args:
-            custom_instructions: New instructions for the project
-            custom_categories: New categories for the project
-            retrieval_criteria: New retrieval criteria for the project
-            enable_graph: Enable or disable the graph for the project
-            version: Version of the project
-            inclusion_prompt: Inclusion prompt for the project
-            exclusion_prompt: Exclusion prompt for the project
-            memory_depth: Memory depth for the project
-            usecase_setting: Usecase setting for the project
-            multilingual: Whether to use the input language for memory storage and retrieval
+            options: Typed options for the update operation (ProjectUpdateOptions).
+            custom_instructions: New instructions for the project.
+            custom_categories: New categories for the project.
+            retrieval_criteria: New retrieval criteria for the project.
+            memory_depth: Memory depth for the project.
+            usecase_setting: Usecase setting for the project.
+            multilingual: Whether to use the input language for memory storage and retrieval.
 
         Returns:
             Dictionary containing the API response.
 
         Raises:
-            ValidationError: If the input data is invalid.
-            AuthenticationError: If authentication fails.
-            RateLimitError: If rate limits are exceeded.
-            MemoryQuotaExceededError: If memory quota is exceeded.
-            NetworkError: If network connectivity issues occur.
-            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
-            ValueError: If org_id or project_id are not set.
+            ValueError: If org_id or project_id are not set, or no update fields provided.
         """
         logger.warning(
-            "update_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.update() method instead."
+            "update_project() method is going to be deprecated in version v1.0 of the package. "
+            "Please use the client.project.update() method instead."
         )
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        if (
-            custom_instructions is None
-            and custom_categories is None
-            and retrieval_criteria is None
-            and enable_graph is None
-            and version is None
-            and inclusion_prompt is None
-            and exclusion_prompt is None
-            and memory_depth is None
-            and usecase_setting is None
-            and multilingual is None
-        ):
+        kwargs = {
+            **(options.model_dump(exclude_unset=True) if options else {}),
+            **{
+                k: v
+                for k, v in {
+                    "custom_instructions": custom_instructions,
+                    "custom_categories": custom_categories,
+                    "retrieval_criteria": retrieval_criteria,
+                    "memory_depth": memory_depth,
+                    "usecase_setting": usecase_setting,
+                    "multilingual": multilingual,
+                }.items()
+                if v is not None
+            },
+        }
+
+        if not kwargs:
             raise ValueError(
                 "Currently we only support updating custom_instructions or "
                 "custom_categories or retrieval_criteria, so you must "
                 "provide at least one of them"
             )
 
-        payload = self._prepare_params(
-            {
-                "custom_instructions": custom_instructions,
-                "custom_categories": custom_categories,
-                "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
-                "version": version,
-                "inclusion_prompt": inclusion_prompt,
-                "exclusion_prompt": exclusion_prompt,
-                "memory_depth": memory_depth,
-                "usecase_setting": usecase_setting,
-                "multilingual": multilingual,
-            }
-        )
+        payload = self._prepare_params(kwargs)
         response = self.client.patch(
             f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
             json=payload,
@@ -750,19 +730,7 @@ class MemoryClient:
         capture_client_event(
             "client.update_project",
             self,
-            {
-                "custom_instructions": custom_instructions,
-                "custom_categories": custom_categories,
-                "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
-                "version": version,
-                "inclusion_prompt": inclusion_prompt,
-                "exclusion_prompt": exclusion_prompt,
-                "memory_depth": memory_depth,
-                "usecase_setting": usecase_setting,
-                "multilingual": multilingual,
-                "sync_type": "sync",
-            },
+            {**kwargs, "sync_type": "sync"},
         )
         return response.json()
 
@@ -910,7 +878,7 @@ class MemoryClient:
 
         response = self.client.post("/v1/feedback/", json=data)
         response.raise_for_status()
-        capture_client_event("client.feedback", self, data, {"sync_type": "sync"})
+        capture_client_event("client.feedback", self, {**data, "sync_type": "sync"})
         return response.json()
 
     def _prepare_payload(self, messages: List[Dict[str, str]], kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -937,20 +905,12 @@ class MemoryClient:
 
         Returns:
             A dictionary containing the prepared parameters.
-
-        Raises:
-            ValueError: If either org_id or project_id is provided but not both.
         """
 
         if kwargs is None:
             kwargs = {}
 
-        # Add org_id and project_id if both are available
-        if self.org_id and self.project_id:
-            kwargs["org_id"] = self.org_id
-            kwargs["project_id"] = self.project_id
-        elif self.org_id or self.project_id:
-            raise ValueError("Please provide both org_id and project_id")
+        # org_id and project_id are resolved from API key — not injected into params
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
@@ -966,8 +926,6 @@ class AsyncMemoryClient:
         self,
         api_key: Optional[str] = None,
         host: Optional[str] = None,
-        org_id: Optional[str] = None,
-        project_id: Optional[str] = None,
         client: Optional[httpx.AsyncClient] = None,
     ):
         """Initialize the AsyncMemoryClient.
@@ -978,8 +936,6 @@ class AsyncMemoryClient:
                      environment variable.
             host: The base URL for the Mem0 API. Defaults to
                   "https://api.mem0.ai".
-            org_id: The ID of the organization.
-            project_id: The ID of the project.
             client: A custom httpx.AsyncClient instance. If provided, it will
                     be used instead of creating a new one. Note that base_url
                     and headers will be set/overridden as needed.
@@ -989,8 +945,8 @@ class AsyncMemoryClient:
         """
         self.api_key = api_key or os.getenv("MEM0_API_KEY")
         self.host = host or "https://api.mem0.ai"
-        self.org_id = org_id
-        self.project_id = project_id
+        self.org_id = None
+        self.project_id = None
         self.user_id = get_user_id()
 
         if not self.api_key:
@@ -1085,20 +1041,12 @@ class AsyncMemoryClient:
 
         Returns:
             A dictionary containing the prepared parameters.
-
-        Raises:
-            ValueError: If either org_id or project_id is provided but not both.
         """
 
         if kwargs is None:
             kwargs = {}
 
-        # Add org_id and project_id if both are available
-        if self.org_id and self.project_id:
-            kwargs["org_id"] = self.org_id
-            kwargs["project_id"] = self.project_id
-        elif self.org_id or self.project_id:
-            raise ValueError("Please provide both org_id and project_id")
+        # org_id and project_id are resolved from API key — not injected into params
 
         return {k: v for k, v in kwargs.items() if v is not None}
 
@@ -1109,27 +1057,40 @@ class AsyncMemoryClient:
         await self.async_client.aclose()
 
     @api_error_handler
-    async def add(self, messages, **kwargs) -> Dict[str, Any]:
+    async def add(self, messages, options: Optional[AddMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
+        """Add a new memory.
+
+        Args:
+            messages: A list of message dictionaries, a single message dictionary,
+                     or a string. If a string is provided, it will be converted to
+                     a user message.
+            options: Typed options for the add operation (AddMemoryOptions).
+            **kwargs: Additional parameters such as user_id, agent_id, app_id,
+                      metadata, filters.
+
+        Returns:
+            A dictionary containing the API response in v1.1 format.
+
+        Raises:
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
+        """
+        kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         # Handle different message input formats (align with OSS behavior)
         if isinstance(messages, str):
             messages = [{"role": "user", "content": messages}]
         elif isinstance(messages, dict):
             messages = [messages]
         elif not isinstance(messages, list):
-            raise ValueError(
-                f"messages must be str, dict, or list[dict], got {type(messages).__name__}"
-            )
+            raise ValueError(f"messages must be str, dict, or list[dict], got {type(messages).__name__}")
 
         kwargs = self._prepare_params(kwargs)
-
-        # Set async_mode to True by default, but allow user override
-        if "async_mode" not in kwargs:
-            kwargs["async_mode"] = True
-
-        # Force v1.1 format for all add operations
-        kwargs["output_format"] = "v1.1"
         payload = self._prepare_payload(messages, kwargs)
-        response = await self.async_client.post("/v1/memories/", json=payload)
+        response = await self.async_client.post("/v3/memories/add/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1145,18 +1106,43 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def get_all(self, **kwargs) -> Dict[str, Any]:
+    async def get_all(self, options: Optional[GetAllMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
+        """Retrieve all memories, with optional filtering.
+
+        Args:
+            options: Typed options for the get_all operation (GetAllMemoryOptions).
+            **kwargs: Optional parameters for filtering (filters, page, page_size).
+
+        Returns:
+            A paginated dict: {"count": int, "next": str | None, "previous": str | None, "results": [...]}
+
+        Raises:
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
+        """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in get_all(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
+        kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
-        params.pop("async_mode", None)
 
         if "page" in params and "page_size" in params:
             query_params = {
                 "page": params.pop("page"),
                 "page_size": params.pop("page_size"),
             }
-            response = await self.async_client.post("/v2/memories/", json=params, params=query_params)
+            response = await self.async_client.post("/v3/memories/", json=params, params=query_params)
         else:
-            response = await self.async_client.post("/v2/memories/", json=params)
+            response = await self.async_client.post("/v3/memories/", json=params)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1164,27 +1150,45 @@ class AsyncMemoryClient:
             "client.get_all",
             self,
             {
-                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "async",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
-    async def search(self, query: str, **kwargs) -> Dict[str, Any]:
-        payload = {"query": query}
+    async def search(self, query: str, options: Optional[SearchMemoryOptions] = None, **kwargs) -> Dict[str, Any]:
+        """Search memories based on a query.
+
+        Args:
+            query: The search query string.
+            options: Typed options for the search operation (SearchMemoryOptions).
+            **kwargs: Additional parameters such as filters, top_k, rerank.
+
+        Returns:
+            A dictionary containing search results in v1.1 format: {"results": [...]}
+
+        Raises:
+            ValidationError: If the input data is invalid.
+            AuthenticationError: If authentication fails.
+            RateLimitError: If rate limits are exceeded.
+            MemoryQuotaExceededError: If memory quota is exceeded.
+            NetworkError: If network connectivity issues occur.
+            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
+        """
+        # Reject top-level entity params - must use filters instead
+        invalid_keys = ENTITY_PARAMS & set(kwargs.keys())
+        if invalid_keys:
+            raise ValueError(
+                f"Top-level entity parameters {invalid_keys} are not supported in search(). "
+                f"Use filters={{'user_id': '...'}} instead."
+            )
+
+        kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
-        params.pop("async_mode", None)
+        payload = {"query": query, **params}
 
-        payload.update(params)
-
-        response = await self.async_client.post("/v2/memories/search/", json=payload)
+        response = await self.async_client.post("/v3/memories/search/", json=payload)
         response.raise_for_status()
         if "metadata" in kwargs:
             del kwargs["metadata"]
@@ -1192,52 +1196,42 @@ class AsyncMemoryClient:
             "client.search",
             self,
             {
-                "api_version": "v2",
                 "keys": list(kwargs.keys()),
                 "sync_type": "async",
             },
         )
-        result = response.json()
-
-        # Ensure v1.1 format (wrap raw list if needed)
-        if isinstance(result, list):
-            return {"results": result}
-        return result
+        return response.json()
 
     @api_error_handler
     async def update(
         self,
         memory_id: str,
-        text: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        timestamp: Optional[Union[int, float, str]] = None,
+        options: Optional[UpdateMemoryOptions] = None,
+        **kwargs,
     ) -> Dict[str, Any]:
-        """
-        Update a memory by ID asynchronously.
+        """Update a memory by ID asynchronously.
 
         Args:
-            memory_id (str): Memory ID.
-            text (str, optional): New content to update the memory with.
-            metadata (dict, optional): Metadata to update in the memory.
-            timestamp (int, float, or str, optional): Unix epoch timestamp or ISO 8601 string.
+            memory_id: The ID of the memory to update.
+            options: Typed options (UpdateMemoryOptions) with text, metadata,
+                     and/or timestamp fields.
+            **kwargs: Alternatively pass text, metadata, timestamp as keyword args.
 
         Returns:
             Dict[str, Any]: The response from the server.
 
-        Example:
-            >>> await client.update(memory_id="mem_123", text="Likes to play tennis on weekends")
-            >>> await client.update(memory_id="mem_123", timestamp="2025-01-15T12:00:00Z")
-        """
-        if text is None and metadata is None and timestamp is None:
-            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
+        Raises:
+            ValueError: If none of text, metadata, or timestamp are provided.
 
-        payload = {}
-        if text is not None:
-            payload["text"] = text
-        if metadata is not None:
-            payload["metadata"] = metadata
-        if timestamp is not None:
-            payload["timestamp"] = timestamp
+        Example:
+            >>> await client.update("mem_123", UpdateMemoryOptions(text="Updated text"))
+            >>> await client.update("mem_123", text="Updated text")
+        """
+        payload = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        if not payload:
+            raise ValueError("At least one of text, metadata, or timestamp must be provided for update.")
 
         capture_client_event("client.update", self, {"memory_id": memory_id, "sync_type": "async"})
         params = self._prepare_params()
@@ -1270,10 +1264,11 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete_all(self, **kwargs) -> Dict[str, str]:
+    async def delete_all(self, options: Optional[DeleteAllMemoryOptions] = None, **kwargs) -> Dict[str, str]:
         """Delete all memories, with optional filtering.
 
         Args:
+            options: Typed options for the delete_all operation (DeleteAllMemoryOptions).
             **kwargs: Optional parameters for filtering (user_id, agent_id, app_id).
 
         Returns:
@@ -1287,6 +1282,7 @@ class AsyncMemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
+        kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
         response = await self.async_client.delete("/v1/memories/", params=params)
         response.raise_for_status()
@@ -1554,63 +1550,62 @@ class AsyncMemoryClient:
     @api_error_handler
     async def update_project(
         self,
+        options: Optional[ProjectUpdateOptions] = None,
         custom_instructions: Optional[str] = None,
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
-        enable_graph: Optional[bool] = None,
-        version: Optional[str] = None,
+        memory_depth: Optional[str] = None,
+        usecase_setting: Optional[str] = None,
         multilingual: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Update the project settings.
 
         Args:
-            custom_instructions: New instructions for the project
-            custom_categories: New categories for the project
-            retrieval_criteria: New retrieval criteria for the project
-            enable_graph: Enable or disable the graph for the project
-            version: Version of the project
-            multilingual: Whether to use the input language for memory storage and retrieval
+            options: Typed options for the update operation (ProjectUpdateOptions).
+            custom_instructions: New instructions for the project.
+            custom_categories: New categories for the project.
+            retrieval_criteria: New retrieval criteria for the project.
+            memory_depth: Memory depth for the project.
+            usecase_setting: Usecase setting for the project.
+            multilingual: Whether to use the input language for memory storage and retrieval.
 
         Returns:
             Dictionary containing the API response.
 
         Raises:
-            ValidationError: If the input data is invalid.
-            AuthenticationError: If authentication fails.
-            RateLimitError: If rate limits are exceeded.
-            MemoryQuotaExceededError: If memory quota is exceeded.
-            NetworkError: If network connectivity issues occur.
-            MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
-            ValueError: If org_id or project_id are not set.
+            ValueError: If org_id or project_id are not set, or no update fields provided.
         """
         logger.warning(
-            "update_project() method is going to be deprecated in version v1.0 of the package. Please use the client.project.update() method instead."
+            "update_project() method is going to be deprecated in version v1.0 of the package. "
+            "Please use the client.project.update() method instead."
         )
         if not (self.org_id and self.project_id):
             raise ValueError("org_id and project_id must be set to update instructions or categories")
 
-        if (
-            custom_instructions is None
-            and custom_categories is None
-            and retrieval_criteria is None
-            and enable_graph is None
-            and version is None
-            and multilingual is None
-        ):
+        kwargs = {
+            **(options.model_dump(exclude_unset=True) if options else {}),
+            **{
+                k: v
+                for k, v in {
+                    "custom_instructions": custom_instructions,
+                    "custom_categories": custom_categories,
+                    "retrieval_criteria": retrieval_criteria,
+                    "memory_depth": memory_depth,
+                    "usecase_setting": usecase_setting,
+                    "multilingual": multilingual,
+                }.items()
+                if v is not None
+            },
+        }
+
+        if not kwargs:
             raise ValueError(
-                "Currently we only support updating custom_instructions or custom_categories or retrieval_criteria, so you must provide at least one of them"
+                "Currently we only support updating custom_instructions or "
+                "custom_categories or retrieval_criteria, so you must "
+                "provide at least one of them"
             )
 
-        payload = self._prepare_params(
-            {
-                "custom_instructions": custom_instructions,
-                "custom_categories": custom_categories,
-                "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
-                "version": version,
-                "multilingual": multilingual,
-            }
-        )
+        payload = self._prepare_params(kwargs)
         response = await self.async_client.patch(
             f"/api/v1/orgs/organizations/{self.org_id}/projects/{self.project_id}/",
             json=payload,
@@ -1619,15 +1614,7 @@ class AsyncMemoryClient:
         capture_client_event(
             "client.update_project",
             self,
-            {
-                "custom_instructions": custom_instructions,
-                "custom_categories": custom_categories,
-                "retrieval_criteria": retrieval_criteria,
-                "enable_graph": enable_graph,
-                "version": version,
-                "multilingual": multilingual,
-                "sync_type": "async",
-            },
+            {**kwargs, "sync_type": "async"},
         )
         return response.json()
 
@@ -1764,5 +1751,5 @@ class AsyncMemoryClient:
 
         response = await self.async_client.post("/v1/feedback/", json=data)
         response.raise_for_status()
-        capture_client_event("client.feedback", self, data, {"sync_type": "async"})
+        capture_client_event("client.feedback", self, {**data, "sync_type": "async"})
         return response.json()

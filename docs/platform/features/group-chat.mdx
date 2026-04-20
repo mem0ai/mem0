@@ -3,8 +3,6 @@ title: Group Chat
 description: 'Enable multi-participant conversations with automatic memory attribution to individual speakers'
 ---
 
-<Snippet file="paper-release.mdx" />
-
 ## Overview
 
 The Group Chat feature enables Mem0 to process conversations involving multiple participants and automatically attribute memories to individual speakers. This allows for precise tracking of each participant's preferences, characteristics, and contributions in collaborative discussions, team meetings, or multi-agent conversations.
@@ -217,17 +215,16 @@ print(search_response)
 
 ## Async Mode Support
 
-Group chat also supports async processing for improved performance:
+Group chat supports async processing for improved performance. Memory additions are processed asynchronously by default.
 
 <CodeGroup>
 
 ```python Python
-# Group chat with async mode
+# Group chat — async processing is the default
 response = client.add(
     messages,
     run_id="groupchat_async",
     infer=True,
-    async_mode=True
 )
 print(response)
 ```
@@ -268,7 +265,7 @@ Each message in a group chat must include:
 
 4. **Memory Filtering**: Use filters to retrieve memories from specific participants or sessions when needed.
 
-5. **Async Processing**: Use `async_mode=True` for large group conversations to improve performance.
+5. **Async Processing**: Memory additions are processed asynchronously by default, which is ideal for large group conversations.
 
 6. **Search Context**: Leverage the search functionality to find specific information within group chat contexts.
 

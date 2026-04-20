@@ -41,7 +41,7 @@ Set up your environment variables:
 - `MEM0_API_KEY`: Your Mem0 Platform API key
 - `OPENAI_API_KEY`: Your OpenAI API key
 
-You can obtain your Mem0 Platform API key from the [Mem0 Platform](https://app.mem0.ai).
+You can obtain your Mem0 Platform API key from the <a href="https://app.mem0.ai" rel="nofollow">Mem0 Platform</a>.
 
 ## Complete Implementation
 
@@ -83,7 +83,7 @@ class MultiAgentLearningSystem:
 
     def __init__(self, student_id: str):
         self.student_id = student_id
-        self.llm = OpenAI(model="gpt-4.1-nano-2025-04-14", temperature=0.2)
+        self.llm = OpenAI(model="gpt-5-mini", temperature=0.2)
 
         # Memory context for this student
         self.memory_context = {"user_id": student_id, "app": "learning_assistant"}
@@ -357,7 +357,7 @@ Based on our previous session, I remember we covered Vision Language Models and 
 ## Help & Resources
 
 - [LlamaIndex Agent Workflows](https://docs.llamaindex.ai/en/stable/use_cases/agents/)
-- [Mem0 Platform](https://app.mem0.ai/)
+- <a href="https://app.mem0.ai/" rel="nofollow">Mem0 Platform</a>
 
 ---
 

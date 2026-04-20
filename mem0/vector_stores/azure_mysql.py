@@ -7,8 +7,8 @@ from pydantic import BaseModel
 
 try:
     import pymysql
-    from pymysql.cursors import DictCursor
     from dbutils.pooled_db import PooledDB
+    from pymysql.cursors import DictCursor
 except ImportError:
     raise ImportError(
         "Azure MySQL vector store requires PyMySQL and DBUtils. "
@@ -178,16 +178,31 @@ class AzureMySQL(VectorStoreBase):
         dims = vector_size or self.embedding_model_dims
 
         with self._get_cursor(commit=True) as cur:
-            # Create table with vector column
+            # Create table with vector column and a generated column for fulltext keyword search
             cur.execute(f"""
                 CREATE TABLE IF NOT EXISTS `{table_name}` (
                     id VARCHAR(255) PRIMARY KEY,
                     vector JSON,
                     payload JSON,
+                    text_lemmatized VARCHAR(1000) GENERATED ALWAYS AS
+                        (CAST(payload->>'$.text_lemmatized' AS CHAR(1000))) STORED,
                     INDEX idx_payload_keys ((CAST(payload AS CHAR(255)) ARRAY))
                 )
             """)
             logger.info(f"Created collection '{table_name}' with vector dimension {dims}")
+
+            # Add FULLTEXT index on text_lemmatized for keyword_search()
+            try:
+                cur.execute(f"""
+                    CREATE FULLTEXT INDEX ft_text_lemmatized
+                    ON `{table_name}` (text_lemmatized)
+                """)
+                logger.info(f"Created FULLTEXT index on '{table_name}.text_lemmatized'")
+            except Exception as e:
+                logger.debug(
+                    f"Could not create FULLTEXT index on '{table_name}.text_lemmatized': {e}. "
+                    "It may already exist or FULLTEXT may not be supported."
+                )
 
     def insert(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
         """
@@ -243,7 +258,7 @@ class AzureMySQL(VectorStoreBase):
         self,
         query: str,
         vectors: List[float],
-        limit: int = 5,
+        top_k: int = 5,
         filters: Optional[Dict] = None,
     ) -> List[OutputData]:
         """
@@ -252,7 +267,7 @@ class AzureMySQL(VectorStoreBase):
         Args:
             query (str): Query string (not used in vector search)
             vectors (List[float]): Query vector
-            limit (int): Number of results to return
+            top_k (int): Number of results to return
             filters (Dict, optional): Filters to apply to the search
 
         Returns:
@@ -291,14 +306,69 @@ class AzureMySQL(VectorStoreBase):
             distance = 1 - similarity
             scored_results.append((row['id'], distance, row['payload']))
 
-        # Sort by distance and limit
+        # Sort by distance and apply limit
         scored_results.sort(key=lambda x: x[1])
-        scored_results = scored_results[:limit]
+        scored_results = scored_results[:top_k]
 
         return [
             OutputData(id=r[0], score=float(r[1]), payload=json.loads(r[2]) if isinstance(r[2], str) else r[2])
             for r in scored_results
         ]
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Search for memories using MySQL FULLTEXT search via MATCH() AGAINST().
+
+        This method attempts to use a FULLTEXT index on the text_lemmatized column.
+        If the column or index does not exist, it returns None gracefully.
+
+        Args:
+            query (str): The text query for keyword-based search.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            list: Search results in the same format as search(), or None if FULLTEXT
+                  search is not supported on this collection.
+        """
+        try:
+            filter_conditions = []
+            filter_params = []
+
+            if filters:
+                for k, v in filters.items():
+                    filter_conditions.append("JSON_EXTRACT(payload, %s) = %s")
+                    filter_params.extend([f"$.{k}", json.dumps(v)])
+
+            filter_clause = ""
+            if filter_conditions:
+                filter_clause = " AND " + " AND ".join(filter_conditions)
+
+            with self._get_cursor() as cur:
+                query_sql = f"""
+                    SELECT id, payload,
+                           MATCH(text_lemmatized) AGAINST(%s IN NATURAL LANGUAGE MODE) AS score
+                    FROM `{self.collection_name}`
+                    WHERE MATCH(text_lemmatized) AGAINST(%s IN NATURAL LANGUAGE MODE)
+                    {filter_clause}
+                    ORDER BY score DESC
+                    LIMIT %s
+                """
+                params = [query, query] + filter_params + [top_k]
+                cur.execute(query_sql, params)
+                results = cur.fetchall()
+
+            return [
+                OutputData(
+                    id=r['id'],
+                    score=float(r['score']),
+                    payload=json.loads(r['payload']) if isinstance(r['payload'], str) else r['payload'],
+                )
+                for r in results
+            ]
+        except Exception as e:
+            logger.debug(f"Keyword search not available for collection {self.collection_name}: {e}")
+            return None
 
     def delete(self, vector_id: str):
         """
@@ -406,14 +476,14 @@ class AzureMySQL(VectorStoreBase):
     def list(
         self,
         filters: Optional[Dict] = None,
-        limit: int = 100
+        top_k: int = 100
     ) -> List[List[OutputData]]:
         """
         List all vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply
-            limit (int): Number of vectors to return
+            top_k (int): Number of vectors to return
 
         Returns:
             List[List[OutputData]]: List of vectors
@@ -436,7 +506,7 @@ class AzureMySQL(VectorStoreBase):
                 {filter_clause}
                 LIMIT %s
                 """,
-                (*filter_params, limit)
+                (*filter_params, top_k)
             )
             results = cur.fetchall()
 

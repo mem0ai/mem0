@@ -179,6 +179,13 @@ class PGVector(VectorStoreBase):
                     USING hnsw (vector vector_cosine_ops)
                     """
                 )
+            cur.execute(
+                f"""
+                CREATE INDEX IF NOT EXISTS {self.collection_name}_text_lemmatized_idx
+                ON {self.collection_name}
+                USING gin(to_tsvector('simple', payload->>'text_lemmatized'));
+                """
+            )
 
     def insert(self, vectors: list[list[float]], payloads=None, ids=None) -> None:
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
@@ -203,7 +210,7 @@ class PGVector(VectorStoreBase):
         self,
         query: str,
         vectors: list[float],
-        limit: Optional[int] = 5,
+        top_k: Optional[int] = 5,
         filters: Optional[dict] = None,
     ) -> List[OutputData]:
         """
@@ -212,7 +219,7 @@ class PGVector(VectorStoreBase):
         Args:
             query (str): Query.
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -237,11 +244,55 @@ class PGVector(VectorStoreBase):
                 ORDER BY distance
                 LIMIT %s
                 """,
-                (vectors, *filter_params, limit),
+                (vectors, *filter_params, top_k),
             )
 
             results = cur.fetchall()
         return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Search using PostgreSQL full-text search on lemmatized text.
+
+        Args:
+            query (str): The search query text.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            List[OutputData]: Search results ranked by text relevance.
+        """
+        filter_conditions = []
+        filter_params = []
+
+        if filters:
+            for k, v in filters.items():
+                filter_conditions.append("payload->>%s = %s")
+                filter_params.extend([k, str(v)])
+
+        filter_clause = ""
+        if filter_conditions:
+            filter_clause = "AND " + " AND ".join(filter_conditions)
+
+        try:
+            with self._get_cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'text_lemmatized'), plainto_tsquery('simple', %s)) AS score, payload
+                    FROM {self.collection_name}
+                    WHERE to_tsvector('simple', payload->>'text_lemmatized') @@ plainto_tsquery('simple', %s)
+                    {filter_clause}
+                    ORDER BY score DESC
+                    LIMIT %s
+                    """,
+                    (query, query, *filter_params, top_k),
+                )
+
+                results = cur.fetchall()
+            return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+        except Exception as e:
+            logger.debug(f"Keyword search failed: {e}")
+            return None
 
     def delete(self, vector_id: str) -> None:
         """
@@ -350,14 +401,14 @@ class PGVector(VectorStoreBase):
     def list(
         self,
         filters: Optional[dict] = None,
-        limit: Optional[int] = 100
+        top_k: Optional[int] = 100
     ) -> List[OutputData]:
         """
         List all vectors in a collection.
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors.
@@ -380,7 +431,7 @@ class PGVector(VectorStoreBase):
         """
 
         with self._get_cursor() as cur:
-            cur.execute(query, (*filter_params, limit))
+            cur.execute(query, (*filter_params, top_k))
             results = cur.fetchall()
         return [[OutputData(id=str(r[0]), score=None, payload=r[2]) for r in results]]
 

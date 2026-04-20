@@ -24,7 +24,7 @@ describe("telemetry", () => {
   });
 
   it("exports PLUGIN_VERSION", () => {
-    expect(PLUGIN_VERSION).toBe("1.0.4");
+    expect(PLUGIN_VERSION).toBe("1.0.7");
   });
 
   it("captureEvent does not throw", () => {
@@ -51,7 +51,7 @@ describe("telemetry", () => {
     expect(() => captureEvent("test_event")).not.toThrow();
   });
 
-  it("falls back to anonymous-openclaw when no apiKey", () => {
+  it("falls back to a generated anonymous id when no apiKey", () => {
     (readPluginAuth as ReturnType<typeof vi.fn>).mockReturnValueOnce({});
     expect(() => captureEvent("test_event", {}, {})).not.toThrow();
   });

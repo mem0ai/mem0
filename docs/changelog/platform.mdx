@@ -1,0 +1,297 @@
+---
+title: "Platform"
+description: "Release notes for the Mem0 hosted platform — backend, dashboard, billing, and infrastructure changes."
+mode: "wide"
+---
+
+<Update label="2026-04-16" description="">
+
+**Improvements:**
+- **UI:** Removed Graph Memory tab, page, and all references from dashboard, sidebar, project settings, playground, and billing
+
+</Update>
+
+<Update label="2025-07-23" description="">
+
+**Bug Fixes:**
+- **Memory:** Fixed ADD functionality
+
+</Update>
+
+<Update label="2025-07-19" description="">
+
+**New Features:**
+- **UI:** Added Settings UI and latency display
+- **Performance:** Neo4j query optimization
+
+**Bug Fixes:**
+- **OpenMemory:** Fixed OMM raising unnecessary exceptions
+
+</Update>
+
+<Update label="2025-07-18" description="">
+
+**Improvements:**
+- **UI:** Updated Event UI
+- **Performance:** Fixed N+1 query issue in semantic_search_v2 by optimizing MemorySerializer field selection
+
+**Bug Fixes:**
+- **Memory:** Fixed duplicate memory index sentry error
+
+</Update>
+
+<Update label="2025-07-17" description="">
+
+**New Features:**
+- **UI:** New Settings Page
+- **Memory:** Duplicate memories entities support
+
+**Improvements:**
+- **Performance:** Optimized semantic search and get_all APIs by eliminating N+1 queries
+
+</Update>
+
+<Update label="2025-07-16" description="">
+
+**New Features:**
+- **Database:** Implemented read replica routing with enhanced logging and app-specific DB routing
+
+**Improvements:**
+- **Performance:** Improved query performance in search v2 and get all v2 endpoints
+
+**Bug Fixes:**
+- **API:** Fixed pagination for get all API
+
+</Update>
+
+<Update label="2025-07-12" description="">
+
+**Bug Fixes:**
+- **Graph:** Fixed social graph bugs and connection issues
+
+</Update>
+
+<Update label="2025-07-11" description="">
+
+**Improvements:**
+- **Rate Limiting:** New rate limit for V2 Search
+
+**Bug Fixes:**
+- **Slack:** Fixed Slack rate limit error with backend improvements
+
+</Update>
+
+<Update label="2025-07-10" description="">
+
+**Improvements:**
+- **Performance:** 
+  - Changed connection pooling time to 5 minutes
+  - Separated graph lambdas for better performance
+
+</Update>
+
+<Update label="2025-07-09" description="">
+
+**Improvements:**
+- **Graph:** Graph Optimizations V2 and memory improvements
+
+</Update>
+
+<Update label="2025-07-08" description="">
+
+**New Features:**
+- **Database:** Added read replica support for improved database performance
+- **UI:** Implemented UI changes for Users Page
+- **Feedback:** Enabled feedback functionality
+
+**Bug Fixes:**
+- **Serializer:** Fixed GET ALL Serializer
+
+</Update>
+
+<Update label="2025-07-05" description="">
+
+**New Features:**
+- **UI:** User Page Revamp and New Users Page
+
+</Update>
+
+<Update label="2025-07-04" description="">
+
+**New Features:**
+- **Users:** New Users Page implementation
+- **Tools:** Added script to backfill memory categories
+
+**Bug Fixes:**
+- **Filters:** Fixed Filters Get All functionality
+
+</Update>
+
+<Update label="2025-07-03" description="">
+
+**Improvements:**
+- **Graph:** Graph Memory optimization
+- **Memory:** Fixed exact memories and semantically similar memories retrieval
+
+</Update>
+
+<Update label="2025-07-02" description="">
+
+**Improvements:**
+- **Categorization:** Refactored categorization logic to utilize Gemini 2.5 Flash and improve message handling
+
+</Update>
+
+<Update label="2025-07-01" description="">
+
+**Bug Fixes:**
+- **Memory:** Fixed old_memory issue in Async memory addition lambda
+- **Events:** Fixed missing events
+
+</Update>
+
+<Update label="2025-06-30" description="">
+
+**Improvements:**
+- **Graph:** Improvements to graph memory and added user to LTM-STM
+
+</Update>
+
+<Update label="2025-06-28" description="">
+
+**New Features:**
+- **Graph:** Added support for SQS in graph memory addition
+- **Testing:** Added Locust load testing script and Grafana Dashboard
+
+</Update>
+
+<Update label="2025-06-27" description="">
+
+**Improvements:**
+- **Rate Limiting:** Updated rate limiting for ADD API to 1000/min
+- **Performance:** Improved Neo4j performance
+
+</Update>
+
+<Update label="2025-06-26" description="">
+
+**New Features:**
+- **Memory:** Edit Memory From Drawer functionality
+- **API:** Added Topic Suggestions API Endpoint
+
+</Update>
+
+<Update label="2025-06-25" description="">
+
+**New Features:**
+- **Group Chat:** Group-Chat v2 with Actor-Aware Memories
+- **Memory:** Editable Metadata in Memories
+- **UI:** Memory Actions Badges
+
+</Update>
+
+<Update label="2025-06-19" description="">
+
+**New Features:**
+- **Rate Limiting:** Implemented comprehensive rate limiting system
+
+**Improvements:**
+- **Performance:** Added performance indexes for memory stats query
+
+**Bug Fixes:**
+- **Search:** Fixed search events not respecting top-k parameter
+
+</Update>
+
+<Update label="2025-06-18" description="">
+
+**New Features:**
+- **Memory Management:** Implemented OpenAI Batch API for Memory Cleaning with fallback
+- **Playground:** Added Claude 4 support on Playground
+
+**Improvements:**
+- **Memory:** Added ability to update memory metadata
+
+</Update>
+
+<Update label="2025-06-17" description="">
+
+**New Features:**
+- **UI:** New Memories Page UI design
+
+</Update>
+
+<Update label="2025-06-16" description="">
+
+**Improvements:**
+- **Infrastructure:** Migrated to Application Load Balancer (ALB)
+
+</Update>
+
+<Update label="2025-06-13" description="">
+
+**Improvements:**
+- **Memory Management:** Enhanced Memory Management with Cosine Similarity Fallback
+
+</Update>
+
+<Update label="2025-06-11" description="">
+
+**New Features:**
+- **OMM:** Added OMM Script and UI functionality
+
+**Improvements:**
+- **API:** Added filters validation to semantic_search_v2 endpoint
+
+</Update>
+
+<Update label="2025-06-09" description="">
+
+**New Features:**
+- **Intercom:** Set Intercom events for ADD and SEARCH operations
+- **OpenMemory:** Added Posthog integration and feedback functionality
+- **MCP:** New JavaScript MCP Server with feedback support
+
+**Improvements:**
+- **Structured Data:** Enhanced structured data handling in memory management
+
+</Update>
+
+<Update label="2025-06-06" description="">
+
+**New Features:**
+- **OAuth:** Added Mem0 OAuth integration
+- **OMM:** Added OMM-Mem0 sync for deleted memories
+
+</Update>
+
+<Update label="2025-06-05" description="">
+
+**New Features:**
+- **Filters:** Implemented Wildcard Filters and refactored filter logic in V2 Views
+
+</Update>
+
+<Update label="2025-06-02" description="">
+
+**New Features:**
+- **OpenMemory Cloud:** Added OpenMemory Cloud support
+- **Structured Data:** Added 'structured_attributes' field to Memory model
+
+</Update>
+
+<Update label="2025-05-30" description="">
+
+**New Features:**
+- **Projects:** Added version and enable_graph to project views
+- **OpenMemory:** Added Postgres support for OpenMemory
+
+</Update>
+
+<Update label="2025-05-19" description="">
+
+**Bug Fixes:**
+- **Core:** Fixed unicode error in user_id, agent_id, run_id and app_id
+
+</Update>
+

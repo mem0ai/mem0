@@ -22,6 +22,7 @@ export class PGVector implements VectorStore {
   private useHnsw: boolean;
   private readonly dbName: string;
   private config: PGVectorConfig;
+  private _initPromise?: Promise<void>;
 
   constructor(config: PGVectorConfig) {
     this.collectionName = config.collectionName || "memories";
@@ -41,6 +42,13 @@ export class PGVector implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       await this.client.connect();
 
@@ -162,14 +170,59 @@ export class PGVector implements VectorStore {
     );
   }
 
+  async keywordSearch(
+    query: string,
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    try {
+      const filterConditions: string[] = [];
+      const filterValues: any[] = [query, topK];
+      let filterIndex = 3;
+
+      if (filters) {
+        for (const [key, value] of Object.entries(filters)) {
+          filterConditions.push(`payload->>'${key}' = $${filterIndex}`);
+          filterValues.push(value);
+          filterIndex++;
+        }
+      }
+
+      const filterClause =
+        filterConditions.length > 0
+          ? "AND " + filterConditions.join(" AND ")
+          : "";
+
+      const searchQuery = `
+        SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'textLemmatized'), plainto_tsquery('simple', $1)) AS score, payload
+        FROM ${this.collectionName}
+        WHERE to_tsvector('simple', payload->>'textLemmatized') @@ plainto_tsquery('simple', $1)
+        ${filterClause}
+        ORDER BY score DESC
+        LIMIT $2
+      `;
+
+      const result = await this.client.query(searchQuery, filterValues);
+
+      return result.rows.map((row) => ({
+        id: row.id,
+        payload: row.payload,
+        score: row.score,
+      }));
+    } catch (error) {
+      console.error("Error during keyword search:", error);
+      return null;
+    }
+  }
+
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const filterConditions: string[] = [];
     const queryVector = `[${query.join(",")}]`; // Format query vector as string with square brackets
-    const filterValues: any[] = [queryVector, limit];
+    const filterValues: any[] = [queryVector, topK];
     let filterIndex = 3;
 
     if (filters) {
@@ -254,7 +307,7 @@ export class PGVector implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const filterConditions: string[] = [];
     const filterValues: any[] = [];
@@ -286,7 +339,7 @@ export class PGVector implements VectorStore {
       ${filterClause}
     `;
 
-    filterValues.push(limit); // Add limit as the last parameter
+    filterValues.push(topK); // Add limit as the last parameter
 
     const [listResult, countResult] = await Promise.all([
       this.client.query(listQuery, filterValues),

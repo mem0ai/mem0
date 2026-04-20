@@ -1,5 +1,4 @@
 {
-  "description": "Mem0 memory capture hooks — automatic memory extraction at key lifecycle points",
   "hooks": {
     "SessionStart": [
       {

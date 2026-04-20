@@ -120,7 +120,7 @@ import MemoryClient from 'mem0ai';
 
 const client = new MemoryClient({ apiKey: "your-api-key" });
 
-client.deleteAll({ user_id: "alice" })
+client.deleteAll({ userId: "alice" })
   .then(result => console.log(result))
   .catch(error => console.error(error));
 ```
@@ -162,12 +162,12 @@ import MemoryClient from 'mem0ai';
 const client = new MemoryClient({ apiKey: "your-api-key" });
 
 // Delete all memories across every user in the project
-client.deleteAll({ user_id: "*" })
+client.deleteAll({ userId: "*" })
   .then(result => console.log(result))
   .catch(error => console.error(error));
 
 // Full project wipe — all four filters must be explicitly set to "*"
-client.deleteAll({ user_id: "*", agent_id: "*", app_id: "*", run_id: "*" })
+client.deleteAll({ userId: "*", agentId: "*", appId: "*", runId: "*" })
   .then(result => console.log(result))
   .catch(error => console.error(error));
 ```

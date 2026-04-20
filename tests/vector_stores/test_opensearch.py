@@ -229,7 +229,7 @@ class TestOpenSearchDB(unittest.TestCase):
         }
         self.client_mock.search.return_value = mock_response
         vectors = [[0.1] * 1536]
-        results = self.os_db.search(query="", vectors=vectors, limit=5)
+        results = self.os_db.search(query="", vectors=vectors, top_k=5)
         self.client_mock.search.assert_called_once()
         search_args = self.client_mock.search.call_args[1]
         self.assertEqual(search_args["index"], "test_collection")
@@ -345,7 +345,7 @@ class TestOpenSearchDB(unittest.TestCase):
     def test_search_error_logs_with_exc_info(self, mock_logger):
         """Search error logging should include exc_info for full stack trace."""
         self.client_mock.search.side_effect = Exception("Search failed")
-        results = self.os_db.search(query="", vectors=[[0.1] * 1536], limit=5)
+        results = self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
         self.assertEqual(results, [])
         mock_logger.error.assert_called_once()
         call_kwargs = mock_logger.error.call_args

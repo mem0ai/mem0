@@ -93,6 +93,7 @@ class PlatformBackend(Backend):
             payload["categories"] = categories
         if enable_graph:
             payload["enable_graph"] = True
+        payload["source"] = "CLI"
 
         return self._request("POST", "/v1/memories/", json=payload)
 
@@ -172,6 +173,7 @@ class PlatformBackend(Backend):
             payload["fields"] = fields
         if enable_graph:
             payload["enable_graph"] = True
+        payload["source"] = "CLI"
 
         result = self._request("POST", "/v2/memories/search/", json=payload)
         return (
@@ -181,7 +183,7 @@ class PlatformBackend(Backend):
         )
 
     def get(self, memory_id: str) -> dict:
-        return self._request("GET", f"/v1/memories/{memory_id}/")
+        return self._request("GET", f"/v1/memories/{memory_id}/", params={"source": "CLI"})
 
     def list_memories(
         self,
@@ -220,6 +222,7 @@ class PlatformBackend(Backend):
             payload["filters"] = api_filters
         if enable_graph:
             payload["enable_graph"] = True
+        payload["source"] = "CLI"
 
         result = self._request("POST", "/v2/memories/", json=payload, params=params)
         return (
@@ -236,6 +239,7 @@ class PlatformBackend(Backend):
             payload["text"] = content
         if metadata:
             payload["metadata"] = metadata
+        payload["source"] = "CLI"
         return self._request("PUT", f"/v1/memories/{memory_id}/", json=payload)
 
     def delete(
@@ -249,7 +253,7 @@ class PlatformBackend(Backend):
         run_id: str | None = None,
     ) -> dict:
         if all:
-            params: dict[str, str] = {}
+            params: dict[str, str] = {"source": "CLI"}
             if user_id:
                 params["user_id"] = user_id
             if agent_id:
@@ -260,7 +264,7 @@ class PlatformBackend(Backend):
                 params["run_id"] = run_id
             return self._request("DELETE", "/v1/memories/", params=params)
         elif memory_id:
-            return self._request("DELETE", f"/v1/memories/{memory_id}/")
+            return self._request("DELETE", f"/v1/memories/{memory_id}/", params={"source": "CLI"})
         else:
             raise ValueError("Either memory_id or --all is required")
 
@@ -285,7 +289,9 @@ class PlatformBackend(Backend):
         # Delete each provided entity via the v2 path-based endpoint
         result: dict = {}
         for entity_type, entity_id in entities.items():
-            result = self._request("DELETE", f"/v2/entities/{entity_type}/{entity_id}/")
+            result = self._request(
+                "DELETE", f"/v2/entities/{entity_type}/{entity_id}/", params={"source": "CLI"}
+            )
         return result
 
     def ping(self, timeout: float | None = None) -> dict:

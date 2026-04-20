@@ -46,18 +46,16 @@ Both read from `MEM0_API_KEY` env var if no key provided.
 ```python
 # Python: kwargs
 client.add(messages, user_id="alice", metadata={"source": "chat"})
-client.search("query", user_id="alice", top_k=5, rerank=True)
+client.search("query", filters={"user_id": "alice"}, top_k=5, rerank=True)
 ```
 
 ```typescript
-// TypeScript: options object
-await client.add(messages, { user_id: 'alice', metadata: { source: 'chat' } });
-await client.search('query', { user_id: 'alice', top_k: 5, rerank: true });
+// TypeScript: options object with camelCase for top-level params, snake_case for filter keys
+await client.add(messages, { userId: 'alice', metadata: { source: 'chat' } });
+await client.search('query', { filters: { user_id: 'alice' }, topK: 5, rerank: true });
 ```
 
-**Important:** Both use `snake_case` for API parameter names (`user_id`, `agent_id`, `top_k`, etc.). Only method names differ.
-
-Exception: OSS TypeScript uses `camelCase` for config params (`userId`, `agentId`, `runId`).
+**v3:** Python uses `snake_case` everywhere. TypeScript uses `camelCase` for top-level params (`userId`, `topK`) but `snake_case` for filter keys (`user_id`, `agent_id`).
 
 ## Architectural Differences
 
@@ -97,10 +95,8 @@ These methods exist in Python but not TypeScript:
 | Python config key | TypeScript config key |
 |-------------------|----------------------|
 | `vector_store` | `vectorStore` |
-| `graph_store` | `graphStore` |
 | `history_db_path` | `historyDbPath` |
-| `custom_fact_extraction_prompt` | `customPrompt` |
-| `enable_graph` | `enableGraph` |
+| `custom_instructions` | `customInstructions` |
 
 ## OSS Scope Parameter Naming
 
@@ -110,16 +106,24 @@ These methods exist in Python but not TypeScript:
 | `agent_id="bot"` | `agentId: 'bot'` |
 | `run_id="session"` | `runId: 'session'` |
 
+## Entity ID Passing (v3)
+
+| Method | Python | TypeScript |
+|--------|--------|------------|
+| add() | Top-level: `user_id="alice"` | Top-level: `{ userId: 'alice' }` |
+| search() | In filters: `filters={"user_id": "alice"}` | In filters: `{ filters: { user_id: 'alice' } }` |
+| get_all() | In filters: `filters={"user_id": "alice"}` | In filters: `{ filters: { user_id: 'alice' } }` |
+
 ## Common Gotcha
 
-When searching/filtering, **both SDKs use `snake_case`** for filter keys:
+When searching/filtering, both Python and TypeScript use `snake_case` for filter keys. TypeScript only uses `camelCase` for top-level method parameters:
 
 ```python
-# Python
-filters = {"AND": [{"user_id": "alice"}, {"categories": {"contains": "health"}}]}
+# Python - snake_case in filters
+results = client.search("query", filters={"user_id": "alice"})
 ```
 
 ```typescript
-// TypeScript -- same snake_case in filter objects!
-const filters = { AND: [{ user_id: 'alice' }, { categories: { contains: 'health' } }] };
+// TypeScript - snake_case in filters, camelCase for top-level params
+const results = await client.search('query', { filters: { user_id: 'alice' }, topK: 20 });
 ```

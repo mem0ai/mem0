@@ -74,9 +74,10 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
     expect(cfg.customCategories).toBe(DEFAULT_CUSTOM_CATEGORIES);
   });
 
-  it("customPrompt defaults to DEFAULT_CUSTOM_INSTRUCTIONS", () => {
-    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.customPrompt).toBe(DEFAULT_CUSTOM_INSTRUCTIONS);
+  // v3.0.0: customPrompt removed, use customInstructions instead
+  it("customPrompt input falls back to customInstructions", () => {
+    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key", customPrompt: "My prompt" });
+    expect(cfg.customInstructions).toBe("My prompt");
   });
 
   it("oss defaults to undefined", () => {
@@ -87,6 +88,11 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
   it("skills defaults to undefined", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
     expect(cfg.skills).toBeUndefined();
+  });
+
+  it("allows anonymousTelemetryId", () => {
+    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key", anonymousTelemetryId: "123" });
+    expect(cfg.anonymousTelemetryId).toBe("123");
   });
 });
 
@@ -291,13 +297,14 @@ describe("mem0ConfigSchema.parse() — explicit overrides", () => {
     expect(cfg.customInstructions).toBe(custom);
   });
 
-  it("custom customPrompt overrides defaults", () => {
+  // v3.0.0: customPrompt renamed to customInstructions (backwards compat: customPrompt maps to customInstructions)
+  it("customPrompt input maps to customInstructions output", () => {
     const custom = "My custom prompt";
     const cfg = mem0ConfigSchema.parse({
       apiKey: "k",
       customPrompt: custom,
     });
-    expect(cfg.customPrompt).toBe(custom);
+    expect(cfg.customInstructions).toBe(custom);
   });
 
   it("custom customCategories override defaults", () => {
