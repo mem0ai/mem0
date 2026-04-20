@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.47",
-    "mem0ai": "3.0.0"
+    "mem0ai": "3.0.1"
   },
   "openclaw": {
     "extensions": [
