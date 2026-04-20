@@ -12,6 +12,7 @@ export const MEMORY_ENDPOINTS = {
   BY_ID: (memoryId: string) => `/memories/${memoryId}`,
   HISTORY: (memoryId: string) => `/memories/${memoryId}/history`,
   CONFIGURE: "/configure",
+  CONFIGURE_PROVIDERS: "/configure/providers",
   RESET: "/reset",
   GENERATE_INSTRUCTIONS: "/generate-instructions",
 } as const;

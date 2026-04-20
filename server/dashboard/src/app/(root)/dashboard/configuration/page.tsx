@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { getErrorMessage } from "@/lib/error-message";
@@ -16,6 +23,11 @@ import {
 } from "@/utils/self-hosted-config";
 import { useAuth } from "@/hooks/use-auth";
 import { useApiQuery } from "@/hooks/use-api-query";
+
+type BundledProviders = {
+  llm: string[];
+  embedder: string[];
+};
 
 export default function ConfigurationPage() {
   const { isAdmin } = useAuth();
@@ -32,6 +44,16 @@ export default function ConfigurationPage() {
       return getEffectiveConfig(res.data);
     },
     { errorToast: "Failed to load server configuration" },
+  );
+
+  const { data: providers } = useApiQuery<BundledProviders>(
+    async () => {
+      const res = await api.get<BundledProviders>(
+        MEMORY_ENDPOINTS.CONFIGURE_PROVIDERS,
+      );
+      return res.data;
+    },
+    { errorToast: "Failed to load bundled providers" },
   );
 
   useEffect(() => {
@@ -104,12 +126,22 @@ export default function ConfigurationPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Provider</Label>
-              <Input
-                placeholder="openai"
+              <Select
                 value={llmProvider}
-                onChange={(e) => setLlmProvider(e.target.value)}
-                disabled={!isAdmin}
-              />
+                onValueChange={setLlmProvider}
+                disabled={!isAdmin || !providers}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers?.llm.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Model</Label>
@@ -142,12 +174,22 @@ export default function ConfigurationPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs">Provider</Label>
-              <Input
-                placeholder="openai"
+              <Select
                 value={embedderProvider}
-                onChange={(e) => setEmbedderProvider(e.target.value)}
-                disabled={!isAdmin}
-              />
+                onValueChange={setEmbedderProvider}
+                disabled={!isAdmin || !providers}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers?.embedder.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Model</Label>
@@ -161,6 +203,20 @@ export default function ConfigurationPage() {
           </div>
         </CardContent>
       </Card>
+
+      <p className="text-xs text-onSurface-default-tertiary">
+        Need another provider? Install its Python package, rebuild the image,
+        and extend the bundled list. See the{" "}
+        <a
+          href="https://docs.mem0.ai/open-source/setup#supported-providers"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-4 hover:text-onSurface-default-primary"
+        >
+          setup guide
+        </a>
+        .
+      </p>
 
       {isAdmin && (
         <Button onClick={handleSave} disabled={isSaving}>
