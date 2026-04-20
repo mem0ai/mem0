@@ -1,0 +1,879 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Length 1076 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Agent Memory Runtime) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(Executive and investor presentation) Tj
+ET
+BT
+/F1 14 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 74 482 Tm
+(We are building a dedicated memory layer for AI agents.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 456 Tm
+(- It is a standalone product module, not a prompt trick.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 426 Tm
+(- It helps agents remember what matters across sessions, projects, and) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 404 Tm
+(long-running workflows.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 376 Tm
+(- It is designed to be embedded into different agent systems instead of) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 354 Tm
+(rebuilt from scratch inside each one.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 1/13) Tj
+ET
+
+endstream
+endobj
+3 0 obj
+<< /Length 1065 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(The Problem) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(Most AI agents still forget too much) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- They perform well in one chat but lose continuity over time.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- Teams repeatedly re-feed context, which increases cost and reduces signal.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 422 Tm
+(- Important decisions, preferences, and procedures are not turned into) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 400 Tm
+(durable knowledge.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 372 Tm
+(- The result is weaker product reliability and slower adoption in serious) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 350 Tm
+(workflows.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 2/13) Tj
+ET
+
+endstream
+endobj
+4 0 obj
+<< /Length 928 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Why Now) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(The market is moving from single prompts to agent systems) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- Agent products are becoming multi-step, tool-using, and long-running.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- This makes memory a product layer, not just a model feature.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 422 Tm
+(- Companies want self-hosted, controllable infrastructure around AI systems.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 392 Tm
+(- A reusable memory runtime can become a core part of the agent stack.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 3/13) Tj
+ET
+
+endstream
+endobj
+5 0 obj
+<< /Length 983 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(What We Are Building) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(A memory operating layer for agents) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- Separate service, deployable through Docker.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- Short-term and long-term memory under explicit rules.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 422 Tm
+(- Retrieval that injects relevant memory, not random history.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 392 Tm
+(- Forgetting and eviction so memory does not become a dump.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 362 Tm
+(- Works with existing agent systems through adapters and MCP.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 4/13) Tj
+ET
+
+endstream
+endobj
+6 0 obj
+<< /Length 1076 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(What Makes It Different) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(Why this is more than another vector database wrapper) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- The unit of value is not storage, but memory behavior.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- The system handles consolidation, promotion, superseding, forgetting, and) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 430 Tm
+(recall packaging.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 402 Tm
+(- It is designed for agent continuity and operational control.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 372 Tm
+(- It can be shared across agents when needed, while preserving private) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 350 Tm
+(boundaries.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 5/13) Tj
+ET
+
+endstream
+endobj
+7 0 obj
+<< /Length 902 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Product Shape Today) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(The MVP is already substantial) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- Runtime API implemented.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- OpenClaw adapter path implemented.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 422 Tm
+(- MCP read-first interface implemented.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 392 Tm
+(- Observability, traceability, and pilot tooling implemented.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 362 Tm
+(- Live pilot preparation is already in place.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 6/13) Tj
+ET
+
+endstream
+endobj
+8 0 obj
+<< /Length 996 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Quality Signal) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(We are building this as infrastructure, not as a demo) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- Automated test coverage spans the critical runtime slices.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- The project has scenario-based evaluation for recall quality.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 422 Tm
+(- There are adversarial checks for low-trust memory poisoning patterns.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 392 Tm
+(- Pilot smoke flows, continuity benchmarks, and negative scenarios are) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 370 Tm
+(already automated.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 7/13) Tj
+ET
+
+endstream
+endobj
+9 0 obj
+<< /Length 1157 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Strategic Value) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(Why this can matter commercially) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- Every agent product needs memory, but most teams do not want to build it) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 460 Tm
+(themselves.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 432 Tm
+(- A dedicated memory runtime can shorten time-to-market for agent products.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 402 Tm
+(- Self-hosted deployment is attractive for security-sensitive and enterprise) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 380 Tm
+(buyers.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 352 Tm
+(- The same core can support direct integrations, managed offerings, and) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 330 Tm
+(future platform products.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 8/13) Tj
+ET
+
+endstream
+endobj
+10 0 obj
+<< /Length 892 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Distribution Paths) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(Early adoption vectors) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- Embedded by teams building internal or commercial agent systems.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- Used as the memory backend for OpenClaw-style agent workflows.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 422 Tm
+(- Exposed through MCP for tools and IDE environments that already speak MCP.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 392 Tm
+(- Expanded later into broader agent orchestration ecosystems.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 9/13) Tj
+ET
+
+endstream
+endobj
+11 0 obj
+<< /Length 1096 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Risks And How We Handle Them) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(Honest view of the current project stage) Tj
+ET
+BT
+/F1 14 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 74 482 Tm
+(We use scenario evaluations, trace inspection, and pilot scorecards.) Tj
+ET
+BT
+/F1 14 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 74 456 Tm
+(We keep MCP as a thin facade over the same runtime services.) Tj
+ET
+BT
+/F1 14 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 74 430 Tm
+(We already use low-trust rejection, decay, archive, and eviction baselines.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 404 Tm
+(- Risk: memory quality is hard to measure.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 374 Tm
+(- Risk: integration surfaces can drift.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 344 Tm
+(- Risk: memory poisoning and sprawl.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 10/13) Tj
+ET
+
+endstream
+endobj
+12 0 obj
+<< /Length 864 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Near-Term Milestones) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(The next concrete steps) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- Run the first live OpenClaw pilot on a real local configuration.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- Add safe write MCP tools under strict guardrails.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 422 Tm
+(- Add MCP smoke tooling for faster partner integrations.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 392 Tm
+(- Integrate BunkerAI after the first live pilot is stabilized.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 11/13) Tj
+ET
+
+endstream
+endobj
+13 0 obj
+<< /Length 1023 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(Why This Could Become Important) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(Long-term product thesis) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- As agents become more capable, memory becomes a control layer for) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 460 Tm
+(reliability.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 432 Tm
+(- The winner may not be the team with the most data, but the team with the) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 410 Tm
+(best memory behavior.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 382 Tm
+(- A strong memory runtime can become foundational infrastructure in the agent) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 108 360 Tm
+(stack.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 12/13) Tj
+ET
+
+endstream
+endobj
+14 0 obj
+<< /Length 782 >>
+stream
+0.990 0.970 0.940 rg
+0 0 792 612 re f
+0.800 0.370 0.080 rg
+0 594 792 18 re f
+0.800 0.370 0.080 rg
+54 494 6 56 re f
+BT
+/F1 28 Tf
+0.280 0.160 0.060 rg
+1 0 0 1 74 544 Tm
+(The Ask) Tj
+ET
+BT
+/F1 15 Tf
+0.460 0.300 0.180 rg
+1 0 0 1 74 510 Tm
+(What support accelerates the project) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 482 Tm
+(- Access to real pilot environments and high-value continuity workflows.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 452 Tm
+(- Design partners who can integrate the module into real systems.) Tj
+ET
+BT
+/F1 16 Tf
+0.160 0.130 0.110 rg
+1 0 0 1 90 422 Tm
+(- Strategic support for turning the runtime into a reusable category product.) Tj
+ET
+BT
+/F1 10 Tf
+0.520 0.420 0.320 rg
+1 0 0 1 54 38 Tm
+(Agent Memory Runtime | Executive Deck | 13/13) Tj
+ET
+
+endstream
+endobj
+15 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>
+endobj
+16 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 3 0 R >>
+endobj
+17 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 4 0 R >>
+endobj
+18 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 5 0 R >>
+endobj
+19 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 6 0 R >>
+endobj
+20 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 7 0 R >>
+endobj
+21 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 8 0 R >>
+endobj
+22 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 9 0 R >>
+endobj
+23 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 10 0 R >>
+endobj
+24 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 11 0 R >>
+endobj
+25 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 12 0 R >>
+endobj
+26 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 13 0 R >>
+endobj
+27 0 obj
+<< /Type /Page /Parent 28 0 R /MediaBox [0 0 792 612] /Resources << /Font << /F1 1 0 R >> >> /Contents 14 0 R >>
+endobj
+28 0 obj
+<< /Type /Pages /Kids [15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R 24 0 R 25 0 R 26 0 R 27 0 R] /Count 13 >>
+endobj
+29 0 obj
+<< /Type /Catalog /Pages 28 0 R >>
+endobj
+xref
+0 30
+0000000000 65535 f 
+0000000015 00000 n 
+0000000085 00000 n 
+0000001213 00000 n 
+0000002330 00000 n 
+0000003309 00000 n 
+0000004343 00000 n 
+0000005471 00000 n 
+0000006424 00000 n 
+0000007471 00000 n 
+0000008680 00000 n 
+0000009624 00000 n 
+0000010773 00000 n 
+0000011689 00000 n 
+0000012765 00000 n 
+0000013599 00000 n 
+0000013727 00000 n 
+0000013855 00000 n 
+0000013983 00000 n 
+0000014111 00000 n 
+0000014239 00000 n 
+0000014367 00000 n 
+0000014495 00000 n 
+0000014623 00000 n 
+0000014752 00000 n 
+0000014881 00000 n 
+0000015010 00000 n 
+0000015139 00000 n 
+0000015268 00000 n 
+0000015412 00000 n 
+trailer
+<< /Size 30 /Root 29 0 R >>
+startxref
+15463
+%%EOF
