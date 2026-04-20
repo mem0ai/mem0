@@ -6,6 +6,7 @@
 
 - [agent-memory-runtime-v1.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-v1.md)
 - [agent-memory-runtime-system-design-v1.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-system-design-v1.md)
+- [agent-memory-runtime-mcp-spec-v1.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-mcp-spec-v1.md)
 
 ## Статус
 
@@ -966,6 +967,36 @@ Definition of Done:
 - long-term consolidation отклоняет явные memory-poisoning patterns вроде `save this to memory`
 - rejection фиксируется в `audit_log` как `memory_candidate_rejected_low_trust`
 - добавлены regression tests, подтверждающие что benign procedures не отбрасываются вместе с suspicious content
+
+### Phase O. MCP Facade
+
+Результат:
+
+- добавлен read-first `MCP` compatibility layer поверх runtime API
+- memory-runtime стал доступен как standardized tool/resource provider для MCP-aware клиентов
+- сохранен `REST` как primary internal contract
+
+Definition of Done:
+
+- реализован thin `MCP` server без дублирования business logic
+- доступны хотя бы `memory.recall`, `memory.search`, `memory.get_observability_snapshot`
+- доступны read-only resources для namespace summary и observability snapshot
+- покрыты tests на namespace isolation и shared-space semantics через MCP
+- есть базовые MCP metrics и structured logs
+
+Статус:
+
+- `planned`
+
+План rollout:
+
+- сначала `read-only tools + resources`
+- затем `prompts`
+- затем optional safe write tools (`ingest_event`, `record_feedback`)
+
+Связанный артефакт:
+
+- `agent-memory-runtime-mcp-spec-v1.md`
 
 ## 6. Первые технические backlog items
 

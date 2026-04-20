@@ -4,6 +4,10 @@
 
 Документ развивает решения из [agent-memory-runtime-v1.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-v1.md) и переводит их в инженерную схему реализации.
 
+Связанный compatibility-артефакт:
+
+- [agent-memory-runtime-mcp-spec-v1.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-mcp-spec-v1.md)
+
 ## Статус
 
 - Draft v1
@@ -135,6 +139,10 @@ sequenceDiagram
 - REST для сервисов
 - MCP facade для агентных клиентов
 - позже optional OpenAI-compatible facade
+
+Детальная спецификация MCP-слоя вынесена в отдельный документ:
+
+- `agent-memory-runtime-mcp-spec-v1.md`
 
 ### 5.2 Ingestion & Normalization
 
