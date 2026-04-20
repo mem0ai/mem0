@@ -4,7 +4,11 @@ import type {
   TelemetryEventData,
 } from "./telemetry.types";
 
-let version = "2.1.34";
+// __MEM0_SDK_VERSION__ is inlined by tsup/esbuild's `define` at build time from
+// package.json. In unbundled environments (ts-jest, jest globalSetup) the
+// identifier is not defined, so guard with typeof to fall back safely.
+let version =
+  typeof __MEM0_SDK_VERSION__ !== "undefined" ? __MEM0_SDK_VERSION__ : "dev";
 
 // Safely check for process.env in different environments
 let MEM0_TELEMETRY = true;
