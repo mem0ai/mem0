@@ -153,7 +153,7 @@ class RetrievalService:
         increment_metric("recall_requests_total")
         increment_metric("recall_candidates_total", len(candidates))
         increment_metric("recall_selected_total", selected_count)
-        return RecallResponse(
+        response = RecallResponse(
             brief=MemoryBrief(**brief_dict),
             trace=RecallTrace(
                 candidate_count=len(candidates),
@@ -163,6 +163,23 @@ class RetrievalService:
                 selection_explanations=selection_explanations,
             ),
         )
+        self.audit.create(
+            namespace_id=payload.namespace_id,
+            agent_id=payload.agent_id,
+            entity_type="agent" if payload.agent_id else "namespace",
+            entity_id=payload.agent_id or payload.namespace_id,
+            action="recall_executed",
+            details_json={
+                "query": payload.query,
+                "session_id": payload.session_id,
+                "context_budget_tokens": payload.context_budget_tokens,
+                "space_filter": payload.space_filter,
+                "brief": response.brief.model_dump(),
+                "trace": response.trace.model_dump(),
+            },
+        )
+        self.session.commit()
+        return response
 
     def record_feedback(self, payload: RecallFeedbackRequest) -> RecallFeedbackResponse:
         namespace = self.namespaces.get_by_id(payload.namespace_id)

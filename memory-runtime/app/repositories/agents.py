@@ -41,3 +41,7 @@ class AgentRepository:
             Agent.external_ref == external_ref,
         )
         return self.session.execute(stmt).scalar_one_or_none()
+
+    def list_by_namespace(self, namespace_id: str) -> list[Agent]:
+        stmt = select(Agent).where(Agent.namespace_id == namespace_id).order_by(Agent.name.asc())
+        return list(self.session.execute(stmt).scalars().all())

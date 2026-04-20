@@ -1,8 +1,17 @@
 # Agent Memory Runtime MCP Spec v1
 
-Спецификация будущего `MCP`-интерфейса для `Agent Memory Runtime`.
+Спецификация `MCP`-интерфейса для `Agent Memory Runtime`.
 
-Документ фиксирует не реализацию, а целевой compatibility layer поверх уже существующего runtime API.
+На текущий момент read-first `MCP` facade уже реализован в baseline-объеме:
+
+- stateless `POST /mcp/{client_name}/http/{user_id}`
+- `initialize`
+- `tools/list`, `tools/call`
+- `resources/templates/list`, `resources/read`
+- `prompts/list`, `prompts/get`
+- базовые `MCP` counters в `/metrics`
+
+Документ фиксирует и текущую реализацию, и целевой compatibility layer поверх уже существующего runtime API.
 
 Связанные артефакты:
 
@@ -72,17 +81,17 @@
 
 ## 5. Capability Model
 
-Будущий MCP server должен поддерживать три capability-группы:
+Текущий MCP server уже поддерживает три capability-группы:
 
 - `tools`
 - `resources`
 - `prompts`
 
-Рекомендуемая последовательность rollout:
+Текущая последовательность rollout:
 
-1. `tools + resources`
-2. `prompts`
-3. optional safe write tools
+1. `tools + resources` — реализовано
+2. `prompts` — реализовано в baseline-объеме
+3. optional safe write tools — отложено
 
 ## 6. Tools v1
 
@@ -128,10 +137,9 @@ REST mapping:
 
 - ranked memory results
 
-REST mapping:
+Runtime mapping:
 
-- `POST /v1/adapters/openclaw/search`
-- позже generic runtime endpoint
+- MCP facade использует существующие repositories/runtime services без отдельного public REST endpoint
 
 ### 6.3 `memory.list_spaces`
 
@@ -400,11 +408,19 @@ MCP server должен быть thin adapter над уже существующ
 - tools: `memory.recall`, `memory.search`, `memory.get_observability_snapshot`
 - resources: namespace summary, observability snapshot
 
+Статус:
+
+- `completed`
+
 ### Phase 2
 
 - add prompts
 - add `memory.list_spaces`
 - add `memory.get_memory_unit`
+
+Статус:
+
+- `completed` в baseline-объеме
 
 ### Phase 3
 

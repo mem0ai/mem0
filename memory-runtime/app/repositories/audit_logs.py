@@ -79,3 +79,22 @@ class AuditLogRepository:
             action: count
             for action, count in self.session.execute(stmt).all()
         }
+
+    def latest_by_action(
+        self,
+        *,
+        namespace_id: str,
+        action: str,
+        agent_id: str | None = None,
+    ) -> AuditLog | None:
+        stmt = (
+            select(AuditLog)
+            .where(AuditLog.namespace_id == namespace_id)
+            .where(AuditLog.action == action)
+            .order_by(AuditLog.created_at.desc())
+        )
+        if agent_id is None:
+            stmt = stmt.where(AuditLog.agent_id.is_(None))
+        else:
+            stmt = stmt.where(AuditLog.agent_id == agent_id)
+        return self.session.execute(stmt).scalar_one_or_none()

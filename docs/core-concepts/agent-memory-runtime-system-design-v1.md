@@ -138,6 +138,7 @@ sequenceDiagram
 
 - REST для сервисов
 - MCP facade для агентных клиентов
+- baseline MCP Streamable HTTP facade уже реализован на `POST /mcp/{client_name}/http/{user_id}` и работает как thin layer поверх существующих runtime services
 - позже optional OpenAI-compatible facade
 
 Детальная спецификация MCP-слоя вынесена в отдельный документ:

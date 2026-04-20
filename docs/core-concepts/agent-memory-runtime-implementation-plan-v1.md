@@ -1114,20 +1114,28 @@ Definition of Done:
 Definition of Done:
 
 - реализован thin `MCP` server без дублирования business logic
-- доступны хотя бы `memory.recall`, `memory.search`, `memory.get_observability_snapshot`
-- доступны read-only resources для namespace summary и observability snapshot
-- покрыты tests на namespace isolation и shared-space semantics через MCP
-- есть базовые MCP metrics и structured logs
+- доступны `memory.recall`, `memory.search`, `memory.list_spaces`, `memory.get_observability_snapshot`, `memory.get_memory_unit`
+- доступны read-only resources для namespace summary, latest recall brief, observability snapshot и visible spaces
+- доступны prompts `debug-memory-miss`, `prepare-memory-aware-task`, `inspect-namespace-health`
+- есть component tests на MCP tool/resource/prompt flow и transport validation
+- есть базовые MCP metrics
 
 Статус:
 
-- `planned`
+- `completed`
 
-План rollout:
+Подтверждение текущего объема:
 
-- сначала `read-only tools + resources`
-- затем `prompts`
-- затем optional safe write tools (`ingest_event`, `record_feedback`)
+- реализован stateless `POST /mcp/{client_name}/http/{user_id}`
+- `MCP` facade использует существующие runtime services, а не отдельную business-logic ветку
+- latest recall brief сохраняется в `audit_log` как `recall_executed`
+- `MCP` surface уже покрыт component tests и входит в общий green suite
+
+Следующий rollout:
+
+- optional safe write tools (`ingest_event`, `record_feedback`)
+- более глубокие namespace isolation/shared-space edge cases через MCP
+- optional дополнительные транспорты поверх того же thin facade, если это реально потребуется интеграциям
 
 Связанный артефакт:
 

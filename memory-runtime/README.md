@@ -103,6 +103,7 @@ Readiness baseline теперь включает:
 Уже реализованы:
 
 - `GET /metrics`
+- `POST /mcp/{client_name}/http/{user_id}`
 - `POST /v1/namespaces`
 - `GET /v1/namespaces/{namespace_id}`
 - `POST /v1/namespaces/{namespace_id}/agents`
@@ -135,6 +136,17 @@ Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`)
 `/v1/observability/stats` также показывает `oldest_pending_age_seconds` и `stalled_running_count`, чтобы было проще увидеть backlog или зависшие worker jobs.
 `/v1/recall/feedback` записывает usefulness signals, которые потом участвуют в последующем ranking.
 При включенном `mem0 bridge` runtime может синхронизировать long-term memories в `mem0` и использовать его как внешний recall source.
+`POST /mcp/{client_name}/http/{user_id}` реализует stateless MCP Streamable HTTP facade поверх тех же runtime services.
+Текущий MCP surface включает:
+- `initialize`
+- `tools/list`
+- `tools/call` для `memory.recall`, `memory.search`, `memory.list_spaces`, `memory.get_observability_snapshot`, `memory.get_memory_unit`
+- `resources/templates/list`
+- `resources/read`
+- `prompts/list`
+- `prompts/get`
+Для ресурса `latest agent brief` runtime сохраняет `recall_executed` entries в `audit_log`, чтобы MCP-клиенты могли читать последний recall без отдельного кеша.
+MCP counters (`mcp_requests_total`, `mcp_tool_calls_total`, `mcp_resource_reads_total`, `mcp_prompt_requests_total`, `mcp_errors_total`) экспортируются через `/metrics`.
 
 ## Тесты
 
@@ -159,6 +171,7 @@ Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`)
 - idempotent ingestion for duplicate events on the same dedupe key
 - recall trace explainability with decisive selection signals
 - golden compactness regression for low-budget memory briefs
+- MCP Streamable HTTP facade with tools/resources/prompts contract and transport validation
 
 Команды запуска:
 

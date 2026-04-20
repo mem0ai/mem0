@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.memory_space import MemorySpace
@@ -56,3 +56,10 @@ class MemorySpaceRepository:
 
     def get_by_id(self, space_id: str) -> MemorySpace | None:
         return self.session.get(MemorySpace, space_id)
+
+    def list_visible(self, *, namespace_id: str, agent_id: str | None) -> list[MemorySpace]:
+        stmt = select(MemorySpace).where(MemorySpace.namespace_id == namespace_id)
+        if agent_id is not None:
+            stmt = stmt.where(or_(MemorySpace.agent_id == agent_id, MemorySpace.agent_id.is_(None)))
+        stmt = stmt.order_by(MemorySpace.agent_id.asc().nullsfirst(), MemorySpace.space_type.asc())
+        return list(self.session.execute(stmt).scalars().all())

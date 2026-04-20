@@ -65,6 +65,26 @@ _METRIC_DEFINITIONS = {
         "counter",
         "Total successful mem0 bridge sync operations.",
     ),
+    "mcp_requests_total": (
+        "counter",
+        "Total MCP JSON-RPC requests handled by the runtime.",
+    ),
+    "mcp_tool_calls_total": (
+        "counter",
+        "Total MCP tool calls handled by the runtime.",
+    ),
+    "mcp_resource_reads_total": (
+        "counter",
+        "Total MCP resource reads handled by the runtime.",
+    ),
+    "mcp_prompt_requests_total": (
+        "counter",
+        "Total MCP prompt requests handled by the runtime.",
+    ),
+    "mcp_errors_total": (
+        "counter",
+        "Total MCP request errors returned by the runtime.",
+    ),
 }
 _KNOWN_COUNTERS = set(_METRIC_DEFINITIONS)
 _COUNTERS: Counter[str] = Counter()
