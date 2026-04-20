@@ -28,13 +28,14 @@ export interface ToolDeps {
 
 export function registerAllTools(deps: ToolDeps): void {
   const { api } = deps;
+  const nonOptional = { optional: false };
 
-  api.registerTool(createMemorySearchTool(deps));
-  api.registerTool(createMemoryAddTool(deps));
-  api.registerTool(createMemoryGetTool(deps));
-  api.registerTool(createMemoryListTool(deps));
-  api.registerTool(createMemoryUpdateTool(deps));
-  api.registerTool(createMemoryDeleteTool(deps));
-  api.registerTool(createMemoryEventListTool(deps));
-  api.registerTool(createMemoryEventStatusTool(deps));
+  api.registerTool(createMemorySearchTool(deps), nonOptional);
+  api.registerTool(createMemoryAddTool(deps), nonOptional);
+  api.registerTool(createMemoryGetTool(deps), nonOptional);
+  api.registerTool(createMemoryListTool(deps), nonOptional);
+  api.registerTool(createMemoryUpdateTool(deps), nonOptional);
+  api.registerTool(createMemoryDeleteTool(deps), nonOptional);
+  api.registerTool(createMemoryEventListTool(deps), nonOptional);
+  api.registerTool(createMemoryEventStatusTool(deps), nonOptional);
 }

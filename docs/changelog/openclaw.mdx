@@ -4,6 +4,19 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-04-20" description="v1.0.7">
+
+**New Features:**
+- **Chat-Based Setup:** Added chat-based Platform setup flow — users can now configure the plugin conversationally instead of editing config files manually
+- **Installation Docs Rewrite:** Rewrote README and integration docs with chat-first setup, numbered manual steps.
+
+**Improvements:**
+- **SDK Upgrade:** Bumped `mem0ai` dependency to 3.0.1 for V3 API compatibility
+- **Config Cleanup:** Dropped deprecated `orgId`, `projectId`, `enableGraph` config options; updated CLI prompts ([#4734](https://github.com/mem0ai/mem0/pull/4734), [#4764](https://github.com/mem0ai/mem0/pull/4764))
+- **Noise Filtering:** Expanded noise patterns in memory add tool; handle leading text in JSON extraction
+
+</Update>
+
 <Update label="2026-04-11" description="v1.0.6">
 
 **Bug Fixes:**

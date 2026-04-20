@@ -10,9 +10,7 @@ export interface AddOptions {
   appId?: string;
   runId?: string;
   metadata?: Record<string, unknown>;
-  immutable?: boolean;
   infer?: boolean;
-  expires?: string;
   categories?: string[];
 }
 
@@ -24,7 +22,6 @@ export interface SearchOptions {
   topK?: number;
   threshold?: number;
   rerank?: boolean;
-  keyword?: boolean;
   filters?: Record<string, unknown>;
   fields?: string[];
 }

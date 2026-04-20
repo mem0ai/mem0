@@ -654,9 +654,9 @@ describe("OSSProvider — history error handling", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9. OSSProvider: customPrompt passthrough
+// 9. OSSProvider: customInstructions passthrough (v3.0.0: renamed from customPrompt)
 // ---------------------------------------------------------------------------
-describe("OSSProvider — customPrompt passthrough", () => {
+describe("OSSProvider — customInstructions passthrough", () => {
   let capturedConfig: Record<string, unknown> | undefined;
 
   beforeEach(() => {
@@ -682,12 +682,13 @@ describe("OSSProvider — customPrompt passthrough", () => {
     vi.restoreAllMocks();
   });
 
-  it("passes customPrompt to Memory config when provided", async () => {
+  // v3.0.0: customPrompt renamed to customInstructions
+  it("passes customInstructions to Memory config when provided", async () => {
     const { createProvider } = await import("./index.ts");
     const cfg = mem0ConfigSchema.parse({
       mode: "open-source",
       oss: { disableHistory: true },
-      customPrompt: "Extract only user preferences.",
+      customInstructions: "Extract only user preferences.",
     });
     const api = { resolvePath: (p: string) => p } as any;
     const provider = createProvider(cfg, api);
@@ -695,6 +696,6 @@ describe("OSSProvider — customPrompt passthrough", () => {
     await provider.search("test", { user_id: "u1" });
 
     expect(capturedConfig).toBeDefined();
-    expect(capturedConfig!.customPrompt).toBe("Extract only user preferences.");
+    expect(capturedConfig!.customInstructions).toBe("Extract only user preferences.");
   });
 });

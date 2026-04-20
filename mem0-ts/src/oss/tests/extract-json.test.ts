@@ -148,4 +148,85 @@ That's all I found.`;
     const result = extractJson(input);
     expect(JSON.parse(result)).toEqual({ facts: ["test"] });
   });
+
+  it("strips <|end_of_text|> tokens from OpenRouter responses", () => {
+    const input = '{"facts": ["test"]}<|end_of_text|>';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({ facts: ["test"] });
+  });
+
+  it("strips <|eot_id|> tokens from OpenRouter responses", () => {
+    const input = '{"facts": ["hello"]}<|eot_id|>';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({ facts: ["hello"] });
+  });
+
+  it("strips <|im_end|> tokens from ChatML responses", () => {
+    const input = '{"memory": [{"text": "test"}]}<|im_end|>';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({ memory: [{ text: "test" }] });
+  });
+
+  it("strips multiple noise tokens", () => {
+    const input =
+      '<|im_start|>assistant\n{"facts": ["data"]}<|im_end|><|end_of_text|>';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({ facts: ["data"] });
+  });
+
+  // Issue #4737: Leading text with braces that aren't JSON
+  it("handles leading text containing braces before actual JSON", () => {
+    const input = 'Here\'s the {formatted} output: {"facts": ["real data"]}';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({ facts: ["real data"] });
+  });
+
+  it("handles multiple fake braces in leading text", () => {
+    const input =
+      "I'll format this {nicely} with {proper} structure:\n" +
+      '{"memory": [{"id": "1", "text": "actual memory"}]}';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({
+      memory: [{ id: "1", text: "actual memory" }],
+    });
+  });
+
+  it("handles incomplete JSON-like structures in leading text", () => {
+    const input =
+      "Based on {user preferences} I found:\n" +
+      '{"facts": ["User likes TypeScript"]}';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({ facts: ["User likes TypeScript"] });
+  });
+
+  it("validates JSON and skips malformed candidates", () => {
+    const input = 'The result is {broken and {"facts": ["valid"]} is here';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({ facts: ["valid"] });
+  });
+
+  it("handles deeply nested valid JSON after invalid starts", () => {
+    const input =
+      "Here {is some {context}} for you:\n" +
+      '{"memory": [{"nested": {"deep": "value"}}]}';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({
+      memory: [{ nested: { deep: "value" } }],
+    });
+  });
+
+  it("handles JSON with escaped quotes correctly", () => {
+    const input =
+      'Output: {"facts": ["User said \\"hello\\"", "Has a \\"test\\" project"]}';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual({
+      facts: ['User said "hello"', 'Has a "test" project'],
+    });
+  });
+
+  it("handles arrays with leading brace-like text", () => {
+    const input = 'Here\'s {some context}. The array is: ["fact1", "fact2"]';
+    const result = extractJson(input);
+    expect(JSON.parse(result)).toEqual(["fact1", "fact2"]);
+  });
 });

@@ -883,38 +883,160 @@ export function removeCodeBlocks(text: string): string {
 /**
  * Extracts a JSON object from text that may be wrapped in explanation text.
  *
- * Some LLMs (especially local models like Ollama/LM Studio) return JSON
- * wrapped in conversational text without code fences, e.g.:
+ * Some LLMs (especially local models like Ollama/LM Studio, or OpenRouter)
+ * return JSON wrapped in conversational text without code fences, e.g.:
  *
  *   "Here are the facts I extracted:\n{\"facts\": [\"fact1\"]}\nI hope this helps!"
  *
- * This function first tries `removeCodeBlocks` for code-fence-wrapped JSON,
- * then falls back to locating the first `{` and last `}` to extract the
- * outermost JSON object.
+ * This function:
+ * 1. Strips known noise tokens from OpenRouter and other providers
+ * 2. Removes code fences and <think> blocks
+ * 3. Tries to find a valid JSON object by testing each `{` as a starting point
+ * 4. Falls back to first/last brace matching if validation isn't possible
  *
  * @param text - The raw LLM response text
  * @returns The extracted JSON string, or the original text if no JSON object
  *          boundaries are found
  */
 export function extractJson(text: string): string {
-  // Step 1: Strip code fences if present
-  const cleaned = removeCodeBlocks(text);
+  // Step 1: Strip known noise tokens from OpenRouter/local models
+  let cleaned = text
+    .replace(/<\|end_of_text\|>/g, "")
+    .replace(/<\|eot_id\|>/g, "")
+    .replace(/<\|im_end\|>/g, "")
+    .replace(/<\|im_start\|>/g, "")
+    .replace(/<\|endoftext\|>/g, "");
+
+  // Step 2: Strip code fences and <think> blocks
+  cleaned = removeCodeBlocks(cleaned);
   const trimmed = cleaned.trim();
 
-  // Step 2: Try to locate a JSON object by first `{` and last `}` boundaries
+  if (!trimmed) return "";
+
+  // Step 3: Try to find valid JSON object by testing each `{` as potential start
+  // This handles cases like "Here's the {formatted} output: {...actual json...}"
+  const braceIndices: number[] = [];
+  for (let i = 0; i < trimmed.length; i++) {
+    if (trimmed[i] === "{") braceIndices.push(i);
+  }
+
+  for (const start of braceIndices) {
+    // Find the matching closing brace by tracking depth
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+
+    for (let i = start; i < trimmed.length; i++) {
+      const char = trimmed[i];
+
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (char === "{") depth++;
+      else if (char === "}") {
+        depth--;
+        if (depth === 0) {
+          const candidate = trimmed.substring(start, i + 1);
+          try {
+            JSON.parse(candidate);
+            return candidate; // Valid JSON found
+          } catch {
+            // Not valid JSON, try next starting brace
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Step 4: Fallback - try first/last brace (original behavior for edge cases)
+  // Only use this if it produces valid JSON
   const firstBrace = trimmed.indexOf("{");
   const lastBrace = trimmed.lastIndexOf("}");
   if (firstBrace !== -1 && lastBrace > firstBrace) {
-    return trimmed.substring(firstBrace, lastBrace + 1);
+    const candidate = trimmed.substring(firstBrace, lastBrace + 1);
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {
+      // Not valid JSON, continue to array extraction
+    }
   }
 
-  // Step 3: Try to locate a JSON array by first `[` and last `]` boundaries
+  // Step 5: Try to locate a JSON array by testing each `[` as potential start
+  const bracketIndices: number[] = [];
+  for (let i = 0; i < trimmed.length; i++) {
+    if (trimmed[i] === "[") bracketIndices.push(i);
+  }
+
+  for (const start of bracketIndices) {
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+
+    for (let i = start; i < trimmed.length; i++) {
+      const char = trimmed[i];
+
+      if (escapeNext) {
+        escapeNext = false;
+        continue;
+      }
+
+      if (char === "\\") {
+        escapeNext = true;
+        continue;
+      }
+
+      if (char === '"' && !escapeNext) {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (char === "[") depth++;
+      else if (char === "]") {
+        depth--;
+        if (depth === 0) {
+          const candidate = trimmed.substring(start, i + 1);
+          try {
+            JSON.parse(candidate);
+            return candidate;
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Fallback for arrays - validate before returning
   const firstBracket = trimmed.indexOf("[");
   const lastBracket = trimmed.lastIndexOf("]");
   if (firstBracket !== -1 && lastBracket > firstBracket) {
-    return trimmed.substring(firstBracket, lastBracket + 1);
+    const candidate = trimmed.substring(firstBracket, lastBracket + 1);
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {
+      // Not valid JSON
+    }
   }
 
-  // No JSON boundaries found — return as-is and let the caller handle the error
+  // No valid JSON found — return as-is and let the caller handle the error
   return trimmed;
 }
