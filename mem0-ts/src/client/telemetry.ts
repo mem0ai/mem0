@@ -1,7 +1,7 @@
 // @ts-nocheck
 import type { TelemetryClient, TelemetryOptions } from "./telemetry.types";
 
-let version = "2.1.36";
+let version = __MEM0_SDK_VERSION__;
 
 // Safely check for process.env in different environments
 let MEM0_TELEMETRY = true;
