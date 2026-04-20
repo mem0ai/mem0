@@ -20,8 +20,16 @@ Both auto-recall and auto-capture run silently with no manual configuration requ
 
 ## Requirements
 
-- **OpenClaw**: `>=2026.3.28` (plugin API and gateway version)
-- **Node.js**: 18+ (for open-source mode)
+Check your OpenClaw version:
+
+```bash
+openclaw --version
+# OpenClaw 2026.4.15 (041266a)
+```
+
+| OpenClaw Version | Plugin Support |
+|------------------|----------------|
+| `>= 2026.4.15`   | Fully supported |
 
 ## Installation
 
@@ -57,7 +65,7 @@ Pick any stable, unique identifier for the user. Common choices:
 - A UUID (e.g. `"550e8400-e29b-41d4-a716-446655440000"`)
 - A simple username (e.g. `"alice"`)
 
-All memories are scoped to this `userId` — different values create separate memory namespaces. If you don't set it, it defaults to `"default"`, which means all users share the same memory space.
+All memories are scoped to this `userId` — different values create separate memory namespaces. If you don't set it, it defaults to your OS username.
 
 <Tip>In a multi-user application, set `userId` dynamically per user (e.g. from your auth system) rather than hardcoding a single value.</Tip>
 
@@ -188,7 +196,7 @@ openclaw mem0 list --user-id alice --top-k 20
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Which backend to use |
-| `userId` | `string` | `"default"` | Scope memories per user |
+| `userId` | `string` | OS username | Scope memories per user |
 | `autoRecall` | `boolean` | `true` | Inject memories before each turn |
 | `autoCapture` | `boolean` | `true` | Store facts after each turn |
 | `topK` | `number` | `5` | Max memories per recall |

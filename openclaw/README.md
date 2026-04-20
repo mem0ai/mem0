@@ -6,8 +6,16 @@ Your agent forgets everything between sessions. This plugin fixes that — it wa
 
 ## Requirements
 
-- **OpenClaw**: `>=2026.3.28` (plugin API and gateway version)
-- **Node.js**: 18+ (for open-source mode)
+Check your OpenClaw version:
+
+```bash
+openclaw --version
+# OpenClaw 2026.4.15 (041266a)
+```
+
+| OpenClaw Version | Plugin Support |
+|------------------|----------------|
+| `>= 2026.4.15`   | Fully supported |
 
 ## Quick Start
 
