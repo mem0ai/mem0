@@ -71,6 +71,49 @@ All memories are scoped to this `userId` — different values create separate me
 
 ### Platform Mode (Mem0 Cloud)
 
+There are two ways to set up `@mem0/openclaw-mem0` on the Mem0 platform:
+
+- **Chat setup (recommended)** — run the setup inside any OpenClaw chat. No config editing, no API key handling.
+- **Manual config** — edit `openclaw.json` directly. Useful for CI, scripted deploys, or multi-tenant setups.
+
+#### Option 1: Chat Setup (Recommended)
+
+You no longer need manual config editing to get started. Everything happens inside the OpenClaw chat itself.
+
+<Steps>
+  <Step title="Send the setup command to your OpenClaw agent">
+    Open any OpenClaw channel — Telegram, WhatsApp, your default chat, wherever your agent lives. Paste and send this command:
+
+    ```
+    Setup Mem0 from mem0.ai/claw-setup
+    ```
+
+    OpenClaw responds with a Mem0 setup card and immediately asks:
+
+    > "What's your email address? I'll send you a verification code to connect your Mem0 account."
+  </Step>
+
+  <Step title="Enter your email">
+    Type your email address and send it. Mem0 sends back:
+
+    > "Check your email for a 6-digit code and paste it here."
+  </Step>
+
+  <Step title="Paste the OTP">
+    Copy the 6-digit code from your inbox and paste it into the chat.
+
+    You'll see the confirmation:
+
+    > "Connected to Mem0."
+  </Step>
+</Steps>
+
+That's it. No API key, no config file editing, no environment variables. The plugin is now active and auto-capture and auto-recall are running on every turn.
+
+<Note>The chat flow uses the same underlying config as manual setup — it writes `apiKey` and `userId` into `openclaw.json` for you. You can still open the file to inspect or override values afterward.</Note>
+
+#### Option 2: Manual Config
+
 <Note>Get your API key from <a href="https://app.mem0.ai" rel="nofollow">app.mem0.ai</a>.</Note>
 
 Add to your `openclaw.json`:
