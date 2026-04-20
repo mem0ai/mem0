@@ -221,8 +221,9 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/configure` | Set memory configuration |
+| `POST` | `/configure` | Set memory configuration. Rejects unbundled providers with a 400 |
 | `GET` | `/configure` | Get the current memory configuration |
+| `GET` | `/configure/providers` | List the LLM and embedder providers bundled in the container |
 | `POST` | `/memories` | Create memories |
 | `GET` | `/memories` | Get all memories (filter by `user_id`, `agent_id`, or `run_id`) |
 | `GET` | `/memories/{memory_id}` | Get a specific memory |
@@ -242,6 +243,8 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 | `POST` | `/auth/login` | Exchange email and password for access and refresh JWTs |
 | `POST` | `/auth/refresh` | Exchange a refresh token for a new access token |
 | `GET` | `/auth/me` | Get the current authenticated user (JWT required) |
+| `PATCH` | `/auth/me` | Update the caller's name or email. 409 if the new email is already in use |
+| `POST` | `/auth/change-password` | Change the caller's password. 401 if the current password is wrong; new password must be at least 8 characters |
 
 ### API keys
 
