@@ -25,11 +25,23 @@ class RequestLogItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
+API_KEY_AUTH_TYPES = ("api_key", "admin_api_key")
+
+
 @router.get("", response_model=list[RequestLogItem])
 def list_requests(
     user: User = Depends(require_auth),
     db: Session = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=200),
 ):
-    logs = db.execute(select(RequestLog).order_by(RequestLog.created_at.desc()).limit(limit)).scalars().all()
+    logs = (
+        db.execute(
+            select(RequestLog)
+            .where(RequestLog.auth_type.in_(API_KEY_AUTH_TYPES))
+            .order_by(RequestLog.created_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
     return logs

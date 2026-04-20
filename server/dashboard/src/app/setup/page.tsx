@@ -445,6 +445,10 @@ export default function SetupPage() {
                     </Button>
                   ))}
                 </div>
+                <p className="text-xs text-onSurface-default-tertiary">
+                  We&apos;ll generate custom instructions that tell the memory
+                  extractor which facts to prioritize for your use case.
+                </p>
                 <div className="flex gap-2">
                   <Button
                     type="button"
@@ -484,7 +488,9 @@ export default function SetupPage() {
                       }
                     }}
                   >
-                    {isGeneratingInstructions ? "Generating..." : "Generate"}
+                    {isGeneratingInstructions
+                      ? "Generating instructions..."
+                      : "Generate instructions"}
                   </Button>
                 </div>
                 {customInstructions && (
