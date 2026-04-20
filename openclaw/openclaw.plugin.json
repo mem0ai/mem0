@@ -67,7 +67,7 @@
     "oss": {
       "label": "Open-Source Configuration",
       "advanced": true,
-      "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. Has sensible defaults — only override what you need."
+      "help": "Optional. Configure custom embedder, vector store, LLM, history DB, or graph store (Neo4j) for open-source mode. Has sensible defaults — only override what you need."
     }
   },
   "configSchema": {
@@ -159,6 +159,23 @@
           },
           "historyDbPath": {
             "type": "string"
+          },
+          "graphStore": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "config": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string" },
+                  "username": { "type": "string" },
+                  "password": { "type": "string" },
+                  "database": { "type": "string" }
+                }
+              }
+            }
           }
         }
       }

@@ -24,6 +24,59 @@ from mem0.memory.telemetry import capture_client_event, capture_event
 
 logger = logging.getLogger(__name__)
 
+# ── History sliding window (Issue 3) ─────────────────────────────────────────
+# Hard cap on conversation history before sending to LiteLLM.
+# Prevents unbounded token growth (observed: 339K avg on qwen3.5-flash, $1.64/day).
+# Strategy: keep system prompt + last MAX_HISTORY_TURNS turns; if still over
+# MAX_HISTORY_TOKENS, drop oldest non-system turns one-by-one.
+MAX_HISTORY_TOKENS = 180_000
+MAX_HISTORY_TURNS  = 20
+
+
+def _trim_messages(messages: List[dict], model: str) -> List[dict]:
+    """Trim conversation history to fit within MAX_HISTORY_TOKENS / MAX_HISTORY_TURNS.
+
+    Returns a new list (does not mutate). Logs INFO when trimming occurs.
+    """
+    if not messages:
+        return messages
+
+    system_msgs  = [m for m in messages if isinstance(m, dict) and m.get("role") == "system"]
+    non_system   = [m for m in messages if not (isinstance(m, dict) and m.get("role") == "system")]
+
+    # Step 1: enforce turn limit
+    if len(non_system) > MAX_HISTORY_TURNS:
+        dropped_turns = len(non_system) - MAX_HISTORY_TURNS
+        non_system = non_system[-MAX_HISTORY_TURNS:]
+        logger.info(
+            "[mem0.proxy] history trim (turns): model=%s dropped_turns=%d remaining=%d",
+            model, dropped_turns, len(non_system),
+        )
+
+    # Step 2: enforce token limit
+    def _tok(msgs: List[dict]) -> int:
+        try:
+            return litellm.token_counter(model=model, messages=msgs)
+        except Exception:
+            return sum(len((m.get("content") or "") if isinstance(m, dict) else str(m)) for m in msgs) // 4
+
+    candidate = system_msgs + non_system
+    tokens_before = _tok(candidate)
+    if tokens_before <= MAX_HISTORY_TOKENS:
+        return candidate
+
+    while len(non_system) > 1 and _tok(system_msgs + non_system) > MAX_HISTORY_TOKENS:
+        non_system.pop(0)
+
+    trimmed = system_msgs + non_system
+    tokens_after = _tok(trimmed)
+    logger.info(
+        "[mem0.proxy] history trim (tokens): model=%s tokens_before=%d tokens_after=%d turns_dropped=%d",
+        model, tokens_before, tokens_after,
+        len(messages) - len(trimmed),
+    )
+    return trimmed
+
 
 class Mem0:
     def __init__(
@@ -101,15 +154,29 @@ class Completions:
             )
 
         prepared_messages = self._prepare_messages(messages)
+        # Apply sliding-window trim before memory augmentation so memory fetch
+        # uses a reasonable-sized context and the LLM call stays under budget.
+        prepared_messages = _trim_messages(prepared_messages, model)
         if prepared_messages[-1]["role"] == "user":
             self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata, filters)
             relevant_memories = self._fetch_relevant_memories(messages, user_id, agent_id, run_id, filters, limit)
             logger.debug(f"Retrieved {len(relevant_memories)} relevant memories")
             prepared_messages[-1]["content"] = self._format_query_with_memories(messages, relevant_memories)
 
+        # Trace metadata for PostHog observability (Issue 6)
+        call_metadata = {
+            "trace_name": "mem0_chat",
+            "span_name":  "Completions.create",
+        }
+        if user_id:
+            call_metadata["user_id"] = user_id
+        if agent_id:
+            call_metadata["agent_id"] = agent_id
+
         response = litellm.completion(
             model=model,
             messages=prepared_messages,
+            metadata=call_metadata,
             temperature=temperature,
             top_p=top_p,
             n=n,

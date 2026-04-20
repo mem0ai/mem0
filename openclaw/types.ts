@@ -19,6 +19,16 @@ export type Mem0Config = {
     embedder?: { provider: string; config: Record<string, unknown> };
     vectorStore?: { provider: string; config: Record<string, unknown> };
     llm?: { provider: string; config: Record<string, unknown> };
+    /** Graph store config for entity/relationship memory (OSS mode). Only Neo4j supported in JS SDK. */
+    graphStore?: {
+      provider: string;  // "neo4j"
+      config: {
+        url: string;        // e.g. "neo4j://localhost:7687"
+        username: string;   // e.g. "neo4j"
+        password: string;   // e.g. "${NEO4J_PASSWORD}"
+        database?: string;
+      };
+    };
     historyDbPath?: string;
     disableHistory?: boolean;
   };

@@ -195,6 +195,12 @@ class OSSProvider implements Mem0Provider {
       config.vectorStore = this.ossConfig.vectorStore;
     if (this.ossConfig?.llm) config.llm = this.ossConfig.llm;
 
+    // Wire in graph store (Neo4j) if configured — enables entity/relationship memory
+    if (this.ossConfig?.graphStore) {
+      config.graphStore = this.ossConfig.graphStore;
+      config.enableGraph = true;
+    }
+
     if (this.ossConfig?.historyDbPath) {
       const dbPath = this.resolvePath
         ? this.resolvePath(this.ossConfig.historyDbPath)

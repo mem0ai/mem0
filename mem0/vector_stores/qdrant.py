@@ -6,14 +6,20 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    HnswConfigDiff,
     MatchAny,
     MatchExcept,
     MatchText,
     MatchValue,
+    OptimizersConfigDiff,
     PointIdsList,
     PointStruct,
     PointVectors,
+    QuantizationConfig,
     Range,
+    ScalarQuantization,
+    ScalarQuantizationConfig,
+    ScalarType,
     VectorParams,
 )
 
@@ -34,6 +40,8 @@ class Qdrant(VectorStoreBase):
         url: str = None,
         api_key: str = None,
         on_disk: bool = False,
+        grpc_port: int = None,
+        prefer_grpc: bool = False,
     ):
         """
         Initialize the Qdrant vector store.
@@ -49,6 +57,8 @@ class Qdrant(VectorStoreBase):
             api_key (str, optional): API key for Qdrant server. Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
+            grpc_port (int, optional): gRPC port for Qdrant server. Enables faster throughput. Defaults to None.
+            prefer_grpc (bool, optional): Prefer gRPC over REST for data-plane operations. Defaults to False.
         """
         if client:
             self.client = client
@@ -62,7 +72,11 @@ class Qdrant(VectorStoreBase):
             if host and port:
                 params["host"] = host
                 params["port"] = port
-            
+            if grpc_port:
+                params["grpc_port"] = grpc_port
+            if prefer_grpc:
+                params["prefer_grpc"] = prefer_grpc
+
             if not params:
                 params["path"] = path
                 self.is_local = True
@@ -78,7 +92,7 @@ class Qdrant(VectorStoreBase):
 
     def create_col(self, vector_size: int, on_disk: bool, distance: Distance = Distance.COSINE):
         """
-        Create a new collection.
+        Create a new collection with optimized HNSW, quantization, and indexing settings.
 
         Args:
             vector_size (int): Size of the vectors to be stored.
@@ -96,6 +110,18 @@ class Qdrant(VectorStoreBase):
         self.client.create_collection(
             collection_name=self.collection_name,
             vectors_config=VectorParams(size=vector_size, distance=distance, on_disk=on_disk),
+            # Build HNSW index once we have 1000+ vectors (default 10000 is too high)
+            optimizers_config=OptimizersConfigDiff(indexing_threshold=1000),
+            # Scalar int8 quantization: 4× memory reduction with ~5% recall loss
+            quantization_config=ScalarQuantization(
+                scalar=ScalarQuantizationConfig(
+                    type=ScalarType.INT8,
+                    quantile=0.99,
+                    always_ram=True,
+                )
+            ),
+            # Tuned HNSW: ef_construct=200 gives better recall; m=16 is fine for this scale
+            hnsw_config=HnswConfigDiff(m=16, ef_construct=200, on_disk=False),
         )
         self._create_filter_indexes()
 
@@ -106,8 +132,10 @@ class Qdrant(VectorStoreBase):
             logger.debug("Skipping payload index creation for local Qdrant (not supported)")
             return
             
-        common_fields = ["user_id", "agent_id", "run_id", "actor_id"]
-        
+        # Include both snake_case (Mem0 internal) and camelCase (OSS SDK storage) variants
+        # so indexes are created regardless of which naming convention is active.
+        common_fields = ["user_id", "agent_id", "run_id", "actor_id", "userId", "agentId", "runId"]
+
         for field in common_fields:
             try:
                 self.client.create_payload_index(

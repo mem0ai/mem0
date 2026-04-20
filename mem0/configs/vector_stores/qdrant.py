@@ -16,7 +16,9 @@ class QdrantConfig(BaseModel):
     path: Optional[str] = Field("/tmp/qdrant", description="Path for local Qdrant database")
     url: Optional[str] = Field(None, description="Full URL for Qdrant server")
     api_key: Optional[str] = Field(None, description="API key for Qdrant server")
-    on_disk: Optional[bool] = Field(False,description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.")
+    on_disk: Optional[bool] = Field(False, description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.")
+    grpc_port: Optional[int] = Field(None, description="gRPC port for Qdrant server. Enables faster data-plane throughput over HTTP/REST.")
+    prefer_grpc: Optional[bool] = Field(False, description="Prefer gRPC over REST for insert/search operations when grpc_port is set.")
 
     @model_validator(mode="before")
     @classmethod
