@@ -399,8 +399,6 @@
                       "integrations/langgraph",
                       "integrations/llama-index",
                       "integrations/crewai",
-                      "integrations/autogen",
-                      "integrations/agno",
                       "integrations/camel-ai",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
@@ -429,12 +427,7 @@
                     "group": "Developer Tools",
                     "icon": "wrench",
                     "pages": [
-                      "integrations/dify",
-                      "integrations/flowise",
-                      "integrations/langchain-tools",
-                      "integrations/agentops",
-                      "integrations/keywords",
-                      "integrations/raycast"
+                      "integrations/langchain-tools"
                     ]
                   }
                 ]
@@ -1100,6 +1093,34 @@
     {
       "source": "/v0x/faqs",
       "destination": "/platform/faqs"
+    },
+    {
+      "source": "/integrations/raycast",
+      "destination": "/integrations"
+    },
+    {
+      "source": "/integrations/autogen",
+      "destination": "/integrations"
+    },
+    {
+      "source": "/integrations/keywords",
+      "destination": "/integrations"
+    },
+    {
+      "source": "/integrations/agentops",
+      "destination": "/integrations"
+    },
+    {
+      "source": "/integrations/flowise",
+      "destination": "/integrations"
+    },
+    {
+      "source": "/integrations/agno",
+      "destination": "/integrations"
+    },
+    {
+      "source": "/integrations/dify",
+      "destination": "/integrations"
     },
     {
       "source": "/integrations/multion",
