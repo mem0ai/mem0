@@ -142,6 +142,10 @@ class TestOpenSearchDB(unittest.TestCase):
         mappings = create_args["body"]["mappings"]["properties"]
         self.assertEqual(mappings["vector_field"]["type"], "knn_vector")
         self.assertEqual(mappings["vector_field"]["dimension"], 1536)
+        metadata_props = mappings["metadata"]["properties"]
+        self.assertEqual(metadata_props["user_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["agent_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["run_id"]["type"], "keyword")
         self.client_mock.reset_mock()
         self.client_mock.indices.exists.return_value = True
         self.os_db.create_index()
