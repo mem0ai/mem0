@@ -163,10 +163,9 @@ class TestNebulaGraphMemory(unittest.TestCase):
         )
         self.assertEqual(result, [{"source": "alice", "relationship": "likes", "destination": "pizza"}])
 
-    def test_add_entities_name_mismatch_creates_new_node(self):
+    def test_add_entities_when_nodes_not_found_creates_new_nodes(self):
         self.memory_graph.embedding_model.embed.return_value = [0.1]
-        self.memory_graph._search_node_in_vector_store = MagicMock(side_effect=["node1", None])
-        self.memory_graph._node_name_matches = MagicMock(side_effect=[False])
+        self.memory_graph._search_node_in_vector_store = MagicMock(side_effect=[None, None])
         self.memory_graph._node_exists = MagicMock(return_value=True)
         # Returns same id for both source and dest, triggering the self-loop guard (3rd call)
         self.memory_graph._create_node = MagicMock(side_effect=["new_source", "new_source", "new_dest"])
@@ -179,7 +178,7 @@ class TestNebulaGraphMemory(unittest.TestCase):
         result = self.memory_graph._add_entities(to_be_added, self.filters, entity_type_map, embedding_cache={})
 
         self.assertEqual(result, [{"source": "alice", "relationship": "likes", "target": "pizza"}])
-        # _create_node called 3 times: source (name mismatch → new), dest (not found → new),
+        # _create_node called 3 times: source (not found → new), dest (not found → new),
         # and dest again (self-loop guard: source_id == dest_id)
         self.assertEqual(self.memory_graph._create_node.call_count, 3)
         self.memory_graph._execute_raw_query.assert_called_once()
@@ -201,7 +200,7 @@ class TestNebulaGraphMemory(unittest.TestCase):
         self.assertEqual(result[0]["relationship"], "likes")
         self.assertEqual(result[0]["target"], "pizza")
 
-    def test_search_node_in_vector_store_uses_top_k(self):
+    def test_search_node_in_vector_store_uses_top_k_limit(self):
         self.memory_graph.vector_store.search.return_value = [SimpleNamespace(id="node-1", score=0.9)]
 
         result = self.memory_graph._search_node_in_vector_store([0.1], self.filters)
@@ -209,10 +208,21 @@ class TestNebulaGraphMemory(unittest.TestCase):
         self.memory_graph.vector_store.search.assert_called_once_with(
             query="",
             vectors=[0.1],
-            top_k=1,
+            top_k=self.memory_graph.vector_store_limit,
             filters=self.filters,
         )
         self.assertEqual(result, "node-1")
+
+    def test_search_node_in_vector_store_returns_highest_scoring_threshold_match(self):
+        self.memory_graph.vector_store.search.return_value = [
+            SimpleNamespace(id="node-mid", score=0.82),
+            SimpleNamespace(id="node-best", score=0.95),
+            SimpleNamespace(id="node-low-score", score=0.4),
+        ]
+
+        result = self.memory_graph._search_node_in_vector_store([0.1], self.filters)
+
+        self.assertEqual(result, "node-best")
 
     def test_delete_all_method(self):
         self.memory_graph._execute_raw_query = MagicMock(return_value=[])
@@ -239,7 +249,6 @@ class TestNebulaGraphMemory(unittest.TestCase):
     def test_add_entities_self_loop_guard(self):
         self.memory_graph.embedding_model.embed.return_value = [0.1]
         self.memory_graph._search_node_in_vector_store = MagicMock(side_effect=["same", "same"])
-        self.memory_graph._node_name_matches = MagicMock(return_value=True)
         self.memory_graph._node_exists = MagicMock(return_value=True)
         self.memory_graph._create_node = MagicMock(return_value="new_dest")
         self.memory_graph._execute_query = MagicMock(return_value=[])

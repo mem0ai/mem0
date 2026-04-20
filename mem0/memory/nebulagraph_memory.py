@@ -704,10 +704,6 @@ class MemoryGraph:
             # Search for existing nodes
             source_node = self._search_node_in_vector_store(source_embedding, filters)
             dest_node = self._search_node_in_vector_store(dest_embedding, filters)
-            if source_node and not self._node_name_matches(source_node, source):
-                source_node = None
-            if dest_node and not self._node_name_matches(dest_node, destination):
-                dest_node = None
 
             # Create nodes if they don't exist
             if source_node:
@@ -787,12 +783,18 @@ class MemoryGraph:
         search_results = self.vector_store.search(
             query="",
             vectors=embedding,
-            top_k=1,
+            top_k=self.vector_store_limit,
             filters=filters,
         )
 
-        if search_results and search_results[0].score >= self.threshold:
-            return search_results[0].id
+        threshold_matches = sorted(
+            (result for result in search_results if result.score is not None and result.score >= self.threshold),
+            key=lambda result: result.score,
+            reverse=True,
+        )
+
+        if threshold_matches:
+            return threshold_matches[0].id
 
         return None
 
@@ -841,14 +843,6 @@ class MemoryGraph:
         vid = self._format_vid(node_id)
         result = self._execute_query(f"FETCH PROP ON Entity {vid} YIELD vertex AS v")
         return bool(result)
-
-    def _node_name_matches(self, node_id, expected_name):
-        vid = self._format_vid(node_id)
-        result = self._execute_query(f"FETCH PROP ON Entity {vid} YIELD Entity.name AS name")
-        if not result:
-            return False
-        actual = result[0].get("name")
-        return actual == expected_name
 
     def _remove_spaces_from_entities(self, entity_list):
         """Remove spaces from entity names and relationships."""
