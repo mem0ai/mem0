@@ -96,6 +96,10 @@ class TestElasticsearchDB(unittest.TestCase):
         self.assertEqual(mappings["vector"]["index"], True)
         self.assertEqual(mappings["vector"]["similarity"], "cosine")
         self.assertEqual(mappings["metadata"]["type"], "object")
+        metadata_props = mappings["metadata"]["properties"]
+        self.assertEqual(metadata_props["user_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["agent_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["run_id"]["type"], "keyword")
 
         # Reset mocks for next test
         self.client_mock.reset_mock()
