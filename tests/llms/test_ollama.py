@@ -116,6 +116,53 @@ def test_generate_response_with_tools_string_arguments(mock_ollama_client):
     assert response["tool_calls"] == [{"name": "test_fn", "arguments": {"key": "value"}}]
 
 
+def test_generate_response_with_tools_markdown_wrapped_arguments(mock_ollama_client):
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.1, max_tokens=100, top_p=1.0)
+    llm = OllamaLLM(config)
+    messages = [{"role": "user", "content": "test"}]
+    tools = [{"type": "function", "function": {"name": "test_fn", "parameters": {}}}]
+
+    mock_response = {
+        "message": {
+            "content": "",
+            "tool_calls": [
+                {"function": {"name": "test_fn", "arguments": '```json\n{"key": "value"}\n```'}}
+            ],
+        }
+    }
+    mock_ollama_client.chat.return_value = mock_response
+
+    response = llm.generate_response(messages, tools=tools)
+
+    assert response["tool_calls"] == [{"name": "test_fn", "arguments": {"key": "value"}}]
+
+
+def test_generate_response_with_tools_noisy_wrapped_arguments(mock_ollama_client):
+    config = OllamaConfig(model="llama3.1:70b", temperature=0.1, max_tokens=100, top_p=1.0)
+    llm = OllamaLLM(config)
+    messages = [{"role": "user", "content": "test"}]
+    tools = [{"type": "function", "function": {"name": "test_fn", "parameters": {}}}]
+
+    mock_response = {
+        "message": {
+            "content": "",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "test_fn",
+                        "arguments": 'Sure, here you go:\n```json\n{"key": "value"}\n```\nDone.',
+                    }
+                }
+            ],
+        }
+    }
+    mock_ollama_client.chat.return_value = mock_response
+
+    response = llm.generate_response(messages, tools=tools)
+
+    assert response["tool_calls"] == [{"name": "test_fn", "arguments": {"key": "value"}}]
+
+
 def test_parse_response_with_tools_object_style(mock_ollama_client):
     """Test _parse_response with object-style response (non-dict)."""
     config = OllamaConfig(model="llama3.1:70b")

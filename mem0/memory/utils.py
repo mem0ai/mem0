@@ -108,16 +108,21 @@ def normalize_facts(raw_facts):
 def remove_code_blocks(content: str) -> str:
     """
     Removes enclosing code block markers ```[language] and ``` from a given string.
+    Also removes <think> tags.
 
     Remarks:
-    - The function uses a regex pattern to match code blocks that may start with ``` followed by an optional language tag (letters or numbers) and end with ```.
+    - The function uses a regex pattern to find code blocks that may start with ``` followed by an optional language tag (letters or numbers) and end with ```.
     - If a code block is detected, it returns only the inner content, stripping out the markers.
-    - If no code block markers are found, the original content is returned as-is.
+    - If no code block markers are found, it still removes <think> tags.
     """
-    pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
-    match = re.match(pattern, content.strip())
-    match_res=match.group(1).strip() if match else content.strip()
-    return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
+    pattern = r"```[a-zA-Z0-9]*\n?([\s\S]*?)\n?```"
+    match = re.search(pattern, content)
+    if match:
+        return match.group(1).strip()
+
+    return content.strip()
 
 
 
@@ -128,17 +133,17 @@ def extract_json(text):
     If that also fails, returns the text as-is.
     """
     text = text.strip()
+
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
-        json_str = match.group(1)
-    else:
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = text[start_idx : end_idx + 1]
-        else:
-            json_str = text
-    return json_str
+        return match.group(1).strip()
+
+    start_idx = text.find("{")
+    end_idx = text.rfind("}")
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        return text[start_idx : end_idx + 1].strip()
+
+    return text
 
 
 def get_image_description(image_obj, llm, vision_details):
@@ -264,4 +269,3 @@ def sanitize_relationship_for_cypher(relationship) -> str:
         sanitized = sanitized.replace(old, new)
 
     return re.sub(r"_+", "_", sanitized).strip("_")
-

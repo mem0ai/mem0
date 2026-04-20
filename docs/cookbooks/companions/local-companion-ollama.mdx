@@ -66,6 +66,7 @@ memories = m.get_all(user_id="john")
 - **Vector Store**: Qdrant is used as the vector store, running on localhost
 - **Language Model**: Ollama is used as the LLM provider, with the `llama3.1:latest` model
 - **Embedding Model**: Ollama is also used for embeddings, with the `nomic-embed-text:latest` model
+- **Local Model Robustness**: Mem0 strips markdown wrappers, noisy preambles, and `<think>` blocks when extracting JSON-like outputs from local models such as Qwen and Gemma
 
 ## Conclusion
 

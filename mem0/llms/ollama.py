@@ -116,14 +116,9 @@ class OllamaLLM(LLMBase):
             "messages": messages,
         }
 
-        # Handle JSON response format by using Ollama's native format parameter
-        if response_format and response_format.get("type") == "json_object":
-            params["format"] = "json"
-            # Also add JSON format instruction to the last message as a fallback
-            if messages and messages[-1]["role"] == "user":
-                messages[-1]["content"] += "\n\nPlease respond with valid JSON only."
-            else:
-                messages.append({"role": "user", "content": "Please respond with valid JSON only."})
+        # We intentionally avoid Ollama's native `format="json"` path here.
+        # Smaller local models often still wrap the payload in markdown or
+        # surround it with extra text, so we rely on `extract_json` instead.
 
         # Add options for Ollama (temperature, num_predict, top_p)
         options = {
