@@ -60,38 +60,40 @@ That's it. No API key, no config file editing, no environment variables. The plu
 
 #### Manual Config
 
-Install the plugin via the OpenClaw CLI:
+1. **Install the plugin via the OpenClaw CLI:**
 
-```bash
-openclaw plugins install @mem0/openclaw-mem0
-```
+   ```bash
+   openclaw plugins install @mem0/openclaw-mem0
+   ```
 
-Get an API key from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys), then either initialize via the CLI:
+2. **Get your API key** from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys).
 
-```bash
-openclaw mem0 init --api-key <your-key> --user-id <your-user-id>
-```
+3. **Select the plugin as your memory backend in `openclaw.json`.** Either initialize via the CLI:
 
-Or add the full config to your `openclaw.json`:
+   ```bash
+   openclaw mem0 init --api-key <your-key> --user-id <your-user-id>
+   ```
 
-```json5
-{
-  "plugins": {
-    "slots": {
-      "memory": "openclaw-mem0"
-    },
-    "entries": {
-      "openclaw-mem0": {
-        "enabled": true,
-        "config": {
-          "apiKey": "${MEM0_API_KEY}",
-          "userId": "alice"
-        }
-      }
-    }
-  }
-}
-```
+   Or add the full config to your `openclaw.json`:
+
+   ```json5
+   {
+     "plugins": {
+       "slots": {
+         "memory": "openclaw-mem0"
+       },
+       "entries": {
+         "openclaw-mem0": {
+           "enabled": true,
+           "config": {
+             "apiKey": "${MEM0_API_KEY}",
+             "userId": "alice"
+           }
+         }
+       }
+     }
+   }
+   ```
 
 > **Note:** OpenClaw memory plugins load through an exclusive slot, so install alone does not activate the plugin. You must set `plugins.slots.memory` as shown above.
 
