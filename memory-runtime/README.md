@@ -158,6 +158,7 @@ Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`)
 - mem0 bridge unit coverage without external network dependency
 - idempotent ingestion for duplicate events on the same dedupe key
 - recall trace explainability with decisive selection signals
+- golden compactness regression for low-budget memory briefs
 
 Команды запуска:
 

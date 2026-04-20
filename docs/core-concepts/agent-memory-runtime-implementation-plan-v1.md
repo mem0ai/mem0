@@ -923,6 +923,24 @@ Definition of Done:
 - при live debugging можно отличить `procedural_policy`, `integration_context`, `active_session`, `project_infrastructure` и другие сигналы
 - explainability не требует ручного разбора ranking кода во время пилота
 
+### Brief Compactness Baseline
+
+До живого pilot в проект добавлен golden compactness regression test:
+
+- low-budget recall budget теперь покрыт отдельным golden fixture
+- тест фиксирует компактный `MemoryBrief` без session/noise leakage
+- expected output проверяется на стабильный состав и размер
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- small-budget brief остается компактным и содержит только самые полезные durable items
+- `recent_session_carryover` не просачивается в durable architecture recall при маленьком budget
+- регрессии в brief packing теперь легче заметить до live pilot
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

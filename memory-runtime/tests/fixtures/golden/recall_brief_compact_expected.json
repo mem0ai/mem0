@@ -1,0 +1,13 @@
+{
+  "critical_facts": [],
+  "active_project_context": [
+    "project-space: conversation_turn: The memory runtime uses Postgres, Redis, and pgvector as the baseline stack."
+  ],
+  "prior_decisions": [
+    "project-space: architecture_decision: We decided to keep the memory runtime Python-first for v1 and postpone any Go rewrite."
+  ],
+  "standing_procedures": [
+    "agent-core: policy_update: Always produce concise architecture summaries before implementation details."
+  ],
+  "recent_session_carryover": []
+}

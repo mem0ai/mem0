@@ -382,6 +382,90 @@ class RetrievalServiceContractTests(unittest.TestCase):
 
         self.assertEqual(brief, expected)
 
+    def test_compact_brief_matches_golden_fixture_under_small_budget(self) -> None:
+        from app.services.retrieval import RetrievalCandidate, RetrievalService
+
+        ranked = RetrievalService.rank_candidates(
+            query="What architecture decisions and baseline stack matter most for the memory runtime?",
+            candidates=[
+                RetrievalCandidate(
+                    episode_id="ep-project-context",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: The memory runtime uses Postgres, Redis, and pgvector as the baseline stack.",
+                    raw_text="assistant: The memory runtime uses Postgres, Redis, and pgvector as the baseline stack.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T08:00:00+00:00",
+                    session_id="run_0",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-decision",
+                    space_type="project-space",
+                    event_type="architecture_decision",
+                    summary="architecture_decision: We decided to keep the memory runtime Python-first for v1 and postpone any Go rewrite.",
+                    raw_text="assistant: We decided to keep the memory runtime Python-first for v1 and postpone any Go rewrite.",
+                    importance_hint="high",
+                    created_at="2026-04-20T09:00:00+00:00",
+                    session_id="run_0",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-policy",
+                    space_type="agent-core",
+                    event_type="policy_update",
+                    summary="policy_update: Always produce concise architecture summaries before implementation details.",
+                    raw_text="assistant: Always produce concise architecture summaries before implementation details.",
+                    importance_hint="high",
+                    created_at="2026-04-20T09:30:00+00:00",
+                    session_id="run_0",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-session",
+                    space_type="session-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: Continue the Phase D recall MVP work for the memory runtime.",
+                    raw_text="user: Continue the Phase D recall MVP work for the memory runtime.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T10:00:00+00:00",
+                    session_id="run_123",
+                    usefulness_score=0.0,
+                ),
+                RetrievalCandidate(
+                    episode_id="ep-noise",
+                    space_type="project-space",
+                    event_type="conversation_turn",
+                    summary="conversation_turn: Temporary scratch experiment for a deprecated SQLite prototype.",
+                    raw_text="assistant: Temporary scratch experiment for a deprecated SQLite prototype.",
+                    importance_hint="normal",
+                    created_at="2026-04-20T10:10:00+00:00",
+                    session_id="run_9",
+                    usefulness_score=0.0,
+                ),
+            ],
+            active_session_id=None,
+        )
+
+        selected = RetrievalService.select_candidates_for_brief(
+            query="What architecture decisions and baseline stack matter most for the memory runtime?",
+            ranked_candidates=ranked,
+            active_session_id=None,
+            context_budget_tokens=500,
+        )
+        brief = RetrievalService.build_memory_brief(selected)
+
+        fixture_path = (
+            Path(__file__).resolve().parents[1]
+            / "fixtures"
+            / "golden"
+            / "recall_brief_compact_expected.json"
+        )
+        expected = json.loads(fixture_path.read_text())
+
+        self.assertEqual(sum(len(items) for items in brief.values()), 3)
+        self.assertEqual(brief, expected)
+
     def test_collect_selected_space_types_preserves_shared_space(self) -> None:
         from app.services.retrieval import RetrievalCandidate, RetrievalService
 
