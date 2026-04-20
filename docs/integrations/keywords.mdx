@@ -24,7 +24,7 @@ You can get your Mem0 API key from the <a href="https://app.mem0.ai/" rel="nofol
 Install the necessary libraries:
 
 ```bash
-pip install mem0 keywordsai-sdk
+pip install mem0ai keywordsai-sdk
 ```
 
 Set up your environment variables:
@@ -65,7 +65,7 @@ config = {
 }
 
 # Initialize Memory
-memory = Memory.from_config(config_dict=config)
+memory = Memory.from_config(config)
 
 # Add a memory
 result = memory.add(

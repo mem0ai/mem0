@@ -54,7 +54,6 @@ config = {
             "embedding_model_dims": 3072,
         }
     },
-    "version": "v1.1",
 }
 
 class PersonalTravelAssistant:
@@ -154,7 +153,7 @@ class PersonalTravelAssistant:
         return answer
 
     def get_memories(self, user_id):
-        memories = self.memory.get_all(user_id=user_id)
+        memories = self.memory.get_all(filters={"user_id": user_id})
         return [m['memory'] for m in memories.get('results', [])]
 
     def search_memories(self, query, user_id):

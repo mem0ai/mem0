@@ -76,7 +76,6 @@ By default the Node SDK uses local-friendly settings (OpenAI `gpt-5-mini`, `text
 import { Memory } from "mem0ai/oss";
 
 const memory = new Memory({
-  version: "v1.1",
   embedder: {
     provider: "openai",
     config: {
@@ -221,7 +220,6 @@ Mem0 offers granular configuration across vector stores, LLMs, embedders, and hi
 | Parameter | Description | Default |
 | --- | --- | --- |
 | `historyDbPath` | Path to history database | `"{mem0_dir}/history.db"` |
-| `version` | API version | `"v1.0"` |
 | `customInstructions` | Custom processing prompt | `undefined` |
   </Accordion>
   <Accordion title="History store">
@@ -234,7 +232,6 @@ Mem0 offers granular configuration across vector stores, LLMs, embedders, and hi
   <Accordion title="Complete config example">
 ```ts
 const config = {
-  version: "v1.1",
   embedder: {
     provider: "openai",
     config: {

@@ -51,8 +51,7 @@ m = Memory()
 # Search with simple metadata filters
 results = m.search(
     "What are my preferences?",
-    user_id="alice",
-    filters={"category": "preferences"}
+    filters={"user_id": "alice", "category": "preferences"}
 )
 ```
 
@@ -68,8 +67,8 @@ Layer greater-than/less-than comparisons to rank results by score, confidence, o
 # Greater than / Less than
 results = m.search(
     "recent activities",
-    user_id="alice",
     filters={
+        "user_id": "alice",
         "score": {"gt": 0.8},
         "priority": {"gte": 5},
         "confidence": {"lt": 0.9},
@@ -80,8 +79,8 @@ results = m.search(
 # Equality operators
 results = m.search(
     "specific content",
-    user_id="alice",
     filters={
+        "user_id": "alice",
         "status": {"eq": "active"},
         "archived": {"ne": True}
     }
@@ -96,8 +95,8 @@ Use `in` and `nin` when you want to pre-approve or exclude specific values witho
 # In / Not in operators
 results = m.search(
     "multi-category search",
-    user_id="alice",
     filters={
+        "user_id": "alice",
         "category": {"in": ["food", "travel", "entertainment"]},
         "status": {"nin": ["deleted", "archived"]}
     }
@@ -116,8 +115,8 @@ results = m.search(
 # Text matching operators
 results = m.search(
     "content search",
-    user_id="alice",
     filters={
+        "user_id": "alice",
         "title": {"contains": "meeting"},
         "description": {"icontains": "important"},
         "tags": {"contains": "urgent"}
@@ -133,8 +132,8 @@ Allow any value for a field while still requiring the field to exist—handy whe
 # Match any value for a field
 results = m.search(
     "all with category",
-    user_id="alice",
     filters={
+        "user_id": "alice",
         "category": "*"
     }
 )
@@ -148,9 +147,9 @@ Combine filters with `AND`, `OR`, and `NOT` to express complex decision trees. N
 # Logical AND
 results = m.search(
     "complex query",
-    user_id="alice",
     filters={
         "AND": [
+            {"user_id": "alice"},
             {"category": "work"},
             {"priority": {"gte": 7}},
             {"status": {"ne": "completed"}}
@@ -161,12 +160,16 @@ results = m.search(
 # Logical OR
 results = m.search(
     "flexible query",
-    user_id="alice",
     filters={
-        "OR": [
-            {"category": "urgent"},
-            {"priority": {"gte": 9}},
-            {"deadline": {"contains": "today"}}
+        "AND": [
+            {"user_id": "alice"},
+            {
+                "OR": [
+                    {"category": "urgent"},
+                    {"priority": {"gte": 9}},
+                    {"deadline": {"contains": "today"}}
+                ]
+            }
         ]
     }
 )
@@ -174,11 +177,15 @@ results = m.search(
 # Logical NOT
 results = m.search(
     "exclusion query",
-    user_id="alice",
     filters={
-        "NOT": [
-            {"category": "archived"},
-            {"status": "deleted"}
+        "AND": [
+            {"user_id": "alice"},
+            {
+                "NOT": [
+                    {"category": "archived"},
+                    {"status": "deleted"}
+                ]
+            }
         ]
     }
 )
@@ -186,9 +193,9 @@ results = m.search(
 # Complex nested logic
 results = m.search(
     "advanced query",
-    user_id="alice",
     filters={
         "AND": [
+            {"user_id": "alice"},
             {
                 "OR": [
                     {"category": "work"},
@@ -288,16 +295,15 @@ Vector store support varies. Confirm operator coverage before shipping:
 # Before (v0.x) - simple key-value filtering only
 results = m.search(
     "query",
-    user_id="alice",
-    filters={"category": "work", "status": "active"}
+    filters={"user_id": "alice", "category": "work", "status": "active"}
 )
 
 # After (v1.0.0) - enhanced filtering with operators
 results = m.search(
     "query",
-    user_id="alice",
     filters={
         "AND": [
+            {"user_id": "alice"},
             {"category": "work"},
             {"status": {"ne": "archived"}},
             {"priority": {"gte": 5}}
@@ -320,9 +326,9 @@ results = m.search(
 # Find high-priority active tasks
 results = m.search(
     "What tasks need attention?",
-    user_id="project_manager",
     filters={
         "AND": [
+            {"user_id": "project_manager"},
             {"project": {"in": ["alpha", ""]}},
             {"priority": {"gte": 8}},
             {"status": {"ne": "completed"}},
@@ -347,9 +353,9 @@ results = m.search(
 # Find recent unresolved tickets
 results = m.search(
     "pending support issues",
-    agent_id="support_bot",
     filters={
         "AND": [
+            {"agent_id": "support_bot"},
             {"ticket_status": {"ne": "resolved"}},
             {"priority": {"in": ["high", "critical"]}},
             {"created_date": {"gte": "2024-01-01"}},
@@ -364,7 +370,7 @@ results = m.search(
 ```
 
 <Tip>
-  Pair `agent_id` filters with ticket-specific metadata so shared support bots return only the tickets they can act on in the current session.
+  Pair agent ID filters with ticket-specific metadata so shared support bots return only the tickets they can act on in the current session.
 </Tip>
 
 ### Content recommendation filtering
@@ -373,9 +379,9 @@ results = m.search(
 # Personalized content filtering
 results = m.search(
     "recommend content",
-    user_id="reader123",
     filters={
         "AND": [
+            {"user_id": "reader123"},
             {
                 "OR": [
                     {"genre": {"in": ["sci-fi", "fantasy"]}},
@@ -400,8 +406,8 @@ results = m.search(
 try:
     results = m.search(
         "test query",
-        user_id="alice",
         filters={
+            "user_id": "alice",
             "invalid_operator": {"unknown": "value"}
         }
     )
@@ -409,8 +415,7 @@ except ValueError as e:
     print(f"Filter error: {e}")
     results = m.search(
         "test query",
-        user_id="alice",
-        filters={"category": "general"}
+        filters={"user_id": "alice", "category": "general"}
     )
 ```
 
