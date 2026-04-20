@@ -97,6 +97,7 @@ Readiness baseline теперь включает:
 
 Для первого живого MVP-пилота с `OpenClaw` смотри runbook:
 - [agent-memory-runtime-openclaw-pilot-runbook.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-openclaw-pilot-runbook.md)
+- Для практического использования MCP смотри [agent-memory-runtime-mcp-guide.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-mcp-guide.md)
 
 ## API surface
 
