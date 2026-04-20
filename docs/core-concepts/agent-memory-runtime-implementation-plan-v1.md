@@ -886,6 +886,26 @@ Definition of Done:
 - один прогон подтверждает не только доступность API, но и работоспособность worker + recall path
 - оператор получает компактный verdict `pass/fail` вместо ручной проверки нескольких эндпоинтов
 
+### Pilot Snapshot / Restore Baseline
+
+До живого pilot в проект добавлен reproducible snapshot/restore contour:
+
+- отдельный runner `make snapshot-pilot NAME=...`
+- отдельный runner `make restore-pilot SNAPSHOT=...`
+- SQL dump pilot-базы сохраняется вместе с observability snapshot
+- доступные pilot reports копируются в snapshot directory
+- manifest фиксирует состав snapshot и позволяет быстро понять, что именно было сохранено
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- pilot state можно зафиксировать до live walkthrough и восстановить перед повторным прогоном
+- operator больше не зависит только от `reset-pilot`, если нужно сравнение на идентичном memory state
+- snapshots не удаляются при обычном `make reset-pilot`, что делает rollback/replay значительно удобнее
+
 ### Ingestion Idempotency Baseline
 
 До живого pilot ingestion path усилен idempotency guard:

@@ -249,6 +249,41 @@ cd /Users/slava/Documents/mem0-src/memory-runtime
 make reset-pilot
 ```
 
+### Снять snapshot pilot state
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make snapshot-pilot NAME=before-live
+```
+
+Результат:
+
+- SQL dump базы памяти сохраняется в `.artifacts/pilot_snapshots/before-live/memory_runtime.sql`
+- observability snapshot сохраняется рядом
+- доступные pilot reports копируются в `.artifacts/pilot_snapshots/before-live/reports/`
+- manifest сохраняется в `.artifacts/pilot_snapshots/before-live/manifest.json`
+
+### Восстановить snapshot pilot state
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make restore-pilot SNAPSHOT=before-live
+```
+
+Результат:
+
+- compose Postgres пересоздает `memory_runtime`
+- состояние памяти восстанавливается из SQL dump
+- связанные pilot reports возвращаются в `.artifacts/`
+- API и worker снова поднимаются на восстановленном состоянии
+
+### Показать доступные snapshots
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make show-pilot-snapshots
+```
+
 ## Если что-то пошло не так
 
 Сначала проверить:
@@ -258,6 +293,7 @@ make reset-pilot
 - `/metrics`
 - что worker действительно запущен
 - что события создают jobs
+- если нужно воспроизвести failure на том же состоянии, восстановить последний подходящий snapshot
 - что jobs переходят в `completed`, а не в `failed`
 
 Типовые причины проблем:

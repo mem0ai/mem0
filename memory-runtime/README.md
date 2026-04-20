@@ -174,6 +174,9 @@ make quality-eval
 make lifecycle-eval
 make continuity-benchmark
 make compare-eval BEFORE=/path/to/before.json AFTER=/path/to/after.json
+make snapshot-pilot NAME=before-live
+make restore-pilot SNAPSHOT=before-live
+make show-pilot-snapshots
 make show-last-smoke
 make show-last-quality-eval
 make reset-pilot
@@ -188,8 +191,11 @@ make reset-pilot
 `make continuity-benchmark` прогоняет cross-session continuity scenarios и проверяет, что durable architecture facts, standing procedures и integration context действительно переживают consolidation и возвращаются в recall.
 `make compare-eval BEFORE=... AFTER=...` сравнивает два machine-readable eval report и показывает, где качество улучшилось, регрессировало или осталось без изменений.
 Adversarial eval suite теперь покрывает instruction override, prompt exfiltration, explicit memory poisoning, mixed malicious content и benign control cases.
+`make snapshot-pilot NAME=...` сохраняет SQL dump pilot-базы, observability snapshot и текущие pilot reports в `.artifacts/pilot_snapshots/<name>/`.
+`make restore-pilot SNAPSHOT=...` восстанавливает snapshot обратно в compose Postgres и возвращает связанные pilot reports в `.artifacts/`.
+`make show-pilot-snapshots` показывает доступные snapshots и их manifest metadata.
 `make show-last-smoke` и `make show-last-quality-eval` показывают последние сохраненные pilot reports.
-`make reset-pilot` сбрасывает compose stack, pilot reports и локальный pilot state для чистого повторного прогона.
+`make reset-pilot` сбрасывает compose stack, pilot reports и локальный pilot state для чистого повторного прогона, но не удаляет сохраненные snapshots.
 
 Миграции:
 

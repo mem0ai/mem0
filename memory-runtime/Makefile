@@ -1,4 +1,4 @@
-.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e preflight pilot-smoke pilot-scenarios quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot show-last-smoke show-last-quality-eval
+.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e preflight pilot-smoke pilot-scenarios quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot snapshot-pilot restore-pilot show-pilot-snapshots show-last-smoke show-last-quality-eval
 
 PYTHON ?= python3
 PORT ?= 8080
@@ -44,6 +44,15 @@ compare-eval:
 
 reset-pilot:
 	bash scripts/openclaw_reset_pilot.sh
+
+snapshot-pilot:
+	bash scripts/openclaw_snapshot_pilot.sh "$(NAME)"
+
+restore-pilot:
+	bash scripts/openclaw_restore_pilot.sh "$(SNAPSHOT)"
+
+show-pilot-snapshots:
+	bash scripts/show_pilot_snapshots.sh
 
 show-last-smoke:
 	bash scripts/show_last_report.sh smoke
