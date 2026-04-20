@@ -893,6 +893,13 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+<Update label="2026-04-20" description="v3.0.1">
+
+**Bug Fixes:**
+- **Telemetry:** SDK version is now injected into telemetry at build time via esbuild's `define`, replacing the two hardcoded version strings in `src/client/telemetry.ts` and `src/oss/src/utils/telemetry.ts`. Previously these were stuck at `2.1.36` and `2.1.34` while the published package was on `3.x`, so every telemetry event was reporting the wrong `client_version`. The placeholder is substituted with a string literal at bundle time — no runtime `require("./package.json")` in the shipped bundle ([#4897](https://github.com/mem0ai/mem0/pull/4897)).
+
+</Update>
+
 <Update label="2026-04-14" description="v3.0.0">
 
 **Major Release** — TypeScript SDK with V3 memory pipeline, camelCase parameters, and cleaned-up API surface.
