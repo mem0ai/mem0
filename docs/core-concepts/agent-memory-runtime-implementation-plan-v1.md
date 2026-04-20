@@ -942,6 +942,24 @@ Definition of Done:
 - `recent_session_carryover` не просачивается в durable architecture recall при маленьком budget
 - регрессии в brief packing теперь легче заметить до live pilot
 
+### Failure-Mode E2E Baseline
+
+До живого pilot в проект добавлен отдельный failure-mode e2e layer:
+
+- preflight теперь проверяется и в деградированном режиме без worker processing
+- observability деградации проверяется на stalled running jobs
+- e2e слой фиксирует, что runtime честно сигнализирует operational проблемы, а не маскирует их как успешный pilot contour
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- `preflight` возвращает `fail`, если worker не обрабатывает jobs
+- `/v1/observability/stats` корректно показывает stalled-running state в деградированном сценарии
+- failure-mode regressions теперь ловятся до live OpenClaw pilot
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

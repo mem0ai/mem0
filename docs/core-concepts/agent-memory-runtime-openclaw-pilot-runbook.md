@@ -185,6 +185,11 @@ make preflight
 - проверяется recall round-trip на том же контуре
 - JSON report сохраняется в `.artifacts/openclaw_preflight_report.json`
 
+Если preflight возвращает `fail`, это больше не считается "непонятным" состоянием:
+
+- отдельные e2e tests уже проверяют сценарий `API жив, worker не обрабатывает jobs`
+- stalled/running degradation отдельно валидируется через `/v1/observability/stats`
+
 ### Full synthetic pilot smoke
 
 ```bash
