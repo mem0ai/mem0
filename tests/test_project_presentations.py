@@ -39,3 +39,29 @@ def test_build_single_deck_generates_pdf(tmp_path: Path) -> None:
     data = output.read_bytes()
     assert data.startswith(b"%PDF-1.4")
     assert len(data) > 1500
+
+
+def test_build_all_includes_short_deck(tmp_path: Path) -> None:
+    module = _load_module()
+    module.PRESENTATIONS_DIR = tmp_path
+
+    (tmp_path / "agent-memory-runtime-for-builders.md").write_text(
+        (ROOT / "docs" / "presentations" / "agent-memory-runtime-for-builders.md").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (tmp_path / "agent-memory-runtime-for-executives.md").write_text(
+        (ROOT / "docs" / "presentations" / "agent-memory-runtime-for-executives.md").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    (tmp_path / "agent-memory-runtime-short-overview.md").write_text(
+        (ROOT / "docs" / "presentations" / "agent-memory-runtime-short-overview.md").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    outputs = module.build_all()
+
+    assert len(outputs) == 3
+    assert any(path.name == "agent-memory-runtime-short-overview.pdf" for path in outputs)
+    for path in outputs:
+        assert path.exists()
+        assert path.read_bytes().startswith(b"%PDF-1.4")

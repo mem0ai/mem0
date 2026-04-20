@@ -4,816 +4,1028 @@
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 2 0 obj
-<< /Length 1094 >>
+<< /Length 1663 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
-0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.060 0.330 0.780 rg
+0 590 792 22 re f
+0.050 0.160 0.350 rg
+548 0 244 612 re f
+0.840 0.900 0.990 rg
+578 84 150 110 re f
+1.000 1.000 1.000 rg
+616 228 112 84 re f
+0.060 0.330 0.780 rg
+572 358 164 118 re f
+0.840 0.900 0.990 rg
+54 508 220 26 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 66 516 Tm
+(Autonomous memory infrastructure for agents) Tj
+ET
+BT
+/F1 34 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 54 446 Tm
 (Agent Memory Runtime) Tj
 ET
 BT
+/F1 17 Tf
+0.210 0.350 0.510 rg
+1 0 0 1 54 400 Tm
+(Developer presentation for teams integrating) Tj
+ET
+BT
+/F1 17 Tf
+0.210 0.350 0.510 rg
+1 0 0 1 54 378 Tm
+(the project into their own agent systems) Tj
+ET
+BT
 /F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
-(Developer presentation for teams integrating the project into their own agent systems) Tj
+0.100 0.130 0.170 rg
+1 0 0 1 54 338 Tm
+(Agent Memory Runtime is a self-hosted memory module) Tj
 ET
 BT
-/F1 14 Tf
+/F1 15 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 74 482 Tm
-(Agent Memory Runtime is a self-hosted memory module for autonomous agents.) Tj
+1 0 0 1 54 318 Tm
+(for autonomous agents.) Tj
 ET
 BT
-/F1 16 Tf
+/F1 15 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 456 Tm
-(- It is deployed as a separate service, usually next to the agent runtime.) Tj
+1 0 0 1 72 282 Tm
+(- It is deployed as a separate service, usually) Tj
 ET
 BT
-/F1 16 Tf
+/F1 15 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 426 Tm
-(- It keeps short-term and long-term memory under explicit lifecycle rules.) Tj
+1 0 0 1 90 262 Tm
+(next to the agent runtime.) Tj
 ET
 BT
-/F1 16 Tf
+/F1 15 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 396 Tm
-(- It is built on top of mem0, with orchestration, retrieval, forgetting,) Tj
+1 0 0 1 72 238 Tm
+(- It keeps short-term and long-term memory under) Tj
 ET
 BT
-/F1 16 Tf
+/F1 15 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 374 Tm
-(observability, and integrations added around it.) Tj
+1 0 0 1 90 218 Tm
+(explicit lifecycle rules.) Tj
+ET
+BT
+/F1 15 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 72 194 Tm
+(- It is built on top of mem0, with orchestration,) Tj
+ET
+BT
+/F1 15 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 90 174 Tm
+(retrieval, forgetting, observability, and) Tj
+ET
+BT
+/F1 15 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 90 156 Tm
+(integrations added around it.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 1/13) Tj
 ET
 
 endstream
 endobj
 3 0 obj
-<< /Length 1191 >>
+<< /Length 1459 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 330 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Why This Exists) Tj
-ET
-BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
 (Most agents are still stateless at the product level) Tj
 ET
 BT
-/F1 16 Tf
-0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
-(- They can reason well inside one session, but lose continuity across days,) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Why This Exists) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 460 Tm
-(tasks, and handoffs.) Tj
+1 0 0 1 88 410 Tm
+(- They can reason well inside one session, but lose continuity across) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 432 Tm
-(- They often over-inject context, which increases cost and lowers relevance.) Tj
+1 0 0 1 108 388 Tm
+(days, tasks, and handoffs.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 402 Tm
+1 0 0 1 88 360 Tm
+(- They often over-inject context, which increases cost and lowers) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 108 338 Tm
+(relevance.) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 88 310 Tm
 (- They do not reliably decide what to keep, what to compress, and what to) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 380 Tm
+1 0 0 1 108 288 Tm
 (forget.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 352 Tm
-(- Teams end up building one-off memory layers inside each product instead of) Tj
+1 0 0 1 88 260 Tm
+(- Teams end up building one-off memory layers inside each product instead) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 330 Tm
-(reusing one robust module.) Tj
+1 0 0 1 108 238 Tm
+(of reusing one robust module.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 2/13) Tj
 ET
 
 endstream
 endobj
 4 0 obj
-<< /Length 1003 >>
+<< /Length 1210 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 330 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(What The Runtime Does) Tj
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
+(The service acts as external memory instead of a plain vector store) Tj
 ET
 BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
-(The service acts as external memory instead of a plain vector store) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(What The Runtime Does) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
+1 0 0 1 88 410 Tm
 (- Captures events from agents and tools.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
+1 0 0 1 88 380 Tm
 (- Keeps active context in session space.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 422 Tm
+1 0 0 1 88 350 Tm
 (- Consolidates useful knowledge into long-term memory units.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 392 Tm
+1 0 0 1 88 320 Tm
 (- Recalls the most relevant memories as a compact memory brief.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 362 Tm
+1 0 0 1 88 290 Tm
 (- Applies decay, archive, eviction, and low-trust rejection rules.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 3/13) Tj
 ET
 
 endstream
 endobj
 5 0 obj
-<< /Length 1023 >>
+<< /Length 1230 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 180 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Core Product Shape) Tj
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
+(Main design decisions) Tj
 ET
 BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
-(Main design decisions) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Core Product Shape) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
+1 0 0 1 88 410 Tm
 (- The primary owner of memory is the agent.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
-(- OpenClaw and BunkerAI can share memory when they operate as one system, or) Tj
+1 0 0 1 88 380 Tm
+(- OpenClaw and BunkerAI can share memory when they operate as one system,) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 430 Tm
-(stay isolated when they do not.) Tj
+1 0 0 1 108 358 Tm
+(or stay isolated when they do not.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 402 Tm
+1 0 0 1 88 330 Tm
 (- The module is Docker-first and self-hosted.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 372 Tm
+1 0 0 1 88 300 Tm
 (- We optimize first for recall quality and continuity, not for ultra-low) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 350 Tm
+1 0 0 1 108 278 Tm
 (latency.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 4/13) Tj
 ET
 
 endstream
 endobj
 6 0 obj
-<< /Length 1052 >>
+<< /Length 1259 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 273 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Memory Model) Tj
-ET
-BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
 (The runtime uses explicit memory spaces) Tj
 ET
 BT
-/F1 16 Tf
-0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
-(- `agent-core`: durable rules, style, procedures, and standing guidance for) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Memory Model) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 460 Tm
-(the agent.) Tj
+1 0 0 1 88 410 Tm
+(- `agent-core`: durable rules, style, procedures, and standing guidance) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 432 Tm
+1 0 0 1 108 388 Tm
+(for the agent.) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 88 360 Tm
 (- `project-space`: project decisions, architecture context, and domain) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 410 Tm
+1 0 0 1 108 338 Tm
 (knowledge.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 382 Tm
+1 0 0 1 88 310 Tm
 (- `session-space`: hot working context for the current run.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 352 Tm
+1 0 0 1 88 280 Tm
 (- `shared-space`: optional shared context across cooperating agents.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 5/13) Tj
 ET
 
 endstream
 endobj
 7 0 obj
-<< /Length 1079 >>
+<< /Length 1286 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 280 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Lifecycle) Tj
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
+(How information moves through the system) Tj
 ET
 BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
-(How information moves through the system) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Lifecycle) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
+1 0 0 1 88 410 Tm
 (- Event arrives through API or adapter.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
+1 0 0 1 88 380 Tm
 (- Event is normalized and turned into an episode.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 422 Tm
+1 0 0 1 88 350 Tm
 (- Session memory stays available immediately for short-horizon recall.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 392 Tm
-(- Consolidation jobs decide whether to create, merge, supersede, or ignore) Tj
+1 0 0 1 88 320 Tm
+(- Consolidation jobs decide whether to create, merge, supersede, or) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 370 Tm
-(long-term memories.) Tj
+1 0 0 1 108 298 Tm
+(ignore long-term memories.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 342 Tm
+1 0 0 1 88 270 Tm
 (- Lifecycle jobs decay, archive, or evict low-value memories over time.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 6/13) Tj
 ET
 
 endstream
 endobj
 8 0 obj
-<< /Length 1028 >>
+<< /Length 1235 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 301 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Retrieval Model) Tj
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
+(Recall is more than top-k similarity search) Tj
 ET
 BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
-(Recall is more than top-k similarity search) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Retrieval Model) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
+1 0 0 1 88 410 Tm
 (- The runtime resolves relevant spaces first.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
+1 0 0 1 88 380 Tm
 (- It ranks candidates across session, project, agent-core, and optional) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 430 Tm
+1 0 0 1 108 358 Tm
 (shared space.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 402 Tm
+1 0 0 1 88 330 Tm
 (- It returns a `MemoryBrief`, not a bag of raw chunks.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 372 Tm
+1 0 0 1 88 300 Tm
 (- Trace data explains why each item was selected and which signal was) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 350 Tm
+1 0 0 1 108 278 Tm
 (decisive.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 7/13) Tj
 ET
 
 endstream
 endobj
 9 0 obj
-<< /Length 883 >>
+<< /Length 1151 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 280 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Integration Surface) Tj
-ET
-BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
 (How developers plug it into real systems) Tj
 ET
 BT
-/F1 16 Tf
-0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
-(- REST endpoints for namespaces, events, recall, observability, and adapters.) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Integration Surface) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
+1 0 0 1 88 410 Tm
+(- REST endpoints for namespaces, events, recall, observability, and) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 108 388 Tm
+(adapters.) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 88 360 Tm
 (- OpenClaw adapter contract is already implemented.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 422 Tm
+1 0 0 1 88 330 Tm
 (- MCP facade is already implemented for read-first clients.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 392 Tm
+1 0 0 1 88 300 Tm
 (- Next MCP step is safe write tools with guardrails.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 8/13) Tj
 ET
 
 endstream
 endobj
 10 0 obj
-<< /Length 987 >>
+<< /Length 1255 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 259 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Deployment And Operations) Tj
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
+(Designed for self-hosted environments) Tj
 ET
 BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
-(Designed for self-hosted environments) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Deployment And Operations) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
+1 0 0 1 88 410 Tm
 (- Runs as a standalone service with its own database and worker.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
+1 0 0 1 88 380 Tm
 (- Typical local stack: API, worker, Postgres, Redis.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 422 Tm
-(- Health, readiness, metrics, and operational stats are already available.) Tj
+1 0 0 1 88 350 Tm
+(- Health, readiness, metrics, and operational stats are already) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 392 Tm
-(- Pilot helpers exist for preflight, smoke runs, snapshots, inspection, and) Tj
+1 0 0 1 108 328 Tm
+(available.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 370 Tm
-(trace export.) Tj
+1 0 0 1 88 300 Tm
+(- Pilot helpers exist for preflight, smoke runs, snapshots, inspection,) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 108 278 Tm
+(and trace export.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 9/13) Tj
 ET
 
 endstream
 endobj
 11 0 obj
-<< /Length 1133 >>
+<< /Length 1401 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 330 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Quality And Release Discipline) Tj
-ET
-BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
 (The project is being built as release-quality infrastructure) Tj
 ET
 BT
-/F1 16 Tf
-0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
-(- More than one hundred automated tests currently cover the runtime slices.) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Quality And Release Discipline) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
+1 0 0 1 88 410 Tm
+(- More than one hundred automated tests currently cover the runtime) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 108 388 Tm
+(slices.) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 88 360 Tm
 (- The suite includes unit, component, integration, end-to-end, lifecycle,) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 430 Tm
+1 0 0 1 108 338 Tm
 (adversarial, and continuity checks.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 402 Tm
+1 0 0 1 88 310 Tm
 (- Retrieval and pilot scenarios are protected by golden evaluations.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 372 Tm
+1 0 0 1 88 280 Tm
 (- Documentation is updated together with implementation and architecture) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 350 Tm
+1 0 0 1 108 258 Tm
 (decisions.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 10/13) Tj
 ET
 
 endstream
 endobj
 12 0 obj
-<< /Length 1154 >>
+<< /Length 1422 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 180 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Current MVP Status) Tj
-ET
-BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
 (What is already real) Tj
 ET
 BT
-/F1 16 Tf
-0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
-(- Namespaces, agents, events, recall, feedback, consolidation, lifecycle, and) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Current MVP Status) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 460 Tm
-(observability are implemented.) Tj
+1 0 0 1 88 410 Tm
+(- Namespaces, agents, events, recall, feedback, consolidation, lifecycle,) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 432 Tm
+1 0 0 1 108 388 Tm
+(and observability are implemented.) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 88 360 Tm
 (- OpenClaw adapter path is implemented.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 402 Tm
+1 0 0 1 88 330 Tm
 (- MCP read-first layer is implemented.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 372 Tm
-(- Local-model compatibility hardening for Ollama-style outputs has been added) Tj
+1 0 0 1 88 300 Tm
+(- Local-model compatibility hardening for Ollama-style outputs has been) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 108 350 Tm
-(in mem0.) Tj
+1 0 0 1 108 278 Tm
+(added in mem0.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 322 Tm
-(- The next major milestone is live OpenClaw testing on a real configuration.) Tj
+1 0 0 1 88 250 Tm
+(- The next major milestone is live OpenClaw testing on a real) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 108 228 Tm
+(configuration.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 11/13) Tj
 ET
 
 endstream
 endobj
 13 0 obj
-<< /Length 901 >>
+<< /Length 1108 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 180 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Why Developers May Want It) Tj
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
+(Main practical value) Tj
 ET
 BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
-(Main practical value) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Why Developers May Want It) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
+1 0 0 1 88 410 Tm
 (- Ship memory once and reuse it across multiple agents or products.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
+1 0 0 1 88 380 Tm
 (- Keep memory policy out of prompts and inside an explicit system layer.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 422 Tm
+1 0 0 1 88 350 Tm
 (- Improve continuity without bloating every context window.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 392 Tm
+1 0 0 1 88 320 Tm
 (- Gain auditability, observability, and a cleaner integration boundary.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 12/13) Tj
 ET
 
 endstream
 endobj
 14 0 obj
-<< /Length 854 >>
+<< /Length 1122 >>
 stream
-0.960 0.970 0.990 rg
+0.950 0.970 0.990 rg
 0 0 792 612 re f
-0.070 0.340 0.770 rg
+0.060 0.330 0.780 rg
 0 594 792 18 re f
-0.070 0.340 0.770 rg
-54 494 6 56 re f
+0.840 0.900 0.990 rg
+0 0 16 612 re f
+1.000 1.000 1.000 rg
+50 74 692 458 re f
+1.20 w
+0.840 0.900 0.990 RG
+50 74 692 458 re S
+0.840 0.900 0.990 rg
+628 486 110 66 re f
+0.060 0.330 0.780 rg
+674 380 64 38 re f
+0.840 0.900 0.990 rg
+78 500 180 24 re f
 BT
-/F1 28 Tf
-0.070 0.140 0.290 rg
-1 0 0 1 74 544 Tm
-(Near-Term Roadmap) Tj
+/F1 11 Tf
+0.050 0.160 0.350 rg
+1 0 0 1 90 507 Tm
+(What comes next) Tj
 ET
 BT
-/F1 15 Tf
-0.220 0.340 0.480 rg
-1 0 0 1 74 510 Tm
-(What comes next) Tj
+/F1 28 Tf
+0.060 0.120 0.250 rg
+1 0 0 1 78 452 Tm
+(Near-Term Roadmap) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 482 Tm
+1 0 0 1 88 410 Tm
 (- Live OpenClaw pilot on the real local setup.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 452 Tm
-(- Safe write MCP tools: `memory.ingest_event` and `memory.record_feedback`.) Tj
+1 0 0 1 88 380 Tm
+(- Safe write MCP tools: `memory.ingest_event` and) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 422 Tm
+1 0 0 1 108 358 Tm
+(`memory.record_feedback`.) Tj
+ET
+BT
+/F1 16 Tf
+0.100 0.130 0.170 rg
+1 0 0 1 88 330 Tm
 (- MCP client smoke tooling for faster integration debugging.) Tj
 ET
 BT
 /F1 16 Tf
 0.100 0.130 0.170 rg
-1 0 0 1 90 392 Tm
+1 0 0 1 88 300 Tm
 (- BunkerAI live integration after the first pilot wave.) Tj
 ET
 BT
 /F1 10 Tf
-0.400 0.460 0.540 rg
-1 0 0 1 54 38 Tm
+0.380 0.440 0.530 rg
+1 0 0 1 54 26 Tm
 (Agent Memory Runtime | Developer Deck | 13/13) Tj
 ET
 
@@ -869,35 +1081,35 @@ xref
 0000000000 65535 f 
 0000000015 00000 n 
 0000000085 00000 n 
-0000001231 00000 n 
-0000002474 00000 n 
-0000003529 00000 n 
-0000004604 00000 n 
-0000005708 00000 n 
-0000006839 00000 n 
-0000007919 00000 n 
-0000008853 00000 n 
-0000009892 00000 n 
-0000011078 00000 n 
-0000012285 00000 n 
-0000013238 00000 n 
-0000014144 00000 n 
-0000014272 00000 n 
-0000014400 00000 n 
-0000014528 00000 n 
-0000014656 00000 n 
-0000014784 00000 n 
-0000014912 00000 n 
-0000015040 00000 n 
-0000015168 00000 n 
-0000015297 00000 n 
-0000015426 00000 n 
-0000015555 00000 n 
-0000015684 00000 n 
-0000015813 00000 n 
-0000015957 00000 n 
+0000001800 00000 n 
+0000003311 00000 n 
+0000004573 00000 n 
+0000005855 00000 n 
+0000007166 00000 n 
+0000008504 00000 n 
+0000009791 00000 n 
+0000010994 00000 n 
+0000012302 00000 n 
+0000013756 00000 n 
+0000015231 00000 n 
+0000016392 00000 n 
+0000017567 00000 n 
+0000017695 00000 n 
+0000017823 00000 n 
+0000017951 00000 n 
+0000018079 00000 n 
+0000018207 00000 n 
+0000018335 00000 n 
+0000018463 00000 n 
+0000018591 00000 n 
+0000018720 00000 n 
+0000018849 00000 n 
+0000018978 00000 n 
+0000019107 00000 n 
+0000019236 00000 n 
+0000019380 00000 n 
 trailer
 << /Size 30 /Root 29 0 R >>
 startxref
-16008
+19431
 %%EOF
