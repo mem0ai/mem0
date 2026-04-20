@@ -1133,9 +1133,10 @@ Definition of Done:
 
 Следующий rollout:
 
-- optional safe write tools (`ingest_event`, `record_feedback`)
+- safe write MCP tools (`memory.ingest_event`, `memory.record_feedback`) под guardrails
 - более глубокие namespace isolation/shared-space edge cases через MCP
 - optional дополнительные транспорты поверх того же thin facade, если это реально потребуется интеграциям
+- маленький MCP client smoke script для быстрого подключения и проверки реального `OpenClaw`
 
 Связанный артефакт:
 

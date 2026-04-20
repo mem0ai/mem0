@@ -428,6 +428,21 @@ MCP server должен быть thin adapter над уже существующ
   - `memory.ingest_event`
   - `memory.record_feedback`
 
+Ограничения для этой фазы:
+
+- `memory.ingest_event` должен маппиться только на уже существующий ingestion path
+- `memory.record_feedback` должен маппиться только на уже существующий recall feedback path
+- safe write tools должны идти под guardrails:
+  - explicit required namespace binding
+  - required agent binding when write is agent-scoped
+  - no direct durable-memory bypass
+  - no lifecycle override
+  - no raw admin mutation
+
+Дополнительный practical step:
+
+- добавить маленький MCP client smoke script, чтобы быстрее проверять подключение реального `OpenClaw` к MCP facade до полноценных live-сценариев
+
 ## 16. Final Recommendation
 
 `MCP` стоит добавлять как post-pilot compatibility layer.

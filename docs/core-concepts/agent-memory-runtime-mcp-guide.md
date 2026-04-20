@@ -507,7 +507,28 @@ curl -s http://localhost:8080/mcp/openclaw/http/alice \
 - `memory.record_feedback`
 - destructive admin operations
 
-## 11. Типовые ошибки
+## 11. Следующие шаги
+
+Следующие согласованные задачи по MCP:
+
+- добавить safe write MCP tools:
+  - `memory.ingest_event`
+  - `memory.record_feedback`
+- ввести для них guardrails:
+  - обязательный namespace scope
+  - обязательный agent scope там, где write agent-scoped
+  - запрет на direct durable-memory bypass
+  - запрет на lifecycle/admin mutation через MCP
+- подготовить маленький MCP client smoke script для быстрого подключения и проверки реального `OpenClaw`
+
+Практический смысл smoke script:
+
+- быстро проверить `initialize`
+- быстро проверить `tools/list`
+- быстро проверить `memory.recall`
+- быстро проверить transport/headers без полного live-сценария
+
+## 12. Типовые ошибки
 
 ### `406`
 
@@ -550,7 +571,7 @@ curl -s http://localhost:8080/mcp/openclaw/http/alice \
 - не найден agent
 - не найден memory unit
 
-## 12. Наблюдаемость
+## 13. Наблюдаемость
 
 Через `/metrics` экспортируются:
 
@@ -566,7 +587,7 @@ curl -s http://localhost:8080/mcp/openclaw/http/alice \
 - оценки интенсивности tool/resource/prompt usage
 - диагностики protocol-level ошибок
 
-## 13. Рекомендуемый flow интеграции
+## 14. Рекомендуемый flow интеграции
 
 Практически для нового MCP-aware клиента я бы рекомендовал такой порядок:
 
@@ -578,7 +599,7 @@ curl -s http://localhost:8080/mcp/openclaw/http/alice \
 6. использовать `memory.search` и `memory.get_memory_unit` для debugging и inspection
 7. использовать resources для read-only context и operator workflows
 
-## 14. Текущий статус
+## 15. Текущий статус
 
 Текущая реализация уже покрыта component tests:
 
