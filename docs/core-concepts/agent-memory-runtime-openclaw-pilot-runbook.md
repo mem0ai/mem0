@@ -218,6 +218,25 @@ make pilot-scenarios
 - прогон можно использовать как pre-pilot gate до live OpenClaw session
 - per-scenario trace bundle сохраняется в `.artifacts/pilot_traces/pilot-scenarios/<run-name>/`
 
+### Negative pilot scenarios
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make pilot-negative-scenarios
+```
+
+Результат:
+
+- автоматизированно прогоняются 3 негативных pre-live сценария
+- JSON report сохраняется в `.artifacts/openclaw_negative_pilot_scenarios_report.json`
+- trace bundle сохраняется в `.artifacts/pilot_traces/pilot-negative-scenarios/<run-name>/`
+
+Что именно проверяется:
+
+- private project context не протекает в shared recall
+- session noise не поднимается в durable memory
+- low-trust instruction-like content не продвигается в long-term memory
+
 ### Recall quality eval report
 
 ```bash

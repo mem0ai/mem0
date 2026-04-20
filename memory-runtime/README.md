@@ -170,6 +170,7 @@ make test-e2e
 make preflight
 make pilot-smoke
 make pilot-scenarios
+make pilot-negative-scenarios
 make quality-eval
 make lifecycle-eval
 make continuity-benchmark
@@ -190,6 +191,8 @@ make reset-pilot
 `make pilot-smoke` дополнительно сохраняет raw trace bundle в `.artifacts/pilot_traces/pilot-smoke/<run-name>/`.
 `make pilot-scenarios` прогоняет 5 наиболее важных OpenClaw pilot scenarios и сохраняет JSON report в `.artifacts/openclaw_pilot_scenarios_report.json`.
 `make pilot-scenarios` дополнительно сохраняет per-scenario trace bundle в `.artifacts/pilot_traces/pilot-scenarios/<run-name>/`.
+`make pilot-negative-scenarios` прогоняет 3 негативных pre-live сценария и сохраняет JSON report в `.artifacts/openclaw_negative_pilot_scenarios_report.json`.
+`make pilot-negative-scenarios` дополнительно сохраняет trace bundle в `.artifacts/pilot_traces/pilot-negative-scenarios/<run-name>/`.
 `make quality-eval` прогоняет 10 golden recall scenarios, печатает JSON report и служит регрессионным барьером для retrieval tuning.
 В quality report теперь есть не только `pass/fail`, но и `required_hit_rate`, `forbidden_leak_rate`, `avg_selected_count` и `mean_scenario_score`.
 `make lifecycle-eval` прогоняет lifecycle scenarios для `decay/archive/evict/no-op` и печатает отдельный quality report по memory lifecycle.

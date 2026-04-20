@@ -868,6 +868,25 @@ Definition of Done:
 - live pilot scenarios теперь частично автоматизированы и не зависят только от ручного walkthrough
 - raw trace bundles теперь сохраняются отдельно от summary report и могут быть использованы для post-pilot forensic разборов
 
+### Negative Pilot Scenario Gate
+
+До живого pilot в проект добавлен отдельный negative scenario gate:
+
+- отдельный runner `make pilot-negative-scenarios`
+- автоматизированы `private-boundary`, `session-noise-not-promoted`, `low-trust-not-promoted`
+- machine-readable report сохраняется в `.artifacts/openclaw_negative_pilot_scenarios_report.json`
+- trace bundle сохраняется отдельно в `.artifacts/pilot_traces/pilot-negative-scenarios/<run-name>/`
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- негативные product regressions теперь ловятся до live walkthrough, а не только после него
+- boundary leaks и memory poisoning regressions проверяются отдельным gate, а не “случайно” внутри позитивных сценариев
+- pre-live contour теперь смотрит не только на полезный recall, но и на отсутствие нежелательного recall/promote поведения
+
 ### Unified Preflight Check
 
 До живого pilot в проект добавлен единый preflight gate:
