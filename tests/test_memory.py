@@ -760,6 +760,38 @@ class TestProcessMetadataFiltersMerge:
             "score": {"gt": 0.5, "lt": 0.9},
         }
 
+    def test_and_same_key_different_operators_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with same key in separate conditions must merge operators (issue #4850)."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gt": 10}}, {"price": {"lt": 20}}]
+        })
+        assert result == {"price": {"gt": 10, "lt": 20}}
+
+    def test_and_same_key_three_operators_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with three conditions on the same key must merge all operators."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gte": 5}}, {"price": {"lte": 100}}, {"price": {"ne": 50}}]
+        })
+        assert result == {"price": {"gte": 5, "lte": 100, "ne": 50}}
+
+    def test_and_mixed_keys_with_same_key_overlap(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with a mix of same-key and different-key conditions."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gt": 10}}, {"category": "electronics"}, {"price": {"lt": 20}}]
+        })
+        assert result == {"price": {"gt": 10, "lt": 20}, "category": "electronics"}
+
+    def test_and_simple_equality_no_merge(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with simple equality values on the same key — last value wins."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"status": "active"}, {"status": "pending"}]
+        })
+        assert result == {"status": "pending"}
+
 
 # --- Issue #3040: reset() should clean up graph database ---
 
