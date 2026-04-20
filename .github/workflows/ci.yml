@@ -14,8 +14,48 @@ on:
       - 'mem0/**'
       - 'tests/**'
       - 'embedchain/**'
+      - 'pyproject.toml'
 
 jobs:
+  changelog_check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require CHANGELOG entry when Python SDK version changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          extract_version() {
+            python3 -c "import sys, re; m = re.search(r'^\s*version\s*=\s*\"([^\"]+)\"', sys.stdin.read(), re.M); print(m.group(1) if m else '')"
+          }
+
+          base_version=$(git show "$BASE_SHA:pyproject.toml" 2>/dev/null | extract_version || echo "")
+          head_version=$(extract_version < pyproject.toml)
+
+          echo "Base version: ${base_version:-<unknown>}"
+          echo "Head version: $head_version"
+
+          if [ -z "$base_version" ] || [ "$base_version" = "$head_version" ]; then
+            echo "pyproject.toml version unchanged — no CHANGELOG entry required."
+            exit 0
+          fi
+
+          echo "Detected version bump ${base_version} -> ${head_version}. Checking docs/changelog/sdk.mdx…"
+
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- docs/changelog/sdk.mdx | grep -q .; then
+            echo "Changelog update present in docs/changelog/sdk.mdx ✅"
+          else
+            echo "::error file=pyproject.toml::pyproject.toml version changed from ${base_version} to ${head_version} but docs/changelog/sdk.mdx was not updated in this PR. Add a new <Update> entry under the Python tab for v${head_version}."
+            exit 1
+          fi
+
   check_changes:
     runs-on: ubuntu-latest
     outputs:
