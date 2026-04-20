@@ -28,6 +28,7 @@ import type {
 import { createProvider, providerToBackend } from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
 import type { FileConfig } from "./config.ts";
+import { createPublicArtifactsProvider } from "./public-artifacts.ts";
 import { filterMessagesForExtraction } from "./filtering.ts";
 import {
   effectiveUserId,
@@ -53,13 +54,14 @@ import {
 import { PlatformBackend } from "./backend/platform.ts";
 import type { Backend } from "./backend/base.ts";
 import { registerCliCommands } from "./cli/commands.ts";
-import { readPluginAuth } from "./cli/config-file.ts";
+import { readPluginAuth, ensureInstallRecord } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
 import { bootstrapTelemetryFlag } from "./fs-safe.ts";
 
 bootstrapTelemetryFlag();
+ensureInstallRecord();
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
@@ -76,6 +78,7 @@ export {
 export {
   isNoiseMessage,
   isGenericAssistantMessage,
+  isSessionSpecificContent,
   stripNoiseFromContent,
   filterMessagesForExtraction,
 } from "./filtering.ts";
@@ -191,24 +194,43 @@ const memoryPlugin = definePluginEntry({
       `openclaw-mem0: registered (mode: ${cfg.mode}, user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, skills: ${skillsActive})`,
     );
 
+    // ========================================================================
+    // Public Artifacts (for memory-wiki bridge mode)
+    // ========================================================================
+    if (typeof api.registerMemoryCapability === "function") {
+      api.registerMemoryCapability({
+        publicArtifacts: createPublicArtifactsProvider({
+          provider,
+          cfg,
+          get stateDir() {
+            return pluginStateDir;
+          },
+          effectiveUserId: _effectiveUserId,
+        }),
+      });
+      api.logger.debug("openclaw-mem0: publicArtifacts capability registered");
+    }
+
     // Helper: build add options
     function buildAddOptions(
       userIdOverride?: string,
       runId?: string,
       sessionKey?: string,
     ): AddOptions {
+      // v3.0.0: removed output_format, customPrompt renamed to customInstructions
       const opts: AddOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
         source: "OPENCLAW",
       };
       if (runId) opts.run_id = runId;
-      if (cfg.mode === "platform") {
-        opts.output_format = "v1.1";
-      }
+      // Pass customInstructions and customCategories to control what Mem0 extracts
+      if (cfg.customInstructions) opts.custom_instructions = cfg.customInstructions;
+      if (cfg.customCategories) opts.custom_categories = cfg.customCategories;
       return opts;
     }
 
     // Helper: build search options (skills config overrides legacy defaults)
+    // v3.0.0: removed keyword_search, reranking, filter_memories, limit
     function buildSearchOptions(
       userIdOverride?: string,
       limit?: number,
@@ -219,13 +241,9 @@ const memoryPlugin = definePluginEntry({
       const opts: SearchOptions = {
         user_id: userIdOverride || _effectiveUserId(sessionKey),
         top_k: limit ?? cfg.topK,
-        limit: limit ?? cfg.topK,
         threshold: recallCfg?.threshold ?? cfg.searchThreshold,
-        keyword_search: recallCfg?.keywordSearch !== false,
-        reranking: recallCfg?.rerank !== false,
         source: "OPENCLAW",
       };
-      if (recallCfg?.filterMemories) opts.filter_memories = true;
       if (runId) opts.run_id = runId;
       return opts;
     }
@@ -950,7 +968,7 @@ function registerHooks(
         content: `Current date: ${timestamp}. The user is identified as "${cfg.userId}". Extract durable facts from this conversation. Include this date when storing time-sensitive information.`,
       });
 
-      const addOpts = buildAddOptions(undefined, sessionId, sessionId);
+      const addOpts = buildAddOptions(undefined, undefined, sessionId);
       const captureStart = Date.now();
       provider
         .add(formattedMessages, addOpts)

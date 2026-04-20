@@ -16,7 +16,7 @@ export function createMemorySearchTool(deps: ToolDeps) {
       agentId: Type.Optional(Type.String({ description: "Agent ID to search a specific agent's memories" })),
       scope: Type.Optional(
         Type.Union([Type.Literal("session"), Type.Literal("long-term"), Type.Literal("all")], {
-          description: 'Scope: "long-term" (default), "session", or "all"',
+          description: 'Scope: "all" (default), "session", or "long-term"',
         }),
       ),
       categories: Type.Optional(Type.Array(Type.String(), { description: "Filter by category" })),
@@ -25,7 +25,7 @@ export function createMemorySearchTool(deps: ToolDeps) {
 
     async execute(_toolCallId: string, params: Record<string, unknown>) {
       const {
-        query, limit, userId, agentId, scope = "long-term",
+        query, limit, userId, agentId, scope = "all",
         categories: filterCategories, filters: agentFilters,
       } = params as {
         query: string; limit?: number; userId?: string; agentId?: string;
