@@ -286,6 +286,33 @@ cd /Users/slava/Documents/mem0-src/memory-runtime
 make show-pilot-snapshots
 ```
 
+### Посмотреть последние memory units
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make inspect-memories ARGS="--namespace-id <namespace-id> --agent-id <agent-id> --limit 10"
+```
+
+### Посмотреть archived / superseded memory units
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make inspect-memory-lifecycle ARGS="--namespace-id <namespace-id> --agent-id <agent-id> --limit 10"
+```
+
+### Объяснить recall по живому query
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make explain-recall ARGS="--namespace-id <namespace-id> --agent-id <agent-id> --session-id debug-live --query 'What should be recalled right now?'"
+```
+
+Результат:
+
+- видно не только `brief`, но и `selection_explanations`
+- можно быстро понять, какой `slot` был заполнен
+- видно `decisive_signal` и human-readable `why`
+
 ## Если что-то пошло не так
 
 Сначала проверить:
@@ -296,6 +323,7 @@ make show-pilot-snapshots
 - что worker действительно запущен
 - что события создают jobs
 - если нужно воспроизвести failure на том же состоянии, восстановить последний подходящий snapshot
+- если recall выглядит странно, прогнать `make inspect-memories` и `make explain-recall`
 - что jobs переходят в `completed`, а не в `failed`
 
 Типовые причины проблем:

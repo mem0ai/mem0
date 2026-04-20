@@ -18,6 +18,9 @@
 cd /Users/slava/Documents/mem0-src/memory-runtime
 make show-last-smoke
 make show-last-quality-eval
+make inspect-memories ARGS="--namespace-id <ns> --agent-id <agent> --limit 10"
+make inspect-memory-lifecycle ARGS="--namespace-id <ns> --agent-id <agent> --limit 10"
+make explain-recall ARGS="--namespace-id <ns> --agent-id <agent> --session-id debug-live --query 'What should be recalled?'"
 make reset-pilot
 ```
 
@@ -63,6 +66,7 @@ make reset-pilot
 - `trace.selected_space_types`
 - `trace.selected_episode_ids`
 - `GET /v1/adapters/openclaw/memories`
+- `make explain-recall ...`
 
 Частые причины:
 
@@ -78,6 +82,7 @@ make reset-pilot
 - `make show-last-quality-eval`
 - `MemoryBrief` и `trace`
 - long-term `list/search`
+- `make inspect-memories ...`
 
 Частые причины:
 
@@ -91,6 +96,7 @@ make reset-pilot
 
 - `GET /v1/adapters/openclaw/memories`
 - audit actions по `memory_unit_superseded`
+- `make inspect-memory-lifecycle ...`
 
 Частые причины:
 

@@ -945,6 +945,25 @@ Definition of Done:
 - при live debugging можно отличить `procedural_policy`, `integration_context`, `active_session`, `project_infrastructure` и другие сигналы
 - explainability не требует ручного разбора ranking кода во время пилота
 
+### Memory Inspection Helpers
+
+До живого pilot добавлены operator-friendly inspection helpers:
+
+- `make inspect-memories ARGS="..."`
+- `make inspect-memory-lifecycle ARGS="..."`
+- `make explain-recall ARGS="..."`
+- memory inspection идет напрямую по `memory_units`, а recall explain helper использует тот же adapter path, что и живой `OpenClaw`
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- operator может быстро посмотреть active, archived и superseded memories без ручного SQL
+- recall debug больше не требует руками разбирать полный JSON response или trace bundle
+- live triage для memory miss / memory leak / contradiction scenarios заметно ускорен
+
 ### Brief Compactness Baseline
 
 До живого pilot в проект добавлен golden compactness regression test:

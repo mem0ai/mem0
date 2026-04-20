@@ -1,4 +1,4 @@
-.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e preflight pilot-smoke pilot-scenarios quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot snapshot-pilot restore-pilot show-pilot-snapshots show-last-smoke show-last-quality-eval
+.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e preflight pilot-smoke pilot-scenarios quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot snapshot-pilot restore-pilot show-pilot-snapshots inspect-memories inspect-memory-lifecycle explain-recall show-last-smoke show-last-quality-eval
 
 PYTHON ?= python3
 PORT ?= 8080
@@ -53,6 +53,15 @@ restore-pilot:
 
 show-pilot-snapshots:
 	bash scripts/show_pilot_snapshots.sh
+
+inspect-memories:
+	bash scripts/inspect_memories.sh $(ARGS)
+
+inspect-memory-lifecycle:
+	bash scripts/inspect_memory_lifecycle.sh $(ARGS)
+
+explain-recall:
+	bash scripts/explain_recall.sh $(ARGS)
 
 show-last-smoke:
 	bash scripts/show_last_report.sh smoke

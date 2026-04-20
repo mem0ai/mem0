@@ -177,6 +177,9 @@ make compare-eval BEFORE=/path/to/before.json AFTER=/path/to/after.json
 make snapshot-pilot NAME=before-live
 make restore-pilot SNAPSHOT=before-live
 make show-pilot-snapshots
+make inspect-memories ARGS="--namespace-id <ns> --agent-id <agent> --limit 10"
+make inspect-memory-lifecycle ARGS="--namespace-id <ns> --agent-id <agent> --limit 10"
+make explain-recall ARGS="--namespace-id <ns> --agent-id <agent> --session-id live-debug --query 'What should be recalled?'"
 make show-last-smoke
 make show-last-quality-eval
 make reset-pilot
@@ -196,6 +199,9 @@ Adversarial eval suite теперь покрывает instruction override, pro
 `make snapshot-pilot NAME=...` сохраняет SQL dump pilot-базы, observability snapshot и текущие pilot reports в `.artifacts/pilot_snapshots/<name>/`.
 `make restore-pilot SNAPSHOT=...` восстанавливает snapshot обратно в compose Postgres и возвращает связанные pilot reports в `.artifacts/`.
 `make show-pilot-snapshots` показывает доступные snapshots и их manifest metadata.
+`make inspect-memories ARGS="..."` печатает последние `memory_units` с key debugging полями прямо из БД.
+`make inspect-memory-lifecycle ARGS="..."` печатает archived/superseded memory units для разбора forgetting и contradiction flows.
+`make explain-recall ARGS="..."` запускает recall и печатает `selection_explanations` с `slot`, `decisive_signal` и `why`.
 `make show-last-smoke` и `make show-last-quality-eval` показывают последние сохраненные pilot reports.
 Trace bundles теперь включают raw recall payloads, observability snapshots и per-scenario manifests, чтобы live-debugging не зависел только от итогового summary report.
 `make reset-pilot` сбрасывает compose stack, pilot reports и локальный pilot state для чистого повторного прогона, но не удаляет сохраненные snapshots.
