@@ -6,8 +6,6 @@ from typing import List, Optional, Union
 
 import httpx
 
-import mem0
-
 try:
     import litellm
 except ImportError:
