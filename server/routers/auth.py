@@ -42,6 +42,19 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class UpdateProfileRequest(BaseModel):
+    name: str | None = None
+    email: EmailStr | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+MIN_PASSWORD_LENGTH = 8
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -129,6 +142,46 @@ def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def me(user: User = Depends(require_auth)):
     return user
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_me(
+    body: UpdateProfileRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    if body.name is not None and body.name.strip():
+        user.name = body.name.strip()
+
+    if body.email is not None and body.email != user.email:
+        collision = db.scalar(select(User).where(User.email == body.email, User.id != user.id))
+        if collision is not None:
+            raise HTTPException(status_code=409, detail="Email is already in use.")
+        user.email = body.email
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/change-password", response_model=MessageResponse)
+def change_password(
+    body: ChangePasswordRequest,
+    user: User = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect.")
+
+    if len(body.new_password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"New password must be at least {MIN_PASSWORD_LENGTH} characters.",
+        )
+
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return MessageResponse(message="Password updated.")
 
 
 @router.post("/onboarding-complete", response_model=MessageResponse)
