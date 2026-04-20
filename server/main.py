@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
-from auth import ADMIN_API_KEY, AUTH_DISABLED, verify_auth
+from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
 from db import SessionLocal
 from models import RequestLog, User
 import telemetry
@@ -63,6 +63,12 @@ def _warn_if_unconfigured() -> None:
         "=" * 72,
     )
 
+
+if not AUTH_DISABLED and not JWT_SECRET:
+    raise RuntimeError(
+        "JWT_SECRET is required. Set it in .env (generate with `openssl rand -base64 48`) "
+        "or set AUTH_DISABLED=true for local development only."
+    )
 
 if AUTH_DISABLED:
     logging.warning("AUTH_DISABLED is enabled. Protected endpoints are open for local development only.")

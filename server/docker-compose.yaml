@@ -25,7 +25,7 @@ services:
       - PYTHONPATH=
       - DASHBOARD_URL=http://localhost:3000
       - APP_DB_NAME=mem0_app
-      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-random-secret}
+      - JWT_SECRET=${JWT_SECRET}
       - AUTH_DISABLED=${AUTH_DISABLED:-false}
       - MEM0_TELEMETRY=${MEM0_TELEMETRY:-true}
 
