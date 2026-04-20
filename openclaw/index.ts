@@ -54,13 +54,14 @@ import {
 import { PlatformBackend } from "./backend/platform.ts";
 import type { Backend } from "./backend/base.ts";
 import { registerCliCommands } from "./cli/commands.ts";
-import { readPluginAuth } from "./cli/config-file.ts";
+import { readPluginAuth, ensureInstallRecord } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
 import { bootstrapTelemetryFlag } from "./fs-safe.ts";
 
 bootstrapTelemetryFlag();
+ensureInstallRecord();
 
 // ============================================================================
 // Re-exports (for tests and external consumers)

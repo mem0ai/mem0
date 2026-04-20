@@ -48,6 +48,9 @@
     "build": {
       "openclawVersion": "2026.4.1",
       "pluginSdkVersion": "2026.4.1"
+    },
+    "install": {
+      "npmSpec": "@mem0/openclaw-mem0"
     }
   },
   "devDependencies": {
