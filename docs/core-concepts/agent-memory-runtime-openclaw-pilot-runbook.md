@@ -15,6 +15,7 @@
 - [Pilot Result Template](./agent-memory-runtime-openclaw-pilot-result-template.md)
 - [Finding Template](./agent-memory-runtime-openclaw-finding-template.md)
 - [Post-Pilot Backlog Template](./agent-memory-runtime-openclaw-post-pilot-backlog-template.md)
+- [Live Scorecard Template](./agent-memory-runtime-openclaw-live-scorecard-template.md)
 
 ## Цель пилота
 
@@ -237,6 +238,20 @@ make pilot-negative-scenarios
 - session noise не поднимается в durable memory
 - low-trust instruction-like content не продвигается в long-term memory
 
+### Подсчитать live pilot scorecard
+
+```bash
+cd /Users/slava/Documents/mem0-src/memory-runtime
+make pilot-scorecard INPUT=/path/to/live_scorecard.json
+```
+
+Результат:
+
+- считается `required_hit_rate`
+- считается `leak_free_rate`
+- считается `continuity_success_rate`
+- выводится `overall_score` и итоговый verdict `pass | attention | fail`
+
 ### Recall quality eval report
 
 ```bash
@@ -363,3 +378,4 @@ make explain-recall ARGS="--namespace-id <namespace-id> --agent-id <agent-id> --
 - [Pilot Result Template](./agent-memory-runtime-openclaw-pilot-result-template.md)
 - [Finding Template](./agent-memory-runtime-openclaw-finding-template.md) для каждого значимого сбоя или неожиданного поведения
 - [Post-Pilot Backlog Template](./agent-memory-runtime-openclaw-post-pilot-backlog-template.md) для перевода findings в рабочий план
+- [Live Scorecard Template](./agent-memory-runtime-openclaw-live-scorecard-template.md) для сопоставимой оценки качества между прогонами

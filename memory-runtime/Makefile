@@ -1,4 +1,4 @@
-.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e preflight pilot-smoke pilot-scenarios pilot-negative-scenarios quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot snapshot-pilot restore-pilot show-pilot-snapshots inspect-memories inspect-memory-lifecycle explain-recall show-last-smoke show-last-quality-eval
+.PHONY: install-dev run run-worker run-worker-once test test-unittest lint format smoke test-e2e preflight pilot-smoke pilot-scenarios pilot-negative-scenarios pilot-scorecard quality-eval lifecycle-eval continuity-benchmark compare-eval reset-pilot snapshot-pilot restore-pilot show-pilot-snapshots inspect-memories inspect-memory-lifecycle explain-recall show-last-smoke show-last-quality-eval
 
 PYTHON ?= python3
 PORT ?= 8080
@@ -32,6 +32,9 @@ pilot-scenarios:
 
 pilot-negative-scenarios:
 	bash scripts/openclaw_negative_pilot_scenarios.sh
+
+pilot-scorecard:
+	bash scripts/score_pilot_run.sh "$(INPUT)"
 
 quality-eval:
 	bash scripts/openclaw_quality_eval.sh

@@ -887,6 +887,25 @@ Definition of Done:
 - boundary leaks и memory poisoning regressions проверяются отдельным gate, а не “случайно” внутри позитивных сценариев
 - pre-live contour теперь смотрит не только на полезный recall, но и на отсутствие нежелательного recall/promote поведения
 
+### Live Pilot Scorecard
+
+До живого pilot добавлен стандартизированный scorecard:
+
+- шаблон [agent-memory-runtime-openclaw-live-scorecard-template.md](/Users/slava/Documents/mem0-src/docs/core-concepts/agent-memory-runtime-openclaw-live-scorecard-template.md)
+- отдельный runner `make pilot-scorecard INPUT=...`
+- summary helper считает `required_hit_rate`, `leak_free_rate`, `continuity_success_rate`, `avg_usefulness`, `avg_compactness`
+- helper выдает общий `overall_score` и verdict `pass | attention | fail`
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- live pilot можно оценивать сопоставимо от прогона к прогону, а не только по свободным заметкам
+- один и тот же scorecard подходит и для первого live walkthrough, и для последующих regression re-runs
+- после пилота backlog можно приоритизировать уже не только по “ощущению боли”, но и по реальным score drops
+
 ### Unified Preflight Check
 
 До живого pilot в проект добавлен единый preflight gate:
