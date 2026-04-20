@@ -978,6 +978,27 @@ Definition of Done:
 - BunkerAI/OpenClaw видят shared memory и свои private project notes, но не чужой private project context
 - shared-memory regressions теперь ловятся до live pilot
 
+### Long-Horizon Memory Evolution Baseline
+
+До живого pilot в проект добавлен test layer на эволюцию памяти в нескольких циклах:
+
+- repeated ingestion + consolidation
+- semantic merge
+- contradiction supersede
+- session memory archive после aging
+- финальное состояние durable/session memory проверяется как целостный lifecycle
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- repeated durable memories схлопываются через merge там, где это ожидается
+- contradictory memories переводят старое знание в `superseded`, а новое оставляют `active`
+- временная session memory архивируется после aging
+- regressions в long-horizon memory hygiene теперь ловятся отдельным тестом
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:
