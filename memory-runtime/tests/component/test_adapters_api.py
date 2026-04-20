@@ -205,6 +205,151 @@ class AdaptersApiTests(unittest.TestCase):
         self.assertNotIn("bulletless status format", flattened_brief)
         self.assertIn("shared-space", payload["trace"]["selected_space_types"])
 
+    def test_shared_namespace_recall_excludes_other_agents_private_project_context(self) -> None:
+        self.client.post(
+            "/v1/adapters/openclaw/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "session_id": "run_oc_private_project",
+                "event_type": "conversation_turn",
+                "space_hint": "project-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "OpenClaw private rollout note: use planner-only canary labels for the deployment.",
+                    }
+                ],
+            },
+        )
+        self.client.post(
+            "/v1/adapters/openclaw/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "session_id": "run_oc_shared_project",
+                "event_type": "architecture_decision",
+                "space_hint": "shared-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "Shared deployment stack for the memory runtime uses Postgres and Redis.",
+                    }
+                ],
+            },
+        )
+        self.client.post(
+            "/v1/adapters/bunkerai/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.bunkerai_agent_id,
+                "session_id": "run_ba_private_project",
+                "event_type": "conversation_turn",
+                "space_hint": "project-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "BunkerAI private task note: maintain the research checklist for the shared deployment.",
+                    }
+                ],
+            },
+        )
+
+        response = self.client.post(
+            "/v1/adapters/bunkerai/recall",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.bunkerai_agent_id,
+                "session_id": "run_ba_recall_private",
+                "query": "What deployment context should BunkerAI remember for this runtime?",
+                "context_budget_tokens": 900,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        flattened_brief = " ".join(item for section in payload["brief"].values() for item in section)
+
+        self.assertIn("Shared deployment stack for the memory runtime uses Postgres and Redis", flattened_brief)
+        self.assertIn("BunkerAI private task note", flattened_brief)
+        self.assertNotIn("planner-only canary labels", flattened_brief)
+
+    def test_shared_namespace_search_and_list_keep_private_project_boundaries(self) -> None:
+        self.client.post(
+            "/v1/adapters/openclaw/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "event_type": "conversation_turn",
+                "space_hint": "project-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "OpenClaw private migration note: keep the planner-only rollout journal in the private workspace.",
+                    }
+                ],
+            },
+        )
+        self.client.post(
+            "/v1/adapters/openclaw/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "event_type": "architecture_decision",
+                "space_hint": "shared-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "Shared runtime note: the memory runtime cluster uses Postgres, Redis, and pgvector.",
+                    }
+                ],
+            },
+        )
+        self.client.post(
+            "/v1/adapters/bunkerai/events",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.bunkerai_agent_id,
+                "event_type": "conversation_turn",
+                "space_hint": "project-space",
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": "BunkerAI private project note: keep the research timeline aligned with the shared runtime milestone.",
+                    }
+                ],
+            },
+        )
+
+        processed = WorkerRunner.run_pending_jobs()
+        self.assertGreaterEqual(processed, 3)
+
+        listed = self.client.get(
+            f"/v1/adapters/openclaw/memories?namespace_id={self.namespace_id}&agent_id={self.openclaw_agent_id}"
+        )
+        self.assertEqual(listed.status_code, 200)
+        listed_memories = [item["memory"] for item in listed.json()["results"]]
+
+        self.assertTrue(any("Shared runtime note" in item for item in listed_memories))
+        self.assertTrue(any("planner-only rollout journal" in item for item in listed_memories))
+        self.assertFalse(any("BunkerAI private project note" in item for item in listed_memories))
+
+        search = self.client.post(
+            "/v1/adapters/openclaw/search",
+            json={
+                "namespace_id": self.namespace_id,
+                "agent_id": self.openclaw_agent_id,
+                "query": "What runtime and project notes should OpenClaw keep in mind?",
+                "limit": 10,
+            },
+        )
+        self.assertEqual(search.status_code, 200)
+        search_memories = [item["memory"] for item in search.json()["results"]]
+
+        self.assertTrue(any("Shared runtime note" in item for item in search_memories))
+        self.assertTrue(any("planner-only rollout journal" in item for item in search_memories))
+        self.assertFalse(any("BunkerAI private project note" in item for item in search_memories))
+
     def test_openclaw_search_list_get_and_delete_memory_contract(self) -> None:
         event = self.client.post(
             "/v1/adapters/openclaw/events",

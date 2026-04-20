@@ -960,6 +960,24 @@ Definition of Done:
 - `/v1/observability/stats` корректно показывает stalled-running state в деградированном сценарии
 - failure-mode regressions теперь ловятся до live OpenClaw pilot
 
+### Shared-Memory Edge-Case Baseline
+
+До живого pilot в проект добавлены edge-case tests для shared memory boundaries:
+
+- recall теперь отдельно проверяется на отсутствие leakage чужого `project-space`
+- long-term `search/list` отдельно проверяются на сохранение private project boundaries
+- mixed scenarios с `shared-space + project-space` теперь покрыты на adapter layer
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- `agent-core` и чужой private `project-space` не протекают через shared namespace recall
+- BunkerAI/OpenClaw видят shared memory и свои private project notes, но не чужой private project context
+- shared-memory regressions теперь ловятся до live pilot
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:
