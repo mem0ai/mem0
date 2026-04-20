@@ -1,6 +1,8 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -35,17 +37,22 @@ class PilotSmokeTests(unittest.TestCase):
         reset_database_caches()
 
     def test_run_pilot_smoke_returns_successful_report(self) -> None:
-        report = run_pilot_smoke(
-            self.client,
-            namespace_suffix="component-test",
-            poll_seconds=0.0,
-            max_wait_seconds=0.1,
-            job_drainer=WorkerRunner.run_pending_jobs,
-        )
+        artifact_root = Path(self.temp_dir.name) / "pilot_traces"
+        with patch("app.pilot_artifacts.ARTIFACT_ROOT", artifact_root):
+            report = run_pilot_smoke(
+                self.client,
+                namespace_suffix="component-test",
+                artifact_run_name="component-test",
+                poll_seconds=0.0,
+                max_wait_seconds=0.1,
+                job_drainer=WorkerRunner.run_pending_jobs,
+            )
 
         self.assertTrue(report["namespace_id"])
         self.assertTrue(report["agent_id"])
+        self.assertTrue(report["artifact_dir"])
         self.assertTrue(any("dedicated memory worker" in item for item in report["recall_prior_decisions"]))
         self.assertTrue(any("acceptance checklist" in item for item in report["session_search_results"]))
         self.assertEqual(report["jobs_by_status"]["pending"], 0)
         self.assertGreaterEqual(report["jobs_by_status"]["completed"], 2)
+        self.assertTrue((artifact_root / "pilot-smoke" / "component-test" / "manifest.json").exists())

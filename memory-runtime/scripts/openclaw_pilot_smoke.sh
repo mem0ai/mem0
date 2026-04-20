@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPORT_DIR="$ROOT_DIR/.artifacts"
 REPORT_PATH="$REPORT_DIR/openclaw_pilot_smoke_report.json"
+RUN_NAME="manual-$(date +%Y%m%d-%H%M%S)"
 
 mkdir -p "$REPORT_DIR"
 
@@ -21,7 +22,7 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 
-docker compose exec -T memory-api python -m app.pilot_smoke --base-url http://127.0.0.1:8080 > "$REPORT_PATH"
+docker compose exec -T memory-api python -m app.pilot_smoke --base-url http://127.0.0.1:8080 --artifact-run-name "$RUN_NAME" > "$REPORT_PATH"
 
 jq -e '
   (.recall_prior_decisions | map(contains("dedicated memory worker")) | any) and

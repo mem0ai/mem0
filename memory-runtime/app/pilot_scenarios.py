@@ -8,6 +8,8 @@ from uuid import uuid4
 
 import httpx
 
+from app.pilot_artifacts import default_artifact_run_name, export_trace_bundle
+
 
 def _wait_for_jobs(
     client,
@@ -393,6 +395,7 @@ def run_pilot_scenarios(
     client,
     *,
     namespace_suffix: str | None = None,
+    artifact_run_name: str | None = None,
     job_drainer: Callable[[], int] | None = None,
     poll_seconds: float = 0.5,
     max_wait_seconds: float = 10.0,
@@ -423,10 +426,16 @@ def run_pilot_scenarios(
             passed += 1
 
     total = len(results)
+    artifact_dir = export_trace_bundle(
+        category="pilot-scenarios",
+        run_name=artifact_run_name or default_artifact_run_name("pilot-scenarios"),
+        payloads={str(result["id"]): result for result in results},
+    )
     return {
         "total": total,
         "passed": passed,
         "failed": total - passed,
+        "artifact_dir": str(artifact_dir),
         "pass_rate": round((passed / total) if total else 1.0, 4),
         "metrics": {
             "avg_selected_count": round((total_selected / total) if total else 0.0, 4),
@@ -439,6 +448,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the OpenClaw pilot scenario subset.")
     parser.add_argument("--base-url", default="http://127.0.0.1:8080")
     parser.add_argument("--namespace-suffix", default=None)
+    parser.add_argument("--artifact-run-name", default=None)
     parser.add_argument("--poll-seconds", type=float, default=0.5)
     parser.add_argument("--max-wait-seconds", type=float, default=10.0)
     args = parser.parse_args(argv)
@@ -447,6 +457,7 @@ def main(argv: list[str] | None = None) -> int:
         report = run_pilot_scenarios(
             client,
             namespace_suffix=args.namespace_suffix,
+            artifact_run_name=args.artifact_run_name,
             poll_seconds=args.poll_seconds,
             max_wait_seconds=args.max_wait_seconds,
         )

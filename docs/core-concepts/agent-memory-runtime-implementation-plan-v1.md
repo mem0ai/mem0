@@ -866,6 +866,7 @@ Definition of Done:
 - pilot subset проходит green на synthetic contour
 - каждая проверка сохраняет trace и jobs snapshot для быстрого разбора failure
 - live pilot scenarios теперь частично автоматизированы и не зависят только от ручного walkthrough
+- raw trace bundles теперь сохраняются отдельно от summary report и могут быть использованы для post-pilot forensic разборов
 
 ### Unified Preflight Check
 

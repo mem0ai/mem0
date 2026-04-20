@@ -184,7 +184,9 @@ make reset-pilot
 
 `make preflight` прогоняет единый runtime preflight check и сохраняет JSON report в `.artifacts/openclaw_preflight_report.json`.
 `make pilot-smoke` поднимает Docker stack, прогоняет synthetic OpenClaw pilot contour и сохраняет JSON report в `.artifacts/openclaw_pilot_smoke_report.json`.
+`make pilot-smoke` дополнительно сохраняет raw trace bundle в `.artifacts/pilot_traces/pilot-smoke/<run-name>/`.
 `make pilot-scenarios` прогоняет 5 наиболее важных OpenClaw pilot scenarios и сохраняет JSON report в `.artifacts/openclaw_pilot_scenarios_report.json`.
+`make pilot-scenarios` дополнительно сохраняет per-scenario trace bundle в `.artifacts/pilot_traces/pilot-scenarios/<run-name>/`.
 `make quality-eval` прогоняет 10 golden recall scenarios, печатает JSON report и служит регрессионным барьером для retrieval tuning.
 В quality report теперь есть не только `pass/fail`, но и `required_hit_rate`, `forbidden_leak_rate`, `avg_selected_count` и `mean_scenario_score`.
 `make lifecycle-eval` прогоняет lifecycle scenarios для `decay/archive/evict/no-op` и печатает отдельный quality report по memory lifecycle.
@@ -195,6 +197,7 @@ Adversarial eval suite теперь покрывает instruction override, pro
 `make restore-pilot SNAPSHOT=...` восстанавливает snapshot обратно в compose Postgres и возвращает связанные pilot reports в `.artifacts/`.
 `make show-pilot-snapshots` показывает доступные snapshots и их manifest metadata.
 `make show-last-smoke` и `make show-last-quality-eval` показывают последние сохраненные pilot reports.
+Trace bundles теперь включают raw recall payloads, observability snapshots и per-scenario manifests, чтобы live-debugging не зависел только от итогового summary report.
 `make reset-pilot` сбрасывает compose stack, pilot reports и локальный pilot state для чистого повторного прогона, но не удаляет сохраненные snapshots.
 
 Миграции:

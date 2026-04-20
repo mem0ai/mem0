@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -23,21 +25,27 @@ def test_pilot_scenario_subset() -> None:
         Base.metadata.create_all(bind=get_engine())
 
         client = TestClient(create_app())
-        report = run_pilot_scenarios(
-            client,
-            namespace_suffix="pytest",
-            job_drainer=lambda: WorkerRunner.run_pending_jobs(),
-            poll_seconds=0.0,
-            max_wait_seconds=0.1,
-        )
+        artifact_root = Path(temp_dir) / "pilot_traces"
+        with patch("app.pilot_artifacts.ARTIFACT_ROOT", artifact_root):
+            report = run_pilot_scenarios(
+                client,
+                namespace_suffix="pytest",
+                artifact_run_name="pytest-scenarios",
+                job_drainer=lambda: WorkerRunner.run_pending_jobs(),
+                poll_seconds=0.0,
+                max_wait_seconds=0.1,
+            )
 
         assert report["total"] == 5
         assert report["passed"] == 5
         assert report["failed"] == 0
+        assert report["artifact_dir"]
         assert report["metrics"]["avg_selected_count"] > 0
 
         for result in report["results"]:
             assert result["passed"] is True
+
+        assert (artifact_root / "pilot-scenarios" / "pytest-scenarios" / "manifest.json").exists()
 
         for key in (
             "MEMORY_RUNTIME_POSTGRES_DSN",

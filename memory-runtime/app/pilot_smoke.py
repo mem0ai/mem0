@@ -8,11 +8,14 @@ from uuid import uuid4
 
 import httpx
 
+from app.pilot_artifacts import default_artifact_run_name, export_trace_bundle
+
 
 def run_pilot_smoke(
     client,
     *,
     namespace_suffix: str | None = None,
+    artifact_run_name: str | None = None,
     poll_seconds: float = 0.5,
     max_wait_seconds: float = 10.0,
     job_drainer: Callable[[], int] | None = None,
@@ -115,10 +118,22 @@ def run_pilot_smoke(
     recall_payload = recall.json()
     search_payload = search.json()
     listing_payload = listing.json()
+    artifact_dir = export_trace_bundle(
+        category="pilot-smoke",
+        run_name=artifact_run_name or default_artifact_run_name("pilot-smoke"),
+        payloads={
+            "bootstrap_scope": scope,
+            "recall_payload": recall_payload,
+            "search_payload": search_payload,
+            "list_payload": listing_payload,
+            "observability_stats": stats_payload,
+        },
+    )
 
     return {
         "namespace_id": namespace_id,
         "agent_id": agent_id,
+        "artifact_dir": str(artifact_dir),
         "durable_event_id": durable.json()["event"]["id"],
         "session_event_id": session_event.json()["event"]["id"],
         "recall_prior_decisions": recall_payload["brief"]["prior_decisions"],
@@ -134,6 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the OpenClaw pilot smoke scenario.")
     parser.add_argument("--base-url", default="http://127.0.0.1:8080")
     parser.add_argument("--namespace-suffix", default=None)
+    parser.add_argument("--artifact-run-name", default=None)
     parser.add_argument("--poll-seconds", type=float, default=0.5)
     parser.add_argument("--max-wait-seconds", type=float, default=10.0)
     args = parser.parse_args(argv)
@@ -142,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
         report = run_pilot_smoke(
             client,
             namespace_suffix=args.namespace_suffix,
+            artifact_run_name=args.artifact_run_name,
             poll_seconds=args.poll_seconds,
             max_wait_seconds=args.max_wait_seconds,
         )

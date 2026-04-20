@@ -202,6 +202,7 @@ make pilot-smoke
 - stack поднимается автоматически
 - synthetic OpenClaw flow прогоняется end-to-end
 - JSON report сохраняется в `.artifacts/openclaw_pilot_smoke_report.json`
+- raw trace bundle сохраняется в `.artifacts/pilot_traces/pilot-smoke/<run-name>/`
 
 ### Automated pilot scenario subset
 
@@ -215,6 +216,7 @@ make pilot-scenarios
 - автоматизированно прогоняются 5 наиболее важных pilot-сценариев
 - JSON report сохраняется в `.artifacts/openclaw_pilot_scenarios_report.json`
 - прогон можно использовать как pre-pilot gate до live OpenClaw session
+- per-scenario trace bundle сохраняется в `.artifacts/pilot_traces/pilot-scenarios/<run-name>/`
 
 ### Recall quality eval report
 
