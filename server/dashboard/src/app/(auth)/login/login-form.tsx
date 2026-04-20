@@ -4,11 +4,24 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
+import { Check, Copy } from "lucide-react";
+import { CopyToClipboard } from "react-copy-to-clipboard";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/error-message";
+
+const RESET_COMMAND =
+  "make reset-admin-password EMAIL=<your-email> PASSWORD=<new-password>";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -20,6 +33,7 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -105,6 +119,48 @@ export default function LoginForm() {
                 {submitting ? "Signing in..." : "Sign in"}
               </Button>
             </form>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="text-xs text-onSurface-default-tertiary hover:text-onSurface-default-primary underline underline-offset-4 self-center"
+                >
+                  Forgot password?
+                </button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reset your admin password</DialogTitle>
+                  <DialogDescription>
+                    Run this command on the server host. It overwrites the
+                    existing password; anyone already signed in stays signed in
+                    until their session expires.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex gap-2">
+                  <Input
+                    readOnly
+                    value={RESET_COMMAND}
+                    className="font-mono text-xs"
+                  />
+                  <CopyToClipboard
+                    text={RESET_COMMAND}
+                    onCopy={() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                  >
+                    <Button variant="outline" size="icon">
+                      {copied ? (
+                        <Check className="size-4" />
+                      ) : (
+                        <Copy className="size-4" />
+                      )}
+                    </Button>
+                  </CopyToClipboard>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>

@@ -195,7 +195,16 @@ export default function SetupPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Test failed");
+        const body = await res.text();
+        let detail = body;
+        try {
+          detail = JSON.parse(body).detail ?? body;
+        } catch {
+          detail = body;
+        }
+        throw new Error(
+          `Test failed (${res.status}): ${detail || res.statusText}`,
+        );
       }
 
       setTestSuccess(true);
@@ -547,9 +556,27 @@ export default function SetupPage() {
   -d '{"messages": [{"role": "user", "content": "${testMessage}"}], "user_id": "test"}'`}</pre>
                 </div>
                 {!testSuccess ? (
-                  <Button type="submit" disabled={isLoading} className="w-full">
-                    {isLoading ? "Testing..." : "Run Test"}
-                  </Button>
+                  <>
+                    <Button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full"
+                    >
+                      {isLoading ? "Testing..." : "Run Test"}
+                    </Button>
+                    {error && (
+                      <p className="text-xs text-onSurface-default-tertiary">
+                        Provider credentials or model wrong? Fix them in{" "}
+                        <a
+                          href="/dashboard/configuration"
+                          className="underline underline-offset-4 hover:text-onSurface-default-primary"
+                        >
+                          Configuration
+                        </a>{" "}
+                        and run the test again.
+                      </p>
+                    )}
+                  </>
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm text-onSurface-positive-primary">
