@@ -189,7 +189,7 @@ async_memory = AsyncMemory.from_config(config)
 async def search_with_rerank():
     return await async_memory.search(
         "What are my preferences?",
-        user_id="alice",
+        filters={"user_id": "alice"},
         rerank=True
     )
 
@@ -272,7 +272,7 @@ results = m.search("query", filters={"user_id": "alice"})
 ```python
 results = m.search(
     "What are my food preferences?",
-    user_id="alice"
+    filters={"user_id": "alice"}
 )
 
 for result in results["results"]:
@@ -289,13 +289,13 @@ for result in results["results"]:
 ```python
 results_with_rerank = m.search(
     "What movies do I like?",
-    user_id="alice",
+    filters={"user_id": "alice"},
     rerank=True
 )
 
 results_without_rerank = m.search(
     "What movies do I like?",
-    user_id="alice",
+    filters={"user_id": "alice"},
     rerank=False
 )
 ```
@@ -313,9 +313,9 @@ results_without_rerank = m.search(
 ```python
 results = m.search(
     "important work tasks",
-    user_id="alice",
     filters={
         "AND": [
+            {"user_id": "alice"},
             {"category": "work"},
             {"priority": {"gte": 7}}
         ]
@@ -348,8 +348,7 @@ m = Memory.from_config(config)
 
 results = m.search(
     "customer having login issues with mobile app",
-    agent_id="support_bot",
-    filters={"category": "technical_support"},
+    filters={"agent_id": "support_bot", "category": "technical_support"},
     rerank=True
 )
 ```
@@ -363,8 +362,7 @@ results = m.search(
 ```python
 results = m.search(
     "science fiction books with space exploration themes",
-    user_id="reader123",
-    filters={"content_type": "book_recommendation"},
+    filters={"user_id": "reader123", "content_type": "book_recommendation"},
     rerank=True,
     top_k=10
 )
@@ -383,9 +381,9 @@ for result in results["results"]:
 ```python
 results = m.search(
     "What restaurants did I enjoy last month that had good vegetarian options?",
-    user_id="foodie_user",
     filters={
         "AND": [
+            {"user_id": "foodie_user"},
             {"category": "dining"},
             {"rating": {"gte": 4}},
             {"date": {"gte": "2024-01-01"}}
