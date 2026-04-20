@@ -904,6 +904,25 @@ Definition of Done:
 - счетчики `memory_events`, `episodes` и `jobs` остаются стабильными при повторной доставке
 - риск дублей при ретраях ingestion path заметно снижен перед live pilot
 
+### Recall Explainability Baseline
+
+До живого pilot recall trace усилен explainability-слоем:
+
+- для каждого выбранного кандидата trace теперь сохраняет `slot`
+- trace показывает `decisive_signal`, который сильнее всего повлиял на выбор
+- trace содержит короткое human-readable поле `why`
+- component и unit tests покрывают новый explainability contract
+
+Статус:
+
+- `completed`
+
+Подтверждение:
+
+- recall trace теперь помогает понять не только что было выбрано, но и почему
+- при live debugging можно отличить `procedural_policy`, `integration_context`, `active_session`, `project_infrastructure` и другие сигналы
+- explainability не требует ручного разбора ranking кода во время пилота
+
 ### Phase N. Memory Poisoning Baseline
 
 Результат:

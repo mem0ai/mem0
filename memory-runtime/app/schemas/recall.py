@@ -20,11 +20,20 @@ class MemoryBrief(BaseModel):
     recent_session_carryover: list[str] = Field(default_factory=list)
 
 
+class RecallSelectionExplanation(BaseModel):
+    episode_id: str
+    space_type: str
+    slot: str
+    decisive_signal: str
+    why: str
+
+
 class RecallTrace(BaseModel):
     candidate_count: int
     selected_count: int
     selected_space_types: list[str]
     selected_episode_ids: list[str] = Field(default_factory=list)
+    selection_explanations: list[RecallSelectionExplanation] = Field(default_factory=list)
 
 
 class RecallFeedbackRequest(BaseModel):

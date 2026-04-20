@@ -424,3 +424,29 @@ class RetrievalServiceContractTests(unittest.TestCase):
         )
 
         self.assertEqual(selected, ["shared-space", "agent-core"])
+
+    def test_build_selection_explanations_reports_decisive_signal(self) -> None:
+        from app.services.retrieval import RetrievalCandidate, RetrievalService
+
+        candidate = RetrievalCandidate(
+            episode_id="ep-policy",
+            space_type="agent-core",
+            event_type="policy_update",
+            summary="policy_update: Always produce concise architecture summaries before implementation details.",
+            raw_text="assistant: Always produce concise architecture summaries before implementation details.",
+            importance_hint="high",
+            created_at="2026-04-20T09:30:00+00:00",
+            session_id="run_0",
+            usefulness_score=0.0,
+        )
+
+        explanations = RetrievalService.build_selection_explanations(
+            "How should the agent present architecture updates?",
+            [candidate],
+            active_session_id="run_123",
+        )
+
+        self.assertEqual(explanations[0].episode_id, "ep-policy")
+        self.assertEqual(explanations[0].slot, "standing_procedures")
+        self.assertEqual(explanations[0].decisive_signal, "procedural_policy")
+        self.assertIn("procedural or policy-style query", explanations[0].why)

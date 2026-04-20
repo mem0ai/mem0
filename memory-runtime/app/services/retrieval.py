@@ -16,6 +16,7 @@ from app.schemas.recall import (
     RecallFeedbackResponse,
     RecallRequest,
     RecallResponse,
+    RecallSelectionExplanation,
     RecallTrace,
 )
 from app.services.mem0_bridge import ExternalMemoryResult, build_mem0_bridge
@@ -142,6 +143,11 @@ class RetrievalService:
         brief_dict = self.build_memory_brief(selected)
         selected_space_types = self.collect_selected_space_types(selected)
         selected_episode_ids = self.collect_selected_episode_ids(selected)
+        selection_explanations = self.build_selection_explanations(
+            payload.query,
+            selected,
+            active_session_id=payload.session_id,
+        )
 
         selected_count = sum(len(items) for items in brief_dict.values())
         increment_metric("recall_requests_total")
@@ -154,6 +160,7 @@ class RetrievalService:
                 selected_count=selected_count,
                 selected_space_types=selected_space_types,
                 selected_episode_ids=selected_episode_ids,
+                selection_explanations=selection_explanations,
             ),
         )
 
@@ -284,6 +291,30 @@ class RetrievalService:
                 selected_episode_ids.append(candidate.episode_id)
         return selected_episode_ids
 
+    @classmethod
+    def build_selection_explanations(
+        cls,
+        query: str,
+        ranked_candidates: list[RetrievalCandidate],
+        *,
+        active_session_id: str | None,
+    ) -> list[RecallSelectionExplanation]:
+        explanations: list[RecallSelectionExplanation] = []
+        for candidate in ranked_candidates:
+            components = cls._score_components(query, candidate, active_session_id)
+            decisive_signal = cls._decisive_signal(components)
+            slot = cls._slot_for_candidate(candidate)
+            explanations.append(
+                RecallSelectionExplanation(
+                    episode_id=candidate.episode_id,
+                    space_type=candidate.space_type,
+                    slot=slot,
+                    decisive_signal=decisive_signal,
+                    why=cls._explanation_text(slot=slot, decisive_signal=decisive_signal),
+                )
+            )
+        return explanations
+
     @staticmethod
     def _extract_event_type(summary: str) -> str:
         if ":" not in summary:
@@ -341,6 +372,18 @@ class RetrievalService:
         candidate: RetrievalCandidate,
         active_session_id: str | None,
     ) -> tuple[float, float]:
+        components = cls._score_components(query, candidate, active_session_id)
+        total = sum(components.values())
+        recency = components["recency"]
+        return total, recency
+
+    @classmethod
+    def _score_components(
+        cls,
+        query: str,
+        candidate: RetrievalCandidate,
+        active_session_id: str | None,
+    ) -> dict[str, float]:
         query_tokens = cls._normalize_tokens(query)
         overlap = cls._token_overlap(query, f"{candidate.summary} {candidate.raw_text}")
         importance = {"high": 2.0, "medium": 1.0, "normal": 0.0}.get(candidate.importance_hint, 0.0)
@@ -399,19 +442,53 @@ class RetrievalService:
             if {"not", "primary"} <= candidate_tokens:
                 storage_boost -= 2.0
 
-        total = (
-            overlap * 10.0
-            + importance
-            + session_boost
-            + recency
-            + usefulness
-            + topical_penalty
-            + procedural_boost
-            + architectural_boost
-            + integration_boost
-            + storage_boost
+        return {
+            "semantic_overlap": overlap * 10.0,
+            "importance_hint": importance,
+            "active_session": session_boost,
+            "recency": recency,
+            "feedback_signal": usefulness,
+            "topical_penalty": topical_penalty,
+            "procedural_policy": procedural_boost,
+            "project_infrastructure": architectural_boost,
+            "integration_context": integration_boost,
+            "primary_runtime": storage_boost,
+        }
+
+    @staticmethod
+    def _decisive_signal(components: dict[str, float]) -> str:
+        preferred_signals = (
+            "procedural_policy",
+            "integration_context",
+            "primary_runtime",
+            "project_infrastructure",
+            "active_session",
+            "feedback_signal",
+            "importance_hint",
+            "semantic_overlap",
         )
-        return total, recency
+        for signal in preferred_signals:
+            if components.get(signal, 0.0) > 0.0:
+                return signal
+        if components.get("recency", 0.0) > 0.0:
+            return "recency"
+        return "fallback_selection"
+
+    @staticmethod
+    def _explanation_text(*, slot: str, decisive_signal: str) -> str:
+        signal_text = {
+            "semantic_overlap": "matched the query semantics strongly",
+            "importance_hint": "carried a stronger importance hint",
+            "active_session": "belonged to the active session context",
+            "feedback_signal": "was reinforced by positive recall feedback",
+            "procedural_policy": "matched a procedural or policy-style query",
+            "project_infrastructure": "matched durable project infrastructure context",
+            "integration_context": "matched an integration-focused query",
+            "primary_runtime": "matched the primary runtime/storage intent",
+            "recency": "was the freshest relevant context available",
+            "fallback_selection": "survived the fallback brief selection",
+        }.get(decisive_signal, "was selected by the recall ranking")
+        return f"Placed in {slot} because it {signal_text}."
 
     def _external_candidates(
         self,

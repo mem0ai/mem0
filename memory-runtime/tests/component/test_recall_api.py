@@ -132,6 +132,7 @@ class RecallApiTests(unittest.TestCase):
         self.assertIn("brief", payload)
         self.assertIn("trace", payload)
         self.assertIn("selected_episode_ids", payload["trace"])
+        self.assertIn("selection_explanations", payload["trace"])
         self.assertIn("prior_decisions", payload["brief"])
         self.assertIn("active_project_context", payload["brief"])
         self.assertIn("standing_procedures", payload["brief"])
@@ -147,6 +148,9 @@ class RecallApiTests(unittest.TestCase):
         )
         self.assertFalse(payload["brief"]["recent_session_carryover"])
         self.assertNotIn("session-space", payload["trace"]["selected_space_types"])
+        self.assertTrue(payload["trace"]["selection_explanations"])
+        self.assertIn("decisive_signal", payload["trace"]["selection_explanations"][0])
+        self.assertIn("why", payload["trace"]["selection_explanations"][0])
 
     def test_positive_feedback_promotes_useful_episode_in_later_recall(self) -> None:
         older = self.client.post(

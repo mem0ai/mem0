@@ -157,6 +157,7 @@ Worker-derived operational counters (`jobs_*`, `consolidation_*`, `lifecycle_*`)
 - recall feedback loop and usefulness-aware reranking
 - mem0 bridge unit coverage without external network dependency
 - idempotent ingestion for duplicate events on the same dedupe key
+- recall trace explainability with decisive selection signals
 
 Команды запуска:
 
