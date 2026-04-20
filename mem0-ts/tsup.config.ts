@@ -1,4 +1,5 @@
 import { defineConfig } from "tsup";
+import pkg from "./package.json";
 
 const external = [
   "openai",
@@ -23,6 +24,10 @@ const external = [
   "natural",
 ];
 
+const define = {
+  __MEM0_SDK_VERSION__: JSON.stringify(pkg.version),
+};
+
 export default defineConfig([
   {
     entry: ["src/client/index.ts"],
@@ -30,6 +35,7 @@ export default defineConfig([
     dts: true,
     sourcemap: true,
     external,
+    define,
   },
   {
     entry: ["src/oss/src/index.ts"],
@@ -38,5 +44,6 @@ export default defineConfig([
     dts: true,
     sourcemap: true,
     external,
+    define,
   },
 ]);
