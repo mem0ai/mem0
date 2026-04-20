@@ -194,14 +194,14 @@ def _redact_config(value: Any, key: str | None = None) -> Any:
     return value
 
 
-def _upstream_error(exc: Exception) -> HTTPException:
-    """Wrap unexpected upstream/provider failures without leaking their message to the client."""
-    logging.exception("Upstream provider error: %s", exc)
+def _upstream_error() -> HTTPException:
+    """Generic 502 for provider failures; logs the active exception without leaking it to the client."""
+    logging.exception("Upstream provider error")
     return HTTPException(status_code=502, detail="Upstream provider error.")
 
 
 def _validate_bundled_providers(config: Dict[str, Any]) -> None:
-    llm = config.get("llm") if isinstance(config, dict) else None
+    llm = config.get("llm")
     if isinstance(llm, dict) and (provider := llm.get("provider")) and provider not in BUNDLED_LLM_PROVIDERS:
         raise HTTPException(
             status_code=400,
@@ -213,7 +213,7 @@ def _validate_bundled_providers(config: Dict[str, Any]) -> None:
             ),
         )
 
-    embedder = config.get("embedder") if isinstance(config, dict) else None
+    embedder = config.get("embedder")
     if (
         isinstance(embedder, dict)
         and (provider := embedder.get("provider"))
@@ -319,8 +319,8 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
             instructions = parts[0].replace("INSTRUCTIONS:", "").strip()
             test_message = parts[1].strip()
         return {"custom_instructions": instructions, "test_message": test_message}
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.post("/memories", summary="Create memories")
@@ -333,8 +333,8 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     try:
         response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
         return JSONResponse(content=response)
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 ALL_MEMORIES_LIMIT = 1000
@@ -377,8 +377,8 @@ def get_all_memories(
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
         return get_memory_instance().get_all(**params)
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
@@ -386,8 +386,8 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve a specific memory by ID."""
     try:
         return get_memory_instance().get(memory_id)
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.post("/search", summary="Search memories")
@@ -396,8 +396,8 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     try:
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
         return get_memory_instance().search(query=search_req.query, **params)
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
@@ -407,8 +407,8 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
         return get_memory_instance().update(
             memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata
         )
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
@@ -416,8 +416,8 @@ def memory_history(memory_id: str, _auth=Depends(verify_auth)):
     """Retrieve memory history."""
     try:
         return get_memory_instance().history(memory_id=memory_id)
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.delete("/memories/{memory_id}", summary="Delete a memory", response_model=MessageResponse)
@@ -426,8 +426,8 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     try:
         get_memory_instance().delete(memory_id=memory_id)
         return MessageResponse(message="Memory deleted successfully")
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.delete("/memories", summary="Delete all memories", response_model=MessageResponse)
@@ -446,8 +446,8 @@ def delete_all_memories(
         }
         get_memory_instance().delete_all(**params)
         return MessageResponse(message="All relevant memories deleted")
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.post("/reset", summary="Reset all memories")
@@ -456,8 +456,8 @@ def reset_memory(_auth=Depends(verify_auth)):
     try:
         get_memory_instance().reset()
         return {"message": "All memories reset"}
-    except Exception as e:
-        raise _upstream_error(e)
+    except Exception:
+        raise _upstream_error()
 
 
 @app.get("/", summary="Redirect to the OpenAPI documentation", include_in_schema=False)

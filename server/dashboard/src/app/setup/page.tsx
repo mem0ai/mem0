@@ -199,9 +199,7 @@ export default function SetupPage() {
         let detail = body;
         try {
           detail = JSON.parse(body).detail ?? body;
-        } catch {
-          detail = body;
-        }
+        } catch {}
         throw new Error(
           `Test failed (${res.status}): ${detail || res.statusText}`,
         );

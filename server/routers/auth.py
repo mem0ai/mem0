@@ -22,6 +22,8 @@ from telemetry import capture_admin_registered, capture_onboarding_completed
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+MIN_PASSWORD_LENGTH = 8
+
 
 class RegisterRequest(BaseModel):
     name: str
@@ -50,9 +52,6 @@ class UpdateProfileRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
-
-
-MIN_PASSWORD_LENGTH = 8
 
 
 class TokenResponse(BaseModel):
