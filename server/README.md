@@ -6,12 +6,18 @@ Mem0 ships a self-hosted FastAPI server plus a local dashboard. It is secure by 
 
 ### Agent-first
 
+Run one command; the terminal prints the admin email, password, and first API key.
+
 ```bash
 cd server
 make bootstrap
 ```
 
 This starts the stack, waits for the API and dashboard to be ready, creates the first admin, and generates the first API key.
+
+> The generated credentials print once in the `=== Ready ===` block. Save the password and API key before closing the terminal — the API key cannot be recovered afterwards.
+
+> `make bootstrap` skips the setup wizard, so the use-case → custom-instructions step doesn't run. To add custom instructions afterwards, `POST /configure` with `{"custom_instructions": "..."}`, or run the Browser-first flow on a fresh install.
 
 You can override the generated credentials:
 
@@ -27,7 +33,19 @@ cd server
 OUTPUT=json make seed
 ```
 
+Teardown:
+
+```bash
+# Stop the stack
+cd server && make down
+
+# Wipe all data (including the Postgres volume)
+cd server && make clean
+```
+
 ### Browser-first
+
+Start the stack and finish setup by walking through the wizard in your browser.
 
 ```bash
 cd server
@@ -54,15 +72,6 @@ make reset-admin-password EMAIL=admin@example.com PASSWORD='new-strong-password'
 
 This is the supported recovery path. Anyone with shell access to the host already has full access to the database and secrets, so this command does not expand the attack surface.
 
-## Telemetry
-
-Enabled by default, matching the Mem0 OSS library. Sends at most two events per install to the same anonymous PostHog project the library uses:
-
-- `admin_registered` — fired when the first admin is created (wizard or direct API call). Properties: email domain, server version, install UUID.
-- `onboarding_completed` — fired when the setup wizard reaches its final success state. Carries the same properties plus the freeform `use_case` the operator entered. API-only bootstraps never emit this event.
-
-Set `MEM0_TELEMETRY=false` to opt out.
-
 ## Local URLs
 
 - Dashboard: `http://localhost:3000`
@@ -79,6 +88,26 @@ Once logged in, the dashboard exposes:
 - **API Keys** — create, label, and revoke per-user keys.
 - **Configuration** — runtime LLM and embedder override. Changes persist to the app database and reapply on restart, layered over the values from your `.env`.
 - **Settings** — account profile and password.
+
+## Telemetry
+
+Enabled by default, matching the Mem0 OSS library. Sends at most two events per install to the same anonymous PostHog project the library uses:
+
+- `admin_registered` — fired when the first admin is created (wizard or direct API call). Properties: email domain, server version, install UUID.
+- `onboarding_completed` — fired when the setup wizard reaches its final success state. Carries the same properties plus the freeform `use_case` the operator entered. API-only bootstraps never emit this event.
+
+Set `MEM0_TELEMETRY=false` to opt out.
+
+## Security headers
+
+The dashboard sets the following response headers on every path (see `server/dashboard/next.config.mjs`):
+
+- `X-Frame-Options: DENY`
+- `Content-Security-Policy: frame-ancestors 'none'`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+
+Together these prevent iframe embedding, sniffing of mislabelled MIME types, and cross-origin referrer leaks. Harden further behind your own reverse proxy if needed.
 
 ## Reference
 
