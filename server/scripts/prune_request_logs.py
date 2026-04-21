@@ -14,8 +14,9 @@ from models import RequestLog
 
 
 def main() -> int:
+    raw = os.environ.get("REQUEST_LOG_RETENTION_DAYS", "").strip() or "30"
     try:
-        retention_days = int(os.environ.get("REQUEST_LOG_RETENTION_DAYS", "30"))
+        retention_days = int(raw)
     except ValueError:
         sys.stderr.write("REQUEST_LOG_RETENTION_DAYS must be an integer.\n")
         return 1
