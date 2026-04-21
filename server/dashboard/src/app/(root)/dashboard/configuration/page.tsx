@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/use-toast";
+import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { getErrorMessage } from "@/lib/error-message";
 import { api } from "@/utils/api";
 import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
@@ -222,6 +223,14 @@ export default function ConfigurationPage() {
           {isSaving ? "Saving..." : "Save Configuration"}
         </Button>
       )}
+
+      <UpgradeBanner
+        id="config-sso"
+        message="Looking for SSO / SAML? Available in Enterprise."
+        ctaLabel="Contact sales"
+        ctaUrl="https://app.mem0.ai/enterprise?utm_source=oss&utm_medium=dashboard-configuration-sso"
+        variant="enterprise"
+      />
     </div>
   );
 }

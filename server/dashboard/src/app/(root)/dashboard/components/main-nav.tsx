@@ -3,15 +3,26 @@
 import * as React from "react";
 import Link from "next/link";
 import {
+  Activity,
+  ChartLine,
+  ChevronDown,
+  FolderInput,
+  GalleryVerticalEnd,
   KeyRound,
   Settings,
-  Activity,
-  GalleryVerticalEnd,
+  Tags,
   Users,
+  WebhookIcon,
   Wrench,
 } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/store";
+import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
@@ -33,6 +44,7 @@ export function MainNav({
   const isSidebarCollapsed = useSelector(
     (state: RootState) => state.layout.isSidebarCollapsed,
   );
+  const [isCloudOpen, setIsCloudOpen] = React.useState(true);
 
   return (
     <Sidebar
@@ -93,6 +105,86 @@ export function MainNav({
                   </SidebarMenuItem>
                 ))}
               </div>
+
+              {isSidebarCollapsed && (
+                <div className="h-[1px] w-full bg-memBorder-primary my-2" />
+              )}
+
+              <Collapsible
+                open={isCloudOpen}
+                onOpenChange={setIsCloudOpen}
+                className="flex flex-col gap-0"
+              >
+                {!isSidebarCollapsed && (
+                  <CollapsibleTrigger asChild>
+                    <SidebarGroupLabel className="cursor-pointer mb-0">
+                      CLOUD FEATURES
+                      <ChevronDown
+                        className={cn(
+                          "size-3 transition-transform duration-200",
+                          isCloudOpen ? "" : "-rotate-90",
+                        )}
+                      />
+                    </SidebarGroupLabel>
+                  </CollapsibleTrigger>
+                )}
+                <CollapsibleContent className="flex flex-col gap-0">
+                  {[
+                    {
+                      title: "Categories",
+                      url: "/dashboard/categories",
+                      icon: Tags,
+                    },
+                    {
+                      title: "Webhooks",
+                      url: "/dashboard/webhooks",
+                      icon: WebhookIcon,
+                    },
+                    {
+                      title: "Analytics",
+                      url: "/dashboard/analytics",
+                      icon: ChartLine,
+                    },
+                    {
+                      title: "Export",
+                      url: "/dashboard/export",
+                      icon: FolderInput,
+                    },
+                  ].map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        collapsed={isSidebarCollapsed}
+                        active={pathname === item.url}
+                        tooltip={isSidebarCollapsed ? item.title : undefined}
+                      >
+                        <Link
+                          href={item.url}
+                          className={cn(
+                            "flex items-center w-full",
+                            isSidebarCollapsed
+                              ? "justify-center mx-auto"
+                              : "gap-1.5",
+                          )}
+                        >
+                          <item.icon className="size-4 shrink-0" />
+                          {!isSidebarCollapsed && (
+                            <>
+                              <span>{item.title}</span>
+                              <Badge
+                                variant="outline"
+                                className="ml-auto text-memGold-600 border-memGold-300 typo-caption-sm px-1.5 py-0"
+                              >
+                                PRO
+                              </Badge>
+                            </>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
 
               {isSidebarCollapsed && (
                 <div className="h-[1px] w-full bg-memBorder-primary my-2" />

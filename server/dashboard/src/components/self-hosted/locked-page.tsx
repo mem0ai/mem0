@@ -1,30 +1,26 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Lock } from "lucide-react";
 
 interface LockedPageProps {
   title: string;
   description: string;
   previewContent: React.ReactNode;
-  cloudUrl?: string;
-  salesUrl?: string;
+  utmMedium: string;
 }
 
 export function LockedPage({
   title,
   description,
   previewContent,
-  cloudUrl = "https://app.mem0.ai?utm_source=oss&utm_medium=dashboard-locked-page",
-  salesUrl = "https://app.mem0.ai/enterprise?utm_source=oss&utm_medium=dashboard-locked-page",
+  utmMedium,
 }: LockedPageProps) {
+  const utm = `utm_source=oss&utm_medium=${utmMedium}`;
+  const cloudUrl = `https://app.mem0.ai?${utm}`;
+  const salesUrl = `https://app.mem0.ai/enterprise?${utm}`;
+
   return (
     <div className="space-y-6">
       <div>
