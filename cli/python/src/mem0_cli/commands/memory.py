@@ -62,7 +62,6 @@ def cmd_add(
     no_infer: bool,
     expires: str | None,
     categories: str | None,
-    enable_graph: bool = False,
     output: str = "text",
 ) -> None:
     """Add a memory."""
@@ -145,7 +144,6 @@ def cmd_add(
                 infer=not no_infer,
                 expires=expires,
                 categories=cats,
-                enable_graph=enable_graph,
             )
         except Exception as e:
             ts.error_msg = str(e)
@@ -226,7 +224,6 @@ def cmd_search(
     keyword: bool,
     filter_json: str | None,
     fields: str | None,
-    enable_graph: bool = False,
     output: str = "text",
 ) -> None:
     """Search memories."""
@@ -269,7 +266,6 @@ def cmd_search(
                 keyword=keyword,
                 filters=filters,
                 fields=field_list,
-                enable_graph=enable_graph,
             )
         except Exception as e:
             print_error(err_console, str(e))
@@ -356,7 +352,6 @@ def cmd_list(
     category: str | None,
     after: str | None,
     before: str | None,
-    enable_graph: bool = False,
     output: str = "table",
 ) -> None:
     """List memories."""
@@ -385,7 +380,6 @@ def cmd_list(
                 category=category,
                 after=after,
                 before=before,
-                enable_graph=enable_graph,
             )
         except Exception as e:
             print_error(err_console, str(e))

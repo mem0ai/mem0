@@ -26,7 +26,6 @@ class Backend(ABC):
         infer: bool = True,
         expires: str | None = None,
         categories: list[str] | None = None,
-        enable_graph: bool = False,
     ) -> dict: ...
 
     @abstractmethod
@@ -44,7 +43,6 @@ class Backend(ABC):
         keyword: bool = False,
         filters: dict | None = None,
         fields: list[str] | None = None,
-        enable_graph: bool = False,
     ) -> list[dict]: ...
 
     @abstractmethod
@@ -63,7 +61,6 @@ class Backend(ABC):
         category: str | None = None,
         after: str | None = None,
         before: str | None = None,
-        enable_graph: bool = False,
     ) -> list[dict]: ...
 
     @abstractmethod
