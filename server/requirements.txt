@@ -20,3 +20,6 @@ python-jose[cryptography]>=3.3,<4.0
 
 # Anonymous telemetry — on by default, opt out with MEM0_TELEMETRY=false
 posthog>=3.0,<8.0
+
+# Per-IP rate limiting on auth endpoints
+slowapi>=0.1.9,<1.0

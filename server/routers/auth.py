@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from auth import (
@@ -17,12 +18,21 @@ from auth import (
 )
 from db import get_db
 from models import User
+from rate_limit import limiter
 from schemas import MessageResponse
 from telemetry import capture_admin_registered, capture_onboarding_completed
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 MIN_PASSWORD_LENGTH = 8
+
+
+def _require_password_length(password: str) -> None:
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Password must be at least {MIN_PASSWORD_LENGTH} characters.",
+        )
 
 
 class RegisterRequest(BaseModel):
@@ -81,8 +91,11 @@ def setup_status(db: Session = Depends(get_db)):
 
 
 @router.post("/register", response_model=TokenResponse)
-def register(body: RegisterRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, body: RegisterRequest, db: Session = Depends(get_db)):
     """Create the first admin account. Blocked once any user exists."""
+    _require_password_length(body.password)
+
     if db.scalar(select(func.count(User.id))) > 0:
         raise HTTPException(status_code=403, detail="Registration is closed. An admin account already exists.")
 
@@ -93,7 +106,11 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         role="admin",
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=403, detail="Registration is closed. An admin account already exists.")
     db.refresh(user)
 
     capture_admin_registered(email=body.email)
@@ -105,7 +122,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == body.email))
     if user is None:
         dummy_verify_password()
@@ -123,7 +141,8 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
+@limiter.limit("20/minute")
+def refresh(request: Request, body: RefreshRequest, db: Session = Depends(get_db)):
     payload = decode_token(body.refresh_token)
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid token type.")
@@ -172,11 +191,7 @@ def change_password(
     if not verify_password(body.current_password, user.password_hash):
         raise HTTPException(status_code=401, detail="Current password is incorrect.")
 
-    if len(body.new_password) < MIN_PASSWORD_LENGTH:
-        raise HTTPException(
-            status_code=400,
-            detail=f"New password must be at least {MIN_PASSWORD_LENGTH} characters.",
-        )
+    _require_password_length(body.new_password)
 
     user.password_hash = hash_password(body.new_password)
     db.commit()

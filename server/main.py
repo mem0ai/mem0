@@ -8,9 +8,12 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
 
 from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
+from rate_limit import limiter
 from db import SessionLocal
 from models import RequestLog, User
 import telemetry
@@ -134,6 +137,8 @@ app = FastAPI(
     version="1.0.0",
     redirect_slashes=False,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
