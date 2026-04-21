@@ -27,6 +27,7 @@ CONFIG_VERSION = 1
 class PlatformConfig:
     api_key: str = ""
     base_url: str = DEFAULT_BASE_URL
+    user_email: str = ""
 
 
 @dataclass
@@ -39,10 +40,28 @@ class DefaultsConfig:
 
 
 @dataclass
+class TelemetryConfig:
+    anonymous_id: str = ""
+
+
+@dataclass
 class Mem0Config:
     version: int = CONFIG_VERSION
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
     platform: PlatformConfig = field(default_factory=PlatformConfig)
+    telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
+
+
+SHORT_KEY_ALIASES: dict[str, str] = {
+    "api_key": "platform.api_key",
+    "base_url": "platform.base_url",
+    "user_email": "platform.user_email",
+    "user_id": "defaults.user_id",
+    "agent_id": "defaults.agent_id",
+    "app_id": "defaults.app_id",
+    "run_id": "defaults.run_id",
+    "enable_graph": "defaults.enable_graph",
+}
 
 
 def ensure_config_dir() -> Path:
@@ -65,6 +84,7 @@ def load_config() -> Mem0Config:
         plat = data.get("platform", {})
         config.platform.api_key = plat.get("api_key", "")
         config.platform.base_url = plat.get("base_url", DEFAULT_BASE_URL)
+        config.platform.user_email = plat.get("user_email", "")
 
         defaults = data.get("defaults", {})
         config.defaults.user_id = defaults.get("user_id", "")
@@ -72,6 +92,9 @@ def load_config() -> Mem0Config:
         config.defaults.app_id = defaults.get("app_id", "")
         config.defaults.run_id = defaults.get("run_id", "")
         config.defaults.enable_graph = defaults.get("enable_graph", False)
+
+        telemetry = data.get("telemetry", {})
+        config.telemetry.anonymous_id = telemetry.get("anonymous_id", "")
 
     # Environment variable overrides
     env_key = os.environ.get("MEM0_API_KEY")
@@ -121,6 +144,10 @@ def save_config(config: Mem0Config) -> None:
         "platform": {
             "api_key": config.platform.api_key,
             "base_url": config.platform.base_url,
+            "user_email": config.platform.user_email,
+        },
+        "telemetry": {
+            "anonymous_id": config.telemetry.anonymous_id,
         },
     }
 
@@ -140,7 +167,8 @@ def redact_key(key: str) -> str:
 
 
 def get_nested_value(config: Mem0Config, dotted_key: str) -> Any:
-    """Get a config value by dotted path, e.g. 'platform.api_key'."""
+    """Get a config value by dotted path, e.g. 'platform.api_key' or short form 'api_key'."""
+    dotted_key = SHORT_KEY_ALIASES.get(dotted_key, dotted_key)
     parts = dotted_key.split(".")
     obj: Any = config
     for part in parts:
@@ -153,6 +181,7 @@ def get_nested_value(config: Mem0Config, dotted_key: str) -> Any:
 
 def set_nested_value(config: Mem0Config, dotted_key: str, value: str) -> bool:
     """Set a config value by dotted path. Returns True on success."""
+    dotted_key = SHORT_KEY_ALIASES.get(dotted_key, dotted_key)
     parts = dotted_key.split(".")
     obj: Any = config
     for part in parts[:-1]:

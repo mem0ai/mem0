@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import json as _json
+import os
+import stat as _stat_mod
 import sys
 from pathlib import Path
 
@@ -10,7 +13,7 @@ import typer
 from rich.console import Console
 
 from mem0_cli import __version__
-from mem0_cli.branding import BRAND_COLOR, print_error
+from mem0_cli.branding import BRAND_COLOR, print_error, print_warning
 
 console = Console()
 err_console = Console(stderr=True)
@@ -43,7 +46,52 @@ entity_app = typer.Typer(
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
-# entity_app registered after Memory commands to control panel ordering
+
+event_app = typer.Typer(
+    name="event",
+    help="Inspect background processing events.",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+# entity_app and event_app registered after Memory commands to control panel ordering
+
+
+# ── Validated user identity (set by _get_backend_and_config) ──────────────
+
+_validated_user_email: str | None = None
+
+# ── Telemetry helper ─────────────────────────────────────────────────────
+
+
+def _fire_telemetry(command_name: str, extra: dict | None = None) -> None:
+    """Fire a PostHog telemetry event (non-blocking, never fails)."""
+    try:
+        from mem0_cli.telemetry import capture_event
+
+        props = {"command": command_name}
+        if extra:
+            props.update(extra)
+        capture_event(f"cli.{command_name}", props, pre_resolved_email=_validated_user_email)
+    except Exception:
+        pass
+
+
+@config_app.callback(invoke_without_command=True)
+def _config_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"config.{ctx.invoked_subcommand}")
+
+
+@entity_app.callback(invoke_without_command=True)
+def _entity_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"entity.{ctx.invoked_subcommand}")
+
+
+@event_app.callback(invoke_without_command=True)
+def _event_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"event.{ctx.invoked_subcommand}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -53,9 +101,16 @@ def _get_backend_and_config(
     api_key: str | None = None,
     base_url: str | None = None,
 ):
-    """Build and return the Platform backend plus the loaded config."""
+    """Build and return the Platform backend plus the loaded config.
+
+    Validates the API key upfront via ``/v1/ping/`` and caches the
+    resolved user email for telemetry.
+    """
+    global _validated_user_email
+
     from mem0_cli.backend import get_backend
-    from mem0_cli.config import load_config
+    from mem0_cli.backend.platform import AuthError
+    from mem0_cli.config import load_config, save_config
 
     config = load_config()
 
@@ -72,7 +127,29 @@ def _get_backend_and_config(
         )
         raise typer.Exit(1)
 
-    return get_backend(config), config
+    backend = get_backend(config)
+
+    # Validate the API key upfront with a fast timeout
+    try:
+        ping_data = backend.ping(timeout=5.0)
+        email = ping_data.get("user_email") if isinstance(ping_data, dict) else None
+        if email:
+            _validated_user_email = email
+            if config.platform.user_email != email:
+                config.platform.user_email = email
+                with contextlib.suppress(Exception):
+                    save_config(config)
+    except AuthError:
+        print_error(
+            err_console,
+            "Invalid or expired API key.",
+            hint="Run 'mem0 init' or set MEM0_API_KEY environment variable.",
+        )
+        raise typer.Exit(1) from None
+    except Exception:
+        print_warning(err_console, "Could not validate API key (network issue). Proceeding anyway.")
+
+    return backend, config
 
 
 def _get_backend(
@@ -114,9 +191,22 @@ def _resolve_ids(
     }
 
 
+def _stdin_is_piped() -> bool:
+    """Return True only when stdin is an actual pipe or file redirect — not a bare open fd."""
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return False
+    try:
+        mode = os.fstat(sys.stdin.fileno()).st_mode
+        return _stat_mod.S_ISFIFO(mode) or _stat_mod.S_ISREG(mode)
+    except Exception:
+        return False
+
+
 def _read_stdin() -> str | None:
-    """Read from stdin if it is piped (not a TTY)."""
-    if not sys.stdin.isatty():
+    """Read from stdin if it is an actual pipe or file redirect (not a TTY, not agent mode)."""
+    if _stdin_is_piped():
         return sys.stdin.read().strip() or None
     return None
 
@@ -128,12 +218,26 @@ def _read_stdin() -> str | None:
 def main_callback(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", help="Show version and exit."),
+    json_agent: bool = typer.Option(
+        False,
+        "--json",
+        "--agent",
+        help="Output as JSON for agent/programmatic use.",
+        is_eager=False,
+    ),
 ) -> None:
+    if json_agent:
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(True)
     if version:
         from mem0_cli.commands.utils import cmd_version
 
+        _fire_telemetry("version")
         cmd_version()
         raise typer.Exit()
+    if ctx.invoked_subcommand:
+        _fire_telemetry(ctx.invoked_subcommand)
 
 
 # ── Memory: add ───────────────────────────────────────────────────────────
@@ -253,8 +357,12 @@ def search(
         help="Specific fields to return (comma-separated).",
         rich_help_panel="Search",
     ),
-    graph: bool = typer.Option(False, "--graph", help="Enable graph in search.", rich_help_panel="Search"),
-    no_graph: bool = typer.Option(False, "--no-graph", help="Disable graph in search.", rich_help_panel="Search"),
+    graph: bool = typer.Option(
+        False, "--graph", help="Enable graph in search.", rich_help_panel="Search"
+    ),
+    no_graph: bool = typer.Option(
+        False, "--no-graph", help="Disable graph in search.", rich_help_panel="Search"
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -269,7 +377,7 @@ def search(
         None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
     ),
 ) -> None:
-    """Search memories by semantic query.
+    """Query your memory store — semantic, keyword, or hybrid retrieval.
 
     Examples:
       mem0 search "preferences" --user-id alice
@@ -281,8 +389,8 @@ def search(
     # STEP 7: stdin fallback for query
     if query is None:
         query = _read_stdin()
-    if query is None:
-        print_error(err_console, "No query provided. Pass a query argument or pipe via stdin.")
+    if not query or not query.strip():
+        print_error(err_console, "Search query cannot be empty.")
         raise typer.Exit(1)
 
     backend, config = _get_backend_and_config(api_key, base_url)
@@ -372,8 +480,12 @@ def list_cmd(
     before: str | None = typer.Option(
         None, "--before", help="Created before (YYYY-MM-DD).", rich_help_panel="Filters"
     ),
-    graph: bool = typer.Option(False, "--graph", help="Enable graph in listing.", rich_help_panel="Filters"),
-    no_graph: bool = typer.Option(False, "--no-graph", help="Disable graph in listing.", rich_help_panel="Filters"),
+    graph: bool = typer.Option(
+        False, "--graph", help="Enable graph in listing.", rich_help_panel="Filters"
+    ),
+    no_graph: bool = typer.Option(
+        False, "--no-graph", help="Disable graph in listing.", rich_help_panel="Filters"
+    ),
     output: str = typer.Option(
         "table", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -463,11 +575,19 @@ def update(
 
 @app.command(rich_help_panel="Memory")
 def delete(
-    memory_id: str | None = typer.Argument(None, help="Memory ID to delete (omit when using --all or --entity)."),
+    memory_id: str | None = typer.Argument(
+        None, help="Memory ID to delete (omit when using --all or --entity)."
+    ),
     all_: bool = typer.Option(False, "--all", help="Delete all memories matching scope filters."),
-    entity: bool = typer.Option(False, "--entity", help="Delete the entity itself and all its memories (cascade)."),
-    project: bool = typer.Option(False, "--project", help="With --all: delete ALL memories project-wide."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted without deleting."),
+    entity: bool = typer.Option(
+        False, "--entity", help="Delete the entity itself and all its memories (cascade)."
+    ),
+    project: bool = typer.Option(
+        False, "--project", help="With --all: delete ALL memories project-wide."
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be deleted without deleting."
+    ),
     force: bool = typer.Option(False, "--force", help="Skip confirmation."),
     user_id: str | None = typer.Option(
         None, "--user-id", "-u", help="Scope to user.", rich_help_panel="Scope"
@@ -522,12 +642,14 @@ def delete(
 
     # ── Dispatch ─────────────────────────────────────────────────────
     if memory_id is not None:
+        _fire_telemetry("delete", {"delete_mode": "single"})
         from mem0_cli.commands.memory import cmd_delete
 
         backend = _get_backend(api_key, base_url)
         cmd_delete(backend, memory_id, dry_run=dry_run, force=force, output=output)
 
     elif all_:
+        _fire_telemetry("delete", {"delete_mode": "all"})
         from mem0_cli.commands.memory import cmd_delete_all
 
         backend, config = _get_backend_and_config(api_key, base_url)
@@ -535,6 +657,7 @@ def delete(
         cmd_delete_all(backend, force=force, dry_run=dry_run, all_=project, **ids, output=output)
 
     else:  # --entity
+        _fire_telemetry("delete", {"delete_mode": "entity"})
         from mem0_cli.commands.entities import cmd_entities_delete
 
         backend = _get_backend(api_key, base_url)
@@ -641,14 +764,12 @@ def entity_delete(
     agent_id: str | None = typer.Option(
         None, "--agent-id", help="Agent ID.", rich_help_panel="Scope"
     ),
-    app_id: str | None = typer.Option(
-        None, "--app-id", help="App ID.", rich_help_panel="Scope"
-    ),
-    run_id: str | None = typer.Option(
-        None, "--run-id", help="Run ID.", rich_help_panel="Scope"
-    ),
+    app_id: str | None = typer.Option(None, "--app-id", help="App ID.", rich_help_panel="Scope"),
+    run_id: str | None = typer.Option(None, "--run-id", help="Run ID.", rich_help_panel="Scope"),
     force: bool = typer.Option(False, "--force", help="Skip confirmation."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be deleted without deleting."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show what would be deleted without deleting."
+    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, quiet.", rich_help_panel="Output"
     ),
@@ -688,23 +809,98 @@ def entity_delete(
 app.add_typer(entity_app, name="entity", rich_help_panel="Management")
 
 
+# ── Event subcommands ─────────────────────────────────────────────────────
+
+
+@event_app.command("list")
+def event_list(
+    output: str = typer.Option(
+        "table", "--output", "-o", help="Output: table, json.", rich_help_panel="Output"
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="Override API key.",
+        envvar="MEM0_API_KEY",
+        rich_help_panel="Connection",
+    ),
+    base_url: str | None = typer.Option(
+        None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
+    ),
+) -> None:
+    """List recent background processing events.
+
+    Examples:
+      mem0 event list
+      mem0 event list -o json
+    """
+    from mem0_cli.commands.events_cmd import cmd_event_list
+
+    backend = _get_backend(api_key, base_url)
+    cmd_event_list(backend, output=output)
+
+
+@event_app.command("status")
+def event_status(
+    event_id: str = typer.Argument(..., help="Event ID to inspect."),
+    output: str = typer.Option(
+        "text", "--output", "-o", help="Output: text, json.", rich_help_panel="Output"
+    ),
+    api_key: str | None = typer.Option(
+        None,
+        "--api-key",
+        help="Override API key.",
+        envvar="MEM0_API_KEY",
+        rich_help_panel="Connection",
+    ),
+    base_url: str | None = typer.Option(
+        None, "--base-url", help="Override API base URL.", rich_help_panel="Connection"
+    ),
+) -> None:
+    """Check the status of a specific background event.
+
+    Examples:
+      mem0 event status <event-id>
+      mem0 event status <event-id> -o json
+    """
+    from mem0_cli.commands.events_cmd import cmd_event_status
+
+    backend = _get_backend(api_key, base_url)
+    cmd_event_status(backend, event_id, output=output)
+
+
+# ── Event subgroup ──
+app.add_typer(event_app, name="event", rich_help_panel="Management")
+
+
 # ── Management commands ───────────────────────────────────────────────────
 
 
 @app.command(rich_help_panel="Management")
 def init(
     api_key: str | None = typer.Option(None, "--api-key", help="API key (skip prompt)."),
-    user_id: str | None = typer.Option(None, "--user-id", "-u", help="Default user ID (skip prompt)."),
+    user_id: str | None = typer.Option(
+        None, "--user-id", "-u", help="Default user ID (skip prompt)."
+    ),
+    email: str | None = typer.Option(None, "--email", help="Login via email verification code."),
+    code: str | None = typer.Option(
+        None, "--code", help="Verification code (use with --email for non-interactive login)."
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite existing config without confirmation."
+    ),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
     Examples:
       mem0 init
       mem0 init --api-key m0-xxx --user-id alice
+      mem0 init --email alice@company.com
+      mem0 init --email alice@company.com --code 482901
     """
     from mem0_cli.commands.init_cmd import run_init
 
-    run_init(api_key=api_key, user_id=user_id)
+    run_init(api_key=api_key, user_id=user_id, email=email, code=code, force=force)
 
 
 # (entity_app registered at module level, below sub-group definitions)
@@ -741,7 +937,6 @@ def status(
         agent_id=config.defaults.agent_id or None,
         output=output,
     )
-
 
 
 @app.command("import", rich_help_panel="Management")
@@ -810,7 +1005,7 @@ def _build_help_json() -> dict:
             },
         },
         "search": {
-            "description": "Search memories by semantic query.",
+            "description": "Query your memory store — semantic, keyword, or hybrid retrieval.",
             "usage": "mem0 search <query> [OPTIONS]",
             "arguments": {"query": {"description": "Search query.", "required": False}},
             "options": {
@@ -914,6 +1109,24 @@ def _build_help_json() -> dict:
                 "value": {"description": "Value to set.", "required": True},
             },
         },
+        "event": {
+            "description": "Inspect background processing events.",
+            "subcommands": {
+                "list": {
+                    "description": "List recent background processing events.",
+                    "usage": "mem0 event list [OPTIONS]",
+                    "options": {"--output, -o": "Output format: table, json."},
+                },
+                "status": {
+                    "description": "Check the status of a specific background event.",
+                    "usage": "mem0 event status <event_id> [OPTIONS]",
+                    "arguments": {
+                        "event_id": {"description": "Event ID to inspect.", "required": True}
+                    },
+                    "options": {"--output, -o": "Output format: text, json."},
+                },
+            },
+        },
         "entity": {
             "description": "Manage entities.",
             "subcommands": {
@@ -965,6 +1178,7 @@ def _build_help_json() -> dict:
         "global_options": {
             "--api-key": "Override API key (env: MEM0_API_KEY).",
             "--base-url": "Override API base URL.",
+            "--json / --agent": "Output as JSON for agent/programmatic use.",
             "--help": "Show help for a command.",
             "--version": "Show version and exit.",
         },
@@ -994,7 +1208,7 @@ def help(
         console.print("Usage: mem0 <command> [OPTIONS]\n")
         console.print("[bold]Commands:[/]")
         console.print("  add              Add a memory from text, messages, file, or stdin")
-        console.print("  search           Search memories by semantic query")
+        console.print("  search           Query your memory store (semantic, keyword, hybrid)")
         console.print("  get              Get a specific memory by ID")
         console.print("  list             List memories with optional filters")
         console.print("  update           Update a memory's text or metadata")
@@ -1002,6 +1216,7 @@ def help(
         console.print("  import           Import memories from a JSON file")
         console.print("  config           Manage configuration (show, get, set)")
         console.print("  entity           Manage entities (list, delete)")
+        console.print("  event            Inspect background events (list, status)")
         console.print("  init             Interactive setup wizard")
         console.print("  status           Check connectivity and authentication")
         console.print()
@@ -1018,4 +1233,14 @@ app.add_typer(config_app, name="config", rich_help_panel="Management")
 
 
 def main() -> None:
+    import sys
+
+    # Allow --json/--agent anywhere in the command line (not just before subcommand).
+    _json_flags = {"--json", "--agent"}
+    if any(a in _json_flags for a in sys.argv[1:]):
+        from mem0_cli.state import set_agent_mode
+
+        set_agent_mode(True)
+        sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in _json_flags]
+
     app()

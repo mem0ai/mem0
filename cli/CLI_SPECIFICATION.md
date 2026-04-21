@@ -28,7 +28,7 @@ mem0 CLI is the official command-line interface for [mem0](https://mem0.ai) -- t
 ### Who is it for?
 
 - Developers integrating mem0 into their workflows
-- AI agents that need persistent memory (the CLI is designed with `--output json` and `help --json` specifically for machine consumption)
+- AI agents that need persistent memory (the CLI is designed with `--json`/`--agent` global flags and `help --json` specifically for machine consumption)
 - DevOps/CI pipelines that need to manage memories programmatically
 
 ### Project Structure
@@ -79,6 +79,7 @@ Apache-2.0
 │           ├── init_cmd.py          # run_init (interactive wizard)
 │           ├── config_cmd.py        # cmd_config_show, cmd_config_get, cmd_config_set
 │           ├── entities.py          # cmd_entities_list, cmd_entities_delete
+│           ├── events_cmd.py        # cmd_event_list, cmd_event_status
 │           └── utils.py             # cmd_status, cmd_version, cmd_import
 └── node/
     ├── package.json                 # Node package config (tsup build)
@@ -88,6 +89,7 @@ Apache-2.0
         ├── config.ts                # Config loading/saving, env var overrides
         ├── branding.ts              # Colors, icons, banner, timedStatus, print helpers
         ├── output.ts                # Output formatting (text, json, table, quiet)
+        ├── state.ts                 # Agent mode flag (setAgentMode, isAgentMode)
         ├── help.ts                  # Rich-style help formatter (panels, command ordering)
         ├── backend/
         │   ├── index.ts             # Re-exports
@@ -98,6 +100,7 @@ Apache-2.0
             ├── init.ts              # runInit (interactive wizard)
             ├── config.ts            # cmdConfigShow, cmdConfigGet, cmdConfigSet
             ├── entities.ts          # cmdEntitiesList, cmdEntitiesDelete
+            ├── events.ts            # cmdEventList, cmdEventStatus
             └── utils.ts             # cmdStatus, cmdVersion, cmdImport
 ```
 
@@ -153,8 +156,25 @@ Interactive setup wizard for mem0 CLI.
 |-----------------|--------|----------|---------|------|
 | `--api-key`     | string | No       | -       | API key (skip prompt). |
 | `-u, --user-id` | string | No       | -       | Default user ID (skip prompt). |
+| `--email`       | string | No       | -       | Login via email verification code. |
+| `--code`        | string | No       | -       | Verification code (use with --email for non-interactive login). |
+| `--force`       | bool   | No       | false   | Overwrite existing config without confirmation. |
 
 **Behavior:**
+
+*Existing config protection:*
+- If `~/.mem0/config.json` exists with an API key, the CLI warns and asks for confirmation before overwriting.
+- In non-TTY mode, this is a hard error unless `--force` is passed.
+- `--force` skips the confirmation in both TTY and non-TTY modes.
+
+*Email login flow (when `--email` is provided):*
+- Sends a 6-digit verification code to the email via `POST /api/v1/auth/email_code/`.
+- If `--code` is also provided, verifies immediately (fully non-interactive).
+- If `--code` is not provided, prompts for the code interactively.
+- On success: receives API key, org_id, project_id. Saves to config. Creates account if email is new.
+- Cannot be combined with `--api-key`.
+
+*API key flow (existing behavior):*
 - If both `--api-key` and `--user-id` are provided, runs non-interactively (no prompts).
 - If running in a non-TTY without both flags, prints an error with usage hint and exits.
 - Interactive mode: prints banner, prompts for API key (masked with `*`), prompts for default user ID (default: `mem0-cli`), validates connection, saves config.
@@ -164,6 +184,9 @@ Interactive setup wizard for mem0 CLI.
 ```bash
 mem0 init
 mem0 init --api-key m0-xxx --user-id alice
+mem0 init --api-key m0-xxx --user-id alice --force
+mem0 init --email alice@company.com
+mem0 init --email alice@company.com --code 482901
 ```
 
 ---
@@ -687,7 +710,114 @@ mem0 entity delete --user-id alice --dry-run
 
 ---
 
-### 3.14 `status`
+### 3.14 `event list`
+
+List recent background processing events.
+
+| Property         | Value |
+|------------------|-------|
+| Usage            | `mem0 event list [OPTIONS]` |
+| needsBackend     | Yes |
+| needsConfig      | Yes |
+| resolveIds       | No |
+| resolveGraph     | No |
+| confirmDangerous | No |
+| Output formats   | text (table), json |
+| Default output   | table |
+| API endpoint     | `GET /v1/events/` |
+
+**Options:**
+
+| Flag           | Type   | Default | Panel      | Help |
+|----------------|--------|---------|------------|------|
+| `-o, --output` | string | "table" | Output     | Output: text, json. |
+| `--api-key`    | string | -       | Connection | Override API key. |
+| `--base-url`   | string | -       | Connection | Override API base URL. |
+
+**Behavior:** Fetches all background events for the project. Displays as a table with columns: Event ID (first 8 chars), Type, Status (color-coded), Latency, Created. Status values: `PENDING` (accent), `SUCCEEDED` (green), `FAILED` (red), `PROCESSING` (yellow).
+
+**JSON output envelope:**
+```json
+{
+  "status": "success",
+  "command": "event list",
+  "count": 3,
+  "duration_ms": 87,
+  "data": [
+    { "id": "evt-abc", "event_type": "ADD", "status": "SUCCEEDED", "latency": 412.0, "created_at": "2026-01-01T10:00:00Z" }
+  ]
+}
+```
+
+**Examples:**
+```bash
+mem0 event list
+mem0 event list --output json
+```
+
+---
+
+### 3.15 `event status`
+
+Get the status and results of a specific background event.
+
+| Property         | Value |
+|------------------|-------|
+| Usage            | `mem0 event status <event_id> [OPTIONS]` |
+| needsBackend     | Yes |
+| needsConfig      | Yes |
+| resolveIds       | No |
+| resolveGraph     | No |
+| confirmDangerous | No |
+| Output formats   | text, json |
+| Default output   | text |
+| API endpoint     | `GET /v1/events/{event_id}/` |
+
+**Arguments:**
+
+| Name       | Type   | Required | Help |
+|------------|--------|----------|------|
+| `event_id` | string | Yes      | Event ID to inspect. |
+
+**Options:**
+
+| Flag           | Type   | Default | Panel      | Help |
+|----------------|--------|---------|------------|------|
+| `-o, --output` | string | "text"  | Output     | Output: text, json. |
+| `--api-key`    | string | -       | Connection | Override API key. |
+| `--base-url`   | string | -       | Connection | Override API base URL. |
+
+**Behavior:** Fetches the event by ID and displays: Event ID, Type, Status (color-coded), Latency, Created, Updated, and a numbered list of result memories (event type, memory text, user_id, truncated memory ID). Displayed in a boxed panel (text) or JSON envelope.
+
+**JSON output envelope:**
+```json
+{
+  "status": "success",
+  "command": "event status",
+  "duration_ms": 65,
+  "data": {
+    "id": "evt-abc",
+    "event_type": "ADD",
+    "status": "SUCCEEDED",
+    "latency": 412.0,
+    "created_at": "2026-01-01T10:00:00Z",
+    "updated_at": "2026-01-01T10:00:01Z",
+    "results": [
+      { "id": "mem-xyz", "event": "ADD", "user_id": "alice", "memory": "User prefers dark mode" }
+    ]
+  }
+}
+```
+
+**Examples:**
+```bash
+mem0 event status evt-abc-123
+mem0 event status evt-abc-123 --output json
+```
+
+---
+
+### 3.16 `status`
 
 Check connectivity and authentication.
 
@@ -708,20 +838,19 @@ Check connectivity and authentication.
 | `--api-key`    | string | -       | Connection | Override API key. |
 | `--base-url`   | string | -       | Connection | Override API base URL. |
 
-**Behavior:** If config has a default `user_id` or `agent_id`, validates by making a minimal `POST /v2/memories/` with `page=1&page_size=1`. Otherwise validates via `GET /v1/entities/`. Displays connection status in a boxed panel (text) or JSON envelope.
+**Behavior:** Validates connectivity by calling `GET /v1/ping/`. Displays connection status in a boxed panel (text) or JSON envelope. The ping endpoint is lightweight and does not require any entity scope.
 
 **JSON output:**
 ```json
 {
   "status": "success",
   "command": "status",
+  "duration_ms": 112,
   "data": {
     "connected": true,
     "backend": "platform",
-    "base_url": "https://api.mem0.ai",
-    "latency_ms": 245
-  },
-  "duration_ms": 245
+    "base_url": "https://api.mem0.ai"
+  }
 }
 ```
 
@@ -733,7 +862,7 @@ mem0 status -o json
 
 ---
 
-### 3.15 `help`
+### 3.17 `help`
 
 Show help. Use `--json` for machine-readable output (for LLM agents).
 
@@ -793,6 +922,9 @@ The auth header name is `Authorization` and the scheme is `Token` (not Bearer).
 | Delete all      | `DELETE` | `/v1/memories/`               | -                | entity ID params        |
 | List entities   | `GET`    | `/v1/entities/`               | -                | -                       |
 | Delete entities | `DELETE` | `/v1/entities/`               | -                | entity ID params        |
+| List events     | `GET`    | `/v1/events/`                 | -                | -                       |
+| Get event       | `GET`    | `/v1/events/{event_id}/`      | -                | -                       |
+| Ping (status)   | `GET`    | `/v1/ping/`                   | -                | -                       |
 
 ### How Filters Are Built (`_buildFilters` / `_build_filters`)
 
@@ -1095,6 +1227,8 @@ For `PENDING` events, displays "Processing in background" with the event ID.
 
 ### 7.1 Supported Modes Per Command
 
+All commands also support `agent` mode via the global `--json`/`--agent` flag, which wraps output in a structured JSON envelope with sanitized fields.
+
 | Command        | text | json | table | quiet |
 |----------------|------|------|-------|-------|
 | add            | Y    | Y    | -     | Y     |
@@ -1109,12 +1243,16 @@ For `PENDING` events, displays "Processing in background" with the event ID.
 | config set     | (success msg) | - | - | -  |
 | entity list    | -    | Y    | Y (default) | -  |
 | entity delete  | Y    | Y    | -     | Y     |
+| event list     | Y (table) | Y | -  | -     |
+| event status   | Y    | Y    | -     | -     |
 | status         | Y    | Y    | -     | -     |
 | help           | Y    | Y (--json) | - | -   |
 
-### 7.2 JSON Envelope Format (`formatJsonEnvelope`)
+### 7.2 JSON Envelope Format
 
-Used by `config show`, `status`, and `import` for structured JSON output:
+There are two related envelope formats:
+
+**`formatJsonEnvelope`** — used by `config show`, `status`, and `import` for `--output json`:
 
 ```json
 {
@@ -1128,14 +1266,39 @@ Used by `config show`, `status`, and `import` for structured JSON output:
 }
 ```
 
+**`formatAgentEnvelope`** — used by all commands in agent mode (`--json`/`--agent`). Same structure, but `data` is passed through `sanitizeAgentData(command, data)` to project only the most relevant fields:
+
+| Command       | Fields in `data` |
+|---------------|-----------------|
+| add           | `[{id, memory, event}]` or `[{status, event_id}]` for PENDING |
+| search        | `[{id, memory, score, created_at, categories}]` |
+| list          | `[{id, memory, created_at, categories}]` |
+| get           | `{id, memory, created_at, updated_at, categories, metadata}` |
+| update        | `{id, memory}` |
+| delete        | (raw API response) |
+| entity list   | `[{name, type, count}]` |
+| event list    | `[{id, event_type, status, latency, created_at}]` |
+| event status  | `{id, event_type, status, latency, created_at, updated_at, results: [{id, event, user_id, memory}]}` |
+| status/config/import | (pass-through) |
+
+Error envelopes (on non-zero exit):
+```json
+{
+  "status": "error",
+  "command": "<command_name>",
+  "error": "Authentication failed. Your API key may be invalid or expired.",
+  "data": null
+}
+```
+
 Fields:
-- `status`: Always `"success"` (errors go to stderr before exit).
-- `command`: The command name (e.g. `"status"`, `"config show"`, `"import"`).
+- `status`: `"success"` or `"error"`.
+- `command`: The command name.
 - `duration_ms`: Optional, elapsed time in milliseconds.
-- `scope`: Optional, active entity scope.
+- `scope`: Optional, active entity scope (omitted if empty).
 - `count`: Optional, result count.
-- `error`: Optional, error message string.
-- `data`: The primary payload.
+- `error`: Only present when `status` is `"error"`.
+- `data`: The primary payload (sanitized in agent mode).
 
 ### 7.3 Text Output
 
@@ -1205,6 +1368,16 @@ Destructive commands (`delete --all`, `delete --entity`, `entity delete`) requir
 - AI agents (non-interactive)
 - CI/CD pipelines
 - Scripting
+
+### Why `--json`/`--agent` global flags exist
+
+The `--json` and `--agent` flags (aliases of each other) activate agent mode globally. When set:
+1. All output becomes a structured JSON envelope (`{status, command, duration_ms, scope, count, data}`).
+2. The `data` field is sanitized via `sanitizeAgentData` — only the most relevant fields are included per command, reducing noise for agents parsing the output.
+3. All human-readable output (spinners, colors, banners, timing lines) is suppressed.
+4. Errors are emitted as JSON to stdout with a non-zero exit code, not to stderr as text.
+
+This is distinct from `--output json`, which returns the raw API response without sanitization.
 
 ### Why `--output json` is on every command
 

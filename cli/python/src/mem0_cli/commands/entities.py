@@ -18,7 +18,7 @@ from mem0_cli.branding import (
     print_success,
     timed_status,
 )
-from mem0_cli.output import format_json
+from mem0_cli.output import format_agent_envelope, format_json
 
 console = Console()
 err_console = Console(stderr=True)
@@ -26,9 +26,16 @@ err_console = Console(stderr=True)
 
 def cmd_entities_list(backend: Backend, entity_type: str, *, output: str) -> None:
     """List entities of a given type."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+
+    set_current_command("entity list")
+    if is_agent_mode():
+        output = "agent"
     valid_types = {"users", "agents", "apps", "runs"}
     if entity_type not in valid_types:
-        print_error(err_console, f"Invalid entity type: {entity_type}. Use: {', '.join(valid_types)}")
+        print_error(
+            err_console, f"Invalid entity type: {entity_type}. Use: {', '.join(valid_types)}"
+        )
         raise typer.Exit(1)
 
     _start = _time.perf_counter()
@@ -39,6 +46,16 @@ def cmd_entities_list(backend: Backend, entity_type: str, *, output: str) -> Non
             print_error(err_console, str(e), hint="This feature may require the mem0 Platform.")
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
+
+    if output == "agent":
+        format_agent_envelope(
+            console,
+            command="entity list",
+            data=results,
+            count=len(results),
+            duration_ms=int(_elapsed * 1000),
+        )
+        return
 
     if output == "json":
         format_json(console, results)
@@ -75,39 +92,39 @@ def cmd_entities_delete(
     output: str,
 ) -> None:
     """Delete an entity and all its memories (cascade delete)."""
+    from mem0_cli.state import is_agent_mode, set_current_command
+
+    set_current_command("entity delete")
+    if is_agent_mode():
+        output = "agent"
+        if not force:
+            print_error(err_console, "Destructive operation requires --force in agent mode.")
+            raise typer.Exit(1)
     if not any([user_id, agent_id, app_id, run_id]):
-        print_error(err_console, "Provide at least one of --user-id, --agent-id, --app-id, --run-id.")
+        print_error(
+            err_console, "Provide at least one of --user-id, --agent-id, --app-id, --run-id."
+        )
         raise typer.Exit(1)
 
+    scope_parts = []
+    if user_id:
+        scope_parts.append(f"user={user_id}")
+    if agent_id:
+        scope_parts.append(f"agent={agent_id}")
+    if app_id:
+        scope_parts.append(f"app={app_id}")
+    if run_id:
+        scope_parts.append(f"run={run_id}")
+    scope_str = ", ".join(scope_parts)
+
     if dry_run:
-        scope_parts = []
-        if user_id:
-            scope_parts.append(f"user={user_id}")
-        if agent_id:
-            scope_parts.append(f"agent={agent_id}")
-        if app_id:
-            scope_parts.append(f"app={app_id}")
-        if run_id:
-            scope_parts.append(f"run={run_id}")
-        scope = ", ".join(scope_parts)
-        print_info(console, f"Would delete entity {scope} and all its memories.")
+        print_info(console, f"Would delete entity {scope_str} and all its memories.")
         print_info(console, "No changes made (dry run).")
         return
 
     if not force:
-        scope_parts = []
-        if user_id:
-            scope_parts.append(f"user={user_id}")
-        if agent_id:
-            scope_parts.append(f"agent={agent_id}")
-        if app_id:
-            scope_parts.append(f"app={app_id}")
-        if run_id:
-            scope_parts.append(f"run={run_id}")
-        scope = ", ".join(scope_parts)
-
         confirm = typer.confirm(
-            f"\n  \u26a0  Delete entity {scope} AND all its memories? This cannot be undone."
+            f"\n  \u26a0  Delete entity {scope_str} AND all its memories? This cannot be undone."
         )
         if not confirm:
             print_info(console, "Cancelled.")
@@ -127,7 +144,25 @@ def cmd_entities_delete(
             raise typer.Exit(1) from None
     _elapsed = _time.perf_counter() - _start
 
-    if output == "json":
+    scope = {
+        k: v
+        for k, v in {
+            "user_id": user_id,
+            "agent_id": agent_id,
+            "app_id": app_id,
+            "run_id": run_id,
+        }.items()
+        if v
+    }
+    if output == "agent":
+        format_agent_envelope(
+            console,
+            command="entity delete",
+            data={"deleted": True},
+            scope=scope or None,
+            duration_ms=int(_elapsed * 1000),
+        )
+    elif output == "json":
         format_json(console, result)
     elif output != "quiet":
         print_success(console, f"Entity deleted with all memories ({_elapsed:.2f}s)")

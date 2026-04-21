@@ -157,7 +157,7 @@ class TurbopufferDB(VectorStoreBase):
         return ("And", tuple(conditions))
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -165,7 +165,7 @@ class TurbopufferDB(VectorStoreBase):
         Args:
             query (str): Query text (unused in vector search, kept for interface consistency).
             vectors (list): Query vector to search with.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -173,7 +173,7 @@ class TurbopufferDB(VectorStoreBase):
         """
         query_params = {
             "rank_by": ("vector", "ANN", vectors),
-            "top_k": limit,
+            "top_k": top_k,
             "include_attributes": True,
         }
 
@@ -290,20 +290,20 @@ class TurbopufferDB(VectorStoreBase):
         except Exception:
             return {"name": self.collection_name}
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> list:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> list:
         """
         List vectors in the namespace with optional filtering.
 
         Args:
             filters (dict, optional): Filters to apply. Defaults to None.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             list: Wrapped list of OutputData objects ([[results]]).
         """
         query_params = {
             "rank_by": ("vector", "ANN", [0.0] * self.embedding_model_dims),
-            "top_k": limit,
+            "top_k": top_k,
             "include_attributes": True,
         }
 

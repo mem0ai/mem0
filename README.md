@@ -41,16 +41,30 @@
 <p align="center">
   <a href="https://mem0.ai/research"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
 </p>
-<p align="center">
-  <strong>⚡ +26% Accuracy vs. OpenAI Memory • 🚀 91% Faster • 💰 90% Fewer Tokens</strong>
-</p>
 
-> **🎉 mem0ai v1.0.0 is now available!** This major release includes API modernization, improved vector store support, and enhanced GCP integration. [See migration guide →](MIGRATION_GUIDE_v1.0.md)
+## New Memory Algorithm (April 2026)
 
-##  🔥 Research Highlights
-- **+26% Accuracy** over OpenAI Memory on the LOCOMO benchmark
-- **91% Faster Responses** than full-context, ensuring low-latency at scale
-- **90% Lower Token Usage** than full-context, cutting costs without compromise
+| Benchmark | Old | New  | Tokens  | Latency p50  |
+| --- | --- | --- | --- | --- |
+| **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
+| **LongMemEval** | 67.8 | **93.4** | 6.8K  | 1.09s  |
+| **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
+| **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
+
+All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops).
+
+**What changed:**
+- **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.
+- **Agent-generated facts are first-class** -- when an agent confirms an action, that information is now stored with equal weight.
+- **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
+- **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
+
+See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
+
+## Research Highlights
+- **91.6 on LoCoMo** -- +20 points over the previous algorithm
+- **93.4 on LongMemEval** -- +26 points, with +53.6 on assistant memory recall
+- **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
 - [Read the full paper](https://mem0.ai/research)
 
 # Introduction
@@ -88,6 +102,13 @@ Install the sdk via pip:
 pip install mem0ai
 ```
 
+For enhanced hybrid search with BM25 keyword matching and entity extraction, install with NLP support:
+
+```bash
+pip install mem0ai[nlp]
+python -m spacy download en_core_web_sm
+```
+
 Install sdk via npm:
 ```bash
 npm install mem0ai
@@ -109,7 +130,9 @@ See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full comm
 
 ### Basic Usage
 
-Mem0 requires an LLM to function, with `gpt-4.1-nano-2025-04-14 from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+Mem0 requires an LLM to function, with `gpt-5-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
+
+Mem0 uses `text-embedding-3-small` from OpenAI as the default embedding model. For best results with hybrid search (semantic + keyword + entity boosting), we recommend using at least [Qwen 600M](https://huggingface.co/Alibaba-NLP/gte-Qwen2-1.5B-instruct) or a comparable embedding model. See [Supported Embeddings](https://docs.mem0.ai/components/embedders/overview) for configuration details.
 
 First step is to instantiate the memory:
 
@@ -122,13 +145,13 @@ memory = Memory()
 
 def chat_with_memories(message: str, user_id: str = "default_user") -> str:
     # Retrieve relevant memories
-    relevant_memories = memory.search(query=message, user_id=user_id, limit=3)
+    relevant_memories = memory.search(query=message, filters={"user_id": user_id}, top_k=3)
     memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
 
     # Generate Assistant response
     system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
     messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="gpt-4.1-nano-2025-04-14", messages=messages)
+    response = openai_client.chat.completions.create(model="gpt-5-mini", messages=messages)
     assistant_response = response.choices[0].message.content
 
     # Create new memories from the conversation
@@ -162,7 +185,7 @@ For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quicks
 ## 📚 Documentation & Support
 
 - Full docs: https://docs.mem0.ai
-- Community: [Discord](https://mem0.dev/DiG) · [Twitter](https://x.com/mem0ai)
+- Community: [Discord](https://mem0.dev/DiG) · [X (formerly Twitter)](https://x.com/mem0ai)
 - Contact: founders@mem0.ai
 
 ## Citation

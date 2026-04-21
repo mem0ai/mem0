@@ -66,7 +66,14 @@ class ElasticsearchDB(VectorStoreBase):
                         "index": True,
                         "similarity": "cosine",
                     },
-                    "metadata": {"type": "object", "properties": {"user_id": {"type": "keyword"}}},
+                    "metadata": {
+                        "type": "object",
+                        "properties": {
+                            "user_id": {"type": "keyword"},
+                            "agent_id": {"type": "keyword"},
+                            "run_id": {"type": "keyword"},
+                        },
+                    },
                 }
             },
         }
@@ -129,7 +136,7 @@ class ElasticsearchDB(VectorStoreBase):
         return results
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search with two options:
@@ -137,16 +144,59 @@ class ElasticsearchDB(VectorStoreBase):
         2. Use KNN search on vectors with pre-filtering if no custom search query is provided
         """
         if self.custom_search_query:
-            search_query = self.custom_search_query(vectors, limit, filters)
+            search_query = self.custom_search_query(vectors, top_k, filters)
         else:
             search_query = {
-                "knn": {"field": "vector", "query_vector": vectors, "k": limit, "num_candidates": limit * 2}
+                "knn": {"field": "vector", "query_vector": vectors, "k": top_k, "num_candidates": top_k * 2}
             }
             if filters:
                 filter_conditions = []
                 for key, value in filters.items():
                     filter_conditions.append({"term": {f"metadata.{key}": value}})
                 search_query["knn"]["filter"] = {"bool": {"must": filter_conditions}}
+
+        response = self.client.search(index=self.collection_name, body=search_query)
+
+        results = []
+        for hit in response["hits"]["hits"]:
+            results.append(
+                OutputData(id=hit["_id"], score=hit["_score"], payload=hit.get("_source", {}).get("metadata", {}))
+            )
+
+        return results
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """Search for memories using BM25 keyword matching.
+
+        Args:
+            query (str): The text query to search for.
+            top_k (int): Maximum number of results to return. Defaults to 5.
+            filters (Dict, optional): Filters to apply to the search.
+
+        Returns:
+            List[OutputData]: Search results with id, score, and payload.
+        """
+        # Build a multi_match query across text fields in metadata
+        should_clauses = [
+            {"match": {"metadata.data": query}},
+            {"match": {"metadata.text_lemmatized": query}},
+        ]
+
+        bool_query = {
+            "should": should_clauses,
+            "minimum_should_match": 1,
+        }
+
+        if filters:
+            filter_conditions = []
+            for key, value in filters.items():
+                filter_conditions.append({"term": {f"metadata.{key}": value}})
+            bool_query["filter"] = filter_conditions
+
+        search_query = {
+            "size": top_k,
+            "query": {"bool": bool_query},
+        }
 
         response = self.client.search(index=self.collection_name, body=search_query)
 
@@ -203,7 +253,7 @@ class ElasticsearchDB(VectorStoreBase):
         """Get information about a collection (index)."""
         return self.client.indices.get(index=name)
 
-    def list(self, filters: Optional[Dict] = None, limit: Optional[int] = None) -> List[List[OutputData]]:
+    def list(self, filters: Optional[Dict] = None, top_k: Optional[int] = None) -> List[List[OutputData]]:
         """List all memories."""
         query: Dict[str, Any] = {"query": {"match_all": {}}}
 
@@ -213,8 +263,8 @@ class ElasticsearchDB(VectorStoreBase):
                 filter_conditions.append({"term": {f"metadata.{key}": value}})
             query["query"] = {"bool": {"must": filter_conditions}}
 
-        if limit:
-            query["size"] = limit
+        if top_k:
+            query["size"] = top_k
 
         response = self.client.search(index=self.collection_name, body=query)
 

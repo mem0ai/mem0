@@ -22,18 +22,21 @@ jest.mock("../src/llms/openai", () => ({
       .fn()
       .mockImplementation(
         (messages: Array<{ role: string; content: string }>) => {
-          const hasSystemRole = messages.some((m) => m.role === "system");
-          if (hasSystemRole) {
-            return JSON.stringify({ facts: ["stored fact"] });
-          }
+          // V3 pipeline: single LLM call with additive extraction prompt.
+          // Extract the user input from the prompt to produce unique memories.
+          const userMsg = messages.find((m) => m.role === "user");
+          const content = userMsg?.content ?? "";
+          // Pull the text between "## New Messages" and the next "##"
+          const newMsgMatch = content.match(
+            /## New Messages\n([\s\S]*?)(?=\n##|$)/,
+          );
+          const extracted = newMsgMatch ? newMsgMatch[1].trim() : "stored fact";
           return JSON.stringify({
             memory: [
               {
-                id: "new",
-                event: "ADD",
-                text: "stored fact",
-                old_memory: "",
-                new_memory: "stored fact",
+                id: "0",
+                text: extracted,
+                attributed_to: "user",
               },
             ],
           });
@@ -42,9 +45,15 @@ jest.mock("../src/llms/openai", () => ({
   })),
 }));
 
+const mockEmbedding = new Array(1536).fill(0.1);
 jest.mock("../src/embeddings/openai", () => ({
   OpenAIEmbedder: jest.fn().mockImplementation(() => ({
-    embed: jest.fn().mockResolvedValue(new Array(1536).fill(0.1)),
+    embed: jest.fn().mockResolvedValue(mockEmbedding),
+    embedBatch: jest
+      .fn()
+      .mockImplementation((texts: string[]) =>
+        Promise.resolve(texts.map(() => mockEmbedding)),
+      ),
     embeddingDims: 1536,
   })),
 }));
@@ -66,7 +75,7 @@ function createMemory(): Memory {
     },
     llm: {
       provider: "openai",
-      config: { apiKey: "test-key", model: "gpt-4-turbo-preview" },
+      config: { apiKey: "test-key", model: "gpt-5-mini" },
     },
     historyDbPath: ":memory:",
   });
@@ -87,7 +96,9 @@ describe("Memory - get()", () => {
   });
 
   test("returns the memory matching the ID from add()", async () => {
-    const addResult: SearchResult = await memory.add("I love AI", { userId });
+    const addResult: SearchResult = await memory.add("I love AI", {
+      userId,
+    });
     const id = addResult.results[0].id;
     const item: MemoryItem | null = await memory.get(id);
     expect(item).not.toBeNull();
@@ -108,7 +119,9 @@ describe("Memory - get()", () => {
   });
 
   test("returns hash and createdAt on stored memory", async () => {
-    const addResult: SearchResult = await memory.add("Hash test", { userId });
+    const addResult: SearchResult = await memory.add("Hash test", {
+      userId,
+    });
     const item: MemoryItem | null = await memory.get(addResult.results[0].id);
     expect(typeof item!.hash).toBe("string");
     expect(item!.createdAt).toBeDefined();
@@ -233,13 +246,15 @@ describe("Memory - deleteAll()", () => {
     await memory.add("Fact B", { userId });
     const result = await memory.deleteAll({ userId });
     expect(result.message).toBe("Memories deleted successfully!");
-    const remaining: SearchResult = await memory.getAll({ userId });
+    const remaining: SearchResult = await memory.getAll({
+      filters: { user_id: userId },
+    });
     expect(remaining.results).toHaveLength(0);
   });
 
   test("throws when no filter is provided", async () => {
     await expect(memory.deleteAll({} as any)).rejects.toThrow(
-      "At least one filter is required",
+      "At least one filter is required to delete all memories",
     );
   });
 });
@@ -261,13 +276,17 @@ describe("Memory - getAll()", () => {
   test("returns all stored memories for the user", async () => {
     await memory.add("First", { userId });
     await memory.add("Second", { userId });
-    const result: SearchResult = await memory.getAll({ userId });
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: userId },
+    });
     expect(Array.isArray(result.results)).toBe(true);
     expect(result.results.length).toBeGreaterThanOrEqual(2);
   });
 
   test("each result has id and memory fields", async () => {
-    const result: SearchResult = await memory.getAll({ userId });
+    const result: SearchResult = await memory.getAll({
+      filters: { user_id: userId },
+    });
     for (const item of result.results) {
       expect(item.id).toBeDefined();
       expect(typeof item.memory).toBe("string");
@@ -276,7 +295,7 @@ describe("Memory - getAll()", () => {
 
   test("returns empty array when no memories exist", async () => {
     const result: SearchResult = await memory.getAll({
-      userId: "no_such_user",
+      filters: { user_id: "no_such_user" },
     });
     expect(result.results).toHaveLength(0);
   });
@@ -298,12 +317,16 @@ describe("Memory - search()", () => {
   });
 
   test("returns SearchResult with results array", async () => {
-    const result: SearchResult = await memory.search("TypeScript", { userId });
+    const result: SearchResult = await memory.search("TypeScript", {
+      filters: { user_id: userId },
+    });
     expect(Array.isArray(result.results)).toBe(true);
   });
 
   test("returns results with score field", async () => {
-    const result: SearchResult = await memory.search("content", { userId });
+    const result: SearchResult = await memory.search("content", {
+      filters: { user_id: userId },
+    });
     if (result.results.length > 0) {
       expect(typeof result.results[0].score).toBe("number");
     }
@@ -311,13 +334,13 @@ describe("Memory - search()", () => {
 
   test("throws when no userId/agentId/runId provided", async () => {
     await expect(memory.search("query", {} as any)).rejects.toThrow(
-      "One of the filters: userId, agentId or runId is required!",
+      "filters must contain at least one of: user_id, agent_id, run_id",
     );
   });
 
   test("returns empty results for user with no memories", async () => {
     const result: SearchResult = await memory.search("query", {
-      userId: "empty_user",
+      filters: { user_id: "empty_user" },
     });
     expect(result.results).toHaveLength(0);
   });
@@ -338,14 +361,18 @@ describe("Memory - history()", () => {
   });
 
   test("records ADD event after add()", async () => {
-    const addResult: SearchResult = await memory.add("New fact", { userId });
+    const addResult: SearchResult = await memory.add("New fact", {
+      userId,
+    });
     const history = await memory.history(addResult.results[0].id);
     expect(Array.isArray(history)).toBe(true);
     expect(history.length).toBeGreaterThan(0);
   });
 
   test("records additional entry after update()", async () => {
-    const addResult: SearchResult = await memory.add("Before", { userId });
+    const addResult: SearchResult = await memory.add("Before", {
+      userId,
+    });
     const id = addResult.results[0].id;
     await memory.update(id, "After");
     const history = await memory.history(id);

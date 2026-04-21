@@ -4,10 +4,8 @@
 
 import chalk from "chalk";
 import ora, { type Ora } from "ora";
-import { createRequire } from "node:module";
-
-const _require = createRequire(import.meta.url);
-const PKG_VERSION: string = _require("../package.json").version;
+import { getCurrentCommand, isAgentMode } from "./state.js";
+import { CLI_VERSION } from "./version.js";
 
 export const LOGO = `
 ███╗   ███╗███████╗███╗   ███╗ ██████╗      ██████╗██╗     ██╗
@@ -40,75 +38,96 @@ const dim = chalk.hex(DIM_COLOR);
  * plain-text for piped/non-TTY or NO_COLOR environments.
  */
 export function sym(fancy: string, plain: string): string {
-  if (!process.stdout.isTTY || process.env.NO_COLOR) return plain;
-  return fancy;
+	if (!process.stdout.isTTY || process.env.NO_COLOR) return plain;
+	return fancy;
 }
 
 export function printBanner(): void {
-  const pad = 3; // horizontal padding each side (matches Rich's padding=(0, 2))
-  const logoLines = LOGO.trimEnd().split("\n");
-  const tagline = `  ${TAGLINE}`;
-  const subtitle = `Node.js SDK · v${PKG_VERSION}`;
-  const contentLines = ["", ...logoLines, "", tagline, ""];
+	if (isAgentMode()) return;
+	const pad = 3; // horizontal padding each side (matches Rich's padding=(0, 2))
+	const logoLines = LOGO.trimEnd().split("\n");
+	const tagline = `  ${TAGLINE}`;
+	const subtitle = `Node.js SDK · v${CLI_VERSION}`;
+	const contentLines = ["", ...logoLines, "", tagline, ""];
 
-  // Compute inner width from longest content line + padding both sides
-  const maxContent = Math.max(...contentLines.map((l) => l.length));
-  const innerWidth = maxContent + pad * 2;
-  const totalWidth = innerWidth + 2; // + 2 for │ borders
+	// Compute inner width from longest content line + padding both sides
+	const maxContent = Math.max(...contentLines.map((l) => l.length));
+	const innerWidth = maxContent + pad * 2;
+	const totalWidth = innerWidth + 2; // + 2 for │ borders
 
-  const topBorder = brand(`╭${"─".repeat(totalWidth - 2)}╮`);
-  const subtitleFill = totalWidth - 2 - subtitle.length - 3; // 3 = "─ " before subtitle + "─" after
-  const bottomBorder = brand(`╰${"─".repeat(subtitleFill)} ${dim(subtitle)} ${"─"}╯`);
+	const topBorder = brand(`╭${"─".repeat(totalWidth - 2)}╮`);
+	const subtitleFill = totalWidth - 2 - subtitle.length - 3; // 3 = "─ " before subtitle + "─" after
+	const bottomBorder = brand(
+		`╰${"─".repeat(subtitleFill)} ${dim(subtitle)} ${"─"}╯`,
+	);
 
-  const body = contentLines.map((line) => {
-    const rightPad = innerWidth - pad - line.length;
-    return `${brand("│")}${" ".repeat(pad)}${brand.bold(line)}${" ".repeat(Math.max(rightPad, 0))}${brand("│")}`;
-  });
-  // Re-color tagline line with accent instead of brand.bold
-  const taglineIdx = body.length - 2; // second-to-last (before trailing empty line)
-  const taglineRightPad = innerWidth - pad - tagline.length;
-  body[taglineIdx] = `${brand("│")}${" ".repeat(pad)}${accent(tagline)}${" ".repeat(Math.max(taglineRightPad, 0))}${brand("│")}`;
+	const body = contentLines.map((line) => {
+		const rightPad = innerWidth - pad - line.length;
+		return `${brand("│")}${" ".repeat(pad)}${brand.bold(line)}${" ".repeat(Math.max(rightPad, 0))}${brand("│")}`;
+	});
+	// Re-color tagline line with accent instead of brand.bold
+	const taglineIdx = body.length - 2; // second-to-last (before trailing empty line)
+	const taglineRightPad = innerWidth - pad - tagline.length;
+	body[taglineIdx] =
+		`${brand("│")}${" ".repeat(pad)}${accent(tagline)}${" ".repeat(Math.max(taglineRightPad, 0))}${brand("│")}`;
 
-  console.log(topBorder);
-  for (const line of body) console.log(line);
-  console.log(bottomBorder);
+	console.log(topBorder);
+	for (const line of body) console.log(line);
+	console.log(bottomBorder);
 }
 
 export function printSuccess(message: string): void {
-  console.log(`${success(sym("✓", "[ok]"))} ${message}`);
+	if (isAgentMode()) return;
+	console.log(`${success(sym("✓", "[ok]"))} ${message}`);
 }
 
 export function printError(message: string, hint?: string): void {
-  console.error(`${error(sym("✗", "[error]") + " Error:")} ${message}`);
-  if (hint) {
-    console.error(`  ${dim(hint)}`);
-  }
+	if (isAgentMode()) {
+		const envelope = {
+			status: "error",
+			command: getCurrentCommand(),
+			error: message,
+			data: null,
+		};
+		console.log(JSON.stringify(envelope));
+		return;
+	}
+	console.error(`${error(`${sym("✗", "[error]")} Error:`)} ${message}`);
+	const resolvedHint =
+		hint ??
+		(message.includes("Authentication failed")
+			? `Run ${brand("mem0 init")} to reconfigure your API key · https://app.mem0.ai/dashboard/api-keys`
+			: undefined);
+	if (resolvedHint) {
+		console.error(`  ${dim(resolvedHint)}`);
+	}
 }
 
 export function printWarning(message: string): void {
-  console.error(`${warning(sym("⚠", "[warn]"))} ${message}`);
+	console.error(`${warning(sym("⚠", "[warn]"))} ${message}`);
 }
 
 export function printInfo(message: string): void {
-  console.log(`${brand(sym("◆", "*"))} ${message}`);
+	if (isAgentMode()) return;
+	console.error(`${brand(sym("◆", "*"))} ${message}`);
 }
 
 export function printScope(ids: Record<string, string | undefined>): void {
-  const parts: string[] = [];
-  for (const [key, val] of Object.entries(ids)) {
-    if (val) {
-      const label = key.replace(/_/g, " ").replace("id", "ID").trim();
-      parts.push(`${label}=${val}`);
-    }
-  }
-  if (parts.length > 0) {
-    console.log(`  ${dim(`Scope: ${parts.join(", ")}`)}`);
-  }
+	if (isAgentMode()) return;
+	const parts: string[] = [];
+	for (const [key, val] of Object.entries(ids)) {
+		if (val) {
+			parts.push(`${key}=${val}`);
+		}
+	}
+	if (parts.length > 0) {
+		console.error(`  ${dim(`Scope: ${parts.join(", ")}`)}`);
+	}
 }
 
 export interface TimedStatusContext {
-  successMsg: string;
-  errorMsg: string;
+	successMsg: string;
+	errorMsg: string;
 }
 
 /**
@@ -116,29 +135,37 @@ export interface TimedStatusContext {
  * Equivalent to Python's timed_status context manager.
  */
 export async function timedStatus<T>(
-  message: string,
-  fn: (ctx: TimedStatusContext) => Promise<T>,
+	message: string,
+	fn: (ctx: TimedStatusContext) => Promise<T>,
 ): Promise<T> {
-  const ctx: TimedStatusContext = { successMsg: "", errorMsg: "" };
-  const spinner = ora({ text: dim(message), color: "magenta", stream: process.stderr }).start();
-  const start = performance.now();
+	if (isAgentMode()) {
+		const ctx: TimedStatusContext = { successMsg: "", errorMsg: "" };
+		return fn(ctx);
+	}
+	const ctx: TimedStatusContext = { successMsg: "", errorMsg: "" };
+	const spinner = ora({
+		text: dim(message),
+		color: "yellow",
+		stream: process.stderr,
+	}).start();
+	const start = performance.now();
 
-  try {
-    const result = await fn(ctx);
-    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-    spinner.stop();
-    if (ctx.successMsg) {
-      console.error(`${success("✓")} ${ctx.successMsg} (${elapsed}s)`);
-    }
-    return result;
-  } catch (err) {
-    const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-    spinner.stop();
-    if (ctx.errorMsg) {
-      console.error(`${error("✗ Error:")} ${ctx.errorMsg} (${elapsed}s)`);
-    }
-    throw err;
-  }
+	try {
+		const result = await fn(ctx);
+		const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+		spinner.stop();
+		if (ctx.successMsg) {
+			console.error(`${success("✓")} ${ctx.successMsg} (${elapsed}s)`);
+		}
+		return result;
+	} catch (err) {
+		const elapsed = ((performance.now() - start) / 1000).toFixed(2);
+		spinner.stop();
+		if (ctx.errorMsg) {
+			printError(`${ctx.errorMsg} (${elapsed}s)`);
+		}
+		throw err;
+	}
 }
 
 /** Format helpers using brand colors for external use. */

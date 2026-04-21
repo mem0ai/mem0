@@ -91,6 +91,50 @@ def test_generate_response_with_tools(mock_openai_client):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_generate_response_with_response_format(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a memory extraction assistant."},
+        {"role": "user", "content": "I like hiking on weekends."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content='{"facts": ["User likes hiking on weekends"]}'))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages, response_format={"type": "json_object"})
+
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model=MODEL,
+        messages=messages,
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+        response_format={"type": "json_object"},
+    )
+    assert response == '{"facts": ["User likes hiking on weekends"]}'
+
+
+def test_generate_response_without_response_format(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Tell me a joke."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Why did the chicken cross the road?"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "response_format" not in call_kwargs
+    assert response == "Why did the chicken cross the road?"
+
+
 def test_reasoning_model_with_reasoning_effort(mock_openai_client):
     """Test that reasoning_effort is passed to the API for Azure reasoning models."""
     config = AzureOpenAIConfig(model="o3-mini", reasoning_effort="low")
@@ -242,8 +286,8 @@ def test_init_with_env_vars(monkeypatch):
             http_client=None,
             default_headers=None,
         )
-        # Should default to "gpt-4.1-nano-2025-04-14" if model is None
-        assert llm.config.model == "gpt-4.1-nano-2025-04-14"
+        # Should default to "gpt-5-mini" if model is None
+        assert llm.config.model == "gpt-5-mini"
 
 
 def test_init_with_default_azure_credential(monkeypatch):

@@ -80,19 +80,19 @@ describe("printWarning", () => {
 describe("printInfo", () => {
   it("prints info message", () => {
     printInfo("Important note");
-    expect(output).toContain("Important note");
+    expect(errOutput).toContain("Important note");
   });
 });
 
 describe("printScope", () => {
   it("prints scope when IDs present", () => {
     printScope({ user_id: "alice", agent_id: "bot" });
-    expect(output).toContain("alice");
-    expect(output).toContain("bot");
+    expect(errOutput).toContain("alice");
+    expect(errOutput).toContain("bot");
   });
 
   it("prints nothing when no IDs", () => {
     printScope({});
-    expect(output).toBe("");
+    expect(errOutput).toBe("");
   });
 });

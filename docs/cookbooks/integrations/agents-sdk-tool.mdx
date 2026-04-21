@@ -112,7 +112,7 @@ async def search_memory(
         query: The search query.
     """
     user_id = context.context.user_id or "default_user"
-    memories = await client.search(query, user_id=user_id)
+    memories = await client.search(query, filters={"user_id": user_id})
     results = '\n'.join([result["memory"] for result in memories["results"]])
     return str(results)
 ```
@@ -222,8 +222,8 @@ context = Mem0Context(user_id="user123")
 
 ## Resources
 
-- [Mem0 Documentation](https://docs.mem0.ai)
-- [Mem0 Dashboard](https://app.mem0.ai/dashboard)
+- [Mem0 Documentation](https://docs.mem0.ai/introduction)
+- <a href="https://app.mem0.ai/dashboard" rel="nofollow">Mem0 Dashboard</a>
 - [API Reference](https://docs.mem0.ai/api-reference)
 
 ---

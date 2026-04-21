@@ -26,7 +26,7 @@ describeIntegration("MemoryClient Integration — Batch Operations", () => {
 
   beforeAll(async () => {
     cleanup = suppressTelemetryNoise();
-    client = createTestClient();
+    client = await createTestClient();
     memoryIds = await seedTestMemories(client, TEST_USER_ID);
   });
 

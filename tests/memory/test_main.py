@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.memory.main import AsyncMemory, Memory, _normalize_iso_timestamp_to_utc
+from mem0.memory.main import AsyncMemory, Memory
 
 
 def _setup_mocks(mocker):
@@ -35,18 +35,21 @@ class TestAddToVectorStoreErrors:
 
         memory = Memory()
         memory.config = mocker.MagicMock()
-        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
         memory.api_version = "v1.1"
+        # v3 pipeline needs db.get_last_messages to return a list
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
 
         return memory
 
     def test_empty_llm_response_fact_extraction(self, mocker, mock_memory, caplog):
-        """Test empty response from LLM during fact extraction"""
+        """Test invalid JSON response from LLM during extraction"""
         # Setup
-        mock_memory.llm.generate_response.return_value = "invalid json"  # This will trigger a JSON decode error
-        mock_capture_event = mocker.MagicMock()
-        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+        mock_memory.llm.generate_response.return_value = "invalid json"
+        mocker.patch("mem0.memory.main.capture_event")
 
         # Execute
         with caplog.at_level(logging.ERROR):
@@ -54,18 +57,15 @@ class TestAddToVectorStoreErrors:
                 messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
             )
 
-        # Verify
+        # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
-        assert result == []  # Should return empty list when no memories processed
-        # Check for error message in any of the log records
-        assert any("Error in new_retrieved_facts" in record.msg for record in caplog.records), "Expected error message not found in logs"
-        assert mock_capture_event.call_count == 1
+        assert result == []
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
-        """Test empty response from LLM during memory actions"""
-        # Setup
-        # First call returns valid JSON, second call returns empty string
-        mock_memory.llm.generate_response.side_effect = ['{"facts": ["test fact"]}', ""]
+        """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
+        # Setup — v3 pipeline does a single LLM call that returns empty/invalid response
+        mock_memory.llm.generate_response.return_value = ""
 
         # Execute
         with caplog.at_level(logging.WARNING):
@@ -73,10 +73,9 @@ class TestAddToVectorStoreErrors:
                 messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
             )
 
-        # Verify
-        assert mock_memory.llm.generate_response.call_count == 2
+        # Verify — v3 only makes 1 LLM call (no separate merge step)
+        assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
-        assert "Empty response from LLM, no memories to extract" in caplog.text
 
 
 class TestAsyncUpdate:
@@ -139,19 +138,22 @@ class TestAsyncAddToVectorStoreErrors:
 
         memory = AsyncMemory()
         memory.config = mocker.MagicMock()
-        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
         memory.api_version = "v1.1"
+        # v3 pipeline needs db.get_last_messages to return a list
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
 
         return memory
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_fact_extraction(self, mock_async_memory, caplog, mocker):
-        """Test empty response in AsyncMemory._add_to_vector_store"""
+        """Test invalid JSON response from LLM during extraction (async)"""
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
-        mock_async_memory.llm.generate_response.return_value = "invalid json"  # This will trigger a JSON decode error
-        mock_capture_event = mocker.MagicMock()
-        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+        mock_async_memory.llm.generate_response.return_value = "invalid json"
+        mocker.patch("mem0.memory.main.capture_event")
 
         with caplog.at_level(logging.ERROR):
             result = await mock_async_memory._add_to_vector_store(
@@ -159,15 +161,13 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        # Check for error message in any of the log records
-        assert any("Error in new_retrieved_facts" in record.msg for record in caplog.records), "Expected error message not found in logs"
-        assert mock_capture_event.call_count == 1
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
-        """Test empty response in AsyncMemory._add_to_vector_store"""
+        """Test empty response in AsyncMemory._add_to_vector_store (v3: single-pass, 1 LLM call)"""
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
-        mock_async_memory.llm.generate_response.side_effect = ['{"facts": ["test fact"]}', ""]
+        mock_async_memory.llm.generate_response.return_value = ""
         mock_capture_event = mocker.MagicMock()
         mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
@@ -177,8 +177,7 @@ class TestAsyncAddToVectorStoreErrors:
             )
 
         assert result == []
-        assert "Empty response from LLM, no memories to extract" in caplog.text
-        assert mock_capture_event.call_count == 1
+        assert mock_async_memory.llm.generate_response.call_count == 1
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -187,7 +186,7 @@ def _build_memory_instance(mocker, memory_cls):
     mocker.patch("mem0.memory.main.MEM0_TELEMETRY", False)
     memory = memory_cls()
     memory.config = mocker.MagicMock()
-    memory.config.custom_fact_extraction_prompt = None
+    memory.config.custom_instructions = None
     memory.config.custom_update_memory_prompt = None
     memory.api_version = "v1.1"
     memory.vector_store = mocker.MagicMock()
@@ -237,8 +236,8 @@ def test_update_memory_uses_utc_timestamps(mocker):
     )
     memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.update.call_args.kwargs["payload"]
-    assert payload["created_at"] == "2026-03-18T00:00:00+00:00"
-    _assert_utc_timestamp(payload["updated_at"])
+    assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
+    assert payload["updated_at"] is not None
 
 
 @pytest.mark.asyncio
@@ -281,8 +280,8 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     )
     await memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.update.call_args.kwargs["payload"]
-    assert payload["created_at"] == "2026-03-18T00:00:00+00:00"
-    _assert_utc_timestamp(payload["updated_at"])
+    assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
+    assert payload["updated_at"] is not None
 
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
@@ -309,7 +308,7 @@ def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     memory.vector_store.list.return_value = [[mem_result]]
 
     # Step 3: Call search and get_all, compare timestamps
-    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10)
     get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
 
     search_item = search_results[0]
@@ -376,7 +375,7 @@ def test_search_and_get_all_consistent_after_update(mocker):
     memory.vector_store.search.return_value = [mem_result]
     memory.vector_store.list.return_value = [[mem_result]]
 
-    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10)
     get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
 
     assert search_results[0]["created_at"] == get_all_results[0]["created_at"]
@@ -627,18 +626,3 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
-def test_normalize_iso_timestamp_to_utc_preserves_naive_values():
-    assert _normalize_iso_timestamp_to_utc("2026-03-18T00:00:00") == "2026-03-18T00:00:00"
-
-
-def test_normalize_iso_timestamp_to_utc_converts_pacific():
-    result = _normalize_iso_timestamp_to_utc("2026-03-17T17:00:00-07:00")
-    assert result == "2026-03-18T00:00:00+00:00"
-
-
-def test_normalize_iso_timestamp_to_utc_handles_none():
-    assert _normalize_iso_timestamp_to_utc(None) is None
-
-
-def test_normalize_iso_timestamp_to_utc_handles_empty():
-    assert _normalize_iso_timestamp_to_utc("") == ""

@@ -104,6 +104,11 @@ class Backend(ABC):
     @abstractmethod
     def entities(self, entity_type: str) -> list[dict]: ...
 
+    @abstractmethod
+    def list_events(self) -> list[dict]: ...
+
+    @abstractmethod
+    def get_event(self, event_id: str) -> dict: ...
 
 
 def get_backend(config: Mem0Config) -> Backend:

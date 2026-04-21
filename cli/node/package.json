@@ -1,13 +1,13 @@
 {
   "name": "@mem0/cli",
-  "version": "0.1.0",
+  "version": "0.2.3",
   "description": "The official CLI for mem0 — the memory layer for AI agents",
   "type": "module",
   "bin": {
     "mem0": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "tsup",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -20,6 +20,11 @@
   },
   "license": "Apache-2.0",
   "author": "mem0.ai <founders@mem0.ai>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "cli/node"
+  },
   "keywords": ["mem0", "memory", "ai", "agents", "cli"],
   "publishConfig": {
     "access": "public"

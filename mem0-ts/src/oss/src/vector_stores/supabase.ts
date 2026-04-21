@@ -229,15 +229,19 @@ See the SQL migration instructions in the code comments.`,
     }
   }
 
+  async keywordSearch(): Promise<null> {
+    return null;
+  }
+
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     try {
       const rpcQuery: VectorQueryParams = {
         query_embedding: query,
-        match_count: limit,
+        match_count: topK,
       };
 
       if (filters) {
@@ -267,7 +271,7 @@ See the SQL migration instructions in the code comments.`,
         .from(this.tableName)
         .select("*")
         .eq("id", vectorId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) return null;
@@ -336,13 +340,13 @@ See the SQL migration instructions in the code comments.`,
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     try {
       let query = this.client
         .from(this.tableName)
         .select("*", { count: "exact" })
-        .limit(limit);
+        .limit(topK);
 
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {

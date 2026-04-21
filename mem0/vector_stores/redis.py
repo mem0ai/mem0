@@ -7,7 +7,7 @@ import numpy as np
 import redis
 from redis.commands.search.query import Query
 from redisvl.index import SearchIndex
-from redisvl.query import VectorQuery
+from redisvl.query import TextQuery, VectorQuery
 from redisvl.query.filter import Tag
 
 from mem0.memory.utils import extract_json
@@ -141,7 +141,7 @@ class RedisDB(VectorStoreBase):
             data.append(entry)
         self.index.load(data, id_field="memory_id")
 
-    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None):
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None):
         conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
         filter = reduce(lambda x, y: x & y, conditions)
 
@@ -150,7 +150,7 @@ class RedisDB(VectorStoreBase):
             vector_field_name="embedding",
             return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
             filter_expression=filter,
-            num_results=limit,
+            num_results=top_k,
         )
 
         results = self.index.query(v)
@@ -159,6 +159,60 @@ class RedisDB(VectorStoreBase):
             MemoryResult(
                 id=result["memory_id"],
                 score=float(result["vector_distance"]),
+                payload={
+                    "hash": result["hash"],
+                    "data": result["memory"],
+                    "created_at": datetime.fromtimestamp(
+                        int(result["created_at"]), tz=timezone.utc
+                    ).isoformat(timespec="microseconds"),
+                    **(
+                        {
+                            "updated_at": datetime.fromtimestamp(
+                                int(result["updated_at"]), tz=timezone.utc
+                            ).isoformat(timespec="microseconds")
+                        }
+                        if "updated_at" in result
+                        else {}
+                    ),
+                    **{field: result[field] for field in ["agent_id", "run_id", "user_id"] if field in result},
+                    **{k: v for k, v in json.loads(extract_json(result["metadata"])).items()},
+                },
+            )
+            for result in results
+        ]
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Search for memories using BM25 keyword search on the memory field.
+
+        Args:
+            query (str): Search query text.
+            top_k (int): Maximum number of results. Defaults to 5.
+            filters (dict, optional): Filters to apply (user_id, agent_id, run_id).
+
+        Returns:
+            List[MemoryResult]: Search results.
+        """
+        filter_expression = None
+        if filters:
+            conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
+            if conditions:
+                filter_expression = reduce(lambda x, y: x & y, conditions)
+
+        t = TextQuery(
+            text=query,
+            text_field_name="memory",
+            return_fields=["memory_id", "hash", "agent_id", "run_id", "user_id", "memory", "metadata", "created_at"],
+            filter_expression=filter_expression,
+            num_results=top_k,
+        )
+
+        results = self.index.query(t)
+
+        return [
+            MemoryResult(
+                id=result["memory_id"],
+                score=result.get("text_score", 1.0),
                 payload={
                     "hash": result["hash"],
                     "data": result["memory"],
@@ -254,15 +308,15 @@ class RedisDB(VectorStoreBase):
         # Recreate the index with the same parameters
         self.create_col(collection_name, self.embedding_model_dims)
 
-    def list(self, filters: dict = None, limit: int = None) -> list:
+    def list(self, filters: dict = None, top_k: int = None) -> list:
         """
         List all recent created memories from the vector store.
         """
         conditions = [Tag(key) == value for key, value in filters.items() if value is not None]
         filter = reduce(lambda x, y: x & y, conditions)
         query = Query(str(filter)).sort_by("created_at", asc=False)
-        if limit is not None:
-            query = Query(str(filter)).sort_by("created_at", asc=False).paging(0, limit)
+        if top_k is not None:
+            query = Query(str(filter)).sort_by("created_at", asc=False).paging(0, top_k)
 
         results = self.index.search(query)
         return [

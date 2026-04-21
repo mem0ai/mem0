@@ -1,35 +1,24 @@
 /**
- * Configuration parsing, env var resolution, and default instructions/categories.
+ * Configuration parsing and default instructions/categories.
+ *
+ * NOTE: This module must NOT import from `node:fs` or `node:fs/promises`.
+ * All filesystem operations are centralized in fs-safe.ts.
  */
 
+import { userInfo } from "node:os";
 import type { Mem0Config, Mem0Mode } from "./types.ts";
 
+// NOTE: The gateway resolves ${VAR} syntax in openclaw.json before passing
+// pluginConfig to register(). No plugin-side variable resolution needed.
+
 // ============================================================================
-// Env Var Resolution
+// Login config fallback type — read from openclaw.json plugin section
 // ============================================================================
 
-function resolveEnvVars(value: string): string {
-  return value.replace(/\$\{([^}]+)\}/g, (_, envVar) => {
-    const envValue = process.env[envVar];
-    if (!envValue) {
-      throw new Error(`Environment variable ${envVar} is not set`);
-    }
-    return envValue;
-  });
-}
-
-function resolveEnvVarsDeep(obj: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      result[key] = resolveEnvVars(value);
-    } else if (value && typeof value === "object" && !Array.isArray(value)) {
-      result[key] = resolveEnvVarsDeep(value as Record<string, unknown>);
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
+/** Shape accepted by parse() for the openclaw.json plugin auth fallback. */
+export interface FileConfig {
+  apiKey?: string;
+  baseUrl?: string;
 }
 
 // ============================================================================
@@ -146,8 +135,7 @@ export const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
     "Significant life events, milestones, transitions, upcoming plans and changes",
   lessons:
     "Lessons learned, insights gained, mistakes acknowledged, changed opinions or beliefs",
-  work:
-    "Work-related context: job responsibilities, workplace dynamics, career progression, professional challenges",
+  work: "Work-related context: job responsibilities, workplace dynamics, career progression, professional challenges",
   health:
     "Health-related information voluntarily shared: conditions, medications, fitness, wellness goals",
 };
@@ -159,18 +147,19 @@ export const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
 const ALLOWED_KEYS = [
   "mode",
   "apiKey",
+  "anonymousTelemetryId",
+  "baseUrl",
   "userId",
-  "orgId",
-  "projectId",
+  "userEmail",
   "autoCapture",
   "autoRecall",
   "customInstructions",
   "customCategories",
   "customPrompt",
-  "enableGraph",
   "searchThreshold",
   "topK",
   "oss",
+  "skills",
 ];
 
 function assertAllowedKeys(
@@ -184,63 +173,90 @@ function assertAllowedKeys(
 }
 
 export const mem0ConfigSchema = {
-  parse(value: unknown): Mem0Config {
+  parse(value: unknown, fileConfig?: FileConfig): Mem0Config {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
       throw new Error("openclaw-mem0 config required");
     }
     const cfg = value as Record<string, unknown>;
     assertAllowedKeys(cfg, ALLOWED_KEYS, "openclaw-mem0 config");
 
-    // Accept both "open-source" and legacy "oss" as open-source mode; everything else is platform
+    // Only two modes: "platform" (default) or "open-source"
+    if (
+      typeof cfg.mode === "string" &&
+      cfg.mode !== "platform" &&
+      cfg.mode !== "open-source"
+    ) {
+      console.warn(
+        `[mem0] Unknown mode "${cfg.mode}" — expected "platform" or "open-source". Defaulting to "platform".`,
+      );
+    }
     const mode: Mem0Mode =
-      cfg.mode === "oss" || cfg.mode === "open-source" ? "open-source" : "platform";
+      cfg.mode === "open-source" ? "open-source" : "platform";
 
-    // Platform mode requires apiKey
-    if (mode === "platform") {
-      if (typeof cfg.apiKey !== "string" || !cfg.apiKey) {
-        throw new Error(
-          "apiKey is required for platform mode (set mode: \"open-source\" for self-hosted)",
-        );
-      }
+    // Resolve API key: pluginConfig → fileConfig fallback (from openclaw.json plugin section)
+    let resolvedApiKey =
+      typeof cfg.apiKey === "string" ? cfg.apiKey : undefined;
+    let resolvedBaseUrl =
+      typeof cfg.baseUrl === "string" ? cfg.baseUrl : undefined;
+    if (mode === "platform" && !resolvedApiKey && fileConfig) {
+      if (fileConfig.apiKey) resolvedApiKey = fileConfig.apiKey;
+      if (fileConfig.baseUrl) resolvedBaseUrl = fileConfig.baseUrl;
     }
 
-    // Resolve env vars in oss config
+    // Platform mode requires apiKey — but don't throw on missing config.
+    // The plugin should register successfully and log a setup message.
+    const needsSetup = mode === "platform" && !resolvedApiKey;
+
+    // OpenClaw resolves ${VAR} in openclaw.json before register() — no plugin-side expansion needed
     let ossConfig: Mem0Config["oss"];
     if (cfg.oss && typeof cfg.oss === "object" && !Array.isArray(cfg.oss)) {
-      ossConfig = resolveEnvVarsDeep(
-        cfg.oss as Record<string, unknown>,
-      ) as unknown as Mem0Config["oss"];
+      ossConfig = cfg.oss as Mem0Config["oss"];
     }
 
     return {
       mode,
-      apiKey:
-        typeof cfg.apiKey === "string" ? resolveEnvVars(cfg.apiKey) : undefined,
+      apiKey: resolvedApiKey,
+      anonymousTelemetryId:
+        typeof cfg.anonymousTelemetryId === "string"
+          ? cfg.anonymousTelemetryId
+          : undefined,
+      baseUrl: resolvedBaseUrl,
       userId:
-        typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
-      orgId: typeof cfg.orgId === "string" ? cfg.orgId : undefined,
-      projectId: typeof cfg.projectId === "string" ? cfg.projectId : undefined,
+        typeof cfg.userId === "string" && cfg.userId
+          ? cfg.userId
+          : (() => {
+              try {
+                return userInfo().username || "default";
+              } catch {
+                return "default";
+              }
+            })(),
       autoCapture: cfg.autoCapture !== false,
       autoRecall: cfg.autoRecall !== false,
+      // v3.0.0: customPrompt renamed to customInstructions (backwards-compat: accept either)
       customInstructions:
         typeof cfg.customInstructions === "string"
           ? cfg.customInstructions
-          : DEFAULT_CUSTOM_INSTRUCTIONS,
+          : typeof cfg.customPrompt === "string"
+            ? cfg.customPrompt
+            : DEFAULT_CUSTOM_INSTRUCTIONS,
       customCategories:
         cfg.customCategories &&
-          typeof cfg.customCategories === "object" &&
-          !Array.isArray(cfg.customCategories)
+        typeof cfg.customCategories === "object" &&
+        !Array.isArray(cfg.customCategories)
           ? (cfg.customCategories as Record<string, string>)
           : DEFAULT_CUSTOM_CATEGORIES,
-      customPrompt:
-        typeof cfg.customPrompt === "string"
-          ? cfg.customPrompt
-          : DEFAULT_CUSTOM_INSTRUCTIONS,
-      enableGraph: cfg.enableGraph === true,
       searchThreshold:
         typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
+      needsSetup,
       oss: ossConfig,
+      skills:
+        cfg.skills &&
+        typeof cfg.skills === "object" &&
+        !Array.isArray(cfg.skills)
+          ? (cfg.skills as Mem0Config["skills"])
+          : undefined,
     };
   },
 };

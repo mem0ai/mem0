@@ -50,19 +50,6 @@ export interface LLMConfig {
   modelProperties?: Record<string, any>;
 }
 
-export interface Neo4jConfig {
-  url: string;
-  username: string;
-  password: string;
-}
-
-export interface GraphStoreConfig {
-  provider: string;
-  config: Neo4jConfig;
-  llm?: LLMConfig;
-  customPrompt?: string;
-}
-
 export interface MemoryConfig {
   version?: string;
   embedder: {
@@ -80,9 +67,7 @@ export interface MemoryConfig {
   historyStore?: HistoryStoreConfig;
   disableHistory?: boolean;
   historyDbPath?: string;
-  customPrompt?: string;
-  graphStore?: GraphStoreConfig;
-  enableGraph?: boolean;
+  customInstructions?: string;
 }
 
 export interface MemoryItem {
@@ -96,15 +81,14 @@ export interface MemoryItem {
 }
 
 export interface SearchFilters {
-  userId?: string;
-  agentId?: string;
-  runId?: string;
+  user_id?: string;
+  agent_id?: string;
+  run_id?: string;
   [key: string]: any;
 }
 
 export interface SearchResult {
   results: MemoryItem[];
-  relations?: any[];
 }
 
 export interface VectorStoreResult {
@@ -148,25 +132,7 @@ export const MemoryConfigSchema = z.object({
     }),
   }),
   historyDbPath: z.string().optional(),
-  customPrompt: z.string().optional(),
-  enableGraph: z.boolean().optional(),
-  graphStore: z
-    .object({
-      provider: z.string(),
-      config: z.object({
-        url: z.string(),
-        username: z.string(),
-        password: z.string(),
-      }),
-      llm: z
-        .object({
-          provider: z.string(),
-          config: z.record(z.string(), z.any()),
-        })
-        .optional(),
-      customPrompt: z.string().optional(),
-    })
-    .optional(),
+  customInstructions: z.string().optional(),
   historyStore: z
     .object({
       provider: z.string(),

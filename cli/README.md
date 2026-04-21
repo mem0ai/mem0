@@ -2,6 +2,8 @@
 
 The official command-line interface for [mem0](https://mem0.ai) — the memory layer for AI agents. Works with the Mem0 Platform API. Available in Python and Node.js.
 
+> **For AI agents:** pass `--agent` (or `--json`) on any command for structured JSON output purpose-built for tool loops — sanitized fields, no colors or spinners, errors as JSON. See [Agent mode](#agent-mode) below.
+
 ## Installation
 
 ```bash
@@ -17,8 +19,14 @@ Both packages install a `mem0` binary with identical behavior.
 ## Quick start
 
 ```bash
-# Authenticate and save config
+# Interactive setup wizard
 mem0 init
+
+# Or login via email (get a new API key)
+mem0 init --email alice@company.com
+
+# Or authenticate with an existing API key
+mem0 init --api-key m0-xxx
 
 # Add a memory
 mem0 add "I prefer dark mode and use vim keybindings" --user-id alice
@@ -40,7 +48,7 @@ mem0 delete <memory-id>
 
 | Command | Description |
 |---------|-------------|
-| `mem0 init` | Interactive setup wizard — configures API key and default user ID |
+| `mem0 init` | Setup wizard — login via email or configure API key manually |
 | `mem0 add` | Add a memory from text, JSON messages, a file, or stdin |
 | `mem0 search` | Search memories using natural language |
 | `mem0 list` | List memories with optional filters and pagination |
@@ -49,11 +57,44 @@ mem0 delete <memory-id>
 | `mem0 delete` | Delete a memory, all memories for a scope, or an entity |
 | `mem0 import` | Bulk import memories from a JSON file |
 | `mem0 config` | View or modify CLI configuration |
-| `mem0 entities` | List or delete entities (users, agents, apps) |
+| `mem0 entity` | List or delete entities (users, agents, apps, runs) |
+| `mem0 event` | Inspect background processing events (bulk deletes, large add jobs) |
 | `mem0 status` | Verify API connection and display current project |
 | `mem0 version` | Print the CLI version |
 
 Run `mem0 <command> --help` for detailed usage on any command.
+
+## Agent mode
+
+Pass `--agent` (or its alias `--json`) as a **global flag** on any command to get output designed for AI agent tool loops:
+
+```bash
+mem0 --agent search "user preferences" --user-id alice
+mem0 --agent add "User prefers dark mode" --user-id alice
+mem0 --agent list --user-id alice
+```
+
+Every command returns the same envelope shape:
+
+```json
+{
+  "status": "success",
+  "command": "search",
+  "duration_ms": 134,
+  "scope": { "user_id": "alice" },
+  "count": 2,
+  "data": [
+    { "id": "abc-123", "memory": "User prefers dark mode", "score": 0.97, "created_at": "2026-01-15", "categories": ["preferences"] }
+  ]
+}
+```
+
+What agent mode does differently from `--output json`:
+- **Sanitized `data`**: only the fields an agent needs (id, memory, score, etc.) — no internal API noise
+- **No human output**: spinners, colors, and banners are suppressed entirely
+- **Errors as JSON**: errors go to stdout as `{"status": "error", "command": "...", "error": "..."}` with a non-zero exit code
+
+Use `mem0 help --json` to get the full command tree as JSON — useful for agents that need to self-discover available commands.
 
 ## Output formats
 
@@ -62,13 +103,10 @@ Control how results are displayed with `--output`:
 | Format | Description |
 |--------|-------------|
 | `text` | Human-readable with colors and formatting (default) |
-| `json` | Structured JSON for piping to `jq` or agent consumption |
+| `json` | Structured JSON for piping to `jq` (raw API response) |
 | `table` | Tabular format (default for `list`) |
 | `quiet` | Minimal — just IDs or status codes |
-
-```bash
-mem0 search "preferences" --user-id alice --output json | jq '.data.results[].memory'
-```
+| `agent` | Structured JSON envelope with sanitized fields (set by `--agent`/`--json`) |
 
 ## Environment variables
 

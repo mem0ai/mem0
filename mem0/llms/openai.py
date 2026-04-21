@@ -36,7 +36,7 @@ class OpenAILLM(LLMBase):
         super().__init__(config)
 
         if not self.config.model:
-            self.config.model = "gpt-4.1-nano-2025-04-14"
+            self.config.model = "gpt-5-mini"
 
         if os.environ.get("OPENROUTER_API_KEY"):  # Use OpenRouter
             self.client = OpenAI(
@@ -126,11 +126,12 @@ class OpenAILLM(LLMBase):
             params.update(**openrouter_params)
         
         else:
-            openai_specific_generation_params = ["store"]
-            for param in openai_specific_generation_params:
-                if hasattr(self.config, param):
-                    params[param] = getattr(self.config, param)
-            
+            # Only send OpenAI-specific parameters when the user has explicitly
+            # configured them. OpenAI-compatible backends (Gemini, Groq, vLLM, etc.)
+            # reject unknown fields, so `store` must be opt-in, not opt-out.
+            if self.config.store is not None:
+                params["store"] = self.config.store
+
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic

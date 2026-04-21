@@ -43,6 +43,10 @@ def _sym(fancy: str, plain: str) -> str:
 
 def print_banner(console: Console) -> None:
     """Print the mem0 welcome banner."""
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return
     logo_text = Text(LOGO, style=f"bold {BRAND_COLOR}")
     tagline = Text(f"  {TAGLINE}\n", style=f"{ACCENT_COLOR}")
 
@@ -61,11 +65,28 @@ def print_banner(console: Console) -> None:
 
 
 def print_success(console: Console, message: str) -> None:
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return
     sym = _sym("✓", "[ok]")
     console.print(f"[{SUCCESS_COLOR}]{sym}[/] {message}")
 
 
 def print_error(console: Console, message: str, hint: str | None = None) -> None:
+    from mem0_cli.state import get_current_command, is_agent_mode
+
+    if is_agent_mode():
+        import json as _json
+
+        envelope = {
+            "status": "error",
+            "command": get_current_command(),
+            "error": message,
+            "data": None,
+        }
+        print(_json.dumps(envelope))
+        return
     sym = _sym("✗", "[error]")
     console.print(f"[{ERROR_COLOR}]{sym} Error:[/] {message}")
     if hint:
@@ -73,11 +94,19 @@ def print_error(console: Console, message: str, hint: str | None = None) -> None
 
 
 def print_warning(console: Console, message: str) -> None:
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return
     sym = _sym("⚠", "[warn]")
     console.print(f"[{WARNING_COLOR}]{sym}[/] {message}")
 
 
 def print_info(console: Console, message: str) -> None:
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return
     sym = _sym("◆", "*")
     console.print(f"[{BRAND_COLOR}]{sym}[/] {message}")
 
@@ -89,7 +118,9 @@ def timed_status(console: Console, message: str):
     The spinner and timing output are sent to stderr (via ``_err``) so they
     never contaminate machine-readable stdout.  The *console* parameter is
     kept for backward compatibility but is not used for spinner output.
+    In agent mode the spinner is suppressed entirely.
     """
+    from mem0_cli.state import is_agent_mode
 
     class _Ctx:
         def __init__(self):
@@ -97,6 +128,13 @@ def timed_status(console: Console, message: str):
             self.error_msg = ""
 
     ctx = _Ctx()
+    if is_agent_mode():
+        try:
+            yield ctx
+        except Exception:
+            raise
+        return
+
     start = time.perf_counter()
     try:
         with Status(f"[{DIM_COLOR}]{message}[/]", console=_err):
@@ -105,6 +143,11 @@ def timed_status(console: Console, message: str):
         elapsed = time.perf_counter() - start
         if ctx.error_msg:
             print_error(_err, f"{ctx.error_msg} ({elapsed:.2f}s)")
+            if "Authentication failed" in ctx.error_msg:
+                _err.print(
+                    f"  [{DIM_COLOR}]Run [bold]mem0 init[/bold] to reconfigure your API key"
+                    f" · [bold]https://app.mem0.ai/dashboard/api-keys[/bold][/]"
+                )
         raise
     else:
         elapsed = time.perf_counter() - start
@@ -114,11 +157,14 @@ def timed_status(console: Console, message: str):
 
 def print_scope(console: Console, **ids: str | None) -> None:
     """Show active entity scope if any IDs are set."""
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        return
     parts = []
     for key, val in ids.items():
         if val:
-            label = key.replace("_", " ").replace("id", "ID").strip()
-            parts.append(f"{label}={val}")
+            parts.append(f"{key}={val}")
     if parts:
         scope_str = ", ".join(parts)
         console.print(f"  [{DIM_COLOR}]Scope: {scope_str}[/]")

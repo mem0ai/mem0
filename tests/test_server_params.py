@@ -2,7 +2,7 @@
 
 Verifies that the Pydantic request models in server/main.py correctly accept
 and forward all parameters supported by the underlying Memory class methods,
-including limit, threshold, infer, memory_type, and prompt — which were
+including top_k, threshold, infer, memory_type, and prompt — which were
 previously silently dropped by Pydantic v2's default extra='ignore' behavior.
 """
 
@@ -55,31 +55,31 @@ def mock_memory(_mock_memory):
 
 
 # ===========================================================================
-# SearchRequest: limit parameter
+# SearchRequest: top_k parameter
 # ===========================================================================
 
 class TestSearchLimit:
-    """Verify that the limit parameter is accepted and forwarded to Memory.search()."""
+    """Verify that the top_k parameter is accepted and forwarded to Memory.search()."""
 
     def test_limit_forwarded(self, client, mock_memory):
-        resp = client.post("/search", json={"query": "food", "user_id": "u1", "limit": 5})
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "top_k": 5})
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["limit"] == 5
+        assert kwargs["top_k"] == 5
 
     def test_limit_one(self, client, mock_memory):
-        resp = client.post("/search", json={"query": "food", "user_id": "u1", "limit": 1})
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "top_k": 1})
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["limit"] == 1
+        assert kwargs["top_k"] == 1
 
     def test_limit_omitted_uses_memory_default(self, client, mock_memory):
-        """When limit is not sent, it should not appear in the kwargs,
+        """When top_k is not sent, it should not appear in the kwargs,
         allowing Memory.search() to use its own default (100)."""
         resp = client.post("/search", json={"query": "food", "user_id": "u1"})
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert "limit" not in kwargs
+        assert "top_k" not in kwargs
 
 
 # ===========================================================================
@@ -110,18 +110,18 @@ class TestSearchThreshold:
 
 
 # ===========================================================================
-# SearchRequest: limit + threshold together
+# SearchRequest: top_k + threshold together
 # ===========================================================================
 
 class TestSearchLimitAndThreshold:
 
     def test_both_forwarded(self, client, mock_memory):
         resp = client.post("/search", json={
-            "query": "food", "user_id": "u1", "limit": 10, "threshold": 0.5
+            "query": "food", "user_id": "u1", "top_k": 10, "threshold": 0.5
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["limit"] == 10
+        assert kwargs["top_k"] == 10
         assert kwargs["threshold"] == 0.5
 
 
@@ -334,8 +334,8 @@ class TestOpenAPISchema:
     def test_search_schema_includes_limit(self, client):
         schema = client.get("/openapi.json").json()
         search_props = schema["components"]["schemas"]["SearchRequest"]["properties"]
-        assert "limit" in search_props
-        assert search_props["limit"]["description"] == "Maximum number of results to return."
+        assert "top_k" in search_props
+        assert search_props["top_k"]["description"] == "Maximum number of results to return."
 
     def test_search_schema_includes_threshold(self, client):
         schema = client.get("/openapi.json").json()
@@ -367,7 +367,7 @@ class TestTypeValidation:
 
     def test_limit_string_rejected(self, client):
         resp = client.post("/search", json={
-            "query": "food", "user_id": "u1", "limit": "not_a_number",
+            "query": "food", "user_id": "u1", "top_k": "not_a_number",
         })
         assert resp.status_code == 422
 
@@ -399,7 +399,7 @@ class TestTypeValidation:
 
     def test_limit_float_rejected(self, client):
         resp = client.post("/search", json={
-            "query": "food", "user_id": "u1", "limit": 5.7,
+            "query": "food", "user_id": "u1", "top_k": 5.7,
         })
         assert resp.status_code == 422
 
@@ -422,11 +422,11 @@ class TestExplicitNull:
 
     def test_limit_null_uses_memory_default(self, client, mock_memory):
         resp = client.post("/search", json={
-            "query": "food", "user_id": "u1", "limit": None,
+            "query": "food", "user_id": "u1", "top_k": None,
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert "limit" not in kwargs
+        assert "top_k" not in kwargs
 
     def test_infer_null_uses_memory_default(self, client, mock_memory):
         resp = client.post("/memories", json={
@@ -462,12 +462,12 @@ class TestCallSignatureMatch:
         resp = client.post("/search", json={
             "query": "food", "user_id": "u1", "agent_id": "a1",
             "run_id": "r1", "filters": {"k": "v"},
-            "limit": 10, "threshold": 0.5,
+            "top_k": 10, "threshold": 0.5,
         })
         assert resp.status_code == 200
         # The handler passes query= as a keyword arg, so it appears in kwargs too
         _, kwargs = mock_memory.search.call_args
-        valid_params = {"query", "user_id", "agent_id", "run_id", "limit", "filters", "threshold", "rerank"}
+        valid_params = {"query", "user_id", "agent_id", "run_id", "top_k", "filters", "threshold", "rerank"}
         for key in kwargs:
             assert key in valid_params, f"Unexpected kwarg '{key}' forwarded to Memory.search()"
 
@@ -505,3 +505,59 @@ class TestCallSignatureMatch:
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
         assert kwargs["query"] == "food"
+
+
+# ===========================================================================
+# MemoryUpdate: text and metadata forwarding (fix for #3933)
+# ===========================================================================
+
+class TestUpdateMemory:
+    """Verify that PUT /memories/{id} extracts text and metadata from the
+    request body and forwards them correctly to Memory.update()."""
+
+    def test_text_forwarded_as_data(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["data"] == "Likes tennis"
+
+    def test_metadata_forwarded(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={
+            "text": "Likes tennis",
+            "metadata": {"category": "sports"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["metadata"] == {"category": "sports"}
+
+    def test_metadata_omitted_passes_none(self, client, mock_memory):
+        resp = client.put("/memories/mem-1", json={"text": "Likes tennis"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert kwargs["metadata"] is None
+
+    def test_missing_text_returns_422(self, client):
+        """text is required — omitting it should fail validation."""
+        resp = client.put("/memories/mem-1", json={"metadata": {"k": "v"}})
+        assert resp.status_code == 422
+
+    def test_dict_not_passed_as_data(self, client, mock_memory):
+        """Regression test for #3933: the entire dict must NOT be passed as data."""
+        resp = client.put("/memories/mem-1", json={"text": "updated content"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.update.call_args
+        assert isinstance(kwargs["data"], str)
+
+
+class TestUpdateOpenAPISchema:
+    """Verify the MemoryUpdate schema appears in the OpenAPI docs."""
+
+    def test_update_schema_includes_text(self, client):
+        schema = client.get("/openapi.json").json()
+        update_props = schema["components"]["schemas"]["MemoryUpdate"]["properties"]
+        assert "text" in update_props
+
+    def test_update_schema_includes_metadata(self, client):
+        schema = client.get("/openapi.json").json()
+        update_props = schema["components"]["schemas"]["MemoryUpdate"]["properties"]
+        assert "metadata" in update_props

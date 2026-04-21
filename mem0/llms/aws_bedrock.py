@@ -17,8 +17,9 @@ from mem0.memory.utils import extract_json
 logger = logging.getLogger(__name__)
 
 PROVIDERS = [
-    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer", 
-    "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama"
+    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer",
+    "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama",
+    "minimax",
 ]
 
 
@@ -120,6 +121,10 @@ class AWSBedrockLLM(LLMBase):
         """Initialize provider-specific settings and capabilities."""
         # Determine capabilities based on provider and model
         self.supports_tools = self.provider in ["anthropic", "cohere", "amazon"]
+        # MiniMax M2.x is intentionally excluded from supports_tools: tool use for MiniMax
+        # on Amazon Bedrock is only available via the bedrock-mantle (OpenAI-compatible)
+        # endpoint, not via the bedrock-runtime Converse API used by this class.
+        # See: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-minimax-minimax-m2-5.html
         self.supports_vision = self.provider in ["anthropic", "amazon", "meta", "mistral"]
         self.supports_streaming = self.provider in ["anthropic", "cohere", "mistral", "amazon", "meta"]
 
@@ -487,7 +492,12 @@ class AWSBedrockLLM(LLMBase):
         return 2000
 
     def _build_inference_config(self) -> Dict[str, Any]:
-        """Build Converse ``inferenceConfig``. Anthropic allows only one of temperature or topP; we keep temperature and omit topP."""
+        """Build Converse ``inferenceConfig``.
+
+        Anthropic and MiniMax reasoning models reject requests that include both
+        ``temperature`` and ``topP`` simultaneously, so ``topP`` is omitted for
+        those providers even when the user has configured it.
+        """
         inference_config: Dict[str, Any] = {
             "maxTokens": self.model_config.get("max_tokens", self._default_max_tokens_for_converse()),
             "temperature": self.model_config.get("temperature", 0.1),
@@ -495,8 +505,11 @@ class AWSBedrockLLM(LLMBase):
 
         top_p = self.model_config.get("top_p")
         if top_p is not None:
-            if self.provider == "anthropic":
-                logger.debug("Omitting topP for Anthropic Converse (using temperature); top_p=%s", top_p)
+            if self.provider in ("anthropic", "minimax"):
+                # Both Anthropic and MiniMax M2.x (reasoning models) raise a
+                # ValidationException when temperature and topP are both present
+                # in inferenceConfig.  Omit topP and rely on temperature only.
+                logger.debug("Omitting topP for %s Converse (using temperature); top_p=%s", self.provider, top_p)
             else:
                 inference_config["topP"] = top_p
 
@@ -567,6 +580,39 @@ class AWSBedrockLLM(LLMBase):
                 return response['output']['message']['content'][0]['text']
             else:
                 return str(response)
+
+        elif self.provider == "minimax":
+            # MiniMax models (e.g. minimax.minimax-m2.5) use the Bedrock Converse API.
+            # M2.5 is a reasoning model whose response content array may include a
+            # `reasoningContent` block before the actual `text` block, so we iterate
+            # to find the first block that contains a "text" key.
+            # System messages must be passed via the top-level `system` parameter
+            # (not as a message with role="system") per the Converse API spec.
+            system_parts = []
+            converse_messages = []
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if not isinstance(content, str):
+                    content = str(content)
+                if role == "system":
+                    system_parts.append(content)
+                else:
+                    converse_messages.append({"role": role, "content": [{"text": content}]})
+            if not converse_messages:
+                converse_messages = [{"role": "user", "content": [{"text": ""}]}]
+            converse_params = {
+                "modelId": self.config.model,
+                "messages": converse_messages,
+                "inferenceConfig": self._build_inference_config(),
+            }
+            if system_parts:
+                converse_params["system"] = [{"text": "\n".join(system_parts)}]
+            response = self.client.converse(**converse_params)
+            for block in response["output"]["message"]["content"]:
+                if "text" in block:
+                    return block["text"]
+            return ""
 
         elif self.provider == "amazon" and "nova" in self.config.model.lower():
             # Nova models use the Converse API even without tools

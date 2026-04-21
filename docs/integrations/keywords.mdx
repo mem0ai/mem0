@@ -16,7 +16,7 @@ Combining Mem0 with Keywords AI allows you to:
 4. Optimize token usage and reduce costs
 
 <Note>
-You can get your Mem0 API key, user_id, and org_id from the [Mem0 dashboard](https://app.mem0.ai/). These are required for proper integration.
+You can get your Mem0 API key from the <a href="https://app.mem0.ai/" rel="nofollow">Mem0 dashboard</a>.
 </Note>
 
 ## Setup and Configuration
@@ -24,7 +24,7 @@ You can get your Mem0 API key, user_id, and org_id from the [Mem0 dashboard](htt
 Install the necessary libraries:
 
 ```bash
-pip install mem0 keywordsai-sdk
+pip install mem0ai keywordsai-sdk
 ```
 
 Set up your environment variables:
@@ -56,7 +56,7 @@ config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4.1-nano-2025-04-14",
+            "model": "gpt-5-mini",
             "temperature": 0.0,
             "api_key": keywordsai_api_key,
             "openai_base_url": base_url,
@@ -65,7 +65,7 @@ config = {
 }
 
 # Initialize Memory
-memory = Memory.from_config(config_dict=config)
+memory = Memory.from_config(config)
 
 # Add a memory
 result = memory.add(
@@ -107,7 +107,6 @@ response = client.chat.completions.create(
     extra_body={
         "mem0_params": {
             "user_id": "test_user",
-            "org_id": "org_1",
             "api_key": os.environ.get("MEM0_API_KEY"),
             "add_memories": {
                 "messages": messages,

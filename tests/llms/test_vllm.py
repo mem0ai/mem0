@@ -88,6 +88,50 @@ def test_generate_response_with_tools(mock_vllm_client):
 
 
 
+def test_generate_response_with_response_format(mock_vllm_client):
+    config = BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = VllmLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a memory extraction assistant."},
+        {"role": "user", "content": "I like hiking on weekends."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content='{"facts": ["User likes hiking on weekends"]}'))]
+    mock_vllm_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages, response_format={"type": "json_object"})
+
+    mock_vllm_client.chat.completions.create.assert_called_once_with(
+        model="Qwen/Qwen2.5-32B-Instruct",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        response_format={"type": "json_object"},
+    )
+    assert response == '{"facts": ["User likes hiking on weekends"]}'
+
+
+def test_generate_response_without_response_format(mock_vllm_client):
+    config = BaseLlmConfig(model="Qwen/Qwen2.5-32B-Instruct", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = VllmLLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Tell me a joke."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Why did the chicken cross the road?"))]
+    mock_vllm_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_vllm_client.chat.completions.create.call_args[1]
+    assert "response_format" not in call_kwargs
+    assert response == "Why did the chicken cross the road?"
+
+
 def create_mocked_memory():
     """Create a fully mocked Memory instance for testing."""
     with patch('mem0.utils.factory.LlmFactory.create') as mock_llm_factory, \
@@ -100,6 +144,7 @@ def create_mocked_memory():
 
         mock_embedder = MagicMock()
         mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
         mock_embedder_factory.return_value = mock_embedder
 
         mock_vector_store = MagicMock()
@@ -107,9 +152,12 @@ def create_mocked_memory():
         mock_vector_store.add.return_value = None
         mock_vector_factory.return_value = mock_vector_store
 
-        mock_sqlite.return_value = MagicMock()
+        mock_db = MagicMock()
+        mock_db.get_last_messages.return_value = []
+        mock_sqlite.return_value = mock_db
 
         memory = Memory()
+        memory.custom_instructions = None
         memory.api_version = "v1.0"
         return memory, mock_llm, mock_vector_store
 
@@ -126,6 +174,7 @@ def create_mocked_async_memory():
 
         mock_embedder = MagicMock()
         mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder.embed_batch.return_value = [[0.1, 0.2, 0.3]]
         mock_embedder_factory.return_value = mock_embedder
 
         mock_vector_store = MagicMock()
@@ -133,9 +182,12 @@ def create_mocked_async_memory():
         mock_vector_store.add.return_value = None
         mock_vector_factory.return_value = mock_vector_store
 
-        mock_sqlite.return_value = MagicMock()
+        mock_db = MagicMock()
+        mock_db.get_last_messages.return_value = []
+        mock_sqlite.return_value = mock_db
 
         memory = AsyncMemory()
+        memory.custom_instructions = None
         memory.api_version = "v1.0"
         return memory, mock_llm, mock_vector_store
 
@@ -143,22 +195,21 @@ def create_mocked_async_memory():
 def test_thinking_tags_sync():
     """Test thinking tags handling in Memory._add_to_vector_store (sync)."""
     memory, mock_llm, mock_vector_store = create_mocked_memory()
-    
-    # Mock LLM responses for both phases
+
+    # v3 pipeline: single LLM call returning ADD-only memories
     mock_llm.generate_response.side_effect = [
-        '        <think>Sync fact extraction</think>  \n{"facts": ["User loves sci-fi"]}',
-        '        <think>Sync memory actions</think>  \n{"memory": [{"text": "Loves sci-fi", "event": "ADD"}]}'
+        '<think>Sync extraction</think>\n{"memory": [{"text": "Loves sci-fi", "attributed_to": "user"}]}'
     ]
-    
+
     mock_vector_store.search.return_value = []
-    
+
     result = memory._add_to_vector_store(
         messages=[{"role": "user", "content": "I love sci-fi movies"}],
-        metadata={}, 
-        filters={}, 
+        metadata={},
+        filters={},
         infer=True
     )
-    
+
     assert len(result) == 1
     assert result[0]["memory"] == "Loves sci-fi"
     assert result[0]["event"] == "ADD"
@@ -169,13 +220,12 @@ def test_thinking_tags_sync():
 async def test_async_thinking_tags_async():
     """Test thinking tags handling in AsyncMemory._add_to_vector_store."""
     memory, mock_llm, mock_vector_store = create_mocked_async_memory()
-    
-    # Directly mock llm.generate_response instead of via asyncio.to_thread
+
+    # v3 pipeline: single LLM call returning ADD-only memories
     mock_llm.generate_response.side_effect = [
-        '        <think>Async fact extraction</think>  \n{"facts": ["User loves sci-fi"]}',
-        '        <think>Async memory actions</think>  \n{"memory": [{"text": "Loves sci-fi", "event": "ADD"}]}'
+        '<think>Async extraction</think>\n{"memory": [{"text": "Loves sci-fi", "attributed_to": "user"}]}'
     ]
-    
+
     # Mock asyncio.to_thread to call the function directly (bypass threading)
     async def mock_to_thread(func, *args, **kwargs):
         if func == mock_llm.generate_response:
@@ -186,15 +236,15 @@ async def test_async_thinking_tags_async():
             return []
         else:
             return func(*args, **kwargs)
-    
+
     with patch('mem0.memory.main.asyncio.to_thread', side_effect=mock_to_thread):
         result = await memory._add_to_vector_store(
             messages=[{"role": "user", "content": "I love sci-fi movies"}],
-            metadata={}, 
-            effective_filters={}, 
+            metadata={},
+            effective_filters={},
             infer=True
         )
-    
+
     assert len(result) == 1
     assert result[0]["memory"] == "Loves sci-fi"
     assert result[0]["event"] == "ADD"

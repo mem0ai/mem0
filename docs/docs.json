@@ -4,15 +4,15 @@
   "description": "Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users.",
   "theme": "aspen",
   "colors": {
-    "primary": "#9C58FA",
-    "light": "#9C58FA",
-    "dark": "#9C58FA"
+    "primary": "#8F74E0",
+    "light": "#8F74E0",
+    "dark": "#8F74E0"
   },
   "favicon": "/logo/favicon.png",
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
-    "href": "https://app.mem0.ai/"
+    "href": "https://mem0.ai"
   },
   "navigation": {
     "anchors": [
@@ -55,7 +55,8 @@
                       "core-concepts/memory-operations/add",
                       "core-concepts/memory-operations/search",
                       "core-concepts/memory-operations/update",
-                      "core-concepts/memory-operations/delete"
+                      "core-concepts/memory-operations/delete",
+                      "core-concepts/memory-evaluation"
                     ]
                   },
                   {
@@ -70,7 +71,6 @@
                           "platform/features/v2-memory-filters",
                           "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
-                          "platform/features/async-mode-default-change",
                           "platform/features/multimodal-support",
                           "platform/features/custom-categories"
                         ]
@@ -79,8 +79,6 @@
                         "group": "Advanced Features",
                         "icon": "bolt",
                         "pages": [
-                          "platform/features/graph-memory",
-                          "platform/features/graph-threshold",
                           "platform/features/advanced-retrieval",
                           "platform/advanced-memory-operations",
                           "platform/features/criteria-retrieval",
@@ -94,8 +92,7 @@
                         "pages": [
                           "platform/features/direct-import",
                           "platform/features/memory-export",
-                          "platform/features/timestamp",
-                          "platform/features/expiration-date"
+                          "platform/features/timestamp"
                         ]
                       },
                       {
@@ -121,9 +118,8 @@
                     "group": "Migration Guide",
                     "icon": "arrow-right",
                     "pages": [
+                      "migration/platform-v2-to-v3",
                       "migration/oss-to-platform",
-                      "migration/v0-to-v1",
-                      "migration/breaking-changes",
                       "migration/api-changes"
                     ]
                   },
@@ -132,6 +128,19 @@
                     "icon": "clipboard-list",
                     "pages": [
                       "platform/contribute"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "OpenClaw",
+                "groups": [
+                  {
+                    "group": "Agent Harness",
+                    "icon": "robot",
+                    "pages": [
+                      "integrations/openclaw",
+                      "integrations/hermes"
                     ]
                   }
                 ]
@@ -154,13 +163,11 @@
                     "icon": "server",
                     "pages": [
                       "open-source/features/overview",
-                      "open-source/features/graph-memory",
                       "open-source/features/metadata-filtering",
                       "open-source/features/reranker-search",
                       "open-source/features/async-memory",
                       "open-source/features/multimodal-support",
-                      "open-source/features/custom-fact-extraction-prompt",
-                      "open-source/features/custom-update-memory-prompt",
+                      "open-source/features/custom-instructions",
                       "open-source/features/rest-api",
                       "open-source/features/openai_compatibility"
                     ]
@@ -288,6 +295,13 @@
                     ]
                   },
                   {
+                    "group": "Migration",
+                    "icon": "arrow-right",
+                    "pages": [
+                      "migration/oss-v2-to-v3"
+                    ]
+                  },
+                  {
                     "group": "Community & Support",
                     "icon": "users",
                     "pages": [
@@ -314,10 +328,8 @@
                       "cookbooks/essentials/building-ai-companion",
                       "cookbooks/essentials/entity-partitioning-playbook",
                       "cookbooks/essentials/controlling-memory-ingestion",
-                      "cookbooks/essentials/memory-expiration-short-and-long-term",
                       "cookbooks/essentials/tagging-and-organizing-memories",
-                      "cookbooks/essentials/exporting-memories",
-                      "cookbooks/essentials/choosing-memory-architecture-vector-vs-graph"
+                      "cookbooks/essentials/exporting-memories"
                     ]
                   },
                   {
@@ -353,7 +365,6 @@
                       "cookbooks/integrations/mastra-agent",
                       "cookbooks/integrations/healthcare-google-adk",
                       "cookbooks/integrations/aws-bedrock",
-                      "cookbooks/integrations/neptune-analytics",
                       "cookbooks/integrations/tavily-search"
                     ]
                   },
@@ -365,9 +376,7 @@
                       "cookbooks/frameworks/llamaindex-multiagent",
                       "cookbooks/frameworks/multimodal-retrieval",
                       "cookbooks/frameworks/eliza-os-character",
-                      "cookbooks/frameworks/chrome-extension",
-                      "cookbooks/frameworks/gemini-3-with-mem0-mcp",
-                      "cookbooks/frameworks/mirofish-swarm-memory"
+                      "cookbooks/frameworks/gemini-3-with-mem0-mcp"
                     ]
                   }
                 ]
@@ -393,11 +402,11 @@
                       "integrations/autogen",
                       "integrations/agno",
                       "integrations/camel-ai",
-                      "integrations/openclaw",
                       "integrations/openai-agents-sdk",
                       "integrations/google-ai-adk",
                       "integrations/mastra",
-                      "integrations/vercel-ai-sdk"
+                      "integrations/vercel-ai-sdk",
+                      "integrations/chatdev"
                     ]
                   },
                   {
@@ -426,6 +435,28 @@
                       "integrations/agentops",
                       "integrations/keywords",
                       "integrations/raycast"
+                    ]
+                  }
+                ]
+              },
+              {
+                "tab": "Agent Plugins",
+                "groups": [
+                  {
+                    "group": "Coding Agents",
+                    "icon": "terminal",
+                    "pages": [
+                      "integrations/claude-code",
+                      "integrations/cursor",
+                      "integrations/codex"
+                    ]
+                  },
+                  {
+                    "group": "Agent Harness",
+                    "icon": "robot",
+                    "pages": [
+                      "integrations/openclaw",
+                      "integrations/hermes"
                     ]
                   }
                 ]
@@ -522,10 +553,13 @@
                 "tab": "Release Notes",
                 "groups": [
                   {
-                    "group": "Changelog",
+                    "group": "Release Notes",
                     "icon": "rocket",
                     "pages": [
-                      "changelog"
+                      "changelog/highlights",
+                      "changelog/sdk",
+                      "changelog/platform",
+                      "changelog/openclaw"
                     ]
                   }
                 ]
@@ -579,6 +613,42 @@
     ]
   },
   "redirects": [
+    {
+      "source": "/migration/breaking-changes",
+      "destination": "/"
+    },
+    {
+      "source": "/migration/v0-to-v1",
+      "destination": "/"
+    },
+    {
+      "source": "/platform/features/expiration-date",
+      "destination": "/"
+    },
+    {
+      "source": "/cookbooks/essentials/memory-expiration-short-and-long-term",
+      "destination": "/cookbooks/essentials/building-ai-companion"
+    },
+    {
+      "source": "/platform/features/async-mode-default-change",
+      "destination": "/"
+    },
+    {
+      "source": "/open-source/features/custom-fact-extraction-prompt",
+      "destination": "/open-source/features/custom-instructions"
+    },
+    {
+      "source": "/platform/features/graph-memory",
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/cookbooks/essentials/choosing-memory-architecture-vector-vs-graph",
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/changelog",
+      "destination": "/changelog/highlights"
+    },
     {
       "source": "/api-reference/memory/v2-search-memories",
       "destination": "/api-reference/memory/search-memories"
@@ -673,11 +743,23 @@
     },
     {
       "source": "/examples/aws_neptune_analytics_hybrid_store",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/examples/aws_neptune_analytics_hybrid_st",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/cookbooks/integrations/neptune-analytics",
+      "destination": "/migration/oss-v2-to-v3"
+    },
+    {
+      "source": "/platform/features/graph-threshold",
+      "destination": "/migration/platform-v2-to-v3"
+    },
+    {
+      "source": "/open-source/features/custom-update-memory-prompt",
+      "destination": "/open-source/features/custom-instructions"
     },
     {
       "source": "/examples/personalized-search-tavily-mem0",
@@ -737,7 +819,11 @@
     },
     {
       "source": "/examples/chrome-extension",
-      "destination": "/cookbooks/frameworks/chrome-extension"
+      "destination": "/cookbooks/overview"
+    },
+    {
+      "source": "/cookbooks/frameworks/chrome-extension",
+      "destination": "/cookbooks/overview"
     },
     {
       "source": "/examples",
@@ -745,11 +831,11 @@
     },
     {
       "source": "/open-source/graph_memory/overview",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/open-source/graph_memory/features",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/v0x/examples/ai_companion_js",
@@ -777,7 +863,7 @@
     },
     {
       "source": "/v0x/examples/chrome-extension",
-      "destination": "/cookbooks/frameworks/chrome-extension"
+      "destination": "/cookbooks/overview"
     },
     {
       "source": "/v0x/examples/youtube-assistant",
@@ -845,7 +931,7 @@
     },
     {
       "source": "/v0x/examples/aws_neptune_analytics_hybrid_store",
-      "destination": "/cookbooks/integrations/neptune-analytics"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/features/memory-export",
@@ -929,7 +1015,7 @@
     },
     {
       "source": "/features/graph-memory",
-      "destination": "/platform/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/features/:slug",
@@ -1037,7 +1123,7 @@
     },
     {
       "source": "/open-source/graph-memory",
-      "destination": "/open-source/features/graph-memory"
+      "destination": "/migration/oss-v2-to-v3"
     },
     {
       "source": "/cookbooks/customer-support-agent",

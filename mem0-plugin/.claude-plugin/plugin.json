@@ -8,6 +8,6 @@
   },
   "homepage": "https://mem0.ai",
   "repository": "https://github.com/mem0ai/mem0",
-  "logo": "logo.svg",
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "keywords": ["memory", "personalization", "mcp", "semantic-search"]
 }

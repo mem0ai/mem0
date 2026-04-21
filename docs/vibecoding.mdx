@@ -12,7 +12,7 @@ We follow the llms.txt standard:
 - [llms.txt](https://docs.mem0.ai/llms.txt)
 
 <CardGroup cols={2}>
-  <Card title="Get an API Key" icon="key" href="https://app.mem0.ai">
+  <Card title="Get an API Key" icon="key" href="https://app.mem0.ai/login">
     Sign up for Mem0 Platform and start building
   </Card>
   <Card title="Quickstart" icon="rocket" href="/platform/quickstart">
@@ -34,7 +34,7 @@ Works with Claude Code, Cursor, Windsurf, and any assistant that supports skills
 
 Connect Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode, or any MCP-compatible client to Mem0.
 
-Get your API key from [app.mem0.ai](https://app.mem0.ai), then add Mem0 MCP with a single command:
+Get your API key from <a href="https://app.mem0.ai" rel="nofollow">app.mem0.ai</a>, then add Mem0 MCP with a single command:
 
 ```bash
 npx mcp-add \
@@ -88,19 +88,19 @@ Sub-50ms retrieval. Dual storage: vector embeddings + graph databases.
   from mem0 import MemoryClient
   client = MemoryClient(api_key="m0-xxx")
   client.add("I prefer dark mode and use VS Code.", user_id="user1")
-  results = client.search("What editor do they use?", user_id="user1")
+  results = client.search("What editor do they use?", filters={"user_id": "user1"})
 
 **Quick Usage (JavaScript Platform):**
   import MemoryClient from 'mem0ai';
   const client = new MemoryClient({ apiKey: 'm0-xxx' });
-  await client.add([{ role: "user", content: "I prefer dark mode." }], { user_id: "user1" });
-  const results = await client.search("What editor?", { user_id: "user1" });
+  await client.add([{ role: "user", content: "I prefer dark mode." }], { userId: "user1" });
+  const results = await client.search("What editor?", { filters: { userId: "user1" } });
 
 **Quick Usage (Python Open Source):**
   from mem0 import Memory
   m = Memory()
   m.add("I prefer dark mode and use VS Code.", user_id="user1")
-  results = m.search("What editor do they use?", user_id="user1")
+  results = m.search("What editor do they use?", filters={"user_id": "user1"})
 
 Help me integrate Mem0 into my project. Start by asking what I'm building,
 what language/framework I'm using, and whether I want managed or self-hosted.
