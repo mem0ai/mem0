@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/sheet";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { toast } from "@/components/ui/use-toast";
+import { format } from "date-fns";
 import { getErrorMessage } from "@/lib/error-message";
 import { api } from "@/utils/api";
 import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
@@ -32,6 +33,7 @@ export default function MemoriesPage() {
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
   const [page, setPage] = useState(0);
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
 
   const {
     data: memories = [],
@@ -86,7 +88,7 @@ export default function MemoriesPage() {
       label: "Created",
       width: 120,
       render: (value: string) =>
-        value ? new Date(value).toLocaleDateString() : "--",
+        value ? format(new Date(value), "MMM d, yyyy") : "--",
     },
   ];
 
@@ -124,8 +126,23 @@ export default function MemoriesPage() {
       ) : memories.length === 0 ? (
         <EmptyState
           title="No memories yet"
-          description="Add memories via the API to see them here."
-        />
+          description="Create your first memory by sending a POST /memories request."
+        >
+          <pre className="text-xs bg-surface-default-secondary p-3 rounded font-mono overflow-x-auto mt-3 max-w-lg">
+            {`curl -X POST ${apiUrl}/memories \\
+  -H "X-API-Key: <your-key>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"messages": [{"role": "user", "content": "I like hiking"}], "user_id": "alice"}'`}
+          </pre>
+          <a
+            href="https://docs.mem0.ai/open-source/features/rest-api#memory-operations"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-onSurface-default-tertiary underline underline-offset-4 hover:text-onSurface-default-primary mt-2"
+          >
+            REST API reference
+          </a>
+        </EmptyState>
       ) : (
         <>
           <Card className="border-memBorder-primary overflow-hidden">

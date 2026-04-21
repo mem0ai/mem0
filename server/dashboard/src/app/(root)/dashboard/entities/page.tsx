@@ -10,6 +10,7 @@ import { TableSkeleton } from "@/components/shared/table-skeleton";
 import { EmptyState } from "@/components/self-hosted/empty-state";
 import DeleteConfirmationModal from "@/components/ui/delete-confirmation-modal";
 import { toast } from "@/components/ui/use-toast";
+import { format } from "date-fns";
 import { api } from "@/utils/api";
 import { ENTITY_ENDPOINTS } from "@/utils/api-endpoints";
 import { getErrorMessage } from "@/lib/error-message";
@@ -79,7 +80,7 @@ export default function EntitiesPage() {
       label: "Last Active",
       width: 140,
       render: (value: string | null) =>
-        value ? new Date(value).toLocaleDateString() : "--",
+        value ? format(new Date(value), "MMM d, yyyy") : "--",
     },
     {
       key: "id" as keyof Entity,

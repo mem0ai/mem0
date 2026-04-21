@@ -22,6 +22,7 @@ import { toast } from "@/components/ui/use-toast";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { Plus, Copy, Check, Trash2 } from "lucide-react";
 import { CopyToClipboard } from "react-copy-to-clipboard";
+import { format } from "date-fns";
 import { getErrorMessage } from "@/lib/error-message";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { ApiKey, ApiKeyCreateResponse } from "@/types/api";
@@ -100,14 +101,14 @@ export default function ApiKeysPage() {
       key: "created_at" as keyof ApiKey,
       label: "Created",
       width: 120,
-      render: (value: string) => new Date(value).toLocaleDateString(),
+      render: (value: string) => format(new Date(value), "MMM d, yyyy"),
     },
     {
       key: "last_used_at" as keyof ApiKey,
       label: "Last Used",
       width: 120,
       render: (value: string | null) =>
-        value ? new Date(value).toLocaleDateString() : "Never",
+        value ? format(new Date(value), "MMM d, yyyy") : "Never",
     },
     {
       key: "id" as keyof ApiKey,

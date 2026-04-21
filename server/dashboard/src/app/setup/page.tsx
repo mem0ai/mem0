@@ -65,6 +65,7 @@ export default function SetupPage() {
   const [embedderModel, setEmbedderModel] = useState("");
 
   const [apiKey, setApiKey] = useState("");
+  const [keyLabel, setKeyLabel] = useState("");
   const [copied, setCopied] = useState(false);
   const [testSuccess, setTestSuccess] = useState(false);
 
@@ -154,7 +155,7 @@ export default function SetupPage() {
 
     try {
       const res = await api.post(API_KEY_ENDPOINTS.BASE, {
-        label: "My First Key",
+        label: keyLabel.trim() || "My First Key",
       });
       setApiKey(res.data.key);
     } catch (err) {
@@ -379,7 +380,16 @@ export default function SetupPage() {
             )}
 
             {step === 2 && !apiKey && (
-              <form onSubmit={handleStep3}>
+              <form onSubmit={handleStep3} className="space-y-4">
+                <div className="space-y-1">
+                  <Label htmlFor="setup-key-label">Label for this key</Label>
+                  <Input
+                    id="setup-key-label"
+                    value={keyLabel}
+                    onChange={(e) => setKeyLabel(e.target.value)}
+                    placeholder="My First Key"
+                  />
+                </div>
                 <Button type="submit" disabled={isLoading} className="w-full">
                   {isLoading ? "Generating..." : "Generate API Key"}
                 </Button>

@@ -7,12 +7,14 @@ interface EmptyStateProps {
   title: string;
   description?: string;
   image?: "memories" | "requests";
+  children?: React.ReactNode;
 }
 
 export function EmptyState({
   title,
   description,
   image = "memories",
+  children,
 }: EmptyStateProps) {
   const { resolvedTheme } = useTheme();
   const src =
@@ -37,6 +39,7 @@ export function EmptyState({
           {description}
         </p>
       )}
+      {children}
     </div>
   );
 }
