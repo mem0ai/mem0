@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/error-message";
+import { isValidEmail } from "@/lib/validators";
 
 const RESET_COMMAND =
   "make reset-admin-password EMAIL=<your-email> PASSWORD=<new-password>";
@@ -45,9 +46,15 @@ export default function LoginForm() {
     }
   }, [user, isLoading, router, searchParams]);
 
+  const emailValid = isValidEmail(email);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (!emailValid) {
+      setError("Enter a valid email address.");
+      return;
+    }
     setSubmitting(true);
     try {
       await login(email, password);
@@ -111,7 +118,7 @@ export default function LoginForm() {
               </div>
               <Button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !emailValid || !password}
                 variant="default"
                 size="lg"
                 className="w-full"

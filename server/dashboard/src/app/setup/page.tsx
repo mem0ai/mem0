@@ -18,6 +18,7 @@ import {
   MEMORY_ENDPOINTS,
 } from "@/utils/api-endpoints";
 import { getEffectiveConfig } from "@/utils/self-hosted-config";
+import { isValidEmail } from "@/lib/validators";
 
 const STEPS = [
   "Admin Account",
@@ -119,6 +120,11 @@ export default function SetupPage() {
 
   const handleStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isValidEmail(email)) {
+      setError("Enter a valid email address.");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError("Passwords don't match");
@@ -558,10 +564,16 @@ export default function SetupPage() {
               >
                 <div className="space-y-1">
                   <Label>Test your setup</Label>
+                  {!apiUrl && (
+                    <p className="text-xs text-onSurface-danger-primary">
+                      NEXT_PUBLIC_API_URL is not set. Set it in .env and restart
+                      before running this test.
+                    </p>
+                  )}
                   <pre className="text-xs bg-surface-default-secondary p-3 rounded font-mono overflow-x-auto">{`curl -X POST ${apiUrl}/memories \\
   -H "X-API-Key: ${apiKey}" \\
   -H "Content-Type: application/json" \\
-  -d '{"messages": [{"role": "user", "content": "${testMessage}"}], "user_id": "test"}'`}</pre>
+  -d '{"messages": [{"role": "user", "content": "${testMessage}"}], "user_id": "setup-test"}'`}</pre>
                 </div>
                 {!testSuccess ? (
                   <>
