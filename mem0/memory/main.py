@@ -767,6 +767,28 @@ class Memory(MemoryBase):
             self.db.save_messages(messages, session_scope)
             return []
 
+        # Phase 2.5: Collect LLM-signalled contradictions
+        # The LLM outputs `"contradicts": "<integer-id>"` when a new fact is mutually
+        # exclusive with an existing memory (e.g. name change, job change). We resolve
+        # the integer ID to the real UUID via uuid_mapping and defer the _update_memory
+        # call until Phase 3 has computed embeddings.
+        update_results = []
+        contradiction_map = {}  # new_text → existing UUID
+
+        for mem in extracted_memories:
+            contradicts_id = mem.get("contradicts")
+            if not contradicts_id:
+                continue
+            existing_uuid = uuid_mapping.get(str(contradicts_id))
+            if not existing_uuid:
+                logger.warning(
+                    f"LLM contradicts ID '{contradicts_id}' not in uuid_mapping; treating as ADD"
+                )
+                continue
+            text = mem.get("text", "")
+            if text:
+                contradiction_map[text] = existing_uuid
+
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
         try:
@@ -780,6 +802,24 @@ class Memory(MemoryBase):
                     embed_map[text] = self.embedding_model.embed(text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
+
+        # Phase 3.5: Execute LLM-signalled contradiction updates
+        # Now that embed_map is ready, call _update_memory for every text the LLM
+        # flagged as contradicting an existing memory.
+        resolved_contradictions = set()
+
+        for text, existing_uuid in contradiction_map.items():
+            if text not in embed_map:
+                logger.warning(f"No embedding for contradiction text '{text[:50]}'; skipping")
+                continue
+            try:
+                self._update_memory(existing_uuid, text, {text: embed_map[text]}, metadata)
+            except Exception as e:
+                logger.error(f"Failed to update contradicted memory {existing_uuid}: {e}")
+                continue
+            logger.debug(f"Contradiction resolved: '{text[:50]}' replaced memory {existing_uuid}")
+            update_results.append({"id": existing_uuid, "memory": text, "event": "UPDATE"})
+            resolved_contradictions.add(text)
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         # Build set of existing hashes for dedup
@@ -795,6 +835,9 @@ class Memory(MemoryBase):
             text = mem.get("text")
             if not text or text not in embed_map:
                 continue
+
+            if text in resolved_contradictions:
+                continue  # Already resolved as UPDATE above
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
@@ -819,7 +862,7 @@ class Memory(MemoryBase):
 
         if not records:
             self.db.save_messages(messages, session_scope)
-            return []
+            return update_results  # [] if nothing extracted, or UPDATE results
 
         # Phase 6: Batch persist
         all_vectors = [r[2] for r in records]
@@ -960,7 +1003,7 @@ class Memory(MemoryBase):
         returned_memories = [
             {"id": r[0], "memory": r[1], "event": "ADD"}
             for r in records
-        ]
+        ] + update_results
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(

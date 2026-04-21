@@ -696,9 +696,27 @@ When extracting a new memory, check if it relates to any Existing Memory. Add re
 - **Same entity/topic**: New fact about a person, place, or thing already mentioned
 - **Updated preference**: A changed or evolved opinion on something previously captured
 - **Continuation**: Follow-up event or next step in a previously captured narrative
-- **Contradiction**: New information that conflicts with an existing memory
 
 Do NOT link memories that merely share a vague theme. Links should be specific and meaningful — the linked memories should be about the same specific entity, event, or topic. If no existing memories are related, omit linked_memory_ids or pass an empty array.
+
+
+## Contradiction Detection
+
+When a new memory is **mutually exclusive** with an existing memory — meaning the old fact can no longer be true once the new one is accepted — set `"contradicts": "<existing-memory-integer-id>"` using that memory's integer ID from the Existing Memories list. Do NOT use `linked_memory_ids` for contradictions; use `contradicts` instead.
+
+**CONTRADICTIONS** (one truth replaces the other — use `contradicts`):
+- Name changed: "User's name is Alice" → "User's name is Bob"
+- Primary job changed: "User is a software engineer" → "User is a product manager"
+- Relationship status changed: "User is single" → "User is married to Elena"
+- Home city changed: "User lives in New York" → "User lives in San Francisco"
+
+**NOT contradictions** (both can be true simultaneously — use `linked_memory_ids` or nothing):
+- "User loves coffee" + "User loves tea" — two separate preferences, both valid
+- "User speaks Python" + "User speaks JavaScript" — two skills, both valid
+- "User has a dog named Max" + "User has a cat named Luna" — additive facts
+- Any new event, experience, or activity involving a known entity
+
+If a new memory does not contradict any existing memory, omit `contradicts` entirely.
 
 
 # EXAMPLES
@@ -856,6 +874,36 @@ Output:
 ]}
 
 Both new memories link to related existing memories — the vet checkup links to the existing Poppy memory, and the team switch links to the existing Shopify memory. This enables the system to build a graph of related memories.
+
+
+## Example 13: Contradiction — Single-Slot Fact Replaced
+
+Existing Memories: [{"id": "0", "text": "User's name is Alice"}]
+New Messages:
+[{"role": "user", "content": "Actually, my name is Bob, not Alice."}]
+Observation Date: 2025-08-19
+
+Output:
+{"memory": [
+  {"id": "0", "text": "User's name is Bob", "contradicts": "0"}
+]}
+
+A name is a single-slot fact — only one can be true. `contradicts: "0"` signals that the existing memory should be replaced, not kept alongside. Do NOT use `linked_memory_ids` here.
+
+
+## Example 14: Not a Contradiction — Additive Preferences
+
+Existing Memories: [{"id": "0", "text": "User loves coffee"}]
+New Messages:
+[{"role": "user", "content": "I also really love tea."}]
+Observation Date: 2025-08-19
+
+Output:
+{"memory": [
+  {"id": "0", "text": "User loves tea", "linked_memory_ids": ["<uuid-of-coffee-memory>"]}
+]}
+
+Both preferences can be true simultaneously — this is additive, not a replacement. No `contradicts` field. Use `linked_memory_ids` to connect related preferences.
 
 
 ## Example 11: Long Multi-Topic Conversation — Don't Stop After First Topic
