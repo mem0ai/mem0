@@ -92,7 +92,7 @@ Because `make bootstrap` already creates the admin, the setup wizard is skipped.
 
 On a fresh install the dashboard redirects to `/setup`. Each step submits on Enter.
 
-**1. Create the admin account.** Name, email, password. This account becomes the first admin; subsequent calls to `POST /auth/register` return `403`.
+**1. Create the admin account.** Name, email, password. This account becomes the first admin. Registration closes after the first admin is created; additional accounts are provisioned by the existing admin.
 
 **2. Review the effective config.** Read-only display of the LLM and embedder the server is running with, sourced from your environment. If anything is wrong here, stop the stack, fix the `.env`, and restart — the dashboard intentionally does not let you change provider secrets at runtime.
 
@@ -154,6 +154,55 @@ The server prints an unmissable startup banner when it detects the "upgraded but
 
 - Dashboard ships as a second container in the reference Compose stack, wired to the API over the internal Docker network.
 - New tables: `users`, `api_keys`, `request_logs`. Alembic handles the migration automatically on first boot.
+
+If `alembic upgrade head` fails on first boot, see the [Troubleshooting](#troubleshooting) section below.
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port 3000 or 8888 is already in use">
+    Find the owning process on either port:
+    ```bash
+    lsof -iTCP:3000 -sTCP:LISTEN
+    lsof -iTCP:8888 -sTCP:LISTEN
+    ```
+    Kill it (`kill <PID>`) or change the host port in `server/docker-compose.yaml`.
+  </Accordion>
+
+  <Accordion title="JWT_SECRET is required">
+    The server refuses to start without one. Generate a secret and add it to `server/.env`:
+    ```bash
+    echo "JWT_SECRET=$(openssl rand -base64 48)" >> server/.env
+    ```
+    `AUTH_DISABLED=true` is valid for local dev only, never production.
+  </Accordion>
+
+  <Accordion title=".env changes aren't applied after editing">
+    `docker compose restart` does not re-read `env_file`. To pick up changes:
+    ```bash
+    cd server && docker compose up -d --force-recreate mem0
+    # or
+    cd server && make up
+    ```
+  </Accordion>
+
+  <Accordion title="Provider returns 401 (bad API key)">
+    Provider credential errors surface as `502 Upstream provider error.`. Check `docker compose logs mem0` for the full trace, then fix the key on the Configuration page and hit **Save**.
+  </Accordion>
+
+  <Accordion title="Alembic migrations fail on startup">
+    Inspect the logs:
+    ```bash
+    docker compose logs mem0 | grep -i alembic
+    ```
+    If the database is unrecoverable, reset the volume (**this destroys all memories and users**):
+    ```bash
+    docker compose down -v
+    ```
+  </Accordion>
+</AccordionGroup>
 
 ---
 
