@@ -72,6 +72,18 @@ make reset-admin-password EMAIL=admin@example.com PASSWORD='new-strong-password'
 
 This is the supported recovery path. Anyone with shell access to the host already has full access to the database and secrets, so this command does not expand the attack surface.
 
+## Request log retention
+
+The `request_logs` table is append-only and grows with traffic (~864k rows/day at 10 req/s). Prune it periodically:
+
+```bash
+cd server
+make prune-logs                               # defaults to 30 days
+make prune-logs REQUEST_LOG_RETENTION_DAYS=7  # shorter window
+```
+
+Wire the command into cron or a systemd timer in production. The `created_at` column uses a BRIN index, so range deletes stay cheap even on large tables.
+
 ## Local URLs
 
 - Dashboard: `http://localhost:3000`

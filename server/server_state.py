@@ -89,14 +89,10 @@ def update_config(updates: Dict[str, Any]) -> Dict[str, Any]:
         next_config = _merge_config(_current_config, updates)
         _current_config = next_config
         _memory_instance = Memory.from_config(next_config)
-        result = deepcopy(_current_config)
-
-    # DB I/O outside the lock to avoid blocking memory operations
-    overrides = _load_overrides()
-    overrides = _merge_config(overrides, updates)
-    _save_overrides(overrides)
-
-    return result
+        overrides = _load_overrides()
+        overrides = _merge_config(overrides, updates)
+        _save_overrides(overrides)
+        return deepcopy(_current_config)
 
 
 def get_current_config() -> Dict[str, Any]:

@@ -1,12 +1,12 @@
-import logging
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from auth import verify_auth
+from errors import upstream_error
 from schemas import MessageResponse
 from server_state import get_memory_instance
 
@@ -72,7 +72,6 @@ def list_entities(_auth=Depends(verify_auth)):
 def delete_entity(entity_type: EntityType, entity_id: str, _auth=Depends(verify_auth)):
     try:
         get_memory_instance().delete_all(**{TYPE_TO_FIELD[entity_type]: entity_id})
-    except Exception as e:
-        logging.exception("Error deleting entity")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise upstream_error()
     return MessageResponse(message="Entity deleted")

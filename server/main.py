@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -13,6 +14,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
 
 from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
+from errors import upstream_error
 from rate_limit import limiter
 from db import SessionLocal
 from models import RequestLog, User
@@ -199,12 +201,6 @@ def _redact_config(value: Any, key: str | None = None) -> Any:
     return value
 
 
-def _upstream_error() -> HTTPException:
-    """Generic 502 for provider failures; logs the active exception without leaking it to the client."""
-    logging.exception("Upstream provider error")
-    return HTTPException(status_code=502, detail="Upstream provider error.")
-
-
 def _validate_bundled_providers(config: Dict[str, Any]) -> None:
     llm = config.get("llm")
     if isinstance(llm, dict) and (provider := llm.get("provider")) and provider not in BUNDLED_LLM_PROVIDERS:
@@ -244,17 +240,17 @@ def _should_log_request(request: Request) -> bool:
     return not path.startswith(SKIPPED_REQUEST_LOG_PREFIXES)
 
 
-def _persist_request_log(request: Request, status_code: int, latency_ms: float) -> None:
+def _persist_request_log(method: str, path: str, status_code: int, latency_ms: float, auth_type: str) -> None:
     session = SessionLocal()
 
     try:
         session.add(
             RequestLog(
-                method=request.method,
-                path=request.url.path,
+                method=method,
+                path=path,
                 status_code=status_code,
                 latency_ms=latency_ms,
-                auth_type=getattr(request.state, "auth_type", "none"),
+                auth_type=auth_type,
             )
         )
         session.commit()
@@ -280,7 +276,15 @@ async def log_requests(request: Request, call_next):
         raise
     finally:
         if _should_log_request(request):
-            _persist_request_log(request, status_code, round((time.perf_counter() - start) * 1000, 2))
+            asyncio.get_running_loop().run_in_executor(
+                None,
+                _persist_request_log,
+                request.method,
+                request.url.path,
+                status_code,
+                round((time.perf_counter() - start) * 1000, 2),
+                getattr(request.state, "auth_type", "none"),
+            )
 
 
 @app.get("/configure", summary="Get current Mem0 configuration")
@@ -325,7 +329,7 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
             test_message = parts[1].strip()
         return {"custom_instructions": instructions, "test_message": test_message}
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.post("/memories", summary="Create memories")
@@ -339,7 +343,7 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
         response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
         return JSONResponse(content=response)
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 ALL_MEMORIES_LIMIT = 1000
@@ -383,7 +387,7 @@ def get_all_memories(
         }
         return get_memory_instance().get_all(**params)
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.get("/memories/{memory_id}", summary="Get a memory")
@@ -392,7 +396,7 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
     try:
         return get_memory_instance().get(memory_id)
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.post("/search", summary="Search memories")
@@ -402,7 +406,7 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
         params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
         return get_memory_instance().search(query=search_req.query, **params)
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.put("/memories/{memory_id}", summary="Update a memory")
@@ -413,7 +417,7 @@ def update_memory(memory_id: str, updated_memory: MemoryUpdate, _auth=Depends(ve
             memory_id=memory_id, data=updated_memory.text, metadata=updated_memory.metadata
         )
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.get("/memories/{memory_id}/history", summary="Get memory history")
@@ -422,7 +426,7 @@ def memory_history(memory_id: str, _auth=Depends(verify_auth)):
     try:
         return get_memory_instance().history(memory_id=memory_id)
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.delete("/memories/{memory_id}", summary="Delete a memory", response_model=MessageResponse)
@@ -432,7 +436,7 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
         get_memory_instance().delete(memory_id=memory_id)
         return MessageResponse(message="Memory deleted successfully")
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.delete("/memories", summary="Delete all memories", response_model=MessageResponse)
@@ -452,7 +456,7 @@ def delete_all_memories(
         get_memory_instance().delete_all(**params)
         return MessageResponse(message="All relevant memories deleted")
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.post("/reset", summary="Reset all memories")
@@ -462,7 +466,7 @@ def reset_memory(_auth=Depends(verify_auth)):
         get_memory_instance().reset()
         return {"message": "All memories reset"}
     except Exception:
-        raise _upstream_error()
+        raise upstream_error()
 
 
 @app.get("/", summary="Redirect to the OpenAPI documentation", include_in_schema=False)
