@@ -4,6 +4,27 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-04-21" description="v1.0.8">
+
+**New Features:**
+- **OSS Onboarding Wizard:** New guided 4-step interactive setup for open-source mode — walks through LLM provider, embedding provider, vector store, and user ID selection with prefilled defaults
+- **Agent-Friendly CLI:** Added `--json` flag to all 16 CLI commands for machine-readable output. Agents can call `openclaw mem0 help --json` to discover every command and flag
+- **Non-Interactive OSS Setup:** Added `--mode open-source` with `--oss-llm`, `--oss-embedder`, `--oss-vector` flags for fully automated OSS configuration without prompts
+- **JSON Helpers Module:** New `cli/json-helpers.ts` with `jsonOut`, `jsonErr`, and `redactSecrets` utilities for consistent structured output
+
+**Improvements:**
+- **Init Flow Redesigned:** Replaced 3-option flat menu with 2-level structure: Platform (email login or API key) and Open Source (guided wizard)
+- **Provider Selection:** LLM providers: OpenAI, Ollama, Anthropic. Embedding providers: OpenAI, Ollama. Vector stores: Qdrant, PGVector
+- **Input Prefill:** All prompts with defaults (base URL, user ID) now prefill the input field instead of showing defaults in brackets
+- **Smart Reuse:** When LLM and embedder use the same provider, API key and base URL are automatically reused from the LLM step
+- **Default Model:** Updated default LLM model to `gpt-5-mini`
+- **Manifest Compliance:** Removed undocumented fields, aligned env var declarations between SKILL.md and manifest, fixed `configSchema.required` for clean installs
+
+**Tests:**
+- 404 tests across 15 test files (+3 new: `json-helpers.test.ts`, `oss-wizard.test.ts`, `cli-commands.test.ts`)
+
+</Update>
+
 <Update label="2026-04-20" description="v1.0.7">
 
 **New Features:**
