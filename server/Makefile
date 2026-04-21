@@ -5,6 +5,13 @@ API_URL ?= http://localhost:8888
 DASHBOARD_URL ?= http://localhost:3000
 
 up:
+	@for port in 3000 8888; do \
+		if lsof -iTCP:$$port -sTCP:LISTEN >/dev/null 2>&1; then \
+			echo "error: port $$port is already in use."; \
+			echo "find the owning process with: lsof -iTCP:$$port -sTCP:LISTEN"; \
+			exit 1; \
+		fi; \
+	done
 	docker compose up -d --build
 
 down:
@@ -21,11 +28,11 @@ seed:
 
 wait-api:
 	@echo "Waiting for API..."
-	@until curl -fsS "$(API_URL)/auth/setup-status" >/dev/null; do sleep 2; done
+	@until curl -fsS "$(API_URL)/auth/setup-status" >/dev/null 2>&1; do sleep 2; done
 
 wait-dashboard:
 	@echo "Waiting for dashboard..."
-	@until curl -fsS "$(DASHBOARD_URL)/api/health" >/dev/null; do sleep 2; done
+	@until curl -fsS "$(DASHBOARD_URL)/api/health" >/dev/null 2>&1; do sleep 2; done
 
 bootstrap: up wait-api wait-dashboard seed
 
