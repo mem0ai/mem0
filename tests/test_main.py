@@ -61,7 +61,7 @@ def test_add(memory_instance):
     assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True, prompt=None
     )
 
 

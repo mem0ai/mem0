@@ -656,10 +656,10 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -726,7 +726,7 @@ class Memory(MemoryBase):
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
-        custom_instr = self.custom_instructions
+        custom_instr = prompt or self.custom_instructions
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
@@ -2056,7 +2056,7 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2065,6 +2065,7 @@ class AsyncMemory(MemoryBase):
         metadata: dict,
         effective_filters: dict,
         infer: bool,
+        prompt: Optional[str] = None,
     ):
         if not infer:
             returned_memories = []
@@ -2133,7 +2134,7 @@ class AsyncMemory(MemoryBase):
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
-        custom_instr = self.custom_instructions
+        custom_instr = prompt or self.custom_instructions
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
