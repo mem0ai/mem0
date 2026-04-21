@@ -1,5 +1,6 @@
 import os
 import secrets
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, Request
@@ -10,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from db import get_db
-from models import APIKey, User
+from models import APIKey, RefreshTokenJti, User
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
@@ -60,10 +61,27 @@ def create_access_token(user_id: str, role: str) -> str:
     return jwt.encode(payload, _get_secret(), algorithm=JWT_ALGORITHM)
 
 
-def create_refresh_token(user_id: str) -> str:
+def create_refresh_token(user_id: str, db: Session) -> str:
     expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    payload = {"sub": user_id, "exp": expire, "type": "refresh"}
+    jti = uuid.uuid4()
+    db.add(RefreshTokenJti(jti=jti, user_id=uuid.UUID(user_id), expires_at=expire))
+    db.commit()
+    payload = {"sub": user_id, "exp": expire, "jti": str(jti), "type": "refresh"}
     return jwt.encode(payload, _get_secret(), algorithm=JWT_ALGORITHM)
+
+
+def consume_refresh_jti(jti: str, db: Session) -> None:
+    """Mark a refresh token's jti as used. Raises 401 if missing, already used, or expired."""
+    try:
+        jti_uuid = uuid.UUID(jti)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Refresh token is no longer valid.")
+    row = db.get(RefreshTokenJti, jti_uuid)
+    now = datetime.now(timezone.utc)
+    if row is None or row.used_at is not None or row.expires_at < now:
+        raise HTTPException(status_code=401, detail="Refresh token is no longer valid.")
+    row.used_at = now
+    db.commit()
 
 
 def decode_token(token: str) -> dict:

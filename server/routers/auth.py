@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from auth import (
+    consume_refresh_jti,
     create_access_token,
     create_refresh_token,
     decode_token,
@@ -117,7 +118,7 @@ def register(request: Request, body: RegisterRequest, db: Session = Depends(get_
 
     return TokenResponse(
         access_token=create_access_token(str(user.id), user.role),
-        refresh_token=create_refresh_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id), db),
     )
 
 
@@ -136,7 +137,7 @@ def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
 
     return TokenResponse(
         access_token=create_access_token(str(user.id), user.role),
-        refresh_token=create_refresh_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id), db),
     )
 
 
@@ -147,13 +148,19 @@ def refresh(request: Request, body: RefreshRequest, db: Session = Depends(get_db
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid token type.")
 
+    jti = payload.get("jti")
+    if not jti:
+        raise HTTPException(status_code=401, detail="Refresh token is no longer valid.")
+
     user = db.get(User, payload["sub"])
     if user is None:
         raise HTTPException(status_code=401, detail="User not found.")
 
+    consume_refresh_jti(jti, db)
+
     return TokenResponse(
         access_token=create_access_token(str(user.id), user.role),
-        refresh_token=create_refresh_token(str(user.id)),
+        refresh_token=create_refresh_token(str(user.id), db),
     )
 
 
