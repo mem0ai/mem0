@@ -44,54 +44,68 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
   <Tab title="Steps">
 1. Create `server/.env` with your keys:
 
-```bash
-OPENAI_API_KEY=your-openai-api-key
-```
+    ```bash
+    OPENAI_API_KEY=your-openai-api-key
+    JWT_SECRET=$(openssl rand -base64 48)
+    ```
 
-2. Start the stack:
+2. Bootstrap the stack in one command:
 
-```bash
-cd server
-docker compose up
-```
+    ```bash
+    cd server
+    make bootstrap    # starts Compose, creates an admin, issues the first API key
+    ```
 
-3. Reach the API at `http://localhost:8888`. Edits to the server or library auto-reload.
+    Or to start the stack only and finish setup via the browser wizard at http://localhost:3000:
+
+    ```bash
+    cd server
+    docker compose up -d
+    ```
+
+3. API is at `http://localhost:8888`. Code edits auto-reload.
   </Tab>
 </Tabs>
 
-### Run with Docker
+<Accordion title="Other install paths">
+  **Run with Docker**
 
-<Tabs>
-  <Tab title="Pull image">
+  <Tabs>
+    <Tab title="Pull image">
 ```bash
 docker pull mem0/mem0-api-server
 ```
-  </Tab>
-  <Tab title="Build locally">
+    </Tab>
+    <Tab title="Build locally">
 ```bash
 docker build -t mem0-api-server .
 ```
-  </Tab>
-</Tabs>
+    </Tab>
+  </Tabs>
 
-1. Create a `.env` file with `OPENAI_API_KEY` and `JWT_SECRET`.
-2. Run the container:
+  1. Create a `.env` file with `OPENAI_API_KEY` and `JWT_SECRET`.
+  2. Run the container:
 
-```bash
-docker run -p 8000:8000 --env-file .env mem0-api-server
-```
+  ```bash
+  docker run -p 8000:8000 --env-file .env mem0-api-server
+  ```
 
-3. Visit `http://localhost:8000`.
+  3. Visit `http://localhost:8000`.
 
-### Run directly (no Docker)
+  **Run directly (no Docker)**
 
-```bash
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
+  <Warning>
+    This path skips Docker and assumes Postgres is already running and reachable at `POSTGRES_HOST:POSTGRES_PORT`. For a single-command local setup with Postgres included, use Docker Compose above.
+  </Warning>
+
+  ```bash
+  pip install -r requirements.txt
+  uvicorn main:app --reload
+  ```
+</Accordion>
 
 <Note>
-  The container listens on `8000` internally. Docker Compose publishes that as `8888` on the host (so `make bootstrap` → `http://localhost:8888`), while raw `docker run -p 8000:8000` and bare `uvicorn` both stay on `8000`. Use whichever port your own launch command binds.
+  Compose publishes internal port 8000 as 8888 on the host. Raw Docker and raw uvicorn listen on 8000 unless remapped.
 </Note>
 
 <Note>
@@ -119,9 +133,18 @@ Auth is on by default. Protected endpoints require either a JWT (from the dashbo
 | Legacy `ADMIN_API_KEY` | `X-API-Key: <env value>` | Back-compat for deployments that set the `ADMIN_API_KEY` env var |
 | `AUTH_DISABLED=true` | — | Local development only; bypasses auth entirely |
 
+The `/docs` OpenAPI explorer supports both auth modes. Click **Authorize** at the top of the page and paste either `Bearer <access_token>` (JWT) or your `X-API-Key` value. Protected endpoints return `401` until you authorize.
+
 ### Log in and use a JWT
 
 Register the first admin (only works when no user exists yet), then log in:
+
+```bash
+# First admin only — returns 403 after the first admin is registered
+curl -X POST http://localhost:8888/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Admin", "email": "admin@example.com", "password": "strong-password"}'
+```
 
 ```bash
 curl -X POST http://localhost:8888/auth/login \
@@ -239,7 +262,7 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/auth/setup-status` | Returns `{needsSetup: bool}`. Open, no auth required |
-| `POST` | `/auth/register` | Register the first admin user; returns 403 once any user exists |
+| `POST` | `/auth/register` | Register the first admin. Registration closes after the first admin is created; additional accounts are provisioned by the existing admin. |
 | `POST` | `/auth/login` | Exchange email and password for access and refresh JWTs |
 | `POST` | `/auth/refresh` | Exchange a refresh token for a new access token |
 | `GET` | `/auth/me` | Get the current authenticated user (JWT required) |
