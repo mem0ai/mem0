@@ -87,9 +87,9 @@ See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgra
 
 | | Library | Self-Hosted Server | Cloud Platform |
 |---|---------|-------------------|----------------|
-| **Best for** | Testing, prototyping | Teams evaluating for production | Zero-ops production use |
+| **Best for** | Testing, prototyping | Teams running on their own infrastructure | Zero-ops production use |
 | **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=readme) |
-| **Dashboard** | -- | Yes | Yes |
+| **Dashboard** | -- | [Yes](https://docs.mem0.ai/open-source/setup) | Yes |
 | **Auth & API Keys** | -- | Yes | Yes |
 | **Advanced Features** | -- | Teasers | All included |
 
@@ -116,13 +116,15 @@ npm install mem0ai
 
 ### Self-Hosted Server
 
-```bash
-cd server && docker compose up -d
-# Dashboard: http://localhost:3000
-# API: http://localhost:8888
-```
+> **Note:** Self-hosted auth is on by default. Upgrading from a pre-auth build? Set `ADMIN_API_KEY`, register an admin through the wizard, or `AUTH_DISABLED=true` for local dev only. See [upgrade notes](https://docs.mem0.ai/open-source/setup#upgrade-notes).
 
-Prefer a one-command bootstrap for local agents? Run `cd server && make bootstrap` to start the stack, create the first admin, and generate the first API key.
+```bash
+# Recommended: one command — start the stack, create an admin, issue the first API key.
+cd server && make bootstrap
+
+# Manual: start the stack and finish setup via the browser wizard.
+cd server && docker compose up -d    # http://localhost:3000
+```
 
 See the [self-hosted docs](https://docs.mem0.ai/open-source/overview) for configuration.
 
