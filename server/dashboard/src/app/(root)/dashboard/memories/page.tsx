@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +20,6 @@ import {
 } from "@/components/ui/sheet";
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { toast } from "@/components/ui/use-toast";
-import { format } from "date-fns";
 import { getErrorMessage } from "@/lib/error-message";
 import { api } from "@/utils/api";
 import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
@@ -128,7 +128,7 @@ export default function MemoriesPage() {
           title="No memories yet"
           description="Create your first memory by sending a POST /memories request."
         >
-          <pre className="text-xs bg-surface-default-secondary p-3 rounded font-mono overflow-x-auto mt-3 max-w-lg">
+          <pre className="text-xs text-left bg-surface-default-secondary p-3 rounded font-mono overflow-x-auto mt-3 max-w-lg">
             {`curl -X POST ${apiUrl}/memories \\
   -H "X-API-Key: <your-key>" \\
   -H "Content-Type: application/json" \\
