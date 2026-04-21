@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -71,16 +71,27 @@ def create_refresh_token(user_id: str, db: Session) -> str:
 
 
 def consume_refresh_jti(jti: str, db: Session) -> None:
-    """Mark a refresh token's jti as used. Raises 401 if missing, already used, or expired."""
+    """Atomically mark a refresh token's jti as used. Raises 401 if missing, already used, or expired.
+
+    The conditional UPDATE closes the read-check-write race: concurrent replays of the same
+    token race on a single row, so at most one update affects a row and the rest see rowcount 0.
+    """
     try:
         jti_uuid = uuid.UUID(jti)
     except (TypeError, ValueError):
         raise HTTPException(status_code=401, detail="Refresh token is no longer valid.")
-    row = db.get(RefreshTokenJti, jti_uuid)
     now = datetime.now(timezone.utc)
-    if row is None or row.used_at is not None or row.expires_at < now:
+    result = db.execute(
+        update(RefreshTokenJti)
+        .where(
+            RefreshTokenJti.jti == jti_uuid,
+            RefreshTokenJti.used_at.is_(None),
+            RefreshTokenJti.expires_at > now,
+        )
+        .values(used_at=now)
+    )
+    if result.rowcount == 0:
         raise HTTPException(status_code=401, detail="Refresh token is no longer valid.")
-    row.used_at = now
     db.commit()
 
 
