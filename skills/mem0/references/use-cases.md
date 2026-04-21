@@ -39,7 +39,7 @@ Use these known facts about the user to personalize your response:
 {context if context else 'No prior context yet.'}"""
 
     response = openai_client.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_input},
@@ -72,14 +72,14 @@ const openai = new OpenAI();
 
 async function chat(userInput: string, userId: string): Promise<string> {
     // 1. Retrieve relevant memories
-    const memories = await mem0.search(userInput, { user_id: userId });
+    const memories = await mem0.search(userInput, { filters: { user_id: userId } });
     const context = memories.results
         ?.map((m: any) => `- ${m.memory}`)
         .join('\n') || 'No prior context yet.';
 
     // 2. Generate response with memory context
     const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-nano-2025-04-14',
+        model: 'gpt-5-mini',
         messages: [
             { role: 'system', content: `You are Ray, a personal fitness coach.\nUser context:\n${context}` },
             { role: 'user', content: userInput },
@@ -90,7 +90,7 @@ async function chat(userInput: string, userId: string): Promise<string> {
     // 3. Store interaction
     await mem0.add(
         [{ role: 'user', content: userInput }, { role: 'assistant', content: reply }],
-        { user_id: userId }
+        { userId: userId }
     );
     return reply;
 }
@@ -182,7 +182,7 @@ await client.updateProject({
 async function logInteraction(userId: string, message: string, priority = 'normal') {
     await client.add(
         [{ role: 'user', content: message }],
-        { user_id: userId, metadata: { priority, source: 'support_chat' } }
+        { userId: userId, metadata: { priority, source: 'support_chat' } }
     );
 }
 
@@ -230,7 +230,7 @@ def consult(user_id: str, question: str) -> str:
     context = "\n".join([f"- {m['memory']}" for m in memories.get("results", [])])
 
     response = openai_client.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": f"You are a health coach. Patient context:\n{context}"},
             {"role": "user", "content": question},
@@ -264,20 +264,20 @@ const openai = new OpenAI();
 async function savePatientInfo(userId: string, info: string) {
     await mem0.add(
         [{ role: 'user', content: info }],
-        { user_id: userId, run_id: 'healthcare_session', metadata: { type: 'patient_information' } }
+        { userId: userId, runId: 'healthcare_session', metadata: { type: 'patient_information' } }
     );
 }
 
 async function consult(userId: string, question: string): Promise<string> {
     const memories = await mem0.search(question, {
-        user_id: userId,
-        top_k: 5,
+        filters: { user_id: userId },
+        topK: 5,
         threshold: 0.7,
     });
     const context = memories.results?.map((m: any) => `- ${m.memory}`).join('\n') || '';
 
     const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-nano-2025-04-14',
+        model: 'gpt-5-mini',
         messages: [
             { role: 'system', content: `You are a health coach. Patient context:\n${context}` },
             { role: 'user', content: question },
@@ -287,7 +287,7 @@ async function consult(userId: string, question: string): Promise<string> {
 
     await mem0.add(
         [{ role: 'user', content: question }, { role: 'assistant', content: reply }],
-        { user_id: userId, run_id: 'healthcare_session' }
+        { userId: userId, runId: 'healthcare_session' }
     );
     return reply;
 }
@@ -333,7 +333,7 @@ def draft_content(user_id: str, topic: str) -> str:
     style_context = "\n".join([f"- {m['memory']}" for m in prefs.get("results", [])])
 
     response = openai_client.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": f"Write content matching these style preferences:\n{style_context}"},
             {"role": "user", "content": f"Write a blog post about: {topic}"},
@@ -359,7 +359,7 @@ const openai = new OpenAI();
 async function storePreferences(userId: string, preferences: string) {
     await mem0.add(
         [{ role: 'user', content: preferences }],
-        { user_id: userId, run_id: 'editing_session', metadata: { type: 'preferences' } }
+        { userId: userId, runId: 'editing_session', metadata: { type: 'preferences' } }
     );
 }
 
@@ -370,7 +370,7 @@ async function draftContent(userId: string, topic: string): Promise<string> {
     const styleContext = prefs.results?.map((m: any) => `- ${m.memory}`).join('\n') || '';
 
     const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-nano-2025-04-14',
+        model: 'gpt-5-mini',
         messages: [
             { role: 'system', content: `Write content matching these preferences:\n${styleContext}` },
             { role: 'user', content: `Write a blog post about: ${topic}` },
@@ -465,10 +465,10 @@ async function storeScopedMemory(
     userId: string, agentId: string, runId: string, appId: string
 ) {
     await client.add(messages, {
-        user_id: userId,
-        agent_id: agentId,
-        run_id: runId,
-        app_id: appId,
+        userId: userId,
+        agentId: agentId,
+        runId: runId,
+        appId: appId,
     });
 }
 
@@ -520,7 +520,7 @@ def personalized_search(user_id: str, query: str, search_results: list) -> str:
     user_context = "\n".join([f"- {m['memory']}" for m in memories.get("results", [])])
 
     response = openai_client.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": f"Personalize search results using user context:\n{user_context}"},
             {"role": "user", "content": f"Query: {query}\n\nSearch results:\n{search_results}"},
@@ -551,11 +551,11 @@ const mem0 = new MemoryClient({ apiKey: process.env.MEM0_API_KEY! });
 const openai = new OpenAI();
 
 async function personalizedSearch(userId: string, query: string, searchResults: string[]): Promise<string> {
-    const memories = await mem0.search(query, { user_id: userId, top_k: 5 });
+    const memories = await mem0.search(query, { filters: { user_id: userId }, topK: 5 });
     const context = memories.results?.map((m: any) => `- ${m.memory}`).join('\n') || '';
 
     const response = await openai.chat.completions.create({
-        model: 'gpt-4.1-nano-2025-04-14',
+        model: 'gpt-5-mini',
         messages: [
             { role: 'system', content: `Personalize results using user context:\n${context}` },
             { role: 'user', content: `Query: ${query}\nResults: ${searchResults.join(', ')}` },
@@ -563,7 +563,7 @@ async function personalizedSearch(userId: string, query: string, searchResults: 
     });
     const reply = response.choices[0].message.content!;
 
-    await mem0.add([{ role: 'user', content: query }], { user_id: userId });
+    await mem0.add([{ role: 'user', content: query }], { userId: userId });
     return reply;
 }
 ```
@@ -631,14 +631,14 @@ const client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY! });
 async function storeEmail(userId: string, sender: string, subject: string, body: string, date: string) {
     await client.add(
         [{ role: 'user', content: `Email from ${sender}: ${subject}\n\n${body}` }],
-        { user_id: userId, metadata: { email_type: 'incoming', sender, subject, date } }
+        { userId: userId, metadata: { email_type: 'incoming', sender, subject, date } }
     );
 }
 
 async function searchEmails(userId: string, query: string) {
     return client.search(query, {
         filters: { AND: [{ user_id: userId }, { categories: { contains: 'email' } }] },
-        top_k: 10,
+        topK: 10,
     });
 }
 ```

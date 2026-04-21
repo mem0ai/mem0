@@ -36,7 +36,7 @@ client = AsyncMemoryClient(api_key="m0-xxx")
 
 # Or use as context manager
 async with AsyncMemoryClient(api_key="m0-xxx") as client:
-    results = await client.search("query", user_id="alice")
+    results = await client.search("query", filters={"user_id": "alice"})
 ```
 
 Same methods as `MemoryClient`, all `async`/`await`. Supports async context manager.
@@ -65,25 +65,19 @@ client.add(messages, user_id="alice")
 | `app_id` | str | None | Application identifier |
 | `run_id` | str | None | Session/run identifier |
 | `metadata` | dict | None | Custom key-value pairs |
-| `enable_graph` | bool | None | Activate knowledge graph extraction |
 | `infer` | bool | True | If False, store raw text without LLM inference |
-| `immutable` | bool | None | If True, prevents future modification |
-| `expiration_date` | str | None | Auto-expiry date (`YYYY-MM-DD`) |
-| `includes` | str | None | Preference filter for inclusion |
-| `excludes` | str | None | Preference filter for exclusion |
-| `async_mode` | bool | True | If False, wait for processing to complete |
 | `custom_categories` | list | None | Override project categories |
 | `custom_instructions` | str | None | Override extraction instructions |
 | `timestamp` | int \| float \| str | None | Custom timestamp (Unix epoch or ISO 8601) |
 
-**Returns:** `dict` -- list of events: `[{"id": "...", "event": "ADD|UPDATE|DELETE", "data": {"memory": "..."}}]`
+**Returns:** `dict` -- list of events: `[{"id": "...", "event": "ADD", "data": {"memory": "..."}}]`
 
 #### search(query, **kwargs)
 
 Search memories by semantic similarity.
 
 ```python
-results = client.search("dietary preferences", user_id="alice")
+results = client.search("dietary preferences", filters={"user_id": "alice"})
 for mem in results.get("results", []):
     print(mem["memory"], mem["score"])
 ```
@@ -91,20 +85,14 @@ for mem in results.get("results", []):
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `query` | str | required | Natural language search query |
-| `user_id` | str | None | Filter by user |
-| `agent_id` | str | None | Filter by agent |
-| `app_id` | str | None | Filter by app |
+| `filters` | dict | None | Filter object with entity IDs and/or `AND`/`OR`/`NOT` conditions (e.g., `{"user_id": "alice"}`) |
 | `top_k` | int | 10 | Number of results |
-| `filters` | dict | None | V2 filter object (`AND`/`OR`/`NOT`) |
-| `rerank` | bool | None | Enable deep semantic reranking (+150-200ms) |
-| `threshold` | float | 0.3 | Minimum similarity score |
-| `keyword_search` | bool | None | Enable keyword-based search (+10ms) |
-| `enable_graph` | bool | None | Include graph relations in results |
-| `filter_memories` | bool | None | Precision filtering, removes low-relevance (+200-300ms) |
+| `rerank` | bool | False | Enable deep semantic reranking (+150-200ms) |
+| `threshold` | float | 0.1 | Minimum similarity score |
 | `fields` | list | None | Specific fields to return |
 | `categories` | list | None | Filter by category |
 
-**Returns:** `dict` -- `{"results": [{id, memory, user_id, categories, score, created_at, ...}], "relations": [...]}`
+**Returns:** `dict` -- `{"results": [{id, memory, user_id, categories, score, created_at, ...}]}`
 
 #### get(memory_id)
 
@@ -121,27 +109,23 @@ memory = client.get(memory_id="ea925981-...")
 Retrieve all memories with optional filtering. Requires at least one entity identifier.
 
 ```python
-memories = client.get_all(user_id="alice")
-# With filters
+memories = client.get_all(filters={"user_id": "alice"})
+# With compound filters
 memories = client.get_all(filters={"AND": [{"user_id": "alice"}, {"categories": {"contains": "health"}}]})
 ```
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `user_id` | str | None | Filter by user |
-| `agent_id` | str | None | Filter by agent |
-| `app_id` | str | None | Filter by app |
+| `filters` | dict | None | Filter object with entity IDs and/or `AND`/`OR`/`NOT` conditions |
 | `top_k` | int | None | Limit results |
 | `page` | int | None | Page number |
 | `page_size` | int | None | Results per page |
-| `filters` | dict | None | V2 filter object |
-| `enable_graph` | bool | None | Include graph relations |
 
 **Returns:** `dict` -- `{"results": [...]}`
 
 #### update(memory_id, text=None, metadata=None, timestamp=None)
 
-Update a memory's content, metadata, or timestamp. At least one parameter required. Cannot update immutable memories.
+Update a memory's content, metadata, or timestamp. At least one parameter required.
 
 ```python
 client.update("ea925981-...", text="Updated: vegan since 2024")
@@ -320,11 +304,10 @@ config = client.project.get(fields=["custom_categories", "custom_instructions"])
 client.project.update(
     custom_instructions="Extract dietary preferences and health info",
     custom_categories=[{"health": "Medical and dietary info"}],
-    enable_graph=True,
     multilingual=True,
 )
 
-# Create/delete project (requires org_id)
+# Create/delete project
 client.project.create(name="My Project", description="...")
 client.project.delete()
 
@@ -362,7 +345,7 @@ config = {
     "llm": {
         "provider": "openai",        # openai, groq, azure, ollama, lmstudio, google, anthropic, mistral
         "config": {
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "api_key": "sk-xxx",
         }
     },
@@ -381,18 +364,8 @@ config = {
             "port": 6333,
         }
     },
-    "graph_store": {                 # Optional
-        "provider": "neo4j",
-        "config": {
-            "url": "neo4j://localhost:7687",
-            "username": "neo4j",
-            "password": "password",
-        }
-    },
     "history_db_path": "history.db",              # SQLite path for change history
-    "custom_instructions": "...",        # Custom LLM prompt for extraction
-    "custom_update_memory_prompt": "...",          # Custom LLM prompt for updates
-    "enable_graph": False,                         # Enable graph memory
+    "custom_instructions": "...",                  # Custom LLM prompt for extraction
 }
 
 m = Memory.from_config(config)
@@ -403,7 +376,7 @@ m = Memory.from_config(config)
 ```python
 with Memory(config) as m:
     m.add("I prefer dark mode", user_id="alice")
-    results = m.search("preferences", user_id="alice")
+    results = m.search("preferences", filters={"user_id": "alice"})
 # SQLite connections released automatically
 ```
 
@@ -425,11 +398,13 @@ At least one of `user_id`, `agent_id`, `run_id` required.
 
 **Returns:** `{"results": [...], "relations": [...]}`
 
-#### search(query, *, user_id, agent_id, run_id, limit=100, filters=None, threshold=None, rerank=True)
+#### search(query, *, filters=None, top_k=20, threshold=0.1, rerank=False)
 
 ```python
-results = m.search("dietary preferences", user_id="alice", limit=5)
+results = m.search("dietary preferences", filters={"user_id": "alice"}, top_k=5)
 ```
+
+Entity IDs (`user_id`, `agent_id`, `run_id`) must be passed inside the `filters` dict.
 
 Supports filter operators: `eq`, `ne`, `in`, `nin`, `gt`, `gte`, `lt`, `lte`, `contains`, `not_contains`.
 
@@ -456,7 +431,7 @@ from mem0 import AsyncMemory
 
 m = AsyncMemory(config)
 await m.add("text", user_id="alice")
-results = await m.search("query", user_id="alice")
+results = await m.search("query", filters={"user_id": "alice"})
 ```
 
 ---
@@ -469,13 +444,44 @@ results = await m.search("query", user_id="alice")
 | **Auth** | API key required (`MEM0_API_KEY`) | No API key -- config-based |
 | **Execution** | API calls to `api.mem0.ai` | Local execution |
 | **Infrastructure** | Fully managed | Self-managed vector DB, embedder, LLM |
+| **Entity filtering** | `filters={"user_id": "..."}` | `filters={"user_id": "..."}` |
 | **Batch ops** | `batch_update`, `batch_delete` | Not available |
 | **Webhooks** | Full CRUD | Not available |
 | **Export** | `create_memory_export`, `get_memory_export` | Not available |
 | **Feedback** | `feedback()` | Not available |
 | **Project mgmt** | `client.project.*` | Not available |
 | **User listing** | `users()`, `delete_users()` | Not available |
-| **Custom prompts** | Via project settings | Direct config |
-| **Graph store** | Platform-managed | Self-managed (Neo4j) |
+| **Custom prompts** | Via project settings | Direct config (`custom_instructions`) |
 | **History** | Platform-managed | SQLite (configurable) |
 | **Async** | `AsyncMemoryClient` | `AsyncMemory` |
+
+---
+
+## v2 Compatibility
+
+If you're using SDK v2.x or the v2 API:
+
+**API Changes:**
+- **Entity IDs in search/get_all:** Pass `user_id`, `agent_id` as top-level kwargs instead of inside `filters`
+  ```python
+  # v2
+  results = client.search("query", user_id="alice")
+  # v3
+  results = client.search("query", filters={"user_id": "alice"})
+  ```
+- **add() returns:** v2 returns ADD, UPDATE, DELETE events; v3 returns ADD only
+
+**Default Changes:**
+| Param | v2 | v3 |
+|-------|----|----|
+| `top_k` | 100 | 20 |
+| `threshold` | None | 0.1 |
+| `rerank` | True | False |
+
+**Removed Parameters:**
+- Constructor: `org_id`, `project_id`
+- add(): `async_mode`, `output_format`, `enable_graph`, `immutable`, `expiration_date`, `filter_memories`, `batch_size`, `force_add_only`, `includes`, `excludes`, `keyword_search`
+- search()/get_all(): `enable_graph`
+- Config: `enable_graph`, `graph_store`, `custom_fact_extraction_prompt` (renamed to `custom_instructions`)
+
+See the [v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for full details.

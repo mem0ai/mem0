@@ -12,7 +12,7 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "1.0.0"
+  version: "1.1.0"
   category: ai-memory
   tags: "vercel, ai-sdk, memory, nextjs, typescript, provider"
 compatibility: Node.js 18+, npm install @mem0/vercel-ai-provider, Vercel AI SDK v5 (ai package), MEM0_API_KEY + LLM provider API key
@@ -47,16 +47,16 @@ import { createMem0 } from "@mem0/vercel-ai-provider";
 
 const mem0 = createMem0();
 const { text } = await generateText({
-  model: mem0("gpt-4-turbo", { user_id: "alice" }),
+  model: mem0("gpt-5-mini", { user_id: "alice" }),
   prompt: "Recommend a restaurant",
 });
 ```
 
 What happens under the hood:
-1. The prompt is sent to Mem0 search (`POST /v2/memories/search/`) to retrieve relevant memories
+1. The prompt is sent to Mem0 search (`POST /v3/memories/search/`) to retrieve relevant memories
 2. Retrieved memories are injected as a system message at the start of the prompt
-3. The underlying LLM (e.g., OpenAI gpt-4-turbo) generates a response using the enriched prompt
-4. The conversation is stored back to Mem0 (`POST /v1/memories/`) as a fire-and-forget async call (no await)
+3. The underlying LLM (e.g., OpenAI gpt-5-mini) generates a response using the enriched prompt
+4. The conversation is stored back to Mem0 (`POST /v3/memories/add/`) as a fire-and-forget async call (no await)
 
 ## Pattern 2: Standalone Utilities
 
@@ -77,7 +77,7 @@ const memories = await retrieveMemories(prompt, {
 
 // Generate using any provider with injected memories
 const { text } = await generateText({
-  model: openai("gpt-4-turbo"),
+  model: openai("gpt-5-mini"),
   prompt,
   system: memories,
 });
@@ -102,7 +102,7 @@ import { createMem0 } from "@mem0/vercel-ai-provider";
 
 const mem0 = createMem0();
 const result = streamText({
-  model: mem0("gpt-4-turbo", { user_id: "alice" }),
+  model: mem0("gpt-5-mini", { user_id: "alice" }),
   prompt: "What should I cook for dinner?",
 });
 
@@ -128,7 +128,7 @@ Select a provider when creating the Mem0 instance:
 ```typescript
 const mem0 = createMem0({ provider: "anthropic" });
 const { text } = await generateText({
-  model: mem0("claude-sonnet-4-20250514", { user_id: "alice" }),
+  model: mem0("gpt-5-mini", { user_id: "alice" }),
   prompt: "Hello!",
 });
 ```
@@ -139,7 +139,7 @@ const { text } = await generateText({
 
 ```
 User prompt
-  --> searchInternalMemories (POST /v2/memories/search/)
+  --> searchInternalMemories (POST /v3/memories/search/)
   --> memories injected as system message at start of prompt
   --> underlying LLM generates response (doGenerate or doStream)
   --> processMemories fires addMemories as fire-and-forget (no await)
@@ -161,7 +161,7 @@ User controls each step:
 | Function | Returns | Use when |
 |----------|---------|----------|
 | `retrieveMemories` | Formatted system prompt **string** | Injecting directly into `system` parameter |
-| `getMemories` | Raw memory **array** (or full response if `enable_graph`) | Processing memories programmatically |
+| `getMemories` | Raw memory **array** | Processing memories programmatically |
 | `searchMemories` | Full search **response** (results + relations) | Need relations, scores, metadata |
 | `addMemories` | API response | Storing new messages to Mem0 |
 
@@ -171,7 +171,6 @@ All four accept `LanguageModelV2Prompt | string` as the first argument and optio
 
 - **Always provide `user_id`** (or `agent_id`/`app_id`/`run_id`) for consistent memory retrieval. Without an entity identifier, memories cannot be scoped.
 - **Standalone utilities require explicit API key**: pass `mem0ApiKey` in the config object, or set the `MEM0_API_KEY` environment variable.
-- **Graph memories**: set `enable_graph: true` in the config to retrieve graph relations alongside text memories. When enabled, `getMemories` returns the full response (with `results` and `relations`), not just the array.
 - **This uses Vercel AI SDK v5** (LanguageModelV2 / ProviderV2 interfaces). It is not compatible with AI SDK v3 or v4.
 - **`processMemories` fires `addMemories` as fire-and-forget** (`.then()` without `await`). Memory storage happens asynchronously and does not block the LLM response.
 - **The `"gemini"` alias** exists in the provider switch but is NOT in the `supportedProviders` list. Use `"google"` instead.

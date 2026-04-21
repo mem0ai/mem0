@@ -214,7 +214,7 @@ Customize memory behavior:
 # Configure memory search
 memories = mem0.search(
     query="travel preferences",
-    user_id="alex",
+    filters={"user_id": "alex"},
     top_k=5  # Number of memories to retrieve
 )
 

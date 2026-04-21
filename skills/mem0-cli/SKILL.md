@@ -12,7 +12,7 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "1.0.0"
+  version: "1.1.0"
   category: ai-memory
   tags: "cli, terminal, memory, ai, command-line"
 compatibility: Node.js 18+ (npm install -g @mem0/cli) or Python 3.10+ (pip install mem0-cli), MEM0_API_KEY env var
@@ -134,7 +134,6 @@ Choose whichever runtime you already have installed. The behavior is the same.
 - **`--all` vs `--entity` delete modes:** `mem0 delete --all -u alice` deletes all memories for user alice. `mem0 delete --entity -u alice` deletes the entity itself AND all its memories (cascade). These are mutually exclusive modes.
 - **Entity ID resolution:** If you pass any explicit scope flag (e.g. `--user-id`), the CLI uses ONLY the explicit IDs and ignores config defaults. If no scope flags are given, all configured defaults apply.
 - **Stdin detection:** When no text argument is provided and input is piped (not a TTY), the CLI reads from stdin. Works with `add`, `search`, and `update`.
-- **Graph tri-state:** `--no-graph` takes precedence over `--graph`, which takes precedence over the config default (`defaults.enable_graph`).
 
 ## References
 

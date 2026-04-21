@@ -4,31 +4,98 @@ Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, po
 
 Your agent forgets everything between sessions. This plugin fixes that — it watches conversations, extracts what matters, and brings it back when relevant. Automatically.
 
-## Quick Start
+## Requirements
+
+Check your OpenClaw version:
 
 ```bash
-openclaw plugins install @mem0/openclaw-mem0
+openclaw --version
+# OpenClaw 2026.4.15 (041266a)
 ```
+
+| OpenClaw Version | Plugin Support |
+|------------------|----------------|
+| `>= 2026.4.15`   | Fully supported |
+
+## Quick Start
+
+The fastest way is to install directly from your OpenClaw chat — no CLI or config editing needed.
+
+Copy and paste this into your OpenClaw chat (Telegram, WhatsApp, default chat, or any channel where your agent lives):
+
+```
+Setup Mem0 from mem0.ai/claw-setup
+```
+
+OpenClaw installs the plugin, prompts you for your email, and connects your Mem0 account with OTP verification. See [Chat Setup](#chat-setup-recommended) below for the full walkthrough.
+
+If you prefer the OpenClaw CLI, or are setting up self-hosted / open-source mode, see [Manual Config](#manual-config) and [Open-Source (Self-hosted)](#open-source-self-hosted) below.
 
 ### Platform (Mem0 Cloud)
 
-Get an API key from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=openclaw-readme):
+There are two ways to set up `@mem0/openclaw-mem0` on the Mem0 platform:
 
-```bash
-openclaw mem0 init --api-key <your-key> --user-id <your-user-id>
-```
+- **Chat setup (recommended)** — run the setup inside any OpenClaw chat. No config editing, no API key handling.
+- **Manual config** — edit `openclaw.json` directly.
 
-Or configure manually in `openclaw.json`:
+#### Chat Setup (Recommended)
 
-```json5
-"openclaw-mem0": {
-  "enabled": true,
-  "config": {
-    "apiKey": "${MEM0_API_KEY}",
-    "userId": "alice"
-  }
-}
-```
+You no longer need manual config editing to get started. Everything happens inside the OpenClaw chat itself.
+
+1. **Send the setup command to your OpenClaw agent.** Open any OpenClaw channel and paste:
+
+   ```
+   Setup Mem0 from mem0.ai/claw-setup
+   ```
+
+   OpenClaw responds with a Mem0 setup card and asks: *"What's your email address? I'll send you a verification code to connect your Mem0 account."*
+
+2. **Enter your email.** Type your email address and send it. Mem0 replies: *"Check your email for a 6-digit code and paste it here."*
+
+3. **Paste the OTP.** Copy the 6-digit code from your email inbox and paste it into the chat. You'll see: *"Connected to Mem0."*
+
+That's it. No API key, no config file editing, no environment variables. The plugin is now active and auto-capture and auto-recall are running on every turn.
+
+> The chat flow uses the same underlying config as manual setup — it writes `apiKey` and `userId` into `openclaw.json` for you. You can still open the file to inspect or override values afterward.
+
+#### Manual Config
+
+1. **Install the plugin via the OpenClaw CLI:**
+
+   ```bash
+   openclaw plugins install @mem0/openclaw-mem0
+   ```
+
+2. **Get your API key** from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=openclaw-readme).
+
+3. **Select the plugin as your memory backend in `openclaw.json`.** Either initialize via the CLI:
+
+   ```bash
+   openclaw mem0 init --api-key <your-key> --user-id <your-user-id>
+   ```
+
+   Or add the full config to your `openclaw.json`:
+
+   ```json5
+   {
+     "plugins": {
+       "slots": {
+         "memory": "openclaw-mem0"
+       },
+       "entries": {
+         "openclaw-mem0": {
+           "enabled": true,
+           "config": {
+             "apiKey": "${MEM0_API_KEY}",
+             "userId": "alice"
+           }
+         }
+       }
+     }
+   }
+   ```
+
+> **Note:** OpenClaw memory plugins load through an exclusive slot, so install alone does not activate the plugin. You must set `plugins.slots.memory` as shown above.
 
 ### Open-Source (Self-hosted)
 
@@ -37,11 +104,20 @@ No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings and LLM. Ve
 Defaults: `text-embedding-3-small` for embeddings, `gpt-5.4` for fact extraction.
 
 ```json5
-"openclaw-mem0": {
-  "enabled": true,
-  "config": {
-    "mode": "open-source",
-    "userId": "alice"
+{
+  "plugins": {
+    "slots": {
+      "memory": "openclaw-mem0"
+    },
+    "entries": {
+      "openclaw-mem0": {
+        "enabled": true,
+        "config": {
+          "mode": "open-source",
+          "userId": "alice"
+        }
+      }
+    }
   }
 }
 ```
