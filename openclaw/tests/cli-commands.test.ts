@@ -1456,4 +1456,136 @@ describe("registerCliCommands", () => {
       );
     });
   });
+
+  // ========================================================================
+  // Restructured init menu flags
+  // ========================================================================
+
+  describe("init — restructured menu", () => {
+    it("registers --mode flag", () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+      const modeOpt = initCmd._options.find((o) => o.flags.includes("--mode"));
+      expect(modeOpt).toBeDefined();
+    });
+
+    it("registers --oss-llm flag", () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+      const opt = initCmd._options.find((o) => o.flags.includes("--oss-llm "));
+      expect(opt).toBeDefined();
+    });
+
+    it("registers --json flag on init", () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+      const opt = initCmd._options.find((o) => o.flags.includes("--json"));
+      expect(opt).toBeDefined();
+    });
+  });
+
+  // ========================================================================
+  // --json flag registration on all commands
+  // ========================================================================
+
+  describe("--json flag registration", () => {
+    for (const name of ["search", "add", "get", "list", "update", "delete", "status", "import", "dream"]) {
+      it(`registers --json on ${name}`, () => {
+        const { mem0 } = setup();
+        const cmd = findCommand(mem0, name)!;
+        const opt = cmd._options.find((o) => o.flags.includes("--json"));
+        expect(opt).toBeDefined();
+      });
+    }
+
+    it("registers --json on config show", () => {
+      const { mem0 } = setup();
+      const configCmd = findCommand(mem0, "config")!;
+      const showCmd = findCommand(configCmd, "show")!;
+      expect(showCmd).toBeDefined();
+      const opt = showCmd._options.find((o) => o.flags.includes("--json"));
+      expect(opt).toBeDefined();
+    });
+  });
+
+  // ========================================================================
+  // Non-interactive OSS init
+  // ========================================================================
+
+  describe("init --mode open-source (non-interactive)", () => {
+    it("writes LLM, embedder, and vector config for ollama + qdrant", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      await initCmd._action!({
+        mode: "open-source",
+        ossLlm: "ollama",
+        ossEmbedder: "ollama",
+        ossVector: "qdrant",
+        userId: "test-user",
+      });
+
+      expect(writePluginConfigField).toHaveBeenCalledWith(
+        ["oss", "llm"],
+        expect.objectContaining({ provider: "ollama" }),
+      );
+      expect(writePluginConfigField).toHaveBeenCalledWith(
+        ["oss", "embedder"],
+        expect.objectContaining({ provider: "ollama" }),
+      );
+      expect(writePluginConfigField).toHaveBeenCalledWith(
+        ["oss", "vectorStore"],
+        expect.objectContaining({ provider: "qdrant" }),
+      );
+      expect(writePluginAuth).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: "open-source", userId: "test-user" }),
+      );
+    });
+
+    it("outputs JSON when --json is passed", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      await initCmd._action!({
+        mode: "open-source",
+        ossLlm: "ollama",
+        ossEmbedder: "ollama",
+        ossVector: "qdrant",
+        json: true,
+      });
+
+      const jsonCall = consoleSpy.log.mock.calls.find((c) => {
+        try {
+          const p = JSON.parse(c[0]);
+          return p.ok === true;
+        } catch {
+          return false;
+        }
+      });
+      expect(jsonCall).toBeDefined();
+      if (jsonCall) {
+        const parsed = JSON.parse(jsonCall[0]);
+        expect(parsed.mode).toBe("open-source");
+        expect(parsed.config.llm.provider).toBe("ollama");
+      }
+    });
+
+    it("errors when openai LLM has no key", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      // Ensure env var is not set so validation fails
+      const savedEnv = process.env.OPENAI_API_KEY;
+      delete process.env.OPENAI_API_KEY;
+
+      await initCmd._action!({ mode: "open-source", ossLlm: "openai" });
+
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        expect.stringContaining("--oss-llm-key"),
+      );
+
+      // Restore env var
+      if (savedEnv !== undefined) process.env.OPENAI_API_KEY = savedEnv;
+    });
+  });
 });
