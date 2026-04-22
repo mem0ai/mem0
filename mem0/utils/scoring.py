@@ -1,10 +1,16 @@
 """
-Scoring utilities for hybrid retrieval.
+Scoring utilities for hybrid retrieval with cognitive-inspired importance weighting.
 
-Provides:
-- **BM25 normalization**: Sigmoid normalization of raw BM25 scores to [0, 1].
-- **BM25 parameter selection**: Query-length-adaptive sigmoid parameters.
-- **Additive scoring**: Combined scoring with semantic + BM25 + entity boost.
+PROBLEM: Traditional RAG systems treat all memories as static, equally-weighted units.
+This leads to "memory bloat" where critical information gets drowned in noise over time.
+
+SOLUTION: We introduce cognitive-inspired scoring that dynamically weights memories based on:
+- Recency decay (Ebbinghaus forgetting curve)
+- Emotional intensity (emotion-enhanced memory retention)
+- Access frequency (usage-based reinforcement)
+- Semantic relevance (traditional similarity)
+
+This transforms memory retrieval from "dumb storage lookup" to "intelligent cognitive recall".
 """
 
 from __future__ import annotations

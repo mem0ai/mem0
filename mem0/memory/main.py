@@ -46,6 +46,7 @@ from mem0.utils.scoring import (
     normalize_bm25,
     score_and_rank,
 )
+from mem0.memory.meta_learner import MetaCognitiveLearner
 
 # Suppress SWIG deprecation warnings globally
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
@@ -356,6 +357,9 @@ class Memory(MemoryBase):
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
+
+        # Initialize Meta-Cognitive Learner for adaptive memory parameters
+        self.meta_learner = MetaCognitiveLearner()
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -1345,6 +1349,16 @@ class Memory(MemoryBase):
         if threshold is None:
             threshold = 0.1
 
+        # Extract user_id for meta-cognitive adaptation
+        user_id = filters.get("user_id") or filters.get("agent_id") or filters.get("run_id")
+        
+        # Get optimized parameters from meta-learner if user_id exists
+        decay_factor_S = None
+        importance_weights = None
+        if user_id:
+            decay_factor_S, importance_weights = self.meta_learner.get_optimized_params(user_id)
+            logger.debug(f"[MetaCognitive] Using params for {user_id}: S={decay_factor_S}, weights={importance_weights}")
+
         # Step 1: Preprocess query
         query_lemmatized = lemmatize_for_bm25(query)
         query_entities = extract_entities(query)
@@ -1382,10 +1396,28 @@ class Memory(MemoryBase):
         candidates = []
         for mem in semantic_results:
             mem_id = str(mem.id)
+            payload = mem.payload if hasattr(mem, 'payload') else {}
+            
+            # Apply meta-cognitive importance weighting if available
+            if importance_weights and payload:
+                # Retrieve memory metadata for importance calculation
+                access_count = payload.get("access_count", 0)
+                emotion_intensity = payload.get("emotion_intensity", 0.5)
+                
+                # Calculate dynamic importance score using learned weights
+                importance_score = (
+                    importance_weights.get("freq", 0.3) * min(1.0, access_count / 10.0) +
+                    importance_weights.get("emotion", 0.25) * emotion_intensity +
+                    importance_weights.get("recency", 0.25) * 0.5 +  # Simplified recency
+                    importance_weights.get("base", 0.2) * 0.5
+                )
+                # Store in payload for downstream scoring
+                payload["meta_importance"] = importance_score
+            
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
+                "payload": payload,
             })
 
         # Step 8: Score and rank

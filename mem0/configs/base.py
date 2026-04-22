@@ -24,6 +24,43 @@ class MemoryItem(BaseModel):
     score: Optional[float] = Field(None, description="The score associated with the text data")
     created_at: Optional[str] = Field(None, description="The timestamp when the memory was created")
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
+    
+    # Cognitive-inspired memory fields for Phase 1: Memory Compression & Forgetting Mechanism
+    importance_score: Optional[float] = Field(
+        default=0.5, 
+        ge=0.0, 
+        le=1.0,
+        description="Importance score based on cognitive psychology (0.0=trivial, 1.0=critical)"
+    )
+    access_count: Optional[int] = Field(
+        default=0, 
+        ge=0,
+        description="Number of times this memory has been accessed/recalled"
+    )
+    last_accessed_at: Optional[str] = Field(
+        None, 
+        description="ISO timestamp of the last access time for decay calculation"
+    )
+    decay_factor: Optional[float] = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Ebbinghaus forgetting curve decay factor (1.0=fresh, 0.0=forgotten)"
+    )
+    emotion_intensity: Optional[float] = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Emotional intensity associated with the memory (affects retention)"
+    )
+    compression_status: Optional[str] = Field(
+        default="raw",
+        description="Compression status: 'raw' (original), 'compressed' (summarized), 'archived' (low priority)"
+    )
+    consolidation_level: Optional[str] = Field(
+        default="short_term",
+        description="Consolidation level: 'short_term' (hippocampal), 'long_term' (cortical)"
+    )
 
 
 class MemoryConfig(BaseModel):

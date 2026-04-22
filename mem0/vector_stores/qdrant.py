@@ -175,6 +175,27 @@ class Qdrant(VectorStoreBase):
             except Exception as e:
                 logger.debug(f"Index for {field} might already exist: {e}")
 
+        # Create indexes for cognitive-inspired memory fields (Phase 1: Memory Compression & Forgetting)
+        cognitive_fields = [
+            ("importance_score", "float"),
+            ("access_count", "integer"),
+            ("decay_factor", "float"),
+            ("emotion_intensity", "float"),
+            ("compression_status", "keyword"),
+            ("consolidation_level", "keyword"),
+        ]
+        
+        for field_name, field_type in cognitive_fields:
+            try:
+                self.client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name=field_name,
+                    field_schema=field_type
+                )
+                logger.info(f"Created index for cognitive field '{field_name}' ({field_type}) in collection {self.collection_name}")
+            except Exception as e:
+                logger.debug(f"Index for cognitive field '{field_name}' might already exist: {e}")
+
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         """
         Insert vectors into a collection, including BM25 sparse vectors
@@ -455,6 +476,24 @@ class Qdrant(VectorStoreBase):
                 points=[vector_id],
             ),
         )
+
+    def batch_delete(self, vector_ids: list):
+        """
+        Batch delete multiple vectors by IDs for efficient memory cleanup.
+        
+        Args:
+            vector_ids (list): List of vector IDs to delete.
+        """
+        if not vector_ids:
+            return
+        
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=PointIdsList(
+                points=vector_ids,
+            ),
+        )
+        logger.info(f"Batch deleted {len(vector_ids)} vectors from collection {self.collection_name}")
 
     def update(self, vector_id: int, vector: list = None, payload: dict = None):
         """
