@@ -69,6 +69,15 @@ echo "Email:      $EMAIL"
 echo "Password:   $PASSWORD"
 echo "API Key:    $API_KEY"
 echo ""
+
+if ! grep -qE '^(OPENAI|ANTHROPIC|GOOGLE)_API_KEY=.' .env 2>/dev/null; then
+  echo "!! No LLM provider API key set in server/.env."
+  echo "   Set OPENAI_API_KEY (or ANTHROPIC_API_KEY / GOOGLE_API_KEY), then:"
+  echo "     docker compose up -d --force-recreate mem0"
+  echo "   The curl below will return provider_auth_failed until you do."
+  echo ""
+fi
+
 echo "Test it:"
 echo "  curl -X POST $API_URL/memories \\"
 echo "    -H 'X-API-Key: $API_KEY' \\"
