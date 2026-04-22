@@ -14,7 +14,14 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
 
 from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
-from errors import upstream_error
+from errors import (
+    UpstreamError,
+    install_request_id_logging,
+    new_request_id,
+    request_id_var,
+    upstream_error,
+    upstream_error_handler,
+)
 from rate_limit import limiter
 from db import SessionLocal
 from models import RequestLog, User
@@ -28,7 +35,8 @@ from server_state import get_current_config, get_memory_instance, initialize_sta
 
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+install_request_id_logging()
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - [%(request_id)s] %(message)s")
 
 MIN_KEY_LENGTH = 16
 SENSITIVE_CONFIG_KEYS = {
@@ -141,6 +149,7 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(UpstreamError, upstream_error_handler)
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
@@ -264,17 +273,21 @@ def _persist_request_log(method: str, path: str, status_code: int, latency_ms: f
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     request.state.auth_type = getattr(request.state, "auth_type", "none")
+    rid = new_request_id()
+    token = request_id_var.set(rid)
     start = time.perf_counter()
     status_code = 500
 
     try:
         response = await call_next(request)
         status_code = response.status_code
+        response.headers["X-Request-ID"] = rid
         return response
     except Exception:
         status_code = 500
         raise
     finally:
+        request_id_var.reset(token)
         if _should_log_request(request):
             asyncio.get_running_loop().run_in_executor(
                 None,
