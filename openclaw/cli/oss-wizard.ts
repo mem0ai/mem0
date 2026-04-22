@@ -34,25 +34,28 @@ export interface EmbedderDef extends ProviderDef {
 
 export const EMBEDDER_PROVIDERS: EmbedderDef[] = [
   { id: "openai", label: "OpenAI (requires API key)", needsApiKey: true, needsUrl: false, envVar: "OPENAI_API_KEY", defaultModel: "text-embedding-3-small", defaultDims: 1536 },
-  { id: "ollama", label: "Ollama (local, no API key)", needsApiKey: false, needsUrl: true, defaultModel: "nomic-embed-text", defaultUrl: "http://localhost:11434", defaultDims: 512 },
+  { id: "ollama", label: "Ollama (local, no API key)", needsApiKey: false, needsUrl: true, defaultModel: "nomic-embed-text", defaultUrl: "http://localhost:11434", defaultDims: 768 },
 ];
 
 export interface VectorDef {
   id: string;
   label: string;
   needsConnection: boolean;
+  defaultUrl?: string;
+  defaultPort?: number;
+  setupHint?: string;
 }
 
 export const VECTOR_PROVIDERS: VectorDef[] = [
-  { id: "qdrant", label: "Qdrant (local file-based, no setup needed)", needsConnection: false },
-  { id: "pgvector", label: "PGVector (requires PostgreSQL)", needsConnection: true },
+  { id: "qdrant", label: "Qdrant (requires server — Docker or cloud)", needsConnection: true, defaultUrl: "http://localhost:6333", defaultPort: 6333, setupHint: "docker run -d -p 6333:6333 qdrant/qdrant" },
+  { id: "pgvector", label: "PGVector (requires PostgreSQL + pgvector extension)", needsConnection: true, defaultPort: 5432, setupHint: "docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg17" },
 ];
 
 export const KNOWN_EMBEDDER_DIMS: Record<string, number> = {
   "text-embedding-3-small": 1536,
   "text-embedding-3-large": 3072,
   "text-embedding-ada-002": 1536,
-  "nomic-embed-text": 512,
+  "nomic-embed-text": 768,
 };
 
 // ============================================================================
@@ -77,7 +80,7 @@ export function buildOssLlmConfig(
   };
   if (input.apiKey) config.apiKey = input.apiKey;
   if (providerId === "ollama") {
-    config.ollama_base_url = input.url || def.defaultUrl;
+    config.url = input.url || def.defaultUrl;
   }
   return { provider: providerId, config };
 }
@@ -99,7 +102,7 @@ export function buildOssEmbedderConfig(
   const config: Record<string, unknown> = { model };
   if (input.apiKey) config.apiKey = input.apiKey;
   if (providerId === "ollama") {
-    config.ollama_base_url = input.url || def.defaultUrl;
+    config.url = input.url || def.defaultUrl;
   }
 
   const dims = KNOWN_EMBEDDER_DIMS[model] ?? undefined;
@@ -107,12 +110,13 @@ export function buildOssEmbedderConfig(
 }
 
 export interface VectorConfigInput {
-  path?: string;
+  url?: string;
   host?: string;
   port?: string;
   user?: string;
   password?: string;
   dbname?: string;
+  apiKey?: string;
   dims?: number;
 }
 
@@ -123,7 +127,9 @@ export function buildOssVectorConfig(
   const config: Record<string, unknown> = {};
 
   if (providerId === "qdrant") {
-    config.path = input.path || join(homedir(), ".mem0", "qdrant");
+    config.url = input.url || "http://localhost:6333";
+    config.onDisk = true;
+    if (input.apiKey) config.apiKey = input.apiKey;
   } else if (providerId === "pgvector") {
     config.host = input.host || "localhost";
     config.port = parseInt(input.port || "5432", 10);
@@ -132,8 +138,39 @@ export function buildOssVectorConfig(
     config.dbname = input.dbname || "postgres";
   }
 
-  if (input.dims) config.embedding_model_dims = input.dims;
+  if (input.dims) config.dimension = input.dims;
   return { provider: providerId, config };
+}
+
+export async function checkOllamaConnectivity(url: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const resp = await fetch(`${url.replace(/\/+$/, "")}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    if (resp.ok) return { ok: true };
+    return { ok: false, error: `Ollama returned HTTP ${resp.status}` };
+  } catch {
+    return { ok: false, error: `Cannot reach Ollama at ${url}. Install: https://ollama.com/download` };
+  }
+}
+
+export async function checkPgConnectivity(host: string, port: number): Promise<{ ok: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    import("node:net").then(({ createConnection }) => {
+      const sock = createConnection({ host, port, timeout: 3000 });
+      sock.once("connect", () => { sock.destroy(); resolve({ ok: true }); });
+      sock.once("timeout", () => { sock.destroy(); resolve({ ok: false, error: `PostgreSQL not reachable at ${host}:${port}` }); });
+      sock.once("error", () => { sock.destroy(); resolve({ ok: false, error: `PostgreSQL not reachable at ${host}:${port}. Ensure PostgreSQL with pgvector extension is running.` }); });
+    });
+  });
+}
+
+export async function checkQdrantConnectivity(url: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const resp = await fetch(`${url.replace(/\/+$/, "")}/healthz`, { signal: AbortSignal.timeout(3000) });
+    if (resp.ok) return { ok: true };
+    return { ok: false, error: `Qdrant returned HTTP ${resp.status}` };
+  } catch (err) {
+    return { ok: false, error: `Cannot reach Qdrant at ${url}. Start it with: docker run -d -p 6333:6333 qdrant/qdrant` };
+  }
 }
 
 // ============================================================================
@@ -150,7 +187,7 @@ export interface OssFlags {
   ossEmbedderModel?: string;
   ossEmbedderUrl?: string;
   ossVector?: string;
-  ossVectorPath?: string;
+  ossVectorUrl?: string;
   ossVectorHost?: string;
   ossVectorPort?: string;
   ossVectorUser?: string;

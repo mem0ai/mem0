@@ -2,11 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   LLM_PROVIDERS,
   EMBEDDER_PROVIDERS,
+  VECTOR_PROVIDERS,
   KNOWN_EMBEDDER_DIMS,
   buildOssLlmConfig,
   buildOssEmbedderConfig,
   buildOssVectorConfig,
   validateOssFlags,
+  checkQdrantConnectivity,
+  checkOllamaConnectivity,
+  checkPgConnectivity,
 } from "../cli/oss-wizard.ts";
 
 describe("LLM_PROVIDERS", () => {
@@ -38,7 +42,7 @@ describe("EMBEDDER_PROVIDERS", () => {
 describe("KNOWN_EMBEDDER_DIMS", () => {
   it("maps default models to dims", () => {
     expect(KNOWN_EMBEDDER_DIMS["text-embedding-3-small"]).toBe(1536);
-    expect(KNOWN_EMBEDDER_DIMS["nomic-embed-text"]).toBe(512);
+    expect(KNOWN_EMBEDDER_DIMS["nomic-embed-text"]).toBe(768);
   });
 });
 
@@ -55,13 +59,18 @@ describe("buildOssLlmConfig", () => {
     const result = buildOssLlmConfig("ollama", { url: "http://myhost:11434", model: "mistral" });
     expect(result).toEqual({
       provider: "ollama",
-      config: { model: "mistral", ollama_base_url: "http://myhost:11434" },
+      config: { model: "mistral", url: "http://myhost:11434" },
     });
+  });
+
+  it("builds ollama config with default URL", () => {
+    const result = buildOssLlmConfig("ollama", {});
+    expect(result.config.url).toBe("http://localhost:11434");
   });
 
   it("ignores url for non-ollama providers", () => {
     const result = buildOssLlmConfig("anthropic", { apiKey: "sk-ant", url: "http://ignored" });
-    expect(result.config).not.toHaveProperty("ollama_base_url");
+    expect(result.config).not.toHaveProperty("url");
     expect(result.config).toHaveProperty("apiKey", "sk-ant");
   });
 });
@@ -73,17 +82,60 @@ describe("buildOssEmbedderConfig", () => {
     expect(result.dims).toBe(1536);
   });
 
+  it("builds ollama embedder with url field", () => {
+    const result = buildOssEmbedderConfig("ollama", { url: "http://myhost:11434" });
+    expect(result.config.url).toBe("http://myhost:11434");
+    expect(result.config).not.toHaveProperty("ollama_base_url");
+    expect(result.config.model).toBe("nomic-embed-text");
+    expect(result.dims).toBe(768);
+  });
+
   it("returns unknown dims for custom model", () => {
     const result = buildOssEmbedderConfig("ollama", { model: "custom-embed" });
     expect(result.dims).toBeUndefined();
   });
 });
 
+describe("VECTOR_PROVIDERS", () => {
+  it("has 2 providers", () => {
+    expect(VECTOR_PROVIDERS).toHaveLength(2);
+    expect(VECTOR_PROVIDERS.map((p) => p.id)).toEqual(["qdrant", "pgvector"]);
+  });
+
+  it("qdrant requires server connection", () => {
+    const qdrant = VECTOR_PROVIDERS.find((p) => p.id === "qdrant")!;
+    expect(qdrant.needsConnection).toBe(true);
+    expect(qdrant.defaultUrl).toBe("http://localhost:6333");
+    expect(qdrant.setupHint).toContain("docker");
+  });
+
+  it("pgvector requires connection and has setup hint", () => {
+    const pg = VECTOR_PROVIDERS.find((p) => p.id === "pgvector")!;
+    expect(pg.needsConnection).toBe(true);
+    expect(pg.defaultPort).toBe(5432);
+    expect(pg.setupHint).toContain("pgvector");
+  });
+});
+
 describe("buildOssVectorConfig", () => {
-  it("builds qdrant with default path and dims", () => {
+  it("builds qdrant with default url and dims", () => {
     const result = buildOssVectorConfig("qdrant", { dims: 1536 });
-    expect(result.config.path).toContain("qdrant");
-    expect(result.config.embedding_model_dims).toBe(1536);
+    expect(result.config.url).toBe("http://localhost:6333");
+    expect(result.config.onDisk).toBe(true);
+    expect(result.config.dimension).toBe(1536);
+  });
+
+  it("builds qdrant with custom url", () => {
+    const result = buildOssVectorConfig("qdrant", { url: "http://qdrant.local:6333", dims: 768 });
+    expect(result.config.url).toBe("http://qdrant.local:6333");
+    expect(result.config.onDisk).toBe(true);
+    expect(result.config.dimension).toBe(768);
+  });
+
+  it("builds qdrant with api key for cloud", () => {
+    const result = buildOssVectorConfig("qdrant", { url: "https://cloud.qdrant.io", apiKey: "qd-key", dims: 1536 });
+    expect(result.config.apiKey).toBe("qd-key");
+    expect(result.config.url).toBe("https://cloud.qdrant.io");
   });
 
   it("builds pgvector with connection details", () => {
@@ -91,7 +143,31 @@ describe("buildOssVectorConfig", () => {
       host: "db.local", port: "5432", user: "me", password: "pw", dbname: "mydb", dims: 512,
     });
     expect(result.config.host).toBe("db.local");
-    expect(result.config.embedding_model_dims).toBe(512);
+    expect(result.config.dimension).toBe(512);
+  });
+});
+
+describe("checkQdrantConnectivity", () => {
+  it("returns error for unreachable host", async () => {
+    const result = await checkQdrantConnectivity("http://localhost:19999");
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Cannot reach Qdrant");
+  });
+});
+
+describe("checkOllamaConnectivity", () => {
+  it("returns error for unreachable host", async () => {
+    const result = await checkOllamaConnectivity("http://localhost:19998");
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("Cannot reach Ollama");
+  });
+});
+
+describe("checkPgConnectivity", () => {
+  it("returns error for unreachable host", async () => {
+    const result = await checkPgConnectivity("localhost", 19997);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("PostgreSQL not reachable");
   });
 });
 

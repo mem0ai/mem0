@@ -214,6 +214,7 @@ class PlatformProvider implements Mem0Provider {
 // ============================================================================
 
 class OSSProvider implements Mem0Provider {
+  private static _warnPatched = false;
   private memory: any; // Memory from mem0ai/oss
   private initPromise: Promise<void> | null = null;
 
@@ -325,13 +326,34 @@ class OSSProvider implements Mem0Provider {
       VectorCls.prototype.__patched = true;
     }
 
+    // Proactively detect broken better-sqlite3 native binding (e.g. Node
+    // version mismatch) and skip history to avoid noisy constructor failures.
+    let sqliteOk = true;
+    if (!this.ossConfig?.disableHistory) {
+      try {
+        const bs3Mod = await import("better-sqlite3");
+        const BS3 = bs3Mod.default ?? bs3Mod;
+        const testDb = new BS3(":memory:");
+        testDb.close();
+      } catch {
+        sqliteOk = false;
+      }
+    }
+
+    if (!OSSProvider._warnPatched) {
+      const origWarn = console.warn;
+      console.warn = (...args: unknown[]) => {
+        if (typeof args[0] === "string" && args[0].includes("checkCompatibility")) return;
+        origWarn.apply(console, args);
+      };
+      OSSProvider._warnPatched = true;
+    }
+
     let mem: any;
     try {
-      mem = new Memory(this._buildConfig());
+      mem = new Memory(this._buildConfig(!sqliteOk));
     } catch (err) {
-      // If constructor fails (e.g. native SQLite binding under jiti/Docker),
-      // retry with a FRESH config that has history disabled.
-      if (!this.ossConfig?.disableHistory) {
+      if (!this.ossConfig?.disableHistory && sqliteOk) {
         console.warn(
           "[mem0] Memory initialization failed, retrying with history disabled:",
           err instanceof Error ? err.message : err,

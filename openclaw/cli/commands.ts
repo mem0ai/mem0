@@ -49,7 +49,7 @@ import { jsonOut, jsonErr, redactSecrets } from "./json-helpers.ts";
 import {
   LLM_PROVIDERS, EMBEDDER_PROVIDERS, VECTOR_PROVIDERS,
   buildOssLlmConfig, buildOssEmbedderConfig, buildOssVectorConfig,
-  validateOssFlags,
+  validateOssFlags, checkQdrantConnectivity, checkOllamaConnectivity, checkPgConnectivity,
 } from "./oss-wizard.ts";
 
 // ============================================================================
@@ -207,26 +207,31 @@ function saveLoginConfig(
   apiKey: string,
   userIdFlag?: string,
   userEmail?: string,
+  silent?: boolean,
 ): void {
   const existingAuth = readPluginAuth();
   const userId = resolveUserId(userIdFlag, existingAuth.userId);
 
   writePluginAuth({ apiKey, userId, mode: "platform", ...(userEmail && { userEmail }) });
 
-  console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
-  console.log(`  Mode: platform`);
-  console.log(`  User ID: ${userId}`);
+  if (!silent) {
+    console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
+    console.log(`  Mode: platform`);
+    console.log(`  User ID: ${userId}`);
+  }
 }
 
-function saveOssConfig(userIdFlag?: string): void {
+function saveOssConfig(userIdFlag?: string, silent?: boolean): void {
   const existingAuth = readPluginAuth();
   const userId = resolveUserId(userIdFlag, existingAuth.userId);
 
-  writePluginAuth({ userId, mode: "open-source" });
+  writePluginAuth({ apiKey: "", userId, mode: "open-source" });
 
-  console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
-  console.log(`  Mode: open-source`);
-  console.log(`  User ID: ${userId}`);
+  if (!silent) {
+    console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
+    console.log(`  Mode: open-source`);
+    console.log(`  User ID: ${userId}`);
+  }
 }
 
 async function runOssWizardInteractive(
@@ -251,6 +256,17 @@ async function runOssWizardInteractive(
   }
 
   const llmCfg = buildOssLlmConfig(llmDef.id, { apiKey: llmApiKey, url: llmUrl });
+
+  if (llmDef.id === "ollama") {
+    const ollamaUrl = (llmCfg.config.url as string) || "http://localhost:11434";
+    const check = await checkOllamaConnectivity(ollamaUrl);
+    if (!check.ok) {
+      console.error(`\n  ⚠ Ollama not reachable at ${ollamaUrl}. Install: https://ollama.com/download\n`);
+      return;
+    }
+    console.log("  ✓ Ollama connected");
+  }
+
   writePluginConfigField(["oss", "llm"], llmCfg);
 
   // === Step 2: Embedding Provider ===
@@ -281,6 +297,17 @@ async function runOssWizardInteractive(
   }
 
   const embCfg = buildOssEmbedderConfig(embDef.id, { apiKey: embApiKey, url: embUrl });
+
+  if (embDef.id === "ollama" && embDef.id !== llmDef.id) {
+    const ollamaUrl = (embCfg.config.url as string) || "http://localhost:11434";
+    const check = await checkOllamaConnectivity(ollamaUrl);
+    if (!check.ok) {
+      console.error(`\n  ⚠ Ollama not reachable at ${ollamaUrl}. Install: https://ollama.com/download\n`);
+      return;
+    }
+    console.log("  ✓ Ollama connected");
+  }
+
   writePluginConfigField(["oss", "embedder"], { provider: embCfg.provider, config: embCfg.config });
   const dims = embCfg.dims ?? embDef.defaultDims;
 
@@ -292,7 +319,20 @@ async function runOssWizardInteractive(
   const vecDef = VECTOR_PROVIDERS[vecIdx] || VECTOR_PROVIDERS[0];
 
   let vecInput: Record<string, string | number | undefined> = { dims };
-  if (vecDef.id === "pgvector") {
+  if (vecDef.id === "qdrant") {
+    if (vecDef.setupHint) console.log(`\n  Hint: ${vecDef.setupHint}`);
+    console.log("");
+    const url = await promptInput(`  Qdrant URL: `, vecDef.defaultUrl) || vecDef.defaultUrl;
+    vecInput = { url, dims };
+
+    const check = await checkQdrantConnectivity(url!);
+    if (!check.ok) {
+      console.error(`\n  ⚠ Qdrant not reachable at ${url}. Start with: docker run -d -p 6333:6333 qdrant/qdrant\n`);
+      return;
+    }
+    console.log("  ✓ Qdrant connected");
+  } else if (vecDef.id === "pgvector") {
+    if (vecDef.setupHint) console.log(`\n  Hint: ${vecDef.setupHint}`);
     console.log("");
     const host = await promptInput("  Host [localhost]: ") || "localhost";
     const port = await promptInput("  Port [5432]: ") || "5432";
@@ -300,6 +340,13 @@ async function runOssWizardInteractive(
     const password = await promptInput("  Password: ");
     const dbname = await promptInput("  Database [postgres]: ") || "postgres";
     vecInput = { host, port, user, password, dbname, dims };
+
+    const check = await checkPgConnectivity(host, parseInt(port, 10));
+    if (!check.ok) {
+      console.error(`\n  ⚠ PostgreSQL not reachable at ${host}:${port}. ${vecDef.setupHint ? `Start with: ${vecDef.setupHint}` : ""}\n`);
+      return;
+    }
+    console.log("  ✓ PostgreSQL connected");
   }
 
   const vecCfg = buildOssVectorConfig(vecDef.id, vecInput as any);
@@ -322,7 +369,7 @@ async function runOssWizardInteractive(
   console.log("");
   console.log(`    LLM:       ${llmDef.id} (${llmCfg.config.model})`);
   console.log(`    Embedder:  ${embDef.id} (${embCfg.config.model})`);
-  console.log(`    Vector:    ${vecDef.id} (${vecDef.id === "qdrant" ? vecCfg.config.path : vecCfg.config.host})`);
+  console.log(`    Vector:    ${vecDef.id} (${vecDef.id === "qdrant" ? vecCfg.config.url : vecCfg.config.host})`);
   console.log(`    User ID:   ${userIdValue}`);
   console.log("");
   console.log("  Run: openclaw gateway restart");
@@ -380,7 +427,7 @@ export function registerCliCommands(
         .option("--api-key <key>", "Direct API key entry")
         .option("--user-id <id>", "Set user ID for memory namespace")
         .option("--mode <mode>", "platform or open-source (skips menu)")
-        .option("--oss-llm <provider>", "LLM: openai, ollama, anthropic, groq")
+        .option("--oss-llm <provider>", "LLM: openai, ollama, anthropic")
         .option("--oss-llm-key <key>", "API key for LLM provider")
         .option("--oss-llm-model <model>", "Override default LLM model")
         .option("--oss-llm-url <url>", "Base URL (ollama only)")
@@ -389,7 +436,7 @@ export function registerCliCommands(
         .option("--oss-embedder-model <model>", "Override default embedder model")
         .option("--oss-embedder-url <url>", "Base URL (ollama only)")
         .option("--oss-vector <provider>", "Vector store: qdrant, pgvector")
-        .option("--oss-vector-path <path>", "Qdrant storage path")
+        .option("--oss-vector-url <url>", "Qdrant server URL (default: http://localhost:6333)")
         .option("--oss-vector-host <host>", "PGVector host")
         .option("--oss-vector-port <port>", "PGVector port")
         .option("--oss-vector-user <user>", "PGVector user")
@@ -413,7 +460,7 @@ export function registerCliCommands(
             ossEmbedderModel?: string;
             ossEmbedderUrl?: string;
             ossVector?: string;
-            ossVectorPath?: string;
+            ossVectorUrl?: string;
             ossVectorHost?: string;
             ossVectorPort?: string;
             ossVectorUser?: string;
@@ -451,24 +498,60 @@ export function registerCliCommands(
                 });
                 const dims = opts.ossVectorDims ? parseInt(opts.ossVectorDims, 10) : embCfg.dims;
                 const vecCfg = buildOssVectorConfig(vecId, {
-                  path: opts.ossVectorPath, host: opts.ossVectorHost,
+                  url: opts.ossVectorUrl, host: opts.ossVectorHost,
                   port: opts.ossVectorPort, user: opts.ossVectorUser,
                   password: opts.ossVectorPassword, dbname: opts.ossVectorDbname,
                   dims,
                 });
 
+                // Connectivity checks — Ollama, Qdrant, PGVector
+                const ollamaUrls = new Set<string>();
+                if (llmId === "ollama") ollamaUrls.add((llmCfg.config.url as string) || "http://localhost:11434");
+                if (embId === "ollama") ollamaUrls.add((embCfg.config.url as string) || "http://localhost:11434");
+                for (const oUrl of ollamaUrls) {
+                  const check = await checkOllamaConnectivity(oUrl);
+                  if (!check.ok) {
+                    const msg = `Ollama not reachable at ${oUrl}. Install: https://ollama.com/download`;
+                    if (jsonErr(opts, msg)) return;
+                    console.error(`\n  ${msg}\n`);
+                    return;
+                  }
+                }
+
+                if (vecId === "qdrant") {
+                  const qdrantUrl = (vecCfg.config.url as string) || "http://localhost:6333";
+                  const check = await checkQdrantConnectivity(qdrantUrl);
+                  if (!check.ok) {
+                    const msg = `Qdrant not reachable at ${qdrantUrl}. Start with: docker run -d -p 6333:6333 qdrant/qdrant`;
+                    if (jsonErr(opts, msg)) return;
+                    console.error(`\n  ${msg}\n`);
+                    return;
+                  }
+                } else if (vecId === "pgvector") {
+                  const pgHost = (vecCfg.config.host as string) || "localhost";
+                  const pgPort = (vecCfg.config.port as number) || 5432;
+                  const check = await checkPgConnectivity(pgHost, pgPort);
+                  if (!check.ok) {
+                    const msg = `PostgreSQL not reachable at ${pgHost}:${pgPort}. Start with: docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg17`;
+                    if (jsonErr(opts, msg)) return;
+                    console.error(`\n  ${msg}\n`);
+                    return;
+                  }
+                }
+
                 writePluginConfigField(["oss", "llm"], llmCfg);
                 writePluginConfigField(["oss", "embedder"], { provider: embCfg.provider, config: embCfg.config });
                 writePluginConfigField(["oss", "vectorStore"], vecCfg);
-                saveOssConfig(opts.userId);
+                saveOssConfig(opts.userId, !!opts.json);
 
+                const vecDisplay = vecId === "qdrant" ? vecCfg.config.url : vecCfg.config.host;
                 const summary = {
                   ok: true as const,
                   mode: "open-source",
                   config: {
                     llm: { provider: llmCfg.provider, model: llmCfg.config.model },
                     embedder: { provider: embCfg.provider, model: embCfg.config.model },
-                    vectorStore: { provider: vecCfg.provider, ...(vecId === "qdrant" ? { path: vecCfg.config.path } : { host: vecCfg.config.host }) },
+                    vectorStore: { provider: vecCfg.provider, ...(vecId === "qdrant" ? { url: vecCfg.config.url } : { host: vecCfg.config.host }) },
                   },
                   userId: resolveUserId(opts.userId, existingAuth.userId),
                   message: "Open-source mode configured. Restart the gateway: openclaw gateway restart",
@@ -478,7 +561,7 @@ export function registerCliCommands(
                 console.log("\n  Open-source mode configured!\n");
                 console.log(`  LLM:       ${llmCfg.provider} (${llmCfg.config.model})`);
                 console.log(`  Embedder:  ${embCfg.provider} (${embCfg.config.model})`);
-                console.log(`  Vector:    ${vecCfg.provider} (${vecId === "qdrant" ? vecCfg.config.path : vecCfg.config.host})`);
+                console.log(`  Vector:    ${vecCfg.provider} (${vecDisplay})`);
                 console.log(`  User ID:   ${resolveUserId(opts.userId, existingAuth.userId)}`);
                 console.log("\n  Restart the gateway: openclaw gateway restart\n");
                 return;
@@ -498,30 +581,43 @@ export function registerCliCommands(
               // -- API key flow ------------------------------------------------
               if (opts.apiKey) {
                 if (opts.email) {
-                  console.error("Cannot use both --api-key and --email.");
+                  const msg = "Cannot use both --api-key and --email.";
+                  if (jsonErr(opts, msg)) return;
+                  console.error(msg);
                   return;
                 }
 
                 const check = await validateApiKey(baseUrl, opts.apiKey);
-                saveLoginConfig(opts.apiKey, opts.userId, check.userEmail);
+                saveLoginConfig(opts.apiKey, opts.userId, check.userEmail, !!opts.json);
+
+                let message: string;
+                if (check.ok) {
+                  message = "API key validated. Connected to Mem0 Platform.";
+                } else if (check.status) {
+                  message = `API key saved but validation returned HTTP ${check.status}. Check that the key is correct.`;
+                } else {
+                  message = `API key saved but could not reach ${baseUrl}: ${check.error}. Check your network connection.`;
+                }
+
+                const summary = {
+                  ok: check.ok,
+                  mode: "platform" as const,
+                  userId: resolveUserId(opts.userId, existingAuth.userId),
+                  validated: check.ok,
+                  ...(check.status && !check.ok && { httpStatus: check.status }),
+                  message,
+                };
+                if (jsonOut(opts, summary)) return;
+
                 if (hasExistingConfig) {
                   console.log(
                     "  Existing configuration detected — updated API key (other settings preserved).",
                   );
                 }
-
                 if (check.ok) {
-                  console.log(
-                    "  API key validated. Connected to Mem0 Platform.",
-                  );
-                } else if (check.status) {
-                  console.warn(
-                    `  API key saved but validation returned HTTP ${check.status}. Check that the key is correct.`,
-                  );
+                  console.log(`  ${message}`);
                 } else {
-                  console.warn(
-                    `  API key saved but could not reach ${baseUrl}: ${check.error}. Check your network connection.`,
-                  );
+                  console.warn(`  ${message}`);
                 }
                 console.log(
                   "  Restart the gateway: openclaw gateway restart\n",
@@ -533,9 +629,21 @@ export function registerCliCommands(
               if (opts.email && opts.code) {
                 const email = opts.email.trim().toLowerCase();
                 const apiKey = await verifyEmailCode(baseUrl, email, opts.code);
-                if (!apiKey) return;
+                if (!apiKey) {
+                  if (jsonErr(opts, "Email verification failed — no API key returned.")) return;
+                  return;
+                }
 
-                saveLoginConfig(apiKey, opts.userId, email);
+                saveLoginConfig(apiKey, opts.userId, email, !!opts.json);
+                const summary = {
+                  ok: true as const,
+                  mode: "platform" as const,
+                  userId: resolveUserId(opts.userId, existingAuth.userId),
+                  email,
+                  message: "Authenticated. Restart the gateway: openclaw gateway restart",
+                };
+                if (jsonOut(opts, summary)) return;
+
                 if (hasExistingConfig) {
                   console.log(
                     "  Existing configuration detected — updated API key (other settings preserved).",
@@ -553,9 +661,13 @@ export function registerCliCommands(
                 const email = opts.email.trim().toLowerCase();
                 const sent = await sendVerificationCode(baseUrl, email);
                 if (sent) {
+                  const nextCmd = `openclaw mem0 init --email ${email} --code <CODE>`;
+                  if (jsonOut(opts, { ok: true, email, codeSent: true, nextCommand: nextCmd })) return;
                   console.log(
-                    `Verification code sent! Run:\n  openclaw mem0 init --email ${email} --code <CODE>`,
+                    `Verification code sent! Run:\n  ${nextCmd}`,
                   );
+                } else {
+                  if (jsonErr(opts, `Failed to send verification code to ${email}.`)) return;
                 }
                 return;
               }
@@ -1602,7 +1714,7 @@ export function registerCliCommands(
                 },
               },
             };
-            console.log(JSON.stringify(detailed, null, 2));
+            process.stdout.write(JSON.stringify(detailed, null, 2) + "\n");
             return;
           }
 

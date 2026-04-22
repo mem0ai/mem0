@@ -1,16 +1,17 @@
 /**
  * JSON output helpers for agent-friendly CLI commands.
- *
- * When --json is passed, all output (success and error) goes to stdout
- * via console.log so agents parse a single stream.
  */
+
+function writeStdout(data: Record<string, unknown>): void {
+  process.stdout.write(JSON.stringify(data, null, 2) + "\n");
+}
 
 export function jsonOut(
   opts: { json?: boolean },
   data: Record<string, unknown>,
 ): boolean {
   if (!opts.json) return false;
-  console.log(JSON.stringify(data, null, 2));
+  writeStdout(data);
   return true;
 }
 
@@ -19,7 +20,7 @@ export function jsonErr(
   error: string,
 ): boolean {
   if (!opts.json) return false;
-  console.log(JSON.stringify({ ok: false, error }, null, 2));
+  writeStdout({ ok: false, error });
   return true;
 }
 

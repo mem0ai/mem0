@@ -2,27 +2,27 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { jsonOut, jsonErr, redactSecrets } from "../cli/json-helpers.ts";
 
 describe("jsonOut", () => {
-  let logSpy: ReturnType<typeof vi.spyOn>;
-  beforeEach(() => { logSpy = vi.spyOn(console, "log").mockImplementation(() => {}); });
-  afterEach(() => { logSpy.mockRestore(); });
+  let writeSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true); });
+  afterEach(() => { writeSpy.mockRestore(); });
 
   it("returns false and prints nothing when json is falsy", () => {
     expect(jsonOut({}, { ok: true })).toBe(false);
-    expect(logSpy).not.toHaveBeenCalled();
+    expect(writeSpy).not.toHaveBeenCalled();
   });
 
   it("returns true and prints JSON to stdout when json is true", () => {
     expect(jsonOut({ json: true }, { ok: true, count: 3 })).toBe(true);
-    expect(logSpy).toHaveBeenCalledOnce();
-    const parsed = JSON.parse(logSpy.mock.calls[0][0]);
+    expect(writeSpy).toHaveBeenCalledOnce();
+    const parsed = JSON.parse(writeSpy.mock.calls[0][0] as string);
     expect(parsed).toEqual({ ok: true, count: 3 });
   });
 });
 
 describe("jsonErr", () => {
-  let logSpy: ReturnType<typeof vi.spyOn>;
-  beforeEach(() => { logSpy = vi.spyOn(console, "log").mockImplementation(() => {}); });
-  afterEach(() => { logSpy.mockRestore(); });
+  let writeSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { writeSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true); });
+  afterEach(() => { writeSpy.mockRestore(); });
 
   it("returns false when json is falsy", () => {
     expect(jsonErr({}, "bad")).toBe(false);
@@ -30,7 +30,7 @@ describe("jsonErr", () => {
 
   it("returns true and prints error JSON to stdout", () => {
     expect(jsonErr({ json: true }, "Something broke")).toBe(true);
-    const parsed = JSON.parse(logSpy.mock.calls[0][0]);
+    const parsed = JSON.parse(writeSpy.mock.calls[0][0] as string);
     expect(parsed).toEqual({ ok: false, error: "Something broke" });
   });
 });
