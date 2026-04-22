@@ -1,15 +1,9 @@
 {
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
-  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. PLATFORM MODE: Sends conversation data to mem0.ai cloud (requires MEM0_API_KEY). OPEN-SOURCE MODE: Stores vectors locally (~/.mem0/history.db) but uses external APIs for embeddings/LLM (default: OpenAI, requires OPENAI_API_KEY). Auto-recall injects relevant memories into agent context before each turn; auto-capture extracts durable facts after turns. Both are opt-in via autoRecall/autoCapture config settings (default: false). The plugin injects a memory triage protocol into system context when skills mode is enabled. Config stored in ~/.openclaw/openclaw.json.",
-  "version": "1.0.9-beta.0",
+  "description": "Mem0 memory backend for OpenClaw — platform (mem0.ai cloud) or self-hosted open-source. Auto-recall and auto-capture are opt-in (disabled by default). Supports OpenAI, Anthropic, Ollama (fully local), Qdrant, and PGVector providers.",
+  "version": "1.0.9",
   "kind": "memory",
-  "requiredEnvVars": {
-    "platform": ["MEM0_API_KEY"],
-    "open-source (OpenAI)": ["OPENAI_API_KEY"],
-    "open-source (Anthropic)": ["ANTHROPIC_API_KEY"],
-    "open-source (Ollama)": []
-  },
   "skills": ["skills"],
   "commandAliases": [
     {
@@ -155,7 +149,8 @@
         "enum": [
           "platform",
           "open-source"
-        ]
+        ],
+        "description": "Required. 'platform' requires MEM0_API_KEY. 'open-source' requires OPENAI_API_KEY (default) or no keys with Ollama."
       },
       "apiKey": {
         "type": "string",
@@ -298,18 +293,7 @@
         }
       }
     },
-    "required": []
-  },
-  "dataLocations": {
-    "config": "~/.openclaw/openclaw.json",
-    "vectorStore": "~/.mem0/vector_store.db (open-source mode only)",
-    "historyDb": "~/.mem0/history.db (open-source mode only)",
-    "dreamState": "<pluginStateDir>/dream-state.json"
-  },
-  "privacy": {
-    "platformMode": "Conversation data is sent to mem0.ai cloud API for memory extraction and retrieval.",
-    "openSourceMode": "All data stays local. External API calls only for LLM/embedding providers you configure (OpenAI, Anthropic, or fully local with Ollama).",
-    "credentialStorage": "API keys in openclaw.json. Use SecretRef or ${ENV_VAR} syntax to avoid plaintext storage."
+    "required": ["mode"]
   },
   "setup": {
     "providers": [
