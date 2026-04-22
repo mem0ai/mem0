@@ -2,7 +2,7 @@
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. PLATFORM MODE: Sends conversation data to mem0.ai cloud (requires MEM0_API_KEY). OPEN-SOURCE MODE: Stores vectors locally (~/.mem0/history.db) but uses external APIs for embeddings/LLM (default: OpenAI, requires OPENAI_API_KEY). Auto-recall injects relevant memories into agent context before each turn; auto-capture extracts durable facts after turns. Both are opt-in via autoRecall/autoCapture config settings (default: false). The plugin injects a memory triage protocol into system context when skills mode is enabled. Config stored in ~/.openclaw/openclaw.json.",
-  "version": "1.0.9",
+  "version": "1.0.9-beta.0",
   "kind": "memory",
   "requiredEnvVars": {
     "platform": ["MEM0_API_KEY"],
