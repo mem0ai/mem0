@@ -37,6 +37,9 @@ TOKEN=$(echo "$LOGIN" | python3 -c "import sys,json; print(json.load(sys.stdin)[
 
 if [ -z "$TOKEN" ]; then
   echo "  Login failed: $LOGIN"
+  echo "  Admin exists but PASSWORD didn't match. Recover with:"
+  echo "    make clean && make bootstrap                              (wipes data)"
+  echo "    make reset-admin-password EMAIL=<email> PASSWORD=<pass>   (keeps data)"
   exit 1
 fi
 echo "  Logged in."
