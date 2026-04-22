@@ -206,7 +206,7 @@ def _redact_config(value: Any, key: str | None = None) -> Any:
     if isinstance(value, list):
         return [_redact_config(item_value, key) for item_value in value]
     if key is not None and key.lower() in SENSITIVE_CONFIG_KEYS:
-        return "[redacted]"
+        return "[redacted]" if value else value
     return value
 
 

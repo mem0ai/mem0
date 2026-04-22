@@ -2,6 +2,7 @@ type ProviderConfig = {
   provider?: string;
   config?: {
     model?: string;
+    api_key?: string;
   };
 };
 

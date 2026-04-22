@@ -8,6 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/error-message";
 import { cn } from "@/lib/utils";
@@ -17,8 +24,16 @@ import {
   AUTH_ENDPOINTS,
   MEMORY_ENDPOINTS,
 } from "@/utils/api-endpoints";
-import { getEffectiveConfig } from "@/utils/self-hosted-config";
+import {
+  buildProviderConfig,
+  getEffectiveConfig,
+} from "@/utils/self-hosted-config";
 import { isValidEmail } from "@/lib/validators";
+
+type BundledProviders = {
+  llm: string[];
+  embedder: string[];
+};
 
 const STEPS = [
   "Admin Account",
@@ -62,8 +77,15 @@ export default function SetupPage() {
 
   const [llmProvider, setLlmProvider] = useState("");
   const [llmModel, setLlmModel] = useState("");
+  const [llmApiKey, setLlmApiKey] = useState("");
   const [embedderProvider, setEmbedderProvider] = useState("");
   const [embedderModel, setEmbedderModel] = useState("");
+  const [serverHasLlmKey, setServerHasLlmKey] = useState(false);
+  const [providers, setProviders] = useState<BundledProviders | null>(null);
+  const [initialLlmProvider, setInitialLlmProvider] = useState("");
+  const [initialLlmModel, setInitialLlmModel] = useState("");
+  const [initialEmbedderProvider, setInitialEmbedderProvider] = useState("");
+  const [initialEmbedderModel, setInitialEmbedderModel] = useState("");
 
   const [apiKey, setApiKey] = useState("");
   const [keyLabel, setKeyLabel] = useState("");
@@ -89,17 +111,31 @@ export default function SetupPage() {
 
     const loadConfig = async () => {
       try {
-        const res = await api.get(MEMORY_ENDPOINTS.CONFIGURE);
-        const config = getEffectiveConfig(res.data);
+        const [configRes, providersRes] = await Promise.all([
+          api.get(MEMORY_ENDPOINTS.CONFIGURE),
+          api.get<BundledProviders>(MEMORY_ENDPOINTS.CONFIGURE_PROVIDERS),
+        ]);
+        const config = getEffectiveConfig(configRes.data);
 
         if (!active) {
           return;
         }
 
-        setLlmProvider(config?.llm?.provider || "");
-        setLlmModel(config?.llm?.config?.model || "");
-        setEmbedderProvider(config?.embedder?.provider || "");
-        setEmbedderModel(config?.embedder?.config?.model || "");
+        const llmProv = config?.llm?.provider || "";
+        const llmMod = config?.llm?.config?.model || "";
+        const embProv = config?.embedder?.provider || "";
+        const embMod = config?.embedder?.config?.model || "";
+
+        setLlmProvider(llmProv);
+        setLlmModel(llmMod);
+        setEmbedderProvider(embProv);
+        setEmbedderModel(embMod);
+        setInitialLlmProvider(llmProv);
+        setInitialLlmModel(llmMod);
+        setInitialEmbedderProvider(embProv);
+        setInitialEmbedderModel(embMod);
+        setServerHasLlmKey(!!config?.llm?.config?.api_key);
+        setProviders(providersRes.data);
       } catch (err) {
         if (active) {
           setError(getErrorMessage(err, "Could not read server configuration"));
@@ -149,9 +185,53 @@ export default function SetupPage() {
     }
   };
 
-  const handleStep2 = (e: React.FormEvent) => {
+  const handleStep2 = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStep(2);
+    setError("");
+
+    const dirty =
+      !!llmApiKey ||
+      llmProvider !== initialLlmProvider ||
+      llmModel !== initialLlmModel ||
+      embedderProvider !== initialEmbedderProvider ||
+      embedderModel !== initialEmbedderModel;
+
+    if (!dirty) {
+      setStep(2);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const llm = buildProviderConfig({
+        provider: llmProvider,
+        model: llmModel,
+        apiKey: llmApiKey,
+      });
+      const embedder = buildProviderConfig({
+        provider: embedderProvider,
+        model: embedderModel,
+        apiKey:
+          llmApiKey && embedderProvider === llmProvider ? llmApiKey : undefined,
+      });
+
+      const payload: Record<string, unknown> = { version: "v1.1" };
+      if (llm) payload.llm = llm;
+      if (embedder) payload.embedder = embedder;
+
+      await api.post(MEMORY_ENDPOINTS.CONFIGURE, payload);
+      if (llmApiKey) setServerHasLlmKey(true);
+      setLlmApiKey("");
+      setInitialLlmProvider(llmProvider);
+      setInitialLlmModel(llmModel);
+      setInitialEmbedderProvider(embedderProvider);
+      setInitialEmbedderModel(embedderModel);
+      setStep(2);
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to save configuration"));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleStep3 = async (e: React.FormEvent) => {
@@ -324,51 +404,104 @@ export default function SetupPage() {
 
             {step === 1 && (
               <form onSubmit={handleStep2} className="space-y-4">
+                {!serverHasLlmKey && (
+                  <div className="rounded-md border border-memBorder-primary bg-surface-default-secondary p-3">
+                    <p className="text-xs text-onSurface-default-tertiary">
+                      No LLM provider API key is configured on the server. Paste
+                      one below to continue — it will be saved to the server and
+                      used for all memory operations.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="setup-llm-provider">LLM Provider</Label>
-                    <Input
-                      id="setup-llm-provider"
+                    <Select
                       value={llmProvider}
-                      readOnly
-                      className="font-mono text-sm"
-                      placeholder="—"
-                    />
+                      onValueChange={setLlmProvider}
+                      disabled={!providers}
+                    >
+                      <SelectTrigger id="setup-llm-provider">
+                        <SelectValue placeholder="Select provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {providers?.llm.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="setup-llm-model">Model</Label>
                     <Input
                       id="setup-llm-model"
                       value={llmModel}
-                      readOnly
+                      onChange={(e) => setLlmModel(e.target.value)}
+                      placeholder="gpt-4.1-nano-2025-04-14"
                       className="font-mono text-sm"
-                      placeholder="—"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="setup-llm-api-key">LLM API Key</Label>
+                  <Input
+                    id="setup-llm-api-key"
+                    type="password"
+                    value={llmApiKey}
+                    onChange={(e) => setLlmApiKey(e.target.value)}
+                    placeholder={
+                      serverHasLlmKey
+                        ? "Leave blank to keep existing key"
+                        : "sk-..."
+                    }
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-xs text-onSurface-default-tertiary">
+                    Also used for the embedder when it shares the same provider.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label htmlFor="setup-embedder-provider">Embedder</Label>
-                    <Input
-                      id="setup-embedder-provider"
+                    <Label htmlFor="setup-embedder-provider">
+                      Embedder Provider
+                    </Label>
+                    <Select
                       value={embedderProvider}
-                      readOnly
-                      className="font-mono text-sm"
-                      placeholder="—"
-                    />
+                      onValueChange={setEmbedderProvider}
+                      disabled={!providers}
+                    >
+                      <SelectTrigger id="setup-embedder-provider">
+                        <SelectValue placeholder="Select provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {providers?.embedder.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="setup-embedder-model">Model</Label>
                     <Input
                       id="setup-embedder-model"
                       value={embedderModel}
-                      readOnly
+                      onChange={(e) => setEmbedderModel(e.target.value)}
+                      placeholder="text-embedding-3-small"
                       className="font-mono text-sm"
-                      placeholder="—"
                     />
                   </div>
                 </div>
+
                 <p className="text-xs text-onSurface-default-tertiary">
-                  These come from your server environment. You can switch to
-                  another bundled provider later from Configuration. See{" "}
+                  Need another provider? Install its Python package and rebuild
+                  the image. See{" "}
                   <a
                     href={SUPPORTED_PROVIDERS_URL}
                     target="_blank"
@@ -379,8 +512,18 @@ export default function SetupPage() {
                   </a>
                   .
                 </p>
-                <Button type="submit" className="w-full">
-                  Continue
+
+                <Button
+                  type="submit"
+                  disabled={
+                    isLoading ||
+                    !llmProvider ||
+                    !embedderProvider ||
+                    (!serverHasLlmKey && !llmApiKey)
+                  }
+                  className="w-full"
+                >
+                  {isLoading ? "Saving..." : "Save & Continue"}
                 </Button>
               </form>
             )}
