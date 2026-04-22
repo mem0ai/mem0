@@ -2,8 +2,14 @@
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. PLATFORM MODE: Sends conversation data to mem0.ai cloud (requires MEM0_API_KEY). OPEN-SOURCE MODE: Stores vectors locally (~/.mem0/history.db) but uses external APIs for embeddings/LLM (default: OpenAI, requires OPENAI_API_KEY). Auto-recall injects relevant memories into agent context before each turn; auto-capture extracts durable facts after turns. Both are opt-in via autoRecall/autoCapture config settings (default: false). The plugin injects a memory triage protocol into system context when skills mode is enabled. Config stored in ~/.openclaw/openclaw.json.",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "kind": "memory",
+  "requiredEnvVars": {
+    "platform": ["MEM0_API_KEY"],
+    "open-source (OpenAI)": ["OPENAI_API_KEY"],
+    "open-source (Anthropic)": ["ANTHROPIC_API_KEY"],
+    "open-source (Ollama)": []
+  },
   "skills": ["skills"],
   "commandAliases": [
     {
@@ -152,7 +158,9 @@
         ]
       },
       "apiKey": {
-        "type": "string"
+        "type": "string",
+        "sensitive": true,
+        "description": "Platform API key. Prefer SecretRef or ${MEM0_API_KEY} env var over plaintext."
       },
       "userId": {
         "type": "string"
@@ -162,13 +170,19 @@
         "description": "API base URL override (default: https://api.mem0.ai)"
       },
       "userEmail": {
-        "type": "string"
+        "type": "string",
+        "sensitive": true,
+        "description": "Email associated with Mem0 account. Set automatically during platform login."
       },
       "autoCapture": {
-        "type": "boolean"
+        "type": "boolean",
+        "default": false,
+        "description": "Opt-in. When true, extracts durable facts after each agent turn. Disabled by default."
       },
       "autoRecall": {
-        "type": "boolean"
+        "type": "boolean",
+        "default": false,
+        "description": "Opt-in. When true, injects relevant memories before each agent turn. Disabled by default."
       },
       "customInstructions": {
         "type": "string"
@@ -286,6 +300,17 @@
     },
     "required": []
   },
+  "dataLocations": {
+    "config": "~/.openclaw/openclaw.json",
+    "vectorStore": "~/.mem0/vector_store.db (open-source mode only)",
+    "historyDb": "~/.mem0/history.db (open-source mode only)",
+    "dreamState": "<pluginStateDir>/dream-state.json"
+  },
+  "privacy": {
+    "platformMode": "Conversation data is sent to mem0.ai cloud API for memory extraction and retrieval.",
+    "openSourceMode": "All data stays local. External API calls only for LLM/embedding providers you configure (OpenAI, Anthropic, or fully local with Ollama).",
+    "credentialStorage": "API keys in openclaw.json. Use SecretRef or ${ENV_VAR} syntax to avoid plaintext storage."
+  },
   "setup": {
     "providers": [
       {
@@ -302,6 +327,18 @@
       }
     ],
     "requiresRuntime": false,
-    "postInstallHint": "Run 'openclaw mem0 init' to configure mode and credentials"
+    "postInstallHint": "Run 'openclaw mem0 init' to configure mode and credentials",
+    "externalEndpoints": [
+      {
+        "url": "https://api.mem0.ai",
+        "purpose": "Platform mode API — memory storage and retrieval",
+        "required": "platform mode only"
+      },
+      {
+        "url": "https://app.mem0.ai",
+        "purpose": "Account dashboard and API key management",
+        "required": "platform mode only"
+      }
+    ]
   }
 }
