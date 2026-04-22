@@ -1269,6 +1269,16 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-04-22" description="Python v0.2.4 / Node v0.2.4">
+
+**New Features:**
+- **V3 API Routes:** Migrated `add`, `search`, and `list` commands from v1/v2 to v3 API endpoints — `POST /v3/memories/add/`, `POST /v3/memories/search/`, `POST /v3/memories/`. Aligns both CLIs with the Python and TypeScript SDKs which already use v3 ([#4916](https://github.com/mem0ai/mem0/pull/4916))
+
+**Breaking Changes:**
+- **`--graph` / `--no-graph` removed:** The `enable_graph` config option, `--graph` and `--no-graph` CLI flags, and `MEM0_ENABLE_GRAPH` environment variable have been removed from both CLIs. Graph memory is now a project-level setting on the Platform ([#4916](https://github.com/mem0ai/mem0/pull/4916))
+
+</Update>
+
 <Update label="2026-04-11" description="Python v0.2.3 / Node v0.2.3">
 
 **Bug Fixes:**

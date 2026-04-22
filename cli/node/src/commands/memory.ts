@@ -49,7 +49,6 @@ export async function cmdAdd(
 		noInfer: boolean;
 		expires?: string;
 		categories?: string;
-		enableGraph: boolean;
 		output: string;
 	},
 ): Promise<void> {
@@ -140,7 +139,6 @@ export async function cmdAdd(
 				infer: !opts.noInfer,
 				expires: opts.expires,
 				categories: cats,
-				enableGraph: opts.enableGraph,
 			});
 		});
 	} catch (e) {
@@ -225,7 +223,6 @@ export async function cmdSearch(
 		keyword: boolean;
 		filterJson?: string;
 		fields?: string;
-		enableGraph: boolean;
 		output: string;
 	},
 ): Promise<void> {
@@ -274,7 +271,6 @@ export async function cmdSearch(
 				keyword: opts.keyword,
 				filters,
 				fields: fieldList,
-				enableGraph: opts.enableGraph,
 			});
 		});
 	} catch (e) {
@@ -368,7 +364,6 @@ export async function cmdList(
 		category?: string;
 		after?: string;
 		before?: string;
-		enableGraph: boolean;
 		output: string;
 	},
 ): Promise<void> {
@@ -396,7 +391,6 @@ export async function cmdList(
 				category: opts.category,
 				after: opts.after,
 				before: opts.before,
-				enableGraph: opts.enableGraph,
 			});
 		});
 	} catch (e) {

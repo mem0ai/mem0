@@ -36,7 +36,6 @@ class DefaultsConfig:
     agent_id: str = ""
     app_id: str = ""
     run_id: str = ""
-    enable_graph: bool = False
 
 
 @dataclass
@@ -60,7 +59,6 @@ SHORT_KEY_ALIASES: dict[str, str] = {
     "agent_id": "defaults.agent_id",
     "app_id": "defaults.app_id",
     "run_id": "defaults.run_id",
-    "enable_graph": "defaults.enable_graph",
 }
 
 
@@ -91,8 +89,6 @@ def load_config() -> Mem0Config:
         config.defaults.agent_id = defaults.get("agent_id", "")
         config.defaults.app_id = defaults.get("app_id", "")
         config.defaults.run_id = defaults.get("run_id", "")
-        config.defaults.enable_graph = defaults.get("enable_graph", False)
-
         telemetry = data.get("telemetry", {})
         config.telemetry.anonymous_id = telemetry.get("anonymous_id", "")
 
@@ -121,10 +117,6 @@ def load_config() -> Mem0Config:
     if env_run_id:
         config.defaults.run_id = env_run_id
 
-    env_graph = os.environ.get("MEM0_ENABLE_GRAPH")
-    if env_graph:
-        config.defaults.enable_graph = env_graph.lower() in ("true", "1", "yes")
-
     return config
 
 
@@ -139,7 +131,6 @@ def save_config(config: Mem0Config) -> None:
             "agent_id": config.defaults.agent_id,
             "app_id": config.defaults.app_id,
             "run_id": config.defaults.run_id,
-            "enable_graph": config.defaults.enable_graph,
         },
         "platform": {
             "api_key": config.platform.api_key,

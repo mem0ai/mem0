@@ -134,18 +134,6 @@ function resolveIds(
 	};
 }
 
-/**
- * Resolve graph tri-state: --no-graph > --graph > config default.
- */
-function resolveGraph(
-	config: Mem0Config,
-	opts: { graph?: boolean; noGraph?: boolean },
-): boolean {
-	if (opts.noGraph) return false;
-	if (opts.graph) return true;
-	return config.defaults.enableGraph;
-}
-
 // ── Main program ──────────────────────────────────────────────────────────
 
 program
@@ -236,8 +224,6 @@ program
 	.option("--no-infer", "Skip inference, store raw.")
 	.option("--expires <date>", "Expiration date (YYYY-MM-DD).")
 	.option("--categories <value>", "Categories (JSON array or comma-separated).")
-	.option("--graph", "Enable graph memory extraction.", false)
-	.option("--no-graph", "Disable graph memory extraction.")
 	.option("-o, --output <format>", "Output format: text, json, quiet.", "text")
 	.option("--api-key <key>", "Override API key.")
 	.option("--base-url <url>", "Override API base URL.")
@@ -253,9 +239,8 @@ program
 			opts.baseUrl,
 		);
 		const ids = resolveIds(config, opts);
-		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
-		await cmdAdd(backend, text, { ...ids, ...opts, enableGraph, output });
+		await cmdAdd(backend, text, { ...ids, ...opts, output });
 	});
 
 // ── Memory: search ────────────────────────────────────────────────────────
@@ -285,8 +270,6 @@ program
 	.option("--keyword", "Use keyword search.", false)
 	.option("--filter <json>", "Advanced filter expression (JSON).")
 	.option("--fields <list>", "Specific fields to return (comma-separated).")
-	.option("--graph", "Enable graph in search.", false)
-	.option("--no-graph", "Disable graph in search.")
 	.option("-o, --output <format>", "Output: text, json, table.", "text")
 	.option("--api-key <key>", "Override API key.")
 	.option("--base-url <url>", "Override API base URL.")
@@ -310,7 +293,6 @@ program
 			opts.baseUrl,
 		);
 		const ids = resolveIds(config, opts);
-		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdSearch(backend, resolvedQuery, {
 			...ids,
@@ -320,7 +302,6 @@ program
 			keyword: opts.keyword,
 			filterJson: opts.filter,
 			fields: opts.fields,
-			enableGraph,
 			output,
 		});
 	});
@@ -364,8 +345,6 @@ program
 	.option("--category <name>", "Filter by category.")
 	.option("--after <date>", "Created after (YYYY-MM-DD).")
 	.option("--before <date>", "Created before (YYYY-MM-DD).")
-	.option("--graph", "Enable graph in listing.", false)
-	.option("--no-graph", "Disable graph in listing.")
 	.option("-o, --output <format>", "Output: text, json, table.", "table")
 	.option("--api-key <key>", "Override API key.")
 	.option("--base-url <url>", "Override API base URL.")
@@ -381,7 +360,6 @@ program
 			opts.baseUrl,
 		);
 		const ids = resolveIds(config, opts);
-		const enableGraph = resolveGraph(config, opts);
 		const output = isAgent ? "agent" : opts.output;
 		await cmdList(backend, {
 			...ids,
@@ -390,7 +368,6 @@ program
 			category: opts.category,
 			after: opts.after,
 			before: opts.before,
-			enableGraph,
 			output,
 		});
 	});
