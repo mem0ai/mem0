@@ -1,0 +1,77 @@
+\section{Methodology}
+\label{sec:methodology}
+
+Our framework, \textbf{Mem0-Cognitive}, reframes memory management as an \textit{Active Inference} process. Instead of passively storing all interactions, the system continuously predicts the future utility of each memory trace and adapts its retention strategy accordingly. Figure~\ref{fig:architecture} illustrates the overall architecture, which comprises three core modules: (1) Emotion-Weighted Forgetting, (2) Offline Sleep Consolidation, and (3) Meta-Cognitive Adaptation.
+
+\subsection{Problem Formulation}
+Let $\mathcal{M}_t = \{m_1, m_2, \dots, m_n\}$ denote the memory store at time $t$, where each memory $m_i$ is a tuple $(c_i, e_i, ts_i, \theta_i)$ consisting of content $c_i$, embedding $e_i$, timestamp $ts_i$, and cognitive parameters $\theta_i$. The goal is to learn a policy $\pi_\phi$ that optimizes memory operations (store, update, compress, delete) to maximize long-term retrieval utility:
+\begin{equation}
+    \max_\phi \mathbb{E}_{t \sim T} \left[ \sum_{i=1}^{|\mathcal{M}_t|} U(m_i, q_t) - \lambda \cdot \text{Cost}(\mathcal{M}_t) \right]
+\end{equation}
+where $U(m_i, q_t)$ is the utility of memory $m_i$ for query $q_t$, and $\text{Cost}(\cdot)$ penalizes excessive memory size (token overhead).
+
+\subsection{Emotion-Weighted Forgetting with Salience Gate}
+\label{subsec:forgetting}
+
+Classic Ebbinghaus forgetting models describe memory retention as $R(t) = e^{-t/S}$, where $S$ is a constant strength parameter. However, this fails to account for emotional salience, which in human cognition significantly modulates forgetting rates. We introduce a \textbf{Salience Gate} mechanism $\mathcal{G}$ that dynamically adjusts the effective decay rate based on extracted emotional intensity.
+
+Given a memory $m_i$ with base strength $S_{base}$ and emotional valence $E_i \in [0, 1]$ (extracted via LLM prompt; see Appendix~\ref{app:prompts}), the effective retention strength is:
+\begin{equation}
+    S_{effective}(m_i) = S_{base} \cdot (1 + \lambda \cdot E_i)
+\end{equation}
+where $\lambda$ controls the \textit{emotional inertia}. The retention probability at time $\Delta t$ after encoding is then:
+\begin{equation}
+    R(m_i, \Delta t) = \exp\left(-\frac{\Delta t}{S_{base} \cdot (1 + \lambda \cdot E_i)}\right)
+\end{equation}
+
+To prevent catastrophic forgetting of emotionally charged but rarely accessed memories (e.g., user traumas or core identity statements), we introduce a \textbf{Salience Gate} threshold $\tau_{salience}$. Memories with $E_i > \tau_{salience}$ are exempt from automatic deletion and instead undergo compression. This ensures that high-salience information persists even with low access frequency.
+
+The final \textit{Affective Retention Score} combines temporal decay with access frequency $f_i$ and recency weight $w_{recency}$:
+\begin{equation}
+    \text{Score}(m_i) = \alpha \cdot R(m_i, \Delta t) + \beta \cdot \text{norm}(f_i) + \gamma \cdot w_{recency}
+\end{equation}
+where $\alpha, \beta, \gamma$ are hyperparameters balancing the contributions.
+
+\subsection{Offline Sleep Consolidation as Schema Induction}
+\label{subsec:consolidation}
+
+Inspired by hippocampal-neocortical dialogue during NREM sleep~\cite{mcclelland1995complementary}, our consolidation engine operates as an \textit{offline schema induction module}. Unlike online reflection mechanisms that block user interaction, sleep consolidation runs asynchronously during system idle periods.
+
+Given a cluster of episodic memories $\mathcal{C} = \{m_1, \dots, m_k\}$ identified via semantic similarity (cosine similarity $> \theta_{cluster}$), the consolidation process performs \textbf{Contrastive Abstraction}:
+\begin{enumerate}
+    \item \textbf{Cluster Identification}: Group temporally disjoint but semantically coherent memories using DBSCAN on embedding space.
+    \item \textbf{Invariant Extraction}: Prompt the LLM to identify recurring patterns while discarding incidental specifics. For example, transforming ``bought coffee on Monday'' and ``ordered latte on Wednesday'' into ``has a regular coffee routine''.
+    \item \textbf{Schema Generation}: Create a new semantic memory $m_{semantic}$ with generalized content and inherited metadata.
+    \item \textbf{Trace Pruning}: Archive or delete the original episodic traces to reduce redundancy.
+\end{enumerate}
+
+Formally, the consolidation operator $\mathcal{T}_{sleep}$ maps a set of episodic memories to a semantic schema:
+\begin{equation}
+    \mathcal{T}_{sleep}(\mathcal{C}) = \text{LLM}_{abstract}\left(\bigoplus_{m_i \in \mathcal{C}} c_i\right)
+\end{equation}
+where $\bigoplus$ denotes concatenation with temporal ordering, and $\text{LLM}_{abstract}$ is a prompt-guided abstraction function (see Appendix~\ref{app:prompts}).
+
+\subsection{Meta-Cognitive Adaptation via Bayesian Optimization}
+\label{subsec:meta_learning}
+
+A key limitation of existing systems is their use of static, one-size-fits-all parameters. We model memory management as a Markov Decision Process (MDP) where:
+\begin{itemize}
+    \item \textbf{State} $s_t$: Current memory distribution statistics (mean score, variance, cluster density) and user profile features.
+    \item \textbf{Action} $a_t$: Adjustments to cognitive parameters $\{\Delta S_{base}, \Delta \lambda, \Delta \theta_{cluster}\}$.
+    \item \textbf{Reward} $r_t$: Implicit user engagement signals, defined as:
+    \begin{equation}
+        r_t = \alpha_1 \cdot \mathbb{1}[\text{positive feedback}] + \alpha_2 \cdot \text{followup\_depth} - \alpha_3 \cdot \text{correction\_turns}
+    \end{equation}
+\end{itemize}
+
+Instead of expensive deep RL, we employ \textbf{Gaussian Process-based Bayesian Optimization} (GP-BO) to efficiently explore the parameter space. The meta-learner maintains a posterior distribution over optimal parameters $\phi^*$ for each user:
+\begin{equation}
+    P(\phi^* | \mathcal{D}_{1:t}) \propto P(r_{1:t} | \phi_{1:t}) \cdot P(\phi^*)
+\end{equation}
+where $\mathcal{D}_{1:t}$ is the history of parameter-reward pairs. To mitigate cold-start issues, we initialize new users with \textit{population priors} derived from offline clustering of similar user profiles (e.g., ``forgetful'', ``nostalgic'', ``business-efficient'').
+
+The acquisition function uses Expected Improvement (EI) to balance exploration and exploitation:
+\begin{equation}
+    \phi_{t+1} = \arg\max_\phi \mathbb{E}\left[\max(0, r(\phi) - r(\phi^+))\right]
+\end{equation}
+where $\phi^+$ is the best parameter configuration observed so far.

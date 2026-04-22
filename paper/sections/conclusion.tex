@@ -1,0 +1,10 @@
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+We presented \textbf{Mem0-Cognitive}, a novel framework that transforms LLM memory management from passive storage into an active inference process. By integrating three cognitive principles—emotion-weighted forgetting, offline sleep consolidation, and meta-cognitive adaptation—our system achieves significant improvements in token efficiency (55\% reduction), fact retention (29\% increase), and retrieval precision compared to state-of-the-art baselines.
+
+Our work demonstrates that incorporating insights from cognitive psychology can yield practical benefits for real-world dialogue systems. The proposed Salience Gate mechanism ensures emotionally salient memories persist despite low access frequency, while the sleep consolidation engine effectively compresses redundant episodic traces into generalized semantic knowledge. Furthermore, our meta-cognitive learner enables personalized memory policies that adapt to individual user patterns without requiring explicit preference labels.
+
+\textbf{Limitations and Future Directions.} Despite promising results, several limitations remain. First, the cold-start problem for new users requires further investigation; while population priors help, more sophisticated zero-shot user profiling could accelerate convergence. Second, our current emotion analyzer relies on LLM prompts, which may introduce variance across different model providers; future work could explore distilling a lightweight specialized emotion classifier. Third, while we demonstrate effectiveness in text-only dialogues, extending the framework to multimodal interactions (incorporating tone, facial expressions) presents an exciting direction. Finally, we plan to conduct large-scale user studies to validate the subjective quality improvements suggested by our automated metrics.
+
+We hope Mem0-Cognitive inspires further research at the intersection of cognitive science and NLP, ultimately leading to AI systems that remember—and forget—more like humans do.

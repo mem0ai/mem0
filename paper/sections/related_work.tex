@@ -1,0 +1,14 @@
+\section{Related Work}
+\label{sec:related_work}
+
+\subsection{Memory-Augmented Language Models}
+Recent advances in long-context LLMs have spurred significant interest in external memory mechanisms. Early approaches like LangChain~\cite{langchain} and LlamaIndex~\cite{llamaindex} employ simple vector retrieval with FIFO (First-In-First-Out) or sliding window policies. While effective for short-term context, these methods suffer from \textit{semantic bloat} as conversation length increases, since they lack mechanisms to distinguish salient information from noise. MemGPT~\cite{memgpt} introduced a hierarchical memory architecture inspired by operating system paging, enabling handling of effectively infinite contexts. However, its memory management remains rule-based and does not adapt to content semantics or user-specific patterns.
+
+\subsection{Reflective Agents and Self-Improvement}
+Generative Agents~\cite{generative_agents} pioneered the concept of ``reflection'', where agents periodically summarize experiences into higher-level insights. While groundbreaking, this approach requires computationally expensive hourly re-processing of all memories, making it impractical for real-time dialogue systems. Furthermore, the reflection triggers are static and do not adapt to individual user interaction patterns. Recent work on self-refine~\cite{selfrefine} and critique-based tuning focuses on improving single-turn outputs rather than managing long-term memory evolution.
+
+\subsection{Machine Unlearning and Forgetting}
+The machine unlearning literature~\cite{sekhar2021unlearning, guo2024unlearning} addresses the problem of removing specific data influences from trained models, primarily for privacy compliance (e.g., GDPR ``right to be forgotten''). These methods typically require model retraining or gradient reversal techniques. In contrast, our work operates at the \textit{representation level} within the vector store, curating the episodic context perceived by the LLM without modifying model weights. This makes cognitive forgetting more tractable and efficient for dynamic dialogue systems.
+
+\subsection{Cognitive Modeling in NLP}
+Applying cognitive science principles to NLP has gained traction recently. Works like Cognitive Memory Networks~\cite{cognitive_mem} and Neural Turing Machines~\cite{ntm} draw inspiration from human attention and working memory. However, few have incorporated \textit{forgetting curves} or \textit{sleep consolidation} mechanisms. The Ebbinghaus forgetting curve has been explored in spaced repetition systems for education~\cite{ebbinghaus_app}, but rarely in conversational AI. Our work bridges this gap by operationalizing three core cognitive principles—emotion-weighted forgetting, offline consolidation, and meta-cognitive adaptation—into a unified framework for LLM memory management.

@@ -1,0 +1,83 @@
+\documentclass[11pt]{article}
+
+% ACL/EMNLP Style Configuration
+\usepackage[preprint]{acl_natbib}  % Use 'review' for anonymized review, remove for camera-ready
+\usepackage{times}
+\usepackage{latexsym}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{microtype}
+\usepackage{inconsolata}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+% Custom Commands
+\newcommand{\ours}{\textbf{Mem0-Cognitive}}
+\newcommand{\baseline}{\textsc{Baseline}}
+\newcommand{\todo}[1]{{\color{red}\textbf{TODO: #1}}}
+
+% Title and Authors
+\title{Mem0-Cognitive: Emotion-Weighted Forgetting and Sleep Consolidation for Adaptive LLM Memory}
+
+\author{Hongyi Zhou \\
+  Independent Researcher \\
+  \texttt{hongyi.zhou@example.com} \\
+  \And
+  Contributors \\
+  Mem0-Cognitive Project \\
+  \texttt{contributors@mem0-cognitive.org} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Current memory-augmented Large Language Models (LLMs) adopt a ``FIFO or Accumulation-Only'' philosophy, treating memory as a passive store that indiscriminately accumulates context. This leads to the \textit{Semantic Quicksand} effect: as memory grows, retrieval precision deteriorates due to the lack of cognitive filters. We introduce \textbf{Mem0-Cognitive}, a novel framework that reframes memory management as an \textit{Active Inference} process inspired by cognitive psychology. Our approach integrates three core mechanisms: (1) \textbf{Emotion-Weighted Forgetting} with a Salience Gate to modulate Ebbinghaus decay based on emotional intensity; (2) \textbf{Offline Sleep Consolidation} that performs contrastive abstraction to transform episodic traces into semantic schemas; and (3) \textbf{Meta-Cognitive Adaptation} using Bayesian optimization to personalize retention parameters per user. Experiments on our CognitiveBench benchmark and the LoCoMo dataset show that Mem0-Cognitive reduces token overhead by 55\% while improving critical fact retention by 29\% compared to state-of-the-art baselines, with minimal latency overhead (+48ms). Ablation studies confirm the distinct contributions of each cognitive module. Our code and benchmarks are publicly available at \url{https://github.com/mem0ai/mem0}.
+\end{abstract}
+
+% Include all sections
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/methodology}
+\input{sections/experiments}
+\input{sections/conclusion}
+
+% Acknowledgments
+\section*{Acknowledgments}
+We thank the Mem0 community for their foundational work and feedback. This research was supported by independent funding and computational resources from cloud providers. Special thanks to the cognitive science advisors who helped validate our theoretical framework.
+
+% Bibliography
+\bibliographystyle{acl_natbib}
+\bibliography{references}
+
+% Appendix (Optional for initial submission)
+\appendix
+\section{Prompt Templates}
+\label{app:prompts}
+
+\subsection{Emotion Analysis Prompt}
+\begin{quote}
+\small
+\texttt{Analyze the following user message and extract emotional intensity on a scale of 0.0 to 1.0. Also identify the primary emotion type (e.g., joy, anger, sadness, fear, surprise, disgust). Return your response as valid JSON: \{"emotion\_intensity": float, "emotion\_type": string, "confidence": float\}. Message: "\{user\_message\}"}
+\end{quote}
+
+\subsection{Sleep Consolidation Prompt}
+\begin{quote}
+\small
+\texttt{You are given a cluster of related memories from a user's conversation history. Your task is to identify recurring patterns and abstract them into a single generalized statement that captures the invariant relationship while discarding incidental specifics (dates, times, specific instances). \\
+\\
+Memories: \{memory\_cluster\} \\
+\\
+Provide your output as: "Generalized Knowledge: [your abstraction]". Ensure the output is concise (1-2 sentences) and preserves factual accuracy.}
+\end{quote}
+
+\end{document}
