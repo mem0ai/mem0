@@ -1561,12 +1561,32 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # Page through the vector store so we don't stop after a single
+        # page of results — some stores cap `list` at a default size and
+        # would otherwise leave older memories behind.
+        deleted_count = 0
+        batch_size = 1000
+        previous_ids: Optional[set] = None
+        while True:
+            memories = self.vector_store.list(filters=filters, top_k=batch_size)[0]
+            if not memories:
+                break
+            current_ids = {memory.id for memory in memories}
+            if previous_ids is not None and current_ids == previous_ids:
+                # Safeguard against a store that silently ignores deletes
+                # and would otherwise return the same page forever.
+                logger.warning(
+                    "delete_all stopped paginating: vector store returned the same "
+                    "batch after deletion; %d memories may remain",
+                    len(current_ids),
+                )
+                break
+            for memory in memories:
+                self._delete_memory(memory.id)
+            deleted_count += len(memories)
+            previous_ids = current_ids
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {deleted_count} memories")
 
         return {"message": "Memories deleted successfully!"}
 
@@ -2969,17 +2989,30 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        # Page through the vector store so `delete_all` isn't silently
+        # capped at whatever default page size the store applies.
+        deleted_count = 0
+        batch_size = 1000
+        previous_ids: Optional[set] = None
+        while True:
+            memories = (
+                await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=batch_size)
+            )[0]
+            if not memories:
+                break
+            current_ids = {memory.id for memory in memories}
+            if previous_ids is not None and current_ids == previous_ids:
+                logger.warning(
+                    "delete_all stopped paginating: vector store returned the same "
+                    "batch after deletion; %d memories may remain",
+                    len(current_ids),
+                )
+                break
+            await asyncio.gather(*(self._delete_memory(memory.id) for memory in memories))
+            deleted_count += len(memories)
+            previous_ids = current_ids
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id))
-
-        await asyncio.gather(*delete_tasks)
-
-        logger.info(f"Deleted {len(memories[0])} memories")
-
-        return {"message": "Memories deleted successfully!"}
+        logger.info(f"Deleted {deleted_count} memories")
 
     async def history(self, memory_id):
         """

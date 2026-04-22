@@ -187,6 +187,44 @@ def test_delete_all(memory_instance):
     assert result["message"] == "Memories deleted successfully!"
 
 
+def test_delete_all_paginates_across_multiple_pages(memory_instance):
+    """`delete_all` must drain the store, not just the first page.
+
+    Regression test for the bug where `delete_all` called
+    `vector_store.list` once without looping, so any store with a
+    default page size smaller than the total number of matching
+    memories left older entries undeleted.
+    """
+    page_1 = [Mock(id=f"m{i}") for i in range(100)]
+    page_2 = [Mock(id=f"m{i}") for i in range(100, 150)]
+    memory_instance.vector_store.list = Mock(
+        side_effect=[(page_1, None), (page_2, None), ([], None)]
+    )
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert memory_instance._delete_memory.call_count == 150
+    deleted_ids = {call.args[0] for call in memory_instance._delete_memory.call_args_list}
+    assert deleted_ids == {f"m{i}" for i in range(150)}
+    assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_breaks_when_store_ignores_delete(memory_instance, caplog):
+    """If the vector store silently ignores deletes, stop instead of looping."""
+    stuck_page = [Mock(id="stuck_1"), Mock(id="stuck_2")]
+    memory_instance.vector_store.list = Mock(return_value=(stuck_page, None))
+    memory_instance._delete_memory = Mock()
+
+    with caplog.at_level("WARNING"):
+        result = memory_instance.delete_all(user_id="test_user")
+
+    # First batch was attempted, safeguard kicked in on the second identical fetch.
+    assert memory_instance._delete_memory.call_count == 2
+    assert "delete_all stopped paginating" in caplog.text
+    assert result["message"] == "Memories deleted successfully!"
+
+
 def test_get_all(memory_instance):
     mock_memories = [Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"})]
     memory_instance.vector_store.list = Mock(return_value=(mock_memories, None))
