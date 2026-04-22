@@ -15,7 +15,7 @@ COPY . .
 # Create non-root user
 RUN useradd -m -u 1000 mem0
 
-USER 1000
+USER mem0
 
 EXPOSE 8000
 
