@@ -167,12 +167,16 @@ class Completions:
         # Currently, only pass the last 6 messages to the search API to prevent long query
         message_input = [f"{message['role']}: {message['content']}" for message in messages][-6:]
         # TODO: Make it better by summarizing the past conversation
+        entity_filters = dict(filters) if filters else {}
+        if user_id:
+            entity_filters["user_id"] = user_id
+        if agent_id:
+            entity_filters["agent_id"] = agent_id
+        if run_id:
+            entity_filters["run_id"] = run_id
         return self.mem0_client.search(
             query="\n".join(message_input),
-            user_id=user_id,
-            agent_id=agent_id,
-            run_id=run_id,
-            filters=filters,
+            filters=entity_filters,
             top_k=top_k,
         )
 
@@ -185,5 +189,5 @@ class Completions:
             if relevant_memories.get("relations"):
                 entities = [entity for entity in relevant_memories["relations"]]
         elif isinstance(self.mem0_client, mem0.client.main.MemoryClient):
-            memories_text = "\n".join(memory["memory"] for memory in relevant_memories)
+            memories_text = "\n".join(memory["memory"] for memory in relevant_memories["results"])
         return f"- Relevant Memories/Facts: {memories_text}\n\n- Entities: {entities}\n\n- User Question: {messages[-1]['content']}"
