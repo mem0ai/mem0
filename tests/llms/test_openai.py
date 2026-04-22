@@ -17,7 +17,9 @@ def mock_openai_client():
 
 def test_openai_llm_base_url():
     # case1: default config: with openai official base url
-    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = OpenAIConfig(
+        model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+    )
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
     assert str(llm.client.base_url) == "https://api.openai.com/v1/"
@@ -25,7 +27,9 @@ def test_openai_llm_base_url():
     # case2: with env variable OPENAI_API_BASE
     provider_base_url = "https://api.provider.com/v1"
     os.environ["OPENAI_BASE_URL"] = provider_base_url
-    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key")
+    config = OpenAIConfig(
+        model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key"
+    )
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
     assert str(llm.client.base_url) == provider_base_url + "/"
@@ -33,7 +37,12 @@ def test_openai_llm_base_url():
     # case3: with config.openai_base_url
     config_base_url = "https://api.config.com/v1"
     config = OpenAIConfig(
-        model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0, api_key="api_key", openai_base_url=config_base_url
+        model="gpt-4.1-nano-2025-04-14",
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        api_key="api_key",
+        openai_base_url=config_base_url,
     )
     llm = OpenAILLM(config)
     # Note: openai client will parse the raw base_url into a URL object, which will have a trailing slash
@@ -97,7 +106,13 @@ def test_generate_response_with_tools(mock_openai_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto"
+        model="gpt-4.1-nano-2025-04-14",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1.0,
+        tools=tools,
+        tool_choice="auto",
     )
 
     assert response["content"] == "I've added the memory for you."
@@ -109,19 +124,19 @@ def test_generate_response_with_tools(mock_openai_client):
 def test_response_callback_invocation(mock_openai_client):
     # Setup mock callback
     mock_callback = Mock()
-    
+
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test callback"}]
-    
+
     # Mock response
     mock_response = Mock()
     mock_response.choices = [Mock(message=Mock(content="Response"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
-    
+
     # Call method
     llm.generate_response(messages)
-    
+
     # Verify callback called with correct arguments
     mock_callback.assert_called_once()
     args = mock_callback.call_args[0]
@@ -134,16 +149,16 @@ def test_no_response_callback(mock_openai_client):
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14")
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test no callback"}]
-    
+
     # Mock response
     mock_response = Mock()
     mock_response.choices = [Mock(message=Mock(content="Response"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
-    
+
     # Should complete without calling any callback
     response = llm.generate_response(messages)
     assert response == "Response"
-    
+
     # Verify no callback is set
     assert llm.config.response_callback is None
 
@@ -152,20 +167,20 @@ def test_callback_exception_handling(mock_openai_client):
     # Callback that raises exception
     def faulty_callback(*args):
         raise ValueError("Callback error")
-    
+
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=faulty_callback)
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Test exception"}]
-    
+
     # Mock response
     mock_response = Mock()
     mock_response.choices = [Mock(message=Mock(content="Expected response"))]
     mock_openai_client.chat.completions.create.return_value = mock_response
-    
+
     # Should complete without raising
     response = llm.generate_response(messages)
     assert response == "Expected response"
-    
+
     # Verify callback was called (even though it raised an exception)
     assert llm.config.response_callback is faulty_callback
 
@@ -229,6 +244,59 @@ def test_reasoning_effort_config_values():
 
     config = OpenAIConfig(model="o3")
     assert config.reasoning_effort is None
+
+
+def test_is_reasoning_model_exact_matches():
+    """Known reasoning models must be classified as reasoning models."""
+    from mem0.llms.base import LLMBase
+
+    class _Stub(LLMBase):
+        def generate_response(self, messages, tools=None, tool_choice="auto", **kwargs):
+            pass
+
+    llm = _Stub({"model": "o3"})
+    for model in ["o1", "o1-mini", "o1-preview", "o3", "o3-mini", "o4-mini", "gpt-5", "gpt-5o", "gpt-5o-mini"]:
+        assert llm._is_reasoning_model(model), f"{model} should be a reasoning model"
+
+
+def test_is_reasoning_model_does_not_match_gpt5_derivatives():
+    """gpt-5.4, gpt-5.4-mini etc. support temperature and must NOT be classified as reasoning models.
+
+    Regression test for #4738: the old substring check 'gpt-5' matched any
+    model containing that string, so gpt-5.4-mini had temperature silently
+    stripped — causing inconsistent extraction and deduplication results.
+    """
+    from mem0.llms.base import LLMBase
+
+    class _Stub(LLMBase):
+        def generate_response(self, messages, tools=None, tool_choice="auto", **kwargs):
+            pass
+
+    llm = _Stub({"model": "gpt-5.4-mini"})
+    for model in ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-turbo", "gpt-5.3", "gpt-5.3-codex"]:
+        assert not llm._is_reasoning_model(model), f"{model} must NOT be a reasoning model"
+
+
+def test_gpt54_mini_receives_temperature(mock_openai_client):
+    """gpt-5.4-mini must have temperature forwarded to the API call.
+
+    Regression test for #4738: the old substring match stripped temperature
+    from any model whose name contained 'gpt-5', causing all add() extraction
+    calls on gpt-5.4-mini to run at uncontrolled temperature.
+    """
+    config = OpenAIConfig(model="gpt-5.4-mini", temperature=0.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "temperature" in call_kwargs, "gpt-5.4-mini must receive temperature"
+    assert call_kwargs["temperature"] == 0.0
 
 
 def test_store_not_sent_by_default(mock_openai_client):
@@ -301,10 +369,10 @@ def test_callback_with_tools(mock_openai_client):
                     "properties": {"param1": {"type": "string"}},
                     "required": ["param1"],
                 },
-            }
+            },
         }
     ]
-    
+
     # Mock tool response
     mock_response = Mock()
     mock_message = Mock()
@@ -315,10 +383,10 @@ def test_callback_with_tools(mock_openai_client):
     mock_message.tool_calls = [mock_tool_call]
     mock_response.choices = [Mock(message=mock_message)]
     mock_openai_client.chat.completions.create.return_value = mock_response
-    
+
     llm.generate_response(messages, tools=tools)
-    
+
     # Verify callback called with tool response
     mock_callback.assert_called_once()
     # Check that tool_calls exists in the message
-    assert hasattr(mock_callback.call_args[0][1].choices[0].message, 'tool_calls')
+    assert hasattr(mock_callback.call_args[0][1].choices[0].message, "tool_calls")
