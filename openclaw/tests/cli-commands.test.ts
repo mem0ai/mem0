@@ -1738,9 +1738,7 @@ describe("registerCliCommands", () => {
       const { mem0 } = setup();
       const initCmd = findCommand(mem0, "init")!;
 
-      // Ensure env var is not set so validation fails
-      const savedEnv = process.env.OPENAI_API_KEY;
-      delete process.env.OPENAI_API_KEY;
+      vi.stubEnv("OPENAI_API_KEY", "");
 
       await initCmd._action!({ mode: "open-source", ossLlm: "openai" });
 
@@ -1748,8 +1746,7 @@ describe("registerCliCommands", () => {
         expect.stringContaining("--oss-llm-key"),
       );
 
-      // Restore env var
-      if (savedEnv !== undefined) process.env.OPENAI_API_KEY = savedEnv;
+      vi.unstubAllEnvs();
     });
   });
 });

@@ -4,6 +4,22 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-04-22" description="v1.0.9">
+
+**Security & Compliance:**
+- Added top-level `requiredEnvVars` to plugin manifest, declaring env vars per mode (platform, OSS OpenAI, OSS Anthropic, OSS Ollama). Fixes ClaHub scanner "required env vars: none" mismatch
+- Added `sensitive: true` and descriptions to `apiKey` and `userEmail` in `configSchema` — previously only declared in `uiHints`
+- Added `default: false` with descriptions to `autoCapture` and `autoRecall` in `configSchema` so scanner can confirm opt-in defaults
+- Added `dataLocations` field to manifest declaring all persistence paths (config, vectorStore, historyDb, dreamState)
+- Added `privacy` field to manifest documenting data flow for platform vs open-source mode and credential storage guidance
+- Added `externalEndpoints` to `setup` section declaring api.mem0.ai and app.mem0.ai with purpose and requirement context
+
+**Tests:**
+- Replaced direct `process.env` access in `tests/cli-commands.test.ts` and `tests/fs-safe.test.ts` with `vi.stubEnv`/`vi.unstubAllEnvs`. Fixes ClaHub static analysis flag for "environment variable access combined with network send"
+- 421 tests across 15 test files
+
+</Update>
+
 <Update label="2026-04-21" description="v1.0.8">
 
 **New Features:**
