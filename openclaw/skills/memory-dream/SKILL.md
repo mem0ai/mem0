@@ -46,7 +46,7 @@ Execute the actions identified in Phase 2. Work in this priority order:
 ### 3a. Delete dangerous and expired entries
 
 Delete immediately using `memory_delete`:
-- Credentials, API keys, tokens, passwords, secrets (patterns: sk-, m0-, ghp_, AKIA, Bearer, password=, token=, secret=)
+- Credentials, API keys, tokens, passwords, secrets (matching known credential prefixes and auth patterns injected by the plugin at runtime)
 - Pure timestamps with no context
 - Raw tool output stored as memory
 - Heartbeat or cron execution records

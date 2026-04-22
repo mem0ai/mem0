@@ -231,8 +231,8 @@ export const mem0ConfigSchema = {
                 return "default";
               }
             })(),
-      autoCapture: cfg.autoCapture !== false,
-      autoRecall: cfg.autoRecall !== false,
+      autoCapture: cfg.autoCapture === true,
+      autoRecall: cfg.autoRecall === true,
       // v3.0.0: customPrompt renamed to customInstructions (backwards-compat: accept either)
       customInstructions:
         typeof cfg.customInstructions === "string"

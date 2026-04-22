@@ -263,9 +263,10 @@ describe("memory_search execute", () => {
       scope: "session",
     });
 
-    // Should call buildSearchOptions with session ID
+    // Should call buildSearchOptions with session ID as 4th arg (sessionKey)
     expect(ctx.buildSearchOptions).toHaveBeenCalledWith(
       "testuser",
+      undefined,
       undefined,
       "session-abc",
     );
@@ -446,8 +447,8 @@ describe("memory_add execute", () => {
 
     await tool.execute("call-7", { text: "new fact" });
 
-    // Search should be called for dedup before add
-    expect(searchMock).toHaveBeenCalledOnce();
+    // Mem0 backend handles dedup internally — no separate search call
+    expect(searchMock).not.toHaveBeenCalled();
     expect(addMock).toHaveBeenCalledOnce();
   });
 });

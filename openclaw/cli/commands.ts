@@ -45,6 +45,12 @@ import {
   writePluginConfigField,
   OPENCLAW_CONFIG_FILE,
 } from "./config-file.ts";
+import { jsonOut, jsonErr, redactSecrets } from "./json-helpers.ts";
+import {
+  LLM_PROVIDERS, EMBEDDER_PROVIDERS, VECTOR_PROVIDERS,
+  buildOssLlmConfig, buildOssEmbedderConfig, buildOssVectorConfig,
+  validateOssFlags, checkQdrantConnectivity, checkOllamaConnectivity, checkPgConnectivity,
+} from "./oss-wizard.ts";
 
 // ============================================================================
 // Reusable helpers (DRY)
@@ -201,26 +207,173 @@ function saveLoginConfig(
   apiKey: string,
   userIdFlag?: string,
   userEmail?: string,
+  silent?: boolean,
 ): void {
   const existingAuth = readPluginAuth();
   const userId = resolveUserId(userIdFlag, existingAuth.userId);
 
   writePluginAuth({ apiKey, userId, mode: "platform", ...(userEmail && { userEmail }) });
 
-  console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
-  console.log(`  Mode: platform`);
-  console.log(`  User ID: ${userId}`);
+  if (!silent) {
+    console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
+    console.log(`  Mode: platform`);
+    console.log(`  User ID: ${userId}`);
+  }
 }
 
-function saveOssConfig(userIdFlag?: string): void {
+function saveOssConfig(userIdFlag?: string, silent?: boolean): void {
   const existingAuth = readPluginAuth();
   const userId = resolveUserId(userIdFlag, existingAuth.userId);
 
-  writePluginAuth({ userId, mode: "open-source" });
+  writePluginAuth({ apiKey: "", userId, mode: "open-source" });
 
-  console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
-  console.log(`  Mode: open-source`);
-  console.log(`  User ID: ${userId}`);
+  if (!silent) {
+    console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
+    console.log(`  Mode: open-source`);
+    console.log(`  User ID: ${userId}`);
+  }
+}
+
+async function runOssWizardInteractive(
+  opts: { userId?: string; json?: boolean },
+  existingAuth: PluginAuthConfig,
+): Promise<void> {
+  // === Step 1: LLM Provider ===
+  console.log("\n  Step 1/4 — LLM Provider\n");
+  LLM_PROVIDERS.forEach((p, i) => console.log(`    ${i + 1}. ${p.label}`));
+  console.log("");
+  const llmIdx = parseInt(await promptInput(`  Choice (1-${LLM_PROVIDERS.length}): `) || "1", 10) - 1;
+  const llmDef = LLM_PROVIDERS[llmIdx] || LLM_PROVIDERS[0];
+
+  let llmApiKey: string | undefined;
+  let llmUrl: string | undefined;
+  if (llmDef.needsApiKey) {
+    llmApiKey = await promptInput(`  ${llmDef.envVar} API Key (Enter to use env var): `);
+    if (!llmApiKey) llmApiKey = undefined;
+  }
+  if (llmDef.needsUrl) {
+    llmUrl = await promptInput(`  Base URL: `, llmDef.defaultUrl) || llmDef.defaultUrl;
+  }
+
+  const llmCfg = buildOssLlmConfig(llmDef.id, { apiKey: llmApiKey, url: llmUrl });
+
+  if (llmDef.id === "ollama") {
+    const ollamaUrl = (llmCfg.config.url as string) || "http://localhost:11434";
+    const check = await checkOllamaConnectivity(ollamaUrl);
+    if (!check.ok) {
+      console.error(`\n  ⚠ Ollama not reachable at ${ollamaUrl}. Install: https://ollama.com/download\n`);
+      return;
+    }
+    console.log("  ✓ Ollama connected");
+  }
+
+  writePluginConfigField(["oss", "llm"], llmCfg);
+
+  // === Step 2: Embedding Provider ===
+  console.log("\n  Step 2/4 — Embedding Provider\n");
+  EMBEDDER_PROVIDERS.forEach((p, i) => console.log(`    ${i + 1}. ${p.label}`));
+  console.log("");
+  const embIdx = parseInt(await promptInput(`  Choice (1-${EMBEDDER_PROVIDERS.length}): `) || "1", 10) - 1;
+  const embDef = EMBEDDER_PROVIDERS[embIdx] || EMBEDDER_PROVIDERS[0];
+
+  let embApiKey: string | undefined;
+  let embUrl: string | undefined;
+  if (embDef.needsApiKey) {
+    if (embDef.id === llmDef.id && llmApiKey) {
+      console.log(`  Reusing ${llmDef.id} API key from Step 1`);
+      embApiKey = llmApiKey;
+    } else {
+      embApiKey = await promptInput(`  ${embDef.envVar} API Key (Enter to use env var): `);
+      if (!embApiKey) embApiKey = undefined;
+    }
+  }
+  if (embDef.needsUrl) {
+    if (embDef.id === llmDef.id && llmUrl) {
+      console.log(`  Reusing ${llmDef.id} base URL from Step 1`);
+      embUrl = llmUrl;
+    } else {
+      embUrl = await promptInput(`  Base URL: `, embDef.defaultUrl) || embDef.defaultUrl;
+    }
+  }
+
+  const embCfg = buildOssEmbedderConfig(embDef.id, { apiKey: embApiKey, url: embUrl });
+
+  if (embDef.id === "ollama" && embDef.id !== llmDef.id) {
+    const ollamaUrl = (embCfg.config.url as string) || "http://localhost:11434";
+    const check = await checkOllamaConnectivity(ollamaUrl);
+    if (!check.ok) {
+      console.error(`\n  ⚠ Ollama not reachable at ${ollamaUrl}. Install: https://ollama.com/download\n`);
+      return;
+    }
+    console.log("  ✓ Ollama connected");
+  }
+
+  writePluginConfigField(["oss", "embedder"], { provider: embCfg.provider, config: embCfg.config });
+  const dims = embCfg.dims ?? embDef.defaultDims;
+
+  // === Step 3: Vector Store ===
+  console.log("\n  Step 3/4 — Vector Store\n");
+  VECTOR_PROVIDERS.forEach((p, i) => console.log(`    ${i + 1}. ${p.label}`));
+  console.log("");
+  const vecIdx = parseInt(await promptInput(`  Choice (1-${VECTOR_PROVIDERS.length}): `) || "1", 10) - 1;
+  const vecDef = VECTOR_PROVIDERS[vecIdx] || VECTOR_PROVIDERS[0];
+
+  let vecInput: Record<string, string | number | undefined> = { dims };
+  if (vecDef.id === "qdrant") {
+    if (vecDef.setupHint) console.log(`\n  Hint: ${vecDef.setupHint}`);
+    console.log("");
+    const url = await promptInput(`  Qdrant URL: `, vecDef.defaultUrl) || vecDef.defaultUrl;
+    vecInput = { url, dims };
+
+    const check = await checkQdrantConnectivity(url!);
+    if (!check.ok) {
+      console.error(`\n  ⚠ Qdrant not reachable at ${url}. Start with: docker run -d -p 6333:6333 qdrant/qdrant\n`);
+      return;
+    }
+    console.log("  ✓ Qdrant connected");
+  } else if (vecDef.id === "pgvector") {
+    if (vecDef.setupHint) console.log(`\n  Hint: ${vecDef.setupHint}`);
+    console.log("");
+    const host = await promptInput("  Host [localhost]: ") || "localhost";
+    const port = await promptInput("  Port [5432]: ") || "5432";
+    const user = await promptInput("  User: ");
+    const password = await promptInput("  Password: ");
+    const dbname = await promptInput("  Database [postgres]: ") || "postgres";
+    vecInput = { host, port, user, password, dbname, dims };
+
+    const check = await checkPgConnectivity(host, parseInt(port, 10));
+    if (!check.ok) {
+      console.error(`\n  ⚠ PostgreSQL not reachable at ${host}:${port}. ${vecDef.setupHint ? `Start with: ${vecDef.setupHint}` : ""}\n`);
+      return;
+    }
+    console.log("  ✓ PostgreSQL connected");
+  }
+
+  const vecCfg = buildOssVectorConfig(vecDef.id, vecInput as any);
+  writePluginConfigField(["oss", "vectorStore"], vecCfg);
+
+  // === Step 4: User ID ===
+  console.log("\n  Step 4/4 — User ID\n");
+  let userIdValue = opts.userId;
+  if (!userIdValue) {
+    const defaultUid = resolveUserId(undefined, existingAuth.userId);
+    const uidInput = await promptInput(`  User ID: `, defaultUid);
+    userIdValue = uidInput || defaultUid;
+  }
+
+  console.log("");
+  saveOssConfig(userIdValue);
+
+  console.log("");
+  console.log("  Open-source mode configured!");
+  console.log("");
+  console.log(`    LLM:       ${llmDef.id} (${llmCfg.config.model})`);
+  console.log(`    Embedder:  ${embDef.id} (${embCfg.config.model})`);
+  console.log(`    Vector:    ${vecDef.id} (${vecDef.id === "qdrant" ? vecCfg.config.url : vecCfg.config.host})`);
+  console.log(`    User ID:   ${userIdValue}`);
+  console.log("");
+  console.log("  Run: openclaw gateway restart");
+  console.log("");
 }
 
 // ============================================================================
@@ -247,7 +400,7 @@ export function registerCliCommands(
     ({ program }) => {
       const mem0 = program
         .command("mem0")
-        .description("Mem0 memory plugin commands")
+        .description("Mem0 memory plugin commands\n\nTip: All commands support --json for machine-readable output (for LLM agents)")
         .configureHelp({ sortSubcommands: false, subcommandTerm: (cmd) => cmd.name() });
 
       // Telemetry: fire event for each CLI subcommand
@@ -273,45 +426,198 @@ export function registerCliCommands(
         .option("--code <code>", "Verification code (use with --email)")
         .option("--api-key <key>", "Direct API key entry")
         .option("--user-id <id>", "Set user ID for memory namespace")
+        .option("--mode <mode>", "platform or open-source (skips menu)")
+        .option("--oss-llm <provider>", "LLM: openai, ollama, anthropic")
+        .option("--oss-llm-key <key>", "API key for LLM provider")
+        .option("--oss-llm-model <model>", "Override default LLM model")
+        .option("--oss-llm-url <url>", "Base URL (ollama only)")
+        .option("--oss-embedder <provider>", "Embedder: openai, ollama, huggingface")
+        .option("--oss-embedder-key <key>", "API key for embedder")
+        .option("--oss-embedder-model <model>", "Override default embedder model")
+        .option("--oss-embedder-url <url>", "Base URL (ollama only)")
+        .option("--oss-vector <provider>", "Vector store: qdrant, pgvector")
+        .option("--oss-vector-url <url>", "Qdrant server URL (default: http://localhost:6333)")
+        .option("--oss-vector-host <host>", "PGVector host")
+        .option("--oss-vector-port <port>", "PGVector port")
+        .option("--oss-vector-user <user>", "PGVector user")
+        .option("--oss-vector-password <pw>", "PGVector password")
+        .option("--oss-vector-dbname <db>", "PGVector database name")
+        .option("--oss-vector-dims <n>", "Override embedding dimensions")
+        .option("--json", "Machine-readable JSON output")
         .action(
           async (opts: {
             email?: string;
             code?: string;
             apiKey?: string;
             userId?: string;
+            mode?: string;
+            ossLlm?: string;
+            ossLlmKey?: string;
+            ossLlmModel?: string;
+            ossLlmUrl?: string;
+            ossEmbedder?: string;
+            ossEmbedderKey?: string;
+            ossEmbedderModel?: string;
+            ossEmbedderUrl?: string;
+            ossVector?: string;
+            ossVectorUrl?: string;
+            ossVectorHost?: string;
+            ossVectorPort?: string;
+            ossVectorUser?: string;
+            ossVectorPassword?: string;
+            ossVectorDbname?: string;
+            ossVectorDims?: string;
+            json?: boolean;
           }) => {
             try {
               const baseUrl = "https://api.mem0.ai";
               const existingAuth = readPluginAuth();
               const hasExistingConfig = !!(existingAuth.apiKey || existingAuth.mode);
 
+              // -- Non-interactive OSS via --mode open-source + flags --
+              if (opts.mode === "open-source") {
+                const validation = validateOssFlags(opts);
+                if (validation.error) {
+                  if (jsonErr(opts, validation.error)) return;
+                  console.error(validation.error);
+                  return;
+                }
+
+                const llmId = opts.ossLlm || "openai";
+                const embId = opts.ossEmbedder || "openai";
+                const vecId = opts.ossVector || "qdrant";
+
+                const embKey = opts.ossEmbedderKey || (embId === llmId ? opts.ossLlmKey : undefined);
+                const embUrl = opts.ossEmbedderUrl || (embId === llmId ? opts.ossLlmUrl : undefined);
+
+                const llmCfg = buildOssLlmConfig(llmId, {
+                  apiKey: opts.ossLlmKey, model: opts.ossLlmModel, url: opts.ossLlmUrl,
+                });
+                const embCfg = buildOssEmbedderConfig(embId, {
+                  apiKey: embKey, model: opts.ossEmbedderModel, url: embUrl,
+                });
+                const dims = opts.ossVectorDims ? parseInt(opts.ossVectorDims, 10) : embCfg.dims;
+                const vecCfg = buildOssVectorConfig(vecId, {
+                  url: opts.ossVectorUrl, host: opts.ossVectorHost,
+                  port: opts.ossVectorPort, user: opts.ossVectorUser,
+                  password: opts.ossVectorPassword, dbname: opts.ossVectorDbname,
+                  dims,
+                });
+
+                // Connectivity checks — Ollama, Qdrant, PGVector
+                const ollamaUrls = new Set<string>();
+                if (llmId === "ollama") ollamaUrls.add((llmCfg.config.url as string) || "http://localhost:11434");
+                if (embId === "ollama") ollamaUrls.add((embCfg.config.url as string) || "http://localhost:11434");
+                for (const oUrl of ollamaUrls) {
+                  const check = await checkOllamaConnectivity(oUrl);
+                  if (!check.ok) {
+                    const msg = `Ollama not reachable at ${oUrl}. Install: https://ollama.com/download`;
+                    if (jsonErr(opts, msg)) return;
+                    console.error(`\n  ${msg}\n`);
+                    return;
+                  }
+                }
+
+                if (vecId === "qdrant") {
+                  const qdrantUrl = (vecCfg.config.url as string) || "http://localhost:6333";
+                  const check = await checkQdrantConnectivity(qdrantUrl);
+                  if (!check.ok) {
+                    const msg = `Qdrant not reachable at ${qdrantUrl}. Start with: docker run -d -p 6333:6333 qdrant/qdrant`;
+                    if (jsonErr(opts, msg)) return;
+                    console.error(`\n  ${msg}\n`);
+                    return;
+                  }
+                } else if (vecId === "pgvector") {
+                  const pgHost = (vecCfg.config.host as string) || "localhost";
+                  const pgPort = (vecCfg.config.port as number) || 5432;
+                  const check = await checkPgConnectivity(pgHost, pgPort);
+                  if (!check.ok) {
+                    const msg = `PostgreSQL not reachable at ${pgHost}:${pgPort}. Start with: docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres pgvector/pgvector:pg17`;
+                    if (jsonErr(opts, msg)) return;
+                    console.error(`\n  ${msg}\n`);
+                    return;
+                  }
+                }
+
+                writePluginConfigField(["oss", "llm"], llmCfg);
+                writePluginConfigField(["oss", "embedder"], { provider: embCfg.provider, config: embCfg.config });
+                writePluginConfigField(["oss", "vectorStore"], vecCfg);
+                saveOssConfig(opts.userId, !!opts.json);
+
+                const vecDisplay = vecId === "qdrant" ? vecCfg.config.url : vecCfg.config.host;
+                const summary = {
+                  ok: true as const,
+                  mode: "open-source",
+                  config: {
+                    llm: { provider: llmCfg.provider, model: llmCfg.config.model },
+                    embedder: { provider: embCfg.provider, model: embCfg.config.model },
+                    vectorStore: { provider: vecCfg.provider, ...(vecId === "qdrant" ? { url: vecCfg.config.url } : { host: vecCfg.config.host }) },
+                  },
+                  userId: resolveUserId(opts.userId, existingAuth.userId),
+                  message: "Open-source mode configured. Restart the gateway: openclaw gateway restart",
+                };
+                if (jsonOut(opts, summary)) return;
+
+                console.log("\n  Open-source mode configured!\n");
+                console.log(`  LLM:       ${llmCfg.provider} (${llmCfg.config.model})`);
+                console.log(`  Embedder:  ${embCfg.provider} (${embCfg.config.model})`);
+                console.log(`  Vector:    ${vecCfg.provider} (${vecDisplay})`);
+                console.log(`  User ID:   ${resolveUserId(opts.userId, existingAuth.userId)}`);
+                console.log("\n  Restart the gateway: openclaw gateway restart\n");
+                return;
+              }
+
+              // -- Non-interactive --mode platform routing -----------------
+              if (opts.mode === "platform") {
+                if (!opts.apiKey && !opts.email) {
+                  const msg = "--api-key or --email required for platform mode";
+                  if (jsonErr(opts, msg)) return;
+                  console.error(msg);
+                  return;
+                }
+                // fall through to existing --api-key / --email handlers below
+              }
+
               // -- API key flow ------------------------------------------------
               if (opts.apiKey) {
                 if (opts.email) {
-                  console.error("Cannot use both --api-key and --email.");
+                  const msg = "Cannot use both --api-key and --email.";
+                  if (jsonErr(opts, msg)) return;
+                  console.error(msg);
                   return;
                 }
 
                 const check = await validateApiKey(baseUrl, opts.apiKey);
-                saveLoginConfig(opts.apiKey, opts.userId, check.userEmail);
+                saveLoginConfig(opts.apiKey, opts.userId, check.userEmail, !!opts.json);
+
+                let message: string;
+                if (check.ok) {
+                  message = "API key validated. Connected to Mem0 Platform.";
+                } else if (check.status) {
+                  message = `API key saved but validation returned HTTP ${check.status}. Check that the key is correct.`;
+                } else {
+                  message = `API key saved but could not reach ${baseUrl}: ${check.error}. Check your network connection.`;
+                }
+
+                const summary = {
+                  ok: check.ok,
+                  mode: "platform" as const,
+                  userId: resolveUserId(opts.userId, existingAuth.userId),
+                  validated: check.ok,
+                  ...(check.status && !check.ok && { httpStatus: check.status }),
+                  message,
+                };
+                if (jsonOut(opts, summary)) return;
+
                 if (hasExistingConfig) {
                   console.log(
                     "  Existing configuration detected — updated API key (other settings preserved).",
                   );
                 }
-
                 if (check.ok) {
-                  console.log(
-                    "  API key validated. Connected to Mem0 Platform.",
-                  );
-                } else if (check.status) {
-                  console.warn(
-                    `  API key saved but validation returned HTTP ${check.status}. Check that the key is correct.`,
-                  );
+                  console.log(`  ${message}`);
                 } else {
-                  console.warn(
-                    `  API key saved but could not reach ${baseUrl}: ${check.error}. Check your network connection.`,
-                  );
+                  console.warn(`  ${message}`);
                 }
                 console.log(
                   "  Restart the gateway: openclaw gateway restart\n",
@@ -323,9 +629,21 @@ export function registerCliCommands(
               if (opts.email && opts.code) {
                 const email = opts.email.trim().toLowerCase();
                 const apiKey = await verifyEmailCode(baseUrl, email, opts.code);
-                if (!apiKey) return;
+                if (!apiKey) {
+                  if (jsonErr(opts, "Email verification failed — no API key returned.")) return;
+                  return;
+                }
 
-                saveLoginConfig(apiKey, opts.userId, email);
+                saveLoginConfig(apiKey, opts.userId, email, !!opts.json);
+                const summary = {
+                  ok: true as const,
+                  mode: "platform" as const,
+                  userId: resolveUserId(opts.userId, existingAuth.userId),
+                  email,
+                  message: "Authenticated. Restart the gateway: openclaw gateway restart",
+                };
+                if (jsonOut(opts, summary)) return;
+
                 if (hasExistingConfig) {
                   console.log(
                     "  Existing configuration detected — updated API key (other settings preserved).",
@@ -343,9 +661,13 @@ export function registerCliCommands(
                 const email = opts.email.trim().toLowerCase();
                 const sent = await sendVerificationCode(baseUrl, email);
                 if (sent) {
+                  const nextCmd = `openclaw mem0 init --email ${email} --code <CODE>`;
+                  if (jsonOut(opts, { ok: true, email, codeSent: true, nextCommand: nextCmd })) return;
                   console.log(
-                    `Verification code sent! Run:\n  openclaw mem0 init --email ${email} --code <CODE>`,
+                    `Verification code sent! Run:\n  ${nextCmd}`,
                   );
+                } else {
+                  if (jsonErr(opts, `Failed to send verification code to ${email}.`)) return;
                 }
                 return;
               }
@@ -353,21 +675,15 @@ export function registerCliCommands(
               // -- No flags: interactive flow -----------------------------------
               if (!process.stdin.isTTY) {
                 console.log("Usage (non-interactive):");
-                console.log(
-                  "  openclaw mem0 init --api-key <key>",
-                );
-                console.log(
-                  "  openclaw mem0 init --api-key <key> --user-id <id>",
-                );
-                console.log(
-                  "  openclaw mem0 init --email <email>",
-                );
-                console.log(
-                  "  openclaw mem0 init --email <email> --code <c>",
-                );
-                console.log(
-                  "  openclaw mem0 init --email <email> --code <c> --user-id <id>",
-                );
+                console.log("  Platform:");
+                console.log("    openclaw mem0 init --api-key <key>");
+                console.log("    openclaw mem0 init --api-key <key> --user-id <id>");
+                console.log("    openclaw mem0 init --email <email>");
+                console.log("    openclaw mem0 init --email <email> --code <c>");
+                console.log("  Open Source:");
+                console.log("    openclaw mem0 init --mode open-source --oss-llm ollama --oss-embedder ollama --oss-vector qdrant");
+                console.log("    openclaw mem0 init --mode open-source --oss-llm openai --oss-llm-key <key>");
+                console.log("  Add --json for machine-readable output.");
                 return;
               }
 
@@ -423,14 +739,19 @@ export function registerCliCommands(
               }
 
               console.log("\n  Mem0 Setup\n");
-              console.log("  How would you like to set up Mem0?");
-              console.log("  1. Login with email (recommended)");
-              console.log("  2. Enter API key manually");
-              console.log("  3. Open-source mode (self-hosted)\n");
+              console.log("  How would you like to use Mem0?");
+              console.log("  1. Platform (recommended) — hosted memory, managed by Mem0");
+              console.log("  2. Open Source — self-hosted, choose your own providers\n");
 
-              const choice = (await promptInput("  Choice (1/2/3): ")) || "1";
+              const modeChoice = (await promptInput("  Choice (1/2): ")) || "1";
 
-              if (choice === "1") {
+              if (modeChoice === "1") {
+                console.log("\n  How would you like to authenticate?");
+                console.log("  1. Login with email (recommended)");
+                console.log("  2. Enter API key manually\n");
+                const authChoice = (await promptInput("  Choice (1/2): ")) || "1";
+
+                if (authChoice === "1") {
                 // --- Email interactive flow ---
                 const email = (
                   await promptInput("  Email: ")
@@ -471,7 +792,7 @@ export function registerCliCommands(
                 console.log(
                   "  Restart the gateway: openclaw gateway restart\n",
                 );
-              } else if (choice === "2") {
+                } else if (authChoice === "2") {
                 // --- API key interactive flow ---
                 const key = await promptInput("  API Key: ");
                 if (!key) {
@@ -509,68 +830,13 @@ export function registerCliCommands(
                 console.log(
                   "  Restart the gateway: openclaw gateway restart\n",
                 );
-              } else if (choice === "3") {
-                // --- Open-source interactive flow ---
-                console.log(
-                  "\n  Open-source mode uses the Mem0 OSS SDK locally.",
-                );
-                console.log(
-                  "  By default it requires an OpenAI API key for embeddings and LLM.\n",
-                );
-
-                console.log(
-                  "  You need an OpenAI API key for embeddings and LLM.",
-                );
-                console.log(
-                  "  Get one from https://platform.openai.com/api-keys\n",
-                );
-                const openaiKey = await promptInput(
-                  "  OpenAI API Key (or press Enter to skip): ",
-                );
-                if (openaiKey) {
-                  writePluginConfigField(
-                    ["oss", "embedder"],
-                    { provider: "openai", config: { apiKey: openaiKey } },
-                  );
-                  writePluginConfigField(
-                    ["oss", "llm"],
-                    { provider: "openai", config: { apiKey: openaiKey } },
-                  );
-                  console.log(
-                    "\n  OpenAI API key saved to config.\n",
-                  );
                 } else {
-                  console.log(
-                    "\n  Skipped. You can add it later via:",
-                  );
-                  console.log(
-                    "    openclaw mem0 config set embedder_key <key>",
-                  );
-                  console.log(
-                    "  Or set OPENAI_API_KEY in your environment.\n",
-                  );
+                  console.log("Invalid choice. Run `openclaw mem0 init` again.");
                 }
-
-                // Prompt for userId
-                let userIdValue3 = opts.userId;
-                if (!userIdValue3) {
-                  const defaultUid = resolveUserId(undefined, existingAuth.userId);
-                  const uidInput = await promptInput(
-                    `  User ID: `, defaultUid,
-                  );
-                  userIdValue3 = uidInput || defaultUid;
-                }
-
-                console.log("");
-                saveOssConfig(userIdValue3);
-                console.log("  Open-source mode configured!");
-                console.log(
-                  "  Restart the gateway: openclaw gateway restart\n",
-                );
+              } else if (modeChoice === "2") {
+                await runOssWizardInteractive(opts, existingAuth);
               } else {
-                console.log(
-                  "Invalid choice. Run `openclaw mem0 init` again.",
-                );
+                console.log("Invalid choice. Run `openclaw mem0 init` again.");
               }
             } catch (err) {
               console.error(`Init failed: ${String(err)}`);
@@ -594,6 +860,7 @@ export function registerCliCommands(
         )
         .option("--agent-id <agentId>", "Search agent's memory namespace")
         .option("--user-id <userId>", "Override user ID")
+        .option("--json", "Output as JSON")
         .action(
           async (
             query: string,
@@ -602,6 +869,7 @@ export function registerCliCommands(
               scope: string;
               agentId?: string;
               userId?: string;
+              json?: boolean;
             },
           ) => {
             try {
@@ -675,6 +943,7 @@ export function registerCliCommands(
               }
 
               if (!allResults.length) {
+                if (jsonOut(opts, { ok: true, results: [] })) return;
                 console.log("No memories found.");
                 return;
               }
@@ -687,8 +956,10 @@ export function registerCliCommands(
                 categories: r.categories,
                 created_at: r.created_at,
               }));
+              if (jsonOut(opts, { ok: true, results: output })) return;
               console.log(JSON.stringify(output, null, 2));
             } catch (err) {
+              if (jsonErr(opts, `Search failed: ${String(err)}`)) return;
               console.error(`Search failed: ${String(err)}`);
             }
           },
@@ -704,10 +975,11 @@ export function registerCliCommands(
         .argument("<text>", "Text to store as a memory")
         .option("--user-id <userId>", "Override user ID")
         .option("--agent-id <agentId>", "Store in agent's memory namespace")
+        .option("--json", "Output as JSON")
         .action(
           async (
             text: string,
-            opts: { userId?: string; agentId?: string },
+            opts: { userId?: string; agentId?: string; json?: boolean },
           ) => {
             try {
               const uid = opts.userId
@@ -720,6 +992,7 @@ export function registerCliCommands(
                 { user_id: uid, source: "OPENCLAW" },
               );
               const count = result.results?.length ?? 0;
+              if (jsonOut(opts, { ok: true, memories: (result.results || []).map((r: any) => ({ id: r.id, memory: r.memory, event: r.event })) })) return;
               if (count > 0) {
                 console.log(`Added ${count} memory(s):`);
                 for (const r of result.results) {
@@ -731,6 +1004,7 @@ export function registerCliCommands(
                 );
               }
             } catch (err) {
+              if (jsonErr(opts, `Add failed: ${String(err)}`)) return;
               console.error(`Add failed: ${String(err)}`);
             }
           },
@@ -744,9 +1018,11 @@ export function registerCliCommands(
         .command("get")
         .description("Get a specific memory by ID")
         .argument("<memory_id>", "Memory ID to retrieve")
-        .action(async (memoryId: string) => {
+        .option("--json", "Output as JSON")
+        .action(async (memoryId: string, opts: { json?: boolean } = {}) => {
           try {
             const memory = await provider.get(memoryId);
+            if (jsonOut(opts, { ok: true, memory: { id: memory.id, memory: memory.memory, user_id: memory.user_id, categories: memory.categories, metadata: memory.metadata, created_at: memory.created_at, updated_at: memory.updated_at } })) return;
             console.log(
               JSON.stringify(
                 {
@@ -763,6 +1039,7 @@ export function registerCliCommands(
               ),
             );
           } catch (err) {
+            if (jsonErr(opts, `Get failed: ${String(err)}`)) return;
             console.error(`Get failed: ${String(err)}`);
           }
         });
@@ -777,11 +1054,13 @@ export function registerCliCommands(
         .option("--user-id <userId>", "Override user ID")
         .option("--agent-id <agentId>", "List agent's memories")
         .option("--top-k <n>", "Max results", "50")
+        .option("--json", "Output as JSON")
         .action(
           async (opts: {
             userId?: string;
             agentId?: string;
             topK: string;
+            json?: boolean;
           }) => {
             try {
               const uid = opts.userId
@@ -797,6 +1076,7 @@ export function registerCliCommands(
               });
 
               if (!Array.isArray(memories) || memories.length === 0) {
+                if (jsonOut(opts, { ok: true, memories: [], count: 0 })) return;
                 console.log("No memories found.");
                 return;
               }
@@ -808,9 +1088,11 @@ export function registerCliCommands(
                 created_at: m.created_at,
                 updated_at: m.updated_at,
               }));
+              if (jsonOut(opts, { ok: true, memories: output, count: memories.length })) return;
               console.log(JSON.stringify(output, null, 2));
               console.log(`\nTotal: ${memories.length} memories`);
             } catch (err) {
+              if (jsonErr(opts, `List failed: ${String(err)}`)) return;
               console.error(`List failed: ${String(err)}`);
             }
           },
@@ -825,11 +1107,14 @@ export function registerCliCommands(
         .description("Update a memory's text")
         .argument("<memory_id>", "Memory ID to update")
         .argument("<text>", "New text for the memory")
-        .action(async (memoryId: string, text: string) => {
+        .option("--json", "Output as JSON")
+        .action(async (memoryId: string, text: string, opts: { json?: boolean } = {}) => {
           try {
             await provider.update(memoryId, text);
+            if (jsonOut(opts, { ok: true, memory: { id: memoryId, memory: text } })) return;
             console.log(`Memory ${memoryId} updated.`);
           } catch (err) {
+            if (jsonErr(opts, `Update failed: ${String(err)}`)) return;
             console.error(`Update failed: ${String(err)}`);
           }
         });
@@ -846,6 +1131,7 @@ export function registerCliCommands(
         .option("--user-id <userId>", "Override user ID (with --all)")
         .option("--agent-id <agentId>", "Delete from agent's namespace")
         .option("--confirm", "Skip confirmation for bulk delete")
+        .option("--json", "Output as JSON")
         .action(
           async (
             memoryId: string | undefined,
@@ -854,6 +1140,7 @@ export function registerCliCommands(
               userId?: string;
               agentId?: string;
               confirm?: boolean;
+              json?: boolean;
             },
           ) => {
             try {
@@ -880,11 +1167,13 @@ export function registerCliCommands(
                 }
 
                 await provider.deleteAll(uid);
+                if (jsonOut(opts, { ok: true, deleted: true, id: "all", userId: uid })) return;
                 console.log(`All memories deleted for user "${uid}".`);
                 return;
               }
 
               if (!memoryId) {
+                if (jsonErr(opts, "Provide a memory_id or use --all to delete all memories.")) return;
                 console.error(
                   "Provide a memory_id or use --all to delete all memories.",
                 );
@@ -892,8 +1181,10 @@ export function registerCliCommands(
               }
 
               await provider.delete(memoryId);
+              if (jsonOut(opts, { ok: true, deleted: true, id: memoryId })) return;
               console.log(`Memory ${memoryId} deleted.`);
             } catch (err) {
+              if (jsonErr(opts, `Delete failed: ${String(err)}`)) return;
               console.error(`Delete failed: ${String(err)}`);
             }
           },
@@ -906,15 +1197,24 @@ export function registerCliCommands(
       mem0
         .command("status")
         .description("Check API connectivity and current config")
-        .action(async () => {
+        .option("--json", "Output as JSON")
+        .action(async (opts: { json?: boolean } = {}) => {
           try {
             const auth = readPluginAuth();
+            const result = await backend.status();
+            if (jsonOut(opts, {
+              ok: true,
+              mode: cfg.mode,
+              connected: result.connected,
+              userId: cfg.userId,
+              ...(result.url && { url: result.url }),
+              ...(result.error && { error: String(result.error) }),
+            })) return;
             console.log(`Mode: ${cfg.mode}`);
             console.log(`User ID: ${cfg.userId}`);
             console.log(`Config: ${OPENCLAW_CONFIG_FILE}`);
             console.log("");
 
-            const result = await backend.status();
             if (result.connected) {
               console.log("Connected to Mem0");
             } else {
@@ -927,6 +1227,7 @@ export function registerCliCommands(
               console.log(`Error: ${String(result.error)}`);
             }
           } catch (err) {
+            if (jsonErr(opts, `Status check failed: ${String(err)}`)) return;
             console.error(`Status check failed: ${String(err)}`);
           }
         });
@@ -1011,19 +1312,14 @@ export function registerCliCommands(
         return values[field];
       }
 
-      /** Redact a secret value for display: first 4 + ... + last 4 */
-      function redact(value: string): string {
-        if (value.length <= 8) return value.slice(0, 2) + "***";
-        return value.slice(0, 4) + "..." + value.slice(-4);
-      }
-
       /** Format a config value for display (redacts secrets). */
       function displayValue(field: string, value: unknown): string {
         if (value === undefined || value === null || value === "") {
           return "(not set)";
         }
         if (SECRET_KEYS.has(field) && typeof value === "string") {
-          return redact(value);
+          const redacted = redactSecrets({ v: value }, new Set(["v"]));
+          return redacted.v as string;
         }
         return String(value);
       }
@@ -1031,7 +1327,41 @@ export function registerCliCommands(
       configCmd
         .command("show")
         .description("Show current configuration")
-        .action(() => {
+        .option("--json", "Output as JSON")
+        .action((opts: { json?: boolean } = {}) => {
+          if (opts.json) {
+            const showEntries: Array<[string, string]> = [
+              ["mode", "mode"],
+              ["user_id", "userId"],
+              ["auto_recall", "autoRecall"],
+              ["auto_capture", "autoCapture"],
+              ["top_k", "topK"],
+            ];
+            if (cfg.mode === "platform") {
+              showEntries.push(["api_key", "apiKey"], ["email", "userEmail"]);
+            } else {
+              showEntries.push(
+                ["embedder_provider", "oss.embedder.provider"],
+                ["embedder_model", "oss.embedder.config.model"],
+                ["embedder_key", "oss.embedder.config.apiKey"],
+                ["llm_provider", "oss.llm.provider"],
+                ["llm_model", "oss.llm.config.model"],
+                ["llm_key", "oss.llm.config.apiKey"],
+                ["vector_provider", "oss.vectorStore.provider"],
+                ["history_db_path", "oss.historyDbPath"],
+                ["disable_history", "oss.disableHistory"],
+              );
+            }
+            const configObj: Record<string, unknown> = {};
+            for (const [displayKey, field] of showEntries) {
+              const val = getConfigValue(field);
+              configObj[displayKey] = SECRET_KEYS.has(field) && typeof val === "string"
+                ? (redactSecrets({ v: val }, new Set(["v"])).v)
+                : val;
+            }
+            jsonOut(opts, { ok: true, config: configObj });
+            return;
+          }
           // Display order: general first, then mode-specific
           const entries: Array<[string, string]> = [
             ["mode", "mode"],
@@ -1102,15 +1432,18 @@ export function registerCliCommands(
         .command("get")
         .description("Get a config value")
         .argument("<key>", "Config key (e.g. user_id, api_key, llm_model)")
-        .action((key: string) => {
+        .option("--json", "Output as JSON")
+        .action((key: string, opts: { json?: boolean } = {}) => {
           const field = resolveConfigKey(key);
           if (!field) {
+            if (jsonErr(opts, `Unknown config key: ${key}`)) return;
             console.error(
               `Unknown config key: ${key}`,
             );
             return;
           }
           const value = getConfigValue(field);
+          if (jsonOut(opts, { ok: true, key, value })) return;
           console.log(displayValue(field, value));
         });
 
@@ -1119,9 +1452,11 @@ export function registerCliCommands(
         .description("Set a config value")
         .argument("<key>", "Config key (e.g. user_id, api_key, llm_model)")
         .argument("<value>", "New value")
-        .action((key: string, rawValue: string) => {
+        .option("--json", "Output as JSON")
+        .action((key: string, rawValue: string, opts: { json?: boolean } = {}) => {
           const field = resolveConfigKey(key);
           if (!field) {
+            if (jsonErr(opts, `Unknown config key: ${key}`)) return;
             console.error(
               `Unknown config key: ${key}`,
             );
@@ -1138,6 +1473,7 @@ export function registerCliCommands(
           } else if (INTEGER_KEYS.has(field)) {
             const parsed = parseInt(rawValue, 10);
             if (isNaN(parsed)) {
+              if (jsonErr(opts, `Invalid integer value: ${rawValue}`)) return;
               console.error(`Invalid integer value: ${rawValue}`);
               return;
             }
@@ -1150,6 +1486,7 @@ export function registerCliCommands(
           } else {
             writePluginAuth({ [field]: value } as PluginAuthConfig);
           }
+          if (jsonOut(opts, { ok: true, key, value })) return;
           console.log(
             `${key} = ${displayValue(field, value)}`,
           );
@@ -1165,10 +1502,11 @@ export function registerCliCommands(
         .argument("<file>", "Path to JSON file containing memories")
         .option("--user-id <userId>", "Override user ID for all imported memories")
         .option("--agent-id <agentId>", "Override agent ID for all imported memories")
+        .option("--json", "Output as JSON")
         .action(
           async (
             file: string,
-            opts: { userId?: string; agentId?: string },
+            opts: { userId?: string; agentId?: string; json?: boolean },
           ) => {
             try {
               let data: unknown;
@@ -1202,11 +1540,13 @@ export function registerCliCommands(
                 }
               }
 
+              if (jsonOut(opts, { ok: true, imported: added, failed, total: items.length })) return;
               console.log(`Imported ${added} memories.`);
               if (failed) {
                 console.error(`${failed} memories failed to import.`);
               }
             } catch (err) {
+              if (jsonErr(opts, `Import failed: ${String(err)}`)) return;
               console.error(`Import failed: ${String(err)}`);
             }
           },
@@ -1223,7 +1563,8 @@ export function registerCliCommands(
       eventCmd
         .command("list")
         .description("List recent background events")
-        .action(async () => {
+        .option("--json", "Output as JSON")
+        .action(async (opts: { json?: boolean } = {}) => {
           try {
             if (!backend || cfg.mode === "open-source") {
               console.log("Event tracking is only available in platform mode.");
@@ -1234,6 +1575,7 @@ export function registerCliCommands(
               console.log("No events found.");
               return;
             }
+            if (jsonOut(opts, { ok: true, events: results })) return;
 
             // Table header
             const header = [
@@ -1263,6 +1605,7 @@ export function registerCliCommands(
             }
             console.log(`\n${results.length} event${results.length !== 1 ? "s" : ""}`);
           } catch (err) {
+            if (jsonErr(opts, `Failed to list events: ${String(err)}`)) return;
             console.error(`Failed to list events: ${String(err)}`);
           }
         });
@@ -1271,13 +1614,15 @@ export function registerCliCommands(
         .command("status")
         .description("Get status of a specific background event")
         .argument("<event_id>", "Event ID to check")
-        .action(async (eventId: string) => {
+        .option("--json", "Output as JSON")
+        .action(async (eventId: string, opts: { json?: boolean } = {}) => {
           try {
             if (!backend || cfg.mode === "open-source") {
               console.log("Event tracking is only available in platform mode.");
               return;
             }
             const ev = await backend.getEvent(eventId);
+            if (jsonOut(opts, { ok: true, event: ev })) return;
 
             const status = String(ev.status ?? "—");
             const evType = String(ev.event_type ?? "—");
@@ -1313,6 +1658,7 @@ export function registerCliCommands(
               }
             }
           } catch (err) {
+            if (jsonErr(opts, `Failed to get event: ${String(err)}`)) return;
             console.error(`Failed to get event: ${String(err)}`);
           }
         });
@@ -1347,7 +1693,28 @@ export function registerCliCommands(
           };
 
           if (opts.json) {
-            console.log(JSON.stringify({ commands }, null, 2));
+            const detailed = {
+              commands: {
+                memory: {
+                  search: { description: "Query your memory store", flags: { "--top-k <n>": "Max results", "--scope <scope>": "Memory scope", "--user-id <id>": "Override user ID", "--agent-id <id>": "Agent namespace", "--json": "JSON output" } },
+                  add: { description: "Add a memory from text", flags: { "--user-id <id>": "Override user ID", "--agent-id <id>": "Agent namespace", "--json": "JSON output" } },
+                  get: { description: "Get a specific memory by ID", flags: { "--json": "JSON output" } },
+                  list: { description: "List memories", flags: { "--user-id <id>": "Override user ID", "--top-k <n>": "Max results", "--json": "JSON output" } },
+                  update: { description: "Update a memory's text", flags: { "--json": "JSON output" } },
+                  delete: { description: "Delete a memory or all memories", flags: { "--all": "Delete all", "--confirm": "Skip confirmation", "--json": "JSON output" } },
+                  import: { description: "Import memories from JSON file", flags: { "--user-id <id>": "Override user ID", "--json": "JSON output" } },
+                },
+                management: {
+                  init: { description: "Set up Mem0", flags: { "--mode <m>": "platform or open-source", "--api-key <k>": "API key", "--email <e>": "Email login", "--oss-llm <p>": "LLM provider", "--oss-embedder <p>": "Embedder", "--oss-vector <p>": "Vector store", "--json": "JSON output" } },
+                  status: { description: "Check connectivity", flags: { "--json": "JSON output" } },
+                  config: { description: "Manage configuration (show, get, set)", flags: { "--json": "JSON output" } },
+                  event: { description: "Manage background events (list, status)", flags: { "--json": "JSON output" } },
+                  dream: { description: "Run memory consolidation", flags: { "--dry-run": "Show inventory only", "--json": "JSON output" } },
+                  help: { description: "Show help", flags: { "--json": "JSON output" } },
+                },
+              },
+            };
+            process.stdout.write(JSON.stringify(detailed, null, 2) + "\n");
             return;
           }
 
@@ -1379,7 +1746,8 @@ export function registerCliCommands(
           "--dry-run",
           "Show memory inventory without running consolidation",
         )
-        .action(async (opts: { dryRun?: boolean }) => {
+        .option("--json", "Output as JSON")
+        .action(async (opts: { dryRun?: boolean; json?: boolean }) => {
           try {
             const uid = cfg.userId;
             const memories = await provider.getAll({
@@ -1389,6 +1757,7 @@ export function registerCliCommands(
             const count = Array.isArray(memories) ? memories.length : 0;
 
             if (count === 0) {
+              if (jsonOut(opts, { ok: true, count: 0, message: "No memories to consolidate." })) return;
               console.log("No memories to consolidate.");
               return;
             }
@@ -1401,6 +1770,17 @@ export function registerCliCommands(
                 "uncategorized";
               catCounts.set(cat, (catCounts.get(cat) ?? 0) + 1);
             }
+
+            if (opts.dryRun && opts.json) {
+              jsonOut(opts, { ok: true, count, categories: Object.fromEntries(catCounts) });
+              return;
+            }
+
+            if (opts.json && !opts.dryRun) {
+              jsonOut(opts, { ok: true, count, message: `${count} memories available for consolidation` });
+              return;
+            }
+
             process.stderr.write(`\nMemory inventory for "${uid}":\n`);
             for (const [cat, num] of [...catCounts.entries()].sort(
               (a, b) => b[1] - a[1],
@@ -1451,6 +1831,7 @@ export function registerCliCommands(
               `Dream prompt written to stdout (${fullPrompt.length} chars). Paste it into an OpenClaw session to run consolidation.\n`,
             );
           } catch (err) {
+            if (jsonErr(opts, `Dream failed: ${String(err)}`)) return;
             console.error(`Dream failed: ${String(err)}`);
           }
         });
