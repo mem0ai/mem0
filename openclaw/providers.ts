@@ -331,10 +331,11 @@ class OSSProvider implements Mem0Provider {
     let sqliteOk = true;
     if (!this.ossConfig?.disableHistory) {
       try {
+        // @ts-ignore — better-sqlite3 is a transitive dep; no types in this package
         const bs3Mod = await import("better-sqlite3");
         const BS3 = bs3Mod.default ?? bs3Mod;
-        const testDb = new BS3(":memory:");
-        testDb.close();
+        const testDb = new (BS3 as any)(":memory:");
+        (testDb as any).close();
       } catch {
         sqliteOk = false;
       }
