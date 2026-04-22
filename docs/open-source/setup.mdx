@@ -63,6 +63,8 @@ Open `http://localhost:3000` — since no admin account exists yet, the dashboar
 
 ### Agent-first (command line)
 
+First, set `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY`) in `server/.env`. `make bootstrap` does not prompt for it, and the runtime test will fail without a valid provider key.
+
 ```bash
 cd server
 make bootstrap
