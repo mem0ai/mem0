@@ -292,8 +292,7 @@
           "categories": { "type": "object" }
         }
       }
-    },
-    "required": ["mode"]
+    }
   },
   "setup": {
     "providers": [
