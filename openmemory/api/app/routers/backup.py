@@ -30,13 +30,14 @@ class ExportRequest(BaseModel):
     to_date: Optional[int] = None
     include_vectors: bool = True
 
-def _iso(dt: Optional[datetime]) -> Optional[str]: 
-    if isinstance(dt, datetime): 
-        try: 
-            return dt.astimezone(UTC).isoformat()
-        except: 
-            return dt.replace(tzinfo=UTC).isoformat()
-    return None
+def _iso(dt: Optional[datetime]) -> Optional[str]:
+    if not isinstance(dt, datetime):
+        return None
+
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+        return dt.replace(tzinfo=UTC).isoformat()
+
+    return dt.astimezone(UTC).isoformat()
 
 def _parse_iso(dt: Optional[str]) -> Optional[datetime]:
     if not dt:
