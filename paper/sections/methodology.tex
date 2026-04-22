@@ -15,22 +15,22 @@ where $U(m_i, q_t)$ is the utility of memory $m_i$ for query $q_t$, and $\text{C
 
 Classic Ebbinghaus forgetting models describe memory retention as $R(t) = e^{-t/S}$, where $S$ is a constant strength parameter. However, this fails to account for emotional salience, which in human cognition significantly modulates forgetting rates. We introduce a \textbf{Salience Gate} mechanism $\mathcal{G}$ that dynamically adjusts the effective decay rate based on extracted emotional intensity.
 
-Given a memory $m_i$ with base strength $S_{base}$ and emotional valence $E_i \in [0, 1]$ (extracted via LLM prompt; see Appendix~\ref{app:prompts}), the effective retention strength is:
+Given a memory $m_i$ with base strength $S_{base}$ and emotional valence $E_i \in [0, 1]$ (extracted via zero-shot LLM prompting; see Appendix~\ref{app:prompts}), the effective retention strength is:
 \begin{equation}
-    S_{effective}(m_i) = S_{base} \cdot (1 + \lambda \cdot E_i)
+    S_{\text{eff}}(m_i) = S_{\text{base}} \cdot (1 + \lambda \cdot E_i)
 \end{equation}
-where $\lambda$ controls the \textit{emotional inertia}. The retention probability at time $\Delta t$ after encoding is then:
+where $\lambda \in [0, 2]$ controls the \textit{emotional inertia} (higher $\lambda$ implies stronger resistance to forgetting for emotional events). The retention probability at time $\Delta t$ after encoding is then:
 \begin{equation}
-    R(m_i, \Delta t) = \exp\left(-\frac{\Delta t}{S_{base} \cdot (1 + \lambda \cdot E_i)}\right)
+    \mathcal{R}_{\text{affective}}(m_i, \Delta t) = \exp\left(-\frac{\Delta t}{S_{\text{base}} \cdot (1 + \lambda \cdot E_i)}\right)
 \end{equation}
 
 To prevent catastrophic forgetting of emotionally charged but rarely accessed memories (e.g., user traumas or core identity statements), we introduce a \textbf{Salience Gate} threshold $\tau_{salience}$. Memories with $E_i > \tau_{salience}$ are exempt from automatic deletion and instead undergo compression. This ensures that high-salience information persists even with low access frequency.
 
 The final \textit{Affective Retention Score} combines temporal decay with access frequency $f_i$ and recency weight $w_{recency}$:
 \begin{equation}
-    \text{Score}(m_i) = \alpha \cdot R(m_i, \Delta t) + \beta \cdot \text{norm}(f_i) + \gamma \cdot w_{recency}
+    \psi_{\text{retention}}(m_i) = \alpha \cdot \mathcal{R}_{\text{affective}}(m_i, \Delta t) + \beta \cdot \text{norm}(f_i) + \gamma \cdot w_{recency}
 \end{equation}
-where $\alpha, \beta, \gamma$ are hyperparameters balancing the contributions.
+where $\alpha, \beta, \gamma$ are hyperparameters balancing the contributions ($\alpha=0.5, \beta=0.3, \gamma=0.2$ in our experiments).
 
 \subsection{Offline Sleep Consolidation as Schema Induction}
 \label{subsec:consolidation}

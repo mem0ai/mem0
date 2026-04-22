@@ -1,10 +1,27 @@
 \section{Conclusion and Future Work}
 \label{sec:conclusion}
 
-We presented \textbf{Mem0-Cognitive}, a novel framework that transforms LLM memory management from passive storage into an active inference process. By integrating three cognitive principles—emotion-weighted forgetting, offline sleep consolidation, and meta-cognitive adaptation—our system achieves significant improvements in token efficiency (55\% reduction), fact retention (29\% increase), and retrieval precision compared to state-of-the-art baselines.
+We presented \textsc{Mem0-Cognitive}, a cognitively-inspired framework that reframes LLM memory management from passive storage to active inference. By operationalizing three core principles from cognitive psychology---emotion-weighted forgetting, offline sleep consolidation, and meta-cognitive adaptation---our system achieves a 29\% improvement in long-term retention while reducing token overhead by 55\%, all with sub-50ms latency suitable for real-time dialogue.
 
-Our work demonstrates that incorporating insights from cognitive psychology can yield practical benefits for real-world dialogue systems. The proposed Salience Gate mechanism ensures emotionally salient memories persist despite low access frequency, while the sleep consolidation engine effectively compresses redundant episodic traces into generalized semantic knowledge. Furthermore, our meta-cognitive learner enables personalized memory policies that adapt to individual user patterns without requiring explicit preference labels.
+Our comprehensive ablation study reveals that each cognitive module contributes distinctly: sleep consolidation serves as the primary driver of noise reduction through semantic abstraction, emotion weighting prevents catastrophic forgetting of high-salience events, and meta-learning enables personalized adaptation over extended interactions. Validation on the LoCoMo benchmark confirms generalization beyond synthetic scenarios.
 
-\textbf{Limitations and Future Directions.} Despite promising results, several limitations remain. First, the cold-start problem for new users requires further investigation; while population priors help, more sophisticated zero-shot user profiling could accelerate convergence. Second, our current emotion analyzer relies on LLM prompts, which may introduce variance across different model providers; future work could explore distilling a lightweight specialized emotion classifier. Third, while we demonstrate effectiveness in text-only dialogues, extending the framework to multimodal interactions (incorporating tone, facial expressions) presents an exciting direction. Finally, we plan to conduct large-scale user studies to validate the subjective quality improvements suggested by our automated metrics.
+\paragraph{Limitations.} Despite promising results, several limitations warrant discussion:
+\begin{itemize}
+    \item \textbf{Cold-Start Sensitivity}: Meta-cognitive adaptation requires initial interaction data to converge, though population-based priors mitigate this issue.
+    \item \textbf{LLM Dependency}: Emotion extraction and schema induction rely on LLM quality, potentially introducing variance across model versions. Our hybrid lexicon fallback provides robustness but adds complexity.
+    \item \textbf{Computational Overhead}: While inference latency remains low, offline consolidation incurs periodic CPU/GPU costs proportional to memory store size.
+    \item \textbf{Evaluation Scope}: Our experiments focus on English dialogues; cross-cultural variations in emotional expression and memory patterns remain unexplored.
+\end{itemize}
 
-We hope Mem0-Cognitive inspires further research at the intersection of cognitive science and NLP, ultimately leading to AI systems that remember—and forget—more like humans do.
+\paragraph{Future Directions.} Several avenues merit further investigation:
+\begin{enumerate}
+    \item \textbf{Multi-Modal Emotion Integration}: Extending emotion extraction to incorporate prosodic features (pitch, tempo) from speech and visual cues from video would enable richer salience modeling.
+    \item \textbf{Distilled Cognitive Critic}: Training a lightweight specialized model (e.g., 7B parameter) to replace LLM calls for emotion scoring and abstraction could reduce costs and latency further.
+    \item \textbf{Causal Memory Graphs}: Integrating causal reasoning into consolidation could enable counterfactual queries (``What if I had chosen differently?'') and improve conflict resolution.
+    \item \textbf{Federated Personalization}: Exploring federated learning approaches for meta-cognitive parameters could enhance privacy while preserving personalization benefits.
+    \item \textbf{Cross-Lingual Generalization}: Evaluating cognitive mechanisms across diverse languages and cultural contexts to ensure universal applicability.
+\end{enumerate}
+
+\paragraph{Broader Impact.} \textsc{Mem0-Cognitive} has potential applications in long-term companionship AI, mental health support systems, and educational tutors requiring persistent user modeling. However, the ability to selectively forget also raises ethical considerations: malicious actors could exploit forgetting mechanisms to erase evidence of harmful interactions. We advocate for transparent audit logs and user-controlled forgetting policies in production deployments.
+
+By bridging cognitive science and NLP engineering, we hope this work inspires further exploration of biologically-plausible mechanisms for AI systems. The code, benchmarks, and pretrained configurations are available at \url{https://github.com/hongyizhou/mem0-cognitive} to facilitate reproducibility and community advancement.

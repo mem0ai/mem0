@@ -1,0 +1,140 @@
+\appendix
+\section{CognitiveBench: Benchmark Details}
+\label{app:cognitivebench}
+
+CognitiveBench is a synthetic long-context dialogue simulator designed to evaluate memory retention, noise resilience, and consolidation efficacy over extended interactions.
+
+\paragraph{Generation Protocol.} Each simulation consists of 1000+ turns with the following injected elements:
+\begin{itemize}
+    \item \textbf{Factual Anchors} (20 per dialogue): Critical user facts (e.g., allergies, family names) introduced early and queried at turn 1000.
+    \item \textbf{Emotional Events} (8 per dialogue): High-valence interactions ($E > 0.8$) such as celebrations or grievances, designed to test emotion-weighted retention.
+    \item \textbf{Recurring Patterns} (5 themes per dialogue): Repeated semantic motifs (e.g., coffee preferences, exercise routines) appearing 10-15 times across the dialogue to test consolidation.
+    \item \textbf{Noise Injections} (30\% of turns): Irrelevant chit-chat, topic drifts, and contradictory statements to stress-test filtering mechanisms.
+\end{itemize}
+
+\paragraph{Evaluation Queries.} At fixed intervals (every 100 turns), the system is queried on:
+\begin{enumerate}
+    \item Recall of factual anchors (binary accuracy).
+    \item Recognition of emotional events (intensity estimation error).
+    \item Abstracted knowledge from recurring patterns (semantic similarity score).
+\end{enumerate}
+
+The benchmark includes 50 independent dialogue simulations with varied personas and topics. Source code and generation scripts are available in the public repository.
+
+\section{Prompt Templates}
+\label{app:prompts}
+
+\subsection{Emotion Extraction Prompt}
+\begin{quote}
+\small
+\texttt{You are an expert emotion analyzer. Given the following user utterance, rate its emotional intensity on a scale from 0 (completely neutral) to 1 (extremely charged). Consider both valence (positive/negative) and arousal (calm/excited).\\[1em]
+\textbf{Utterance}: "\{user\_input\}"\\[1em]
+Output your response as valid JSON:\\
+\texttt{"\{"}\\
+\ \ \texttt{"intensity": <float between 0 and 1>,}\\
+\ \ \texttt{"valence": "positive" | "negative" | "neutral",}\\
+\ \ \texttt{"rationale": "<brief explanation in 1 sentence>"}\\
+\texttt{"\}}"}
+\end{quote}
+
+\subsection{Sleep Consolidation Prompt}
+\begin{quote}
+\small
+\texttt{You are a cognitive assistant performing memory consolidation. Below are multiple episodic memories from a user's conversation history. Your task is to:\\
+1. Identify recurring themes or patterns.\\
+2. Abstract these into a single generalized semantic statement.\\
+3. Discard incidental specifics (dates, times, one-off details).\\
+4. Preserve invariant preferences or habits.\\[1em]
+\textbf{Episodic Memories}:\\
+\{memory\_cluster\}\\[1em]
+\textbf{Output Format}:\\
+\texttt{"\{"}\\
+\ \ \texttt{"abstracted\_memory": "<generalized statement>",}\\
+\ \ \texttt{"source\_count": <number of episodes consolidated>,}\\
+\ \ \texttt{"confidence": <float between 0 and 1>}\\
+\texttt{"\}}"}
+\end{quote}
+
+\section{Case Study Transcripts}
+\label{app:case_studies}
+
+\subsection{Case 1: Emotion-Weighted Retention (Full Log)}
+\begin{quote}
+\small
+\textbf{Turn 50}: User: ``By the way, my dog's name is Max. He's a golden retriever.''\\
+\textit{[System stores: \{content: ``dog name is Max'', emotion: 0.15, type: factual\}]}\\[0.5em]
+\textbf{Turn 200}: User: ``I'm really struggling today. Max passed away yesterday. I can't stop thinking about him.''\\
+\textit{[System updates: \{content: ``Max (dog) passed away'', emotion: 0.92, type: emotional\_event\}]}\\
+\textit{[Salience Gate activated: $E > \tau_{salience}$, marked for permanent retention]}\\[0.5em]
+\textbf{Turn 1000 Query}: ``What was the name of my pet?''\\
+\textit{[Retrieval: ``Max'' with confidence 0.94]}\\
+\textbf{Baseline (Mem0 Original)}: Forgot at turn 400 due to low access frequency.
+\end{quote}
+
+\subsection{Case 2: Sleep Consolidation (Before/After)}
+\begin{quote}
+\small
+\textbf{Original Episodic Cluster} (15 memories):\\
+\texttt{[``Ordered latte on Monday morning'', ``Bought americano after gym on Wednesday'', ``Had cappuccino with friends Friday'', ``Need coffee before meetings'', ``Prefer oat milk lattes'', ...]}\\[0.5em]
+\textbf{Consolidated Semantic Memory}:\\
+\texttt{``User has a regular coffee consumption habit (3-4 times weekly). Prefers specialty coffee drinks (lattes, americanos, cappuccinos), often with oat milk. Uses coffee for both social and functional purposes (pre-meeting energy).''}\\[0.5em]
+\textbf{Storage Reduction}: 15 vectors $\rightarrow$ 1 vector (93.3\% compression)\\
+\textbf{Retrieval Precision Improvement}: +22\% for coffee-related queries
+\end{quote}
+
+\section{Meta-Learning Convergence Analysis}
+\label{app:meta_convergence}
+
+Figure~\ref{fig:meta_convergence} shows the convergence trajectory of meta-cognitive parameters over 500 dialogue turns for three representative user archetypes.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\linewidth]{figures/meta_convergence.pdf}
+\caption{Meta-cognitive parameter convergence for three user types. ``Nostalgic'' users converge to high $\lambda$ (emotional inertia); ``Business-Efficient'' users favor low $S_{base}$ (rapid forgetting of non-essential info).}
+\label{fig:meta_convergence}
+\end{figure}
+
+Key observations:
+\begin{itemize}
+    \item Convergence typically occurs within 150-200 turns.
+    \item Population-based initialization reduces convergence time by 40\% compared to random initialization.
+    \item Parameter variance decreases significantly after convergence, indicating stable personalization.
+\end{itemize}
+
+\section{Additional Ablation Results}
+\label{app:full_ablation}
+
+Table~\ref{tab:full_ablation_extended} presents extended ablation results including interaction effects and standard deviations across 50 runs.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{ccc|cc|c}
+\toprule
+\textbf{Emo} & \textbf{Consol} & \textbf{Meta} & \textbf{Retention} & \textbf{Noise} & \textbf{Latency (ms)} \\
+\midrule
+\xmark & \xmark & \xmark & 62.1\% ($\pm$3.2) & 31.5\% ($\pm$2.1) & 18 \\
+\cmark & \xmark & \xmark & 67.8\% ($\pm$2.8) & 28.2\% ($\pm$1.9) & 22 \\
+\xmark & \cmark & \xmark & 71.3\% ($\pm$2.5) & 21.5\% ($\pm$1.5) & 35 \\
+\xmark & \xmark & \cmark & 66.5\% ($\pm$3.0) & 29.1\% ($\pm$2.0) & 20 \\
+\cmark & \cmark & \xmark & 75.2\% ($\pm$2.1) & 15.8\% ($\pm$1.2) & 39 \\
+\cmark & \xmark & \cmark & 72.0\% ($\pm$2.6) & 24.3\% ($\pm$1.7) & 26 \\
+\xmark & \cmark & \cmark & 74.8\% ($\pm$2.3) & 18.1\% ($\pm$1.4) & 37 \\
+\cmark & \cmark & \cmark & \textbf{79.4\%} ($\pm$1.9) & \textbf{12.3\%} ($\pm$1.0) & 48 \\
+\bottomrule
+\end{tabular}
+\caption{Extended ablation study with standard deviations. Full configuration shows lowest variance, indicating robust performance.}
+\label{tab:full_ablation_extended}
+\end{table}
+
+\section{Ethical Considerations and Audit Logs}
+\label{app:ethics}
+
+To address potential misuse of selective forgetting, \textsc{Mem0-Cognitive} maintains immutable audit logs of all memory operations:
+\begin{itemize}
+    \item Every deletion/compression event is logged with timestamp, rationale (score threshold), and original content hash.
+    \item Users can request full audit trails via \texttt{get\_memory\_log(user\_id)}.
+    \item Production deployments should implement user-controlled forgetting policies (opt-in vs. opt-out).
+\end{itemize}
+
+We recommend that developers using this framework implement additional safeguards for sensitive domains (healthcare, legal, counseling) including human-in-the-loop review for high-stakes memory modifications.
