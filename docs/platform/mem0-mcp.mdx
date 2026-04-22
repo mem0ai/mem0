@@ -10,7 +10,7 @@ estimatedTime: "~2 minutes"
   - Mem0 Platform account (<a href="https://app.mem0.ai" rel="nofollow">Sign up here</a>)
   - API key (<a href="https://app.mem0.ai/settings/api-keys" rel="nofollow">Get one from dashboard</a>)
   - Node.js 14+ (for npx)
-  - An MCP-compatible client (Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode)
+  - An MCP-compatible client (Claude, Claude Code, Codex, Cursor, Windsurf, VS Code, OpenCode)
 </Info>
 
 ## What is Mem0 MCP?
@@ -26,7 +26,7 @@ npx mcp-add \
   --name mem0-mcp \
   --type http \
   --url "https://mcp.mem0.ai/mcp" \
-  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
+  --clients "claude,claude code,codex,cursor,windsurf,vscode,opencode"
 ```
 
 This automatically configures Mem0 MCP for all supported clients at once.
@@ -83,6 +83,28 @@ You can also configure individual clients:
       --type http \
       --url "https://mcp.mem0.ai/mcp" \
       --clients "claude code"
+    ```
+  </Accordion>
+
+  <Accordion title="Codex">
+    ```bash
+    npx mcp-add \
+      --name mem0-mcp \
+      --type http \
+      --url "https://mcp.mem0.ai/mcp" \
+      --clients "codex"
+    ```
+
+    Or manually add to your Codex MCP configuration:
+    ```json
+    {
+      "mcpServers": {
+        "mem0-mcp": {
+          "type": "http",
+          "url": "https://mcp.mem0.ai/mcp"
+        }
+      }
+    }
     ```
   </Accordion>
 
