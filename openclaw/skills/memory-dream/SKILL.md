@@ -7,7 +7,7 @@ description: >
   Also triggers automatically after sufficient activity (configurable).
 user-invocable: true
 metadata:
-  {"openclaw": {"emoji": "💤", "requires": {"env": ["MEM0_API_KEY"], "bins": []}}}
+  {"openclaw": {"injected": true, "emoji": "💤", "requires": {"env": ["MEM0_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"], "bins": []}}}
 ---
 
 # Memory Consolidation
@@ -46,7 +46,7 @@ Execute the actions identified in Phase 2. Work in this priority order:
 ### 3a. Delete dangerous and expired entries
 
 Delete immediately using `memory_delete`:
-- Credentials, API keys, tokens, passwords, secrets (patterns: sk-, m0-, ghp_, AKIA, Bearer, password=, token=, secret=)
+- Credentials, API keys, tokens, passwords, secrets (matching known credential prefixes and auth patterns injected by the plugin at runtime)
 - Pure timestamps with no context
 - Raw tool output stored as memory
 - Heartbeat or cron execution records

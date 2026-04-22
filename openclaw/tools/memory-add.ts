@@ -82,9 +82,6 @@ export function createMemoryAddTool(deps: ToolDeps) {
         }
 
         const combinedText = allFacts.join("\n");
-        const dedupOpts = buildSearchOptions(uid, 3);
-        dedupOpts.threshold = 0.85;
-        await provider.search(combinedText.slice(0, 200), dedupOpts);
 
         const result = await provider.add([{ role: "user", content: combinedText }], buildAddOptions(uid, runId, currentSessionId));
         const added = result.results?.filter((r) => r.event === "ADD") ?? [];

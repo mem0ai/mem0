@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0-cli"
-version = "0.2.3"
+version = "0.2.4"
 description = "The official CLI for mem0 — the memory layer for AI agents"
 readme = "README.md"
 license = "Apache-2.0"

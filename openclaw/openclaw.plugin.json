@@ -1,15 +1,14 @@
 {
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
-  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. PLATFORM MODE: Sends conversation data to mem0.ai cloud (requires MEM0_API_KEY). OPEN-SOURCE MODE: Stores vectors locally (~/.mem0/history.db) but uses external APIs for embeddings/LLM (default: OpenAI, requires OPENAI_API_KEY). Auto-recall injects memories before agent turns; auto-capture extracts facts after turns. Both configurable via autoRecall/autoCapture settings. Config stored in ~/.openclaw/openclaw.json.",
-  "version": "1.0.7",
+  "description": "Mem0 memory backend for OpenClaw — platform (mem0.ai cloud) or self-hosted open-source. Auto-recall and auto-capture are opt-in (disabled by default). Supports OpenAI, Anthropic, Ollama (fully local), Qdrant, and PGVector providers.",
+  "version": "1.0.9",
   "kind": "memory",
   "skills": ["skills"],
   "commandAliases": [
     {
       "name": "mem0",
-      "cliCommand": "mem0",
-      "description": "Mem0 memory plugin commands"
+      "cliCommand": "mem0"
     }
   ],
   "contracts": {
@@ -20,7 +19,7 @@
   },
   "providerAuthEnvVars": {
     "mem0": ["MEM0_API_KEY"],
-    "openclaw-mem0-oss": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "AZURE_OPENAI_API_KEY", "COHERE_API_KEY"]
+    "openclaw-mem0-oss": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
   },
   "providerAuthChoices": [
     {
@@ -35,6 +34,32 @@
       "cliFlag": "--mem0-api-key",
       "cliOption": "--mem0-api-key <key>",
       "cliDescription": "Mem0 platform API key"
+    },
+    {
+      "provider": "openclaw-mem0-oss",
+      "method": "config",
+      "choiceId": "oss-openai",
+      "choiceLabel": "Open Source with OpenAI",
+      "choiceHint": "Self-hosted mode using OpenAI for LLM and embeddings",
+      "groupId": "oss",
+      "groupLabel": "Open Source (self-hosted)",
+      "optionKey": "oss.llm.config.apiKey",
+      "cliFlag": "--oss-llm-key",
+      "cliOption": "--oss-llm-key <key>",
+      "cliDescription": "OpenAI API key for OSS LLM"
+    },
+    {
+      "provider": "openclaw-mem0-oss",
+      "method": "config",
+      "choiceId": "oss-ollama",
+      "choiceLabel": "Open Source with Ollama (local)",
+      "choiceHint": "Fully local mode, no API keys needed",
+      "groupId": "oss",
+      "groupLabel": "Open Source (self-hosted)",
+      "optionKey": "oss.llm.config.ollama_base_url",
+      "cliFlag": "--oss-llm-url",
+      "cliOption": "--oss-llm-url <url>",
+      "cliDescription": "Ollama base URL for local LLM"
     }
   ],
   "uiHints": {
@@ -86,10 +111,28 @@
       "placeholder": "5",
       "help": "Maximum number of memories to retrieve"
     },
+    "userEmail": {
+      "label": "User Email",
+      "sensitive": true,
+      "advanced": true,
+      "help": "Email address associated with the Mem0 account. Set automatically during platform login."
+    },
     "oss": {
       "label": "Open-Source Configuration",
       "advanced": true,
       "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. For API keys in sub-provider configs, use SecretRef objects or ${VAR} syntax instead of plaintext values."
+    },
+    "oss.llm.config.apiKey": {
+      "label": "OSS LLM API Key",
+      "sensitive": true,
+      "advanced": true,
+      "help": "API key for open-source LLM provider. Use SecretRef or ${VAR} syntax."
+    },
+    "oss.embedder.config.apiKey": {
+      "label": "OSS Embedder API Key",
+      "sensitive": true,
+      "advanced": true,
+      "help": "API key for open-source embedder provider. Use SecretRef or ${VAR} syntax."
     },
     "skills": {
       "label": "Agentic Memory Skills",
@@ -106,22 +149,35 @@
         "enum": [
           "platform",
           "open-source"
-        ]
+        ],
+        "description": "Required. 'platform' requires MEM0_API_KEY. 'open-source' requires OPENAI_API_KEY (default) or no keys with Ollama."
       },
       "apiKey": {
-        "type": "string"
+        "type": "string",
+        "sensitive": true,
+        "description": "Platform API key. Prefer SecretRef or ${MEM0_API_KEY} env var over plaintext."
       },
       "userId": {
         "type": "string"
       },
+      "baseUrl": {
+        "type": "string",
+        "description": "API base URL override (default: https://api.mem0.ai)"
+      },
       "userEmail": {
-        "type": "string"
+        "type": "string",
+        "sensitive": true,
+        "description": "Email associated with Mem0 account. Set automatically during platform login."
       },
       "autoCapture": {
-        "type": "boolean"
+        "type": "boolean",
+        "default": false,
+        "description": "Opt-in. When true, extracts durable facts after each agent turn. Disabled by default."
       },
       "autoRecall": {
-        "type": "boolean"
+        "type": "boolean",
+        "default": false,
+        "description": "Opt-in. When true, injects relevant memories before each agent turn. Disabled by default."
       },
       "customInstructions": {
         "type": "string"
@@ -238,5 +294,35 @@
       }
     },
     "required": []
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "mem0",
+        "authMethods": ["api-key"],
+        "envVars": ["MEM0_API_KEY"],
+        "description": "Platform mode: hosted memory at mem0.ai"
+      },
+      {
+        "id": "openclaw-mem0-oss",
+        "authMethods": ["api-key", "config"],
+        "envVars": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+        "description": "Open-source mode: self-hosted with chosen LLM/embedder providers. No env vars needed when using Ollama (local)."
+      }
+    ],
+    "requiresRuntime": false,
+    "postInstallHint": "Run 'openclaw mem0 init' to configure mode and credentials",
+    "externalEndpoints": [
+      {
+        "url": "https://api.mem0.ai",
+        "purpose": "Platform mode API — memory storage and retrieval",
+        "required": "platform mode only"
+      },
+      {
+        "url": "https://app.mem0.ai",
+        "purpose": "Account dashboard and API key management",
+        "required": "platform mode only"
+      }
+    ]
   }
 }

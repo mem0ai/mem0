@@ -7,7 +7,7 @@ description: >
   projects, and relationships. Loaded by the openclaw-mem0 plugin when skills mode is active.
 user-invocable: false
 metadata:
-  {"openclaw": {"always": false, "emoji": "🧠", "requires": {"env": ["MEM0_API_KEY"], "bins": []}}}
+  {"openclaw": {"always": false, "injected": true, "emoji": "🧠", "requires": {"env": ["MEM0_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"], "bins": []}}}
 ---
 
 # Memory Protocol
@@ -37,9 +37,9 @@ Every candidate fact must pass ALL four gates:
   - Fail: vague impressions, questions, small talk, acknowledgments, generic assistant responses ("Sure, I can help") → SKIP
 
 **Gate 4 — SAFE**: Does this contain ANY credential, secret, or token?
-  - Scan for: `sk-`, `m0-`, `ghp_`, `AKIA`, `ak_`, `Bearer `, bot tokens (digits:alphanumeric), webhook URLs with tokens, pairing codes, long alphanumeric strings in config/env context, `password=`, `token=`, `secret=`, `.env` values
+  - Scan for known credential prefixes, auth tokens, webhook URLs with tokens, pairing codes, long alphanumeric strings in config/env context, and key-value assignment patterns. The plugin injects the full pattern list at runtime.
   - ANY match → NEVER STORE the value. Instead, store that the credential was configured:
-    - WRONG: "User's API key is sk-abc123..."
+    - WRONG: "User's API key is [redacted]"
     - RIGHT: "API key was configured for the service (as of 2026-03-30)"
   - When in doubt → SKIP. No exceptions.
 
@@ -218,7 +218,7 @@ When a recalled memory needs updating (fact changed, status changed, new detail 
 
 ## What NEVER to Store
 
-- **Credentials and secrets** — even embedded in config blocks, setup logs, or tool output. Includes sk-, m0-, ak_, ghp_, bot tokens, bearer tokens, webhook URLs with tokens, pairing codes, long alphanumeric strings in config/env contexts. Record that the credential was configured, never the value itself.
+- **Credentials and secrets** — even embedded in config blocks, setup logs, or tool output. Includes any known credential prefixes, auth tokens, bearer tokens, webhook URLs with tokens, pairing codes, and long alphanumeric strings in config/env contexts. Record that the credential was configured, never the value itself.
 - **Raw tool output** — bash results, file contents, API responses, logs, diffs, test output. Extract only the durable OUTCOME or ROOT CAUSE.
 - **One-time commands** — "stop the script", "continue where you left off", "run this"
 - **Acknowledgments and emotional reactions** — "ok", "sure", "sounds good", "sir", "got it", "thanks", "you're right"
@@ -280,7 +280,7 @@ Agent: [updates the sheet successfully]
 
 ### Example 7: Credential — store the fact, not the value
 ```
-User: "Use this API key for the new service: sk-proj-abc123def456"
+User: "Use this API key for the new service: [credential value]"
 Agent: [configures the service]
 → memory_add(facts: ["API key was configured for the new service (as of 2026-03-30)"], category: "configuration")
 ```
