@@ -99,9 +99,78 @@ That's it. No API key, no config file editing, no environment variables. The plu
 
 ### Open-Source (Self-hosted)
 
-No Mem0 key needed. Requires `OPENAI_API_KEY` for default embeddings and LLM. Vectors are stored locally in SQLite at `~/.mem0/vector_store.db` — no external database required.
+No Mem0 key needed. Vectors are stored locally in SQLite at `~/.mem0/vector_store.db` — no external database required.
 
-Defaults: `text-embedding-3-small` for embeddings, `gpt-5.4` for fact extraction.
+Defaults: `text-embedding-3-small` (OpenAI) for embeddings, `gpt-5-mini` (OpenAI) for fact extraction — requires `OPENAI_API_KEY`. For a fully local setup, use Ollama for both LLM and embeddings.
+
+#### Interactive Setup (Recommended)
+
+Run the guided 4-step wizard:
+
+```bash
+openclaw mem0 init --mode open-source
+```
+
+The wizard walks you through:
+1. **LLM provider** — OpenAI (`gpt-5-mini`), Ollama (`llama3.1:8b`, local), or Anthropic (`claude-sonnet-4-5-20250514`)
+2. **Embedding provider** — OpenAI (`text-embedding-3-small`) or Ollama (`nomic-embed-text`, local)
+3. **Vector store** — Qdrant (`http://localhost:6333`) or PGVector (PostgreSQL)
+4. **User ID** — your memory namespace identifier
+
+Each step tests connectivity (Ollama, Qdrant, PGVector) before proceeding.
+
+#### Non-Interactive Setup
+
+For CI/CD, scripts, or agent-driven setup — pass all options as flags:
+
+```bash
+# Fully local with Ollama + Qdrant
+openclaw mem0 init --mode open-source \
+  --oss-llm ollama --oss-embedder ollama --oss-vector qdrant
+
+# OpenAI + Qdrant
+openclaw mem0 init --mode open-source \
+  --oss-llm openai --oss-llm-key <key> \
+  --oss-embedder openai --oss-embedder-key <key> \
+  --oss-vector qdrant
+
+# Anthropic LLM + OpenAI embeddings + PGVector
+openclaw mem0 init --mode open-source \
+  --oss-llm anthropic --oss-llm-key <key> \
+  --oss-embedder openai --oss-embedder-key <key> \
+  --oss-vector pgvector --oss-vector-user postgres --oss-vector-password secret
+
+# JSON output (for LLM agents)
+openclaw mem0 init --mode open-source --oss-llm ollama --oss-embedder ollama --oss-vector qdrant --json
+```
+
+<details>
+<summary>All <code>--oss-*</code> flags</summary>
+
+| Flag | Description |
+| ---- | ----------- |
+| `--oss-llm <provider>` | `openai`, `ollama`, or `anthropic` |
+| `--oss-llm-key <key>` | API key for LLM provider |
+| `--oss-llm-model <model>` | Override default LLM model |
+| `--oss-llm-url <url>` | Base URL (Ollama only) |
+| `--oss-embedder <provider>` | `openai` or `ollama` |
+| `--oss-embedder-key <key>` | API key for embedder |
+| `--oss-embedder-model <model>` | Override default embedder model |
+| `--oss-embedder-url <url>` | Base URL (Ollama only) |
+| `--oss-vector <provider>` | `qdrant` or `pgvector` |
+| `--oss-vector-url <url>` | Qdrant server URL (default: `http://localhost:6333`) |
+| `--oss-vector-host <host>` | PGVector host |
+| `--oss-vector-port <port>` | PGVector port |
+| `--oss-vector-user <user>` | PGVector user |
+| `--oss-vector-password <pw>` | PGVector password |
+| `--oss-vector-dbname <db>` | PGVector database name |
+| `--oss-vector-dims <n>` | Override embedding dimensions |
+
+</details>
+
+#### Manual Config
+
+Minimal config — uses OpenAI defaults:
 
 ```json5
 {
@@ -130,8 +199,8 @@ Customize the embedder, vector store, or LLM via the `oss` block:
   "userId": "alice",
   "oss": {
     "embedder": { "provider": "openai", "config": { "model": "text-embedding-3-small" } },
-    "vectorStore": { "provider": "qdrant", "config": { "host": "localhost", "port": 6333 } },
-    "llm": { "provider": "openai", "config": { "model": "gpt-5.4" } }
+    "vectorStore": { "provider": "qdrant", "config": { "url": "http://localhost:6333" } },
+    "llm": { "provider": "openai", "config": { "model": "gpt-5-mini" } }
   }
 }
 ```
@@ -176,7 +245,7 @@ Eight tools are registered for agent use:
 
 ## CLI
 
-All commands: `openclaw mem0 <command>`.
+All commands: `openclaw mem0 <command>`. All commands support `--json` for machine-readable output (for LLM agents).
 
 ```bash
 # Memory operations
@@ -191,8 +260,9 @@ openclaw mem0 delete --all --user-id alice --confirm
 openclaw mem0 import memories.json
 
 # Management
-openclaw mem0 init
-openclaw mem0 init --api-key <key> --user-id alice
+openclaw mem0 init                                          # interactive setup
+openclaw mem0 init --mode open-source --oss-llm ollama      # non-interactive OSS
+openclaw mem0 init --api-key <key> --user-id alice          # non-interactive platform
 openclaw mem0 status
 openclaw mem0 config show
 openclaw mem0 config get api_key
@@ -205,6 +275,12 @@ openclaw mem0 event status <event_id>
 # Memory consolidation
 openclaw mem0 dream
 openclaw mem0 dream --dry-run
+
+# JSON output (any command)
+openclaw mem0 search "preferences" --json
+openclaw mem0 list --json
+openclaw mem0 status --json
+openclaw mem0 help --json                                   # discover all commands + flags
 ```
 
 ## Configuration Reference
@@ -230,7 +306,7 @@ openclaw mem0 dream --dry-run
 
 ### Open-Source Mode
 
-All fields optional. Defaults: `text-embedding-3-small` embeddings, local SQLite vector store (`~/.mem0/vector_store.db`), `gpt-5.4` LLM.
+All fields optional. Defaults: `text-embedding-3-small` embeddings, local SQLite vector store (`~/.mem0/vector_store.db`), `gpt-5-mini` LLM.
 
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
