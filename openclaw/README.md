@@ -2,7 +2,7 @@
 
 Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, powered by [Mem0](https://mem0.ai).
 
-Your agent forgets everything between sessions. This plugin fixes that — it watches conversations, extracts what matters, and brings it back when relevant. Automatically.
+Your agent forgets everything between sessions. This plugin fixes that — it stores conversations, extracts what matters, and brings it back when relevant. Enable `autoRecall` and `autoCapture` in config to run this automatically, or use agent tools for explicit control.
 
 ## Requirements
 
@@ -213,11 +213,11 @@ All `oss` fields are optional. See the [Mem0 OSS docs](https://docs.mem0.ai/open
   <img src="https://raw.githubusercontent.com/mem0ai/mem0/main/docs/images/openclaw-architecture.png" alt="Architecture" width="800" />
 </p>
 
-**Auto-Recall** — Before the agent responds, the plugin searches Mem0 for relevant memories and injects them into context.
+**Auto-Recall** (`autoRecall: true`) — Before the agent responds, the plugin searches Mem0 for relevant memories and injects them into context.
 
-**Auto-Capture** — After the agent responds, the conversation is filtered through a noise-removal pipeline and sent to Mem0. New facts get stored, stale ones updated, duplicates merged.
+**Auto-Capture** (`autoCapture: true`) — After the agent responds, the conversation is filtered through a noise-removal pipeline and sent to Mem0. New facts get stored, stale ones updated, duplicates merged.
 
-Both run silently. No prompting, no manual calls required.
+Both are opt-in. Once enabled, they run silently — no prompting, no manual calls required. Without them, the agent can still use memory tools (`memory_add`, `memory_search`, etc.) explicitly.
 
 ### Memory Scopes
 
@@ -291,8 +291,8 @@ openclaw mem0 help --json                                   # discover all comma
 | --- | ---- | ------- | ----------- |
 | `mode` | `"platform"` \| `"open-source"` | `"platform"` | Backend mode |
 | `userId` | `string` | OS username | User identifier. All memories scoped to this value. |
-| `autoRecall` | `boolean` | `true` | Inject relevant memories before each turn |
-| `autoCapture` | `boolean` | `true` | Extract and store facts after each turn |
+| `autoRecall` | `boolean` | `false` | Inject relevant memories before each turn |
+| `autoCapture` | `boolean` | `false` | Extract and store facts after each turn |
 | `topK` | `number` | `5` | Max memories returned per recall |
 | `searchThreshold` | `number` | `0.5` | Minimum similarity score (0-1) |
 

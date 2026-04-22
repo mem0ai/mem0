@@ -44,14 +44,14 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
     expect(cfg.userId.length).toBeGreaterThan(0);
   });
 
-  it("autoCapture defaults to true", () => {
+  it("autoCapture defaults to false", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.autoCapture).toBe(true);
+    expect(cfg.autoCapture).toBe(false);
   });
 
-  it("autoRecall defaults to true", () => {
+  it("autoRecall defaults to false", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.autoRecall).toBe(true);
+    expect(cfg.autoRecall).toBe(false);
   });
 
   it("topK defaults to 5", () => {
