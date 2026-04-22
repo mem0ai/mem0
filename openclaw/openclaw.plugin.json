@@ -292,7 +292,8 @@
           "categories": { "type": "object" }
         }
       }
-    }
+    },
+    "required": []
   },
   "setup": {
     "providers": [
