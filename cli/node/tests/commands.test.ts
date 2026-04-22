@@ -42,7 +42,7 @@ describe("cmdAdd", () => {
       userId: "alice",
       immutable: false,
       noInfer: false,
-      enableGraph: false,
+
       output: "text",
     });
     expect(mockBackend.add).toHaveBeenCalledOnce();
@@ -55,7 +55,7 @@ describe("cmdAdd", () => {
       messages: JSON.stringify([{ role: "user", content: "I love Python" }]),
       immutable: false,
       noInfer: false,
-      enableGraph: false,
+
       output: "text",
     });
     expect(mockBackend.add).toHaveBeenCalledOnce();
@@ -67,7 +67,7 @@ describe("cmdAdd", () => {
       userId: "alice",
       immutable: false,
       noInfer: false,
-      enableGraph: false,
+
       output: "json",
     });
     expect(output).toContain("results");
@@ -79,7 +79,7 @@ describe("cmdAdd", () => {
       userId: "alice",
       immutable: false,
       noInfer: false,
-      enableGraph: false,
+
       output: "quiet",
     });
     expect(output).not.toContain("dark mode");
@@ -101,7 +101,7 @@ describe("cmdAdd deduplicates PENDING", () => {
       userId: "alice",
       immutable: false,
       noInfer: false,
-      enableGraph: false,
+
       output: "text",
     });
     expect(output.match(/Queued/g)?.length).toBe(1);
@@ -114,7 +114,7 @@ describe("cmdAdd deduplicates PENDING", () => {
       userId: "alice",
       immutable: false,
       noInfer: false,
-      enableGraph: false,
+
       output: "json",
     });
     const data = JSON.parse(output);
@@ -130,7 +130,7 @@ describe("cmdAdd deduplicates PENDING", () => {
       userId: "alice",
       immutable: false,
       noInfer: false,
-      enableGraph: false,
+
       output: "agent",
     });
     const data = JSON.parse(output);
@@ -148,7 +148,7 @@ describe("cmdSearch", () => {
       threshold: 0.3,
       rerank: false,
       keyword: false,
-      enableGraph: false,
+
       output: "text",
     });
     expect(output).toContain("Found 2");
@@ -162,7 +162,7 @@ describe("cmdSearch", () => {
       threshold: 0.3,
       rerank: false,
       keyword: false,
-      enableGraph: false,
+
       output: "json",
     });
     expect(output).toContain("memory");
@@ -177,7 +177,7 @@ describe("cmdSearch", () => {
       threshold: 0.3,
       rerank: false,
       keyword: false,
-      enableGraph: false,
+
       output: "text",
     });
     expect(errOutput).toContain("No memories found");
@@ -205,7 +205,7 @@ describe("cmdList", () => {
       userId: "alice",
       page: 1,
       pageSize: 100,
-      enableGraph: false,
+
       output: "table",
     });
     expect(output).toContain("dark mode");
@@ -218,7 +218,7 @@ describe("cmdList", () => {
       userId: "alice",
       page: 1,
       pageSize: 100,
-      enableGraph: false,
+
       output: "text",
     });
     expect(errOutput).toContain("No memories found");
@@ -316,7 +316,7 @@ describe("agent mode", () => {
       userId: "alice",
       immutable: false,
       noInfer: false,
-      enableGraph: false,
+
       output: "agent",
     });
     const parsed = JSON.parse(output.trim());
@@ -336,7 +336,7 @@ describe("agent mode", () => {
       threshold: 0.3,
       rerank: false,
       keyword: false,
-      enableGraph: false,
+
       output: "agent",
     });
     const parsed = JSON.parse(output.trim());
@@ -361,7 +361,7 @@ describe("agent mode", () => {
       userId: "alice",
       page: 1,
       pageSize: 100,
-      enableGraph: false,
+
       output: "agent",
     });
     const parsed = JSON.parse(output.trim());
