@@ -231,8 +231,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [LangChain Tools](https://docs.mem0.ai/integrations/langchain-tools) [Both]: Use when Mem0 should be exposed as a LangChain tool.
 - [LlamaIndex](https://docs.mem0.ai/integrations/llama-index) [Both]: Use when layering memory on a LlamaIndex RAG app.
 - [CrewAI](https://docs.mem0.ai/integrations/crewai) [Both]: Use when building CrewAI multi-agent systems.
-- [AutoGen](https://docs.mem0.ai/integrations/autogen) [Both]: Use when the user is on Microsoft AutoGen.
-- [Agno](https://docs.mem0.ai/integrations/agno) [Both]: Use when the user is on Agno.
 - [Camel AI](https://docs.mem0.ai/integrations/camel-ai) [Both]: Use when the user is on Camel AI.
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Both]: Use when the user is on ChatDev.
 - [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
@@ -255,12 +253,6 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Cloud & Infrastructure
 - [AWS Bedrock](https://docs.mem0.ai/integrations/aws-bedrock) [Both]: Use when the user is on AWS Bedrock managed AI services.
 
-### Developer Tools
-- [Dify](https://docs.mem0.ai/integrations/dify) [Both]: Use when the user is on Dify LLMOps.
-- [Flowise](https://docs.mem0.ai/integrations/flowise) [Both]: Use when the user is on Flowise no-code.
-- [AgentOps](https://docs.mem0.ai/integrations/agentops) [Both]: Use when tracking agent observability with memory metadata.
-- [Keywords AI](https://docs.mem0.ai/integrations/keywords) [Both]: Use when monitoring with Keywords AI.
-- [Raycast](https://docs.mem0.ai/integrations/raycast) [Both]: Use when the user wants quick memory access via Raycast.
 
 ## Cookbooks
 
