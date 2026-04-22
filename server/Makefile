@@ -13,6 +13,12 @@ up:
 		fi; \
 	done
 	docker compose up -d --build
+	@$(MAKE) --no-print-directory wait-api
+	@$(MAKE) --no-print-directory wait-dashboard
+	@echo ""
+	@echo "Stack is ready."
+	@echo "  Dashboard:  $(DASHBOARD_URL)  <- open this to run the setup wizard"
+	@echo "  API:        $(API_URL)"
 
 down:
 	docker compose down
