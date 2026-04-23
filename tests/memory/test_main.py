@@ -78,6 +78,43 @@ class TestAddToVectorStoreErrors:
         assert result == []  # Should return empty list when no memories processed
 
 
+class TestPromptOverridesCustomInstructions:
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
+
+        memory = Memory()
+        memory.custom_instructions = "config-level instructions"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    def test_prompt_overrides_custom_instructions(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "hello"}],
+            metadata={},
+            filters={},
+            infer=True,
+            prompt="per-call override",
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "per-call override" in user_prompt
+        assert "config-level instructions" not in user_prompt
+
+    def test_falls_back_to_custom_instructions_when_no_prompt(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "hello"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "config-level instructions" in user_prompt
+
+
 class TestAsyncUpdate:
     @pytest.fixture
     def mock_async_memory(self, mocker):
