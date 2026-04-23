@@ -4,6 +4,30 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-04-23" description="v1.0.10">
+
+**Security:**
+- Telemetry `distinct_id` now uses SHA-256 instead of MD5 — prevents rainbow-table reversal of API key hashes
+- User email is now SHA-256 hashed before sending as `distinct_id` — no PII in telemetry payloads
+- Declared PostHog telemetry endpoint (`us.i.posthog.com`) in `providerEndpoints`
+
+**Fixes:**
+- Fixed version-pinned install records preventing plugin updates. `ensureInstallRecord()` now detects semver-pinned specs (e.g. `@mem0/openclaw-mem0@1.0.7`) and rewrites them to `@latest` or `clawhub:` prefix so `openclaw plugins update` resolves to the newest release
+- Fixed `searchThreshold` default inconsistency: standardized to `0.3` across docs, README, and manifest
+- `PLUGIN_VERSION` now injected at build time via tsup `define` from `package.json` — no more hardcoded version strings
+
+**Manifest Compliance:**
+- Removed non-spec fields: `requiredEnvVars`, `dataLocations`, `privacy`, `setup` (with `externalEndpoints`, `providers`, `requiresRuntime`, `postInstallHint`)
+- Replaced `setup.externalEndpoints` with spec-compliant `providerEndpoints` using `endpointClass` + `hosts` format
+- Env var declarations now rely solely on `providerAuthEnvVars` (already spec-compliant)
+
+**Docs:**
+- Fixed `openclaw plugins update` command: uses plugin ID (`openclaw-mem0`), not npm package name (`@mem0/openclaw-mem0`)
+- Added update section to README
+- Removed redundant "Key Features" and "Conclusion" sections from integration docs
+
+</Update>
+
 <Update label="2026-04-22" description="v1.0.9">
 
 **Security & Compliance:**
