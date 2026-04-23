@@ -22,10 +22,10 @@ export async function pollMemoryEvent(
     const res = await fetch(`https://api.mem0.ai/v1/event/${eventId}/`, {
       headers: { Authorization: `Token ${apiKey}` },
     });
-    const event = await res.json();
     if (!res.ok) {
       throw new Error(`Failed to poll memory event: ${res.statusText}`);
     }
+    const event = await res.json();
     if (event.status === "SUCCEEDED") {
       return event.results ?? [];
     }
