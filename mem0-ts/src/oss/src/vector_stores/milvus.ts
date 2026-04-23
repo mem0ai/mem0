@@ -1,4 +1,4 @@
-import { MilvusClient, DataType } from "@zilliz/milvus2-sdk-node";
+import { MilvusClient, DataType, FunctionType } from "@zilliz/milvus2-sdk-node";
 import { v4 as uuidv4 } from "uuid";
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
@@ -22,6 +22,7 @@ export class MilvusDB implements VectorStore {
   private readonly dimension: number;
   private readonly metricType: string;
   private _initPromise?: Promise<void>;
+  private _hasBm25Schema: boolean = false;
 
   constructor(config: MilvusConfig) {
     if (config.client) {
@@ -45,10 +46,12 @@ export class MilvusDB implements VectorStore {
 
     const operands: string[] = [];
     for (const [key, value] of Object.entries(filters)) {
+      const safeKey = String(key).replace(/"/g, '\\"');
       if (typeof value === "string") {
-        operands.push(`(metadata["${key}"] == "${value}")`);
+        const safeValue = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        operands.push(`(metadata["${safeKey}"] == "${safeValue}")`);
       } else {
-        operands.push(`(metadata["${key}"] == ${value})`);
+        operands.push(`(metadata["${safeKey}"] == ${value})`);
       }
     }
 
@@ -60,11 +63,19 @@ export class MilvusDB implements VectorStore {
     ids: string[],
     payloads: Record<string, any>[],
   ): Promise<void> {
-    const data = vectors.map((vector, idx) => ({
-      id: ids[idx],
-      vectors: vector,
-      metadata: payloads[idx] || {},
-    }));
+    const data = vectors.map((vector, idx) => {
+      const metadata = payloads[idx] || {};
+      const record: Record<string, any> = {
+        id: ids[idx],
+        vectors: vector,
+        metadata,
+      };
+      if (this._hasBm25Schema) {
+        const text = metadata.textLemmatized || metadata.data || "";
+        record.text = typeof text === "string" ? text.slice(0, 65535) : "";
+      }
+      return record;
+    });
 
     await this.client.insert({
       collection_name: this.collectionName,
@@ -74,18 +85,24 @@ export class MilvusDB implements VectorStore {
 
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const queryFilter = this.createFilter(filters);
 
-    const response = await this.client.search({
+    const searchParams: Record<string, any> = {
       collection_name: this.collectionName,
       data: [query],
-      limit,
+      limit: topK,
       filter: queryFilter,
       output_fields: ["*"],
-    });
+    };
+
+    if (this._hasBm25Schema) {
+      searchParams.anns_field = "vectors";
+    }
+
+    const response = await this.client.search(searchParams as any);
 
     if (!response.results || !response.results.length) {
       return [];
@@ -96,6 +113,43 @@ export class MilvusDB implements VectorStore {
       payload: hit.metadata || {},
       score: hit.score ?? hit.distance,
     }));
+  }
+
+  async keywordSearch(
+    query: string,
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    if (!this._hasBm25Schema) {
+      return null;
+    }
+    try {
+      const queryFilter = this.createFilter(filters);
+      const response = await this.client.search({
+        collection_name: this.collectionName,
+        data: [query],
+        anns_field: "sparse",
+        limit: topK,
+        filter: queryFilter,
+        output_fields: ["*"],
+      });
+
+      if (!response.results || !response.results.length) {
+        return [];
+      }
+
+      return response.results.map((hit: any) => ({
+        id: String(hit.id),
+        payload: hit.metadata || {},
+        score: hit.score ?? hit.distance,
+      }));
+    } catch (error) {
+      console.warn(
+        `Keyword search not available for collection ${this.collectionName}:`,
+        error,
+      );
+      return null;
+    }
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
@@ -118,15 +172,20 @@ export class MilvusDB implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
+    const record: Record<string, any> = {
+      id: vectorId,
+      vectors: vector,
+      metadata: payload,
+    };
+
+    if (this._hasBm25Schema) {
+      const text = payload.textLemmatized || payload.data || "";
+      record.text = typeof text === "string" ? text.slice(0, 65535) : "";
+    }
+
     await this.client.upsert({
       collection_name: this.collectionName,
-      data: [
-        {
-          id: vectorId,
-          vectors: vector,
-          metadata: payload,
-        },
-      ],
+      data: [record],
     });
   }
 
@@ -145,14 +204,14 @@ export class MilvusDB implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const queryFilter = this.createFilter(filters);
 
     const response = await this.client.query({
       collection_name: this.collectionName,
       filter: queryFilter || "id != ''",
-      limit,
+      limit: topK,
       output_fields: ["id", "metadata"],
     });
 
@@ -241,38 +300,94 @@ export class MilvusDB implements VectorStore {
       collection_name: name,
     });
 
-    if (hasCol.value) return;
+    if (hasCol.value) {
+      if (name === this.collectionName) {
+        const desc = await this.client.describeCollection({
+          collection_name: name,
+        });
+        const fieldNames = new Set(
+          ((desc as any).fields || []).map((f: any) => f.name),
+        );
+        this._hasBm25Schema =
+          fieldNames.has("text") && fieldNames.has("sparse");
+        if (!this._hasBm25Schema) {
+          console.warn(
+            `Collection '${name}' predates v3 hybrid search (no 'text'/'sparse' fields). ` +
+              "BM25 keyword scoring will be disabled for this collection; semantic search works normally. " +
+              "To enable hybrid search, use a fresh collection.",
+          );
+        }
+      }
+      return;
+    }
+
+    const isMainCollection = name === this.collectionName;
+
+    const fields: any[] = [
+      {
+        name: "id",
+        data_type: DataType.VarChar,
+        is_primary_key: true,
+        max_length: 512,
+      },
+      {
+        name: "vectors",
+        data_type: DataType.FloatVector,
+        dim: vectorSize,
+      },
+      {
+        name: "metadata",
+        data_type: DataType.JSON,
+      },
+    ];
+
+    const indexParams: any[] = [
+      {
+        field_name: "vectors",
+        metric_type: isMainCollection ? this.metricType : "COSINE",
+        index_type: "AUTOINDEX",
+        index_name: "vector_index",
+      },
+    ];
+
+    const functions: any[] = [];
+
+    if (isMainCollection) {
+      fields.push(
+        {
+          name: "text",
+          data_type: DataType.VarChar,
+          max_length: 65535,
+          enable_analyzer: true,
+        },
+        { name: "sparse", data_type: DataType.SparseFloatVector },
+      );
+      indexParams.push({
+        field_name: "sparse",
+        index_type: "SPARSE_INVERTED_INDEX",
+        metric_type: "BM25",
+        index_name: "sparse_index",
+      });
+      functions.push({
+        name: "bm25",
+        type: FunctionType.BM25,
+        input_field_names: ["text"],
+        output_field_names: ["sparse"],
+        params: {},
+      });
+    }
 
     await this.client.createCollection({
       collection_name: name,
-      fields: [
-        {
-          name: "id",
-          data_type: DataType.VarChar,
-          is_primary_key: true,
-          max_length: 512,
-        },
-        {
-          name: "vectors",
-          data_type: DataType.FloatVector,
-          dim: vectorSize,
-        },
-        {
-          name: "metadata",
-          data_type: DataType.JSON,
-        },
-      ],
-      index_params: [
-        {
-          field_name: "vectors",
-          metric_type:
-            name === this.collectionName ? this.metricType : "COSINE",
-          index_type: "AUTOINDEX",
-          index_name: "vector_index",
-        },
-      ],
+      fields,
+      functions: functions.length > 0 ? functions : undefined,
+      index_params: indexParams,
       enable_dynamic_field: true,
-    });
+    } as any);
+
+    if (isMainCollection) {
+      this._hasBm25Schema = true;
+    }
   }
 
   async initialize(): Promise<void> {
