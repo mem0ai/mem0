@@ -167,23 +167,27 @@ class Completions:
         # Currently, only pass the last 6 messages to the search API to prevent long query
         message_input = [f"{message['role']}: {message['content']}" for message in messages][-6:]
         # TODO: Make it better by summarizing the past conversation
+        # Both ``Memory.search()`` and ``MemoryClient.search()`` reject
+        # top-level entity params and require them inside ``filters`` (#4907).
+        merged_filters = dict(filters) if filters else {}
+        for key, value in (("user_id", user_id), ("agent_id", agent_id), ("run_id", run_id)):
+            if value is not None and key not in merged_filters:
+                merged_filters[key] = value
         return self.mem0_client.search(
             query="\n".join(message_input),
-            user_id=user_id,
-            agent_id=agent_id,
-            run_id=run_id,
-            filters=filters,
+            filters=merged_filters or None,
             top_k=top_k,
         )
 
     def _format_query_with_memories(self, messages, relevant_memories):
-        # Check if self.mem0_client is an instance of Memory or MemoryClient
-
+        # Both ``Memory.search()`` and ``MemoryClient.search()`` return
+        # ``{"results": [...]}`` in the current API; iterate that key for
+        # both backends rather than the dict's top-level keys (#4907).
         entities = []
-        if isinstance(self.mem0_client, mem0.memory.main.Memory):
-            memories_text = "\n".join(memory["memory"] for memory in relevant_memories["results"])
-            if relevant_memories.get("relations"):
-                entities = [entity for entity in relevant_memories["relations"]]
-        elif isinstance(self.mem0_client, mem0.client.main.MemoryClient):
-            memories_text = "\n".join(memory["memory"] for memory in relevant_memories)
+        results = relevant_memories.get("results", []) if isinstance(relevant_memories, dict) else relevant_memories
+        memories_text = "\n".join(memory["memory"] for memory in results)
+        if isinstance(self.mem0_client, mem0.memory.main.Memory) and isinstance(relevant_memories, dict):
+            relations = relevant_memories.get("relations")
+            if relations:
+                entities = list(relations)
         return f"- Relevant Memories/Facts: {memories_text}\n\n- Entities: {entities}\n\n- User Question: {messages[-1]['content']}"
