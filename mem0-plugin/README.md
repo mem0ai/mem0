@@ -6,8 +6,8 @@ Add persistent memory to your AI workflows. Store, retrieve, and manage memories
 
 > **You must complete this step before installing the plugin.**
 
-1. Sign up at [app.mem0.ai](https://app.mem0.ai) if you haven't already
-2. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys)
+1. Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=mem0-plugin-readme) if you haven't already
+2. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=mem0-plugin-readme)
 3. Click **Create API Key** and copy the key (starts with `m0-`)
 4. Add it to your shell profile:
 

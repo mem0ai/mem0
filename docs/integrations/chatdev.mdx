@@ -18,7 +18,7 @@ In this guide, you'll:
 - **Python 3.12+**
 - **[uv](https://docs.astral.sh/uv/)** — Python package manager
 - **Node.js 18+** and **npm** — only needed if using the web console
-- A **Mem0 API key** from <a href="https://app.mem0.ai" rel="nofollow">app.mem0.ai</a>
+- A **Mem0 API key** from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">app.mem0.ai</a>
 - An **OpenAI API key** (or another LLM provider supported by ChatDev)
 
 ## Setup and Configuration
@@ -39,7 +39,7 @@ cd frontend && npm install && cd ..
 
 Set up your environment variables in a `.env` file:
 
-<Note>Get your Mem0 API key from <a href="https://app.mem0.ai" rel="nofollow">Mem0 Platform</a>.</Note>
+<Note>Get your Mem0 API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">Mem0 Platform</a>.</Note>
 
 ```bash
 MEM0_API_KEY=your-mem0-api-key
@@ -194,7 +194,7 @@ This means retrieval returns memories from **both** the user's scope and the age
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `api_key` | Yes | Mem0 API key from <a href="https://app.mem0.ai" rel="nofollow">app.mem0.ai</a> |
+| `api_key` | Yes | Mem0 API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">app.mem0.ai</a> |
 | `user_id` | No | Scope memories to a specific user |
 | `agent_id` | No | Scope memories to a specific agent |
 
@@ -216,9 +216,9 @@ This means retrieval returns memories from **both** the user's scope and the age
 
 - **No memories returned on first run** — This is expected. Memories are stored *after* the agent responds, so the first interaction has no prior context. Memories appear starting from the second interaction onward.
 - **`mem0ai` not installed** — If you see `ImportError: mem0ai is required for Mem0Memory`, run `uv add mem0ai` or `pip install mem0ai` to add the dependency.
-- **Invalid API key** — A wrong or expired `MEM0_API_KEY` will log errors like `Mem0 search failed` or `Mem0 add failed` but won't crash the agent. Check your key at <a href="https://app.mem0.ai" rel="nofollow">app.mem0.ai</a>.
+- **Invalid API key** — A wrong or expired `MEM0_API_KEY` will log errors like `Mem0 search failed` or `Mem0 add failed` but won't crash the agent. Check your key at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">app.mem0.ai</a>.
 - **Pipeline headers in memories** — ChatDev automatically strips internal pipeline headers (e.g., `=== INPUT FROM TASK (user) ===`) before sending text to Mem0, so your memories stay clean.
-- **Clearing test memories** — To delete memories created during testing, use the Mem0 dashboard at <a href="https://app.mem0.ai" rel="nofollow">app.mem0.ai</a> or the Python SDK: `MemoryClient().delete_all(user_id="your-test-user")`.
+- **Clearing test memories** — To delete memories created during testing, use the Mem0 dashboard at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">app.mem0.ai</a> or the Python SDK: `MemoryClient().delete_all(user_id="your-test-user")`.
 
 ## Key Features
 

@@ -185,7 +185,7 @@ function promptLine(label: string, defaultValue?: string): Promise<string> {
 async function setupPlatform(config: Mem0Config): Promise<void> {
 	console.log();
 	console.log(
-		`  ${dim("Get your API key at https://app.mem0.ai/dashboard/api-keys")}`,
+		`  ${dim("Get your API key at https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-node")}`,
 	);
 	console.log();
 
@@ -234,7 +234,7 @@ async function validatePlatform(config: Mem0Config): Promise<void> {
 		} else {
 			printError(
 				`Could not connect: ${status.error ?? "Unknown error"}`,
-				"Visit https://app.mem0.ai/dashboard/api-keys to get a new key, or run mem0 init again.",
+				"Visit https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-node to get a new key, or run mem0 init again.",
 			);
 		}
 	} catch (e) {

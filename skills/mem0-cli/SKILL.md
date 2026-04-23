@@ -48,7 +48,7 @@ mem0 init
 export MEM0_API_KEY="m0-xxx"
 ```
 
-Get an API key at: https://app.mem0.ai/dashboard/api-keys
+Get an API key at: https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0-cli
 
 ## Quick Reference
 

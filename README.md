@@ -85,18 +85,17 @@ See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgra
 
 ## 🚀 Quickstart Guide <a name="quickstart"></a>
 
-Choose between our hosted platform or self-hosted package:
+| | Library | Self-Hosted Server | Cloud Platform |
+|---|---------|-------------------|----------------|
+| **Best for** | Testing, prototyping | Teams running on their own infrastructure | Zero-ops production use |
+| **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=readme) |
+| **Dashboard** | -- | [Yes](https://docs.mem0.ai/open-source/setup) | Yes |
+| **Auth & API Keys** | -- | Yes | Yes |
+| **Advanced Features** | -- | Teasers | All included |
 
-### Hosted Platform
+Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? Cloud.
 
-Get up and running in minutes with automatic updates, analytics, and enterprise security.
-
-1. Sign up on [Mem0 Platform](https://app.mem0.ai)
-2. Embed the memory layer via SDK or API keys
-
-### Self-Hosted (Open Source)
-
-Install the sdk via pip:
+### Library (pip / npm)
 
 ```bash
 pip install mem0ai
@@ -110,9 +109,29 @@ python -m spacy download en_core_web_sm
 ```
 
 Install sdk via npm:
+
 ```bash
 npm install mem0ai
 ```
+
+### Self-Hosted Server
+
+> **Note:** Self-hosted auth is on by default. Upgrading from a pre-auth build? Set `ADMIN_API_KEY`, register an admin through the wizard, or `AUTH_DISABLED=true` for local dev only. See [upgrade notes](https://docs.mem0.ai/open-source/setup#upgrade-notes).
+
+```bash
+# Recommended: one command — start the stack, create an admin, issue the first API key.
+cd server && make bootstrap
+
+# Manual: start the stack and finish setup via the browser wizard.
+cd server && docker compose up -d    # http://localhost:3000
+```
+
+See the [self-hosted docs](https://docs.mem0.ai/open-source/overview) for configuration.
+
+### Cloud Platform
+
+1. Sign up on [Mem0 Platform](https://app.mem0.ai?utm_source=oss&utm_medium=readme)
+2. Embed the memory layer via SDK or API keys
 
 ### CLI
 
