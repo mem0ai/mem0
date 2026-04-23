@@ -91,7 +91,7 @@ export const Assistant = () => {
             </button>
             <GithubButton url="https://github.com/mem0ai/mem0/tree/main/examples" />
 
-            <Link href={"https://app.mem0.ai/"} target="_blank" className="py-1 ml-2 px-4 font-semibold dark:bg-zinc-100 dark:hover:bg-zinc-200 bg-zinc-800 text-white rounded-full hover:bg-zinc-900 dark:text-[#475569]">
+            <Link href={"https://app.mem0.ai/?utm_source=oss&utm_medium=example-mem0-demo"} target="_blank" className="py-1 ml-2 px-4 font-semibold dark:bg-zinc-100 dark:hover:bg-zinc-200 bg-zinc-800 text-white rounded-full hover:bg-zinc-900 dark:text-[#475569]">
               Playground
             </Link>
           </div>

@@ -27,7 +27,7 @@
       "method": "api-key",
       "choiceId": "mem0-api-key",
       "choiceLabel": "Mem0 API key",
-      "choiceHint": "Required for platform mode. Get your key at https://app.mem0.ai/dashboard/api-keys",
+      "choiceHint": "Required for platform mode. Get your key at https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=openclaw-plugin",
       "groupId": "mem0",
       "groupLabel": "Mem0",
       "optionKey": "apiKey",

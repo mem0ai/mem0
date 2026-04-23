@@ -1,0 +1,218 @@
+---
+title: "Self-Hosted Setup"
+description: "Stand up the Mem0 REST server and dashboard in a few minutes — admin account, API keys, and a live audit log included."
+icon: "rocket-launch"
+---
+
+The self-hosted bundle ships the REST API and a web dashboard together. Configure your LLM provider and secrets in a `.env` file, start the containers, then choose how to create your admin account: through the browser-based setup wizard, or from the command line.
+
+<Info>
+  **Use this page when…**
+  - You want a self-hosted Mem0 with a dashboard, not just the Python or Node library.
+  - You need per-user API keys and a request audit log for your team.
+  - You're upgrading from a pre-1.x server that relied on `ADMIN_API_KEY` or open endpoints.
+</Info>
+
+<Warning>
+  **Upgrading from 1.x?** Auth is now on by default. Deployments that ran with an empty `ADMIN_API_KEY` will return `401` on every protected endpoint until you either set `ADMIN_API_KEY`, register an admin through the wizard, or set `AUTH_DISABLED=true` for local development. See [Upgrade notes](#upgrade-notes) below.
+</Warning>
+
+---
+
+## Prerequisites
+
+- Docker and Docker Compose (the reference path).
+- An `OPENAI_API_KEY` (or equivalent — the server reads the same component config as the library).
+- A free port `8888` for the API and `3000` for the dashboard.
+
+---
+
+## Configure the environment
+
+Copy `server/.env.example` to `server/.env` and fill in the required values. The server refuses to start if `JWT_SECRET` is unset once auth is enabled.
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `OPENAI_API_KEY` | Yes | Default LLM and embedder provider. |
+| `JWT_SECRET` | Yes | Signs access and refresh tokens. Use a long random value. A missing secret causes auth endpoints to return `500`. |
+| `ADMIN_API_KEY` | Optional | Legacy shared admin key. Kept for back-compat; prefer per-user keys for new setups. |
+| `AUTH_DISABLED` | Optional | `true` turns off auth for local development only. Never enable in production. |
+| `DASHBOARD_URL` | Optional | Origin the API accepts for CORS. Defaults to `http://localhost:3000`. Set this when you front the dashboard on a custom domain. |
+| `POSTGRES_*` | Optional | Override the bundled Postgres / pgvector connection. |
+
+<Tip>
+  Generate a `JWT_SECRET` with `openssl rand -base64 48` or `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+</Tip>
+
+---
+
+## Start the stack
+
+Pick the path that fits your workflow.
+
+### Browser-first (setup wizard)
+
+```bash
+cd server
+make up
+```
+
+This starts the containers and runs database migrations. The REST API listens on `http://localhost:8888` and the dashboard on `http://localhost:3000`.
+
+Open `http://localhost:3000` — since no admin account exists yet, the dashboard redirects to the one-time setup wizard at `/setup`. See [Run the setup wizard](#run-the-setup-wizard) below.
+
+### Agent-first (command line)
+
+First, set `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY`) in `server/.env`. `make bootstrap` does not prompt for it, and the runtime test will fail without a valid provider key.
+
+```bash
+cd server
+make bootstrap
+```
+
+`make bootstrap` starts the same containers, then automatically creates the admin account and generates the first API key via the CLI. The admin credentials and API key are printed to your terminal — no browser required.
+
+You can override the generated credentials:
+
+```bash
+make bootstrap EMAIL=admin@company.com PASSWORD='strong-password' NAME='Admin'
+```
+
+Because `make bootstrap` already creates the admin, the setup wizard is skipped. Opening `http://localhost:3000` takes you straight to the login page.
+
+<Tip>
+  For machine-readable output (useful in CI), run `OUTPUT=json make seed` after `make up`.
+</Tip>
+
+---
+
+## Run the setup wizard
+
+<Info>
+  This section applies to the **browser-first** path (`make up`). If you used `make bootstrap`, the admin and API key were already created — skip ahead to [What the dashboard gives you](#what-the-dashboard-gives-you).
+</Info>
+
+On a fresh install the dashboard redirects to `/setup`. Each step submits on Enter.
+
+**1. Create the admin account.** Name, email, password. This account becomes the first admin. Registration closes after the first admin is created; additional accounts are provisioned by the existing admin.
+
+**2. Review the effective config.** Read-only display of the LLM and embedder the server is running with, sourced from your environment. If anything is wrong here, stop the stack, fix the `.env`, and restart — the dashboard intentionally does not let you change provider secrets at runtime.
+
+**3. Generate your first API key.** The full `m0sk_...` value is shown **once**. Copy it immediately — the server only stores the prefix and a bcrypt hash.
+
+**4. Tell us your use case.** Pick a preset or describe your use case in a few words. Mem0 generates custom instructions that tell the memory system what to prioritize. You can edit the instructions before saving, or skip this step entirely.
+
+**5. Test the key.** A ready-to-paste `curl` exercises `POST /memories` against your new key. Click "Run Test" to fire it from the browser. Success lands you in the dashboard at `/dashboard/requests`, where you'll see the test call in the live audit log.
+
+---
+
+## What the dashboard gives you
+
+| Page | What it does |
+|---|---|
+| **Requests** | Default landing page. Live audit log of every API call, with status, latency, and auth mode. |
+| **Memories** | Browse and search the memories your server has stored. |
+| **Entities** | Distinct `user_id` / `agent_id` / `run_id` values with memory counts and cascade-delete. |
+| **API Keys** | Issue per-user keys, label them, and revoke. |
+| **Configuration** | Runtime override for LLM and embedder. Changes persist to the app database and reapply on restart, layered over the values from your `.env`. |
+| **Settings** | Account and session controls. |
+
+For the underlying endpoints (including `/auth/*`, `/api-keys`, `/requests`, `/entities`), see the [REST API reference](/open-source/features/rest-api).
+
+---
+
+## Supported providers
+
+The shipped container bundles the Python packages for:
+
+- **LLMs** — `openai`, `anthropic`, `gemini`
+- **Embedders** — `openai`, `gemini`
+
+The Configuration page and `POST /configure` only accept providers from these lists. Anything else returns a 400 up front instead of failing at the first memory write.
+
+**To add another provider**, for example to run embeddings locally with `sentence-transformers`:
+
+1. Add the package to `server/requirements.txt` (e.g. `sentence-transformers>=2.0`).
+2. Extend `BUNDLED_LLM_PROVIDERS` or `BUNDLED_EMBEDDER_PROVIDERS` in `server/main.py`.
+3. Rebuild the image (`make up` or `docker compose build`).
+
+Heavy providers (`sentence-transformers` pulls in PyTorch, ~2 GB) are intentionally kept out of the default image.
+
+---
+
+## Upgrade notes
+
+### Upgrading from a pre-auth build
+
+Previous self-hosted builds allowed open access when `ADMIN_API_KEY` was unset. This build enables auth by default. After pulling the new image, pick **one**:
+
+1. **Fastest, zero client changes** — set `ADMIN_API_KEY` to a long random value (16+ characters). Existing clients that send `X-API-Key: <your-key>` keep working unchanged.
+2. **Recommended for teams** — visit `http://<host>:3000`, run the setup wizard, and switch clients to per-user API keys. You get the audit log and revocation for free.
+3. **Local development only** — set `AUTH_DISABLED=true`. The server logs a warning on every boot. Never use this in production.
+
+The server prints an unmissable startup banner when it detects the "upgraded but not configured" state so you know exactly which option to pick.
+
+### Other changes in this release
+
+- Dashboard ships as a second container in the reference Compose stack, wired to the API over the internal Docker network.
+- New tables: `users`, `api_keys`, `request_logs`. Alembic handles the migration automatically on first boot.
+
+If `alembic upgrade head` fails on first boot, see the [Troubleshooting](#troubleshooting) section below.
+
+---
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Port 3000 or 8888 is already in use">
+    Find the owning process on either port:
+    ```bash
+    lsof -iTCP:3000 -sTCP:LISTEN
+    lsof -iTCP:8888 -sTCP:LISTEN
+    ```
+    Kill it (`kill <PID>`) or change the host port in `server/docker-compose.yaml`.
+  </Accordion>
+
+  <Accordion title="JWT_SECRET is required">
+    The server refuses to start without one. Generate a secret and add it to `server/.env`:
+    ```bash
+    echo "JWT_SECRET=$(openssl rand -base64 48)" >> server/.env
+    ```
+    `AUTH_DISABLED=true` is valid for local dev only, never production.
+  </Accordion>
+
+  <Accordion title=".env changes aren't applied after editing">
+    `docker compose restart` does not re-read `env_file`. To pick up changes:
+    ```bash
+    cd server && docker compose up -d --force-recreate mem0
+    # or
+    cd server && make up
+    ```
+  </Accordion>
+
+  <Accordion title="Provider returns 401 (bad API key)">
+    Provider credential errors surface as `502 Upstream provider error.`. Check `docker compose logs mem0` for the full trace, then fix the key on the Configuration page and hit **Save**.
+  </Accordion>
+
+  <Accordion title="Alembic migrations fail on startup">
+    Inspect the logs:
+    ```bash
+    docker compose logs mem0 | grep -i alembic
+    ```
+    If the database is unrecoverable, reset the volume (**this destroys all memories and users**):
+    ```bash
+    docker compose down -v
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="REST API reference" icon="code" href="/open-source/features/rest-api">
+    Endpoint tables, auth modes, and example requests.
+  </Card>
+  <Card title="Configure components" icon="sliders" href="/open-source/configuration">
+    Swap LLMs, embedders, vector stores, and rerankers.
+  </Card>
+</CardGroup>

@@ -29,7 +29,7 @@ openclaw --version
    openclaw plugins install @mem0/openclaw-mem0
    ```
 
-2. **Get your API key** from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys).
+2. **Get your API key** from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=openclaw-readme).
 
 3. **Select the plugin as your memory backend in `openclaw.json`.** Either initialize via the CLI:
 
