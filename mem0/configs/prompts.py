@@ -957,6 +957,32 @@ The attributed_to field should still reflect the original source: "user" for fac
 """
 
 
+ADDITIVE_EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "memory": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "text": {"type": "string"},
+                    "attributed_to": {"type": "string"},
+                    "linked_memory_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                    },
+                },
+                "required": ["id", "text", "attributed_to"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["memory"],
+    "additionalProperties": False,
+}
+
+
 # ---------------------------------------------------------------------------
 # V3 Prompt Builder — constructs the user-side prompt for additive extraction
 # Ported from platform/backend/shared/core/utils/prompt_builder.py
