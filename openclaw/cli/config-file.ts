@@ -141,10 +141,12 @@ export function ensureInstallRecord(): void {
     const entry = full?.plugins?.entries?.[PLUGIN_ID];
     const record = full?.plugins?.installs?.[PLUGIN_ID];
     const allow = full?.plugins?.allow;
+    const specPinned = record?.spec && /\d+\.\d+\.\d+/.test(record.spec);
     if (
       entry?.enabled === true &&
       record?.source &&
       record?.spec &&
+      !specPinned &&
       Array.isArray(allow) &&
       allow.includes(PLUGIN_ID)
     ) {
@@ -171,8 +173,10 @@ export function ensureInstallRecord(): void {
         record.source = "npm";
         changed = true;
       }
-      if (!record.spec) {
-        record.spec = `${NPM_PACKAGE}@latest`;
+      if (!record.spec || /\d+\.\d+\.\d+/.test(record.spec)) {
+        record.spec = record.source === "clawhub"
+          ? `clawhub:${NPM_PACKAGE}`
+          : `${NPM_PACKAGE}@latest`;
         changed = true;
       }
       if (!record.resolvedName) {

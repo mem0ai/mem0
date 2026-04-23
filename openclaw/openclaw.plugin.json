@@ -2,7 +2,7 @@
   "id": "openclaw-mem0",
   "name": "Memory (Mem0)",
   "description": "Mem0 memory backend for OpenClaw — platform (mem0.ai cloud) or self-hosted open-source. Auto-recall and auto-capture are opt-in (disabled by default). Supports OpenAI, Anthropic, Ollama (fully local), Qdrant, and PGVector providers.",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "kind": "memory",
   "skills": ["skills"],
   "commandAliases": [

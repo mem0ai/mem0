@@ -4,6 +4,14 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-04-23" description="v1.0.10">
+
+**Fixes:**
+- Fixed version-pinned install records preventing plugin updates. `ensureInstallRecord()` now detects semver-pinned specs (e.g. `@mem0/openclaw-mem0@1.0.7`) and rewrites them to `@latest` or `clawhub:` prefix so `openclaw plugins update` resolves to the newest release
+- Fixed documentation: `openclaw plugins update` uses plugin ID (`openclaw-mem0`), not npm package name (`@mem0/openclaw-mem0`)
+
+</Update>
+
 <Update label="2026-04-22" description="v1.0.9">
 
 **Security & Compliance:**
