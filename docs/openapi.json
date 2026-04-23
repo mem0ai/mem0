@@ -1138,41 +1138,102 @@
 				},
 				"responses": {
 					"200": {
-						"description": "Successful memory creation.",
+						"description": "Successful memory creation. Response format depends on the `version` field in the request body.",
 						"content": {
 							"application/json": {
 								"schema": {
 									"type": "array",
+									"description": "Response format depends on the `version` field in the request body.",
 									"items": {
-										"type": "object",
-										"properties": {
-											"id": {
-												"type": "string"
-											},
-											"data": {
+										"oneOf": [
+											{
+												"title": "v1",
+												"description": "Returned when `version` is `\"v1\"` or omitted.",
 												"type": "object",
 												"properties": {
-													"memory": {
+													"id": {
 														"type": "string"
+													},
+													"data": {
+														"type": "object",
+														"properties": {
+															"memory": {
+																"type": "string"
+															}
+														},
+														"required": [
+															"memory"
+														]
+													},
+													"event": {
+														"type": "string",
+														"enum": [
+															"ADD",
+															"UPDATE",
+															"DELETE"
+														]
 													}
 												},
 												"required": [
-													"memory"
+													"id",
+													"data",
+													"event"
 												]
 											},
-											"event": {
-												"type": "string",
-												"enum": [
-													"ADD",
-													"UPDATE",
-													"DELETE"
+											{
+												"title": "v2",
+												"description": "Returned when `version` is `\"v2\"`. Memory processing is queued for background execution.",
+												"type": "object",
+												"properties": {
+													"message": {
+														"type": "string"
+													},
+													"status": {
+														"type": "string",
+														"enum": [
+															"PENDING",
+															"RUNNING",
+															"FAILED",
+															"SUCCEEDED"
+														],
+														"description": "The current status of the event."
+													},
+													"event_id": {
+														"type": "string",
+														"format": "uuid",
+														"description": "The unique identifier of the event."
+													}
+												},
+												"required": [
+													"message",
+													"status",
+													"event_id"
 												]
 											}
-										},
-										"required": [
-											"id",
-											"data",
-											"event"
+										]
+									}
+								},
+								"examples": {
+									"v1": {
+										"summary": "v1 response",
+										"value": [
+											{
+												"id": "<string>",
+												"data": {
+													"memory": "<string>"
+												},
+												"event": "ADD"
+											}
+										]
+									},
+									"v2": {
+										"summary": "v2 response",
+										"value": [
+											{
+												"message": "<string>",
+												"status": "PENDING",
+												"event_id": "<string>"
+											}
 										]
 									}
 								}
