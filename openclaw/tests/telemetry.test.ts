@@ -5,7 +5,7 @@ vi.mock("../cli/config-file.ts", () => ({
   readPluginAuth: vi.fn().mockReturnValue({}),
 }));
 
-import { captureEvent, PLUGIN_VERSION } from "../telemetry.ts";
+import { captureEvent } from "../telemetry.ts";
 import { readPluginAuth } from "../cli/config-file.ts";
 
 describe("telemetry", () => {
@@ -21,10 +21,6 @@ describe("telemetry", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     delete (globalThis as any).__mem0_telemetry_override;
-  });
-
-  it("exports PLUGIN_VERSION", () => {
-    expect(PLUGIN_VERSION).toBe("1.0.10");
   });
 
   it("captureEvent does not throw", () => {

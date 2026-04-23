@@ -11,7 +11,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readPluginAuth, writePluginAuth, getBaseUrl, clearAnonymousTelemetryId } from "./cli/config-file.ts";
 
-export const PLUGIN_VERSION = "1.0.10";
+declare const __OPENCLAW_PLUGIN_VERSION__: string;
+export const PLUGIN_VERSION: string = __OPENCLAW_PLUGIN_VERSION__;
 
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
