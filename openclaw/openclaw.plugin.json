@@ -103,8 +103,8 @@
     },
     "searchThreshold": {
       "label": "Search Threshold",
-      "placeholder": "0.5",
-      "help": "Minimum similarity score for search results (0-1). Default: 0.5"
+      "placeholder": "0.3",
+      "help": "Minimum similarity score for search results (0-1). Default: 0.3"
     },
     "topK": {
       "label": "Top K Results",
@@ -295,34 +295,18 @@
     },
     "required": []
   },
-  "setup": {
-    "providers": [
-      {
-        "id": "mem0",
-        "authMethods": ["api-key"],
-        "envVars": ["MEM0_API_KEY"],
-        "description": "Platform mode: hosted memory at mem0.ai"
-      },
-      {
-        "id": "openclaw-mem0-oss",
-        "authMethods": ["api-key", "config"],
-        "envVars": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
-        "description": "Open-source mode: self-hosted with chosen LLM/embedder providers. No env vars needed when using Ollama (local)."
-      }
-    ],
-    "requiresRuntime": false,
-    "postInstallHint": "Run 'openclaw mem0 init' to configure mode and credentials",
-    "externalEndpoints": [
-      {
-        "url": "https://api.mem0.ai",
-        "purpose": "Platform mode API — memory storage and retrieval",
-        "required": "platform mode only"
-      },
-      {
-        "url": "https://app.mem0.ai",
-        "purpose": "Account dashboard and API key management",
-        "required": "platform mode only"
-      }
-    ]
-  }
+  "providerEndpoints": [
+    {
+      "endpointClass": "api",
+      "hosts": ["api.mem0.ai"]
+    },
+    {
+      "endpointClass": "dashboard",
+      "hosts": ["app.mem0.ai"]
+    },
+    {
+      "endpointClass": "telemetry",
+      "hosts": ["us.i.posthog.com"]
+    }
+  ]
 }
