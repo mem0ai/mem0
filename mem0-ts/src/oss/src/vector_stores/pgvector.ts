@@ -251,9 +251,6 @@ export class PGVector implements VectorStore {
     return result.rows.map((row) => ({
       id: row.id,
       payload: row.payload,
-      // The hybrid search pipeline expects semantic scores where higher is
-      // better. pgvector's `<=>` returns cosine distance, where lower is better.
-      // Convert it back into a bounded similarity score before returning it.
       score: Math.max(0, Math.min(1, 1 - Number(row.distance))),
     }));
   }
