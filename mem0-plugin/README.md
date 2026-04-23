@@ -86,25 +86,17 @@ Add to `~/.agents/plugins/marketplace.json`:
 }
 ```
 
-**Option C — Manual MCP configuration**:
+**Option C — Direct MCP configuration** (fastest, MCP-only):
 
-Add to your Codex MCP config:
+Codex reads MCP servers from `~/.codex/config.toml` as TOML. Add:
 
-```json
-{
-  "mcpServers": {
-    "mem0": {
-      "type": "http",
-      "url": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token ${MEM0_API_KEY}"
-      }
-    }
-  }
-}
+```toml
+[mcp_servers.mem0]
+url = "https://mcp.mem0.ai/mcp"
+bearer_token_env_var = "MEM0_API_KEY"
 ```
 
-This installs the MCP server and the Mem0 SDK skill. Codex uses the skill-based memory protocol instead of lifecycle hooks.
+Export `MEM0_API_KEY` in your shell and restart Codex. This gives you the MCP tools without the plugin skills or lifecycle hooks. `codex mcp add` only supports stdio servers, so HTTP servers like Mem0's must be added via `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
 
 ### Cursor
 
