@@ -1,23 +1,13 @@
 import unittest
-from unittest.mock import Mock, patch
 import uuid
-import sys
-
-# Add the mem0 directory to the path so we can import from it
-sys.path.insert(0, '/home/raijinnn0101/Development/mem0')
-
-from mem0.memory.main import Memory
 
 
 class TestV3Fix(unittest.TestCase):
-    
+
     def test_extract_event_and_previous_memory_id(self):
         """Test that the updated logic correctly extracts event and previous_memory_id from LLM response."""
         # This test verifies the logic we added to handle UPDATE/DELETE events
         # We'll test the core logic directly by mocking the necessary components
-        
-        # Create a simple mock for the memory instance
-        memory = Mock(spec=Memory)
         
         # Test data simulating what comes from the LLM
         extracted_memories = [

@@ -812,7 +812,8 @@ class Memory(MemoryBase):
                 previous_memory_id = None
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
-            
+            text_lemmatized = lemmatize_for_bm25(text)
+
             # Handle different event types
             if event == "ADD":
                 # For ADD operations, check for duplicates and generate new ID
@@ -820,15 +821,14 @@ class Memory(MemoryBase):
                     logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
                     continue
                 seen_hashes.add(mem_hash)
-                
+
                 # Generate new memory ID for ADD
                 memory_id = str(uuid.uuid4())
-                text_for_embedding = text
                 metadata_for_storage = deepcopy(metadata)
                 metadata_for_storage["data"] = text
                 metadata_for_storage["text_lemmatized"] = text_lemmatized
                 metadata_for_storage["hash"] = mem_hash
-                if "created_at" not in mem_metadata:
+                if "created_at" not in metadata_for_storage:
                     metadata_for_storage["created_at"] = datetime.now(timezone.utc).isoformat()
                 metadata_for_storage["updated_at"] = metadata_for_storage["created_at"]
                 if mem.get("attributed_to"):
@@ -843,10 +843,10 @@ class Memory(MemoryBase):
             elif event == "UPDATE":
                 # For UPDATE: use existing memory ID, update the content
                 if not previous_memory_id:
-                    logger.warning(f"Missing previous_memory_id for UPDATE operation. Skipping.")
+                    logger.warning("Missing previous_memory_id for UPDATE operation. Skipping.")
                     continue
                 memory_id = previous_memory_id
-                
+
                 # Get existing memory for embedding (we'll reuse the existing embedding for now)
                 # In a full implementation, we'd re-embed the updated text
                 existing_mem = None
@@ -854,11 +854,11 @@ class Memory(MemoryBase):
                     if mem.id == previous_memory_id:
                         existing_mem = mem
                         break
-                
+
                 if existing_mem is None:
-                    logger.warning(f"Could not find existing memory with ID {previous_memory_id} for UPDATE. Skipping.")
+                    logger.warning("Could not find existing memory with ID %s for UPDATE. Skipping.", previous_memory_id)
                     continue
-                    
+
                 # Use existing embedding (simplified approach)
                 embedding = existing_mem.payload.get("embedding") if hasattr(existing_mem, 'payload') and existing_mem.payload else None
                 if embedding is None:
@@ -866,7 +866,7 @@ class Memory(MemoryBase):
                     embedding = embed_map.get(text)
                     if embedding is None:
                         embedding = self.embedding_model.embed(text, "add")
-                
+
                 # Prepare metadata for update
                 metadata_for_storage = deepcopy(metadata)
                 metadata_for_storage["data"] = text
@@ -877,182 +877,165 @@ class Memory(MemoryBase):
                 metadata_for_storage["updated_at"] = metadata_for_storage["created_at"]
                 if mem.get("attributed_to"):
                     metadata_for_storage["attributed_to"] = mem["attributed_to"]
-                
+
                 # Call the update method
                 self._update_memory(memory_id, text, embedding, metadata_for_storage)
-                
+
                 # Append to records: (memory_id, text, embedding, metadata, event, previous_memory_id)
                 records.append((memory_id, text, embedding, metadata_for_storage, event, previous_memory_id))
-                
+
             elif event == "DELETE":
                 # For DELETE: use existing memory ID and delete it
                 if not previous_memory_id:
-                    logger.warning(f"Missing previous_memory_id for DELETE operation. Skipping.")
+                    logger.warning("Missing previous_memory_id for DELETE operation. Skipping.")
                     continue
                 memory_id = previous_memory_id
-                
+
                 # Call the delete method
                 self._delete_memory(memory_id)
-                
+
                 # Append to records: (memory_id, None, None, {}, event, previous_memory_id)
                 # Note: We use None for text/embedding and empty dict for metadata as per requirements
                 records.append((memory_id, None, None, {}, event, previous_memory_id))
-                
+
             else:
                 # Unknown event type, skip
-                logger.warning(f"Unknown event type '{event}'. Skipping.")
+                logger.warning("Unknown event type '%s'. Skipping.", event)
                 continue
-            
-            text_lemmatized = lemmatize_for_bm25(text)
-
-            mem_metadata = deepcopy(metadata)
-            mem_metadata["data"] = text
-            mem_metadata["text_lemmatized"] = text_lemmatized
-            mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
-                mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-            mem_metadata["updated_at"] = mem_metadata["created_at"]
-            if mem.get("attributed_to"):
-                mem_metadata["attributed_to"] = mem["attributed_to"]
-
-            records.append((memory_id, text, embed_map[text], mem_metadata, event, previous_memory_id))
 
         if not records:
             self.db.save_messages(messages, session_scope)
             return []
 
-        # Phase 6: Batch persist
-        all_vectors = [r[2] for r in records]
-        all_ids = [r[0] for r in records]
-        all_payloads = [r[3] for r in records]
+        # Phase 6: Batch persist - only for ADD events (UPDATE/DELETE already handled in Phase 4)
+        add_records = [r for r in records if r[4] == "ADD"]
 
-        try:
-            self.vector_store.insert(
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-        except Exception:
-            # Fallback: insert one by one
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid}: {e}")
+        if add_records:
+            all_vectors = [r[2] for r in add_records]
+            all_ids = [r[0] for r in add_records]
+            all_payloads = [r[3] for r in add_records]
 
-        # Batch history
-        history_records = []
-        for r in records:
-            memory_id, text, _, metadata, event, previous_memory_id = r
-            history_records.append({
-                "memory_id": memory_id,
-                "old_memory": None if event == "ADD" else self.get(previous_memory_id) if previous_memory_id else None,
-                "new_memory": text,
-                "event": event,
-                "created_at": metadata.get("created_at"),
-                "is_deleted": 1 if event == "DELETE" else 0,
-            })
-        try:
-            self.db.batch_add_history(history_records)
-        except Exception:
-            # Fallback: add one by one
-            for hr in history_records:
-                try:
-                    self.db.add_history(hr["memory_id"], hr.get("old_memory"), hr["new_memory"], hr["event"], created_at=hr.get("created_at"))
-                except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
+            try:
+                self.vector_store.insert(
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+            except Exception:
+                # Fallback: insert one by one
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error("Failed to insert memory %s: %s", mid, e)
 
-        # Phase 7: Batch entity linking
-        try:
-            all_texts = [r[1] for r in records]
-            all_entities = extract_entities_batch(all_texts)
+            # Batch history
+            history_records = []
+            for r in add_records:
+                memory_id, text, _, metadata, event, previous_memory_id = r
+                history_records.append({
+                    "memory_id": memory_id,
+                    "old_memory": None if event == "ADD" else self.get(previous_memory_id) if previous_memory_id else None,
+                    "new_memory": text,
+                    "event": event,
+                    "created_at": metadata.get("created_at"),
+                    "is_deleted": 1 if event == "DELETE" else 0,
+                })
+            try:
+                self.db.batch_add_history(history_records)
+            except Exception:
+                # Fallback: add one by one
+                for hr in history_records:
+                    try:
+                        self.db.add_history(hr["memory_id"], hr.get("old_memory"), hr["new_memory"], hr["event"], created_at=hr.get("created_at"))
+                    except Exception as e:
+                        logger.error("Failed to add history for %s: %s", hr["memory_id"], e)
 
-             # 7a: Global dedup — collect unique entities across all memories
-            global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
-            for idx, (memory_id, text, embedding, payload, *extra) in enumerate(records):
-                entities = all_entities[idx] if idx < len(all_entities) else []
-                for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
-                    if key in global_entities:
-                        global_entities[key][2].add(memory_id)
-                    else:
-                        global_entities[key] = [entity_type, entity_text, {memory_id}]
+# Phase 7: Batch entity linking - only for ADD events
+        if add_records:
+            try:
+                all_texts = [r[1] for r in add_records]
+                all_entities = extract_entities_batch(all_texts)
 
-            if global_entities:
-                ordered_keys = list(global_entities.keys())
-                entity_texts = [global_entities[k][1] for k in ordered_keys]
+                # 7a: Global dedup — collect unique entities across all memories
+                global_entities = {}
+                for idx, (memory_id, text, embedding, payload, *extra) in enumerate(add_records):
+                    entities = all_entities[idx] if idx < len(all_entities) else []
+                    for entity_type, entity_text in entities:
+                        key = entity_text.strip().lower()
+                        if key in global_entities:
+                            global_entities[key][2].add(memory_id)
+                        else:
+                            global_entities[key] = [entity_type, entity_text, {memory_id}]
 
-                # 7b: Single batch embed for all unique entities
-                try:
-                    entity_embeddings = self.embedding_model.embed_batch(entity_texts, "add")
-                except Exception:
-                    # Fallback: embed individually, use None for failures
-                    entity_embeddings = []
-                    for t in entity_texts:
-                        try:
-                            entity_embeddings.append(self.embedding_model.embed(t, "add"))
-                        except Exception:
-                            entity_embeddings.append(None)
+                if global_entities:
+                    ordered_keys = list(global_entities.keys())
+                    entity_texts = [global_entities[k][1] for k in ordered_keys]
 
-                # Filter out entities with failed embeddings
-                valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
-                if valid:
-                    valid_indices, valid_keys = zip(*valid)
-                    valid_vectors = [entity_embeddings[i] for i in valid_indices]
-
-                    # 7c: Batch search for existing entities
-                    valid_texts = [global_entities[k][1] for k in valid_keys]
-                    existing_matches = self.entity_store.search_batch(
-                        queries=valid_texts,
-                        vectors_list=valid_vectors,
-                        top_k=1,
-                        filters=search_filters,
-                    )
-
-                    # 7d: Separate into inserts vs updates
-                    to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
-                    for j, key in enumerate(valid_keys):
-                        entity_type, entity_text, memory_ids = global_entities[key]
-                        matches = existing_matches[j] if j < len(existing_matches) else []
-
-                        if matches and matches[0].score >= 0.95:
-                            # Update existing entity
-                            match = matches[0]
-                            payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
+                    # 7b: Single batch embed for all unique entities
+                    try:
+                        entity_embeddings = self.embedding_model.embed_batch(entity_texts, "add")
+                    except Exception:
+                        entity_embeddings = []
+                        for t in entity_texts:
                             try:
-                                self.entity_store.update(
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
+                                entity_embeddings.append(self.embedding_model.embed(t, "add"))
+                            except Exception:
+                                entity_embeddings.append(None)
+
+                    valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
+                    if valid:
+                        valid_indices, valid_keys = zip(*valid)
+                        valid_vectors = [entity_embeddings[i] for i in valid_indices]
+
+                        valid_texts = [global_entities[k][1] for k in valid_keys]
+                        existing_matches = self.entity_store.search_batch(
+                            queries=valid_texts,
+                            vectors_list=valid_vectors,
+                            top_k=1,
+                            filters=search_filters,
+                        )
+
+                        to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                        for j, key in enumerate(valid_keys):
+                            entity_type, entity_text, memory_ids = global_entities[key]
+                            matches = existing_matches[j] if j < len(existing_matches) else []
+
+                            if matches and matches[0].score >= 0.95:
+                                match = matches[0]
+                                payload = match.payload or {}
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                try:
+                                    self.entity_store.update(
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug("Entity update failed for '%s': %s", entity_text, e)
+                            else:
+                                to_insert_vectors.append(valid_vectors[j])
+                                to_insert_ids.append(str(uuid.uuid4()))
+                                to_insert_payloads.append({
+                                    "data": entity_text,
+                                    "entity_type": entity_type,
+                                    "linked_memory_ids": sorted(memory_ids),
+                                    **search_filters,
+                                })
+
+                        if to_insert_vectors:
+                            try:
+                                self.entity_store.insert(
+                                    vectors=to_insert_vectors,
+                                    ids=to_insert_ids,
+                                    payloads=to_insert_payloads,
                                 )
                             except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
-                        else:
-                            # New entity — collect for batch insert
-                            to_insert_vectors.append(valid_vectors[j])
-                            to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
-                                "data": entity_text,
-                                "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
-                            })
-
-                    # 7e: Single batch insert for all new entities
-                    if to_insert_vectors:
-                        try:
-                            self.entity_store.insert(
-                                vectors=to_insert_vectors,
-                                ids=to_insert_ids,
-                                payloads=to_insert_payloads,
-                            )
-                        except Exception as e:
-                            logger.warning(f"Batch entity insert failed: {e}")
-        except Exception as e:
-            logger.warning(f"Batch entity linking failed: {e}")
+                                logger.warning("Batch entity insert failed: %s", e)
+            except Exception as e:
+                logger.warning("Batch entity linking failed: %s", e)
 
         # Phase 8: Save messages + return
         self.db.save_messages(messages, session_scope)
@@ -2326,62 +2309,18 @@ class AsyncMemory(MemoryBase):
                 previous_memory_id = None
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
-            
+            text_lemmatized = lemmatize_for_bm25(text)
+
             # Handle different event types
             if event == "ADD":
                 # For ADD operations, check for duplicates and generate new ID
                 if mem_hash in existing_hashes or mem_hash in seen_hashes:
-                    logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
+                    logger.debug("Skipping duplicate memory (hash match, async): %s", text[:50])
                     continue
                 seen_hashes.add(mem_hash)
-                
+
                 # Generate new memory ID for ADD
                 memory_id = str(uuid.uuid4())
-                text_for_embedding = text
-                metadata_for_storage = deepcopy(metadata)
-                metadata_for_storage["data"] = text
-                metadata_for_storage["text_lemmatized"] = text_lemmatized
-                metadata_for_storage["hash"] = mem_hash
-                if "created_at" not in mem_metadata:
-                    metadata_for_storage["created_at"] = datetime.now(timezone.utc).isoformat()
-                metadata_for_storage["updated_at"] = metadata_for_storage["created_at"]
-                if mem.get("attributed_to"):
-                    metadata_for_storage["attributed_to"] = mem["attributed_to"]
-                
-                # Embed the text
-                embedding = embed_map[text]
-                
-                # Append to records: (memory_id, text, embedding, metadata, event, previous_memory_id)
-                records.append((memory_id, text, embedding, metadata_for_storage, event, None))
-                
-            elif event == "UPDATE":
-                # For UPDATE: use existing memory ID, update the content
-                if not previous_memory_id:
-                    logger.warning(f"Missing previous_memory_id for UPDATE operation. Skipping.")
-                    continue
-                memory_id = previous_memory_id
-                
-                # Get existing memory for embedding (we'll reuse the existing embedding for now)
-                # In a full implementation, we'd re-embed the updated text
-                existing_mem = None
-                for mem in existing_results:
-                    if mem.id == previous_memory_id:
-                        existing_mem = mem
-                        break
-                
-                if existing_mem is None:
-                    logger.warning(f"Could not find existing memory with ID {previous_memory_id} for UPDATE. Skipping.")
-                    continue
-                    
-                # Use existing embedding (simplified approach)
-                embedding = existing_mem.payload.get("embedding") if hasattr(existing_mem, 'payload') and existing_mem.payload else None
-                if embedding is None:
-                    # Fallback: embed the new text
-                    embedding = embed_map.get(text)
-                    if embedding is None:
-                        embedding = await asyncio.to_thread(self.embedding_model.embed, text, "add")
-                
-                # Prepare metadata for update
                 metadata_for_storage = deepcopy(metadata)
                 metadata_for_storage["data"] = text
                 metadata_for_storage["text_lemmatized"] = text_lemmatized
@@ -2392,168 +2331,213 @@ class AsyncMemory(MemoryBase):
                 if mem.get("attributed_to"):
                     metadata_for_storage["attributed_to"] = mem["attributed_to"]
                 
-                # Call the update method
-                await asyncio.to_thread(self._update_memory, memory_id, text, embedding, metadata_for_storage)
+                # Embed the text
+                embedding = embed_map[text]
                 
                 # Append to records: (memory_id, text, embedding, metadata, event, previous_memory_id)
+                records.append((memory_id, text, embedding, metadata_for_storage, event, None))
+
+            elif event == "UPDATE":
+                # For UPDATE: use existing memory ID, update the content
+                if not previous_memory_id:
+                    logger.warning("Missing previous_memory_id for UPDATE operation. Skipping.")
+                    continue
+                memory_id = previous_memory_id
+
+                # Get existing memory for embedding (we'll reuse the existing embedding for now)
+                # In a full implementation, we'd re-embed the updated text
+                existing_mem = None
+                for mem in existing_results:
+                    if mem.id == previous_memory_id:
+                        existing_mem = mem
+                        break
+
+                if existing_mem is None:
+                    logger.warning("Could not find existing memory with ID %s for UPDATE. Skipping.", previous_memory_id)
+                    continue
+
+                # Use existing embedding (simplified approach)
+                embedding = existing_mem.payload.get("embedding") if hasattr(existing_mem, 'payload') and existing_mem.payload else None
+                if embedding is None:
+                    # Fallback: embed the new text
+                    embedding = embed_map.get(text)
+                    if embedding is None:
+                        embedding = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+
+                # Prepare metadata for update
+                metadata_for_storage = deepcopy(metadata)
+                metadata_for_storage["data"] = text
+                metadata_for_storage["text_lemmatized"] = text_lemmatized
+                metadata_for_storage["hash"] = mem_hash
+                if "created_at" not in metadata_for_storage:
+                    metadata_for_storage["created_at"] = datetime.now(timezone.utc).isoformat()
+                metadata_for_storage["updated_at"] = metadata_for_storage["created_at"]
+                if mem.get("attributed_to"):
+                    metadata_for_storage["attributed_to"] = mem["attributed_to"]
+
+                # Call the update method
+                await asyncio.to_thread(self._update_memory, memory_id, text, embedding, metadata_for_storage)
+
+                # Append to records: (memory_id, text, embedding, metadata, event, previous_memory_id)
                 records.append((memory_id, text, embedding, metadata_for_storage, event, previous_memory_id))
-                
+
             elif event == "DELETE":
                 # For DELETE: use existing memory ID and delete it
                 if not previous_memory_id:
-                    logger.warning(f"Missing previous_memory_id for DELETE operation. Skipping.")
+                    logger.warning("Missing previous_memory_id for DELETE operation. Skipping.")
                     continue
                 memory_id = previous_memory_id
-                
+
                 # Call the delete method
                 await asyncio.to_thread(self._delete_memory, memory_id)
-                
+
                 # Append to records: (memory_id, None, None, {}, event, previous_memory_id)
                 # Note: We use None for text/embedding and empty dict for metadata as per requirements
                 records.append((memory_id, None, None, {}, event, previous_memory_id))
-                
+
             else:
                 # Unknown event type, skip
-                logger.warning(f"Unknown event type '{event}'. Skipping.")
+                logger.warning("Unknown event type '%s'. Skipping.", event)
                 continue
 
         if not records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
 
-        # Phase 6: Batch persist
-        all_vectors = [r[2] for r in records]
-        all_ids = [r[0] for r in records]
-        all_payloads = [r[3] for r in records]
+        # Phase 6: Batch persist - only for ADD events (UPDATE/DELETE already handled in Phase 4)
+        add_records = [r for r in records if r[4] == "ADD"]
 
-        try:
-            await asyncio.to_thread(
-                self.vector_store.insert,
-                vectors=all_vectors,
-                ids=all_ids,
-                payloads=all_payloads,
-            )
-        except Exception:
-            for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
-                try:
-                    await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
-                except Exception as e:
-                    logger.error(f"Failed to insert memory {mid} (async): {e}")
+        if add_records:
+            all_vectors = [r[2] for r in add_records]
+            all_ids = [r[0] for r in add_records]
+            all_payloads = [r[3] for r in add_records]
 
-        # Batch history
-        history_records = []
-        for r in records:
-            memory_id, text, _, metadata, event, previous_memory_id = r
-            history_records.append({
-                "memory_id": memory_id,
-                "old_memory": None if event == "ADD" else self.get(previous_memory_id) if previous_memory_id else None,
-                "new_memory": text,
-                "event": event,
-                "created_at": metadata.get("created_at"),
-                "is_deleted": 1 if event == "DELETE" else 0,
-            })
-        try:
-            await asyncio.to_thread(self.db.batch_add_history, history_records)
-        except Exception:
-            for hr in history_records:
-                try:
-                    await asyncio.to_thread(
-                        self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
-                        created_at=hr.get("created_at")
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']} (async): {e}")
+            try:
+                await asyncio.to_thread(
+                    self.vector_store.insert,
+                    vectors=all_vectors,
+                    ids=all_ids,
+                    payloads=all_payloads,
+                )
+            except Exception:
+                for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
+                    try:
+                        await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    except Exception as e:
+                        logger.error("Failed to insert memory %s (async): %s", mid, e)
 
-        # Phase 7: Batch entity linking
-        try:
-            all_texts = [r[1] for r in records]
-            all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
+            # Batch history
+            history_records = []
+            for r in add_records:
+                memory_id, text, _, metadata, event, previous_memory_id = r
+                history_records.append({
+                    "memory_id": memory_id,
+                    "old_memory": None if event == "ADD" else self.get(previous_memory_id) if previous_memory_id else None,
+                    "new_memory": text,
+                    "event": event,
+                    "created_at": metadata.get("created_at"),
+                    "is_deleted": 1 if event == "DELETE" else 0,
+                })
+            try:
+                await asyncio.to_thread(self.db.batch_add_history, history_records)
+            except Exception:
+                for hr in history_records:
+                    try:
+                        await asyncio.to_thread(
+                            self.db.add_history, hr["memory_id"], None, hr["new_memory"], "ADD",
+                            created_at=hr.get("created_at")
+                        )
+                    except Exception as e:
+                        logger.error("Failed to add history for %s (async): %s", hr["memory_id"], e)
 
-             # 7a: Global dedup
-            global_entities = {}
-            for idx, (memory_id, text, embedding, payload, *extra) in enumerate(records):
-                entities = all_entities[idx] if idx < len(all_entities) else []
-                for entity_type, entity_text in entities:
-                    key = entity_text.strip().lower()
-                    if key in global_entities:
-                        global_entities[key][2].add(memory_id)
-                    else:
-                        global_entities[key] = [entity_type, entity_text, {memory_id}]
+        # Phase 7: Batch entity linking - only for ADD events
+        if add_records:
+            try:
+                all_texts = [r[1] for r in add_records]
+                all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
 
-            if global_entities:
-                ordered_keys = list(global_entities.keys())
-                entity_texts = [global_entities[k][1] for k in ordered_keys]
+                # 7a: Global dedup
+                global_entities = {}
+                for idx, (memory_id, text, embedding, payload, *extra) in enumerate(add_records):
+                    entities = all_entities[idx] if idx < len(all_entities) else []
+                    for entity_type, entity_text in entities:
+                        key = entity_text.strip().lower()
+                        if key in global_entities:
+                            global_entities[key][2].add(memory_id)
+                        else:
+                            global_entities[key] = [entity_type, entity_text, {memory_id}]
 
-                # 7b: Batch embed entities
-                try:
-                    entity_embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "add")
-                except Exception:
-                    entity_embeddings = []
-                    for t in entity_texts:
-                        try:
-                            entity_embeddings.append(await asyncio.to_thread(self.embedding_model.embed, t, "add"))
-                        except Exception:
-                            entity_embeddings.append(None)
+                if global_entities:
+                    ordered_keys = list(global_entities.keys())
+                    entity_texts = [global_entities[k][1] for k in ordered_keys]
 
-                valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
-                if valid:
-                    valid_indices, valid_keys = zip(*valid)
-                    valid_vectors = [entity_embeddings[i] for i in valid_indices]
+                    # 7b: Batch embed entities
+                    try:
+                        entity_embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "add")
+                    except Exception:
+                        entity_embeddings = []
+                        for t in entity_texts:
+                            try:
+                                entity_embeddings.append(await asyncio.to_thread(self.embedding_model.embed, t, "add"))
+                            except Exception:
+                                entity_embeddings.append(None)
 
-                    # 7c: Batch search for existing entities
-                    valid_texts = [global_entities[k][1] for k in valid_keys]
-                    existing_matches = await asyncio.to_thread(
-                        self.entity_store.search_batch,
-                        queries=valid_texts,
-                        vectors_list=valid_vectors,
-                        top_k=1,
-                        filters=search_filters,
-                    )
+                    valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
+                    if valid:
+                        valid_indices, valid_keys = zip(*valid)
+                        valid_vectors = [entity_embeddings[i] for i in valid_indices]
 
-                    # 7d: Separate into inserts vs updates
-                    to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
-                    for j, key in enumerate(valid_keys):
-                        entity_type, entity_text, memory_ids = global_entities[key]
-                        matches = existing_matches[j] if j < len(existing_matches) else []
+                        valid_texts = [global_entities[k][1] for k in valid_keys]
+                        existing_matches = await asyncio.to_thread(
+                            self.entity_store.search_batch,
+                            queries=valid_texts,
+                            vectors_list=valid_vectors,
+                            top_k=1,
+                            filters=search_filters,
+                        )
 
-                        if matches and matches[0].score >= 0.95:
-                            match = matches[0]
-                            payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
+                        to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                        for j, key in enumerate(valid_keys):
+                            entity_type, entity_text, memory_ids = global_entities[key]
+                            matches = existing_matches[j] if j < len(existing_matches) else []
+
+                            if matches and matches[0].score >= 0.95:
+                                match = matches[0]
+                                payload = match.payload or {}
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                try:
+                                    await asyncio.to_thread(
+                                        self.entity_store.update,
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug("Entity update failed for '%s' (async): %s", entity_text, e)
+                            else:
+                                to_insert_vectors.append(valid_vectors[j])
+                                to_insert_ids.append(str(uuid.uuid4()))
+                                to_insert_payloads.append({
+                                    "data": entity_text,
+                                    "entity_type": entity_type,
+                                    "linked_memory_ids": sorted(memory_ids),
+                                    **search_filters,
+                                })
+
+                        if to_insert_vectors:
                             try:
                                 await asyncio.to_thread(
-                                    self.entity_store.update,
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
+                                    self.entity_store.insert,
+                                    vectors=to_insert_vectors,
+                                    ids=to_insert_ids,
+                                    payloads=to_insert_payloads,
                                 )
                             except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
-                        else:
-                            to_insert_vectors.append(valid_vectors[j])
-                            to_insert_ids.append(str(uuid.uuid4()))
-                            to_insert_payloads.append({
-                                "data": entity_text,
-                                "entity_type": entity_type,
-                                "linked_memory_ids": sorted(memory_ids),
-                                **search_filters,
-                            })
-
-                    # 7e: Batch insert new entities
-                    if to_insert_vectors:
-                        try:
-                            await asyncio.to_thread(
-                                self.entity_store.insert,
-                                vectors=to_insert_vectors,
-                                ids=to_insert_ids,
-                                payloads=to_insert_payloads,
-                            )
-                        except Exception as e:
-                            logger.warning(f"Batch entity insert failed (async): {e}")
-        except Exception as e:
-            logger.warning(f"Batch entity linking failed (async): {e}")
+                                logger.warning("Batch entity insert failed (async): %s", e)
+            except Exception as e:
+                logger.warning("Batch entity linking failed (async): %s", e)
 
         # Phase 8: Save messages + return
         await asyncio.to_thread(self.db.save_messages, messages, session_scope)
