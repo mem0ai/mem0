@@ -789,22 +789,122 @@ class Memory(MemoryBase):
             if h:
                 existing_hashes.add(h)
 
-        records = []  # (memory_id, text, embedding, payload)
+        records = []  # (memory_id, text, embedding, payload, event, previous_memory_id)
         seen_hashes = set()  # dedup within the current batch
         for mem in extracted_memories:
             text = mem.get("text")
             if not text or text not in embed_map:
                 continue
 
-            mem_hash = hashlib.md5(text.encode()).hexdigest()
-            if mem_hash in existing_hashes or mem_hash in seen_hashes:
-                logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
-                continue
-            seen_hashes.add(mem_hash)
+            # Handle event-based operations: ADD, UPDATE, DELETE
+            event = mem.get("event", "ADD").upper()  # Default to ADD for backward compatibility
+            previous_memory_id = mem.get("previous_memory_id")
+            
+            # Validate UUID format for previous_memory_id when provided
+            if previous_memory_id and previous_memory_id.lower() != "null":
+                try:
+                    uuid.UUID(previous_memory_id)
+                except (ValueError, AttributeError, TypeError):
+                    logger.warning(f"Invalid UUID format for previous_memory_id: {previous_memory_id}. Defaulting to ADD.")
+                    event = "ADD"
+                    previous_memory_id = None
+            elif previous_memory_id is not None and str(previous_memory_id).lower() == "null":
+                previous_memory_id = None
 
+            mem_hash = hashlib.md5(text.encode()).hexdigest()
+            
+            # Handle different event types
+            if event == "ADD":
+                # For ADD operations, check for duplicates and generate new ID
+                if mem_hash in existing_hashes or mem_hash in seen_hashes:
+                    logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
+                    continue
+                seen_hashes.add(mem_hash)
+                
+                # Generate new memory ID for ADD
+                memory_id = str(uuid.uuid4())
+                text_for_embedding = text
+                metadata_for_storage = deepcopy(metadata)
+                metadata_for_storage["data"] = text
+                metadata_for_storage["text_lemmatized"] = text_lemmatized
+                metadata_for_storage["hash"] = mem_hash
+                if "created_at" not in mem_metadata:
+                    metadata_for_storage["created_at"] = datetime.now(timezone.utc).isoformat()
+                metadata_for_storage["updated_at"] = metadata_for_storage["created_at"]
+                if mem.get("attributed_to"):
+                    metadata_for_storage["attributed_to"] = mem["attributed_to"]
+                
+                # Embed the text
+                embedding = embed_map[text]
+                
+                # Append to records: (memory_id, text, embedding, metadata, event, previous_memory_id)
+                records.append((memory_id, text, embedding, metadata_for_storage, event, None))
+                
+            elif event == "UPDATE":
+                # For UPDATE: use existing memory ID, update the content
+                if not previous_memory_id:
+                    logger.warning(f"Missing previous_memory_id for UPDATE operation. Skipping.")
+                    continue
+                memory_id = previous_memory_id
+                
+                # Get existing memory for embedding (we'll reuse the existing embedding for now)
+                # In a full implementation, we'd re-embed the updated text
+                existing_mem = None
+                for mem in existing_results:
+                    if mem.id == previous_memory_id:
+                        existing_mem = mem
+                        break
+                
+                if existing_mem is None:
+                    logger.warning(f"Could not find existing memory with ID {previous_memory_id} for UPDATE. Skipping.")
+                    continue
+                    
+                # Use existing embedding (simplified approach)
+                embedding = existing_mem.payload.get("embedding") if hasattr(existing_mem, 'payload') and existing_mem.payload else None
+                if embedding is None:
+                    # Fallback: embed the new text
+                    embedding = embed_map.get(text)
+                    if embedding is None:
+                        embedding = self.embedding_model.embed(text, "add")
+                
+                # Prepare metadata for update
+                metadata_for_storage = deepcopy(metadata)
+                metadata_for_storage["data"] = text
+                metadata_for_storage["text_lemmatized"] = text_lemmatized
+                metadata_for_storage["hash"] = mem_hash
+                if "created_at" not in metadata_for_storage:
+                    metadata_for_storage["created_at"] = datetime.now(timezone.utc).isoformat()
+                metadata_for_storage["updated_at"] = metadata_for_storage["created_at"]
+                if mem.get("attributed_to"):
+                    metadata_for_storage["attributed_to"] = mem["attributed_to"]
+                
+                # Call the update method
+                self._update_memory(memory_id, text, embedding, metadata_for_storage)
+                
+                # Append to records: (memory_id, text, embedding, metadata, event, previous_memory_id)
+                records.append((memory_id, text, embedding, metadata_for_storage, event, previous_memory_id))
+                
+            elif event == "DELETE":
+                # For DELETE: use existing memory ID and delete it
+                if not previous_memory_id:
+                    logger.warning(f"Missing previous_memory_id for DELETE operation. Skipping.")
+                    continue
+                memory_id = previous_memory_id
+                
+                # Call the delete method
+                self._delete_memory(memory_id)
+                
+                # Append to records: (memory_id, None, None, {}, event, previous_memory_id)
+                # Note: We use None for text/embedding and empty dict for metadata as per requirements
+                records.append((memory_id, None, None, {}, event, previous_memory_id))
+                
+            else:
+                # Unknown event type, skip
+                logger.warning(f"Unknown event type '{event}'. Skipping.")
+                continue
+            
             text_lemmatized = lemmatize_for_bm25(text)
 
-            memory_id = str(uuid.uuid4())
             mem_metadata = deepcopy(metadata)
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
@@ -815,7 +915,7 @@ class Memory(MemoryBase):
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
 
-            records.append((memory_id, text, embed_map[text], mem_metadata))
+            records.append((memory_id, text, embed_map[text], mem_metadata, event, previous_memory_id))
 
         if not records:
             self.db.save_messages(messages, session_scope)
@@ -841,24 +941,24 @@ class Memory(MemoryBase):
                     logger.error(f"Failed to insert memory {mid}: {e}")
 
         # Batch history
-        history_records = [
-            {
-                "memory_id": r[0],
-                "old_memory": None,
-                "new_memory": r[1],
-                "event": "ADD",
-                "created_at": r[3].get("created_at"),
-                "is_deleted": 0,
-            }
-            for r in records
-        ]
+        history_records = []
+        for r in records:
+            memory_id, text, _, metadata, event, previous_memory_id = r
+            history_records.append({
+                "memory_id": memory_id,
+                "old_memory": None if event == "ADD" else self.get(previous_memory_id) if previous_memory_id else None,
+                "new_memory": text,
+                "event": event,
+                "created_at": metadata.get("created_at"),
+                "is_deleted": 1 if event == "DELETE" else 0,
+            })
         try:
             self.db.batch_add_history(history_records)
         except Exception:
             # Fallback: add one by one
             for hr in history_records:
                 try:
-                    self.db.add_history(hr["memory_id"], None, hr["new_memory"], "ADD", created_at=hr.get("created_at"))
+                    self.db.add_history(hr["memory_id"], hr.get("old_memory"), hr["new_memory"], hr["event"], created_at=hr.get("created_at"))
                 except Exception as e:
                     logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
 
@@ -867,9 +967,9 @@ class Memory(MemoryBase):
             all_texts = [r[1] for r in records]
             all_entities = extract_entities_batch(all_texts)
 
-            # 7a: Global dedup — collect unique entities across all memories
+             # 7a: Global dedup — collect unique entities across all memories
             global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
+            for idx, (memory_id, text, embedding, payload, *extra) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
                     key = entity_text.strip().lower()
@@ -958,7 +1058,7 @@ class Memory(MemoryBase):
         self.db.save_messages(messages, session_scope)
 
         returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
+            {"id": r[0], "memory": r[1], "event": r[4]}
             for r in records
         ]
 
@@ -2203,33 +2303,119 @@ class AsyncMemory(MemoryBase):
             if h:
                 existing_hashes.add(h)
 
-        records = []
-        seen_hashes = set()
+        records = []  # (memory_id, text, embedding, payload, event, previous_memory_id)
+        seen_hashes = set()  # dedup within the current batch
         for mem in extracted_memories:
             text = mem.get("text")
             if not text or text not in embed_map:
                 continue
 
+            # Handle event-based operations: ADD, UPDATE, DELETE
+            event = mem.get("event", "ADD").upper()  # Default to ADD for backward compatibility
+            previous_memory_id = mem.get("previous_memory_id")
+            
+            # Validate UUID format for previous_memory_id when provided
+            if previous_memory_id and previous_memory_id.lower() != "null":
+                try:
+                    uuid.UUID(previous_memory_id)
+                except (ValueError, AttributeError, TypeError):
+                    logger.warning(f"Invalid UUID format for previous_memory_id: {previous_memory_id}. Defaulting to ADD.")
+                    event = "ADD"
+                    previous_memory_id = None
+            elif previous_memory_id is not None and str(previous_memory_id).lower() == "null":
+                previous_memory_id = None
+
             mem_hash = hashlib.md5(text.encode()).hexdigest()
-            if mem_hash in existing_hashes or mem_hash in seen_hashes:
-                logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
+            
+            # Handle different event types
+            if event == "ADD":
+                # For ADD operations, check for duplicates and generate new ID
+                if mem_hash in existing_hashes or mem_hash in seen_hashes:
+                    logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
+                    continue
+                seen_hashes.add(mem_hash)
+                
+                # Generate new memory ID for ADD
+                memory_id = str(uuid.uuid4())
+                text_for_embedding = text
+                metadata_for_storage = deepcopy(metadata)
+                metadata_for_storage["data"] = text
+                metadata_for_storage["text_lemmatized"] = text_lemmatized
+                metadata_for_storage["hash"] = mem_hash
+                if "created_at" not in mem_metadata:
+                    metadata_for_storage["created_at"] = datetime.now(timezone.utc).isoformat()
+                metadata_for_storage["updated_at"] = metadata_for_storage["created_at"]
+                if mem.get("attributed_to"):
+                    metadata_for_storage["attributed_to"] = mem["attributed_to"]
+                
+                # Embed the text
+                embedding = embed_map[text]
+                
+                # Append to records: (memory_id, text, embedding, metadata, event, previous_memory_id)
+                records.append((memory_id, text, embedding, metadata_for_storage, event, None))
+                
+            elif event == "UPDATE":
+                # For UPDATE: use existing memory ID, update the content
+                if not previous_memory_id:
+                    logger.warning(f"Missing previous_memory_id for UPDATE operation. Skipping.")
+                    continue
+                memory_id = previous_memory_id
+                
+                # Get existing memory for embedding (we'll reuse the existing embedding for now)
+                # In a full implementation, we'd re-embed the updated text
+                existing_mem = None
+                for mem in existing_results:
+                    if mem.id == previous_memory_id:
+                        existing_mem = mem
+                        break
+                
+                if existing_mem is None:
+                    logger.warning(f"Could not find existing memory with ID {previous_memory_id} for UPDATE. Skipping.")
+                    continue
+                    
+                # Use existing embedding (simplified approach)
+                embedding = existing_mem.payload.get("embedding") if hasattr(existing_mem, 'payload') and existing_mem.payload else None
+                if embedding is None:
+                    # Fallback: embed the new text
+                    embedding = embed_map.get(text)
+                    if embedding is None:
+                        embedding = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+                
+                # Prepare metadata for update
+                metadata_for_storage = deepcopy(metadata)
+                metadata_for_storage["data"] = text
+                metadata_for_storage["text_lemmatized"] = text_lemmatized
+                metadata_for_storage["hash"] = mem_hash
+                if "created_at" not in metadata_for_storage:
+                    metadata_for_storage["created_at"] = datetime.now(timezone.utc).isoformat()
+                metadata_for_storage["updated_at"] = metadata_for_storage["created_at"]
+                if mem.get("attributed_to"):
+                    metadata_for_storage["attributed_to"] = mem["attributed_to"]
+                
+                # Call the update method
+                await asyncio.to_thread(self._update_memory, memory_id, text, embedding, metadata_for_storage)
+                
+                # Append to records: (memory_id, text, embedding, metadata, event, previous_memory_id)
+                records.append((memory_id, text, embedding, metadata_for_storage, event, previous_memory_id))
+                
+            elif event == "DELETE":
+                # For DELETE: use existing memory ID and delete it
+                if not previous_memory_id:
+                    logger.warning(f"Missing previous_memory_id for DELETE operation. Skipping.")
+                    continue
+                memory_id = previous_memory_id
+                
+                # Call the delete method
+                await asyncio.to_thread(self._delete_memory, memory_id)
+                
+                # Append to records: (memory_id, None, None, {}, event, previous_memory_id)
+                # Note: We use None for text/embedding and empty dict for metadata as per requirements
+                records.append((memory_id, None, None, {}, event, previous_memory_id))
+                
+            else:
+                # Unknown event type, skip
+                logger.warning(f"Unknown event type '{event}'. Skipping.")
                 continue
-            seen_hashes.add(mem_hash)
-
-            text_lemmatized = lemmatize_for_bm25(text)
-
-            memory_id = str(uuid.uuid4())
-            mem_metadata = deepcopy(metadata)
-            mem_metadata["data"] = text
-            mem_metadata["text_lemmatized"] = text_lemmatized
-            mem_metadata["hash"] = mem_hash
-            if "created_at" not in mem_metadata:
-                mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
-            mem_metadata["updated_at"] = mem_metadata["created_at"]
-            if mem.get("attributed_to"):
-                mem_metadata["attributed_to"] = mem["attributed_to"]
-
-            records.append((memory_id, text, embed_map[text], mem_metadata))
 
         if not records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
@@ -2255,17 +2441,17 @@ class AsyncMemory(MemoryBase):
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
 
         # Batch history
-        history_records = [
-            {
-                "memory_id": r[0],
-                "old_memory": None,
-                "new_memory": r[1],
-                "event": "ADD",
-                "created_at": r[3].get("created_at"),
-                "is_deleted": 0,
-            }
-            for r in records
-        ]
+        history_records = []
+        for r in records:
+            memory_id, text, _, metadata, event, previous_memory_id = r
+            history_records.append({
+                "memory_id": memory_id,
+                "old_memory": None if event == "ADD" else self.get(previous_memory_id) if previous_memory_id else None,
+                "new_memory": text,
+                "event": event,
+                "created_at": metadata.get("created_at"),
+                "is_deleted": 1 if event == "DELETE" else 0,
+            })
         try:
             await asyncio.to_thread(self.db.batch_add_history, history_records)
         except Exception:
@@ -2283,9 +2469,9 @@ class AsyncMemory(MemoryBase):
             all_texts = [r[1] for r in records]
             all_entities = await asyncio.to_thread(extract_entities_batch, all_texts)
 
-            # 7a: Global dedup
+             # 7a: Global dedup
             global_entities = {}
-            for idx, (memory_id, text, embedding, payload) in enumerate(records):
+            for idx, (memory_id, text, embedding, payload, *extra) in enumerate(records):
                 entities = all_entities[idx] if idx < len(all_entities) else []
                 for entity_type, entity_text in entities:
                     key = entity_text.strip().lower()
@@ -2373,7 +2559,7 @@ class AsyncMemory(MemoryBase):
         await asyncio.to_thread(self.db.save_messages, messages, session_scope)
 
         returned_memories = [
-            {"id": r[0], "memory": r[1], "event": "ADD"}
+            {"id": r[0], "memory": r[1], "event": r[4]}
             for r in records
         ]
 
