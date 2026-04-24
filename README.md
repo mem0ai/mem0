@@ -128,6 +128,27 @@ mem0 search "What does Alice prefer?" --user-id alice
 
 See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
 
+### Agent Skills
+
+Teach your AI coding assistant (Claude Code, Cursor, Windsurf, OpenCode, OpenClaw, and any tool that supports the skills standard) how to build with Mem0. Two categories:
+
+**Reference skills — always on** (SDK knowledge loaded into the assistant's context):
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-cli
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-vercel-ai-sdk
+```
+
+**Pipeline skills — run on demand** (execute an end-to-end workflow in an existing repo):
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
+```
+
+Use `/mem0-integrate` to wire Mem0 into an existing repo via a test-first pipeline, then `/mem0-test-integration` to verify. See the [skills catalog](./skills/) or [Vibecoding with Mem0](https://docs.mem0.ai/vibecoding) for the full picture.
+
 ### Basic Usage
 
 Mem0 requires an LLM to function, with `gpt-5-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
