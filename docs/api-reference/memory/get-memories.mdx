@@ -1,10 +1,12 @@
 ---
 title: "Get Memories"
-description: "Retrieve memories with advanced filtering using logical operators like AND, OR, NOT, and comparison queries."
-openapi: post /v2/memories/
+description: "Retrieve memories with paginated results and advanced filtering using logical operators like AND, OR, NOT, and comparison queries."
+openapi: post /v3/memories/
 ---
 
-The v2 get memories API is powerful and flexible, allowing for more precise memory listing without the need for a search query. It supports complex logical operations (AND, OR, NOT) and comparison operators for advanced filtering capabilities. The comparison operators include:
+List memories scoped by filters with paginated results. Entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`) **must** be passed inside the `filters` object — top-level entity IDs are rejected with 400.
+
+The `filters` object supports complex logical operations (AND, OR, NOT) and comparison operators:
 
 - `in`: Matches any of the values specified
 - `gte`: Greater than or equal to
@@ -14,6 +16,8 @@ The v2 get memories API is powerful and flexible, allowing for more precise memo
 - `ne`: Not equal to
 - `icontains`: Case-insensitive containment check
 - `*`: Wildcard character that matches everything
+
+Pass `page` and `page_size` as query parameters to paginate through results.
 
 <CodeGroup>
 ```python Code
@@ -27,12 +31,17 @@ memories = client.get_all(
                 "created_at": {"gte": "2024-07-01", "lte": "2024-07-31"}
             }
         ]
-    }
+    },
+    page=1,
+    page_size=50
 )
 ```
 
 ```python Output
 {
+    "count": 2,
+    "next": null,
+    "previous": null,
     "results": [
         {
             "id": "f4cbdb08-7062-4f3e-8eb2-9f5c80dfe64c",
@@ -46,10 +55,13 @@ memories = client.get_all(
             "created_at": "2024-07-05T15:30:00Z",
             "updated_at": "2024-07-05T15:30:00Z"
         }
-    ],
-    "total": 2
+    ]
 }
 ```
 
 </CodeGroup>
+
+<Info>
+The response is a paginated envelope with `count`, `next`, `previous`, and `results`. Use `page` and `page_size` query params to step through results.
+</Info>
 
