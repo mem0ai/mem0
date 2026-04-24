@@ -681,12 +681,8 @@ function registerHooks(
           ),
         );
 
-        // Client-side threshold filter for auto-recall — use a stricter
-        // threshold (0.6) than explicit tool searches (0.5) to avoid
-        // injecting irrelevant memories into agent context
-        const recallThreshold = Math.max(cfg.searchThreshold, 0.6);
         longTermResults = longTermResults.filter(
-          (r) => (r.score ?? 0) >= recallThreshold,
+          (r) => (r.score ?? 0) >= cfg.searchThreshold,
         );
 
         // Dynamic thresholding: drop memories scoring less than 50% of
@@ -709,7 +705,7 @@ function registerHooks(
             undefined,
             recallSessionKey,
           );
-          broadOpts.threshold = 0.5;
+          broadOpts.threshold = cfg.searchThreshold;
           const broadResults = await provider.search(
             "recent decisions, preferences, active projects, and configuration",
             broadOpts,

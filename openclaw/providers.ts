@@ -284,9 +284,10 @@ class OSSProvider implements Mem0Provider {
       config.vectorStore = { ...this.ossConfig.vectorStore };
 
     if (this.ossConfig?.historyDbPath) {
-      const dbPath = this.resolvePath
-        ? this.resolvePath(this.ossConfig.historyDbPath)
-        : this.ossConfig.historyDbPath;
+      const raw = this.ossConfig.historyDbPath;
+      const isAbsolute = raw.startsWith("/") || /^[A-Za-z]:[/\\]/.test(raw);
+      const dbPath =
+        isAbsolute || !this.resolvePath ? raw : this.resolvePath(raw);
       config.historyDbPath = dbPath;
     }
 
