@@ -31,6 +31,7 @@ class OpenAILLM(LLMBase):
                 vision_details=config.vision_details,
                 reasoning_effort=getattr(config, 'reasoning_effort', None),
                 http_client_proxies=config.http_client,
+                extra_headers=getattr(config, "extra_headers", None),
             )
 
         super().__init__(config)
@@ -111,16 +112,19 @@ class OpenAILLM(LLMBase):
 
         if os.getenv("OPENROUTER_API_KEY"):
             openrouter_params = {}
+            extra_headers = dict(self.config.extra_headers or {})
             if self.config.models:
                 openrouter_params["models"] = self.config.models
                 openrouter_params["route"] = self.config.route
                 params.pop("model")
 
             if self.config.site_url and self.config.app_name:
-                extra_headers = {
+                openrouter_headers = {
                     "HTTP-Referer": self.config.site_url,
                     "X-Title": self.config.app_name,
                 }
+                extra_headers.update(openrouter_headers)
+            if extra_headers:
                 openrouter_params["extra_headers"] = extra_headers
 
             params.update(**openrouter_params)
@@ -131,6 +135,8 @@ class OpenAILLM(LLMBase):
             # reject unknown fields, so `store` must be opt-in, not opt-out.
             if self.config.store is not None:
                 params["store"] = self.config.store
+            if self.config.extra_headers:
+                params["extra_headers"] = self.config.extra_headers
 
         if response_format:
             params["response_format"] = response_format
