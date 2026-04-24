@@ -49,52 +49,7 @@ This installs the full plugin including the MCP server, lifecycle hooks (automat
 
 ### Codex
 
-**Option A — Repo marketplace** (recommended for teams):
-
-Add the plugin marketplace to your repo root (already included in this repository):
-
-```
-.agents/plugins/marketplace.json
-```
-
-Then in Codex, browse the repo's plugin directory and install Mem0.
-
-**Option B — Personal marketplace**:
-
-Clone the repo somewhere under your home directory (Codex requires `source.path` to be relative and inside the marketplace root, which is `~/` for personal installs):
-
-```bash
-git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
-```
-
-Then add `~/.agents/plugins/marketplace.json` with a path relative to `~/`:
-
-```json
-{
-  "name": "mem0-plugins",
-  "interface": {
-    "displayName": "Mem0 Plugins"
-  },
-  "plugins": [
-    {
-      "name": "mem0",
-      "source": {
-        "source": "local",
-        "path": "./codex-plugins/mem0-source/mem0-plugin"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    }
-  ]
-}
-```
-
-Restart Codex, then run `codex /plugins` and install Mem0 from the `Mem0 Plugins` marketplace.
-
-**Option C — Direct MCP configuration** (fastest, MCP-only):
+**Option A — Direct MCP** (fastest, MCP only):
 
 Codex reads MCP servers from `~/.codex/config.toml` as TOML. Add:
 
@@ -104,7 +59,42 @@ url = "https://mcp.mem0.ai/mcp"
 bearer_token_env_var = "MEM0_API_KEY"
 ```
 
-Export `MEM0_API_KEY` in your shell and restart Codex. This gives you the MCP tools without the plugin skills or lifecycle hooks. `codex mcp add` only supports stdio servers, so HTTP servers like Mem0's must be added via `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
+Export `MEM0_API_KEY` in your shell and restart Codex. `codex mcp add` only supports stdio servers, so HTTP servers like Mem0's must be added via `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
+
+**Option B — Sideload the plugin** (full experience: MCP + skills + opt-in hooks):
+
+Clone the repo and register the bundled marketplace with one CLI call:
+
+```bash
+git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
+codex plugin marketplace add ~/codex-plugins/mem0-source
+```
+
+This points Codex at the repo's `.agents/plugins/marketplace.json`, which references `mem0-plugin/` as the local source. Restart Codex, run `/plugins`, and install **Mem0** from the **Mem0 Plugins** marketplace.
+
+> **Don't combine with Option A.** The plugin manifest auto-registers `mem0` as an MCP server via `mem0-plugin/.codex-mcp.json` — adding a manual `[mcp_servers.mem0]` block would duplicate the registration.
+
+**Optional — enable lifecycle hooks.** Codex doesn't auto-wire hooks from plugin manifests; it only reads `~/.codex/hooks.json` (or `<repo>/.codex/hooks.json`). Run the bundled installer once to merge Mem0's entries:
+
+```bash
+python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py
+```
+
+Then enable the feature flag in `~/.codex/config.toml`:
+
+```toml
+[features]
+codex_hooks = true
+```
+
+Restart Codex. This registers `SessionStart` (loads prior memories), `UserPromptSubmit` (injects relevant memories before each prompt), and `Stop` (reminds the agent to persist learnings at turn end). The installer is idempotent. To remove: `python3 .../install_codex_hooks.py --uninstall`. If you move or delete the clone directory, re-run the installer from the new location — the hooks file stores absolute paths into your clone.
+
+**Managing the plugin:**
+
+```bash
+codex plugin marketplace upgrade               # pull latest plugin versions
+codex plugin marketplace remove mem0-plugins   # unregister the marketplace
+```
 
 ### Cursor
 
@@ -145,17 +135,17 @@ After installing, confirm the MCP server is connected:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex |
-|-----------|:--------------------:|:--------------------:|:------------------------:|:-----:|
-| MCP Server | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No | No |
-| Mem0 SDK Skill | Yes | Yes | No | Yes |
-| Memory Protocol Skill | No | No | No | Yes |
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) |
+|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|
+| MCP Server | Yes | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | Yes | No | Opt-in | No |
+| Mem0 SDK Skill | Yes | Yes | No | Yes | No |
+| Memory Protocol Skill | No | No | No | Yes | No |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points: session start, context compaction, task completion, and session end. (Claude Code/Cursor only)
+- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code and Cursor wire hooks up natively when the plugin is installed (session start, context compaction, task completion, session end). Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`) that writes entries into `~/.codex/hooks.json` for `SessionStart`, `UserPromptSubmit`, and `Stop`.
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
-- **Memory Protocol Skill** — Codex-specific skill that instructs the agent to retrieve relevant memories at task start, store learnings on completion, and capture session state before context loss. Replaces lifecycle hooks on platforms that don't support them.
+- **Memory Protocol Skill** — Codex-specific skill that instructs the agent to retrieve relevant memories at task start, store learnings on completion, and capture session state before context loss. Complements the lifecycle hooks on Codex.
 
 ## MCP Tools
 
