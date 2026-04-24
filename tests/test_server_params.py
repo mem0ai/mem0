@@ -561,3 +561,30 @@ class TestUpdateOpenAPISchema:
         schema = client.get("/openapi.json").json()
         update_props = schema["components"]["schemas"]["MemoryUpdate"]["properties"]
         assert "metadata" in update_props
+
+# ===========================================================================
+# GetMemories: Entity parameters to filters mapping (fix for #4955)
+# ===========================================================================
+
+class TestGetMemories:
+    """Verify that GET /memories correctly maps entity parameters to the filters dict."""
+
+    def test_get_memories_entity_filters_routing(self, client, mock_memory):
+        """
+        Issue #4955: Test that the GET /memories route correctly handles 
+        top-level entity parameters by mapping them to the filters dictionary
+        instead of passing them as direct kwargs to get_all()
+        """
+        # Send a request with a valid top-level entity parameter
+        response = client.get("/memories?user_id=test_routing_user")
+        
+        # 1. Verify the endpoint doesn't crash with a 500 error
+        assert response.status_code == 200
+        
+        # 2. Verify the response is structured correctly
+        data = response.json()
+        assert isinstance(data, list)
+        
+        # 3. Verify the core logic: the param was mapped to the filters dict!
+        _, kwargs = mock_memory.get_all.call_args
+        assert kwargs["filters"] == {"user_id": "test_routing_user"}

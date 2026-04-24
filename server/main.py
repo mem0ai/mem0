@@ -395,10 +395,10 @@ def get_all_memories(
     try:
         if not any([user_id, run_id, agent_id]):
             return _list_all_memories()
-        params = {
+        filters = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
-        return get_memory_instance().get_all(**params)
+        return get_memory_instance().get_all(filters=filters)
     except Exception:
         raise upstream_error()
 
