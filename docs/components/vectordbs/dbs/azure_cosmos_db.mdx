@@ -42,7 +42,7 @@ config = {
             "vector_properties": {
                 "path": "/vector",
                 "dataType": "float32",
-                "dimensions": 10,
+                "dimensions": 1536,  # Must match your embedding model's output dimension
                 "distanceFunction": "cosine",
             },
             "vector_search_fields": {
@@ -51,7 +51,7 @@ config = {
             },
             "database_name": "vectorSearchDB",
             "collection_name": "vectorSearchContainer",
-            "search_type": "vector",
+            "search_type": "hybrid",
             "metadata_key": "metadata",
             "create_collection": True,
             "table_alias": "c",

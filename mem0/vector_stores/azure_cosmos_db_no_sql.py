@@ -105,7 +105,7 @@ class Parameter:
         self.value = value
 
 
-class ParamMapping:  # Renamed from PramMapping (typo fix)
+class ParamMapping:
     def __init__(
         self,
         table: str,
@@ -518,9 +518,12 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         Search for similar items in the Cosmos DB collection.
 
         Args:
-            query: [Not Implemented] This will be ignored in the current implementation. Vector search will be
-                performed based on the 'vectors' parameter.
-                If text search is needed, use 'where' or 'full_text_rank_filter' instead.
+            query: Text query used for full-text ranking search types. When the store is
+                configured with a full-text or hybrid search_type and no
+                ``full_text_rank_filter`` is provided, ``query`` is automatically mapped to
+                ``[{"search_field": <text_field>, "search_text": query}]``. This allows
+                mem0's standard ``Memory.search(query=...)`` API to work end-to-end without
+                extra parameters.
             vectors: The vector embedding to run vector search. This is a single vector embedding.
             limit: The number of top similar items to retrieve.
             filters: Optional dict of exact-match filters to apply, e.g. {"metadata.a": 1, "id": "vec1"}.
@@ -536,6 +539,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             full_text_rank_filter: Optional list of full text rank filters.
                 Each filter is a dict with 'search_field' and 'search_text' keys,
                 such as {"search_field": "description", "search_text": "the fastest dog"}.
+                When omitted but 'query' is provided, it is auto-built from 'query' and the
+                configured 'text_field'.
             projection_mapping: Optional mapping for projecting specific fields.
             where: Optional raw WHERE clause expression for filtering results. This allows flexible
                 filtering and is required for 'full_text_search' type,
@@ -546,8 +551,25 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         """
         # Fall back to the instance-level default when the caller omits search_type
         search_type = search_type or self._search_type
+
+        # Auto-build full_text_rank_filter from `query` when using a text-ranking search type.
+        # This lets mem0's standard Memory.search(query=...) work end-to-end without callers
+        # having to construct full_text_rank_filter manually.
+        if (
+            full_text_rank_filter is None
+            and query
+            and self._text_key
+            and self._is_full_text_search_type(search_type)
+        ):
+            full_text_rank_filter = [{"search_field": self._text_key, "search_text": query}]
+
         # Validate & build sql_query
-        self._validate_search_args(search_type=search_type, vector=vectors, return_with_vectors=return_with_vectors)
+        self._validate_search_args(
+            search_type=search_type,
+            vector=vectors,
+            return_with_vectors=return_with_vectors,
+            full_text_rank_filter=full_text_rank_filter,
+        )
         sql_query, parameters = self._construct_query(
             limit=limit,
             search_type=search_type,
@@ -574,6 +596,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         search_type: str,
         vector: Optional[List[float]] = None,
         return_with_vectors: bool = False,
+        full_text_rank_filter: Optional[List[Dict[str, str]]] = None,
     ):
         # Validate search_type
         if search_type not in self.VALID_SEARCH_TYPES:
@@ -592,6 +615,19 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 f"cannot perform search_type '{search_type}'."
             )
 
+        # full_text_rank_filter is required for text-ranking search types.
+        # Note: search() auto-builds this from `query` before calling here,
+        # so this error is only raised when neither query nor full_text_rank_filter is provided.
+        if search_type in (
+            Constants.FULL_TEXT_RANKING,
+            Constants.HYBRID,
+            Constants.HYBRID_SCORE_THRESHOLD,
+        ) and not full_text_rank_filter:
+            raise ValueError(
+                f"'full_text_rank_filter' is required for search_type '{search_type}'. "
+                f"Provide 'full_text_rank_filter' explicitly, or pass a 'query' string to "
+                f"auto-generate it from the configured '{Constants.TEXT_FIELD}'."
+            )
 
         # Validate vector and return_with_vectors
         if self._is_vector_search_type(search_type):
@@ -668,8 +704,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         if projection_mapping:
             projection_fields = [f"{self._table_alias}.{key} as {alias}" for key, alias in projection_mapping.items()]
         else:
-            if search_type == Constants.FULL_TEXT_RANKING and not full_text_rank_filter:
-                raise ValueError(f"'full_text_rank_filter' required for {search_type}.")
             # Use SELECT * so that all payload fields (data, hash, user_id, etc.) are
             # returned rather than only the fields known at query-build time.
             projection_fields = ["*"]
@@ -712,9 +746,14 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         search_field = full_text_rank_filter[Constants.SEARCH_FIELD]
         search_proj_field = param_mapping.gen_proj_field(key=search_field, value=search_field)
         search_text = full_text_rank_filter[Constants.SEARCH_TEXT]
+        stripped_text = search_text.strip() if search_text else ""
+        if not stripped_text:
+            raise ValueError(
+                f"'search_text' in full_text_rank_filter cannot be empty for field '{search_field}'."
+            )
         terms = [
             param_mapping.gen_param_key(key=f"{search_field}_term_{i}", value=term)
-            for i, term in enumerate(search_text.split())
+            for i, term in enumerate(stripped_text.split())
         ]
         return f"FullTextScore({search_proj_field}, {', '.join(terms)})"
 
@@ -737,8 +776,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             Constants.HYBRID,
             Constants.HYBRID_SCORE_THRESHOLD,
         ):
-            if not full_text_rank_filter:
-                raise ValueError(f"'full_text_rank_filter' required for {search_type} search.")
             components = [
                 self._generate_order_by_component_with_full_text_rank_filter(
                     param_mapping=param_mapping, full_text_rank_filter=item
@@ -859,7 +896,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
 
         # Build payload based on projection mapping
         if projection_mapping:
-            payload = {alias: item[alias] for alias in projection_mapping.values()}
+            payload = {alias: item.get(alias) for alias in projection_mapping.values()}
         else:
             # Exclude:
             #   - Cosmos DB internal fields (_rid, _self, _etag, _attachments, _ts)
@@ -993,8 +1030,13 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         self,
         filters: Optional[Dict[str, Any]] = None,
         limit: int = 100,
-    ) -> List[OutputData]:
+    ) -> Tuple[List[OutputData], None]:
         """List items in the collection.
+
+        Returns a ``(records, None)`` tuple consistent with other mem0 vector stores
+        (e.g. Qdrant's ``scroll()`` returns ``(records, offset)``). The second element
+        is always ``None`` — it exists so that ``Memory.delete_all()`` can do
+        ``list(...)[0]`` to get the list of records.
 
         Args:
             filters: Optional filters to apply. Example: {"metadata.a": 1}
@@ -1011,14 +1053,15 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         query += self._generate_where_clause(param_mapping=param_mapping, filters=filters)
 
         parameters = param_mapping.export_parameter_list()
-        return self._execute_query(query=query, parameters=parameters, return_with_vectors=False)
+        results = self._execute_query(query=query, parameters=parameters, return_with_vectors=False)
+        return results, None
 
     def reset(self) -> None:
         """
         Reset the collection by deleting and recreating it.
         """
         self.delete_col()
-        self.create_col(
+        self._collection = self.create_col(
             name=self._collection_name,
             vector_size=self._vector_properties[Constants.DIMENSIONS],
             distance=self._vector_properties[Constants.DISTANCE_FUNCTION])

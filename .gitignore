@@ -186,3 +186,4 @@ eval/
 qdrant_storage/
 .crossnote
 testing.ipynb
+tests/vector_stores/test_azure_cosmos_db_no_sql_local_test.py

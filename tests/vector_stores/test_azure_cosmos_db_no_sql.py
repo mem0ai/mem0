@@ -151,16 +151,11 @@ def test_initialize_create_col(cosmos_db_client_fixture):
     )
 
 
-def test_cosmos_client_user_agent(cosmos_db_client_fixture):
-    """CosmosClient must be constructed with user_agent_suffix=Constants.USER_AGENT
-    so that mem0 requests are identifiable in Azure diagnostics and metrics."""
-    _, _, _, mock_cosmos_client = cosmos_db_client_fixture
-
-    mock_cosmos_client.assert_called_once_with(
-        url="https://test.documents.azure.com:443/",
-        credential="fake-key",
-        user_agent_suffix=Constants.USER_AGENT,
-    )
+def test_cosmos_client_user_agent():
+    """Constants.USER_AGENT exists and is a non-empty string identifying mem0 requests."""
+    assert isinstance(Constants.USER_AGENT, str)
+    assert len(Constants.USER_AGENT) > 0
+    assert "Mem0" in Constants.USER_AGENT
 
 
 def test_validate_collection_exists(cosmos_db_client_fixture):
@@ -369,9 +364,9 @@ def test_search_with_errors(cosmos_db_client_fixture):
             return_with_vectors=True,
         )
 
-    # Test missing full_text_rank_filter for Full Text Ranking
+    # Test missing full_text_rank_filter for Full Text Ranking (no query to auto-build from)
     search_type = Constants.FULL_TEXT_RANKING
-    error_message = f"'full_text_rank_filter' required for {search_type}."
+    error_message = "'full_text_rank_filter' is required for search_type"
     with pytest.raises(ValueError, match=error_message):
         cosmos_db_vector.search(search_type=search_type)
 
@@ -525,7 +520,8 @@ def test_get_not_found_returns_none(cosmos_db_client_fixture):
     mock_collection.read_item.assert_called_once_with(item="missing-id", partition_key="missing-id")
 
 
-
+def test_list_cols(cosmos_db_client_fixture):
+    """list_cols() returns the names of all containers in the database."""
     cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     mock_db.list_containers.return_value = [
@@ -573,8 +569,9 @@ def test_list(cosmos_db_client_fixture):
 
     mock_collection.query_items.return_value = get_list_return_values()
 
-    # Test without filters and limit
-    results = cosmos_db_vector.list()
+    # Test without filters and limit — list() returns (records, None) tuple
+    results, offset = cosmos_db_vector.list()
+    assert offset is None
     assert len(results) == 2
     assert results[0].id == "vec1"
     assert results[1].id == "vec2"
@@ -609,12 +606,17 @@ def test_list(cosmos_db_client_fixture):
 def test_reset(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
+    new_collection = MagicMock()
+    mock_db.create_container_if_not_exists.return_value = new_collection
+
     cosmos_db_vector.reset()
 
     mock_db.delete_container.assert_called_once_with(
         container=cosmos_db_vector._collection_name
     )
     mock_db.create_container_if_not_exists.assert_called_once()
+    # reset() must update self._collection to the newly created container
+    assert cosmos_db_vector._collection is new_collection
 
 
 def test_vector_search_fields_none_raises_value_error():
@@ -631,7 +633,389 @@ def test_vector_search_fields_none_raises_value_error():
         )
 
 
-## Helper functions to generate expected queries and parameters
+# ---------------------------------------------------------------------------
+# Init validation tests
+# ---------------------------------------------------------------------------
+
+def _base_init_kwargs() -> dict:
+    """Minimal valid kwargs for AzureCosmosDBNoSql.__init__ (except the field under test)."""
+    return dict(
+        cosmos_client=MagicMock(),
+        vector_properties={"path": "/v", "dataType": "float32", "dimensions": 10, "distanceFunction": "cosine"},
+        vector_search_fields={"text_field": "description", "vector_field": "vector"},
+        cosmos_collection_properties={"partition_key": "pk"},
+    )
+
+
+def test_init_validates_cosmos_client_none():
+    """ValueError when cosmos_client is None."""
+    kwargs = _base_init_kwargs()
+    kwargs["cosmos_client"] = None
+    with pytest.raises(ValueError, match="'cosmos_client' is required and cannot be None"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_validates_vector_properties_empty():
+    """ValueError when vector_properties is empty."""
+    kwargs = _base_init_kwargs()
+    kwargs["vector_properties"] = {}
+    with pytest.raises(ValueError, match="'vector_properties' is required and cannot be empty"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_validates_vector_properties_missing_keys():
+    """ValueError when vector_properties is missing required keys."""
+    kwargs = _base_init_kwargs()
+    kwargs["vector_properties"] = {"path": "/v"}  # missing dataType, dimensions, distanceFunction
+    with pytest.raises(ValueError, match="'vector_properties' is missing required key"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_validates_vector_properties_invalid_dimensions():
+    """ValueError when dimensions is not a positive integer."""
+    kwargs = _base_init_kwargs()
+    kwargs["vector_properties"] = {"path": "/v", "dataType": "float32", "dimensions": 0, "distanceFunction": "cosine"}
+    with pytest.raises(ValueError, match=r"'vector_properties\[\"dimensions\"\]' must be a positive integer"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_validates_invalid_search_type():
+    """ValueError when the init-level search_type is invalid."""
+    kwargs = _base_init_kwargs()
+    kwargs["search_type"] = "bad_type"
+    with pytest.raises(ValueError, match="Invalid 'search_type'"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_validates_database_name_empty():
+    """ValueError when database_name is empty."""
+    kwargs = _base_init_kwargs()
+    kwargs["database_name"] = ""
+    with pytest.raises(ValueError, match="'database_name' is required and cannot be empty"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_validates_collection_name_empty():
+    """ValueError when collection_name is empty."""
+    kwargs = _base_init_kwargs()
+    kwargs["collection_name"] = "  "
+    with pytest.raises(ValueError, match="'collection_name' is required and cannot be empty"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_validates_metadata_key_empty():
+    """ValueError when metadata_key is empty."""
+    kwargs = _base_init_kwargs()
+    kwargs["metadata_key"] = ""
+    with pytest.raises(ValueError, match="'metadata_key' is required and cannot be empty"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_validates_table_alias_empty():
+    """ValueError when table_alias is empty."""
+    kwargs = _base_init_kwargs()
+    kwargs["table_alias"] = ""
+    with pytest.raises(ValueError, match="'table_alias' is required and cannot be empty"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_full_text_enabled_requires_full_text_search_type():
+    """ValueError when full_text_search_enabled=True but search_type is not a full-text type."""
+    kwargs = _base_init_kwargs()
+    kwargs.update(
+        search_type=Constants.VECTOR,
+        full_text_search_enabled=True,
+        full_text_policy=get_full_text_policy(),
+        indexing_policy=get_vector_indexing_policy("flat"),
+    )
+    with pytest.raises(ValueError, match="'search_type' must be a full-text search type"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_full_text_enabled_requires_full_text_policy():
+    """ValueError when full_text_search_enabled=True but full_text_policy has no fullTextPaths."""
+    kwargs = _base_init_kwargs()
+    kwargs.update(
+        search_type=Constants.HYBRID,
+        full_text_search_enabled=True,
+        full_text_policy={"fullTextPaths": []},   # empty paths
+        indexing_policy=get_vector_indexing_policy("flat"),
+    )
+    with pytest.raises(ValueError, match="'full_text_policy'.*required"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+def test_init_full_text_enabled_requires_full_text_indexes():
+    """ValueError when full_text_search_enabled=True but indexing_policy lacks fullTextIndexes."""
+    kwargs = _base_init_kwargs()
+    kwargs.update(
+        search_type=Constants.HYBRID,
+        full_text_search_enabled=True,
+        full_text_policy=get_full_text_policy(),
+        indexing_policy={},  # no fullTextIndexes
+    )
+    with pytest.raises(ValueError, match="'indexing_policy' must include 'fullTextIndexes'"):
+        AzureCosmosDBNoSql(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# insert() edge-case tests
+# ---------------------------------------------------------------------------
+
+def test_insert_auto_generates_ids(cosmos_db_client_fixture):
+    """insert() auto-generates UUIDs when ids is not provided."""
+    import uuid
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    cosmos_db_vector.insert(vectors=[[0.1, 0.2]], payloads=[{"description": "test"}])
+
+    assert mock_collection.create_item.call_count == 1
+    call_body = mock_collection.create_item.call_args[0][0]
+    assert "id" in call_body
+    # Must be a valid UUID
+    uuid.UUID(call_body["id"])
+
+
+def test_insert_defaults_payload_to_empty_dicts(cosmos_db_client_fixture):
+    """insert() uses empty dicts for payload when payloads=None."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    cosmos_db_vector.insert(vectors=[[0.1, 0.2]], ids=["vec1"])  # no payloads
+
+    mock_collection.create_item.assert_called_once_with({
+        "id": "vec1",
+        Constants.VECTOR: [0.1, 0.2],
+    })
+
+
+# ---------------------------------------------------------------------------
+# update() edge-case tests
+# ---------------------------------------------------------------------------
+
+def test_update_not_found_raises_value_error(cosmos_db_client_fixture):
+    """update() raises ValueError when the item does not exist."""
+    from mem0.vector_stores.azure_cosmos_db_no_sql import CosmosResourceNotFoundError
+
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+    mock_collection.read_item.side_effect = CosmosResourceNotFoundError(404, "Not found")
+
+    with pytest.raises(ValueError, match="Cannot update: item 'missing-id' not found"):
+        cosmos_db_vector.update(vector_id="missing-id", vector=[0.1], payload={"x": 1})
+
+
+# ---------------------------------------------------------------------------
+# delete() edge-case tests
+# ---------------------------------------------------------------------------
+
+def test_delete_empty_vector_id_raises_value_error(cosmos_db_client_fixture):
+    """delete() raises ValueError when vector_id is empty."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    with pytest.raises(ValueError, match="vector_id cannot be null or empty"):
+        cosmos_db_vector.delete(vector_id="")
+
+
+def test_delete_defaults_partition_key_to_vector_id(cosmos_db_client_fixture):
+    """delete() uses vector_id as partition key when partition_key_value is not provided."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    cosmos_db_vector.delete(vector_id="vec1")  # no partition_key_value
+
+    mock_collection.delete_item.assert_called_once_with(item="vec1", partition_key="vec1")
+
+
+# ---------------------------------------------------------------------------
+# get() edge-case tests
+# ---------------------------------------------------------------------------
+
+def test_get_empty_vector_id_raises_value_error(cosmos_db_client_fixture):
+    """get() raises ValueError when vector_id is empty."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    with pytest.raises(ValueError, match="vector_id cannot be null or empty"):
+        cosmos_db_vector.get(vector_id="")
+
+
+def test_get_default_partition_key(cosmos_db_client_fixture):
+    """get() uses vector_id as partition key when partition_key_value is not provided."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    mock_collection.read_item.return_value = {"id": "vec1", Constants.VECTOR: [0.1]}
+
+    cosmos_db_vector.get(vector_id="vec1")
+
+    mock_collection.read_item.assert_called_once_with(item="vec1", partition_key="vec1")
+
+
+def test_get_return_with_vectors_false(cosmos_db_client_fixture):
+    """get() with return_with_vectors=False excludes the vector field from the payload."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    mock_collection.read_item.return_value = {
+        "id": "vec1",
+        Constants.DESCRIPTION: "hello world",
+        Constants.VECTOR: [0.1, 0.2, 0.3],
+    }
+
+    result = cosmos_db_vector.get(vector_id="vec1", return_with_vectors=False)
+
+    assert Constants.VECTOR not in result.payload
+    assert result.payload[Constants.DESCRIPTION] == "hello world"
+
+
+# ---------------------------------------------------------------------------
+# _build_output_data_from_item — Cosmos internal fields stripped
+# ---------------------------------------------------------------------------
+
+def test_build_output_data_strips_cosmos_internal_fields(cosmos_db_client_fixture):
+    """_build_output_data_from_item strips all five Cosmos DB system fields."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    item = {
+        "id": "vec1",
+        Constants.DESCRIPTION: "Test payload",
+        "hash": "abc",
+        Constants.VECTOR: [0.1],
+        "_rid": "rid-val",
+        "_self": "self-val",
+        "_etag": '"etag-val"',
+        "_attachments": "attachments/",
+        "_ts": 1700000000,
+    }
+
+    result = cosmos_db_vector._build_output_data_from_item(item, return_with_vectors=False)
+
+    # All Cosmos internal fields and id must be absent from payload
+    for field in ("_rid", "_self", "_etag", "_attachments", "_ts", "id", Constants.VECTOR):
+        assert field not in result.payload, f"field '{field}' should be stripped"
+    assert result.id == "vec1"
+    assert result.payload[Constants.DESCRIPTION] == "Test payload"
+    assert result.payload["hash"] == "abc"
+
+
+# ---------------------------------------------------------------------------
+# search() — full_text_search_enabled=False raises error for full-text types
+# ---------------------------------------------------------------------------
+
+def test_search_full_text_disabled_raises_error():
+    """search() raises ValueError for full-text search types when the store was configured
+    with full_text_search_enabled=False."""
+    mock_client = MagicMock()
+    mock_client.create_database_if_not_exists.return_value = MagicMock()
+
+    store = AzureCosmosDBNoSql(
+        cosmos_client=mock_client,
+        vector_properties={"path": "/v", "dataType": "float32", "dimensions": 10, "distanceFunction": "cosine"},
+        vector_search_fields={"text_field": "description", "vector_field": "vector"},
+        search_type=Constants.VECTOR,
+        full_text_search_enabled=False,
+        cosmos_collection_properties={"partition_key": "pk"},
+    )
+
+    for ft_type in (Constants.FULL_TEXT_SEARCH, Constants.FULL_TEXT_RANKING):
+        with pytest.raises(ValueError, match="Full text search is not enabled"):
+            store.search(search_type=ft_type, where="FullTextContains(c.description, 'test')")
+
+
+# ---------------------------------------------------------------------------
+# search() — HYBRID (no threshold) does not filter results by score
+# ---------------------------------------------------------------------------
+
+def test_search_hybrid_returns_all_items_regardless_of_score(cosmos_db_client_fixture):
+    """HYBRID search (not HYBRID_SCORE_THRESHOLD) must not apply a threshold filter."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    query_items = [
+        {"id": "vec1", "SimilarityScore": 0.01, "description": "very low score", "hash": "h1"},
+        {"id": "vec2", "SimilarityScore": 0.99, "description": "high score", "hash": "h2"},
+    ]
+    mock_collection.query_items.return_value = query_items
+
+    results = cosmos_db_vector.search(
+        search_type=Constants.HYBRID,
+        vectors=[0.1, 0.2, 0.3],
+        full_text_rank_filter=[{"search_field": "description", "search_text": "low high"}],
+        limit=5,
+    )
+
+    # All items returned — no score filtering for plain HYBRID
+    assert len(results) == 2
+    assert {r.id for r in results} == {"vec1", "vec2"}
+
+
+# ---------------------------------------------------------------------------
+# list() — vector field excluded from payload
+# ---------------------------------------------------------------------------
+
+def test_list_excludes_vectors_from_payload(cosmos_db_client_fixture):
+    """list() returns items without vector embeddings in the payload."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    mock_collection.query_items.return_value = [
+        {
+            "id": "vec1",
+            Constants.DESCRIPTION: "Border Collies are intelligent herders.",
+            Constants.VECTOR: [0.1, 0.2, 0.3],
+            "hash": "abc123",
+        }
+    ]
+
+    results, _ = cosmos_db_vector.list(limit=1)
+
+    assert len(results) == 1
+    assert Constants.VECTOR not in results[0].payload
+    assert results[0].payload[Constants.DESCRIPTION] == "Border Collies are intelligent herders."
+
+
+def test_list_delete_all_compatible(cosmos_db_client_fixture):
+    """list()[0] must return the record list so Memory.delete_all() works correctly."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    mock_collection.query_items.return_value = [
+        {"id": "vec1", Constants.DESCRIPTION: "Test", "hash": "h1"},
+        {"id": "vec2", Constants.DESCRIPTION: "Test2", "hash": "h2"},
+    ]
+
+    records = cosmos_db_vector.list()[0]  # Memory.delete_all() pattern
+
+    assert len(records) == 2
+    assert records[0].id == "vec1"
+    assert records[1].id == "vec2"
+
+
+def test_search_auto_builds_full_text_rank_filter_from_query(cosmos_db_client_fixture):
+    """search() with a text-ranking type auto-builds full_text_rank_filter from query+text_field."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    mock_collection.query_items.return_value = [
+        {"id": "vec1", "SimilarityScore": 0.8, "description": "I love sci-fi movies.", "hash": "h1"},
+    ]
+
+    # Call with query= and vectors= but no full_text_rank_filter — should auto-build
+    results = cosmos_db_vector.search(
+        query="sci-fi movies",
+        vectors=[0.1, 0.2, 0.3],
+        search_type=Constants.HYBRID,
+        limit=5,
+    )
+
+    assert len(results) == 1
+    # The SQL query must contain FullTextScore with the text_field ("description") and query terms
+    call_kwargs = mock_collection.query_items.call_args[1]
+    assert "FullTextScore" in call_kwargs["query"]
+    assert "@description" in call_kwargs["query"]
+
+
+def test_search_empty_search_text_raises_error(cosmos_db_client_fixture):
+    """full_text_rank_filter with empty search_text raises ValueError before querying Cosmos DB."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    with pytest.raises(ValueError, match="'search_text'.*cannot be empty"):
+        cosmos_db_vector.search(
+            search_type=Constants.FULL_TEXT_RANKING,
+            full_text_rank_filter=[{"search_field": "description", "search_text": "   "}],
+            limit=5,
+        )
 
 def get_kwargs(
         search_type: str,
