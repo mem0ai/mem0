@@ -127,6 +127,14 @@ if dependencies don't resolve.
 - **Lint** (if the repo has a linter configured): run the repo's own
   lint command. Lint failures from this skill's changes → fail; pre-existing
   lint failures → surface as a warning.
+- **Eager-init check**: grep the `write_site` and `read_site` files (paths
+  from `product.json`) for `MemoryClient(` or `Memory(` at module scope —
+  i.e., not inside a function, method, or class body. `MemoryClient()`
+  validates the API key in `__init__` (network call) and OSS `Memory()`
+  can eagerly initialize embedding/LLM providers — module-level
+  instantiation hits the wire on import and breaks Pass A's test
+  collection whenever the key is unset. Hit → fail with `file:line` and
+  the lazy-init guidance from `/mem0-integrate` step 8 constraint #7.
 
 ### 4. Run the repo's native test suite (two passes)
 

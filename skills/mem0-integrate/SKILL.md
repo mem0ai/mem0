@@ -419,6 +419,11 @@ Minimum two test files (paths taken from `plan.md` call sites):
 - `test_mem0_read.<ext>` — asserts `search()` runs before the Read call
   site and the result is wired into the LLM prompt / response path.
 
+Tests MUST be importable with `MEM0_API_KEY` unset. This is the design
+pressure that forces step 8's lazy `MemoryClient()` / `Memory()`
+construction — eager module-level init hits the API on import and
+breaks pre-existing test collection when the key is missing.
+
 Run the tests. They **must fail**. If they pass before any implementation,
 the tests are wrong — rewrite them.
 
@@ -458,6 +463,16 @@ Spawn a subagent with:
          beyond those listed under plan.md's "Dependencies to add."
       6. Preserve everything listed under plan.md's "Preserved behavior"
          and "Coexistence."
+      7. Lazy client construction. `MemoryClient()` validates the API
+         key in `__init__` (it makes a network call). Never instantiate
+         it at module-import time — construct on first use inside the
+         request / handler path. The same rule applies to OSS `Memory()`,
+         which can eagerly initialize embedding and LLM providers. Use
+         a function-local singleton (`functools.lru_cache`, a module-level
+         `_client = None` + getter, or DI scope) — never a top-level
+         global. Eager init breaks the pre-existing test suite at
+         collection time whenever the key is missing or invalid, which
+         is a non-invasiveness violation.
 
       Implement the plan to make the new tests pass while all
       pre-existing tests continue to pass unchanged.

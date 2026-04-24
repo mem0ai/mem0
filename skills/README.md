@@ -1,6 +1,6 @@
 # Mem0 Skills for AI Coding Assistants
 
-Mem0 ships structured skill definitions for Claude Code, Cursor, OpenCode, OpenClaw, and any assistant that supports the [skills standard](https://github.com/anthropic-experimental/skills). Skills teach the assistant how to work with Mem0 — either by loading SDK knowledge into context, or by executing an end-to-end workflow on demand.
+Mem0 ships structured skill definitions for Claude Code, Codex, Cursor, OpenCode, OpenClaw, and any assistant that supports the [skills standard](https://github.com/anthropic-experimental/skills). Skills teach the assistant how to work with Mem0 — either by loading SDK knowledge into context, or by executing an end-to-end workflow on demand.
 
 ## Two Categories
 

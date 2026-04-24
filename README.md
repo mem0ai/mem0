@@ -130,7 +130,7 @@ See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full comm
 
 ### Agent Skills
 
-Teach your AI coding assistant (Claude Code, Cursor, Windsurf, OpenCode, OpenClaw, and any tool that supports the skills standard) how to build with Mem0. Two categories:
+Teach your AI coding assistant (Claude Code, Codex, Cursor, Windsurf, OpenCode, OpenClaw, and any tool that supports the skills standard) how to build with Mem0. Two categories:
 
 **Reference skills — always on** (SDK knowledge loaded into the assistant's context):
 

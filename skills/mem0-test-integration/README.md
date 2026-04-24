@@ -30,7 +30,7 @@ Do **not** use this skill to run general project tests (defer to the repo's nati
 
 ## Installation
 
-### CLI (Claude Code, OpenCode, OpenClaw, or any tool that supports skills)
+### CLI (Claude Code, Codex, OpenCode, OpenClaw, or any tool that supports skills)
 
 ```bash
 npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
