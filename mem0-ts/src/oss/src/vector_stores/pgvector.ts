@@ -43,7 +43,10 @@ export class PGVector implements VectorStore {
 
   async initialize(): Promise<void> {
     if (!this._initPromise) {
-      this._initPromise = this._doInitialize();
+      this._initPromise = this._doInitialize().catch((error) => {
+        this._initPromise = undefined;
+        throw error;
+      });
     }
     return this._initPromise;
   }
