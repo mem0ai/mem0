@@ -61,7 +61,13 @@ Then in Codex, browse the repo's plugin directory and install Mem0.
 
 **Option B — Personal marketplace**:
 
-Add to `~/.agents/plugins/marketplace.json`:
+Clone the repo somewhere under your home directory (Codex requires `source.path` to be relative and inside the marketplace root, which is `~/` for personal installs):
+
+```bash
+git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
+```
+
+Then add `~/.agents/plugins/marketplace.json` with a path relative to `~/`:
 
 ```json
 {
@@ -74,7 +80,7 @@ Add to `~/.agents/plugins/marketplace.json`:
       "name": "mem0",
       "source": {
         "source": "local",
-        "path": "/path/to/mem0/mem0-plugin"
+        "path": "./codex-plugins/mem0-source/mem0-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -85,6 +91,8 @@ Add to `~/.agents/plugins/marketplace.json`:
   ]
 }
 ```
+
+Restart Codex, then run `codex /plugins` and install Mem0 from the `Mem0 Plugins` marketplace.
 
 **Option C — Direct MCP configuration** (fastest, MCP-only):
 

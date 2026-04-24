@@ -50,13 +50,17 @@ Make sure `MEM0_API_KEY` is exported in the shell you launch Codex from, then re
 
 If you want the full plugin experience — MCP server **plus** the Mem0 SDK skill, memory protocol skill, and opt-in lifecycle hooks — sideload the plugin from a local clone. This follows the Codex [build-plugins](https://developers.openai.com/codex/plugins/build) local-testing workflow.
 
-**Step 1.** Clone the Mem0 repository:
+<Info>
+  Codex requires `source.path` in `marketplace.json` to be **relative** (start with `./`) and **inside the marketplace root**. For a personal install (`~/.agents/plugins/marketplace.json`), that root is your home directory (`~`), so the cloned plugin must live somewhere under `~/`.
+</Info>
+
+**Step 1.** Clone the Mem0 repository somewhere under your home directory:
 
 ```bash
-git clone https://github.com/mem0ai/mem0.git ~/src/mem0
+git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
 ```
 
-**Step 2.** Add a marketplace entry at `~/.agents/plugins/marketplace.json`, pointing at the **absolute path** of the `mem0-plugin` directory inside your clone:
+**Step 2.** Create `~/.agents/plugins/marketplace.json` with a path **relative to `~/`**:
 
 ```json
 {
@@ -67,7 +71,7 @@ git clone https://github.com/mem0ai/mem0.git ~/src/mem0
       "name": "mem0",
       "source": {
         "source": "local",
-        "path": "/Users/YOU/src/mem0/mem0-plugin"
+        "path": "./codex-plugins/mem0-source/mem0-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
@@ -79,12 +83,14 @@ git clone https://github.com/mem0ai/mem0.git ~/src/mem0
 }
 ```
 
-Swap `/Users/YOU/src/mem0/mem0-plugin` for wherever you cloned. Restart Codex, then run `codex /plugins`, browse the `Mem0 Plugins` marketplace, and install Mem0.
+If you cloned somewhere else, substitute the path relative to `~/`. For example, a clone at `~/work/projects/mem0` becomes `./work/projects/mem0/mem0-plugin`.
 
-**Step 3 (optional) — enable lifecycle hooks.** Codex hooks aren't wired in through the plugin manifest; run the installer once to write them into `~/.codex/hooks.json`:
+**Step 3.** Restart Codex, then run `codex /plugins`, browse the `Mem0 Plugins` marketplace, and install Mem0.
+
+**Step 4 (optional) — enable lifecycle hooks.** Codex hooks aren't wired in through the plugin manifest; run the installer once to write them into `~/.codex/hooks.json`:
 
 ```bash
-python3 ~/src/mem0/mem0-plugin/scripts/install_codex_hooks.py
+python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py
 ```
 
 Then add the feature flag to `~/.codex/config.toml`:
@@ -94,7 +100,7 @@ Then add the feature flag to `~/.codex/config.toml`:
 codex_hooks = true
 ```
 
-This registers three hooks: `SessionStart` (loads prior memories as bootstrap context), `UserPromptSubmit` (injects relevant memories before each prompt), and `Stop` (reminds the agent to persist learnings at turn end). Re-running the installer is idempotent. To remove: `python3 .../install_codex_hooks.py --uninstall`.
+Restart Codex. This registers three hooks: `SessionStart` (loads prior memories as bootstrap context), `UserPromptSubmit` (injects relevant memories before each prompt), and `Stop` (reminds the agent to persist learnings at turn end). Re-running the installer is idempotent. To remove: `python3 .../install_codex_hooks.py --uninstall`.
 
 <Info icon="check">
   After either option, start a new Codex task and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
@@ -192,8 +198,8 @@ You: Add WebSocket support for real-time notification delivery.
 
 - **"Connection failed"** — Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`
 - **No tools appearing** — Restart your Codex session after plugin installation
-- **`plugin/read failed in TUI`** — The `source.path` in your `marketplace.json` points to a directory that doesn't exist. Use the **absolute path** to `mem0-plugin/` inside your clone (e.g. `/Users/YOU/src/mem0/mem0-plugin`), not a relative path, and make sure you've actually run `git clone` first.
-- **Plugin not found** — Ensure `marketplace.json` lives at `~/.agents/plugins/marketplace.json` (or `$REPO_ROOT/.agents/plugins/marketplace.json`) and `source.path` points to the `mem0-plugin` directory (note: not `plugins/mem0`).
+- **`plugin/read failed in TUI`** — The `source.path` in your `marketplace.json` points to a directory that doesn't exist. Confirm you actually cloned the repo, then use a relative path (starting with `./`) from `~/` to `mem0-plugin/` inside your clone — e.g. if you cloned to `~/codex-plugins/mem0-source`, use `"./codex-plugins/mem0-source/mem0-plugin"`. The plugin must live inside the marketplace root (`~/` for personal installs).
+- **Plugin not found** — Ensure `marketplace.json` lives at `~/.agents/plugins/marketplace.json` (or `$REPO_ROOT/.agents/plugins/marketplace.json`) and `source.path` ends in `mem0-plugin` (not `plugins/mem0`).
 - **Skills not loading** — Verify the `skills` field in `plugin.json` points to a valid directory containing `SKILL.md` files.
 - **Hooks not firing** — Confirm `codex_hooks = true` is in `~/.codex/config.toml` under `[features]`, and that `~/.codex/hooks.json` contains the Mem0 entries (re-run the installer if not). Restart Codex after enabling the flag.
 
