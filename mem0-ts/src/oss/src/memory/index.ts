@@ -155,6 +155,29 @@ function validateSearchParams(threshold?: number, topK?: number): void {
   }
 }
 
+function extractObservationTimestamp(
+  metadata?: Record<string, any>,
+  messages?: Array<Record<string, any>>,
+): any {
+  for (const key of ["timestamp", "created_at"]) {
+    const value = metadata?.[key];
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+
+  for (const message of messages ?? []) {
+    for (const key of ["timestamp", "created_at"]) {
+      const value = message?.[key];
+      if (value !== undefined && value !== null) {
+        return value;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 export class Memory {
   private config: MemoryConfig;
   private customInstructions: string | undefined;
@@ -789,6 +812,7 @@ export class Memory {
       existingMemories,
       newMessages: parsedMessages,
       lastKMessages: lastMessages,
+      observationDate: extractObservationTimestamp(metadata, messages),
       customInstructions: this.customInstructions,
     });
 
