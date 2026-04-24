@@ -89,6 +89,9 @@ class Constants:
     SIMILARITY_SCORE = "SimilarityScore"
     FILTER_VALUE = "filter_value"
 
+    # Default similarity score threshold
+    DEFAULT_THRESHOLD: float = 0.5
+
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -509,7 +512,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         projection_mapping: Optional[Dict[str, Any]] = None,
         where: Optional[str] = None,
         weights: Optional[List[float]] = None,
-        threshold: Optional[float] = 0.5,
+        threshold: Optional[float] = Constants.DEFAULT_THRESHOLD,
     ) -> List[OutputData]:
         """
         Search for similar items in the Cosmos DB collection.
@@ -659,42 +662,22 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         search_type: str,
         param_mapping: ParamMapping,
         projection_mapping: Optional[Dict[str, Any]] = None,
-        return_with_vectors: bool = False,
         vector: Optional[List[float]] = None,
         full_text_rank_filter: Optional[List[Dict[str, str]]] = None,
     ) -> str:
         if projection_mapping:
             projection_fields = [f"{self._table_alias}.{key} as {alias}" for key, alias in projection_mapping.items()]
-        elif search_type == Constants.FULL_TEXT_RANKING:
-            if not full_text_rank_filter:
-                raise ValueError(f"'full_text_rank_filter' required for {search_type}.")
-
-            projection_fields = [f"{self._table_alias}.{Constants.ID} as {Constants.ID}"]
-            projection_fields += [
-                param_mapping.gen_proj_field(
-                    key=item[Constants.SEARCH_FIELD],
-                    alias=item[Constants.SEARCH_FIELD],
-                    value=item[Constants.SEARCH_FIELD],
-                )
-                for item in full_text_rank_filter
-            ]
         else:
-            projection_fields = [f"{self._table_alias}.{Constants.ID} as {Constants.ID}"]
-            projection_fields += [
-                param_mapping.gen_proj_field(key=key, value=key, alias=key)
-                for key in [self._text_key, self._metadata_key]
-            ]
+            if search_type == Constants.FULL_TEXT_RANKING and not full_text_rank_filter:
+                raise ValueError(f"'full_text_rank_filter' required for {search_type}.")
+            # Use SELECT * so that all payload fields (data, hash, user_id, etc.) are
+            # returned rather than only the fields known at query-build time.
+            projection_fields = ["*"]
 
-        # If it's a vector search type, include vector distance projection and optionally the vector itself
+        # For vector search types, append the VectorDistance score projection.
+        # SELECT * already includes the raw vector field; return_with_vectors is
+        # handled downstream in _build_output_data_from_item.
         if self._is_vector_search_type(search_type):
-            if return_with_vectors:
-                projection_fields.append(
-                    param_mapping.gen_proj_field(
-                        key=Constants.VECTOR_KEY,
-                        value=self._vector_key,
-                        alias=Constants.VECTOR,
-                    )
-                )
             projection_fields.append(
                 param_mapping.gen_vector_distance_proj_field(
                     vector_field=self._vector_key,
@@ -702,7 +685,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                     alias=Constants.SIMILARITY_SCORE,
                 )
             )
-        return f" {", ".join(projection_fields)}"
+        return f" {', '.join(projection_fields)}"
 
     def _generate_limit_clause(self, param_mapping: ParamMapping, limit: int) -> str:
         limit_key = param_mapping.gen_param_key(key=Constants.LIMIT, value=limit)
@@ -797,7 +780,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             search_type=search_type,
             param_mapping=param_mapping,
             projection_mapping=projection_mapping,
-            return_with_vectors=return_with_vectors,
             vector=vector,
             full_text_rank_filter=full_text_rank_filter,
         )
@@ -837,7 +819,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         parameters: Optional[List[Dict[str, Any]]] = None,
         return_with_vectors: bool = False,
         projection_mapping: Optional[Dict[str, Any]] = None,
-        threshold: Optional[float] = 0.0,
+        threshold: Optional[float] = Constants.DEFAULT_THRESHOLD,
     ) -> List[OutputData]:
         parameters = parameters if parameters else []
 
@@ -851,7 +833,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         # Filter items if it was threshold-based search
         if self._is_vector_search_with_threshold(search_type):
             threshold = threshold or 0.0
-            filtered_items = [item for item in items if item.get(Constants.SIMILARITY_SCORE, 0.0) > threshold]
+            filtered_items = [item for item in items if item.get(Constants.SIMILARITY_SCORE, 0.0) >= threshold]
         else:
             filtered_items = items
 
@@ -975,10 +957,13 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         partition_key_value = self._resolve_partition_key(vector_id, partition_key_value)
 
         # Retrieve the item
-        item = self._collection.read_item(
-            item=vector_id,
-            partition_key=partition_key_value,
-        )
+        try:
+            item = self._collection.read_item(
+                item=vector_id,
+                partition_key=partition_key_value,
+            )
+        except CosmosResourceNotFoundError:
+            return None
 
         return self._build_output_data_from_item(
             item=item,

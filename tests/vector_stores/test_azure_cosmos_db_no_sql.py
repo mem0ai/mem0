@@ -321,6 +321,29 @@ def test_search_with_filters(cosmos_db_client_fixture):
         assert actual_output_data == output_data
 
 
+def test_score_threshold_boundary(cosmos_db_client_fixture):
+    """Items with score exactly equal to threshold are included (>= not >)."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    threshold = 0.5
+    query_items = [
+        {'id': 'vec1', 'SimilarityScore': threshold, 'description': 'At threshold.', 'hash': 'h1'},
+        {'id': 'vec2', 'SimilarityScore': 0.4, 'description': 'Below threshold.', 'hash': 'h2'},
+    ]
+    mock_collection.query_items.return_value = query_items
+
+    results = cosmos_db_vector.search(
+        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        vectors=[0.1, 0.2, 0.3],
+        limit=5,
+        threshold=threshold,
+    )
+
+    # vec1 (score == threshold) must be included; vec2 (score < threshold) must not
+    assert len(results) == 1
+    assert results[0].id == 'vec1'
+
+
 def test_search_with_errors(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
@@ -488,7 +511,21 @@ def test_get(cosmos_db_client_fixture):
     )
 
 
-def test_list_cols(cosmos_db_client_fixture):
+def test_get_not_found_returns_none(cosmos_db_client_fixture):
+    """get() returns None when the item does not exist (CosmosResourceNotFoundError)."""
+    from mem0.vector_stores.azure_cosmos_db_no_sql import CosmosResourceNotFoundError
+
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    mock_collection.read_item.side_effect = CosmosResourceNotFoundError(404, "Not found")
+
+    result = cosmos_db_vector.get(vector_id="missing-id", partition_key_value="missing-id")
+
+    assert result is None
+    mock_collection.read_item.assert_called_once_with(item="missing-id", partition_key="missing-id")
+
+
+
     cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     mock_db.list_containers.return_value = [
@@ -641,13 +678,11 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 1: Simple Vector search with k
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
     ]
@@ -706,13 +741,11 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 2: with vector
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, c[@vectorKey] as vector, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
     ]
@@ -838,13 +871,11 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 4: With offset_limit
     off_set_limit = "OFFSET 5 LIMIT 1"
     expected_query = (
-        "SELECT c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector) "
         f"{off_set_limit}"
     )
     expected_parameters = [
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
     ]
@@ -886,15 +917,13 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 5: With where filter
     where_filter = "c.user_id='alice'"
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         "WHERE c.user_id='alice' "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
     ]
@@ -916,15 +945,13 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 6: filters dict only (no raw where)
     filters = {"user_id": "alice", "hash": "abc123"}
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         "WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
         {"name": "@filter_value_0", "value": "alice"},
@@ -948,15 +975,13 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 7: filters dict AND raw where combined with AND
     where_filter = "FullTextContains(c.description, 'sci-fi')"
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND {where_filter} "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
         {"name": "@filter_value_0", "value": "alice"},
@@ -980,13 +1005,11 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 8: Vector score threshold — items below threshold are filtered out
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
     ]
@@ -1047,14 +1070,12 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
     # Case 1: Simple full text search
     where = "FullTextContainsAny(c.description, 'intelligent', 'herders')"
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata "
+        "SELECT TOP @limit * "
         "FROM c "
         "WHERE FullTextContainsAny(c.description, 'intelligent', 'herders')"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": "description"},
-        {"name": "@metadata", "value": "metadata"},
     ]
     expected_query_items = [
         {
@@ -1109,7 +1130,7 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
 
     # Case 2: Simple full text ranking
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description "
+        "SELECT TOP @limit * "
         "FROM c "
         "ORDER BY RANK FullTextScore(c[@description], @description_term_0, @description_term_1)"
     )
@@ -1157,16 +1178,16 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
         {"search_field": "metadata", "search_text": search_text}
     ]
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata "
+        "SELECT TOP @limit * "
         "FROM c "
         "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), FullTextScore(c[@metadata], @metadata_term_0, @metadata_term_1))"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
         {"name": "@description", "value": "description"},
-        {"name": "@metadata", "value": "metadata"},
         {"name": "@description_term_0", "value": "intelligent"},
         {"name": "@description_term_1", "value": "herders"},
+        {"name": "@metadata", "value": "metadata"},
         {"name": "@metadata_term_0", "value": "intelligent"},
         {"name": "@metadata_term_1", "value": "herders"},
     ]
@@ -1197,16 +1218,15 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 1: Hybrid search with score threshold
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), VectorDistance(c[@vectorKey], @vector))"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
+        {"name": "@description", "value": Constants.DESCRIPTION},
         {"name": "@description_term_0", "value": "intelligent"},
         {"name": "@description_term_1", "value": "herders"},
     ]
@@ -1260,16 +1280,15 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 2: Hybrid search with weights
     weights = [2, 1]
     expected_query = (
-        "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), VectorDistance(c[@vectorKey], @vector), @weights)"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
-        {"name": "@description", "value": Constants.DESCRIPTION},
-        {"name": "@metadata", "value": Constants.METADATA},
         {"name": "@vectorKey", "value": Constants.VECTOR},
         {"name": "@vector", "value": vectors},
+        {"name": "@description", "value": Constants.DESCRIPTION},
         {"name": "@description_term_0", "value": "intelligent"},
         {"name": "@description_term_1", "value": "herders"},
         {"name": "@weights", "value": weights},
@@ -1331,7 +1350,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             limit=limit,
         ),
         (
-            "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, "
+            "SELECT TOP @limit *, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             "FROM c "
             "WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 "
@@ -1339,8 +1358,6 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         ),
         [
             {"name": "@limit", "value": limit},
-            {"name": "@description", "value": Constants.DESCRIPTION},
-            {"name": "@metadata", "value": Constants.METADATA},
             {"name": "@vectorKey", "value": Constants.VECTOR},
             {"name": "@vector", "value": vectors},
             {"name": "@filter_value_0", "value": "alice"},
@@ -1360,7 +1377,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             limit=limit,
         ),
         (
-            "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, "
+            "SELECT TOP @limit *, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             f"FROM c "
             f"WHERE {where_expr} "
@@ -1368,8 +1385,6 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         ),
         [
             {"name": "@limit", "value": limit},
-            {"name": "@description", "value": Constants.DESCRIPTION},
-            {"name": "@metadata", "value": Constants.METADATA},
             {"name": "@vectorKey", "value": Constants.VECTOR},
             {"name": "@vector", "value": vectors},
         ],
@@ -1388,7 +1403,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             limit=limit,
         ),
         (
-            "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, "
+            "SELECT TOP @limit *, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             "FROM c "
             f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND {where_expr} "
@@ -1396,8 +1411,6 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         ),
         [
             {"name": "@limit", "value": limit},
-            {"name": "@description", "value": Constants.DESCRIPTION},
-            {"name": "@metadata", "value": Constants.METADATA},
             {"name": "@vectorKey", "value": Constants.VECTOR},
             {"name": "@vector", "value": vectors},
             {"name": "@filter_value_0", "value": "alice"},
@@ -1415,14 +1428,12 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             limit=limit,
         ),
         (
-            "SELECT TOP @limit c.id as id, c[@description] as description, c[@metadata] as metadata, "
+            "SELECT TOP @limit *, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
         ),
         [
             {"name": "@limit", "value": limit},
-            {"name": "@description", "value": Constants.DESCRIPTION},
-            {"name": "@metadata", "value": Constants.METADATA},
             {"name": "@vectorKey", "value": Constants.VECTOR},
             {"name": "@vector", "value": vectors},
         ],
