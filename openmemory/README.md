@@ -1,5 +1,7 @@
 # OpenMemory
 
+> **⚠️ Sunsetting Notice:** OpenMemory is being sunset. For local self-hosted memory with a dashboard, please use the [Mem0 self-hosted server](https://docs.mem0.ai/open-source/overview) instead. Get started with `cd server && make bootstrap`. See the [self-hosted docs](https://docs.mem0.ai/open-source/setup) for configuration details.
+
 OpenMemory is your personal memory layer for LLMs - private, portable, and open-source. Your memories live locally, giving you complete control over your data. Build AI applications with personalized memories while keeping your data secure.
 
 ![OpenMemory](https://github.com/user-attachments/assets/3c701757-ad82-4afa-bfbe-e049c2b4320b)
