@@ -22,13 +22,35 @@ We follow the llms.txt standard:
 
 ## Agent Skills
 
-Teach your coding assistant how to build with Mem0:
+Mem0 ships two kinds of skills for AI coding assistants. Both work with Claude Code, Cursor, Windsurf, OpenCode, OpenClaw, and any assistant that supports the skills standard.
+
+### Reference skills — always on
+
+Teach your assistant Mem0's SDK surface so it writes correct code in everyday development:
 
 ```bash
 npx skills add https://github.com/mem0ai/mem0 --skill mem0
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-cli
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-vercel-ai-sdk
 ```
 
-Works with Claude Code, Cursor, Windsurf, and any assistant that supports skills. Once installed, your assistant understands Mem0's full API, framework integrations, and common patterns.
+- `mem0` — Python and TypeScript SDKs (Platform + OSS), plus framework integrations (LangChain, CrewAI, OpenAI Agents, LangGraph, LlamaIndex, etc.)
+- `mem0-cli` — terminal workflows for the `mem0` CLI (both Node and Python builds)
+- `mem0-vercel-ai-sdk` — `@mem0/vercel-ai-provider` and `createMem0`
+
+### Pipeline skills — run on demand
+
+Let your assistant execute an end-to-end workflow in an existing repo. Invoked as slash commands:
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
+```
+
+- `/mem0-integrate` — wire Mem0 into an existing repository using a goal-driven, test-first pipeline. Detects the stack, asks whether to use Platform or OSS, writes failing tests first, and keeps the integration additive and feature-flagged.
+- `/mem0-test-integration` — verify what `/mem0-integrate` produced. Runs the repo's native test suite and a real end-to-end smoke flow against your API key, then produces a scorecard.
+
+See the [skills index](https://github.com/mem0ai/mem0/tree/main/skills) for the full catalog.
 
 ## MCP Server Setup
 

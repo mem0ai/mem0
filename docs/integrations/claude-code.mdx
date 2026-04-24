@@ -83,7 +83,21 @@ Add to your Claude Code MCP config (`.mcp.json`):
 |-----------|:--------------:|:--------:|
 | MCP Server (9 memory tools) | Yes | Yes |
 | Lifecycle Hooks | Yes | No |
-| Mem0 SDK Skill | Yes | No |
+| Mem0 SDK Skill (reference) | Yes | No |
+
+### Optional: Pipeline Skills
+
+Two additional skills are available for end-to-end workflows and are installed separately from the plugin:
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
+```
+
+- `/mem0-integrate` — wire Mem0 into an existing repo via a test-first pipeline. Detects the stack, picks Platform vs OSS, writes failing tests before any implementation, and keeps the integration additive and feature-flagged.
+- `/mem0-test-integration` — verifies the branch `/mem0-integrate` produced. Runs the repo's native test suite plus a real end-to-end smoke flow, then outputs a scorecard.
+
+See [Vibecoding with Mem0](/vibecoding#agent-skills) for the full skill catalog.
 
 ## Available MCP Tools
 
