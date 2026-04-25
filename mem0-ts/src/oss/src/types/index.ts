@@ -52,6 +52,7 @@ export interface LLMConfig {
   temperature?: number;
   topP?: number;
   maxTokens?: number;
+  extraHeaders?: Record<string, string>;
 }
 
 export interface MemoryConfig {
@@ -138,6 +139,7 @@ export const MemoryConfigSchema = z.object({
       temperature: z.number().optional(),
       topP: z.number().optional(),
       maxTokens: z.number().optional(),
+      extraHeaders: z.record(z.string(), z.string()).optional(),
     }),
   }),
   historyDbPath: z.string().optional(),

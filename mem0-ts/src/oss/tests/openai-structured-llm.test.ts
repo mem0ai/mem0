@@ -56,4 +56,32 @@ describe("OpenAIStructuredLLM (unit)", () => {
     });
     expect(capturedConstructorArgs).not.toHaveProperty("timeout");
   });
+
+  it("passes extraHeaders as request headers for structured chat completions", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "{\"ok\": true}",
+            role: "assistant",
+            tool_calls: null,
+          },
+        },
+      ],
+    });
+
+    const llm = new OpenAIStructuredLLM({
+      apiKey: "test-key",
+      extraHeaders: { "Helicone-Auth": "Bearer test" },
+    });
+    await llm.generateResponse(
+      [{ role: "user", content: "Hi" }],
+      { type: "json_object" },
+    );
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.any(Object),
+      { headers: { "Helicone-Auth": "Bearer test" } },
+    );
+  });
 });

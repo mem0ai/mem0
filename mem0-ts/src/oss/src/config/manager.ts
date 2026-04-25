@@ -119,6 +119,9 @@ export class ConfigManager {
           const topP = userConf?.topP ?? (llmRaw?.top_p as number | undefined);
           const maxTokens =
             userConf?.maxTokens ?? (llmRaw?.max_tokens as number | undefined);
+          const extraHeaders =
+            userConf?.extraHeaders ??
+            (llmRaw?.extra_headers as Record<string, string> | undefined);
 
           return {
             baseURL: llmBaseURL,
@@ -135,6 +138,7 @@ export class ConfigManager {
             temperature,
             topP,
             maxTokens,
+            extraHeaders,
           };
         })(),
       },
