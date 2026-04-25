@@ -5,6 +5,7 @@ import { LLMConfig, Message } from "../types";
 export class OpenAILLM implements LLM {
   private openai: OpenAI;
   private model: string;
+  private extraHeaders?: Record<string, string>;
 
   constructor(config: LLMConfig) {
     this.openai = new OpenAI({
@@ -13,6 +14,7 @@ export class OpenAILLM implements LLM {
       ...(config.timeout != null && { timeout: config.timeout }),
     });
     this.model = config.model || "gpt-5-mini";
+    this.extraHeaders = config.extraHeaders;
   }
 
   async generateResponse(
@@ -20,7 +22,7 @@ export class OpenAILLM implements LLM {
     responseFormat?: { type: string },
     tools?: any[],
   ): Promise<string | LLMResponse> {
-    const completion = await this.openai.chat.completions.create({
+    const params = {
       messages: messages.map((msg) => {
         const role = msg.role as "system" | "user" | "assistant";
         return {
@@ -33,8 +35,13 @@ export class OpenAILLM implements LLM {
       }),
       model: this.model,
       response_format: responseFormat as { type: "text" | "json_object" },
-      ...(tools && { tools, tool_choice: "auto" }),
-    });
+      ...(tools && { tools, tool_choice: "auto" as const }),
+    };
+    const completion = this.extraHeaders
+      ? await this.openai.chat.completions.create(params, {
+          headers: this.extraHeaders,
+        })
+      : await this.openai.chat.completions.create(params);
 
     const response = completion.choices[0].message;
 
@@ -53,7 +60,7 @@ export class OpenAILLM implements LLM {
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
-    const completion = await this.openai.chat.completions.create({
+    const params = {
       messages: messages.map((msg) => {
         const role = msg.role as "system" | "user" | "assistant";
         return {
@@ -65,7 +72,12 @@ export class OpenAILLM implements LLM {
         };
       }),
       model: this.model,
-    });
+    };
+    const completion = this.extraHeaders
+      ? await this.openai.chat.completions.create(params, {
+          headers: this.extraHeaders,
+        })
+      : await this.openai.chat.completions.create(params);
     const response = completion.choices[0].message;
     return {
       content: response.content || "",

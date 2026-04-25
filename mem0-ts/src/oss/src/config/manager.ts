@@ -112,6 +112,11 @@ export class ConfigManager {
               | undefined) ??
             userConf?.url ??
             defaultConf.baseURL;
+          const extraHeaders =
+            userConf?.extraHeaders ??
+            ((userConf as Record<string, unknown>)?.extra_headers as
+              | Record<string, string>
+              | undefined);
 
           return {
             baseURL: llmBaseURL,
@@ -125,6 +130,7 @@ export class ConfigManager {
               userConf?.modelProperties !== undefined
                 ? userConf.modelProperties
                 : defaultConf.modelProperties,
+            extraHeaders,
           };
         })(),
       },
