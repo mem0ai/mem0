@@ -39,7 +39,7 @@
 </p>
 
 <p align="center">
-  <a href="https://mem0.ai/research"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
+  <a href="https://mem0.ai/research"><strong>📄 Benchmarking Mem0's token-efficient memory algorithm →</strong></a>
 </p>
 
 ## New Memory Algorithm (April 2026)
