@@ -2,7 +2,7 @@
  * Regression tests for per-agent memory isolation helpers and
  * message filtering logic.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   extractAgentId,
   effectiveUserId,
@@ -15,6 +15,7 @@ import {
   stripNoiseFromContent,
   filterMessagesForExtraction,
 } from "./index.ts";
+import memoryPlugin from "./index.ts";
 
 // ---------------------------------------------------------------------------
 // extractAgentId
@@ -559,5 +560,70 @@ What is the deployment plan?`,
     ];
     const result = filterMessagesForExtraction(messages);
     expect(result).toHaveLength(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plugin registration (runtime/capability coverage)
+// ---------------------------------------------------------------------------
+
+function createMockApi(overrides: any = {}) {
+  return {
+    pluginConfig: {
+      mode: "platform",
+      apiKey: "test-api-key",
+      userId: "test-user",
+      ...overrides.pluginConfig,
+    },
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    },
+    resolvePath: (p: string) => p,
+    registerTool: vi.fn(),
+    on: vi.fn(),
+    registerCli: vi.fn(),
+    registerService: vi.fn(),
+    ...overrides,
+  };
+}
+
+describe("plugin registration", () => {
+  it("registers memory capability when registerMemoryCapability is available", () => {
+    const registerMemoryCapability = vi.fn();
+    const api = createMockApi({ registerMemoryCapability });
+
+    memoryPlugin.register(api as any);
+
+    expect(registerMemoryCapability).toHaveBeenCalledTimes(1);
+    expect(registerMemoryCapability).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publicArtifacts: expect.any(Object),
+        runtime: expect.any(Object),
+      }),
+    );
+  });
+
+  it("falls back to registerMemoryRuntime for backward compatibility", () => {
+    const registerMemoryRuntime = vi.fn();
+    const api = createMockApi({ registerMemoryRuntime });
+
+    memoryPlugin.register(api as any);
+
+    expect(registerMemoryRuntime).toHaveBeenCalledTimes(1);
+    expect(registerMemoryRuntime).toHaveBeenCalledWith(expect.any(Object));
+  });
+
+  it("registers both capability and runtime when both APIs are available", () => {
+    const registerMemoryCapability = vi.fn();
+    const registerMemoryRuntime = vi.fn();
+    const api = createMockApi({ registerMemoryCapability, registerMemoryRuntime });
+
+    memoryPlugin.register(api as any);
+
+    expect(registerMemoryCapability).toHaveBeenCalledTimes(1);
+    expect(registerMemoryRuntime).toHaveBeenCalledTimes(1);
   });
 });
