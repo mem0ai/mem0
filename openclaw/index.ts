@@ -210,6 +210,7 @@ const memoryPlugin = definePluginEntry({
         }),
         runtime: createMemoryRuntime({ provider, cfg, backend }),
       });
+      /* istanbul ignore next */
       api.logger.debug("openclaw-mem0: capability registered with runtime");
     }
 

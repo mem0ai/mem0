@@ -159,4 +159,48 @@ describe("createMemoryRuntime", () => {
     const availability = await manager.probeEmbeddingAvailability();
     expect(availability).toBe(true);
   });
+
+  it("manager.close resolves without error", async () => {
+    const mockProvider = {
+      add: vi.fn(),
+      search: vi.fn().mockResolvedValue([]),
+      get: vi.fn(),
+      getAll: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      deleteAll: vi.fn(),
+      history: vi.fn(),
+    } as unknown as Mem0Provider;
+
+    const runtime = createMemoryRuntime({
+      provider: mockProvider,
+      cfg: mockConfig,
+      backend: mockBackend,
+    });
+
+    const { manager } = await runtime.getMemorySearchManager({});
+
+    await expect(manager.close()).resolves.toBeUndefined();
+  });
+
+  it("closeAllMemorySearchManagers resolves without error", () => {
+    const mockProvider = {
+      add: vi.fn(),
+      search: vi.fn(),
+      get: vi.fn(),
+      getAll: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      deleteAll: vi.fn(),
+      history: vi.fn(),
+    } as unknown as Mem0Provider;
+
+    const runtime = createMemoryRuntime({
+      provider: mockProvider,
+      cfg: mockConfig,
+      backend: mockBackend,
+    });
+
+expect(runtime.closeAllMemorySearchManagers()).resolves.toBeUndefined();
+  });
 });
