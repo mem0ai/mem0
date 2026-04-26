@@ -198,6 +198,8 @@ const memoryPlugin = definePluginEntry({
     // ========================================================================
     // Public Artifacts (for memory-wiki bridge mode)
     // ========================================================================
+    const memoryRuntime = createMemoryRuntime({ provider, cfg, backend });
+
     if (typeof api.registerMemoryCapability === "function") {
       api.registerMemoryCapability({
         publicArtifacts: createPublicArtifactsProvider({
@@ -208,10 +210,16 @@ const memoryPlugin = definePluginEntry({
           },
           effectiveUserId: _effectiveUserId,
         }),
-        runtime: createMemoryRuntime({ provider, cfg, backend }),
+        runtime: memoryRuntime,
       });
       /* istanbul ignore next */
       api.logger.debug("openclaw-mem0: capability registered with runtime");
+    }
+
+    // Backward compatibility for older openclaw versions (< 2026.4.x)
+    // that read runtime from registerMemoryRuntime instead of capability.runtime
+    if (typeof (api as any).registerMemoryRuntime === "function") {
+      (api as any).registerMemoryRuntime(memoryRuntime);
     }
 
     // Helper: build add options

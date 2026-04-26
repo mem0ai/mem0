@@ -160,6 +160,35 @@ describe("createMemoryRuntime", () => {
     expect(availability).toBe(true);
   });
 
+  it("getMemorySearchManager accepts arbitrary params without crashing", async () => {
+    const mockProvider = {
+      add: vi.fn(),
+      search: vi.fn().mockResolvedValue([]),
+      get: vi.fn(),
+      getAll: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      deleteAll: vi.fn(),
+      history: vi.fn(),
+    } as unknown as Mem0Provider;
+
+    const runtime = createMemoryRuntime({
+      provider: mockProvider,
+      cfg: mockConfig,
+      backend: mockBackend,
+    });
+
+    const result = await runtime.getMemorySearchManager({
+      agentSessionKey: "agent:test:123",
+      userId: "other-user",
+    });
+
+    expect(result).toHaveProperty("manager");
+    expect(result.manager).toHaveProperty("status");
+    expect(result.manager).toHaveProperty("probeEmbeddingAvailability");
+    expect(result.manager).toHaveProperty("close");
+  });
+
   it("manager.close resolves without error", async () => {
     const mockProvider = {
       add: vi.fn(),
@@ -183,7 +212,7 @@ describe("createMemoryRuntime", () => {
     await expect(manager.close()).resolves.toBeUndefined();
   });
 
-  it("closeAllMemorySearchManagers resolves without error", () => {
+  it("closeAllMemorySearchManagers resolves without error", async () => {
     const mockProvider = {
       add: vi.fn(),
       search: vi.fn(),
@@ -201,6 +230,6 @@ describe("createMemoryRuntime", () => {
       backend: mockBackend,
     });
 
-expect(runtime.closeAllMemorySearchManagers()).resolves.toBeUndefined();
+    await expect(runtime.closeAllMemorySearchManagers()).resolves.toBeUndefined();
   });
 });
