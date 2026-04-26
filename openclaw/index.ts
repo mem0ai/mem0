@@ -29,6 +29,7 @@ import { createProvider, providerToBackend } from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
 import type { FileConfig } from "./config.ts";
 import { createPublicArtifactsProvider } from "./public-artifacts.ts";
+import { createMemoryRuntime } from "./memory-runtime.ts";
 import { filterMessagesForExtraction } from "./filtering.ts";
 import {
   effectiveUserId,
@@ -207,8 +208,9 @@ const memoryPlugin = definePluginEntry({
           },
           effectiveUserId: _effectiveUserId,
         }),
+        runtime: createMemoryRuntime({ provider, cfg, backend }),
       });
-      api.logger.debug("openclaw-mem0: publicArtifacts capability registered");
+      api.logger.debug("openclaw-mem0: capability registered with runtime");
     }
 
     // Helper: build add options
