@@ -20,7 +20,7 @@ export function createMemoryRuntime(ctx: RuntimeContext) {
         manager: {
           status: async () => {
             try {
-              await ctx.provider.search("ping", { top_k: 1 });
+              await ctx.provider.search("ping", { top_k: 1, user_id: "system-health-probe" });
               return { ok: true, embedding: { ok: true } };
             } catch (error) {
               return { ok: false, embedding: { ok: false, error: String(error) } };
