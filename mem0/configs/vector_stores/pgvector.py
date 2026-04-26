@@ -1,6 +1,11 @@
+import re
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# Rejecting any identifier that doesn't match this pattern is what keeps the
+# f-string table/column interpolations in mem0/vector_stores/pgvector.py safe.
+_VALID_SQL_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class PGVectorConfig(BaseModel):
@@ -19,6 +24,15 @@ class PGVectorConfig(BaseModel):
     sslmode: Optional[str] = Field(None, description="SSL mode for PostgreSQL connection (e.g., 'require', 'prefer', 'disable')")
     connection_string: Optional[str] = Field(None, description="PostgreSQL connection string (overrides individual connection parameters)")
     connection_pool: Optional[Any] = Field(None, description="psycopg connection pool object (overrides connection string and individual parameters)")
+
+    @field_validator("collection_name")
+    def validate_collection_name(cls, v):
+        if not _VALID_SQL_IDENTIFIER.match(v):
+            raise ValueError(
+                f"Invalid collection_name: {v!r}. Must start with a letter or underscore and "
+                "contain only letters, digits, and underscores."
+            )
+        return v
 
     @model_validator(mode="before")
     def check_auth_and_connection(cls, values):
