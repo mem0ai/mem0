@@ -137,7 +137,7 @@ def test_generate_response_without_response_format(mock_openai_client):
 
 def test_reasoning_model_with_reasoning_effort(mock_openai_client):
     """Test that reasoning_effort is passed to the API for Azure reasoning models."""
-    config = AzureOpenAIConfig(model="o3-mini", reasoning_effort="low")
+    config = AzureOpenAIConfig(model="o3-mini", max_tokens=MAX_TOKENS, reasoning_effort="low")
     llm = AzureOpenAILLM(config)
     messages = [
         {"role": "system", "content": "You are a helpful ai."},
@@ -152,8 +152,33 @@ def test_reasoning_model_with_reasoning_effort(mock_openai_client):
 
     call_kwargs = mock_openai_client.chat.completions.create.call_args
     assert call_kwargs[1]["reasoning_effort"] == "low"
+    assert call_kwargs[1]["max_completion_tokens"] == MAX_TOKENS
+    assert "max_tokens" not in call_kwargs[1]
     assert "temperature" not in call_kwargs[1]
     assert response == "Response from o3-mini"
+
+
+def test_azure_gpt5_mini_uses_max_completion_tokens(mock_openai_client):
+    """Test that Azure gpt-5-mini translates max_tokens for Chat Completions."""
+    config = AzureOpenAIConfig(model="gpt-5-mini", max_tokens=MAX_TOKENS)
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful ai."},
+        {"role": "user", "content": "Hello"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response from gpt-5-mini"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["max_completion_tokens"] == MAX_TOKENS
+    assert "max_tokens" not in call_kwargs
+    assert "reasoning_effort" not in call_kwargs
+    assert "temperature" not in call_kwargs
+    assert response == "Response from gpt-5-mini"
 
 
 def test_azure_reasoning_effort_not_passed_when_none(mock_openai_client):
