@@ -38,7 +38,7 @@ prompt = ChatPromptTemplate.from_messages([
 
 def retrieve_context(query: str, user_id: str):
     """Retrieve relevant memories from Mem0"""
-    memories = mem0.search(query, user_id=user_id)
+    memories = mem0.search(query, filters={"user_id": user_id})
     memory_list = memories['results']
     serialized = ' '.join([m["memory"] for m in memory_list])
     return [
@@ -150,7 +150,7 @@ mem0 = MemoryClient()
 @function_tool
 def search_memory(query: str, user_id: str) -> str:
     """Search through past conversations and memories"""
-    memories = mem0.search(query, user_id=user_id, top_k=3)
+    memories = mem0.search(query, filters={"user_id": user_id}, top_k=3)
     if memories and memories.get('results'):
         return "\n".join([f"- {mem['memory']}" for mem in memories['results']])
     return "No relevant memories found."
@@ -266,7 +266,7 @@ def chatbot(state: State):
     user_id = state["mem0_user_id"]
 
     # Retrieve relevant memories
-    memories = mem0.search(messages[-1].content, user_id=user_id)
+    memories = mem0.search(messages[-1].content, filters={"user_id": user_id})
     context = "Relevant context:\n"
     for memory in memories["results"]:
         context += f"- {memory['memory']}\n"
@@ -359,7 +359,7 @@ agent = ConversableAgent(
 
 def get_context_aware_response(question: str) -> str:
     # Retrieve memories for context
-    relevant_memories = memory_client.search(question, user_id=USER_ID)
+    relevant_memories = memory_client.search(question, filters={"user_id": USER_ID})
     context = "\n".join([m["memory"] for m in relevant_memories.get("results", [])])
 
     prompt = f"""Answer considering previous interactions:
