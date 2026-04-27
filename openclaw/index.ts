@@ -210,16 +210,25 @@ const memoryPlugin = definePluginEntry({
           async getMemorySearchManager(_params: any) {
             try {
               const userId = _effectiveUserId();
-              const testResult = await provider.search("__mem0_health_probe__", {
-                user_id: userId,
-                top_k: 1,
-                source: "OPENCLAW",
-              });
+              let memoryCount = 0;
+              try {
+                const memories = await provider.getAll({
+                  user_id: userId,
+                  page_size: 1,
+                  source: "OPENCLAW",
+                });
+                memoryCount = Array.isArray(memories) ? memories.length : 0;
+              } catch {
+                // Non-fatal: status still works without count
+              }
               return {
                 manager: {
                   status() {
                     return {
                       backend: cfg.mode,
+                      files: 0,
+                      chunks: memoryCount,
+                      dirty: false,
                       workspaceDir: pluginStateDir ?? "",
                       userId,
                     };

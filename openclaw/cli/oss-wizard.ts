@@ -113,6 +113,7 @@ export function buildOssEmbedderConfig(
   }
 
   const dims = KNOWN_EMBEDDER_DIMS[model] ?? def.defaultDims;
+  if (dims) config.embeddingDims = dims;
   return { provider: providerId, config, dims };
 }
 

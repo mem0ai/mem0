@@ -4,7 +4,7 @@ Long-term memory for [OpenClaw](https://github.com/openclaw/openclaw) agents, po
 
 Your agent forgets everything between sessions. This plugin fixes that — it stores conversations, extracts what matters, and brings it back when relevant.
 
-By default, the plugin runs in **skills mode**: the agent controls what to remember (triage), how to recall (recall), and periodic cleanup (dream). Skills mode is automatically enabled during `openclaw mem0 init`. For legacy behavior, set `autoRecall` and `autoCapture` manually instead.
+By default, the plugin runs in **skills mode**: the agent controls what to remember (triage), how to recall (recall), and periodic cleanup (dream). Skills mode, `autoRecall`, and `autoCapture` are all enabled by default during `openclaw mem0 init`.
 
 ## Requirements
 
@@ -204,7 +204,7 @@ Enabled automatically during `openclaw mem0 init`. The agent controls memory thr
 - **Recall** — Before each turn, rewrites the user message into search queries, retrieves relevant memories with reranking, and injects them into context.
 - **Dream** — Periodic memory consolidation: merges duplicates, resolves conflicts, and prunes stale entries.
 
-Skills mode disables the legacy `autoRecall`/`autoCapture` hooks and the built-in `session-memory` hook to avoid conflicts.
+When skills mode is active, the skills handle memory operations. `autoRecall` and `autoCapture` remain `true` by default alongside skills mode. The built-in `session-memory` hook is disabled to avoid conflicts.
 
 ### Auto-Recall & Auto-Capture
 
@@ -290,11 +290,11 @@ openclaw mem0 help --json                                   # discover all comma
 | `autoRecall` | `boolean` | `true` | Inject relevant memories before each turn. Ignored when `skills` is set. |
 | `autoCapture` | `boolean` | `true` | Extract and store facts after each turn. Ignored when `skills` is set. |
 | `topK` | `number` | `5` | Max memories returned per recall |
-| `searchThreshold` | `number` | `0.3` | Minimum similarity score (0-1) |
+| `searchThreshold` | `number` | `0.1` | Minimum similarity score (0-1) |
 
 ### Skills Mode (Recommended)
 
-Enabled by default during `openclaw mem0 init`. When `skills` is present, legacy `autoRecall`/`autoCapture` are ignored.
+Enabled by default during `openclaw mem0 init`. `autoRecall` and `autoCapture` are also `true` by default and work alongside skills mode.
 
 | Key | Type | Default | Description |
 | --- | ---- | ------- | ----------- |

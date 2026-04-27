@@ -916,7 +916,7 @@ export function registerCliCommands(
                 runId?: string,
               ): SearchOptions => {
                 const base = buildSearchOptions(userIdOverride, lim, runId);
-                base.threshold = 0.3;
+                base.threshold = 0.1;
                 return base;
               };
 

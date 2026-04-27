@@ -283,8 +283,16 @@ class OSSProvider implements Mem0Provider {
     if (this.ossConfig?.vectorStore) {
       const vs = { ...this.ossConfig.vectorStore } as Record<string, unknown>;
       const vsCfg = (vs.config ?? {}) as Record<string, unknown>;
+      // Resolve dims from embedder config if vector store doesn't have them
+      const embedderDims = (config.embedder as any)?.config?.embeddingDims;
+      if (!vsCfg.dimension && embedderDims) {
+        vsCfg.dimension = embedderDims;
+      }
+      // Sync both dimension fields — Qdrant reads dimension, PGVector reads embeddingModelDims
       if (vsCfg.dimension && !vsCfg.embeddingModelDims) {
         vsCfg.embeddingModelDims = vsCfg.dimension;
+      } else if (vsCfg.embeddingModelDims && !vsCfg.dimension) {
+        vsCfg.dimension = vsCfg.embeddingModelDims;
       }
       vs.config = vsCfg;
       config.vectorStore = vs;

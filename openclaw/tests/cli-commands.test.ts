@@ -180,7 +180,7 @@ function createMockCfg() {
     topK: 5,
     autoCapture: true,
     autoRecall: true,
-    searchThreshold: 0.5,
+    searchThreshold: 0.1,
     customInstructions: "",
     customCategories: {},
     skills: {},
