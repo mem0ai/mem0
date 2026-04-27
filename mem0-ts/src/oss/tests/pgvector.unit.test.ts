@@ -47,7 +47,9 @@ jest.mock("pg", () => {
       config,
       connect: jest.fn().mockResolvedValue(undefined),
       end: jest.fn().mockResolvedValue(undefined),
-      query: jest.fn().mockImplementation(async (sql: string) => mockPgQuery(sql)),
+      query: jest
+        .fn()
+        .mockImplementation(async (sql: string) => mockPgQuery(sql)),
     };
 
     clients.push(client);
