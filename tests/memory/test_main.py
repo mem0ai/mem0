@@ -663,3 +663,95 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+
+# ---------------------------------------------------------------------------
+# Regression tests for vector-store insert failure propagation (issue #4985)
+# ---------------------------------------------------------------------------
+
+class TestInsertFailurePropagation:
+    """Ensure that vector_store.insert failures in the v3 pipeline are NOT silently dropped."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, mock_vector_store = _setup_mocks(mocker)
+
+        # Make LLM return a valid single-pass response with one memory to add
+        mock_llm.return_value.generate_response.return_value = (
+            '{"memory": [{"text": "User likes Python", "event": "ADD", "tags": []}]}'
+        )
+
+        memory = Memory()
+        # embed_batch must return a real list so Phase 3 populates embed_map
+        memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+
+        return memory
+
+    def test_batch_insert_failure_raises(self, mock_memory):
+        """Both batch and per-record inserts fail -> _add_to_vector_store should raise."""
+        mock_memory.vector_store.insert.side_effect = Exception("vector dimension mismatch")
+        mock_memory.vector_store.search.return_value = []
+
+        with pytest.raises(RuntimeError, match="failed to persist"):
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "I like Python"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+    def test_batch_insert_failure_per_record_success_does_not_raise(self, mock_memory):
+        """Batch insert fails but per-record retries succeed -> should NOT raise."""
+        call_count = {"n": 0}
+
+        def flaky_insert(**kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise Exception("transient batch error")
+
+        mock_memory.vector_store.insert.side_effect = flaky_insert
+        mock_memory.vector_store.search.return_value = []
+
+        # Should complete without raising
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I like Python"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+    def test_partial_per_record_failure_raises_with_count(self, mock_memory, mocker):
+        """If per-record inserts all fail, RuntimeError must mention the count."""
+        batch_called = {"done": False}
+
+        def selective_insert(vectors, ids, payloads):
+            if not batch_called["done"]:
+                batch_called["done"] = True
+                raise Exception("batch failed")
+            # Per-record: always fail
+            raise Exception("per-record dim mismatch")
+
+        mock_memory.vector_store.insert.side_effect = selective_insert
+
+        # Make LLM produce 2 memories so we can verify the count in the error
+        mock_memory.llm.generate_response.return_value = (
+            '{"memory": ['
+            '{"text": "Mem one", "event": "ADD", "tags": []},'
+            '{"text": "Mem two", "event": "ADD", "tags": []}'
+            ']}'
+        )
+        # embed_batch must return 2 vectors for 2 memories
+        mock_memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+        mock_memory.vector_store.search.return_value = []
+
+        with pytest.raises(RuntimeError) as exc_info:
+            mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}],
+                metadata={},
+                filters={},
+                infer=True,
+            )
+
+        assert "failed to persist" in str(exc_info.value)

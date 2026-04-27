@@ -6,6 +6,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
+from mem0.memory.main import _sync_pgvector_dims
 from mem0.memory.utils import normalize_facts
 
 
@@ -935,3 +936,141 @@ async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_
     )
     assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
 
+# ---------------------------------------------------------------------------
+# Regression tests for pgvector dimension inference / mismatch (issue #4985)
+# ---------------------------------------------------------------------------
+
+def _make_pgvector_memory_config(embedder_dims=None, pgvector_dims=None):
+    """Build a MemoryConfig-shaped mock for testing _sync_pgvector_dims."""
+    config = MagicMock()
+    config.vector_store.provider = "pgvector"
+    config.vector_store.config.collection_name = "test_collection"
+    config.vector_store.config.embedding_model_dims = pgvector_dims
+    config.embedder.config.embedding_dims = embedder_dims
+    config.embedder.provider = "openai"
+    return config
+
+
+class TestPgvectorDimsInference:
+    """Unit tests for _sync_pgvector_dims helper (issue #4985)."""
+
+    def test_infers_dims_from_embedder_when_unset(self):
+        """When embedding_model_dims is None, it should be set from the embedder."""
+        config = _make_pgvector_memory_config(embedder_dims=768, pgvector_dims=None)
+        _sync_pgvector_dims(config)
+        assert config.vector_store.config.embedding_model_dims == 768
+
+    def test_no_change_when_dims_already_match(self):
+        """When both dims are already equal, no error should be raised."""
+        config = _make_pgvector_memory_config(embedder_dims=1536, pgvector_dims=1536)
+        _sync_pgvector_dims(config)
+        assert config.vector_store.config.embedding_model_dims == 1536
+
+    def test_raises_on_explicit_mismatch(self):
+        """When pgvector dims are explicitly set and differ from the embedder, raise ValueError."""
+        config = _make_pgvector_memory_config(embedder_dims=768, pgvector_dims=1536)
+        with pytest.raises(ValueError, match="768") as exc_info:
+            _sync_pgvector_dims(config)
+        assert "1536" in str(exc_info.value)
+
+    def test_raises_message_includes_provider_and_collection(self):
+        """The ValueError message must identify the provider and collection for easy diagnosis."""
+        config = _make_pgvector_memory_config(embedder_dims=384, pgvector_dims=1536)
+        with pytest.raises(ValueError) as exc_info:
+            _sync_pgvector_dims(config)
+        msg = str(exc_info.value)
+        assert "openai" in msg
+        assert "test_collection" in msg
+
+    def test_noop_when_embedder_dims_unknown(self):
+        """When the embedder config has no embedding_dims (None), do nothing."""
+        config = _make_pgvector_memory_config(embedder_dims=None, pgvector_dims=None)
+        _sync_pgvector_dims(config)
+        # pgvector dims remain None -- pgvector itself will raise on table creation
+        assert config.vector_store.config.embedding_model_dims is None
+
+
+class TestMemoryInitDimsMismatchIntegration:
+    """Integration-level test: Memory() must raise at construction on explicit pgvector dim mismatch."""
+
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.memory.storage.SQLiteManager")
+    def test_memory_init_raises_on_pgvector_dim_mismatch(
+        self, mock_sqlite, mock_llm_factory, mock_vs_factory, mock_embedder_factory
+    ):
+        """Memory() must raise ValueError when pgvector dims conflict with the embedder."""
+        embedder = MagicMock()
+        embedder.config.embedding_dims = 768
+        mock_embedder_factory.return_value = embedder
+
+        mock_vs_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        vs_config = MagicMock()
+        vs_config.provider = "pgvector"
+        vs_config.config = MagicMock()
+        vs_config.config.embedding_model_dims = 1536
+        vs_config.config.collection_name = "mem0"
+
+        embedder_config = MagicMock()
+        embedder_config.provider = "openai"
+        embedder_config.config = MagicMock()
+        embedder_config.config.embedding_dims = 768
+
+        config = MagicMock(spec=MemoryConfig)
+        config.vector_store = vs_config
+        config.embedder = embedder_config
+        config.llm = MagicMock()
+        config.history_db_path = "/tmp/test_history.db"
+        config.version = "v1.1"
+        config.custom_instructions = None
+        config.reranker = None
+
+        with pytest.raises(ValueError, match="768"):
+            from mem0.memory.main import Memory as MemoryClass
+            MemoryClass(config)
+
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.memory.storage.SQLiteManager")
+    def test_memory_init_infers_pgvector_dims_from_embedder(
+        self, mock_sqlite, mock_llm_factory, mock_vs_factory, mock_embedder_factory
+    ):
+        """Memory() must pass the embedder's embedding_dims to pgvector when dims were unset."""
+        embedder = MagicMock()
+        embedder.config.embedding_dims = 768
+        mock_embedder_factory.return_value = embedder
+
+        mock_vs_factory.return_value = MagicMock()
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        vs_config = MagicMock()
+        vs_config.provider = "pgvector"
+        vs_config.config = MagicMock()
+        vs_config.config.embedding_model_dims = None
+        vs_config.config.collection_name = "mem0"
+
+        embedder_config = MagicMock()
+        embedder_config.provider = "openai"
+        embedder_config.config = MagicMock()
+        embedder_config.config.embedding_dims = 768
+
+        config = MagicMock(spec=MemoryConfig)
+        config.vector_store = vs_config
+        config.embedder = embedder_config
+        config.llm = MagicMock()
+        config.history_db_path = "/tmp/test_history.db"
+        config.version = "v1.1"
+        config.custom_instructions = None
+        config.reranker = None
+
+        from mem0.memory.main import Memory as MemoryClass
+        MemoryClass(config)
+
+        # The dims should have been inferred and set on the vector store config
+        assert vs_config.config.embedding_model_dims == 768
