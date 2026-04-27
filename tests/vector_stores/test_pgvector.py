@@ -2228,3 +2228,88 @@ class TestPGVector(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test."""
         pass
+
+class TestPGVectorSchemaDimValidation(unittest.TestCase):
+    """Regression tests for dimension mismatch detection (issue #4985)."""
+
+    @patch("mem0.vector_stores.pgvector.PSYCOPG_VERSION", 3)
+    @patch("mem0.vector_stores.pgvector.ConnectionPool")
+    @patch.object(PGVector, "_get_cursor")
+    def test_raises_on_schema_dim_mismatch(self, mock_get_cursor, mock_pool_cls):
+        """PGVector.__init__ must raise ValueError when the existing table has wrong dims."""
+        mock_cursor = MagicMock()
+        mock_get_cursor.return_value.__enter__.return_value = mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        # list_cols: table already exists
+        mock_cursor.fetchall.return_value = [("test_collection",)]
+        # _get_table_vector_dim: returns 1536 (old schema)
+        mock_cursor.fetchone.return_value = (1536,)
+
+        mock_pool_cls.return_value = MagicMock()
+
+        with self.assertRaises(ValueError) as ctx:
+            PGVector(
+                dbname="test_db",
+                collection_name="test_collection",
+                embedding_model_dims=768,
+                user="user",
+                password="pass",
+                host="localhost",
+                port=5432,
+                diskann=False,
+                hnsw=False,
+            )
+
+        msg = str(ctx.exception)
+        self.assertIn("1536", msg)
+        self.assertIn("768", msg)
+        self.assertIn("test_collection", msg)
+
+    @patch("mem0.vector_stores.pgvector.PSYCOPG_VERSION", 3)
+    @patch("mem0.vector_stores.pgvector.ConnectionPool")
+    @patch.object(PGVector, "_get_cursor")
+    def test_no_error_when_dims_match(self, mock_get_cursor, mock_pool_cls):
+        """PGVector.__init__ must succeed when the existing table dims match the config."""
+        mock_cursor = MagicMock()
+        mock_get_cursor.return_value.__enter__.return_value = mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        # list_cols: table already exists
+        mock_cursor.fetchall.return_value = [("test_collection",)]
+        # _get_table_vector_dim: returns same 768
+        mock_cursor.fetchone.return_value = (768,)
+
+        mock_pool_cls.return_value = MagicMock()
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=768,
+            user="user",
+            password="pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+        self.assertEqual(pgvector.embedding_model_dims, 768)
+
+    @patch("mem0.vector_stores.pgvector.PSYCOPG_VERSION", 3)
+    @patch("mem0.vector_stores.pgvector.ConnectionPool")
+    def test_raises_when_embedding_model_dims_is_none(self, mock_pool_cls):
+        """PGVector.__init__ must raise immediately if embedding_model_dims is None."""
+        mock_pool_cls.return_value = MagicMock()
+
+        with self.assertRaises(ValueError):
+            PGVector(
+                dbname="test_db",
+                collection_name="test_collection",
+                embedding_model_dims=None,
+                user="user",
+                password="pass",
+                host="localhost",
+                port=5432,
+                diskann=False,
+                hnsw=False,
+            )

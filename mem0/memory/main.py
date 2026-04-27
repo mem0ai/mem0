@@ -328,6 +328,37 @@ setup_config()
 logger = logging.getLogger(__name__)
 
 
+def _sync_pgvector_dims(config: "MemoryConfig") -> None:
+    """Align pgvector's embedding_model_dims with the configured embedder.
+
+    Rules (applied when provider == "pgvector"):
+    - If embedding_model_dims is None → infer it from the embedder's embedding_dims.
+    - If embedding_model_dims is explicitly set and differs from the embedder's
+      embedding_dims → raise ValueError so the mismatch is caught at construction
+      time rather than silently at write time.
+    - If embedding_dims cannot be determined from the embedder, do nothing (pgvector
+      itself will raise a clear error when it tries to create/use the table).
+    """
+    embed_dims = getattr(config.embedder.config, "embedding_dims", None)
+    if embed_dims is None:
+        return
+
+    vs_config = config.vector_store.config
+    configured_dims = getattr(vs_config, "embedding_model_dims", None)
+
+    if configured_dims is None:
+        vs_config.embedding_model_dims = embed_dims
+    elif configured_dims != embed_dims:
+        raise ValueError(
+            f"Embedding dimension mismatch: the configured embedder "
+            f"({config.embedder.provider}) produces {embed_dims}-dimensional vectors, "
+            f"but pgvector collection '{vs_config.collection_name}' is configured with "
+            f"embedding_model_dims={configured_dims}. "
+            f"Either remove the explicit embedding_model_dims setting to auto-infer from "
+            f"the embedder, or set it to {embed_dims} to match the current embedder."
+        )
+
+
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
@@ -337,6 +368,10 @@ class Memory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+
+        if self.config.vector_store.provider == "pgvector":
+            _sync_pgvector_dims(self.config)
+
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -833,12 +868,21 @@ class Memory(MemoryBase):
                 payloads=all_payloads,
             )
         except Exception:
-            # Fallback: insert one by one
+            # Batch failed — retry individually so partial failures are surfaced
+            failures = []
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid}: {e}")
+                    failures.append((mid, e))
+            if failures:
+                first_id, first_err = failures[0]
+                raise RuntimeError(
+                    f"{len(failures)} of {len(all_ids)} memor{'y' if len(failures) == 1 else 'ies'} "
+                    f"failed to persist to the vector store. "
+                    f"First failure (memory_id={first_id}): {first_err}"
+                ) from first_err
 
         # Batch history
         history_records = [
@@ -1801,6 +1845,10 @@ class AsyncMemory(MemoryBase):
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+
+        if self.config.vector_store.provider == "pgvector":
+            _sync_pgvector_dims(self.config)
+
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
@@ -2248,11 +2296,21 @@ class AsyncMemory(MemoryBase):
                 payloads=all_payloads,
             )
         except Exception:
+            # Batch failed — retry individually so partial failures are surfaced
+            failures = []
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
+                    failures.append((mid, e))
+            if failures:
+                first_id, first_err = failures[0]
+                raise RuntimeError(
+                    f"{len(failures)} of {len(all_ids)} memor{'y' if len(failures) == 1 else 'ies'} "
+                    f"failed to persist to the vector store. "
+                    f"First failure (memory_id={first_id}): {first_err}"
+                ) from first_err
 
         # Batch history
         history_records = [
