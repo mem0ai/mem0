@@ -16,7 +16,7 @@ Combining Mem0 with Keywords AI allows you to:
 4. Optimize token usage and reduce costs
 
 <Note>
-You can get your Mem0 API key from the <a href="https://app.mem0.ai/" rel="nofollow">Mem0 dashboard</a>.
+You can get your Mem0 API key from the <a href="https://app.mem0.ai/?utm_source=oss&utm_medium=integration-keywords" rel="nofollow">Mem0 dashboard</a>.
 </Note>
 
 ## Setup and Configuration
@@ -24,7 +24,7 @@ You can get your Mem0 API key from the <a href="https://app.mem0.ai/" rel="nofol
 Install the necessary libraries:
 
 ```bash
-pip install mem0 keywordsai-sdk
+pip install mem0ai keywordsai-sdk
 ```
 
 Set up your environment variables:
@@ -65,7 +65,7 @@ config = {
 }
 
 # Initialize Memory
-memory = Memory.from_config(config_dict=config)
+memory = Memory.from_config(config)
 
 # Add a memory
 result = memory.add(

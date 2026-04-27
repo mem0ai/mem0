@@ -39,7 +39,6 @@ def cmd_config_show(*, output: str = "text") -> None:
                     "agent_id": config.defaults.agent_id or None,
                     "app_id": config.defaults.app_id or None,
                     "run_id": config.defaults.run_id or None,
-                    "enable_graph": config.defaults.enable_graph,
                 },
                 "platform": {
                     "api_key": redact_key(config.platform.api_key),
@@ -72,10 +71,6 @@ def cmd_config_show(*, output: str = "text") -> None:
     table.add_row(
         "defaults.run_id",
         config.defaults.run_id or f"[{DIM_COLOR}](not set)[/]",
-    )
-    table.add_row(
-        "defaults.enable_graph",
-        str(config.defaults.enable_graph).lower(),
     )
     table.add_row("", "")
 

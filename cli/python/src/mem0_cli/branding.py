@@ -146,7 +146,7 @@ def timed_status(console: Console, message: str):
             if "Authentication failed" in ctx.error_msg:
                 _err.print(
                     f"  [{DIM_COLOR}]Run [bold]mem0 init[/bold] to reconfigure your API key"
-                    f" · [bold]https://app.mem0.ai/dashboard/api-keys[/bold][/]"
+                    f" · [bold]https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-python[/bold][/]"
                 )
         raise
     else:

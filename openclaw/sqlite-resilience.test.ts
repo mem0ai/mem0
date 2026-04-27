@@ -119,7 +119,12 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
     expect(capturedConfig!.disableHistory).toBe(true);
   });
 
-  it("does not set disableHistory when not configured", async () => {
+  it("does not set disableHistory when not configured and sqlite works", async () => {
+    // Mock better-sqlite3 so the proactive probe succeeds
+    vi.doMock("better-sqlite3", () => {
+      return { default: class { close() {} } };
+    });
+
     const { createProvider } = await import("./index.ts");
     const cfg = mem0ConfigSchema.parse({
       mode: "open-source",
@@ -248,6 +253,12 @@ describe("OSSProvider — graceful SQLite fallback", () => {
   });
 
   it("retries with disableHistory: true when initial construction fails", async () => {
+    // Mock better-sqlite3 so the proactive probe succeeds — tests the
+    // catch-retry fallback path for other constructor errors.
+    vi.doMock("better-sqlite3", () => {
+      return { default: class { close() {} } };
+    });
+
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { createProvider } = await import("./index.ts");
     const cfg = mem0ConfigSchema.parse({
@@ -272,6 +283,29 @@ describe("OSSProvider — graceful SQLite fallback", () => {
       expect.stringContaining("bindings file"),
     );
     warnSpy.mockRestore();
+  });
+
+  it("proactively disables history when better-sqlite3 binary is broken", async () => {
+    // Do NOT mock better-sqlite3 — let probe detect the real version mismatch
+    // (or force it to fail if native binary happens to work on this Node).
+    vi.doMock("better-sqlite3", () => {
+      return { default: class { constructor() { throw new Error("NODE_MODULE_VERSION mismatch"); } } };
+    });
+
+    const { createProvider } = await import("./index.ts");
+    const cfg = mem0ConfigSchema.parse({
+      mode: "open-source",
+      oss: {},
+    });
+    const api = { resolvePath: (p: string) => p } as any;
+    const provider = createProvider(cfg, api);
+
+    const results = await provider.search("test", { user_id: "u1" });
+    expect(results).toBeDefined();
+
+    // Only ONE constructor call — probe detected broken sqlite, skipped retry
+    expect(capturedConfigs).toHaveLength(1);
+    expect(capturedConfigs[0].disableHistory).toBe(true);
   });
 
   it("does not retry when disableHistory is already true", async () => {
@@ -654,9 +688,9 @@ describe("OSSProvider — history error handling", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9. OSSProvider: customPrompt passthrough
+// 9. OSSProvider: customInstructions passthrough (v3.0.0: renamed from customPrompt)
 // ---------------------------------------------------------------------------
-describe("OSSProvider — customPrompt passthrough", () => {
+describe("OSSProvider — customInstructions passthrough", () => {
   let capturedConfig: Record<string, unknown> | undefined;
 
   beforeEach(() => {
@@ -682,12 +716,13 @@ describe("OSSProvider — customPrompt passthrough", () => {
     vi.restoreAllMocks();
   });
 
-  it("passes customPrompt to Memory config when provided", async () => {
+  // v3.0.0: customPrompt renamed to customInstructions
+  it("passes customInstructions to Memory config when provided", async () => {
     const { createProvider } = await import("./index.ts");
     const cfg = mem0ConfigSchema.parse({
       mode: "open-source",
       oss: { disableHistory: true },
-      customPrompt: "Extract only user preferences.",
+      customInstructions: "Extract only user preferences.",
     });
     const api = { resolvePath: (p: string) => p } as any;
     const provider = createProvider(cfg, api);
@@ -695,6 +730,6 @@ describe("OSSProvider — customPrompt passthrough", () => {
     await provider.search("test", { user_id: "u1" });
 
     expect(capturedConfig).toBeDefined();
-    expect(capturedConfig!.customPrompt).toBe("Extract only user preferences.");
+    expect(capturedConfig!.customInstructions).toBe("Extract only user preferences.");
   });
 });

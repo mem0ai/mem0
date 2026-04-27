@@ -96,7 +96,7 @@ export function printError(message: string, hint?: string): void {
 	const resolvedHint =
 		hint ??
 		(message.includes("Authentication failed")
-			? `Run ${brand("mem0 init")} to reconfigure your API key · https://app.mem0.ai/dashboard/api-keys`
+			? `Run ${brand("mem0 init")} to reconfigure your API key · https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-node`
 			: undefined);
 	if (resolvedHint) {
 		console.error(`  ${dim(resolvedHint)}`);

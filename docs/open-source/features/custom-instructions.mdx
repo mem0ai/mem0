@@ -115,17 +115,15 @@ config = {
         }
     },
     "custom_instructions": custom_instructions,
-    "version": "v1.1"
 }
 
-m = Memory.from_config(config_dict=config)
+m = Memory.from_config(config)
 ```
 
 ```ts TypeScript
 import { Memory } from "mem0ai/oss";
 
 const config = {
-  version: "v1.1",
   llm: {
     provider: "openai",
     config: {

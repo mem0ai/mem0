@@ -2,7 +2,7 @@
 
 Add persistent long-term memory to your [NemoClaw](https://docs.nvidia.com/nemoclaw/latest/get-started/quickstart.html) OpenClaw agent using the `@mem0/openclaw-mem0` plugin.
 
-> **Note:** This plugin requires **Mem0 Platform mode** (i.e., a Mem0 API key from [app.mem0.ai](https://app.mem0.ai)). Open-source mode is not supported in NemoClaw sandboxes because the sandbox proxy blocks `/v1/embeddings` requests required by the open-source backend. See [Known Limitations](#known-limitations) for details.
+> **Note:** This plugin requires **Mem0 Platform mode** (i.e., a Mem0 API key from [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=example-nemoclaw)). Open-source mode is not supported in NemoClaw sandboxes because the sandbox proxy blocks `/v1/embeddings` requests required by the open-source backend. See [Known Limitations](#known-limitations) for details.
 
 ## Prerequisites
 
@@ -15,7 +15,7 @@ Add persistent long-term memory to your [NemoClaw](https://docs.nvidia.com/nemoc
 **Accounts required:**
 
 - **NVIDIA** — sign up at [build.nvidia.com](https://build.nvidia.com), generate an API key at [build.nvidia.com/settings/api-keys](https://build.nvidia.com/settings/api-keys) (starts with `nvapi-`)
-- **Mem0** — sign up at [app.mem0.ai](https://app.mem0.ai), generate an API key from the dashboard (starts with `m0-`)
+- **Mem0** — sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=example-nemoclaw), generate an API key from the dashboard (starts with `m0-`)
 
 **Supported platforms:** Ubuntu 22.04+, macOS (via Docker), Windows (WSL 2 + Docker)
 
@@ -269,4 +269,4 @@ Then re-run `nemoclaw onboard`.
 - [Mem0 Documentation](https://docs.mem0.ai)
 - [NemoClaw Documentation](https://docs.nvidia.com/nemoclaw/latest/get-started/quickstart.html)
 - [`@mem0/openclaw-mem0` on npm](https://www.npmjs.com/package/@mem0/openclaw-mem0)
-- [Mem0 Dashboard](https://app.mem0.ai)
+- [Mem0 Dashboard](https://app.mem0.ai?utm_source=oss&utm_medium=example-nemoclaw)

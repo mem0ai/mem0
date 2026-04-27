@@ -28,7 +28,6 @@ export interface DefaultsConfig {
 	agentId: string;
 	appId: string;
 	runId: string;
-	enableGraph: boolean;
 }
 
 export interface TelemetryConfig {
@@ -50,7 +49,6 @@ export function createDefaultConfig(): Mem0Config {
 			agentId: "",
 			appId: "",
 			runId: "",
-			enableGraph: false,
 		},
 		platform: {
 			apiKey: "",
@@ -87,8 +85,6 @@ export function loadConfig(): Mem0Config {
 		config.defaults.agentId = defaults.agent_id ?? "";
 		config.defaults.appId = defaults.app_id ?? "";
 		config.defaults.runId = defaults.run_id ?? "";
-		config.defaults.enableGraph = defaults.enable_graph ?? false;
-
 		const telemetry = data.telemetry ?? {};
 		config.telemetry.anonymousId = telemetry.anonymous_id ?? "";
 	}
@@ -104,12 +100,6 @@ export function loadConfig(): Mem0Config {
 		config.defaults.agentId = process.env.MEM0_AGENT_ID;
 	if (process.env.MEM0_APP_ID) config.defaults.appId = process.env.MEM0_APP_ID;
 	if (process.env.MEM0_RUN_ID) config.defaults.runId = process.env.MEM0_RUN_ID;
-	if (process.env.MEM0_ENABLE_GRAPH) {
-		config.defaults.enableGraph = ["true", "1", "yes"].includes(
-			process.env.MEM0_ENABLE_GRAPH.toLowerCase(),
-		);
-	}
-
 	return config;
 }
 
@@ -123,7 +113,6 @@ export function saveConfig(config: Mem0Config): void {
 			agent_id: config.defaults.agentId,
 			app_id: config.defaults.appId,
 			run_id: config.defaults.runId,
-			enable_graph: config.defaults.enableGraph,
 		},
 		platform: {
 			api_key: config.platform.apiKey,
@@ -154,7 +143,6 @@ const KEY_MAP: Record<string, [keyof Mem0Config, string]> = {
 	"defaults.agent_id": ["defaults", "agentId"],
 	"defaults.app_id": ["defaults", "appId"],
 	"defaults.run_id": ["defaults", "runId"],
-	"defaults.enable_graph": ["defaults", "enableGraph"],
 	// Short-form aliases
 	api_key: ["platform", "apiKey"],
 	base_url: ["platform", "baseUrl"],
@@ -163,7 +151,6 @@ const KEY_MAP: Record<string, [keyof Mem0Config, string]> = {
 	agent_id: ["defaults", "agentId"],
 	app_id: ["defaults", "appId"],
 	run_id: ["defaults", "runId"],
-	enable_graph: ["defaults", "enableGraph"],
 };
 
 export function getNestedValue(config: Mem0Config, dottedKey: string): unknown {

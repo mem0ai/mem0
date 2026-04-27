@@ -42,6 +42,7 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("providerToBackend — search", () => {
+  // v3.0.0: keyword_search, reranking removed from SDK
   it("delegates to provider.search with correct options", async () => {
     const provider = createMockProvider();
     const backend = providerToBackend(provider as any, DEFAULT_USER);
@@ -49,8 +50,6 @@ describe("providerToBackend — search", () => {
     const results = await backend.search("hello world", {
       topK: 10,
       threshold: 0.5,
-      keyword: true,
-      rerank: true,
       filters: { category: "preference" },
     });
 
@@ -58,8 +57,6 @@ describe("providerToBackend — search", () => {
       user_id: DEFAULT_USER,
       top_k: 10,
       threshold: 0.5,
-      keyword_search: true,
-      reranking: true,
       filters: { category: "preference" },
       source: "OPENCLAW",
     });
@@ -73,12 +70,11 @@ describe("providerToBackend — search", () => {
 
     await backend.search("query");
 
+    // v3.0.0: keyword_search, reranking removed
     expect(provider.search).toHaveBeenCalledWith("query", {
       user_id: DEFAULT_USER,
       top_k: undefined,
       threshold: undefined,
-      keyword_search: undefined,
-      reranking: undefined,
       filters: undefined,
       source: "OPENCLAW",
     });
@@ -119,6 +115,7 @@ describe("providerToBackend — add", () => {
     );
   });
 
+  // v3.0.0: immutable, expiration_date removed from SDK
   it("forwards optional add options", async () => {
     const provider = createMockProvider();
     const backend = providerToBackend(provider as any, DEFAULT_USER);
@@ -126,9 +123,7 @@ describe("providerToBackend — add", () => {
     await backend.add("fact", undefined, {
       runId: "run-1",
       metadata: { source: "test" },
-      immutable: true,
       infer: false,
-      expires: "2027-01-01",
     });
 
     expect(provider.add).toHaveBeenCalledWith(
@@ -137,9 +132,7 @@ describe("providerToBackend — add", () => {
         user_id: DEFAULT_USER,
         run_id: "run-1",
         metadata: { source: "test" },
-        immutable: true,
         infer: false,
-        expiration_date: "2027-01-01",
       }),
     );
   });

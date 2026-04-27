@@ -760,6 +760,38 @@ class TestProcessMetadataFiltersMerge:
             "score": {"gt": 0.5, "lt": 0.9},
         }
 
+    def test_and_same_key_different_operators_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with same key in separate conditions must merge operators (issue #4850)."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gt": 10}}, {"price": {"lt": 20}}]
+        })
+        assert result == {"price": {"gt": 10, "lt": 20}}
+
+    def test_and_same_key_three_operators_merged(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with three conditions on the same key must merge all operators."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gte": 5}}, {"price": {"lte": 100}}, {"price": {"ne": 50}}]
+        })
+        assert result == {"price": {"gte": 5, "lte": 100, "ne": 50}}
+
+    def test_and_mixed_keys_with_same_key_overlap(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with a mix of same-key and different-key conditions."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"price": {"gt": 10}}, {"category": "electronics"}, {"price": {"lt": 20}}]
+        })
+        assert result == {"price": {"gt": 10, "lt": 20}, "category": "electronics"}
+
+    def test_and_simple_equality_no_merge(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        """AND with simple equality values on the same key — last value wins."""
+        memory = self._make_memory(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory)
+        result = memory._process_metadata_filters({
+            "AND": [{"status": "active"}, {"status": "pending"}]
+        })
+        assert result == {"status": "pending"}
+
 
 # --- Issue #3040: reset() should clean up graph database ---
 
@@ -822,3 +854,84 @@ def test_get_all_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vecto
 
     with pytest.raises(ValueError, match=r"user_id.*filters"):
         memory.get_all(user_id="u1")
+
+
+# ─── Regression: AsyncMemory._create_memory must store text_lemmatized ─────────
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_sync_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Sync Memory._create_memory must include text_lemmatized in payload for BM25 keyword search."""
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.insert.return_value = None
+    telemetry_vector_store = MagicMock()
+    mock_vector_factory.side_effect = [mock_vector_store, telemetry_vector_store]
+
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    data = "I love hiking in the mountains"
+    embeddings = {data: [0.1, 0.2, 0.3]}
+    metadata = {"user_id": "test_user"}
+
+    memory._create_memory(data, embeddings, metadata)
+
+    # Check that text_lemmatized was stored in the payload
+    insert_call = mock_vector_store.insert.call_args
+    payload = insert_call.kwargs.get("payloads") or insert_call[1].get("payloads")
+    assert payload is not None and len(payload) == 1
+    assert "text_lemmatized" in payload[0], "Sync _create_memory must store text_lemmatized for BM25"
+    assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Regression test: AsyncMemory._create_memory must include text_lemmatized
+    in the vector store payload.
+
+    Without text_lemmatized, memories created via AsyncMemory with infer=False
+    are invisible to BM25 keyword search, silently degrading search recall for
+    all async users.
+    """
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.insert.return_value = None
+    mock_vector_factory.return_value = mock_vector_store
+
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    memory = AsyncMemory(MemoryConfig())
+
+    data = "I love hiking in the mountains"
+    embeddings = {data: [0.1, 0.2, 0.3]}
+    metadata = {"user_id": "test_user"}
+
+    await memory._create_memory(data, embeddings, metadata)
+
+    # Check that text_lemmatized was stored in the payload
+    insert_call = mock_vector_store.insert.call_args
+    payload = insert_call.kwargs.get("payloads") or insert_call[1].get("payloads")
+    assert payload is not None and len(payload) == 1
+    assert "text_lemmatized" in payload[0], (
+        "AsyncMemory._create_memory must store text_lemmatized for BM25 keyword search"
+    )
+    assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
+

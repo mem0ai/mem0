@@ -64,7 +64,6 @@ describe("createDefaultConfig", () => {
     expect(config.platform.baseUrl).toBe("https://api.mem0.ai");
     expect(config.platform.apiKey).toBe("");
     expect(config.defaults.userId).toBe("");
-    expect(config.defaults.enableGraph).toBe(false);
   });
 });
 
@@ -105,9 +104,4 @@ describe("setNestedValue", () => {
     expect(config.defaults.userId).toBe("bob");
   });
 
-  it("coerces boolean for enable_graph", () => {
-    const config = createDefaultConfig();
-    expect(setNestedValue(config, "defaults.enable_graph", "true")).toBe(true);
-    expect(config.defaults.enableGraph).toBe(true);
-  });
 });
