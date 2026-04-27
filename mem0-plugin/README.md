@@ -74,20 +74,30 @@ This points Codex at the repo's `.agents/plugins/marketplace.json`, which refere
 
 > **Don't combine with Option A.** The plugin manifest auto-registers `mem0` as an MCP server via `mem0-plugin/.codex-mcp.json` — adding a manual `[mcp_servers.mem0]` block would duplicate the registration.
 
-**Optional — enable lifecycle hooks.** Codex doesn't auto-wire hooks from plugin manifests; it only reads `~/.codex/hooks.json` (or `<repo>/.codex/hooks.json`). Run the bundled installer once to merge Mem0's entries:
+**Optional — enable lifecycle hooks.** Codex doesn't auto-wire hooks from plugin manifests; it only reads `~/.codex/hooks.json` (or `<repo>/.codex/hooks.json`) ([docs](https://developers.openai.com/codex/hooks)). Run the bundled installer once to merge Mem0's entries:
 
 ```bash
 python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py
 ```
 
-Then enable the feature flag in `~/.codex/config.toml`:
+This merges three entries into `~/.codex/hooks.json` with absolute paths pointing into your clone:
+
+| Event | What it does |
+|-------|--------------|
+| `SessionStart` | Loads prior memories as bootstrap context |
+| `UserPromptSubmit` | Injects relevant memories into the prompt |
+| `Stop` | Reminds the agent to persist learnings at turn end |
+
+Re-running the installer is idempotent (replaces the Mem0 entries rather than duplicating) and preserves any other hooks you have. To remove: `python3 .../install_codex_hooks.py --uninstall`. If you move or delete the clone directory, re-run the installer from the new location — the hooks file stores absolute paths.
+
+Codex hooks also require the `codex_hooks` feature flag in `~/.codex/config.toml`:
 
 ```toml
 [features]
 codex_hooks = true
 ```
 
-Restart Codex. This registers `SessionStart` (loads prior memories), `UserPromptSubmit` (injects relevant memories before each prompt), and `Stop` (reminds the agent to persist learnings at turn end). The installer is idempotent. To remove: `python3 .../install_codex_hooks.py --uninstall`. If you move or delete the clone directory, re-run the installer from the new location — the hooks file stores absolute paths into your clone.
+The installer prints a reminder if the flag isn't set. Restart Codex after editing the config.
 
 **Managing the plugin:**
 
