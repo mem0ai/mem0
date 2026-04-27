@@ -17,10 +17,6 @@
       "memory_update", "memory_delete", "memory_event_list", "memory_event_status"
     ]
   },
-  "providerAuthEnvVars": {
-    "mem0": ["MEM0_API_KEY"],
-    "openclaw-mem0-oss": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
-  },
   "providerAuthChoices": [
     {
       "provider": "mem0",
