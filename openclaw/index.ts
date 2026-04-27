@@ -54,14 +54,11 @@ import {
 import { PlatformBackend } from "./backend/platform.ts";
 import type { Backend } from "./backend/base.ts";
 import { registerCliCommands } from "./cli/commands.ts";
-import { readPluginAuth, ensureInstallRecord } from "./cli/config-file.ts";
+import { readPluginAuth } from "./cli/config-file.ts";
 import { registerAllTools } from "./tools/index.ts";
 import type { ToolDeps } from "./tools/index.ts";
 import { captureEvent } from "./telemetry.ts";
 import { bootstrapTelemetryFlag } from "./fs-safe.ts";
-
-bootstrapTelemetryFlag();
-ensureInstallRecord();
 
 // ============================================================================
 // Re-exports (for tests and external consumers)
@@ -100,6 +97,8 @@ const memoryPlugin = definePluginEntry({
   description: "Mem0 memory backend — Mem0 platform or self-hosted open-source",
 
   register(api: OpenClawPluginApi) {
+    bootstrapTelemetryFlag();
+
     // Read auth from openclaw.json plugin config (picks up post-startup login).
     // This is the single source of truth — set via `openclaw mem0 login`.
     const pluginAuth = readPluginAuth();
@@ -207,8 +206,48 @@ const memoryPlugin = definePluginEntry({
           },
           effectiveUserId: _effectiveUserId,
         }),
+        runtime: {
+          async getMemorySearchManager(_params: any) {
+            try {
+              const userId = _effectiveUserId();
+              const testResult = await provider.search("__mem0_health_probe__", {
+                user_id: userId,
+                top_k: 1,
+                source: "OPENCLAW",
+              });
+              return {
+                manager: {
+                  status() {
+                    return {
+                      backend: cfg.mode,
+                      workspaceDir: pluginStateDir ?? "",
+                      userId,
+                    };
+                  },
+                  async probeEmbeddingAvailability() {
+                    return { ok: true };
+                  },
+                  async close() {},
+                },
+              };
+            } catch (err) {
+              return {
+                manager: null,
+                error: `mem0 ${cfg.mode} backend unavailable: ${String(err)}`,
+              };
+            }
+          },
+          resolveMemoryBackendConfig(_params: any) {
+            return {
+              backend: cfg.mode,
+              baseUrl: cfg.baseUrl ?? "https://api.mem0.ai",
+              userId: cfg.userId,
+            };
+          },
+          async closeAllMemorySearchManagers() {},
+        },
       });
-      api.logger.debug("openclaw-mem0: publicArtifacts capability registered");
+      api.logger.debug("openclaw-mem0: memory capability + runtime registered");
     }
 
     // Helper: build add options

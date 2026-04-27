@@ -42,12 +42,12 @@
       "./dist/index.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.3.28",
-      "minGatewayVersion": ">=2026.3.28"
+      "pluginApi": ">=2026.4.24",
+      "minGatewayVersion": ">=2026.4.24"
     },
     "build": {
-      "openclawVersion": "2026.4.1",
-      "pluginSdkVersion": "2026.4.1"
+      "openclawVersion": "2026.4.24",
+      "pluginSdkVersion": "2026.4.24"
     },
     "install": {
       "npmSpec": "@mem0/openclaw-mem0"

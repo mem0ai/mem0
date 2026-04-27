@@ -280,8 +280,15 @@ class OSSProvider implements Mem0Provider {
       config.llm = defaultLlm;
     }
 
-    if (this.ossConfig?.vectorStore)
-      config.vectorStore = { ...this.ossConfig.vectorStore };
+    if (this.ossConfig?.vectorStore) {
+      const vs = { ...this.ossConfig.vectorStore } as Record<string, unknown>;
+      const vsCfg = (vs.config ?? {}) as Record<string, unknown>;
+      if (vsCfg.dimension && !vsCfg.embeddingModelDims) {
+        vsCfg.embeddingModelDims = vsCfg.dimension;
+      }
+      vs.config = vsCfg;
+      config.vectorStore = vs;
+    }
 
     if (this.ossConfig?.historyDbPath) {
       const raw = this.ossConfig.historyDbPath;

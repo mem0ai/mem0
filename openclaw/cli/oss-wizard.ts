@@ -56,7 +56,14 @@ export const KNOWN_EMBEDDER_DIMS: Record<string, number> = {
   "text-embedding-3-large": 3072,
   "text-embedding-ada-002": 1536,
   "nomic-embed-text": 768,
+  "mxbai-embed-large": 1024,
+  "all-minilm": 384,
+  "snowflake-arctic-embed": 1024,
 };
+
+export function collectionNameForDims(dims: number): string {
+  return `mem0_${dims}d`;
+}
 
 // ============================================================================
 // Config builders
@@ -105,7 +112,7 @@ export function buildOssEmbedderConfig(
     config.url = input.url || def.defaultUrl;
   }
 
-  const dims = KNOWN_EMBEDDER_DIMS[model] ?? undefined;
+  const dims = KNOWN_EMBEDDER_DIMS[model] ?? def.defaultDims;
   return { provider: providerId, config, dims };
 }
 
@@ -138,7 +145,11 @@ export function buildOssVectorConfig(
     config.dbname = input.dbname || "postgres";
   }
 
-  if (input.dims) config.dimension = input.dims;
+  if (input.dims) {
+    config.dimension = input.dims;
+    config.embeddingModelDims = input.dims;
+    config.collectionName = collectionNameForDims(input.dims);
+  }
   return { provider: providerId, config };
 }
 

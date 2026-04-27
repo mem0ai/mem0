@@ -17,9 +17,17 @@
       "memory_update", "memory_delete", "memory_event_list", "memory_event_status"
     ]
   },
-  "providerAuthEnvVars": {
-    "mem0": ["MEM0_API_KEY"],
-    "openclaw-mem0-oss": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+  "setup": {
+    "providers": [
+      {
+        "id": "mem0",
+        "envVars": ["MEM0_API_KEY"]
+      },
+      {
+        "id": "openclaw-mem0-oss",
+        "envVars": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+      }
+    ]
   },
   "providerAuthChoices": [
     {
@@ -171,13 +179,13 @@
       },
       "autoCapture": {
         "type": "boolean",
-        "default": false,
-        "description": "Opt-in. When true, extracts durable facts after each agent turn. Disabled by default."
+        "default": true,
+        "description": "When true, extracts durable facts after each agent turn. Enabled by default. Ignored in skills mode."
       },
       "autoRecall": {
         "type": "boolean",
-        "default": false,
-        "description": "Opt-in. When true, injects relevant memories before each agent turn. Disabled by default."
+        "default": true,
+        "description": "When true, injects relevant memories before each agent turn. Enabled by default. Ignored in skills mode."
       },
       "customInstructions": {
         "type": "string"

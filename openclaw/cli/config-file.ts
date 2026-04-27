@@ -19,7 +19,6 @@ export const OPENCLAW_CONFIG_FILE = join(OPENCLAW_CONFIG_DIR, "openclaw.json");
 export const DEFAULT_BASE_URL = "https://api.mem0.ai";
 
 const PLUGIN_ID = "openclaw-mem0";
-const NPM_PACKAGE = "@mem0/openclaw-mem0";
 
 // ============================================================================
 // Types
@@ -76,11 +75,44 @@ function readFullConfig(): Record<string, unknown> {
   }
 }
 
-/** Write the full ~/.openclaw/openclaw.json (preserves all non-plugin config) */
+/**
+ * Write the full ~/.openclaw/openclaw.json.
+ *
+ * Re-reads the file immediately before writing and deep-merges the
+ * `plugins` section so that fields written by other processes (e.g.
+ * OpenClaw gateway adding `installs`, `slots`) are not clobbered.
+ */
 function writeFullConfig(config: Record<string, unknown>): void {
   if (!exists(OPENCLAW_CONFIG_DIR)) {
     mkdirp(OPENCLAW_CONFIG_DIR, 0o700);
   }
+
+  if (exists(OPENCLAW_CONFIG_FILE)) {
+    try {
+      const diskText = readText(OPENCLAW_CONFIG_FILE);
+      if (diskText.trim()) {
+        const disk = JSON.parse(diskText) as Record<string, unknown>;
+        const diskPlugins = disk.plugins as Record<string, unknown> | undefined;
+        const ourPlugins = config.plugins as Record<string, unknown> | undefined;
+        if (diskPlugins && ourPlugins) {
+          const OPENCLAW_MANAGED = ["installs", "slots"];
+          for (const key of OPENCLAW_MANAGED) {
+            if (key in diskPlugins) {
+              ourPlugins[key] = diskPlugins[key];
+            }
+          }
+          for (const key of Object.keys(diskPlugins)) {
+            if (!(key in ourPlugins)) {
+              ourPlugins[key] = diskPlugins[key];
+            }
+          }
+        }
+      }
+    } catch {
+      // disk unreadable — write our version as-is
+    }
+  }
+
   writeText(
     OPENCLAW_CONFIG_FILE,
     JSON.stringify(config, null, 2),
@@ -122,82 +154,6 @@ export function writePluginAuth(auth: PluginAuthConfig): void {
   writeFullConfig(full);
 }
 
-/**
- * Ensure the plugin has a valid install record and is in plugins.allow.
- *
- * OpenClaw's `plugins update` command requires a `plugins.installs.<id>`
- * record with `source: "npm"` and `spec` to know how to update. Without
- * this, `openclaw plugins update` prints "No install record" and skips.
- *
- * Similarly, if `plugins.allow` exists as an array, the plugin ID must
- * be in it or OpenClaw treats the plugin as untrusted.
- *
- * This is safe to call multiple times — it only writes missing fields.
- */
-export function ensureInstallRecord(): void {
-  try {
-    const full = readFullConfig() as any;
-
-    const entry = full?.plugins?.entries?.[PLUGIN_ID];
-    const record = full?.plugins?.installs?.[PLUGIN_ID];
-    const allow = full?.plugins?.allow;
-    const specPinned = record?.spec && /\d+\.\d+\.\d+/.test(record.spec);
-    if (
-      entry?.enabled === true &&
-      record?.source &&
-      record?.spec &&
-      !specPinned &&
-      Array.isArray(allow) &&
-      allow.includes(PLUGIN_ID)
-    ) {
-      return;
-    }
-
-    ensurePluginStructure(full);
-
-    let changed = false;
-
-    // Ensure install record exists for `openclaw plugins update` support
-    if (!full.plugins.installs) full.plugins.installs = {};
-    if (!full.plugins.installs[PLUGIN_ID]) {
-      full.plugins.installs[PLUGIN_ID] = {
-        source: "npm",
-        spec: `${NPM_PACKAGE}@latest`,
-        resolvedName: NPM_PACKAGE,
-        installedAt: new Date().toISOString(),
-      };
-      changed = true;
-    } else {
-      const record = full.plugins.installs[PLUGIN_ID];
-      if (!record.source) {
-        record.source = "npm";
-        changed = true;
-      }
-      if (!record.spec || /\d+\.\d+\.\d+/.test(record.spec)) {
-        record.spec = record.source === "clawhub"
-          ? `clawhub:${NPM_PACKAGE}`
-          : `${NPM_PACKAGE}@latest`;
-        changed = true;
-      }
-      if (!record.resolvedName) {
-        record.resolvedName = NPM_PACKAGE;
-        changed = true;
-      }
-    }
-
-    if (!Array.isArray(full.plugins.allow)) {
-      full.plugins.allow = [PLUGIN_ID];
-      changed = true;
-    } else if (!full.plugins.allow.includes(PLUGIN_ID)) {
-      full.plugins.allow.push(PLUGIN_ID);
-      changed = true;
-    }
-
-    if (changed) writeFullConfig(full);
-  } catch {
-    // Best-effort — don't break plugin loading if config is unreadable
-  }
-}
 
 /** Ensure the nested plugin entry structure exists in the config object. */
 function ensurePluginStructure(full: any): void {
@@ -227,6 +183,50 @@ export function writePluginConfigField(
     target = target[path[i]];
   }
   target[path[path.length - 1]] = value;
+
+  writeFullConfig(full);
+}
+
+/**
+ * Default skills configuration — matches configure.py output.
+ * Enables triage, recall (with reranking), and dream consolidation.
+ */
+const DEFAULT_SKILLS_CONFIG = {
+  triage: { enabled: true },
+  recall: {
+    enabled: true,
+    tokenBudget: 1500,
+    rerank: true,
+    keywordSearch: true,
+    identityAlwaysInclude: true,
+  },
+  dream: { enabled: true },
+  domain: "companion",
+};
+
+/**
+ * Enable skills-mode config after onboarding.
+ *
+ * Sets skills config on the plugin entry, tools.profile = "full",
+ * and disables the built-in session-memory hook to avoid conflicts.
+ * Preserves any existing skills config if already set.
+ */
+export function enableSkillsConfig(userId: string): void {
+  const full = readFullConfig() as any;
+  ensurePluginStructure(full);
+
+  const cfg = full.plugins.entries[PLUGIN_ID].config;
+  if (!cfg.skills) {
+    cfg.skills = { ...DEFAULT_SKILLS_CONFIG };
+  }
+
+  if (!full.tools) full.tools = {};
+  full.tools.profile = "full";
+
+  if (!full.hooks) full.hooks = {};
+  if (!full.hooks.internal) full.hooks.internal = {};
+  if (!full.hooks.internal.entries) full.hooks.internal.entries = {};
+  full.hooks.internal.entries["session-memory"] = { enabled: false };
 
   writeFullConfig(full);
 }
