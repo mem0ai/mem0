@@ -732,6 +732,7 @@ class Memory(MemoryBase):
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
+            timestamp=metadata.get("timestamp"),
             custom_instructions=custom_instr,
         )
 
@@ -2148,6 +2149,7 @@ class AsyncMemory(MemoryBase):
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
+            timestamp=metadata.get("timestamp"),
             custom_instructions=custom_instr,
         )
 
