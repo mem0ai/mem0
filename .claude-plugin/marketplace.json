@@ -10,7 +10,10 @@
   "plugins": [
     {
       "name": "mem0",
-      "source": "./mem0-plugin",
+      "source": {
+        "source": "directory",
+        "path": "./mem0-plugin"
+      },
       "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search to Claude workflows.",
       "version": "0.1.1"
     }
