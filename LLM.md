@@ -1313,7 +1313,7 @@ async def delete_memory(memory_id: str):
 - **Documentation**: https://docs.mem0.ai
 - **GitHub Repository**: https://github.com/mem0ai/mem0
 - **Discord Community**: https://mem0.dev/DiG
-- **Platform**: https://app.mem0.ai
+- **Platform**: https://app.mem0.ai?utm_source=oss&utm_medium=llm
 - **Research Paper**: https://mem0.ai/research
 - **Examples**: https://github.com/mem0ai/mem0/tree/main/examples
 

@@ -29,7 +29,7 @@ openclaw --version
    openclaw plugins install @mem0/openclaw-mem0
    ```
 
-2. **Get your API key** from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys).
+2. **Get your API key** from [app.mem0.ai](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=openclaw-readme).
 
 3. **Select the plugin as your memory backend in `openclaw.json`.** Either initialize via the CLI:
 
@@ -59,6 +59,12 @@ openclaw --version
    ```
 
 > **Note:** OpenClaw memory plugins load through an exclusive slot, so install alone does not activate the plugin. You must set `plugins.slots.memory` as shown above.
+
+### Updating the plugin to get the latest features and fixes:
+
+```bash
+openclaw plugins update openclaw-mem0
+```
 
 ### Open-Source (Self-hosted)
 
@@ -257,7 +263,7 @@ openclaw mem0 help --json                                   # discover all comma
 | `autoRecall` | `boolean` | `false` | Inject relevant memories before each turn |
 | `autoCapture` | `boolean` | `false` | Extract and store facts after each turn |
 | `topK` | `number` | `5` | Max memories returned per recall |
-| `searchThreshold` | `number` | `0.5` | Minimum similarity score (0-1) |
+| `searchThreshold` | `number` | `0.3` | Minimum similarity score (0-1) |
 
 ### Platform Mode
 

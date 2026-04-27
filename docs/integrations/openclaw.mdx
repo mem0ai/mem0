@@ -114,7 +114,7 @@ That's it. No API key, no config file editing, no environment variables. The plu
   </Step>
 
   <Step title="Get your API key">
-    Get your API key from <a href="https://app.mem0.ai?utm_source=mem0-docs" rel="nofollow">app.mem0.ai</a>.
+    Get your API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-openclaw" rel="nofollow">app.mem0.ai</a>.
   </Step>
 
   <Step title="Select the plugin as your memory backend in `openclaw.json`">
@@ -362,10 +362,8 @@ Everything inside `oss` is optional — defaults use OpenAI embeddings (`text-em
 ### Updating the Plugin
 
 ```bash
-openclaw plugins update @mem0/openclaw-mem0
+openclaw plugins update openclaw-mem0
 ```
-
-<Note>Use the npm package name (`@mem0/openclaw-mem0`) for plugin management commands, not the plugin ID (`openclaw-mem0`).</Note>
 
 ### Checking Plugin Status
 
@@ -411,8 +409,9 @@ If the plugin installs but doesn't work:
 
 If `openclaw plugins update` fails:
 
-1. Use the full npm package name: `openclaw plugins update @mem0/openclaw-mem0`
-2. If that fails, uninstall and reinstall:
+1. Use the plugin ID: `openclaw plugins update openclaw-mem0`
+2. Update all plugins at once: `openclaw plugins update --all`
+3. If that fails, uninstall and reinstall:
    ```bash
    openclaw plugins uninstall openclaw-mem0
    openclaw plugins install @mem0/openclaw-mem0
@@ -475,17 +474,6 @@ export MEM0_TELEMETRY=false
 ### System Prompt Context
 
 The plugin injects memory-related instructions into the agent's system context via OpenClaw's `prependSystemContext` mechanism. This includes the memory triage protocol and recalled memories. This is the standard OpenClaw plugin SDK pattern for memory backends — no user-facing prompts are modified.
-
-## Key Features
-
-1. **Zero Configuration** — Auto-recall and auto-capture work out of the box with no prompting required
-2. **Dual Memory Scopes** — Session-scoped short-term and user-scoped long-term memories
-3. **Flexible Backend** — Use Mem0 Cloud for managed service or self-host with open-source mode
-4. **Rich Tool Suite** — Eight agent tools for explicit memory operations when needed
-
-## Conclusion
-
-The `@mem0/openclaw-mem0` plugin gives OpenClaw agents persistent memory with minimal setup. Whether using Mem0 Cloud or self-hosting, your agents can now remember user preferences, facts, and context across sessions automatically.
 
 <CardGroup cols={2}>
   <Card title="OpenAI Agents SDK" icon="robot" href="/integrations/openai-agents-sdk">

@@ -38,7 +38,7 @@ curl -X POST https://api.anthropic.com/v1/skills \
 
 - **Node.js 18+**
 - **Vercel AI SDK v5** (`ai` package version 5.x)
-- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys))
+- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0-vercel-ai-sdk-readme))
 - An LLM provider API key (OpenAI, Anthropic, Google, Groq, or Cohere)
 - Set environment variables:
 
@@ -72,7 +72,7 @@ skills/mem0-vercel-ai-sdk/
 
 ## Links
 
-- [Mem0 Platform Dashboard](https://app.mem0.ai)
+- [Mem0 Platform Dashboard](https://app.mem0.ai?utm_source=oss&utm_medium=skill-mem0-vercel-ai-sdk-readme)
 - [Mem0 Documentation](https://docs.mem0.ai)
 - [Mem0 GitHub](https://github.com/mem0ai/mem0)
 - [@mem0/vercel-ai-provider on npm](https://www.npmjs.com/package/@mem0/vercel-ai-provider)
