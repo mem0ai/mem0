@@ -104,7 +104,34 @@ Add to your Codex MCP config:
 }
 ```
 
-This installs the MCP server and the Mem0 SDK skill. Codex uses the skill-based memory protocol instead of lifecycle hooks.
+Options A, B, and C above install the MCP server and the Mem0 SDK skill.
+
+**Optional — enable lifecycle hooks**
+
+Codex only discovers hooks at `~/.codex/hooks.json` or `<repo>/.codex/hooks.json` ([docs](https://developers.openai.com/codex/hooks)) — there is no plugin-host mechanism that auto-wires hooks from an installed plugin. To opt in, run the installer once after installing the plugin:
+
+```bash
+python3 /path/to/mem0-plugin/scripts/install_codex_hooks.py
+```
+
+This merges three entries into `~/.codex/hooks.json` with absolute paths pointing into the plugin directory:
+
+| Event | What it does |
+|-------|--------------|
+| `SessionStart` | Loads prior memories as bootstrap context |
+| `UserPromptSubmit` | Injects relevant memories into the prompt |
+| `Stop` | Reminds the agent to persist learnings at turn end |
+
+Re-running the installer is idempotent (replaces the Mem0 entries rather than duplicating) and preserves any other hooks you have. To remove: `python3 scripts/install_codex_hooks.py --uninstall`.
+
+Codex hooks also require the `codex_hooks` feature flag in `~/.codex/config.toml`:
+
+```toml
+[features]
+codex_hooks = true
+```
+
+The installer prints a reminder if the flag isn't set. Restart Codex after editing the config.
 
 ### Cursor
 
@@ -148,12 +175,12 @@ After installing, confirm the MCP server is connected:
 | Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex |
 |-----------|:--------------------:|:--------------------:|:------------------------:|:-----:|
 | MCP Server | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No | No |
+| Lifecycle Hooks | Yes | Yes | No | Opt-in |
 | Mem0 SDK Skill | Yes | Yes | No | Yes |
 | Memory Protocol Skill | No | No | No | Yes |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points: session start, context compaction, task completion, and session end. (Claude Code/Cursor only)
+- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code and Cursor wire hooks up natively when the plugin is installed (session start, context compaction, task completion, session end). Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`) that writes entries into `~/.codex/hooks.json` for `SessionStart`, `UserPromptSubmit`, and `Stop`.
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
 - **Memory Protocol Skill** — Codex-specific skill that instructs the agent to retrieve relevant memories at task start, store learnings on completion, and capture session state before context loss. Replaces lifecycle hooks on platforms that don't support them.
 

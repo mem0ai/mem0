@@ -25,9 +25,9 @@ User Input → Retrieve relevant memories → Enrich LLM prompt → Generate res
 
 Mem0 handles the complexity of extraction, deduplication, conflict resolution, and semantic retrieval so your application only needs to call `search()` and `add()`.
 
-**Dual storage architecture:**
+**Storage architecture:**
 - **Vector store**: Embeddings for semantic similarity search
-- **Graph store** (optional): Entity nodes and relationship edges for structured knowledge
+- **Entity store**: Automatic entity linking for relationship-aware retrieval
 
 ---
 
@@ -40,41 +40,32 @@ Messages In
     │
     ▼
 ┌─────────────────────┐
-│  1. EXTRACTION       │  LLM analyzes messages, extracts key facts
+│  1. EXTRACTION       │  Single LLM call extracts all distinct new facts
 │     (infer=True)     │  If infer=False, stores raw text as-is
 └─────────┬───────────┘
           │
           ▼
 ┌─────────────────────┐
-│  2. CONFLICT         │  Checks existing memories for duplicates
-│     RESOLUTION       │  Latest truth wins (newer overrides older)
-│                      │  Only runs when infer=True
+│  2. DEDUPLICATION    │  Hash-based dedup (MD5 prevents exact duplicates)
+│                      │  No UPDATE/DELETE - v3 is ADD-only
 └─────────┬───────────┘
           │
           ▼
 ┌─────────────────────┐
-│  3. STORAGE          │  Generates embeddings → vector store
-│                      │  Optional: entity extraction → graph store
-│                      │  Indexes metadata, categories, timestamps
+│  3. STORAGE          │  Batch embed → vector store
+│                      │  Entity extraction → entity store
 └─────────┬───────────┘
           │
           ▼
     Memory Object
-    (id, memory, categories, structured_attributes)
 ```
 
-### Processing modes
+### Processing (v3)
 
-**Async (default, `async_mode=True`):**
-- API returns immediately: `{"status": "PENDING", "event_id": "..."}`
-- Processing happens in background
+v3 processes memories asynchronously by default:
+- API returns immediately: `{"status": "PENDING", "event_id": "evt-..."}`
+- Poll status via `GET /v1/event/{event_id}/`
 - Use webhooks for completion notifications
-- Best for: high-throughput, non-blocking workflows
-
-**Sync (`async_mode=False`):**
-- API waits for full processing
-- Returns complete memory object with `id`, `event`, `memory`
-- Best for: real-time access immediately after add
 
 ### Extraction modes
 
@@ -93,7 +84,7 @@ Messages In
 
 ---
 
-## Retrieval Pipeline
+## Retrieval Pipeline (v3)
 
 ### What happens when you call `client.search()`
 
@@ -102,45 +93,37 @@ Query In
     │
     ▼
 ┌─────────────────────┐
-│  1. QUERY EMBEDDING  │  Convert query to vector representation
+│  1. PREPROCESSING    │  Lemmatize keywords, extract entities
 └─────────┬───────────┘
           │
           ▼
 ┌─────────────────────┐
-│  2. VECTOR SEARCH    │  Cosine similarity across stored embeddings
-│                      │  Scoped by filters (user_id, agent_id, etc.)
-└─────────┬───────────┘
-          │
-          ▼  (optional enhancements)
-┌─────────────────────┐
-│  3a. KEYWORD SEARCH  │  Expands results with specific terms (+10ms)
-│  3b. RERANKING       │  Deep semantic reordering (+150-200ms)
-│  3c. FILTER MEMORIES │  Precision filtering, removes low-relevance (+200-300ms)
-└─────────┬───────────┘
-          │
-          ▼  (if enable_graph=True)
-┌─────────────────────┐
-│  4. GRAPH LOOKUP     │  Finds entity relationships
-│                      │  Appends relations WITHOUT reranking vector results
+│  2. PARALLEL SCORING │  Semantic search (vector similarity)
+│                      │  BM25 keyword search (term matching)
+│                      │  Entity matching (entity graph boost)
 └─────────┬───────────┘
           │
           ▼
-    Results + Relations
+┌─────────────────────┐
+│  3. SCORE FUSION     │  Combine signals into single score
+│                      │  Optional: rerank=True for deep reordering
+└─────────┬───────────┘
+          │
+          ▼
+    Results (combined score per memory)
 ```
 
-### Retrieval enhancement combinations
+### v3 Search Defaults
 
-| Configuration | Latency | Best for |
-|--------------|---------|----------|
-| Base search only | ~100ms | Simple lookups |
-| `keyword_search=True` | ~110ms | Entity-heavy queries, broad coverage |
-| `rerank=True` | ~250-300ms | User-facing results, top-N precision |
-| `keyword_search=True` + `rerank=True` | ~310ms | Balanced (recommended for most apps) |
-| `rerank=True` + `filter_memories=True` | ~400-500ms | Safety-critical, production systems |
+| Parameter | Default | Notes |
+|-----------|---------|-------|
+| `top_k` | 20 | Was 100 in v2 |
+| `threshold` | 0.1 | Was None in v2 |
+| `rerank` | False | Was True in v2 |
 
 ### Implicit null scoping
 
-When you search with `user_id="alice"` only, Mem0 returns memories where `agent_id`, `app_id`, and `run_id` are all null. This prevents cross-scope leakage by default.
+When you search with `filters={"user_id": "alice"}` only, Mem0 returns memories where `agent_id`, `app_id`, and `run_id` are all null. This prevents cross-scope leakage by default.
 
 To include memories with non-null fields, use explicit filters:
 ```python
@@ -150,53 +133,23 @@ filters={"OR": [{"user_id": "alice"}]}
 
 ---
 
-## Memory Lifecycle
+## Memory Lifecycle (v3)
 
-```
-CREATE ──→ ACTIVE ──→ UPDATE ──→ ACTIVE
-  │           │                     │
-  │           ▼                     ▼
-  │       EXPIRED              EXPIRED
-  │      (still stored,       (still stored,
-  │       not retrieved)       not retrieved)
-  │           │                     │
-  ▼           ▼                     ▼
-DELETE    DELETE               DELETE
-(permanent)
-```
+v3 uses ADD-only extraction. Memories accumulate over time rather than being consolidated.
 
 ### Creation
-- Triggered by `client.add(messages, user_id="...")`
-- Messages processed through extraction → conflict resolution → storage
-- Gets unique UUID, `created_at` timestamp
-- Optional: custom `timestamp`, `expiration_date`, `metadata`, `immutable`
+- `client.add(messages, user_id="...")`
+- Single-pass extraction → deduplication → storage
+- Returns `{"event_id": "...", "status": "PENDING"}`
 
 ### Updates
-- `client.update(memory_id, text="...")` replaces text and reindexes
-- `client.batch_update([...])` for up to 1000 memories at once
-- Immutable memories (`immutable=True`) cannot be updated — must delete and re-add
-
-### Deduplication
-- Automatic during `add()` with `infer=True`
-- Conflict resolution merges duplicate facts
-- Latest truth wins when contradictions detected
-- Prevents memory bloat from repeated information
-
-### Expiration
-- Optional `expiration_date` parameter (ISO 8601 or `YYYY-MM-DD`)
-- After expiration: memory NOT returned in searches but remains in storage
-- Useful for time-sensitive info (events, temporary preferences, session state)
+- `client.update(memory_id, text="...")` replaces text
+- Batch: `client.batch_update([...])`
 
 ### Deletion
-- Single: `client.delete(memory_id)` — permanent, no recovery
-- Batch: `client.batch_delete([memory_ids])` — up to 1000
-- Bulk: `client.delete_all(user_id="alice")` — all memories for entity
-- `delete_all()` without filters raises error to prevent accidental data loss
-
-### History tracking
-- `client.history(memory_id)` returns version timeline
-- Shows all changes: `{previous_value, new_value, action, timestamps}`
-- Useful for audit trails and debugging
+- Single: `client.delete(memory_id)`
+- Batch: `client.batch_delete([...])`
+- Bulk: `client.delete_all(filters={"user_id": "alice"})`
 
 ---
 
@@ -214,8 +167,6 @@ DELETE    DELETE               DELETE
   "categories": ["health", "preferences"],
   "created_at": "2025-03-12T12:34:56Z",
   "updated_at": "2025-03-12T12:34:56Z",
-  "expiration_date": null,
-  "immutable": false,
   "structured_attributes": {
     "day": 12, "month": 3, "year": 2025,
     "hour": 12, "minute": 34,
@@ -239,8 +190,6 @@ DELETE    DELETE               DELETE
 | `categories` | array | Auto-assigned or custom category tags |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last modification timestamp |
-| `expiration_date` | datetime | Auto-expiry date (stops retrieval, data persists) |
-| `immutable` | boolean | If true, prevents modification |
 | `structured_attributes` | object | Temporal breakdown for time-based queries |
 | `score` | float | Semantic similarity (search results only, 0-1) |
 
@@ -322,7 +271,7 @@ Mem0 supports three layers of memory, from shortest to longest lived:
 ```python
 def chat(user_input: str, user_id: str, session_id: str) -> str:
     # 1. Retrieve user memories (long-term preferences)
-    user_mems = mem0.search(user_input, user_id=user_id)
+    user_mems = mem0.search(user_input, filters={"user_id": user_id})
 
     # 2. Retrieve session memories (current task context)
     session_mems = mem0.search(user_input, filters={
@@ -350,18 +299,13 @@ def chat(user_input: str, user_id: str, session_id: str) -> str:
 
 | Operation | Typical Latency |
 |-----------|----------------|
-| Base vector search | ~100ms |
-| + keyword_search | +10ms |
+| Hybrid search (v3 default) | ~100-150ms |
 | + reranking | +150-200ms |
-| + filter_memories | +200-300ms |
-| Add (async, default) | < 50ms response, background processing |
-| Add (sync) | 500ms-2s depending on extraction complexity |
-| Graph operations | Slight overhead for large stores |
+| Add (async) | < 50ms response |
 
 ### Processing
 
-- **Async mode (default):** Returns immediately, processes in background
-- **Sync mode:** Waits for full extraction + storage pipeline
+- **Async (default):** Returns immediately, processes in background
 - **Batch operations:** Up to 1000 memories per batch_update/batch_delete
 - **Webhooks:** Real-time notifications when async processing completes
 
