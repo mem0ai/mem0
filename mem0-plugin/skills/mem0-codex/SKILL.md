@@ -1,10 +1,10 @@
 ---
 name: mem0-codex
 description: >
-  Mem0 persistent memory integration for Codex. Automatically retrieve relevant
-  memories at the start of each task, store key learnings when tasks complete,
-  and capture session state before context is lost. Use the mem0 MCP tools
-  (add_memory, search_memories, get_memories, etc.) for all memory operations.
+  Mem0 persistent memory integration for Codex. Decide deliberately when memory
+  context would help, run targeted searches with metadata filters when it would,
+  and store key learnings as work completes. Use the mem0 MCP tools (add_memory,
+  search_memories, get_memories, etc.) for all memory operations.
 ---
 
 # Mem0 Memory Protocol for Codex
@@ -13,9 +13,69 @@ You have access to persistent memory via the mem0 MCP tools. Follow this protoco
 
 ## On every new task
 
-1. Call `search_memories` with a query related to the current task or project to load relevant context.
-2. Review returned memories to understand what has been learned in prior sessions.
-3. If appropriate, call `get_memories` to browse all stored memories for this user.
+Decide whether persistent memory context would improve your response, then act accordingly. Don't search by default — search deliberately.
+
+### Decide: search or skip?
+
+**Search WHEN** the user:
+- references past work, decisions, or things "we" built
+- asks "how should we...", "best way to...", or any decision-style question
+- hits an error, bug, or asks for debugging help
+- requests work that touches their stack, tools, conventions, or preferences
+- starts a non-trivial task in a known project
+
+**Skip WHEN:**
+- the prompt is an acknowledgement or continuation ("ok", "thanks", "continue")
+- the user is *stating* new info — that's a write trigger (`add_memory`), not a search
+- it's a pure syntax / factual question answerable from general knowledge
+- you already searched this scope earlier in the turn
+
+Empty results are normal. Proceed without context — they don't mean the system is broken.
+
+### How to search well
+
+When you do search, run **2–4 parallel** `search_memories` calls at different angles instead of one query echoing the user's prompt.
+
+**Query phrasing:**
+- Use **nouns**, not sentences. `"auth module decisions"` beats `"what did we decide about auth"`.
+- Strip conversational filler. *"remember when we picked Postgres?"* → search `"Postgres choice"`.
+- Use entity names, not pronouns. Resolve "that thing" from recent context first.
+- Don't search on meta-questions ("what was that?") — use recent context or `get_memories` ordered by `created_at`.
+
+**Metadata filters** match the same `metadata.type` values written under "After completing significant work" below:
+
+| Filter | Use for |
+|--------|---------|
+| `{"metadata.type": "decision"}` | design / architecture / "how should we" questions |
+| `{"metadata.type": "anti_pattern"}` | debugging, error handling, things that failed before |
+| `{"metadata.type": "user_preference"}` | tooling, stack, style — always include for code work |
+| `{"metadata.type": "convention"}` | established patterns in this project |
+
+Combine with `user_id` using AND:
+```python
+filters={"AND": [{"user_id": "alice"}, {"metadata.type": "decision"}]}
+```
+
+### Worked example
+
+User asks: *"Refactor the auth module to use JWT."*
+
+Don't:
+```python
+search_memories(query="Refactor the auth module to use JWT")
+# Hits whatever shares words. Misses prior decisions and preferences.
+```
+
+Do (parallel):
+```python
+search_memories(query="auth module decisions",
+                filters={"AND": [{"user_id": "alice"}, {"metadata.type": "decision"}]})
+search_memories(query="JWT", filters={"user_id": "alice"})
+search_memories(query="auth refactor failures",
+                filters={"AND": [{"user_id": "alice"}, {"metadata.type": "anti_pattern"}]})
+search_memories(query="auth",
+                filters={"AND": [{"user_id": "alice"}, {"metadata.type": "user_preference"}]})
+```
 
 ## After completing significant work
 
