@@ -10,6 +10,7 @@ export class OpenAILLM implements LLM {
     this.openai = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL,
+      ...(config.timeout != null && { timeout: config.timeout }),
     });
     this.model = config.model || "gpt-5-mini";
   }

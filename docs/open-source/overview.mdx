@@ -15,12 +15,15 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
 - **Extendable codebase**: Fork the repo, add providers, and ship custom automations.
 
 <Info>
-  Begin with the <Link href="/open-source/python-quickstart">Python quickstart</Link> (or the Node.js variant) to clone the repo, configure dependencies, and validate memory reads/writes locally.
+  Two ways to run Mem0 OSS: as a **library** inside your app (Python or Node), or as a **self-hosted server** with a dashboard, per-user API keys, and a request audit log.
 </Info>
 
 ## Choose your path
 
-<CardGroup cols={2}>
+<CardGroup cols={3}>
+  <Card title="Self-hosted setup" icon="rocket-launch" href="/open-source/setup">
+    Run `make bootstrap` to launch the server + dashboard, create an admin, and issue your first API key.
+  </Card>
   <Card title="Python Quickstart" icon="python" href="/open-source/python-quickstart">
     Bootstrap CLI and verify add/search loop.
   </Card>
@@ -38,15 +41,6 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
   </Card>
   <Card title="Memory Evaluation" icon="chart-line" href="/core-concepts/memory-evaluation">
     Benchmarks and how Mem0 is tested.
-  </Card>
-</CardGroup>
-
-<CardGroup cols={2}>
-  <Card title="Deploy with Docker Compose" icon="server" href="/open-source/features/rest-api">
-    Reference deployment with REST endpoints.
-  </Card>
-  <Card title="Use the REST API" icon="code" href="/open-source/features/rest-api">
-    Async add/search flows and automation.
   </Card>
 </CardGroup>
 
@@ -70,19 +64,27 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
 ## Default components
 
 <Note>
-  Mem0 OSS works out of the box with sensible defaults:
+  **Library defaults** (when you `import` Mem0 and call `Memory()` directly):
   - LLM: OpenAI `gpt-5-mini` (via `OPENAI_API_KEY`)
   - Embeddings: OpenAI `text-embedding-3-small`
-  - Vector store: Local Qdrant instance storing data at `/tmp/qdrant`
-  - History store: SQLite database at `~/.mem0/history.db`
-  - Reranker: Disabled until you configure a provider
+  - Vector store: Local Qdrant at `/tmp/qdrant`
+  - History store: SQLite at `~/.mem0/history.db`
+  - Reranker: Disabled until configured
 
   Override any component with <Link href="/open-source/configuration">`Memory.from_config`</Link>.
 </Note>
 
-## Keep going
+<Note>
+  **Self-hosted server defaults** (the `server/` Docker Compose stack):
+  - LLM: OpenAI `gpt-4.1-nano-2025-04-14` (override with `MEM0_DEFAULT_LLM_MODEL`)
+  - Embeddings: OpenAI `text-embedding-3-small` (override with `MEM0_DEFAULT_EMBEDDER_MODEL`)
+  - Vector store: Postgres + pgvector
+  - Bundled providers: `openai`, `anthropic`, `gemini` — switch from the Configuration page
 
-{/* DEBUG: verify CTA targets */}
+  See <Link href="/open-source/setup#supported-providers">Self-Hosted Setup</Link> for the full provider list and how to extend it.
+</Note>
+
+## Keep going
 
 <CardGroup cols={2}>
   <Card
@@ -98,7 +100,3 @@ Mem0 Open Source delivers the same adaptive memory engine as the platform, but p
     href="/open-source/python-quickstart"
   />
 </CardGroup>
-
-<Tip>
-  Need a managed alternative? Compare hosting models in the <Link href="/platform/platform-vs-oss">Platform vs OSS guide</Link> or switch tabs to the Platform documentation.
-</Tip>
