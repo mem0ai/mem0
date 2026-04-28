@@ -433,21 +433,23 @@ class TestPGVector(unittest.TestCase):
         )
         
         results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2)
-        
+
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
-        
+
         # Verify search query was executed
-        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list
                        if "SELECT id, vector <=" in str(call)]
         self.assertTrue(len(search_calls) > 0)
-        
-        # Verify results
+
+        # Verify results — score is similarity (1 - cosine_distance), so
+        # the row with mocked distance 0.1 yields score 0.9, the closer
+        # match coming first.
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertAlmostEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -482,21 +484,21 @@ class TestPGVector(unittest.TestCase):
         )
         
         results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2)
-        
+
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
-        
+
         # Verify search query was executed
-        search_calls = [call for call in self.mock_cursor.execute.call_args_list 
+        search_calls = [call for call in self.mock_cursor.execute.call_args_list
                        if "SELECT id, vector <=" in str(call)]
         self.assertTrue(len(search_calls) > 0)
-        
-        # Verify results
+
+        # Verify results — score is similarity (1 - cosine_distance).
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertAlmostEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1137,10 +1139,10 @@ class TestPGVector(unittest.TestCase):
                        if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
-        # Verify results
+        # Verify results — score is similarity (1 - cosine_distance).
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1187,10 +1189,10 @@ class TestPGVector(unittest.TestCase):
                        if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
-        # Verify results
+        # Verify results — score is similarity (1 - cosine_distance).
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1237,10 +1239,10 @@ class TestPGVector(unittest.TestCase):
                        if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
-        # Verify results
+        # Verify results — score is similarity (1 - cosine_distance).
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -1285,10 +1287,10 @@ class TestPGVector(unittest.TestCase):
                        if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
-        # Verify results
+        # Verify results — score is similarity (1 - cosine_distance).
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -1333,12 +1335,12 @@ class TestPGVector(unittest.TestCase):
                        if "SELECT id, vector <=" in str(call) and "WHERE" not in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
-        # Verify results
+        # Verify results — score is similarity (1 - cosine_distance).
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertAlmostEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1382,12 +1384,12 @@ class TestPGVector(unittest.TestCase):
                        if "SELECT id, vector <=" in str(call) and "WHERE" not in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
-        # Verify results
+        # Verify results — score is similarity (1 - cosine_distance).
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertAlmostEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertAlmostEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
