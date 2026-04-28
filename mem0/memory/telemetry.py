@@ -12,7 +12,7 @@ import mem0
 from mem0.memory.setup import get_or_create_user_id
 
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
-PROJECT_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
+PROJECT_API_KEY = os.environ.get("MEM0_POSTHOG_API_KEY", "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX")
 HOST = "https://us.i.posthog.com"
 
 if isinstance(MEM0_TELEMETRY, str):

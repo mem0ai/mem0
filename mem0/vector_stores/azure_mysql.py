@@ -1,9 +1,21 @@
 import json
 import logging
+import re
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
+
+_SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,127}$')
+
+
+def _validate_identifier(name: str, label: str = "identifier") -> str:
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(
+            f"Invalid {label} '{name}': only letters, digits, and underscores are allowed, "
+            "must start with a letter or underscore, and be at most 128 characters."
+        )
+    return name
 
 try:
     import pymysql
@@ -72,7 +84,7 @@ class AzureMySQL(VectorStoreBase):
         self.user = user
         self.password = password
         self.database = database
-        self.collection_name = collection_name
+        self.collection_name = _validate_identifier(collection_name, "collection_name")
         self.embedding_model_dims = embedding_model_dims
         self.use_azure_credential = use_azure_credential
         self.ssl_ca = ssl_ca

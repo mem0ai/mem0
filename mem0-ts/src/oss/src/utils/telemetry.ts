@@ -15,7 +15,7 @@ let MEM0_TELEMETRY = true;
 try {
   MEM0_TELEMETRY = process?.env?.MEM0_TELEMETRY === "false" ? false : true;
 } catch (error) {}
-const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
+const POSTHOG_API_KEY = process?.env?.MEM0_POSTHOG_API_KEY ?? "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
 
 // Default sampling rate for hot-path OSS events. Lifecycle events always fire at 100%.
