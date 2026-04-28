@@ -2,6 +2,25 @@
 
 All notable changes to the `@mem0/openclaw-mem0` plugin will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **`oss.graphStore.customPrompt` type & schema**: Added `customPrompt?: string` to the `graphStore`
+  TypeScript type and to the `openclaw.plugin.json` configSchema. The mem0ai SDK (≥2.4.x) already
+  supports this field as a CUSTOM_PROMPT rule injected into the graph extraction LLM; it was only
+  missing from our type definitions and UI schema.
+- **`customInstructions` as OSS extraction-prompt alias**: When `customPrompt` is not explicitly
+  set in OSS mode, `customInstructions` now also populates the OSS extraction prompt.  
+  This means a single `customInstructions` key works for both platform mode (per-add
+  `custom_instructions`) and open-source mode (Memory init `customPrompt`), matching
+  upstream's canonical naming convention.
+
+### Changed
+- **Live config alignment**: Removed the redundant top-level `enableGraph: true` from the
+  active OpenClaw config (providers.ts auto-enables graph when `oss.graphStore` is present).
+  Renamed the top-level `customPrompt` to `customInstructions` in the active config so a
+  single field is the source of truth for both modes.
+
 ## [0.4.1] - 2026-03-26
 
 ### Added

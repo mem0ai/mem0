@@ -159,6 +159,7 @@ export const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
 const ALLOWED_KEYS = [
   "mode",
   "apiKey",
+  "anonymousTelemetryId",
   "userId",
   "orgId",
   "projectId",
@@ -216,6 +217,10 @@ export const mem0ConfigSchema = {
       mode,
       apiKey:
         typeof cfg.apiKey === "string" ? resolveEnvVars(cfg.apiKey) : undefined,
+      anonymousTelemetryId:
+        typeof cfg.anonymousTelemetryId === "string"
+          ? cfg.anonymousTelemetryId
+          : undefined,
       userId:
         typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
       orgId: typeof cfg.orgId === "string" ? cfg.orgId : undefined,
@@ -235,6 +240,10 @@ export const mem0ConfigSchema = {
       customPrompt:
         typeof cfg.customPrompt === "string"
           ? cfg.customPrompt
+          // Upstream-canonical alias: customInstructions also serves as the OSS extraction prompt
+          // when customPrompt is not explicitly set.
+          : typeof cfg.customInstructions === "string"
+          ? cfg.customInstructions
           : DEFAULT_CUSTOM_INSTRUCTIONS,
       enableGraph: cfg.enableGraph === true,
       searchThreshold:

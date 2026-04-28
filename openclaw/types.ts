@@ -8,6 +8,7 @@ export type Mem0Config = {
   mode: Mem0Mode;
   // Platform-specific
   apiKey?: string;
+  anonymousTelemetryId?: string;
   orgId?: string;
   projectId?: string;
   customInstructions: string;
@@ -28,6 +29,8 @@ export type Mem0Config = {
         password: string;   // e.g. "${NEO4J_PASSWORD}"
         database?: string;
       };
+      /** Custom prompt for the graph extraction LLM (injected as CUSTOM_PROMPT rule). */
+      customPrompt?: string;
     };
     historyDbPath?: string;
     disableHistory?: boolean;

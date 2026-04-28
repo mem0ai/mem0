@@ -12,6 +12,11 @@
       "placeholder": "m0-...",
       "help": "API key from app.mem0.ai (or use ${MEM0_API_KEY}). Only needed for platform mode."
     },
+    "anonymousTelemetryId": {
+      "label": "Anonymous Telemetry ID",
+      "advanced": true,
+      "help": "Optional stable anonymous identifier used by newer Mem0/OpenClaw builds."
+    },
     "userId": {
       "label": "Default User ID",
       "placeholder": "default",
@@ -83,6 +88,9 @@
         ]
       },
       "apiKey": {
+        "type": "string"
+      },
+      "anonymousTelemetryId": {
         "type": "string"
       },
       "userId": {
@@ -174,6 +182,10 @@
                   "password": { "type": "string" },
                   "database": { "type": "string" }
                 }
+              },
+              "customPrompt": {
+                "type": "string",
+                "description": "Custom prompt injected as a CUSTOM_PROMPT rule into the graph extraction LLM."
               }
             }
           }
