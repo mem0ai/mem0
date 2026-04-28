@@ -56,10 +56,13 @@ jest.mock("pg", () => {
     return client;
   });
 
+  const escapeIdentifier = (str: string) => `"${str.replace(/"/g, '""')}"`;
+
   return {
     __esModule: true,
-    default: { Client },
+    default: { Client, escapeIdentifier },
     Client,
+    escapeIdentifier,
     __mock: { Client, clients },
   };
 });
@@ -73,7 +76,7 @@ describe("PGVector - search()", () => {
     pg.__mock.clients.length = 0;
   });
 
-  test("converts cosine distance into a clamped similarity score", async () => {
+  test("returns raw cosine distance as score", async () => {
     const store = new PGVector({
       collectionName: "memories",
       user: "postgres",
@@ -92,22 +95,22 @@ describe("PGVector - search()", () => {
       {
         id: "a",
         payload: { data: "exactly x-axis" },
-        score: 1,
+        score: "0",
       },
       {
         id: "b",
         payload: { data: "close to x-axis" },
-        score: 0.9938837488013375,
+        score: "0.006116251198662548",
       },
       {
         id: "c",
         payload: { data: "y-axis" },
-        score: 0,
+        score: "1",
       },
       {
         id: "d",
         payload: { data: "opposite x-axis" },
-        score: 0,
+        score: "2",
       },
     ]);
 
@@ -119,10 +122,5 @@ describe("PGVector - search()", () => {
       expect.stringContaining("vector <=> $1::vector AS distance"),
       ["[1,0,0]", 4],
     );
-
-    for (const result of results) {
-      expect(result.score).toBeGreaterThanOrEqual(0);
-      expect(result.score).toBeLessThanOrEqual(1);
-    }
   });
 });

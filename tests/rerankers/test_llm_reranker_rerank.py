@@ -79,8 +79,8 @@ class TestRerank:
         reranker = LLMReranker({"provider": "openai"})
         reranker.rerank("query", [{"text": "some text"}])
 
-        prompt_sent = mock_llm_instance.generate_response.call_args[1]["messages"][0]["content"]
-        assert "some text" in prompt_sent
+        user_msg = mock_llm_instance.generate_response.call_args[1]["messages"][1]["content"]
+        assert "some text" in user_msg
 
     def test_content_field_extraction(self, mock_llm):
         _, mock_llm_instance = mock_llm
@@ -89,8 +89,8 @@ class TestRerank:
         reranker = LLMReranker({"provider": "openai"})
         reranker.rerank("query", [{"content": "some content"}])
 
-        prompt_sent = mock_llm_instance.generate_response.call_args[1]["messages"][0]["content"]
-        assert "some content" in prompt_sent
+        user_msg = mock_llm_instance.generate_response.call_args[1]["messages"][1]["content"]
+        assert "some content" in user_msg
 
     def test_fallback_score_on_llm_error(self, mock_llm):
         _, mock_llm_instance = mock_llm
@@ -106,12 +106,14 @@ class TestRerank:
         _, mock_llm_instance = mock_llm
         mock_llm_instance.generate_response.return_value = "0.7"
 
-        custom_prompt = "Rate this: query={query} doc={document}"
+        custom_prompt = "Rate relevance on a scale of 0.0 to 1.0."
         reranker = LLMReranker({"provider": "openai", "scoring_prompt": custom_prompt})
         reranker.rerank("my query", [{"memory": "my doc"}])
 
-        prompt_sent = mock_llm_instance.generate_response.call_args[1]["messages"][0]["content"]
-        assert prompt_sent == "Rate this: query=my query doc=my doc"
+        messages = mock_llm_instance.generate_response.call_args[1]["messages"]
+        assert messages[0]["content"] == custom_prompt
+        assert "my query" in messages[1]["content"]
+        assert "my doc" in messages[1]["content"]
 
     def test_original_doc_not_mutated(self, mock_llm):
         _, mock_llm_instance = mock_llm

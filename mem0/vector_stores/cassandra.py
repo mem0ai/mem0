@@ -168,7 +168,7 @@ class CassandraDB(VectorStoreBase):
             vector_size (int, optional): Vector dimension (uses self.embedding_model_dims if not provided)
             distance (str): Distance metric (cosine, euclidean, dot_product)
         """
-        table_name = name or self.collection_name
+        table_name = _validate_identifier(name, "table_name") if name else self.collection_name
         dims = vector_size or self.embedding_model_dims
 
         try:

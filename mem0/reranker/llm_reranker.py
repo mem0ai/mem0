@@ -58,6 +58,20 @@ class LLMReranker(BaseReranker):
         # Initialize LLM using the factory
         self.llm = LlmFactory.create(llm_provider, llm_config)
 
+        # Honor custom scoring_prompt from config if provided
+        custom_prompt = getattr(self.config, 'scoring_prompt', None)
+        if custom_prompt:
+            import warnings
+            warnings.warn(
+                "LLMRerankerConfig.scoring_prompt is deprecated and will be removed in a future version. "
+                "The prompt is now used as the system message.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._system_prompt = custom_prompt
+        else:
+            self._system_prompt = self._SYSTEM_PROMPT
+
     _SYSTEM_PROMPT = (
         "You are a relevance scoring assistant. "
         "Given a query and a document, score how relevant the document is to the query.\n\n"
@@ -124,7 +138,7 @@ class LLMReranker(BaseReranker):
 
                 response = self.llm.generate_response(
                     messages=[
-                        {"role": "system", "content": self._SYSTEM_PROMPT},
+                        {"role": "system", "content": self._system_prompt},
                         {"role": "user", "content": user_message},
                     ]
                 )
