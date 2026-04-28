@@ -1,4 +1,5 @@
 import { MemoryConfig } from "../types";
+import { getDefaultHistoryDbPath } from "../utils/sqlite";
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   disableHistory: false,
@@ -29,7 +30,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
   historyStore: {
     provider: "sqlite",
     config: {
-      historyDbPath: "memory.db",
+      historyDbPath: getDefaultHistoryDbPath(),
     },
   },
 };
