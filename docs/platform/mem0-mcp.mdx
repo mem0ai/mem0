@@ -10,7 +10,7 @@ estimatedTime: "~2 minutes"
   - Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Sign up here</a>)
   - API key (<a href="https://app.mem0.ai/settings/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Get one from dashboard</a>)
   - Node.js 14+ (for npx)
-  - An MCP-compatible client (Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode)
+  - An MCP-compatible client (Claude, Claude Code, Codex, Cursor, Windsurf, VS Code, OpenCode)
 </Info>
 
 ## What is Mem0 MCP?
@@ -84,6 +84,33 @@ You can also configure individual clients:
       --url "https://mcp.mem0.ai/mcp" \
       --clients "claude code"
     ```
+  </Accordion>
+
+  <Accordion title="Codex">
+    **Direct MCP (fastest, MCP only).** Codex reads MCP servers from `~/.codex/config.toml` as TOML (not JSON). Add:
+
+    ```toml
+    [mcp_servers.mem0]
+    url = "https://mcp.mem0.ai/mcp"
+    bearer_token_env_var = "MEM0_API_KEY"
+    ```
+
+    Export `MEM0_API_KEY` in the shell you launch Codex from, then restart Codex. `codex mcp add` only supports stdio servers, so HTTP servers must be added via `config.toml` directly — or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app.
+
+    <Note>
+      Codex uses the server name `mem0` (not `mem0-mcp` like the other clients on this page) so it matches the name the bundled plugin registers if you ever sideload it later.
+    </Note>
+
+    **Sideloaded plugin (full experience).** If you want the memory protocol skill, Mem0 SDK skill, and opt-in lifecycle hooks alongside the MCP server, sideload the plugin from a clone of `mem0ai/mem0`. The repo ships a marketplace manifest at `.agents/plugins/marketplace.json`, so you can register it with one CLI call:
+
+    ```bash
+    git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
+    codex plugin marketplace add ~/codex-plugins/mem0-source
+    ```
+
+    Then run `codex` and `/plugins`, browse the **Mem0 Plugins** marketplace, and install **Mem0**. Don't combine this with the Direct MCP setup above — the sideloaded plugin auto-registers `mem0` via `.codex-mcp.json`, so a manual `[mcp_servers.mem0]` block would create a duplicate.
+
+    See the [Codex integration guide](/integrations/codex) for full details, lifecycle-hook setup, and management commands (`codex plugin marketplace upgrade` / `remove`).
   </Accordion>
 
   <Accordion title="Cursor">
