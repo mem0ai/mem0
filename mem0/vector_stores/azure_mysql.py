@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
 
@@ -24,6 +25,17 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+_SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,127}$')
+
+
+def _validate_identifier(name: str, label: str = "identifier") -> str:
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(
+            f"Invalid {label} '{name}': only letters, digits, and underscores are allowed, "
+            "must start with a letter or underscore, and be at most 128 characters."
+        )
+    return name
 
 
 class OutputData(BaseModel):
@@ -72,7 +84,7 @@ class AzureMySQL(VectorStoreBase):
         self.user = user
         self.password = password
         self.database = database
-        self.collection_name = collection_name
+        self.collection_name = _validate_identifier(collection_name, "collection_name")
         self.embedding_model_dims = embedding_model_dims
         self.use_azure_credential = use_azure_credential
         self.ssl_ca = ssl_ca
@@ -174,7 +186,7 @@ class AzureMySQL(VectorStoreBase):
             vector_size (int, optional): Vector dimension (uses self.embedding_model_dims if not provided)
             distance (str): Distance metric (cosine, euclidean, dot_product)
         """
-        table_name = name or self.collection_name
+        table_name = _validate_identifier(name, "table_name") if name else self.collection_name
         dims = vector_size or self.embedding_model_dims
 
         with self._get_cursor(commit=True) as cur:

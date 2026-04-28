@@ -1,8 +1,32 @@
 import type { Client as ClientType } from "pg";
 import pkg from "pg";
-const { Client } = pkg;
+const { Client, escapeIdentifier } = pkg;
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+
+const SAFE_IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,127}$/;
+
+function validateIdentifier(
+  name: string,
+  label: string = "identifier",
+): string {
+  if (!SAFE_IDENTIFIER_RE.test(name)) {
+    throw new Error(
+      `Invalid ${label} '${name}': only letters, digits, and underscores are allowed, ` +
+        `must start with a letter or underscore, and be at most 128 characters.`,
+    );
+  }
+  return name;
+}
+
+function escapeFilterKey(key: string): string {
+  if (!SAFE_IDENTIFIER_RE.test(key)) {
+    throw new Error(
+      `Invalid filter key '${key}': only letters, digits, and underscores are allowed.`,
+    );
+  }
+  return key;
+}
 
 interface PGVectorConfig extends VectorStoreConfig {
   dbname?: string;
@@ -25,10 +49,13 @@ export class PGVector implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: PGVectorConfig) {
-    this.collectionName = config.collectionName || "memories";
+    this.collectionName = validateIdentifier(
+      config.collectionName || "memories",
+      "collectionName",
+    );
     this.useDiskann = config.diskann || false;
     this.useHnsw = config.hnsw || false;
-    this.dbName = config.dbname || "vector_store";
+    this.dbName = validateIdentifier(config.dbname || "vector_store", "dbname");
     this.config = config;
 
     this.client = new Client({
@@ -39,6 +66,10 @@ export class PGVector implements VectorStore {
       port: config.port,
     });
     this.initialize().catch(console.error);
+  }
+
+  private col(): string {
+    return escapeIdentifier(this.collectionName);
   }
 
   async initialize(): Promise<void> {
@@ -102,31 +133,28 @@ export class PGVector implements VectorStore {
   }
 
   private async createDatabase(dbName: string): Promise<void> {
-    // Create database (cannot be parameterized)
-    await this.client.query(`CREATE DATABASE ${dbName}`);
+    await this.client.query(`CREATE DATABASE ${escapeIdentifier(dbName)}`);
   }
 
   private async createCol(embeddingModelDims: number): Promise<void> {
-    // Create the table
+    const dims = Math.floor(embeddingModelDims);
     await this.client.query(`
-      CREATE TABLE IF NOT EXISTS ${this.collectionName} (
+      CREATE TABLE IF NOT EXISTS ${this.col()} (
         id UUID PRIMARY KEY,
-        vector vector(${embeddingModelDims}),
+        vector vector(${dims}),
         payload JSONB
       );
     `);
 
-    // Create indexes based on configuration
     if (this.useDiskann && embeddingModelDims < 2000) {
       try {
-        // Check if vectorscale extension is available
         const result = await this.client.query(
           "SELECT * FROM pg_extension WHERE extname = 'vectorscale'",
         );
         if (result.rows.length > 0) {
           await this.client.query(`
-            CREATE INDEX IF NOT EXISTS ${this.collectionName}_diskann_idx
-            ON ${this.collectionName}
+            CREATE INDEX IF NOT EXISTS ${escapeIdentifier(this.collectionName + "_diskann_idx")}
+            ON ${this.col()}
             USING diskann (vector);
           `);
         }
@@ -136,8 +164,8 @@ export class PGVector implements VectorStore {
     } else if (this.useHnsw) {
       try {
         await this.client.query(`
-          CREATE INDEX IF NOT EXISTS ${this.collectionName}_hnsw_idx
-          ON ${this.collectionName}
+          CREATE INDEX IF NOT EXISTS ${escapeIdentifier(this.collectionName + "_hnsw_idx")}
+          ON ${this.col()}
           USING hnsw (vector vector_cosine_ops);
         `);
       } catch (error) {
@@ -153,16 +181,15 @@ export class PGVector implements VectorStore {
   ): Promise<void> {
     const values = vectors.map((vector, i) => ({
       id: ids[i],
-      vector: `[${vector.join(",")}]`, // Format vector as string with square brackets
+      vector: `[${vector.join(",")}]`,
       payload: payloads[i],
     }));
 
     const query = `
-      INSERT INTO ${this.collectionName} (id, vector, payload)
+      INSERT INTO ${this.col()} (id, vector, payload)
       VALUES ($1, $2::vector, $3::jsonb)
     `;
 
-    // Execute inserts in parallel using Promise.all
     await Promise.all(
       values.map((value) =>
         this.client.query(query, [value.id, value.vector, value.payload]),
@@ -182,7 +209,8 @@ export class PGVector implements VectorStore {
 
       if (filters) {
         for (const [key, value] of Object.entries(filters)) {
-          filterConditions.push(`payload->>'${key}' = $${filterIndex}`);
+          const safeKey = escapeFilterKey(key);
+          filterConditions.push(`payload->>'${safeKey}' = $${filterIndex}`);
           filterValues.push(value);
           filterIndex++;
         }
@@ -195,7 +223,7 @@ export class PGVector implements VectorStore {
 
       const searchQuery = `
         SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'textLemmatized'), plainto_tsquery('simple', $1)) AS score, payload
-        FROM ${this.collectionName}
+        FROM ${this.col()}
         WHERE to_tsvector('simple', payload->>'textLemmatized') @@ plainto_tsquery('simple', $1)
         ${filterClause}
         ORDER BY score DESC
@@ -221,13 +249,14 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const filterConditions: string[] = [];
-    const queryVector = `[${query.join(",")}]`; // Format query vector as string with square brackets
+    const queryVector = `[${query.join(",")}]`;
     const filterValues: any[] = [queryVector, topK];
     let filterIndex = 3;
 
     if (filters) {
       for (const [key, value] of Object.entries(filters)) {
-        filterConditions.push(`payload->>'${key}' = $${filterIndex}`);
+        const safeKey = escapeFilterKey(key);
+        filterConditions.push(`payload->>'${safeKey}' = $${filterIndex}`);
         filterValues.push(value);
         filterIndex++;
       }
@@ -240,7 +269,7 @@ export class PGVector implements VectorStore {
 
     const searchQuery = `
       SELECT id, vector <=> $1::vector AS distance, payload
-      FROM ${this.collectionName}
+      FROM ${this.col()}
       ${filterClause}
       ORDER BY distance
       LIMIT $2
@@ -257,7 +286,7 @@ export class PGVector implements VectorStore {
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
     const result = await this.client.query(
-      `SELECT id, payload FROM ${this.collectionName} WHERE id = $1`,
+      `SELECT id, payload FROM ${this.col()} WHERE id = $1`,
       [vectorId],
     );
 
@@ -274,10 +303,10 @@ export class PGVector implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
-    const vectorStr = `[${vector.join(",")}]`; // Format vector as string with square brackets
+    const vectorStr = `[${vector.join(",")}]`;
     await this.client.query(
       `
-      UPDATE ${this.collectionName}
+      UPDATE ${this.col()}
       SET vector = $1::vector, payload = $2::jsonb
       WHERE id = $3
       `,
@@ -286,14 +315,13 @@ export class PGVector implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
-    await this.client.query(
-      `DELETE FROM ${this.collectionName} WHERE id = $1`,
-      [vectorId],
-    );
+    await this.client.query(`DELETE FROM ${this.col()} WHERE id = $1`, [
+      vectorId,
+    ]);
   }
 
   async deleteCol(): Promise<void> {
-    await this.client.query(`DROP TABLE IF EXISTS ${this.collectionName}`);
+    await this.client.query(`DROP TABLE IF EXISTS ${this.col()}`);
   }
 
   private async listCols(): Promise<string[]> {
@@ -315,7 +343,8 @@ export class PGVector implements VectorStore {
 
     if (filters) {
       for (const [key, value] of Object.entries(filters)) {
-        filterConditions.push(`payload->>'${key}' = $${paramIndex}`);
+        const safeKey = escapeFilterKey(key);
+        filterConditions.push(`payload->>'${safeKey}' = $${paramIndex}`);
         filterValues.push(value);
         paramIndex++;
       }
@@ -328,14 +357,14 @@ export class PGVector implements VectorStore {
 
     const listQuery = `
       SELECT id, payload
-      FROM ${this.collectionName}
+      FROM ${this.col()}
       ${filterClause}
       LIMIT $${paramIndex}
     `;
 
     const countQuery = `
       SELECT COUNT(*)
-      FROM ${this.collectionName}
+      FROM ${this.col()}
       ${filterClause}
     `;
 

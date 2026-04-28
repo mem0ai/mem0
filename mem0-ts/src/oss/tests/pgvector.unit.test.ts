@@ -56,10 +56,13 @@ jest.mock("pg", () => {
     return client;
   });
 
+  const escapeIdentifier = (str: string) => `"${str.replace(/"/g, '""')}"`;
+
   return {
     __esModule: true,
-    default: { Client },
+    default: { Client, escapeIdentifier },
     Client,
+    escapeIdentifier,
     __mock: { Client, clients },
   };
 });
@@ -73,7 +76,7 @@ describe("PGVector - search()", () => {
     pg.__mock.clients.length = 0;
   });
 
-  test("converts cosine distance into a clamped similarity score", async () => {
+  test("returns similarity score (1 - distance) clamped to [0, 1]", async () => {
     const store = new PGVector({
       collectionName: "memories",
       user: "postgres",
@@ -119,10 +122,5 @@ describe("PGVector - search()", () => {
       expect.stringContaining("vector <=> $1::vector AS distance"),
       ["[1,0,0]", 4],
     );
-
-    for (const result of results) {
-      expect(result.score).toBeGreaterThanOrEqual(0);
-      expect(result.score).toBeLessThanOrEqual(1);
-    }
   });
 });

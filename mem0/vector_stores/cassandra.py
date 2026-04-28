@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -18,6 +19,17 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+_SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,127}$')
+
+
+def _validate_identifier(name: str, label: str = "identifier") -> str:
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(
+            f"Invalid {label} '{name}': only letters, digits, and underscores are allowed, "
+            "must start with a letter or underscore, and be at most 128 characters."
+        )
+    return name
 
 
 class OutputData(BaseModel):
@@ -59,8 +71,8 @@ class CassandraDB(VectorStoreBase):
         self.port = port
         self.username = username
         self.password = password
-        self.keyspace = keyspace
-        self.collection_name = collection_name
+        self.keyspace = _validate_identifier(keyspace, "keyspace")
+        self.collection_name = _validate_identifier(collection_name, "collection_name")
         self.embedding_model_dims = embedding_model_dims
         self.secure_connect_bundle = secure_connect_bundle
         self.protocol_version = protocol_version
@@ -156,7 +168,7 @@ class CassandraDB(VectorStoreBase):
             vector_size (int, optional): Vector dimension (uses self.embedding_model_dims if not provided)
             distance (str): Distance metric (cosine, euclidean, dot_product)
         """
-        table_name = name or self.collection_name
+        table_name = _validate_identifier(name, "table_name") if name else self.collection_name
         dims = vector_size or self.embedding_model_dims
 
         try:
@@ -375,12 +387,10 @@ class CassandraDB(VectorStoreBase):
             List[str]: List of collection names
         """
         try:
-            query = f"""
-                SELECT table_name
-                FROM system_schema.tables
-                WHERE keyspace_name = '{self.keyspace}'
-            """
-            rows = self.session.execute(query)
+            prepared = self.session.prepare(
+                "SELECT table_name FROM system_schema.tables WHERE keyspace_name = ?"
+            )
+            rows = self.session.execute(prepared, (self.keyspace,))
             return [row.table_name for row in rows]
         except Exception as e:
             logger.error(f"Failed to list collections: {e}")
