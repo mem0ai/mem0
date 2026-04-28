@@ -12,7 +12,7 @@
       "name": "mem0",
       "source": "./mem0-plugin",
       "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }
