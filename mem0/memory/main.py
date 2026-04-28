@@ -356,6 +356,7 @@ class Memory(MemoryBase):
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
+        self._vs_lock = asyncio.Lock()
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -1785,6 +1786,7 @@ class Memory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None
+        self._vs_lock = asyncio.Lock()
 
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
@@ -1816,6 +1818,7 @@ class AsyncMemory(MemoryBase):
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
         self._entity_store = None
+        self._vs_lock = asyncio.Lock()
 
         # Initialize reranker if configured
         self.reranker = None
@@ -2070,7 +2073,9 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        # Lock vector store writes to prevent HNSW index corruption from concurrent upserts
+        async with self._vs_lock:
+            vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
