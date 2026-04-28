@@ -30,6 +30,8 @@ export type Mem0Config = {
   needsSetup?: boolean;
   // Agentic harness skills
   skills?: SkillsConfig;
+  // Per-agent domain overrides: key = agent id, value = domain name
+  agentDomains?: Record<string, string>;
 };
 
 export interface AddOptions {

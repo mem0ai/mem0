@@ -36,6 +36,7 @@ import {
   resolveUserId,
   isNonInteractiveTrigger,
   isSubagentSession,
+  extractAgentId,
 } from "./isolation.ts";
 import {
   loadTriagePrompt,
@@ -404,8 +405,23 @@ function registerHooks(
       const isSubagent = isSubagentSession(sessionId);
       const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
 
+      // Resolve per-agent domain override (agentDomains config key)
+      const _agentId = extractAgentId(sessionId);
+      const _agentDomain =
+        _agentId && cfg.agentDomains?.[_agentId]
+          ? cfg.agentDomains[_agentId]
+          : undefined;
+      const _effectiveSkills: typeof cfg.skills = _agentDomain
+        ? { ...(cfg.skills ?? {}), domain: _agentDomain }
+        : (cfg.skills ?? {});
+      if (_agentDomain) {
+        api.logger.info(
+          `openclaw-mem0: per-agent domain override: agent=${_agentId} domain=${_agentDomain}`,
+        );
+      }
+
       // Static protocol goes in prependSystemContext (cacheable across turns)
-      let systemContext = loadTriagePrompt(cfg.skills ?? {});
+      let systemContext = loadTriagePrompt(_effectiveSkills);
       if (isSubagent) {
         systemContext =
           "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories.\n\n" +
@@ -438,7 +454,7 @@ function registerHooks(
             provider,
             query,
             userId,
-            cfg.skills ?? {},
+            _effectiveSkills,
             sessionIdForRecall,
           );
 
