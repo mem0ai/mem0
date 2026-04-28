@@ -6,17 +6,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-_SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,127}$')
-
-
-def _validate_identifier(name: str, label: str = "identifier") -> str:
-    if not _SAFE_IDENTIFIER_RE.match(name):
-        raise ValueError(
-            f"Invalid {label} '{name}': only letters, digits, and underscores are allowed, "
-            "must start with a letter or underscore, and be at most 128 characters."
-        )
-    return name
-
 try:
     import pymysql
     from dbutils.pooled_db import PooledDB
@@ -36,6 +25,17 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+_SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,127}$')
+
+
+def _validate_identifier(name: str, label: str = "identifier") -> str:
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(
+            f"Invalid {label} '{name}': only letters, digits, and underscores are allowed, "
+            "must start with a letter or underscore, and be at most 128 characters."
+        )
+    return name
 
 
 class OutputData(BaseModel):
