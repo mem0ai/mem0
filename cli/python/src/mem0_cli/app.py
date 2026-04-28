@@ -267,8 +267,6 @@ def add(
     categories: str | None = typer.Option(
         None, "--categories", help="Categories (JSON array or comma-separated)."
     ),
-    graph: bool = typer.Option(False, "--graph", help="Enable graph memory extraction."),
-    no_graph: bool = typer.Option(False, "--no-graph", help="Disable graph memory extraction."),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output format: text, json, quiet.", rich_help_panel="Output"
     ),
@@ -295,13 +293,6 @@ def add(
     backend, config = _get_backend_and_config(api_key, base_url)
     ids = _resolve_ids(config, user_id=user_id, agent_id=agent_id, app_id=app_id, run_id=run_id)
 
-    if no_graph:
-        graph_enabled = False
-    elif graph:
-        graph_enabled = True
-    else:
-        graph_enabled = config.defaults.enable_graph
-
     cmd_add(
         backend,
         text,
@@ -313,7 +304,6 @@ def add(
         no_infer=no_infer,
         expires=expires,
         categories=categories,
-        enable_graph=graph_enabled,
         output=output,
     )
 
@@ -357,12 +347,6 @@ def search(
         help="Specific fields to return (comma-separated).",
         rich_help_panel="Search",
     ),
-    graph: bool = typer.Option(
-        False, "--graph", help="Enable graph in search.", rich_help_panel="Search"
-    ),
-    no_graph: bool = typer.Option(
-        False, "--no-graph", help="Disable graph in search.", rich_help_panel="Search"
-    ),
     output: str = typer.Option(
         "text", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -396,13 +380,6 @@ def search(
     backend, config = _get_backend_and_config(api_key, base_url)
     ids = _resolve_ids(config, user_id=user_id, agent_id=agent_id, app_id=app_id, run_id=run_id)
 
-    if no_graph:
-        graph_enabled = False
-    elif graph:
-        graph_enabled = True
-    else:
-        graph_enabled = config.defaults.enable_graph
-
     cmd_search(
         backend,
         query,
@@ -413,7 +390,6 @@ def search(
         keyword=keyword,
         filter_json=filter_json,
         fields=fields,
-        enable_graph=graph_enabled,
         output=output,
     )
 
@@ -480,12 +456,6 @@ def list_cmd(
     before: str | None = typer.Option(
         None, "--before", help="Created before (YYYY-MM-DD).", rich_help_panel="Filters"
     ),
-    graph: bool = typer.Option(
-        False, "--graph", help="Enable graph in listing.", rich_help_panel="Filters"
-    ),
-    no_graph: bool = typer.Option(
-        False, "--no-graph", help="Disable graph in listing.", rich_help_panel="Filters"
-    ),
     output: str = typer.Option(
         "table", "--output", "-o", help="Output: text, json, table.", rich_help_panel="Output"
     ),
@@ -511,13 +481,6 @@ def list_cmd(
     backend, config = _get_backend_and_config(api_key, base_url)
     ids = _resolve_ids(config, user_id=user_id, agent_id=agent_id, app_id=app_id, run_id=run_id)
 
-    if no_graph:
-        graph_enabled = False
-    elif graph:
-        graph_enabled = True
-    else:
-        graph_enabled = config.defaults.enable_graph
-
     cmd_list(
         backend,
         **ids,
@@ -526,7 +489,6 @@ def list_cmd(
         category=category,
         after=after,
         before=before,
-        enable_graph=graph_enabled,
         output=output,
     )
 

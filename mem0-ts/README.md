@@ -15,7 +15,7 @@ npm i mem0ai
 
 ## 2. API Key Setup
 
-For the cloud offering, sign in to [Mem0 Platform](https://app.mem0.ai/dashboard/api-keys) to obtain your API Key.
+For the cloud offering, sign in to [Mem0 Platform](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=mem0-ts-readme) to obtain your API Key.
 
 ## 3. Client Features
 

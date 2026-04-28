@@ -656,10 +656,10 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -726,7 +726,7 @@ class Memory(MemoryBase):
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
-        custom_instr = self.custom_instructions
+        custom_instr = prompt or self.custom_instructions
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
@@ -1239,15 +1239,15 @@ class Memory(MemoryBase):
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process enhanced metadata filters and convert them to vector store compatible format.
-        
+
         Args:
             metadata_filters: Enhanced metadata filters with operators
-            
+
         Returns:
             Dict of processed filters compatible with vector store
         """
         processed_filters = {}
-        
+
         def process_condition(key: str, condition: Any) -> Dict[str, Any]:
             if not isinstance(condition, dict):
                 # Simple equality: {"key": "value"}
@@ -1255,7 +1255,7 @@ class Memory(MemoryBase):
                     # Wildcard: match everything for this field (implementation depends on vector store)
                     return {key: "*"}
                 return {key: condition}
-            
+
             result = {}
             for operator, value in condition.items():
                 # Map platform operators to universal format that can be translated by each vector store
@@ -1271,6 +1271,14 @@ class Memory(MemoryBase):
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
 
+        def merge_filters(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+            """Merge source into target, deep-merging nested operator dicts for the same key."""
+            for key, value in source.items():
+                if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+                    target[key].update(value)
+                else:
+                    target[key] = value
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
@@ -1278,7 +1286,7 @@ class Memory(MemoryBase):
                     raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        processed_filters.update(process_condition(sub_key, sub_value))
+                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
@@ -1288,7 +1296,7 @@ class Memory(MemoryBase):
                 for condition in value:
                     or_condition = {}
                     for sub_key, sub_value in condition.items():
-                        or_condition.update(process_condition(sub_key, sub_value))
+                        merge_filters(or_condition, process_condition(sub_key, sub_value))
                     processed_filters["$or"].append(or_condition)
             elif key == "NOT":
                 # Logical NOT: Pass through to vector store for implementation-specific handling
@@ -1298,11 +1306,11 @@ class Memory(MemoryBase):
                 for condition in value:
                     not_condition = {}
                     for sub_key, sub_value in condition.items():
-                        not_condition.update(process_condition(sub_key, sub_value))
+                        merge_filters(not_condition, process_condition(sub_key, sub_value))
                     processed_filters["$not"].append(not_condition)
             else:
-                processed_filters.update(process_condition(key, value))
-        
+                merge_filters(processed_filters, process_condition(key, value))
+
         return processed_filters
 
     def _has_advanced_operators(self, filters: Dict[str, Any]) -> bool:
@@ -2056,7 +2064,7 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer)
+        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2065,6 +2073,7 @@ class AsyncMemory(MemoryBase):
         metadata: dict,
         effective_filters: dict,
         infer: bool,
+        prompt: Optional[str] = None,
     ):
         if not infer:
             returned_memories = []
@@ -2133,7 +2142,7 @@ class AsyncMemory(MemoryBase):
         if is_agent_scoped:
             system_prompt += AGENT_CONTEXT_SUFFIX
 
-        custom_instr = self.custom_instructions
+        custom_instr = prompt or self.custom_instructions
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
@@ -2682,6 +2691,14 @@ class AsyncMemory(MemoryBase):
                     raise ValueError(f"Unsupported metadata filter operator: {operator}")
             return result
 
+        def merge_filters(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+            """Merge source into target, deep-merging nested operator dicts for the same key."""
+            for key, value in source.items():
+                if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+                    target[key].update(value)
+                else:
+                    target[key] = value
+
         for key, value in metadata_filters.items():
             if key == "AND":
                 # Logical AND: combine multiple conditions
@@ -2689,7 +2706,7 @@ class AsyncMemory(MemoryBase):
                     raise ValueError("AND operator requires a list of conditions")
                 for condition in value:
                     for sub_key, sub_value in condition.items():
-                        processed_filters.update(process_condition(sub_key, sub_value))
+                        merge_filters(processed_filters, process_condition(sub_key, sub_value))
             elif key == "OR":
                 # Logical OR: Pass through to vector store for implementation-specific handling
                 if not isinstance(value, list) or not value:
@@ -2699,7 +2716,7 @@ class AsyncMemory(MemoryBase):
                 for condition in value:
                     or_condition = {}
                     for sub_key, sub_value in condition.items():
-                        or_condition.update(process_condition(sub_key, sub_value))
+                        merge_filters(or_condition, process_condition(sub_key, sub_value))
                     processed_filters["$or"].append(or_condition)
             elif key == "NOT":
                 # Logical NOT: Pass through to vector store for implementation-specific handling
@@ -2709,10 +2726,10 @@ class AsyncMemory(MemoryBase):
                 for condition in value:
                     not_condition = {}
                     for sub_key, sub_value in condition.items():
-                        not_condition.update(process_condition(sub_key, sub_value))
+                        merge_filters(not_condition, process_condition(sub_key, sub_value))
                     processed_filters["$not"].append(not_condition)
             else:
-                processed_filters.update(process_condition(key, value))
+                merge_filters(processed_filters, process_condition(key, value))
 
         return processed_filters
 
@@ -2992,6 +3009,7 @@ class AsyncMemory(MemoryBase):
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
+        new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
         await asyncio.to_thread(
             self.vector_store.insert,

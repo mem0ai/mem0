@@ -161,6 +161,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Open Source Configuration](https://docs.mem0.ai/open-source/configuration) [OSS]: Use when configuring `Memory` - LLM, embedder, vector store, graph store.
 - [Open Source Python Quickstart](https://docs.mem0.ai/open-source/python-quickstart) [OSS]: Use for the first self-hosted Python integration.
 - [Open Source Node.js Quickstart](https://docs.mem0.ai/open-source/node-quickstart) [OSS]: Use for the first self-hosted Node integration.
+- [Self-Hosted Setup](https://docs.mem0.ai/open-source/setup) [OSS]: Use when standing up the bundled REST server and dashboard via Docker Compose, including auth, API keys, and the setup wizard.
 
 ## Core Concepts
 

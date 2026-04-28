@@ -29,7 +29,6 @@ export function cmdConfigShow(opts: { output?: string } = {}): void {
 					agent_id: config.defaults.agentId || null,
 					app_id: config.defaults.appId || null,
 					run_id: config.defaults.runId || null,
-					enable_graph: config.defaults.enableGraph,
 				},
 				platform: {
 					api_key: redactKey(config.platform.apiKey),
@@ -56,7 +55,6 @@ export function cmdConfigShow(opts: { output?: string } = {}): void {
 	]);
 	table.push(["defaults.app_id", config.defaults.appId || dim("(not set)")]);
 	table.push(["defaults.run_id", config.defaults.runId || dim("(not set)")]);
-	table.push(["defaults.enable_graph", String(config.defaults.enableGraph)]);
 	table.push(["", ""]);
 
 	// Platform

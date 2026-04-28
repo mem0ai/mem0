@@ -9,9 +9,10 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
-import { readPluginAuth, writePluginAuth, getBaseUrl } from "./cli/config-file.ts";
+import { readPluginAuth, writePluginAuth, getBaseUrl, clearAnonymousTelemetryId } from "./cli/config-file.ts";
 
-export const PLUGIN_VERSION = "1.0.6";
+declare const __OPENCLAW_PLUGIN_VERSION__: string;
+export const PLUGIN_VERSION: string = __OPENCLAW_PLUGIN_VERSION__;
 
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
@@ -84,8 +85,9 @@ function maybeBuildIdentifyEvent(
         $lib: "posthog-node",
       },
     };
+    // Clear the anonymous ID from config after aliasing (don't write empty string)
     try {
-      writePluginAuth({ anonymousTelemetryId: "" });
+      clearAnonymousTelemetryId();
     } catch {
       /* ignore — alias may double-fire next session, harmless */
     }
@@ -128,18 +130,11 @@ function maybeResolveEmail(apiKey: string): void {
         } catch {
           /* ignore */
         }
-        // Upgrade any already-queued events from md5(apiKey) to email
-        const oldId = createHash("md5").update(apiKey).digest("hex");
+        const oldId = createHash("sha256").update(apiKey).digest("hex");
+        const newId = createHash("sha256").update(email).digest("hex");
         for (const ev of eventQueue) {
           if (ev.distinct_id === oldId) {
-            ev.distinct_id = email;
-          }
-          // Also upgrade $identify's distinct_id if present
-          if (
-            ev.event === "$identify" &&
-            ev.distinct_id === oldId
-          ) {
-            ev.distinct_id = email;
+            ev.distinct_id = newId;
           }
         }
       }
@@ -175,12 +170,14 @@ function isTelemetryEnabled(): boolean {
 function getDistinctId(apiKey?: string): string {
   try {
     const auth = readPluginAuth();
-    if (auth.userEmail) return auth.userEmail;
+    if (auth.userEmail) {
+      return createHash("sha256").update(auth.userEmail).digest("hex");
+    }
   } catch {
     /* ignore */
   }
   if (apiKey) {
-    return createHash("md5").update(apiKey).digest("hex");
+    return createHash("sha256").update(apiKey).digest("hex");
   }
   return getOrCreateAnonymousId();
 }
@@ -261,11 +258,9 @@ export function captureEvent(
   try {
     const distinctId = getDistinctId(ctx?.apiKey);
 
-    // If we resolved to md5(apiKey) instead of email, kick off a background
-    // /v1/ping/ to resolve and cache the email. The current event ships with
-    // the hash, but the async resolution upgrades any still-queued events
-    // (including this one) before the beforeExit flush fires.
-    if (ctx?.apiKey && distinctId && !distinctId.includes("@") && !distinctId.startsWith("openclaw-anon-")) {
+    let hasEmail = false;
+    try { hasEmail = !!readPluginAuth().userEmail; } catch { /* ignore */ }
+    if (ctx?.apiKey && !hasEmail && !distinctId.startsWith("openclaw-anon-")) {
       maybeResolveEmail(ctx.apiKey);
     }
 

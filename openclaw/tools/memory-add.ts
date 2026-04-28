@@ -1,11 +1,12 @@
 import { Type } from "@sinclair/typebox";
 import type { AddOptions } from "../types.ts";
 import { isSubagentSession } from "../isolation.ts";
-import { resolveCategories, ttlToExpirationDate } from "../skill-loader.ts";
+import { isNoiseMessage, stripNoiseFromContent } from "../filtering.ts";
+// v3.0.0: resolveCategories/ttlToExpirationDate removed - expiration_date/immutable no longer supported
 import type { ToolDeps } from "./index.ts";
 
 export function createMemoryAddTool(deps: ToolDeps) {
-  const { api, cfg, provider, resolveUserId, getCurrentSessionId, buildAddOptions, buildSearchOptions, skillsActive } = deps;
+  const { api, provider, resolveUserId, getCurrentSessionId, buildAddOptions, buildSearchOptions, skillsActive } = deps;
 
   return {
     name: "memory_add",
@@ -28,9 +29,18 @@ export function createMemoryAddTool(deps: ToolDeps) {
         userId?: string; agentId?: string; metadata?: Record<string, unknown>; longTerm?: boolean;
       };
 
-      const allFacts: string[] = p.facts?.length ? p.facts : (p.text ? [p.text] : []);
-      if (allFacts.length === 0) {
+      const rawFacts: string[] = p.facts?.length ? p.facts : (p.text ? [p.text] : []);
+      if (rawFacts.length === 0) {
         return { content: [{ type: "text", text: "No facts provided. Pass 'text' or 'facts' array." }], details: { error: "missing_facts" } };
+      }
+
+      // Filter out noise and clean the facts before storing
+      const allFacts = rawFacts
+        .map((f) => stripNoiseFromContent(f))
+        .filter((f) => f.length > 0 && !isNoiseMessage(f));
+
+      if (allFacts.length === 0) {
+        return { content: [{ type: "text", text: "All provided facts were filtered as noise. Nothing stored." }], details: { error: "all_noise" } };
       }
 
       const start = Date.now();
@@ -53,21 +63,12 @@ export function createMemoryAddTool(deps: ToolDeps) {
             ...(category && { category }),
             ...(importance !== undefined && { importance }),
           };
-          const categories = resolveCategories(cfg.skills);
-          const catConfig = category ? categories[category] : undefined;
-          const expirationDate = catConfig ? ttlToExpirationDate(catConfig.ttl) : undefined;
-          const isImmutable = catConfig?.immutable ?? false;
 
           const addOpts: AddOptions = {
             user_id: uid, source: "OPENCLAW", infer: false,
             deduced_memories: allFacts, metadata: parsedMetadata ?? {},
-            ...(expirationDate && { expiration_date: expirationDate }),
-            ...(isImmutable && { immutable: true }),
           };
           if (runId) addOpts.run_id = runId;
-          if (cfg.mode === "platform") {
-            addOpts.output_format = "v1.1";
-          }
 
           const result = await provider.add([{ role: "user", content: allFacts.join("\n") }], addOpts);
           const count = result.results?.length ?? 0;
@@ -81,9 +82,6 @@ export function createMemoryAddTool(deps: ToolDeps) {
         }
 
         const combinedText = allFacts.join("\n");
-        const dedupOpts = buildSearchOptions(uid, 3);
-        dedupOpts.threshold = 0.85;
-        await provider.search(combinedText.slice(0, 200), dedupOpts);
 
         const result = await provider.add([{ role: "user", content: combinedText }], buildAddOptions(uid, runId, currentSessionId));
         const added = result.results?.filter((r) => r.event === "ADD") ?? [];

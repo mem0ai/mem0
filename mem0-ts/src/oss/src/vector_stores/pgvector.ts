@@ -251,7 +251,7 @@ export class PGVector implements VectorStore {
     return result.rows.map((row) => ({
       id: row.id,
       payload: row.payload,
-      score: row.distance,
+      score: Math.max(0, Math.min(1, 1 - Number(row.distance))),
     }));
   }
 

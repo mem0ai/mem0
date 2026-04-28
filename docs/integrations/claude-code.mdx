@@ -17,8 +17,8 @@ Add persistent memory to [**Claude Code**](https://docs.anthropic.com/en/docs/cl
 Before setting up Mem0 with Claude Code, ensure you have:
 
 1. A Mem0 Platform account and API key:
-   - <a href="https://app.mem0.ai" rel="nofollow">Sign up at app.mem0.ai</a>
-   - <a href="https://app.mem0.ai/dashboard/api-keys" rel="nofollow">Get your API key</a> (starts with `m0-`)
+   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-claude-code" rel="nofollow">Sign up at app.mem0.ai</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-claude-code" rel="nofollow">Get your API key</a> (starts with `m0-`)
 
 2. Claude Code CLI or Claude Cowork desktop app installed
 
@@ -32,12 +32,19 @@ export MEM0_API_KEY="m0-your-api-key"
 
 ### Option A — Plugin Marketplace (Recommended)
 
-Install the full plugin including MCP server, lifecycle hooks, and SDK skill:
+Install the full plugin including MCP server, lifecycle hooks, and SDK skill.
 
-```
-/plugin marketplace add mem0ai/mem0
-/plugin install mem0@mem0-plugins
-```
+1. Add the Mem0 marketplace:
+
+   ```
+   /plugin marketplace add mem0ai/mem0
+   ```
+
+2. Install the plugin:
+
+   ```
+   /plugin install mem0@mem0-plugins
+   ```
 
 **Claude Cowork desktop app:** Open the Cowork tab, click **Customize** in the sidebar, click **Browse plugins**, and install Mem0.
 

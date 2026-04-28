@@ -113,9 +113,15 @@ describe("readPluginAuth", () => {
     expect(auth.userId).toBe("user-snake");
   });
 
-  it("returns empty object when JSON is invalid", () => {
+  it("throws error when JSON is invalid (prevents config destruction)", () => {
     mockExists.mockReturnValue(true);
     mockReadText.mockReturnValue("not valid json {{{");
+    expect(() => readPluginAuth()).toThrow(/Failed to parse[\s\S]*Fix the JSON syntax error/);
+  });
+
+  it("returns empty object when config file is empty", () => {
+    mockExists.mockReturnValue(true);
+    mockReadText.mockReturnValue("   ");
     expect(readPluginAuth()).toEqual({});
   });
 });

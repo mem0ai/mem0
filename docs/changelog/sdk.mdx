@@ -7,6 +7,23 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-04-25" description="v2.0.1">
+
+**Bug Fixes:**
+- **Client:** Map `user_id`, `agent_id`, `run_id` entity params to filters in `GET /memories` ([#4960](https://github.com/mem0ai/mem0/pull/4960))
+- **Memory:** Honor `prompt` param in vector store extraction pipeline ([#4914](https://github.com/mem0ai/mem0/pull/4914))
+- **Memory:** Add missing `text_lemmatized` field in `AsyncMemory._create_memory` ([#4886](https://github.com/mem0ai/mem0/pull/4886))
+- **Memory:** Merge same-key operator dicts in AND metadata filters ([#4853](https://github.com/mem0ai/mem0/pull/4853))
+- **LLMs:** Narrow `_is_reasoning_model` check to not match `gpt-5.x` variants ([#4746](https://github.com/mem0ai/mem0/pull/4746))
+- **Vector Stores:** Add `ca_certs` config option for Elasticsearch vector store ([#3993](https://github.com/mem0ai/mem0/pull/3993))
+- **Vector Stores:** Add `agent_id` and `run_id` to Elasticsearch/OpenSearch default mappings ([#4906](https://github.com/mem0ai/mem0/pull/4906))
+- **Embeddings:** Set FastEmbed `embedding_dims` from model metadata at init ([#4711](https://github.com/mem0ai/mem0/pull/4711))
+
+**Security:**
+- Bump vulnerable dependencies to patched versions ([#4835](https://github.com/mem0ai/mem0/pull/4835))
+
+</Update>
+
 <Update label="2026-04-14" description="v2.0.0">
 
 **Major Release** — Python SDK with V3 memory pipeline, ADD-only extraction, and cleaned-up API surface.
@@ -893,6 +910,24 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+<Update label="2026-04-25" description="v3.0.2">
+
+**Bug Fixes:**
+- **LLMs:** Forward `timeout` config to OpenAI client in JS OSS LLM providers ([#4770](https://github.com/mem0ai/mem0/pull/4770))
+
+**Improvements:**
+- **Telemetry:** Harden TS telemetry version injection and require changelog entry on version bump ([#4900](https://github.com/mem0ai/mem0/pull/4900))
+- **Docs:** Update memory tool list, CLI usage, and config file reading logic ([#4861](https://github.com/mem0ai/mem0/pull/4861))
+
+</Update>
+
+<Update label="2026-04-20" description="v3.0.1">
+
+**Bug Fixes:**
+- **Telemetry:** SDK version is now injected into telemetry at build time via esbuild's `define`, replacing the two hardcoded version strings in `src/client/telemetry.ts` and `src/oss/src/utils/telemetry.ts`. Previously these were stuck at `2.1.36` and `2.1.34` while the published package was on `3.x`, so every telemetry event was reporting the wrong `client_version`. The placeholder is substituted with a string literal at bundle time — no runtime `require("./package.json")` in the shipped bundle ([#4897](https://github.com/mem0ai/mem0/pull/4897)).
+
+</Update>
+
 <Update label="2026-04-14" description="v3.0.0">
 
 **Major Release** — TypeScript SDK with V3 memory pipeline, camelCase parameters, and cleaned-up API surface.
@@ -1261,6 +1296,16 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 </Tab>
 
 <Tab title="CLI">
+
+<Update label="2026-04-22" description="Python v0.2.4 / Node v0.2.4">
+
+**New Features:**
+- **V3 API Routes:** Migrated `add`, `search`, and `list` commands from v1/v2 to v3 API endpoints — `POST /v3/memories/add/`, `POST /v3/memories/search/`, `POST /v3/memories/`. Aligns both CLIs with the Python and TypeScript SDKs which already use v3 ([#4916](https://github.com/mem0ai/mem0/pull/4916))
+
+**Breaking Changes:**
+- **`--graph` / `--no-graph` removed:** The `enable_graph` config option, `--graph` and `--no-graph` CLI flags, and `MEM0_ENABLE_GRAPH` environment variable have been removed from both CLIs. Graph memory is now a project-level setting on the Platform ([#4916](https://github.com/mem0ai/mem0/pull/4916))
+
+</Update>
 
 <Update label="2026-04-11" description="Python v0.2.3 / Node v0.2.3">
 
