@@ -76,7 +76,7 @@ describe("PGVector - search()", () => {
     pg.__mock.clients.length = 0;
   });
 
-  test("returns raw cosine distance as score", async () => {
+  test("returns similarity score (1 - distance) clamped to [0, 1]", async () => {
     const store = new PGVector({
       collectionName: "memories",
       user: "postgres",
@@ -95,22 +95,22 @@ describe("PGVector - search()", () => {
       {
         id: "a",
         payload: { data: "exactly x-axis" },
-        score: "0",
+        score: 1,
       },
       {
         id: "b",
         payload: { data: "close to x-axis" },
-        score: "0.006116251198662548",
+        score: 0.9938837488013375,
       },
       {
         id: "c",
         payload: { data: "y-axis" },
-        score: "1",
+        score: 0,
       },
       {
         id: "d",
         payload: { data: "opposite x-axis" },
-        score: "2",
+        score: 0,
       },
     ]);
 
