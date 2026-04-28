@@ -62,7 +62,7 @@ describe("OpenAIStructuredLLM (unit)", () => {
       choices: [
         {
           message: {
-            content: "{\"ok\": true}",
+            content: '{"ok": true}',
             role: "assistant",
             tool_calls: null,
           },
@@ -74,14 +74,12 @@ describe("OpenAIStructuredLLM (unit)", () => {
       apiKey: "test-key",
       extraHeaders: { "Helicone-Auth": "Bearer test" },
     });
-    await llm.generateResponse(
-      [{ role: "user", content: "Hi" }],
-      { type: "json_object" },
-    );
+    await llm.generateResponse([{ role: "user", content: "Hi" }], {
+      type: "json_object",
+    });
 
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.any(Object),
-      { headers: { "Helicone-Auth": "Bearer test" } },
-    );
+    expect(mockCreate).toHaveBeenCalledWith(expect.any(Object), {
+      headers: { "Helicone-Auth": "Bearer test" },
+    });
   });
 });
