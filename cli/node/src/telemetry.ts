@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadConfig, saveConfig } from "./config.js";
 import { CLI_VERSION } from "./version.js";
 
-const POSTHOG_API_KEY = process.env.MEM0_POSTHOG_API_KEY ?? "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
+const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

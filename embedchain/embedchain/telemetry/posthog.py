@@ -11,7 +11,7 @@ from embedchain.constants import CONFIG_DIR, CONFIG_FILE
 
 class AnonymousTelemetry:
     def __init__(self, host="https://app.posthog.com", enabled=True):
-        self.project_api_key = os.environ.get("EMBEDCHAIN_POSTHOG_API_KEY", "phc_PHQDA5KwztijnSojsxJ2c1DuJd52QCzJzT2xnSGvjN2")
+        self.project_api_key = "phc_PHQDA5KwztijnSojsxJ2c1DuJd52QCzJzT2xnSGvjN2"
         self.host = host
         self.posthog = Posthog(project_api_key=self.project_api_key, host=self.host)
         self.user_id = self._get_user_id()

@@ -19,7 +19,7 @@ import sys
 import uuid
 from typing import Any
 
-POSTHOG_API_KEY = os.environ.get("MEM0_POSTHOG_API_KEY", "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX")
+POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/"
 
 
