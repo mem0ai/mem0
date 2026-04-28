@@ -104,10 +104,9 @@ describe("OpenAILLM (unit)", () => {
     });
     await llm.generateResponse([{ role: "user", content: "Hi" }]);
 
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.any(Object),
-      { headers: { "Helicone-Auth": "Bearer test" } },
-    );
+    expect(mockCreate).toHaveBeenCalledWith(expect.any(Object), {
+      headers: { "Helicone-Auth": "Bearer test" },
+    });
   });
 
   it("generateResponse() handles tool calls", async () => {
