@@ -119,6 +119,39 @@ def test_search_without_filters(valkey_db, mock_valkey_client):
     assert "created_at" in results[0].payload
 
 
+def test_search_ignores_empty_index_placeholders(valkey_db, mock_valkey_client):
+    """Test that placeholder fields for Valkey indexing do not leak into search payloads."""
+    mock_doc = MagicMock()
+    mock_doc.memory_id = "test_id"
+    mock_doc.hash = "test_hash"
+    mock_doc.memory = "test_data"
+    mock_doc.created_at = str(int(datetime.now().timestamp()))
+    mock_doc.updated_at = "0"
+    mock_doc.user_id = ""
+    mock_doc.agent_id = ""
+    mock_doc.run_id = ""
+    mock_doc.metadata = json.dumps({})
+    mock_doc.vector_score = "0.5"
+
+    mock_results = MagicMock()
+    mock_results.docs = [mock_doc]
+
+    mock_ft = mock_valkey_client.ft.return_value
+    mock_ft.search.return_value = mock_results
+
+    results = valkey_db.search(
+        query="test query",
+        vectors=np.random.rand(1536).tolist(),
+        top_k=5,
+    )
+
+    payload = results[0].payload
+    assert "updated_at" not in payload
+    assert "user_id" not in payload
+    assert "agent_id" not in payload
+    assert "run_id" not in payload
+
+
 def test_insert(valkey_db, mock_valkey_client):
     """Test inserting vectors."""
     # Prepare test data
@@ -138,6 +171,9 @@ def test_insert(valkey_db, mock_valkey_client):
     assert kwargs["mapping"]["hash"] == "test_hash"
     assert kwargs["mapping"]["memory"] == "test_data"
     assert kwargs["mapping"]["user_id"] == "test_user"
+    assert kwargs["mapping"]["agent_id"] == ""
+    assert kwargs["mapping"]["run_id"] == ""
+    assert kwargs["mapping"]["updated_at"] == 0
     assert "created_at" in kwargs["mapping"]
     assert "embedding" in kwargs["mapping"]
 
@@ -156,6 +192,10 @@ def test_insert_handles_missing_created_at(valkey_db, mock_valkey_client):
     mock_valkey_client.hset.assert_called_once()
     args, kwargs = mock_valkey_client.hset.call_args
     assert "created_at" in kwargs["mapping"]  # Should be added automatically
+    assert kwargs["mapping"]["agent_id"] == ""
+    assert kwargs["mapping"]["run_id"] == ""
+    assert kwargs["mapping"]["user_id"] == ""
+    assert kwargs["mapping"]["updated_at"] == 0
 
 
 def test_delete(valkey_db, mock_valkey_client):
@@ -553,6 +593,24 @@ def test_process_document_fields(valkey_db):
     assert payload["hash"] == "test_hash"
     assert "data" in payload  # Should have default value
     assert "created_at" in payload  # Should have default value
+
+    # Test with Valkey indexing placeholders
+    result = {
+        "hash": "test_hash",
+        "memory": "test_data",
+        "created_at": "1625097600",
+        "updated_at": "0",
+        "user_id": "",
+        "agent_id": "",
+        "run_id": "",
+    }
+
+    payload, memory_id = valkey_db._process_document_fields(result, "default_id")
+
+    assert "updated_at" not in payload
+    assert "user_id" not in payload
+    assert "agent_id" not in payload
+    assert "run_id" not in payload
 
 
 def test_init_connection_error():
