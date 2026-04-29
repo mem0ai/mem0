@@ -231,8 +231,8 @@ export const mem0ConfigSchema = {
                 return "default";
               }
             })(),
-      autoCapture: cfg.autoCapture === true,
-      autoRecall: cfg.autoRecall === true,
+      autoCapture: cfg.autoCapture !== false,
+      autoRecall: cfg.autoRecall !== false,
       // v3.0.0: customPrompt renamed to customInstructions (backwards-compat: accept either)
       customInstructions:
         typeof cfg.customInstructions === "string"
@@ -247,7 +247,7 @@ export const mem0ConfigSchema = {
           ? (cfg.customCategories as Record<string, string>)
           : DEFAULT_CUSTOM_CATEGORIES,
       searchThreshold:
-        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
+        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.1,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
       needsSetup,
       oss: ossConfig,
