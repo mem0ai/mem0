@@ -180,10 +180,6 @@ class S3Vectors(VectorStoreBase):
         return response.get("index", {})
 
     def list(self, filters=None, top_k=None):
-        # Note: list_vectors does not support metadata filtering.
-        if filters:
-            logger.warning("S3 Vectors `list` does not support metadata filtering. Ignoring filters.")
-
         params = {
             "vectorBucketName": self.vector_bucket_name,
             "indexName": self.collection_name,
@@ -198,7 +194,16 @@ class S3Vectors(VectorStoreBase):
         all_vectors = []
         for page in pages:
             all_vectors.extend(page.get("vectors", []))
-        return [self._parse_output(all_vectors)]
+        results = self._parse_output(all_vectors)
+        if filters:
+            results = [
+                result
+                for result in results
+                if result.payload and all(result.payload.get(k) == v for k, v in filters.items())
+            ]
+        if top_k:
+            results = results[:top_k]
+        return [results]
 
     def reset(self):
         logger.warning(f"Resetting index {self.collection_name}...")
