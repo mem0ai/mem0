@@ -14,6 +14,7 @@ class VectorStoreConfig(BaseModel):
         "qdrant": "QdrantConfig",
         "chroma": "ChromaDbConfig",
         "pgvector": "PGVectorConfig",
+        "oracle": "OracleConfig",
         "pinecone": "PineconeConfig",
         "mongodb": "MongoDBConfig",
         "milvus": "MilvusDBConfig",
