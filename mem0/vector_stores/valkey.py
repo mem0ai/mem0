@@ -21,7 +21,7 @@ DEFAULT_FIELDS = [
     {"name": "agent_id", "type": "tag"},
     {"name": "run_id", "type": "tag"},
     {"name": "user_id", "type": "tag"},
-    {"name": "memory", "type": "tag"},  # Using TAG instead of TEXT for Valkey compatibility
+    {"name": "memory", "type": "text"},
     {"name": "metadata", "type": "tag"},  # Using TAG instead of TEXT for Valkey compatibility
     {"name": "created_at", "type": "numeric"},
     {"name": "updated_at", "type": "numeric"},
@@ -169,7 +169,7 @@ class ValkeyDB(VectorStoreBase):
             "user_id",
             "TAG",
             "memory",
-            "TAG",
+            "TEXT",
             "metadata",
             "TAG",
             "created_at",
