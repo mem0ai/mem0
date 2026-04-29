@@ -85,6 +85,30 @@ describe("OpenAILLM (unit)", () => {
     expect(result).toBe('{"facts": ["hello"]}');
   });
 
+  it("passes extraHeaders as request headers for chat completions", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "ok",
+            role: "assistant",
+            tool_calls: null,
+          },
+        },
+      ],
+    });
+
+    const llm = new OpenAILLM({
+      apiKey: "test-key",
+      extraHeaders: { "Helicone-Auth": "Bearer test" },
+    });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
+
+    expect(mockCreate).toHaveBeenCalledWith(expect.any(Object), {
+      headers: { "Helicone-Auth": "Bearer test" },
+    });
+  });
+
   it("generateResponse() handles tool calls", async () => {
     mockCreate.mockResolvedValueOnce({
       choices: [

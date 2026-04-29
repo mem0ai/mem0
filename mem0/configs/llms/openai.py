@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from mem0.configs.llms.base import BaseLlmConfig
 
@@ -30,6 +30,7 @@ class OpenAIConfig(BaseLlmConfig):
         site_url: Optional[str] = None,
         app_name: Optional[str] = None,
         store: Optional[bool] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
         # Response monitoring callback
         response_callback: Optional[Callable[[Any, dict, dict], None]] = None,
     ):
@@ -58,6 +59,8 @@ class OpenAIConfig(BaseLlmConfig):
                 want the value forwarded to the OpenAI API. Leaving it None
                 avoids leaking the field into OpenAI-compatible backends that
                 reject unknown fields (Gemini, Groq, vLLM, etc.).
+            extra_headers: Additional HTTP headers to send with OpenAI chat
+                completion requests, defaults to None
             response_callback: Optional callback for monitoring LLM responses.
         """
         # Initialize base parameters
@@ -82,6 +85,7 @@ class OpenAIConfig(BaseLlmConfig):
         self.site_url = site_url
         self.app_name = app_name
         self.store = store
+        self.extra_headers = extra_headers
 
         # Response monitoring
         self.response_callback = response_callback

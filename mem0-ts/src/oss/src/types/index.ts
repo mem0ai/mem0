@@ -49,6 +49,7 @@ export interface LLMConfig {
   model?: string | any;
   modelProperties?: Record<string, any>;
   timeout?: number;
+  extraHeaders?: Record<string, string>;
 }
 
 export interface MemoryConfig {
@@ -131,6 +132,7 @@ export const MemoryConfigSchema = z.object({
       baseURL: z.string().optional(),
       url: z.string().optional(),
       timeout: z.number().optional(),
+      extraHeaders: z.record(z.string(), z.string()).optional(),
     }),
   }),
   historyDbPath: z.string().optional(),

@@ -285,6 +285,49 @@ def test_store_sent_when_explicitly_false(mock_openai_client):
     assert call_kwargs["store"] is False
 
 
+def test_extra_headers_are_sent_with_chat_completion(mock_openai_client):
+    """OpenAI custom headers should be scoped to chat completion requests."""
+    extra_headers = {"Helicone-Auth": "Bearer test-token", "X-Trace-Id": "trace-123"}
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", extra_headers=extra_headers)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["extra_headers"] == extra_headers
+
+
+def test_openrouter_extra_headers_merge_with_site_metadata(mock_openai_client, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
+
+    config = OpenAIConfig(
+        model="meta-llama/llama-3.1-70b-instruct",
+        site_url="https://example.com",
+        app_name="Mem0 App",
+        extra_headers={"Helicone-Auth": "Bearer test-token"},
+    )
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["extra_headers"] == {
+        "Helicone-Auth": "Bearer test-token",
+        "HTTP-Referer": "https://example.com",
+        "X-Title": "Mem0 App",
+    }
+
+
 def test_gpt5_mini_not_classified_as_reasoning(mock_openai_client):
     """Test that gpt-5.4-mini is NOT treated as a reasoning model.
 
