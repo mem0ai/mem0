@@ -59,5 +59,10 @@
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
     "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "overrides": {
+      "protobufjs@<7.5.5": "^7.5.5"
+    }
   }
 }
