@@ -223,3 +223,26 @@ def test_reset(mock_boto_client):
         vectorBucketName=BUCKET_NAME, indexName=INDEX_NAME
     )
     assert mock_boto_client.create_index.call_count == 2
+
+
+def test_list_filters_metadata_client_side(mock_boto_client):
+    """S3 list_vectors does not support metadata filters, so the store filters returned payloads locally."""
+    mock_paginator = mock_boto_client.get_paginator.return_value
+    mock_paginator.paginate.return_value = [
+        {
+            "vectors": [
+                {"key": "id1", "metadata": {"user_id": "alice", "category": "work"}},
+                {"key": "id2", "metadata": {"user_id": "bob", "category": "work"}},
+                {"key": "id3", "metadata": {"user_id": "alice", "category": "home"}},
+            ]
+        }
+    ]
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    [results] = store.list(filters={"user_id": "alice", "category": "work"})
+
+    assert [result.id for result in results] == ["id1"]
