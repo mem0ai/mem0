@@ -160,6 +160,7 @@ const ALLOWED_KEYS = [
   "topK",
   "oss",
   "skills",
+  "agentDomains",
 ];
 
 function assertAllowedKeys(
@@ -256,6 +257,12 @@ export const mem0ConfigSchema = {
         typeof cfg.skills === "object" &&
         !Array.isArray(cfg.skills)
           ? (cfg.skills as Mem0Config["skills"])
+          : undefined,
+      agentDomains:
+        cfg.agentDomains &&
+        typeof cfg.agentDomains === "object" &&
+        !Array.isArray(cfg.agentDomains)
+          ? (cfg.agentDomains as Record<string, string>)
           : undefined,
     };
   },
