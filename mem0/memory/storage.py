@@ -16,6 +16,7 @@ class SQLiteManager:
         self._migrate_history_table()
         self._create_history_table()
         self._create_messages_table()
+        self._create_indexes()
 
     def _migrate_history_table(self) -> None:
         """
@@ -140,6 +141,32 @@ class SQLiteManager:
                         created_at DATETIME
                     )
                 """
+                )
+                self.connection.execute("COMMIT")
+            except Exception as e:
+                self.connection.execute("ROLLBACK")
+                logger.error(f"Failed to create messages table: {e}")
+                raise
+
+    def _create_indexes(self) -> None:
+        """Create indexes for commonly queried columns to avoid full table scans."""
+        with self._lock:
+            try:
+                self.connection.execute("BEGIN")
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_history_memory_id ON history(memory_id)"
+                )
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at)"
+                )
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_messages_session_scope ON messages(session_scope)"
+                )
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)"
+                )
+                self.connection.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_messages_scope_created ON messages(session_scope, created_at)"
                 )
                 self.connection.execute("COMMIT")
             except Exception as e:
