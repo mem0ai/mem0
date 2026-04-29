@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any, Dict, List
@@ -125,18 +126,25 @@ def remove_code_blocks(content: str) -> str:
 def extract_json(text):
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
-    If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
+    If no code block is found, attempts to locate the first valid JSON object or array in the text.
     If that also fails, returns the text as-is.
     """
     text = text.strip()
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
     else:
-        start_idx = text.find("{")
-        end_idx = text.rfind("}")
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            json_str = text[start_idx : end_idx + 1]
+        decoder = json.JSONDecoder(strict=False)
+        for start_idx, char in enumerate(text):
+            if char not in "{[":
+                continue
+            try:
+                _, end_idx = decoder.raw_decode(text[start_idx:])
+                json_str = text[start_idx : start_idx + end_idx]
+                break
+            except json.JSONDecodeError:
+                continue
         else:
             json_str = text
     return json_str
@@ -292,4 +300,3 @@ def remove_spaces_from_entities(
         item["destination"] = item["destination"].lower().replace(" ", "_")
         cleaned.append(item)
     return cleaned
-
