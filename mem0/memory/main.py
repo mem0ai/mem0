@@ -727,11 +727,13 @@ class Memory(MemoryBase):
             system_prompt += AGENT_CONTEXT_SUFFIX
 
         custom_instr = prompt or self.custom_instructions
+        observation_timestamp = metadata.get("timestamp") or metadata.get("created_at")
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
+            timestamp=observation_timestamp,
             custom_instructions=custom_instr,
         )
 
@@ -2143,11 +2145,13 @@ class AsyncMemory(MemoryBase):
             system_prompt += AGENT_CONTEXT_SUFFIX
 
         custom_instr = prompt or self.custom_instructions
+        observation_timestamp = metadata.get("timestamp") or metadata.get("created_at")
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
+            timestamp=observation_timestamp,
             custom_instructions=custom_instr,
         )
 
