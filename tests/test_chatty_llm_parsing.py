@@ -91,6 +91,22 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
 
+    def test_skips_invalid_reasoning_braces_before_json(self):
+        """Reasoning leakage can contain malformed braces before the final JSON."""
+        text = """I first considered {not valid JSON.
+The final answer is:
+{"memory": [{"id": "0", "text": "likes hiking", "event": "ADD"}]}
+"""
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["memory"][0]["text"] == "likes hiking"
+
+    def test_extracts_json_array(self):
+        text = 'Facts:\n["likes hiking", "owns a bike"]\nDone.'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed == ["likes hiking", "owns a bike"]
+
 
 # --- Test remove_code_blocks ---
 
@@ -194,6 +210,13 @@ I hope this helps!"""
         response = '<think>Let me process this...</think>\n```json\n{"memory": [{"id": "0", "text": "test", "event": "ADD"}]}\n```'
         result = self._parse_with_fallback(response)
         assert result["memory"][0]["text"] == "test"
+
+    def test_reasoning_noise_with_invalid_braces_before_json(self):
+        response = """Reasoning: {candidate memory is incomplete
+Final:
+{"memory": [{"id": "0", "text": "Name is Alex", "event": "ADD"}]}"""
+        result = self._parse_with_fallback(response)
+        assert result["memory"][0]["text"] == "Name is Alex"
 
     def test_lmstudio_style_response(self):
         """Mimics the actual LM Studio response format from the issue."""
