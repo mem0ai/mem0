@@ -33,6 +33,7 @@ DEFAULT_FIELDS = [
 ]
 
 excluded_keys = {"user_id", "agent_id", "run_id", "hash", "data", "created_at", "updated_at"}
+optional_tag_fields = ["agent_id", "run_id", "user_id"]
 
 
 class OutputData(BaseModel):
@@ -272,6 +273,11 @@ class ValkeyDB(VectorStoreBase):
             logger.exception(f"Error creating collection {collection_name}: {e}")
             raise
 
+    def _ensure_indexed_fields(self, hash_data):
+        for field in optional_tag_fields:
+            hash_data.setdefault(field, "")
+        hash_data.setdefault("updated_at", 0)
+
     def insert(self, vectors: list, payloads: list = None, ids: list = None):
         """
         Insert vectors and their payloads into the index.
@@ -305,12 +311,13 @@ class ValkeyDB(VectorStoreBase):
                 }
 
                 # Add optional fields
-                for field in ["agent_id", "run_id", "user_id"]:
+                for field in optional_tag_fields:
                     if field in payload:
                         hash_data[field] = payload[field]
 
                 # Add metadata
                 hash_data["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in excluded_keys})
+                self._ensure_indexed_fields(hash_data)
 
                 # Store in Valkey
                 self.client.hset(key, mapping=hash_data)
@@ -400,11 +407,16 @@ class ValkeyDB(VectorStoreBase):
 
             # Add updated_at if available
             if hasattr(doc, "updated_at"):
-                payload["updated_at"] = self._format_timestamp(int(doc.updated_at), self.timezone)
+                try:
+                    updated_at = int(doc.updated_at)
+                    if updated_at > 0:
+                        payload["updated_at"] = self._format_timestamp(updated_at, self.timezone)
+                except (ValueError, TypeError):
+                    payload["updated_at"] = doc.updated_at
 
             # Add optional fields
-            for field in ["agent_id", "run_id", "user_id"]:
-                if hasattr(doc, field):
+            for field in optional_tag_fields:
+                if hasattr(doc, field) and getattr(doc, field) != "":
                     payload[field] = getattr(doc, field)
 
             # Add metadata
@@ -512,12 +524,13 @@ class ValkeyDB(VectorStoreBase):
                 hash_data["updated_at"] = int(datetime.fromisoformat(payload["updated_at"]).timestamp())
 
             # Add optional fields
-            for field in ["agent_id", "run_id", "user_id"]:
+            for field in optional_tag_fields:
                 if field in payload:
                     hash_data[field] = payload[field]
 
             # Add metadata
             hash_data["metadata"] = json.dumps({k: v for k, v in payload.items() if k not in excluded_keys})
+            self._ensure_indexed_fields(hash_data)
 
             # Update in Valkey
             self.client.hset(key, mapping=hash_data)
@@ -596,13 +609,15 @@ class ValkeyDB(VectorStoreBase):
         # Add updated_at if available
         if "updated_at" in result:
             try:
-                payload["updated_at"] = self._format_timestamp(int(result["updated_at"]), self.timezone)
+                updated_at = int(result["updated_at"])
+                if updated_at > 0:
+                    payload["updated_at"] = self._format_timestamp(updated_at, self.timezone)
             except (ValueError, TypeError):
                 payload["updated_at"] = result["updated_at"]
 
         # Add optional fields
-        for field in ["agent_id", "run_id", "user_id"]:
-            if field in result:
+        for field in optional_tag_fields:
+            if field in result and result[field] != "":
                 payload[field] = result[field]
 
         # Add metadata
