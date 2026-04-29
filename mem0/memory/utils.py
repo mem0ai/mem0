@@ -179,17 +179,30 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
 
         # Handle message content
         if isinstance(msg["content"], list):
-            # Multiple image URLs in content
-            description = get_image_description(msg, llm, vision_details)
-            returned_messages.append({"role": msg["role"], "content": description})
-        elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
-            # Single image content
-            image_url = msg["content"]["image_url"]["url"]
-            try:
-                description = get_image_description(image_url, llm, vision_details)
+            if llm is not None:
+                # Vision enabled: use LLM to describe images
+                description = get_image_description(msg, llm, vision_details)
                 returned_messages.append({"role": msg["role"], "content": description})
-            except Exception:
-                raise Exception(f"Error while downloading {image_url}.")
+            else:
+                # Vision disabled: extract text parts, skip image parts
+                text_parts = [
+                    part.get("text", "")
+                    for part in msg["content"]
+                    if isinstance(part, dict) and part.get("type") == "text"
+                ]
+                returned_messages.append({"role": msg["role"], "content": " ".join(text_parts)})
+        elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
+            if llm is not None:
+                # Single image content
+                image_url = msg["content"]["image_url"]["url"]
+                try:
+                    description = get_image_description(image_url, llm, vision_details)
+                    returned_messages.append({"role": msg["role"], "content": description})
+                except Exception:
+                    raise Exception(f"Error while downloading {image_url}.")
+            else:
+                # Vision disabled: skip image, return empty string
+                returned_messages.append({"role": msg["role"], "content": ""})
         else:
             # Regular text content
             returned_messages.append(msg)
