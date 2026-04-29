@@ -4,6 +4,36 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-04-29" description="v1.0.11">
+
+**New Features:**
+- **Skills-mode auto-setup:** `enableSkillsConfig()` now runs automatically after onboarding — enables triage, recall (with reranking + keyword search), and dream consolidation with `tools.profile = "full"` and disables the built-in session-memory hook to avoid conflicts
+- **Memory runtime capability:** Plugin now exposes `runtime.getMemorySearchManager()` and `resolveMemoryBackendConfig()` on the registered memory capability, enabling OpenClaw gateway to query memory status and backend config directly
+- **Dimension-aware collections:** OSS wizard detects embedder dimension changes and creates a new collection (`mem0_<dims>d`) automatically, with a warning about old memories being inaccessible under the new embedder
+- **Tool documentation in skills:** Both `memory-triage` and `memory-dream` SKILL.md files now include full tool reference sections listing all available tools with parameters
+
+**Improvements:**
+- **Auto-capture and auto-recall default to enabled:** `autoCapture` and `autoRecall` now default to `true` (was `false`). Manifest descriptions updated accordingly. Ignored in skills mode
+- **`memory_update` over delete+add:** Skills now prefer `memory_update` for in-place edits — atomic and preserves edit history. Consolidation pattern updated: update best memory, delete redundant ones
+- **Search threshold lowered:** Default `searchThreshold` reduced from `0.5` to `0.1` for broader recall. Removed hardcoded `0.6` recall-specific override — all searches now use the configured threshold
+- **Embedder dimension propagation:** Vector store config auto-resolves dimensions from embedder config when not explicitly set. Syncs `dimension` and `embeddingModelDims` fields for Qdrant/PGVector compatibility
+- **Config file write safety:** `writeFullConfig()` now re-reads and deep-merges the `plugins` section before writing, preserving `installs` and `slots` written by the OpenClaw gateway
+- **Additional embedder models:** Added `mxbai-embed-large` (1024), `all-minilm` (384), and `snowflake-arctic-embed` (1024) to known embedder dimensions
+
+**Security:**
+- Bumped `protobufjs` to `>=7.5.5` via pnpm overrides (GHSA-xq3m-2v4x-88gg) ([#5012](https://github.com/mem0ai/mem0/pull/5012))
+
+**Fixes:**
+- Moved `bootstrapTelemetryFlag()` and removed `ensureInstallRecord()` from module-level side effects — both now run inside `register()` to avoid crashes when loaded outside OpenClaw gateway
+- Fixed OSS history DB path resolution: absolute paths no longer passed through `resolvePath()`, preventing double-prefix bugs
+- Manifest `providerAuthEnvVars` replaced with spec-compliant `setup.providers` format using `id` + `envVars`
+
+**Dependencies:**
+- Bumped `mem0ai` from `3.0.1` to `3.0.2`
+- Bumped `pluginApi` and `minGatewayVersion` compat to `>=2026.4.24`
+
+</Update>
+
 <Update label="2026-04-23" description="v1.0.10">
 
 **Security:**
