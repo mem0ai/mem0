@@ -52,8 +52,8 @@ SENSITIVE_CONFIG_KEYS = {
 SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
-BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
-BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini")
+BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini", "minimax", "deepseek", "lmstudio")
+BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini", "lmstudio")
 
 
 def _warn_if_unconfigured() -> None:
@@ -105,10 +105,27 @@ POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
+
+DEFAULT_LLM_PROVIDER = os.environ.get("MEM0_DEFAULT_LLM_PROVIDER", "openai")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
+DEFAULT_EMBEDDER_PROVIDER = os.environ.get("MEM0_DEFAULT_EMBEDDER_PROVIDER", "openai")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+
+def _validate_provider(kind: str, provider: str, allowed: tuple) -> None:
+    if provider not in allowed:
+        raise RuntimeError(
+            f"{kind} provider '{provider}' is not bundled. "
+            f"Bundled {kind.lower()} providers: {', '.join(allowed)}. "
+            f"Set MEM0_DEFAULT_{kind.upper()}_PROVIDER to a bundled provider "
+            "or extend BUNDLED_{kind.upper()}_PROVIDERS in server/main.py."
+        )
+
+_validate_provider("LLM", DEFAULT_LLM_PROVIDER, BUNDLED_LLM_PROVIDERS)
+_validate_provider("Embedder", DEFAULT_EMBEDDER_PROVIDER, BUNDLED_EMBEDDER_PROVIDERS)
+
+# Each provider class reads its own api_key / base_url from the
+# environment. The server only sets provider + model.
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -124,10 +141,13 @@ DEFAULT_CONFIG = {
         },
     },
     "llm": {
-        "provider": "openai",
-        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
+        "provider": DEFAULT_LLM_PROVIDER,
+        "config": {"model": DEFAULT_LLM_MODEL, "temperature": 0.2},
     },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
+    "embedder": {
+        "provider": DEFAULT_EMBEDDER_PROVIDER,
+        "config": {"model": DEFAULT_EMBEDDER_MODEL},
+    },
     "history_db_path": HISTORY_DB_PATH,
 }
 

@@ -1,3 +1,4 @@
+import os
 from typing import Literal, Optional
 
 from openai import OpenAI
@@ -13,6 +14,11 @@ class LMStudioEmbedding(EmbeddingBase):
         self.config.model = self.config.model or "nomic-ai/nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.f16.gguf"
         self.config.embedding_dims = self.config.embedding_dims or 1536
         self.config.api_key = self.config.api_key or "lm-studio"
+        self.config.lmstudio_base_url = (
+            self.config.lmstudio_base_url
+            or os.getenv("LMSTUDIO_BASE_URL")
+            or "http://localhost:1234/v1"
+        )
 
         self.client = OpenAI(base_url=self.config.lmstudio_base_url, api_key=self.config.api_key)
 
