@@ -114,6 +114,32 @@ class TestPromptOverridesCustomInstructions:
         user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
         assert "config-level instructions" in user_prompt
 
+    def test_metadata_timestamp_sets_observation_date(self, mock_memory):
+        timestamp = "2023-05-24T10:00:00+00:00"
+
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"timestamp": timestamp},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert f"## Observation Date\n{timestamp}" in user_prompt
+
+    def test_created_at_sets_observation_date_when_timestamp_missing(self, mock_memory):
+        created_at = "2023-05-24T10:00:00+00:00"
+
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"created_at": created_at},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert f"## Observation Date\n{created_at}" in user_prompt
+
 
 class TestAsyncUpdate:
     @pytest.fixture
@@ -215,6 +241,20 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+    async def test_async_metadata_timestamp_sets_observation_date(self, mock_async_memory):
+        timestamp = "2023-05-24T10:00:00+00:00"
+        mock_async_memory.llm.generate_response.return_value = '{"memory": []}'
+
+        await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"timestamp": timestamp},
+            effective_filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_async_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert f"## Observation Date\n{timestamp}" in user_prompt
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -661,5 +701,4 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
 
     stored = memory.vector_store.update.call_args.kwargs["payload"]
     assert stored["actor_id"] == "Alice"
-
 
