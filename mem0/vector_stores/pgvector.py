@@ -435,6 +435,40 @@ class PGVector(VectorStoreBase):
             results = cur.fetchall()
         return [[OutputData(id=str(r[0]), score=None, payload=r[2]) for r in results]]
 
+    def list_by_linked_memory_id(
+        self,
+        memory_id: str,
+        filters: Optional[dict] = None,
+    ) -> List[OutputData]:
+        """Return entity rows whose linked_memory_ids JSONB array contains memory_id.
+
+        Uses JSONB @> containment for an index-friendly targeted lookup instead of
+        a full table scan with top_k=10000.
+
+        Args:
+            memory_id (str): The memory ID to search for in linked_memory_ids.
+            filters (Dict, optional): Additional payload filters (e.g. user_id, agent_id).
+
+        Returns:
+            List[OutputData]: Matching entity rows.
+        """
+        conditions = ["payload->'linked_memory_ids' @> %s::jsonb"]
+        params: list = [json.dumps([memory_id])]
+
+        if filters:
+            for k, v in filters.items():
+                conditions.append("payload->>%s = %s")
+                params.extend([k, str(v)])
+
+        where_clause = " AND ".join(conditions)
+        query = f"SELECT id, payload FROM {self.collection_name} WHERE {where_clause}"
+
+        with self._get_cursor() as cur:
+            cur.execute(query, params)
+            results = cur.fetchall()
+
+        return [OutputData(id=str(r[0]), score=None, payload=r[1]) for r in results]
+
     def __del__(self) -> None:
         """
         Close the database connection pool when the object is deleted.
