@@ -20,7 +20,26 @@ import logging
 import re
 from typing import List, Tuple
 
+from mem0.utils.script_detection import contains_non_latin_letters
+
 logger = logging.getLogger(__name__)
+
+_warned_non_latin_entities = False
+
+
+def _warn_non_latin_once() -> None:
+    global _warned_non_latin_entities
+    if _warned_non_latin_entities:
+        return
+    _warned_non_latin_entities = True
+    logger.warning(
+        "Entity extraction received non-Latin input; the English spaCy "
+        "pipeline does not recognise CJK / Arabic / Thai / Cyrillic "
+        "proper nouns, so no entity boost will be applied for this "
+        "query. Semantic retrieval continues to work. See issue #4884 "
+        "for multilingual support tracking. This warning is logged once "
+        "per process."
+    )
 
 # Words that are too generic to be useful as entity heads
 _GENERIC_HEADS = {
@@ -133,8 +152,17 @@ def extract_entities(text: str) -> List[Tuple[str, str]]:
         Deduplicated list of (entity_type, entity_text) tuples.
         Entity types: PROPER, QUOTED, COMPOUND, NOUN.
         Returns empty list if spaCy is unavailable.
+
+    Note:
+        The underlying pipeline (``en_core_web_sm``) does not recognise
+        non-Latin scripts. Mixed-script input still returns any Latin
+        entities that are detected. A single warning is logged per
+        process when non-Latin text is seen; see issue #4884.
     """
     from mem0.utils.spacy_models import get_nlp_full
+
+    if contains_non_latin_letters(text):
+        _warn_non_latin_once()
 
     nlp = get_nlp_full()
     if nlp is None:
@@ -163,6 +191,9 @@ def extract_entities_batch(texts: List[str], batch_size: int = 32) -> List[List[
         return []
 
     from mem0.utils.spacy_models import get_nlp_full
+
+    if any(contains_non_latin_letters(t) for t in texts):
+        _warn_non_latin_once()
 
     nlp = get_nlp_full()
     if nlp is None:
