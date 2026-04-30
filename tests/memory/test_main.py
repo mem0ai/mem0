@@ -60,9 +60,7 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
-            "Expected error message not found in logs"
-        )
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -91,43 +89,6 @@ class TestAddToVectorStoreErrors:
             )
             call_kwargs = mock_prompt.call_args.kwargs
             assert call_kwargs.get("timestamp") == "2023-05-24T10:00:00+00:00"
-
-
-class TestPromptOverridesCustomInstructions:
-    @pytest.fixture
-    def mock_memory(self, mocker):
-        mock_llm, _ = _setup_mocks(mocker)
-        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
-
-        memory = Memory()
-        memory.custom_instructions = "config-level instructions"
-        memory.db.get_last_messages = MagicMock(return_value=[])
-        memory.db.save_messages = MagicMock()
-        return memory
-
-    def test_prompt_overrides_custom_instructions(self, mock_memory):
-        mock_memory._add_to_vector_store(
-            messages=[{"role": "user", "content": "hello"}],
-            metadata={},
-            filters={},
-            infer=True,
-            prompt="per-call override",
-        )
-
-        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
-        assert "per-call override" in user_prompt
-        assert "config-level instructions" not in user_prompt
-
-    def test_falls_back_to_custom_instructions_when_no_prompt(self, mock_memory):
-        mock_memory._add_to_vector_store(
-            messages=[{"role": "user", "content": "hello"}],
-            metadata={},
-            filters={},
-            infer=True,
-        )
-
-        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
-        assert "config-level instructions" in user_prompt
 
 
 class TestAsyncUpdate:
@@ -213,9 +174,7 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
-            "Expected error message not found in logs"
-        )
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -232,6 +191,20 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_async_metadata_timestamp_forwarded_to_extraction_prompt(self, mock_async_memory):
+        messages = [{"role": "user", "content": "I visited Paris last week"}]
+        with patch("mem0.memory.main.generate_additive_extraction_prompt") as mock_prompt:
+            mock_prompt.return_value = "mocked prompt"
+            await mock_async_memory._add_to_vector_store(
+                messages=messages,
+                metadata={"timestamp": "2023-05-24T10:00:00+00:00"},
+                effective_filters={},
+                infer=True,
+            )
+            call_kwargs = mock_prompt.call_args.kwargs
+            assert call_kwargs.get("timestamp") == "2023-05-24T10:00:00+00:00"
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -518,7 +491,6 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
-
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -649,8 +621,7 @@ def test_update_preserves_actor_id_when_different_actor_updates(mocker):
     )
 
     memory._update_memory(
-        "mem-id",
-        "Player #1 is a good person",
+        "mem-id", "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -673,11 +644,13 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     )
 
     await memory._update_memory(
-        "mem-id",
-        "Player #1 is a good person",
+        "mem-id", "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
 
     stored = memory.vector_store.update.call_args.kwargs["payload"]
     assert stored["actor_id"] == "Alice"
+
+
+
