@@ -67,6 +67,15 @@ class UnifiedTelemetry implements TelemetryClient {
     }
   }
 
+  async captureIdentify(anonId: string, email: string) {
+    if (!MEM0_TELEMETRY) return;
+    if (!anonId || !email || anonId === email) return;
+    await this.captureEvent(email, "$identify", {
+      $anon_distinct_id: anonId,
+      client_source: "typescript",
+    });
+  }
+
   async shutdown() {
     // No shutdown needed for direct API calls
   }

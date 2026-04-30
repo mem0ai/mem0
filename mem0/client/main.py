@@ -19,8 +19,8 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import get_user_id, setup_config
-from mem0.memory.telemetry import capture_client_event
+from mem0.memory.setup import get_user_id, mark_aliased, read_anon_ids, setup_config
+from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,28 @@ setup_config()
 
 # Entity parameters that must be passed via filters, not top-level
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
+
+
+def _maybe_alias_anon_to_email(user_email):
+    """Stitch prior anonymous PostHog identities to the resolved email.
+
+    Reads ~/.mem0/config.json for both anon IDs (OSS user_id, CLI
+    telemetry.anonymous_id), fires one $identify per anon that hasn't been
+    aliased yet, then sets telemetry.aliased_to so this only happens once
+    per (anon_id, email) pair. Best-effort — never raises.
+    """
+    if not user_email or "@" not in user_email:
+        return
+    try:
+        anon_ids = read_anon_ids()
+        if anon_ids.get("aliased_to") == user_email:
+            return
+        for anon_id in (anon_ids.get("oss"), anon_ids.get("cli")):
+            if anon_id and anon_id != user_email:
+                client_telemetry.capture_identify(anon_id, user_email)
+        mark_aliased(user_email)
+    except Exception as e:
+        logger.debug("Failed to alias anon telemetry to %r: %s", user_email, e)
 
 
 class MemoryClient:
@@ -108,6 +130,7 @@ class MemoryClient:
             user_email=self.user_email,
         )
 
+        _maybe_alias_anon_to_email(self.user_email)
         capture_client_event("client.init", self, {"sync_type": "sync"})
 
     def _validate_api_key(self):
@@ -985,6 +1008,7 @@ class AsyncMemoryClient:
             user_email=self.user_email,
         )
 
+        _maybe_alias_anon_to_email(self.user_email)
         capture_client_event("client.init", self, {"sync_type": "async"})
 
     def _validate_api_key(self):

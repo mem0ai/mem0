@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import uuid
 
@@ -8,28 +9,85 @@ home_dir = os.path.expanduser("~")
 mem0_dir = os.environ.get("MEM0_DIR") or os.path.join(home_dir, ".mem0")
 os.makedirs(mem0_dir, exist_ok=True)
 
+_logger = logging.getLogger(__name__)
+
+
+def _config_path():
+    return os.path.join(mem0_dir, "config.json")
+
+
+def _load_config():
+    """Load ~/.mem0/config.json, returning {} on missing/malformed file."""
+    path = _config_path()
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception as e:
+        _logger.debug("Failed to load mem0 config %s: %s", path, e)
+        return {}
+
+
+def _write_config(config):
+    """Best-effort write of ~/.mem0/config.json. Never raises."""
+    path = _config_path()
+    try:
+        with open(path, "w") as f:
+            json.dump(config, f, indent=4)
+    except Exception as e:
+        _logger.debug("Failed to write mem0 config %s: %s", path, e)
+
 
 def setup_config():
-    config_path = os.path.join(mem0_dir, "config.json")
-    if not os.path.exists(config_path):
-        user_id = str(uuid.uuid4())
-        config = {"user_id": user_id}
-        with open(config_path, "w") as config_file:
-            json.dump(config, config_file, indent=4)
+    """Ensure ~/.mem0/config.json exists with a top-level user_id.
+
+    Idempotent: backfills user_id for users whose config was written by the
+    CLI (which writes telemetry.anonymous_id but no top-level user_id).
+    Without this, OSS Python telemetry is silently dropped because
+    get_user_id() returns None when user_id is missing.
+    """
+    config = _load_config()
+    if config.get("user_id"):
+        return
+    config["user_id"] = str(uuid.uuid4())
+    _write_config(config)
 
 
 def get_user_id():
-    config_path = os.path.join(mem0_dir, "config.json")
-    if not os.path.exists(config_path):
+    config = _load_config()
+    if not config:
         return "anonymous_user"
+    return config.get("user_id")
 
-    try:
-        with open(config_path, "r") as config_file:
-            config = json.load(config_file)
-            user_id = config.get("user_id")
-            return user_id
-    except Exception:
-        return "anonymous_user"
+
+def read_anon_ids():
+    """Return both anon IDs and the aliased_to flag from ~/.mem0/config.json.
+
+    Returns a dict with keys "oss", "cli", "aliased_to" (any may be None).
+    OSS Python writes top-level "user_id"; the CLI writes
+    "telemetry.anonymous_id". They may coexist depending on which surface
+    ran first.
+    """
+    config = _load_config()
+    telemetry = config.get("telemetry") if isinstance(config.get("telemetry"), dict) else {}
+    return {
+        "oss": config.get("user_id"),
+        "cli": telemetry.get("anonymous_id"),
+        "aliased_to": telemetry.get("aliased_to"),
+    }
+
+
+def mark_aliased(email):
+    """Persist telemetry.aliased_to = email so $identify only fires once."""
+    config = _load_config()
+    telemetry = config.get("telemetry")
+    if not isinstance(telemetry, dict):
+        telemetry = {}
+    telemetry["aliased_to"] = email
+    config["telemetry"] = telemetry
+    _write_config(config)
 
 
 def get_or_create_user_id(vector_store=None):
