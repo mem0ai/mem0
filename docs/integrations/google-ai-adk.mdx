@@ -7,284 +7,340 @@ Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Google ADK (Agent Dev
 
 ## Overview
 
-1. Store and retrieve memories from Mem0 within Google ADK agents
-2. Multi-agent workflows with shared memory across hierarchies
-3. Retrieve relevant memories from past conversations
-4. Personalized responses based on user history
+In this guide, we'll create a Google ADK agent that:
+1. Uses ADK's native `MemoryService` interface to connect Mem0
+2. Automatically injects relevant memories at the start of each turn using `PreloadMemoryTool`
+3. Persists session history to Mem0 after each turn via an after-agent callback
+4. Shares memory seamlessly across multi-agent hierarchies
 
-## Prerequisites
+## Setup and Configuration
 
-Before setting up Mem0 with Google ADK, ensure you have:
+Install the necessary libraries:
 
-1. Installed the required packages:
 ```bash
 pip install google-adk mem0ai python-dotenv
 ```
 
-2. Valid API keys:
+Import the required modules and set up configurations:
+
+Valid API keys:
    - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-google-ai-adk" rel="nofollow">Mem0 API Key</a>
    - Google AI Studio API Key
 
-## Basic Integration Example
-
-The following example demonstrates how to create a Google ADK agent with Mem0 memory integration:
+<Note>Remember to get your API key from <a href="https://app.mem0.ai" rel="nofollow">Mem0 Platform</a> and set up a [Google AI Studio API Key](https://aistudio.google.com/apikey).</Note>
 
 ```python
 import os
-import asyncio
-from google.adk.agents import Agent
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai import types
-from mem0 import MemoryClient
 from dotenv import load_dotenv
+from mem0 import MemoryClient
 
 load_dotenv()
 
-# Set up environment variables
 # os.environ["GOOGLE_API_KEY"] = "your-google-api-key"
 # os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
 
-# Initialize Mem0 client
 mem0 = MemoryClient()
+```
 
-# Define memory function tools
-def search_memory(query: str, user_id: str) -> dict:
-    """Search through past conversations and memories"""
-    # For Platform API, user_id goes in filters
-    filters = {"user_id": user_id}
-    memories = mem0.search(query, filters=filters)
-    if memories.get('results', []):
-        memory_list = memories['results']
-        memory_context = "\n".join([f"- {mem['memory']}" for mem in memory_list])
-        return {"status": "success", "memories": memory_context}
-    return {"status": "no_memories", "message": "No relevant memories found"}
+## Implement Mem0MemoryService
 
-def save_memory(content: str, user_id: str) -> dict:
-    """Save important information to memory"""
+Create a custom `MemoryService` by implementing ADK's `BaseMemoryService`. This class handles both memory search and session persistence:
+
+```python
+# mem0_memory_service.py
+from typing import Optional
+from typing_extensions import override
+
+from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
+from google.adk.memory.memory_entry import MemoryEntry
+from google.adk.sessions import Session
+from google.genai.types import Content, Part
+from mem0 import MemoryClient
+
+
+class Mem0MemoryService(BaseMemoryService):
+    """MemoryService implementation backed by the Mem0 Platform."""
+
+    def __init__(self, api_key: Optional[str] = None):
+        super().__init__()
+        import os
+        api_key = api_key or os.environ.get("MEM0_API_KEY")
+        self._client: Optional[MemoryClient] = MemoryClient(api_key=api_key) if api_key else None
+
+    @override
+    async def search_memory(
+        self, *, app_name: str, user_id: str, query: str
+    ) -> SearchMemoryResponse:
+        """Search for memories relevant to the current user and query."""
+        if not self._client:
+            return SearchMemoryResponse(memories=[])
+
+        try:
+            results = self._client.search(
+                query,
+                filters={"user_id": user_id},
+                limit=5,
+            )
+
+            entries = []
+            total_chars = 0
+            MAX_TOTAL = 2000
+            MAX_EACH = 500
+
+            for mem in results.get("results", []):
+                text = mem.get("memory", "")
+                if not text:
+                    continue
+                if len(text) > MAX_EACH:
+                    text = text[:MAX_EACH] + "..."
+                if total_chars + len(text) > MAX_TOTAL:
+                    break
+                total_chars += len(text)
+
+                timestamp_str = None
+                raw_ts = mem.get("created_at") or mem.get("updated_at")
+                if raw_ts:
+                    from datetime import datetime
+                    try:
+                        timestamp_str = datetime.fromisoformat(
+                            str(raw_ts).replace("Z", "+00:00")
+                        ).isoformat()
+                    except Exception:
+                        pass
+
+                entries.append(
+                    MemoryEntry(
+                        content=Content(parts=[Part(text=text)]),
+                        author=mem.get("metadata", {}).get("author", "user"),
+                        timestamp=timestamp_str,
+                    )
+                )
+
+            return SearchMemoryResponse(memories=entries)
+
+        except Exception as e:
+            print(f"[Mem0MemoryService] search_memory error: {e}")
+            return SearchMemoryResponse(memories=[])
+
+    @override
+    async def add_session_to_memory(self, session: Session) -> None:
+        """Persist a completed ADK session into Mem0."""
+        if not self._client:
+            return
+
+        user_id = getattr(session, "user_id", None)
+        if not user_id:
+            return
+
+        try:
+            messages = []
+            for event in session.events:
+                if not (event.content and event.content.parts):
+                    continue
+                # Map ADK's "model" role to Mem0's expected "assistant" role
+                role = getattr(event.content, "role", "user")
+                if role == "model":
+                    role = "assistant"
+                text_parts = [
+                    p.text for p in event.content.parts if hasattr(p, "text") and p.text
+                ]
+                if text_parts:
+                    messages.append({"role": role, "content": " ".join(text_parts)})
+
+            if messages:
+                self._client.add(messages, user_id=user_id)
+
+        except Exception as e:
+            print(f"[Mem0MemoryService] add_session_to_memory error: {e}")
+```
+
+## Add Auto-Save Callback
+
+This after-agent callback fires at the end of every turn and saves the session to Mem0:
+
+```python
+# memory_callbacks.py
+
+async def save_session_to_memory(callback_context) -> None:
+    """Persist the completed session to Mem0 after each agent turn."""
     try:
-        result = mem0.add([{"role": "user", "content": content}], user_id=user_id)
-        return {"status": "success", "message": "Information saved to memory", "result": result}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to save memory: {str(e)}"}
+        ctx = getattr(callback_context, "_invocation_context", None)
+        if not ctx:
+            return
 
-# Create agent with memory capabilities
-personal_assistant = Agent(
+        session = getattr(ctx, "session", None)
+        memory_service = getattr(ctx, "memory_service", None)
+
+        if not session or not memory_service:
+            return
+
+        # Skip if the session has no agent response yet
+        if len(getattr(session, "events", [])) < 2:
+            return
+
+        await memory_service.add_session_to_memory(session)
+
+    except Exception as e:
+        print(f"[save_session_to_memory] error: {e}")
+```
+
+## Basic Integration Example
+
+The following example demonstrates creating an ADK agent with automatic Mem0 memory:
+
+```python
+import asyncio
+from google.adk.agents import LlmAgent
+from google.adk import Runner
+from google.adk.sessions import InMemorySessionService
+from google.adk.tools.preload_memory_tool import PreloadMemoryTool
+from google.genai.types import Content, Part
+
+from mem0_memory_service import Mem0MemoryService
+from memory_callbacks import save_session_to_memory
+
+memory_service = Mem0MemoryService()
+
+agent = LlmAgent(
     name="personal_assistant",
     model="gemini-2.0-flash",
-    instruction="""You are a helpful personal assistant with memory capabilities.
-    Use the search_memory function to recall past conversations and user preferences.
-    Use the save_memory function to store important information about the user.
-    Always personalize your responses based on available memory.""",
+    instruction="""You are a helpful personal assistant.
+    Relevant memories from past conversations are provided to you automatically.
+    Use them to personalize your responses.""",
     description="A personal assistant that remembers user preferences and past interactions",
-    tools=[search_memory, save_memory]
+    tools=[PreloadMemoryTool()],                  # Automatically injects memories each turn
+    after_agent_callback=save_session_to_memory,  # Automatically saves session after each turn
 )
 
-async def chat_with_agent(user_input: str, user_id: str) -> str:
-    """
-    Handle user input with automatic memory integration.
 
-    Args:
-        user_input: The user's message
-        user_id: Unique identifier for the user
-
-    Returns:
-        The agent's response
-    """
-    # Set up session and runner
+async def chat(user_input: str, user_id: str) -> str:
     session_service = InMemorySessionService()
     session = await session_service.create_session(
         app_name="memory_assistant",
         user_id=user_id,
-        session_id=f"session_{user_id}"
+        session_id=f"session_{user_id}",
     )
-    runner = Runner(agent=personal_assistant, app_name="memory_assistant", session_service=session_service)
-
-    # Create content and run agent
-    content = types.Content(role='user', parts=[types.Part(text=user_input)])
-    events = runner.run(user_id=user_id, session_id=session.id, new_message=content)
-
-    # Extract final response
-    for event in events:
+    runner = Runner(
+        agent=agent,
+        session_service=session_service,
+        memory_service=memory_service,  # Wire Mem0 into the Runner
+        app_name="memory_assistant",
+    )
+    content = Content(role="user", parts=[Part(text=user_input)])
+    for event in runner.run(user_id=user_id, session_id=session.id, new_message=content):
         if event.is_final_response():
-            response = event.content.parts[0].text
-
-            return response
-
+            return event.content.parts[0].text
     return "No response generated"
 
-# Example usage
+
 if __name__ == "__main__":
-    response = asyncio.run(chat_with_agent(
+    # First turn — preferences are stored automatically
+    print(asyncio.run(chat(
         "I love Italian food and I'm planning a trip to Rome next month",
-        user_id="alice"
-    ))
-    print(response)
+        user_id="alice",
+    )))
+
+    # Second turn — memories are retrieved and injected automatically
+    print(asyncio.run(chat(
+        "Any food recommendations for my trip?",
+        user_id="alice",
+    )))
 ```
 
 ## Multi-Agent Hierarchy with Shared Memory
 
-Create specialized agents in a hierarchy that share memory:
+Because `memory_service` is passed to the `Runner`, every agent in the hierarchy shares the same memory automatically. Each agent only needs `PreloadMemoryTool` and the callback:
 
 ```python
+from google.adk.agents import LlmAgent
 from google.adk.tools.agent_tool import AgentTool
+from google.adk.tools.preload_memory_tool import PreloadMemoryTool
 
-# Travel specialist agent
-travel_agent = Agent(
+from mem0_memory_service import Mem0MemoryService
+from memory_callbacks import save_session_to_memory
+
+memory_service = Mem0MemoryService()
+
+travel_agent = LlmAgent(
     name="travel_specialist",
     model="gemini-2.0-flash",
-    instruction="""You are a travel planning specialist. Use search_memory to
-    understand the user's travel preferences and history before making recommendations.
-    After providing advice, use save_memory to save travel-related information.""",
+    instruction="""You are a travel planning specialist.
+    Relevant memories about the user's travel preferences are provided automatically.
+    Use them to make personalized recommendations.""",
     description="Specialist in travel planning and recommendations",
-    tools=[search_memory, save_memory]
+    tools=[PreloadMemoryTool()],
+    after_agent_callback=save_session_to_memory,
 )
 
-# Health advisor agent
-health_agent = Agent(
+health_agent = LlmAgent(
     name="health_advisor",
     model="gemini-2.0-flash",
-    instruction="""You are a health and wellness advisor. Use search_memory to
-    understand the user's health goals and dietary preferences.
-    After providing advice, use save_memory to save health-related information.""",
+    instruction="""You are a health and wellness advisor.
+    Relevant memories about the user's health goals are provided automatically.
+    Use them to give personalized advice.""",
     description="Specialist in health and wellness advice",
-    tools=[search_memory, save_memory]
+    tools=[PreloadMemoryTool()],
+    after_agent_callback=save_session_to_memory,
 )
 
-# Coordinator agent that delegates to specialists
-coordinator_agent = Agent(
+coordinator = LlmAgent(
     name="coordinator",
     model="gemini-2.0-flash",
     instruction="""You are a coordinator that delegates requests to specialist agents.
-    For travel-related questions (trips, hotels, flights, destinations), delegate to the travel specialist.
-    For health-related questions (fitness, diet, wellness, exercise), delegate to the health advisor.
-    Use search_memory to understand the user before delegation.""",
+    For travel-related questions, delegate to the travel specialist.
+    For health-related questions, delegate to the health advisor.
+    Relevant memories about the user are provided automatically.""",
     description="Coordinates requests between specialist agents",
     tools=[
+        PreloadMemoryTool(),
         AgentTool(agent=travel_agent, skip_summarization=False),
-        AgentTool(agent=health_agent, skip_summarization=False)
-    ]
+        AgentTool(agent=health_agent, skip_summarization=False),
+    ],
+    after_agent_callback=save_session_to_memory,
 )
 
-def chat_with_specialists(user_input: str, user_id: str) -> str:
-    """
-    Handle user input with specialist agent delegation and memory.
 
-    Args:
-        user_input: The user's message
-        user_id: Unique identifier for the user
+async def chat_with_specialists(user_input: str, user_id: str) -> str:
+    from google.adk.sessions import InMemorySessionService
+    from google.adk import Runner
+    from google.genai import types
 
-    Returns:
-        The specialist agent's response
-    """
     session_service = InMemorySessionService()
-    session = session_service.create_session(
+    session = await session_service.create_session(
         app_name="specialist_system",
         user_id=user_id,
-        session_id=f"session_{user_id}"
+        session_id=f"session_{user_id}",
     )
-    runner = Runner(agent=coordinator_agent, app_name="specialist_system", session_service=session_service)
-
-    content = types.Content(role='user', parts=[types.Part(text=user_input)])
-    events = runner.run(user_id=user_id, session_id=session.id, new_message=content)
-
-    for event in events:
+    runner = Runner(
+        agent=coordinator,
+        session_service=session_service,
+        memory_service=memory_service,  # Shared across all agents in the hierarchy
+        app_name="specialist_system",
+    )
+    content = types.Content(role="user", parts=[types.Part(text=user_input)])
+    for event in runner.run(user_id=user_id, session_id=session.id, new_message=content):
         if event.is_final_response():
-            response = event.content.parts[0].text
-
-            # Store the conversation in shared memory
-            conversation = [
-                {"role": "user", "content": user_input},
-                {"role": "assistant", "content": response}
-            ]
-            mem0.add(conversation, user_id=user_id)
-
-            return response
-
+            return event.content.parts[0].text
     return "No response generated"
 
+
 # Example usage
-response = chat_with_specialists("Plan a healthy meal for my Italy trip", user_id="alice")
+import asyncio
+response = asyncio.run(chat_with_specialists("Plan a healthy meal for my Italy trip", user_id="alice"))
 print(response)
-```
-
-
-
-## Quick Start Chat Interface
-
-Simple interactive chat with memory and Google ADK:
-
-```python
-def interactive_chat():
-    """Interactive chat interface with memory and ADK"""
-    user_id = input("Enter your user ID: ") or "demo_user"
-    print(f"Chat started for user: {user_id}")
-    print("Type 'quit' to exit")
-    print("=" * 50)
-
-    while True:
-        user_input = input("\nYou: ")
-
-        if user_input.lower() == 'quit':
-            print("Goodbye! Your conversation has been saved to memory.")
-            break
-        else:
-            response = chat_with_specialists(user_input, user_id)
-            print(f"Assistant: {response}")
-
-if __name__ == "__main__":
-    interactive_chat()
 ```
 
 ## Key Features
 
-### 1. Memory-Enhanced Function Tools
-- **Function Tools**: Standard Python functions that can search and save memories
-- **Tool Context**: Access to session state and memory through function parameters
-- **Structured Returns**: Dictionary-based returns with status indicators for better LLM understanding
+1. **Automatic Memory Injection**: `PreloadMemoryTool` searches Mem0 at the start of each turn and injects relevant memories directly into the agent context — no prompt instructions needed.
+2. **Automatic Session Saving**: The `save_session_to_memory` callback persists every completed turn to Mem0 without any manual calls.
+3. **Native ADK Integration**: `Mem0MemoryService` implements ADK's `BaseMemoryService` and integrates via the `Runner` — works natively across the entire agent hierarchy.
+4. **User Scoping**: `user_id` is passed automatically from the ADK session context, ensuring memories are always scoped to the correct user.
+5. **Multi-Agent Support**: A single `Mem0MemoryService` instance shared through the `Runner` gives all agents — coordinators and specialists — access to the same user memory.
 
-### 2. Multi-Agent Memory Sharing
-- **Agent-as-a-Tool**: Specialists can be called as tools while maintaining shared memory
-- **Hierarchical Delegation**: Coordinator agents route to specialists based on context
-- **Memory Categories**: Store interactions with metadata for better organization
+## Conclusion
 
-### 3. Flexible Memory Operations
-- **Search Capabilities**: Retrieve relevant memories through conversation history
-- **User Segmentation**: Organize memories by user ID
-- **Memory Management**: Built-in tools for saving and retrieving information
-
-## Configuration Options
-
-Customize memory behavior and agent setup:
-
-```python
-# Configure memory search with filters
-# For Platform API, all filters including user_id go in filters object
-memories = mem0.search(
-    query="travel preferences",
-    filters={
-        "AND": [
-            {"user_id": "alice"},
-            {"categories": {"contains": "travel"}}
-        ]
-    },
-    top_k=5
-)
-
-# Configure agent with custom model settings
-agent = Agent(
-    name="custom_agent",
-    model="gemini-2.0-flash",  # or use LiteLLM for other models
-    instruction="Custom agent behavior",
-    tools=[memory_tools],
-    # Additional ADK configurations
-)
-
-# Use Google Cloud Vertex AI instead of AI Studio
-os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
-os.environ["GOOGLE_CLOUD_PROJECT"] = "your-project-id"
-os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
-```
+By implementing `Mem0MemoryService` as an ADK `BaseMemoryService`, you get persistent, user-scoped memory across single agents and complex multi-agent hierarchies with minimal code. Memory injection and session saving happen automatically, keeping your agent prompts clean and your token usage efficient.
 
 <CardGroup cols={2}>
   <Card title="Healthcare Agent Cookbook" icon="heart-pulse" href="/cookbooks/integrations/healthcare-google-adk">
@@ -294,4 +350,3 @@ os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
     Compare with OpenAI's agent framework
   </Card>
 </CardGroup>
-
