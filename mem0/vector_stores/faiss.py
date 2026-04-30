@@ -146,7 +146,8 @@ class FAISS(VectorStoreBase):
                 Defaults to False.
         """
         self.collection_name = collection_name
-        self.path = path or _default_vector_store_path(f"faiss/{collection_name}")
+        safe_name = Path(collection_name).name  # strips any directory separators
+        self.path = path or _default_vector_store_path(f"faiss/{safe_name}")
         self.distance_strategy = distance_strategy
         self.normalize_L2 = normalize_L2
         self.embedding_model_dims = embedding_model_dims

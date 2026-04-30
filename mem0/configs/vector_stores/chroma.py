@@ -2,6 +2,8 @@ from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from mem0.vector_stores.configs import _default_vector_store_path
+
 
 class ChromaDbConfig(BaseModel):
     try:
@@ -27,8 +29,8 @@ class ChromaDbConfig(BaseModel):
         # Check if cloud configuration is provided
         cloud_config = bool(api_key and tenant)
 
-        # If cloud configuration is provided, remove any auto-injected path
-        if cloud_config and path:
+        # If cloud configuration is provided, remove only the auto-injected default path
+        if cloud_config and path == _default_vector_store_path("chroma"):
             values.pop("path", None)
             return values
 

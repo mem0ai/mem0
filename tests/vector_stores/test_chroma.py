@@ -267,3 +267,13 @@ def test_chroma_config_rejects_no_config():
     """Test that ChromaDbConfig rejects when no connection config is provided."""
     with pytest.raises(ValueError):
         ChromaDbConfig()
+
+
+def test_chroma_config_raises_on_explicit_path_with_cloud():
+    """User-supplied path + cloud credentials must still raise ValueError."""
+    with pytest.raises(ValueError, match="Cannot specify both"):
+        ChromaDbConfig(
+            api_key="test-key",
+            tenant="test-tenant",
+            path="/explicit/user/path",
+        )
