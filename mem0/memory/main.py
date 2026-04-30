@@ -461,16 +461,18 @@ class Memory(MemoryBase):
           - otherwise re-embed the entity text and update the payload
             (the vector store's update() requires a vector).
 
-        No-op if the entity store has never been initialized in this process.
         Errors on individual entities are swallowed at debug level; outer
         failures are swallowed at warning level so the primary delete/update
         path is never broken by entity cleanup.
         """
-        if self._entity_store is None:
+        try:
+            entity_store = self.entity_store
+        except Exception as e:
+            logger.warning(f"Entity store initialization failed for memory_id={memory_id}: {e}")
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = self.entity_store.list(filters=search_filters, top_k=10000)
+            listed = entity_store.list(filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
@@ -481,7 +483,7 @@ class Memory(MemoryBase):
                     remaining = [mid for mid in linked if mid != memory_id]
                     if not remaining:
                         try:
-                            self.entity_store.delete(vector_id=row.id)
+                            entity_store.delete(vector_id=row.id)
                         except Exception as e:
                             logger.debug(f"Entity delete failed for id={row.id}: {e}")
                     else:
@@ -496,7 +498,7 @@ class Memory(MemoryBase):
                             continue
                         new_payload = {**payload, "linked_memory_ids": remaining}
                         try:
-                            self.entity_store.update(
+                            entity_store.update(
                                 vector_id=row.id,
                                 vector=vec,
                                 payload=new_payload,
@@ -1899,11 +1901,14 @@ class AsyncMemory(MemoryBase):
 
     async def _remove_memory_from_entity_store(self, memory_id, filters):
         """Async variant of `Memory._remove_memory_from_entity_store`."""
-        if self._entity_store is None:
+        try:
+            entity_store = self.entity_store
+        except Exception as e:
+            logger.warning(f"Entity store initialization failed for memory_id={memory_id} (async): {e}")
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+            listed = await asyncio.to_thread(entity_store.list, filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
@@ -1914,7 +1919,7 @@ class AsyncMemory(MemoryBase):
                     remaining = [mid for mid in linked if mid != memory_id]
                     if not remaining:
                         try:
-                            await asyncio.to_thread(self.entity_store.delete, vector_id=row.id)
+                            await asyncio.to_thread(entity_store.delete, vector_id=row.id)
                         except Exception as e:
                             logger.debug(f"Entity delete failed for id={row.id} (async): {e}")
                     else:
@@ -1930,7 +1935,7 @@ class AsyncMemory(MemoryBase):
                         new_payload = {**payload, "linked_memory_ids": remaining}
                         try:
                             await asyncio.to_thread(
-                                self.entity_store.update,
+                                entity_store.update,
                                 vector_id=row.id,
                                 vector=vec,
                                 payload=new_payload,
