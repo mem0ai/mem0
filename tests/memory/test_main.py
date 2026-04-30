@@ -663,3 +663,27 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+@pytest.mark.asyncio
+async def test_async_delete_all_paginates_across_multiple_pages(mocker):
+    """`AsyncMemory.delete_all` must drain the store, not just the first page.
+
+    Regression test for the bug where the async path called
+    `vector_store.list` once without looping, so stores with a default
+    page size smaller than the match set silently left memories behind.
+    """
+    _setup_mocks(mocker)
+    memory = AsyncMemory()
+
+    page_1 = [Mock(id=f"m{i}") for i in range(100)]
+    page_2 = [Mock(id=f"m{i}") for i in range(100, 150)]
+    memory.vector_store.list = Mock(
+        side_effect=[(page_1, None), (page_2, None), ([], None)]
+    )
+    memory._delete_memory = mocker.AsyncMock()
+
+    await memory.delete_all(user_id="test_user")
+
+    assert memory._delete_memory.call_count == 150
+    deleted_ids = {call.args[0] for call in memory._delete_memory.call_args_list}
+    assert deleted_ids == {f"m{i}" for i in range(150)}
+
