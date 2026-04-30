@@ -7,6 +7,7 @@ import {
   Message,
   SearchFilters,
   SearchResult,
+  normalizeMemoryConfig,
 } from "../types";
 import {
   EmbedderFactory,
@@ -150,6 +151,8 @@ export class Memory {
   private _entityStore?: VectorStore;
 
   constructor(config: Partial<MemoryConfig> = {}) {
+    // Normalize snake_case keys to camelCase for backward compatibility
+    config = normalizeMemoryConfig(config);
     // Merge and validate config
     this.config = ConfigManager.mergeConfig(config);
 
