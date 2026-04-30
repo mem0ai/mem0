@@ -123,6 +123,7 @@
     "ollama": "^0.5.14",
     "pg": "8.11.3",
     "redis": "^4.6.13",
+    "@zilliz/milvus2-sdk-node": "^2.6.0",
     "compromise": "^14.0.0",
     "natural": "^8.0.1"
   },

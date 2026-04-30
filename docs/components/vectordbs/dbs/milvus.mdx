@@ -2,46 +2,89 @@
 title: "Milvus"
 description: "Use Milvus as an open-source vector database in Mem0, scalable from local development to production workloads."
 ---
+
 [Milvus](https://milvus.io/) is an open-source vector database that suits AI applications of every size, from running a demo chatbot in a Jupyter notebook to building web-scale search that serves billions of users.
 
 ### Usage
 
-```python
+<CodeGroup>
+```python Python
 import os
 from mem0 import Memory
 
 config = {
-    "vector_store": {
-        "provider": "milvus",
-        "config": {
-            "collection_name": "test",
-            "embedding_model_dims": 1536,
-            "url": "127.0.0.1",
-            "token": "8e4b8ca8cf2c67",
-            "db_name": "my_database",
-        }
-    }
+"vector_store": {
+"provider": "milvus",
+"config": {
+"collection_name": "test",
+"embedding_model_dims": 1536,
+"url": "127.0.0.1",
+"token": os.environ["MILVUS_TOKEN"],
+"db_name": "my_database",
+}
+}
 }
 
 m = Memory.from_config(config)
 messages = [
-    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
-    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
-    {"role": "user", "content": "I’m not a big fan of thriller movies but I love sci-fi movies."},
-    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+{"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+{"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+{"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+{"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
 ]
 m.add(messages, user_id="alice", metadata={"category": "movies"})
-```
+
+````
+
+```typescript TypeScript
+import { Memory } from 'mem0ai/oss';
+
+const config = {
+  vectorStore: {
+    provider: 'milvus',
+    config: {
+      collectionName: 'test',
+      embeddingModelDims: 1536,
+      url: 'localhost:19530',
+      token: process.env.MILVUS_TOKEN,
+      dbName: 'my_database',
+    },
+  },
+};
+
+const memory = new Memory(config);
+const messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+await memory.add(messages, { userId: "alice", metadata: { category: "movies" } });
+````
+
+</CodeGroup>
 
 ### Config
 
 Here are the parameters available for configuring Milvus:
 
-| Parameter | Description | Default Value |
-| --- | --- | --- |
-| `url` | Full URL/Uri for Milvus/Zilliz server | `http://localhost:19530` |
-| `token` | Token for Zilliz server / for local setup defaults to None. | `None` |
-| `collection_name` | The name of the collection | `mem0` |
-| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
-| `metric_type` | Metric type for similarity search | `L2` |
-| `db_name` | Name of the database | `""` |
+<Tabs>
+  <Tab title="Python">
+    | Parameter | Description | Default Value | | --- | --- | --- | | `url` |
+    Full URL/Uri for Milvus/Zilliz server | `http://localhost:19530` | | `token`
+    | Token for Zilliz server / for local setup defaults to None. | `None` | |
+    `collection_name` | The name of the collection | `mem0` | |
+    `embedding_model_dims` | Dimensions of the embedding model | `1536` | |
+    `metric_type` | Metric type for similarity search | `L2` | | `db_name` |
+    Name of the database | `""` |
+  </Tab>
+  <Tab title="TypeScript">
+    | Parameter | Description | Default Value | | --- | --- | --- | | `url` |
+    Full URL/Uri for Milvus/Zilliz server | `localhost:19530` | | `token` |
+    Token for Zilliz server / for local setup defaults to None | `undefined` | |
+    `collectionName` | The name of the collection | `memories` | |
+    `embeddingModelDims` | Dimensions of the embedding model | `1536` | |
+    `metricType` | Metric type for similarity search | `COSINE` | | `dbName` |
+    Name of the database | `undefined` |
+  </Tab>
+</Tabs>
