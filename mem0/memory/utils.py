@@ -169,8 +169,15 @@ def get_image_description(image_obj, llm, vision_details):
 
 def parse_vision_messages(messages, llm=None, vision_details="auto"):
     """
-    Parse the vision messages from the messages
+    Parse the vision messages from the messages.
+
+    When llm is None (vision disabled), messages are returned unchanged.
+    When llm is provided, image content is replaced with generated descriptions.
     """
+    # Fast path: no LLM means no vision processing needed
+    if llm is None:
+        return messages
+
     returned_messages = []
     for msg in messages:
         if msg["role"] == "system":
@@ -179,9 +186,16 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
 
         # Handle message content
         if isinstance(msg["content"], list):
-            # Multiple image URLs in content
-            description = get_image_description(msg, llm, vision_details)
-            returned_messages.append({"role": msg["role"], "content": description})
+            # Check if content actually contains images before calling vision
+            has_image = any(
+                isinstance(item, dict) and item.get("type") == "image_url"
+                for item in msg["content"]
+            )
+            if has_image:
+                description = get_image_description(msg, llm, vision_details)
+                returned_messages.append({"role": msg["role"], "content": description})
+            else:
+                returned_messages.append(msg)
         elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
             # Single image content
             image_url = msg["content"]["image_url"]["url"]
