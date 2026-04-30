@@ -143,9 +143,10 @@ export function captureEvent(
 
 		const child = spawn(
 			process.execPath,
-			[SENDER_SCRIPT, JSON.stringify(context)],
-			{ detached: true, stdio: "ignore" },
+			[SENDER_SCRIPT],
+			{ detached: true, stdio: ["pipe", "ignore", "ignore"] },
 		);
+		child.stdin?.end(JSON.stringify(context));
 		child.unref();
 	} catch {
 		/* silently swallow */
