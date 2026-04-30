@@ -257,6 +257,40 @@ describe("Memory - deleteAll()", () => {
       "At least one filter is required to delete all memories",
     );
   });
+
+  test("drains multiple pages when vector store returns paginated results", async () => {
+    // Simulate a vector store that returns results in two batches then empty,
+    // which is what happens when there are more memories than the page size.
+    const batchOne = Array.from({ length: 100 }, (_, i) => ({
+      id: `page1-id-${i}`,
+      payload: {},
+    }));
+    const batchTwo = Array.from({ length: 50 }, (_, i) => ({
+      id: `page2-id-${i}`,
+      payload: {},
+    }));
+
+    const listSpy = jest
+      .spyOn((memory as any).vectorStore, "list")
+      .mockResolvedValueOnce([batchOne, batchOne.length])
+      .mockResolvedValueOnce([batchTwo, batchTwo.length])
+      .mockResolvedValue([[], 0]);
+
+    const deleteMemorySpy = jest
+      .spyOn(memory as any, "deleteMemory")
+      .mockResolvedValue(undefined);
+
+    const result = await memory.deleteAll({ userId: "paginated-user" });
+
+    expect(result.message).toBe("Memories deleted successfully!");
+    // All 150 memories across both pages must be deleted
+    expect(deleteMemorySpy).toHaveBeenCalledTimes(150);
+    // list must be called until it returns empty (3 calls total)
+    expect(listSpy).toHaveBeenCalledTimes(3);
+
+    listSpy.mockRestore();
+    deleteMemorySpy.mockRestore();
+  });
 });
 
 // ─── getAll() ────────────────────────────────────────────
