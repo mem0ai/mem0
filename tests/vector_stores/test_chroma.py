@@ -252,13 +252,28 @@ def test_generate_where_clause_non_string_values():
     assert result == expected
 
 
-def test_chroma_config_accepts_default_tmp_path():
-    """Test that ChromaDbConfig accepts the default /tmp/chroma path."""
-    config = ChromaDbConfig(path="/tmp/chroma")
-    assert config.path == "/tmp/chroma"
+def test_chroma_config_uses_persistent_default_path():
+    """Test that ChromaDbConfig default path is not /tmp but a persistent OS directory."""
+    import os
+    # Ensure MEM0_DATA_DIR is not set so we test the real default
+    os.environ.pop("MEM0_DATA_DIR", None)
+    from mem0.vector_stores.configs import _default_vector_store_path
+    default_path = _default_vector_store_path("chroma")
+    assert "/tmp" not in default_path
+    assert "mem0" in default_path
 
 
 def test_chroma_config_rejects_no_config():
     """Test that ChromaDbConfig rejects when no connection config is provided."""
     with pytest.raises(ValueError):
         ChromaDbConfig()
+
+
+def test_chroma_config_raises_on_explicit_path_with_cloud():
+    """User-supplied path + cloud credentials must still raise ValueError."""
+    with pytest.raises(ValueError, match="Cannot specify both"):
+        ChromaDbConfig(
+            api_key="test-key",
+            tenant="test-tenant",
+            path="/explicit/user/path",
+        )

@@ -1,6 +1,20 @@
+import os
+import sys
+from pathlib import Path
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+
+def _default_vector_store_path(provider: str) -> str:
+    """Return a persistent OS-appropriate path, overridable via MEM0_DATA_DIR."""
+    if "MEM0_DATA_DIR" in os.environ:
+        return str(Path(os.environ["MEM0_DATA_DIR"]) / provider)
+    if sys.platform == "win32":
+        base = Path(os.environ.get("APPDATA", str(Path.home() / "AppData" / "Roaming")))
+    else:
+        base = Path.home() / ".local" / "share"
+    return str(base / "mem0" / provider)
 
 
 class VectorStoreConfig(BaseModel):
@@ -61,7 +75,7 @@ class VectorStoreConfig(BaseModel):
 
         # also check if path in allowed kays for pydantic model, and whether config extra fields are allowed
         if "path" not in config and "path" in config_class.__annotations__:
-            config["path"] = f"/tmp/{provider}"
+            config["path"] = _default_vector_store_path(provider)
 
         self.config = config_class(**config)
         return self
