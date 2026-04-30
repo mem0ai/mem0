@@ -69,11 +69,11 @@ def test_search_vectors(upstash_instance, mock_index):
             {
                 "vector": vectors[0],
                 "top_k": 2,
-                "namespace": "ns",
                 "include_metadata": True,
                 "filter": 'age = 30 AND name = "John"',
             }
-        ]
+        ],
+        namespace="ns",
     )
 
     assert len(results) == 2
@@ -311,11 +311,11 @@ def test_search_vectors_empty_filters(upstash_instance):
             {
                 "vector": vectors[0],
                 "top_k": 1,
-                "namespace": "ns",
                 "include_metadata": True,
                 "filter": "",
             }
-        ]
+        ],
+        namespace="ns",
     )
 
     assert len(results) == 1
@@ -350,3 +350,35 @@ def test_insert_vectors_no_ids(upstash_instance):
         ],
         namespace="ns",
     )
+
+
+def test_search_vectors_namespace_not_in_query_dicts(upstash_instance):
+    """namespace must be passed as a top-level arg to query_many, not inside each QueryRequest dict.
+
+    The new upstash_vector client's query_many() signature is:
+        query_many(*, queries: List[QueryRequest], namespace: str = DEFAULT_NAMESPACE, ...)
+    Embedding namespace inside each query dict caused TypeError on single-query
+    calls (duplicate keyword) and wrong-namespace results on multi-query calls.
+    (issue #4207)
+    """
+    mock_result = [
+        QueryResult(id="id1", score=0.9, vector=None, metadata={"k": "v1"}, data=None),
+        QueryResult(id="id2", score=0.8, vector=None, metadata={"k": "v2"}, data=None),
+    ]
+    upstash_instance.client.query_many.return_value = [mock_result, mock_result]
+
+    vectors = [[0.1, 0.2], [0.3, 0.4]]
+    upstash_instance.search(query="test", vectors=vectors, limit=2)
+
+    call_kwargs = upstash_instance.client.query_many.call_args
+    # namespace must be a top-level keyword argument
+    assert call_kwargs.kwargs.get("namespace") == "ns" or (
+        len(call_kwargs.args) > 1 and call_kwargs.args[1] == "ns"
+    ), "namespace must be passed as a top-level argument to query_many"
+
+    # namespace must NOT appear inside individual query dicts
+    for q in call_kwargs.kwargs.get("queries", []):
+        assert "namespace" not in q, (
+            "namespace must not be embedded inside per-query dicts; "
+            "it belongs as a top-level argument to query_many()"
+        )
