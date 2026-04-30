@@ -3,7 +3,7 @@ dotenv.config();
 
 import { createMem0, retrieveMemories } from "../../src";
 import { generateText } from "ai";
-import { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import { testConfig } from "../../config/test-config";
 import { createGroq } from "@ai-sdk/groq";
 
@@ -24,7 +24,7 @@ describe("GROQ MEM0 Tests", () => {
   });
 
   it("should retrieve memories and generate text using GROQ provider", async () => {
-    const messages: LanguageModelV2Prompt = [
+    const messages: LanguageModelV3Prompt = [
       {
         role: "user",
         content: [
