@@ -27,7 +27,7 @@ class LLMBase(ABC):
         # Validate configuration
         self._validate_config()
 
-    def _validate_config(self):
+    def _validate_config(self) -> None:
         """
         Validate the configuration.
         Override in subclasses to add provider-specific validation.
@@ -35,24 +35,32 @@ class LLMBase(ABC):
         if not hasattr(self.config, "model"):
             raise ValueError("Configuration must have a 'model' attribute")
 
-        if not hasattr(self.config, "api_key") and not hasattr(self.config, "api_key"):
-            # Check if API key is available via environment variable
-            # This will be handled by individual providers
-            pass
+        # API-key presence is intentionally not required at the base level —
+        # individual providers fall back to environment variables and validate
+        # in their own subclass overrides. The previous duplicated `hasattr(
+        # config, "api_key") and not hasattr(config, "api_key")` was always
+        # False, making the whole branch dead code; removing it documents the
+        # intent without changing behavior.
 
     def _is_reasoning_model(self, model: str) -> bool:
         """
         Check if the model is a reasoning model or GPT-5 series that doesn't support certain parameters.
-        
+
         Args:
             model: The model name to check
-            
+
         Returns:
             bool: True if the model is a reasoning model or GPT-5 series
         """
         reasoning_models = {
-            "o1", "o1-preview", "o3-mini", "o3",
-            "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
+            "o1",
+            "o1-preview",
+            "o3-mini",
+            "o3",
+            "gpt-5",
+            "gpt-5o",
+            "gpt-5o-mini",
+            "gpt-5o-micro",
         }
 
         model_lower = model.lower()
@@ -73,18 +81,18 @@ class LLMBase(ABC):
         """
         Get parameters that are supported by the current model.
         Filters out unsupported parameters for reasoning models and GPT-5 series.
-        
+
         Args:
             **kwargs: Additional parameters to include
-            
+
         Returns:
             Dict: Filtered parameters dictionary
         """
-        model = getattr(self.config, 'model', '')
-        
+        model = getattr(self.config, "model", "")
+
         if self._is_reasoning_model(model):
             supported_params = {}
-            
+
             if "messages" in kwargs:
                 supported_params["messages"] = kwargs["messages"]
             if "response_format" in kwargs:
@@ -95,7 +103,7 @@ class LLMBase(ABC):
                 supported_params["tool_choice"] = kwargs["tool_choice"]
 
             # Add reasoning_effort if configured
-            reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+            reasoning_effort = getattr(self.config, "reasoning_effort", None)
             if reasoning_effort:
                 supported_params["reasoning_effort"] = reasoning_effort
 
