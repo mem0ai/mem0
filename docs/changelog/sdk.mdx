@@ -7,6 +7,13 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="Unreleased" description="next">
+
+**New Features:**
+- **Memory:** `Memory.search()` and `AsyncMemory.search()` now accept an optional `query_vector: List[float]` kwarg. When supplied, the internal embedding step is skipped and the precomputed vector is used directly for semantic retrieval. Useful for callers running multiple `search()` calls on the same query string (multi-namespace lookups, parallel agent retrievals) — embed once, reuse. `query` is now `Optional[str]`; calling with neither raises `ValueError`. When only `query_vector` is provided, BM25/entity-extraction steps are skipped (they require text); pass both `query` and `query_vector` to keep all hybrid scoring paths active.
+
+</Update>
+
 <Update label="2026-04-25" description="v2.0.1">
 
 **Bug Fixes:**
