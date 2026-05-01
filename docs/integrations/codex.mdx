@@ -1,0 +1,225 @@
+---
+title: Codex
+description: "Add persistent memory to OpenAI Codex with the Mem0 plugin — MCP server, memory protocol skill, and plugin marketplace support."
+---
+
+Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP and using a skill-based memory protocol to automatically retrieve context and store learnings.
+
+## Overview
+
+1. **MCP Server** — Connect to Mem0's remote MCP server for memory tools (add, search, update, delete)
+2. **Memory Protocol Skill** — Instructs the agent to retrieve memories at task start, store learnings on completion, and capture session state before context loss
+3. **Plugin Marketplace** — Install via Codex's repo-level or personal plugin marketplace
+4. **Zero local dependencies** — Cloud-hosted MCP server, no local setup required
+
+## Prerequisites
+
+Before setting up Mem0 with Codex, ensure you have:
+
+1. A Mem0 Platform account and API key:
+   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-codex" rel="nofollow">Sign up at app.mem0.ai</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-codex" rel="nofollow">Get your API key</a> (starts with `m0-`)
+
+2. OpenAI Codex access
+
+3. Your API key exported in your shell:
+
+```bash
+export MEM0_API_KEY="m0-your-api-key"
+```
+
+## Installation
+
+### Option A — Direct MCP (Recommended)
+
+The fastest way to connect Codex to Mem0 — no downloads, no marketplace. Codex reads MCP servers from `~/.codex/config.toml` as TOML. Add:
+
+```toml
+[mcp_servers.mem0]
+url = "https://mcp.mem0.ai/mcp"
+bearer_token_env_var = "MEM0_API_KEY"
+```
+
+Make sure `MEM0_API_KEY` is exported in the shell you launch Codex from, then restart Codex.
+
+<Info>
+  Codex's `codex mcp add` CLI only supports stdio MCP servers. Because Mem0's MCP is HTTP/streamable, you configure it by editing `config.toml` directly (or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app).
+</Info>
+
+### Option B — Sideload the Plugin (Advanced)
+
+For the full plugin experience — MCP server **plus** the Mem0 SDK skill, memory protocol skill, and opt-in lifecycle hooks — sideload the plugin from a local clone. The Mem0 repo already ships a marketplace manifest at [`.agents/plugins/marketplace.json`](https://github.com/mem0ai/mem0/blob/main/.agents/plugins/marketplace.json), so there's no JSON to author by hand. This follows the Codex [build-plugins](https://developers.openai.com/codex/plugins/build) local-testing workflow.
+
+<Info>
+  Don't combine Option B with Option A. The plugin manifest declares its MCP server via [`.codex-mcp.json`](https://github.com/mem0ai/mem0/blob/main/mem0-plugin/.codex-mcp.json), so Codex auto-registers the `mem0` MCP server when the plugin loads. Adding the same `[mcp_servers.mem0]` block to `~/.codex/config.toml` will create a duplicate registration.
+</Info>
+
+**Step 1.** Clone the Mem0 repository anywhere on disk:
+
+```bash
+git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
+```
+
+**Step 2.** Register the bundled marketplace with Codex's CLI:
+
+```bash
+codex plugin marketplace add ~/codex-plugins/mem0-source
+```
+
+This points Codex at the repo's `.agents/plugins/marketplace.json`. The bundled file uses `path: "./mem0-plugin"`, which Codex resolves relative to the clone root.
+
+<Info>
+  **Why we recommend this over hand-authoring `~/.agents/plugins/marketplace.json`:** Codex requires `source.path` in any marketplace manifest to be **relative** (starting with `./`) and **inside the marketplace root**. The repo's bundled manifest already satisfies this — the marketplace root is the clone directory, and `mem0-plugin/` lives inside it. With a personal `~/.agents/plugins/marketplace.json`, the root is `~/` and the clone has to live under `~/` too. The CLI form sidesteps that constraint.
+</Info>
+
+**Step 3.** Restart Codex, run `/plugins`, browse the `Mem0 Plugins` marketplace, and install **Mem0**.
+
+**Step 4 (optional) — enable lifecycle hooks.** Codex doesn't auto-wire hooks from plugin manifests; it only reads them from `~/.codex/hooks.json` (or `<repo>/.codex/hooks.json`). Run the bundled installer once to merge the Mem0 entries into your global hooks file:
+
+```bash
+python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py
+```
+
+Then enable the hooks feature flag in `~/.codex/config.toml`:
+
+```toml
+[features]
+codex_hooks = true
+```
+
+Restart Codex. The installer registers three hooks pointing at scripts inside your clone:
+
+| Event | Behavior |
+|-------|----------|
+| `SessionStart` | Loads prior memories as bootstrap context |
+| `UserPromptSubmit` | Injects relevant memories before each prompt |
+| `Stop` | Reminds the agent to persist learnings at turn end |
+
+Re-running the installer is idempotent. To remove the hooks: `python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py --uninstall`.
+
+<Warning>
+  The hooks file stores absolute paths into your clone (e.g. `~/codex-plugins/mem0-source/mem0-plugin/scripts/...`). If you move or delete the clone, the hooks will break silently — re-run the installer from the new location, or run `--uninstall` first.
+</Warning>
+
+### Managing the Plugin
+
+Codex provides CLI commands for managing marketplaces after install:
+
+```bash
+codex plugin marketplace upgrade               # pull latest plugin versions
+codex plugin marketplace remove mem0-plugins   # unregister the marketplace
+```
+
+To pull updates to the plugin source itself, `git pull` inside your clone (`~/codex-plugins/mem0-source`) and then run `codex plugin marketplace upgrade` to refresh Codex's plugin cache. Plugins are cached at `~/.codex/plugins/cache/<marketplace>/<plugin>/<version>/`.
+
+<Info icon="check">
+  After either option, start a new Codex task and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
+</Info>
+
+## What's Included
+
+| Component | Sideloaded Plugin | Direct MCP |
+|-----------|:-----------------:|:----------:|
+| MCP Server (9 memory tools) | Yes | Yes |
+| Memory Protocol Skill | Yes | No |
+| Mem0 SDK Skill | Yes | No |
+| Lifecycle Hooks (opt-in) | Yes | No |
+
+## Available MCP Tools
+
+Once installed, the following tools are available in every Codex session:
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Memory Protocol Skill
+
+When the plugin is sideloaded, the memory protocol skill instructs the agent to:
+
+### On Every New Task
+1. Call `search_memories` with a query related to the current task to load relevant context
+2. Review returned memories to understand what was learned in prior sessions
+3. Optionally call `get_memories` to browse all stored memories
+
+### After Completing Significant Work
+Store key learnings using `add_memory` with structured metadata:
+
+| What to store | Metadata type |
+|--------------|---------------|
+| Architectural decisions | `{"type": "decision"}` |
+| Strategies that worked | `{"type": "task_learning"}` |
+| Failed approaches | `{"type": "anti_pattern"}` |
+| User preferences observed | `{"type": "user_preference"}` |
+| Environment discoveries | `{"type": "environmental"}` |
+| Conventions established | `{"type": "convention"}` |
+
+### Before Losing Context
+Store a comprehensive session summary including goals, accomplishments, decisions, files modified, and current state with metadata `{"type": "session_state"}`.
+
+## Plugin Manifest
+
+The Codex plugin manifest (`.codex-plugin/plugin.json`) follows the Codex plugin specification:
+
+```json
+{
+  "name": "mem0",
+  "version": "0.1.0",
+  "description": "Mem0 memory layer for AI applications.",
+  "skills": "./skills/",
+  "mcpServers": "./.codex-mcp.json",
+  "interface": {
+    "displayName": "Mem0",
+    "shortDescription": "Persistent memory layer for AI coding workflows",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"]
+  }
+}
+```
+
+## Example Workflow
+
+```text
+# Task 1: Setting up a new service
+You: Create a REST API for the notifications service using Express and TypeScript.
+
+# Codex searches memories, finds user preferences from prior tasks.
+# After completing the task, Mem0 stores:
+#   - Decision: "Notifications service uses Express + TypeScript + Zod validation"
+#   - Convention: "All API routes follow /api/v1/{resource} pattern"
+#   - Preference: "User prefers explicit error types over generic catch-all"
+
+# Task 2 (days later): Extending the service
+You: Add WebSocket support for real-time notification delivery.
+
+# Codex searches memories, retrieves the architecture decisions and conventions.
+# Follows the same patterns established in the first task.
+```
+
+## Troubleshooting
+
+- **"Connection failed"** — Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`
+- **No tools appearing** — Restart your Codex session after plugin installation
+- **Duplicate `mem0` MCP server / "tool collision" errors** — You combined Option A (Direct MCP) with Option B (sideload). The sideloaded plugin auto-registers `mem0` from `.codex-mcp.json`, so remove the `[mcp_servers.mem0]` block from `~/.codex/config.toml`.
+- **`plugin/read failed in TUI`** — Codex can't find the plugin directory the marketplace points at. If you used `codex plugin marketplace add <path>`, confirm the path is your clone root and that `<clone>/.agents/plugins/marketplace.json` exists. If you hand-authored `~/.agents/plugins/marketplace.json`, `source.path` must be relative (start with `./`), inside the marketplace root (`~/` for personal installs), and end in `mem0-plugin` — e.g. `"./codex-plugins/mem0-source/mem0-plugin"`.
+- **Plugin not found in `/plugins`** — Run `codex plugin marketplace add ~/path/to/clone` again, or confirm the marketplace was registered with `codex plugin marketplace remove mem0-plugins` then re-add.
+- **Skills not loading** — Verify the `skills` field in `plugin.json` points to a valid directory containing `SKILL.md` files.
+- **Hooks not firing** — Confirm `codex_hooks = true` is in `~/.codex/config.toml` under `[features]`, and that `~/.codex/hooks.json` contains the Mem0 entries (re-run the installer if not). Restart Codex after enabling the flag.
+- **Hooks broke after moving the clone** — The installer bakes absolute paths into `~/.codex/hooks.json` pointing at scripts inside your clone. If you moved or renamed the clone directory, run `python3 <new-clone>/mem0-plugin/scripts/install_codex_hooks.py` from the new location — the installer is idempotent and replaces the old entries.
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="Claude Code Integration" icon={<svg width="24" height="25" viewBox="0 0 24 25" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.92888 16.2181L9.86008 14.0122L9.92585 13.8199L9.86008 13.7137H9.66782L9.01009 13.6732L6.76369 13.6125L4.81581 13.5315L2.92863 13.4303L2.45304 13.3292L2.00781 12.7423L2.05335 12.4488L2.45304 12.1807L3.02476 12.2313L4.28962 12.3173L6.18692 12.4488L7.56309 12.5298L9.60204 12.7423H9.92585L9.97138 12.6107L9.86008 12.5298L9.77407 12.4488L7.811 11.1182L5.68603 9.71165L4.57295 8.90214L3.97088 8.49233L3.66731 8.10781L3.53577 7.26794L4.08219 6.66587L4.81581 6.71646L5.00301 6.76706L5.74674 7.33877L7.33541 8.56822L9.40979 10.0962L9.71335 10.3491L9.83478 10.2631L9.84996 10.2024L9.71335 9.97475L8.5851 7.93579L7.38095 5.86141L6.84465 5.00131L6.70298 4.48524C6.65239 4.27275 6.61697 4.09567 6.61697 3.87811L7.23928 3.03318L7.58332 2.92188L8.41307 3.03318L8.76218 3.33675L9.27824 4.5156L10.113 6.37242L11.4083 8.89708L11.7877 9.64588L11.9901 10.339L12.066 10.5515H12.1975V10.4301L12.3038 9.00839L12.5011 7.26288L12.6934 5.01649L12.7591 4.38406L13.0728 3.62514L13.6951 3.21532L14.1808 3.44806L14.5805 4.01978L14.5249 4.38912L14.2871 5.93225L13.8216 8.35066L13.5181 9.96969H13.6951L13.8975 9.76731L14.7171 8.67953L16.0933 6.95931L16.7005 6.27629L17.4088 5.52243L17.8641 5.16321H18.7242L19.3567 6.10427L19.0733 7.07568L18.1879 8.19888L17.4543 9.15006L16.4019 10.5667L15.7442 11.7L15.8049 11.7911L15.9618 11.7759L18.3397 11.27L19.6248 11.0372L21.1578 10.7741L21.851 11.0979L21.9269 11.4268L21.6537 12.0997L20.0144 12.5045L18.0918 12.889L15.2282 13.567L15.1927 13.5923L15.2332 13.6428L16.5234 13.7643L17.0749 13.7946H18.4257L20.9403 13.9818L21.598 14.4169L21.9926 14.9482L21.9269 15.3529L20.915 15.869L19.5489 15.5452L16.3615 14.7863L15.2686 14.5131H15.1168V14.6041L16.0275 15.4946L17.6972 17.0023L19.7867 18.9451L19.893 19.4258L19.6248 19.8053L19.3415 19.7648L17.5049 18.3835L16.7966 17.7612L15.1927 16.4104H15.0865V16.552L15.4558 17.0934L17.4088 20.0279L17.51 20.9285L17.3683 21.2219L16.8624 21.399L16.3058 21.2978L15.1624 19.6939L13.9835 17.8877L13.0324 16.2687L12.916 16.3345L12.3544 22.3805L12.0913 22.6891L11.4842 22.9219L10.9782 22.5374L10.7101 21.915L10.9782 20.6856L11.302 19.0818L11.5651 17.8068L11.8029 16.2232L11.9446 15.697L11.9345 15.6616L11.8181 15.6767L10.6241 17.316L8.80771 19.7698L7.37083 21.3079L7.02679 21.4445L6.42977 21.1359L6.48542 20.5844L6.81935 20.0936L8.80771 17.5639L10.0068 15.9955L10.7809 15.0898L10.7758 14.9583H10.7303L5.44824 18.3886L4.50718 18.51L4.10242 18.1306L4.15302 17.5083L4.34528 17.3059L5.93394 16.213L5.92888 16.2181Z" fill="currentColor"/></svg>} href="/integrations/claude-code">
+    Add Mem0 memory to Claude Code workflows
+  </Card>
+</CardGroup>

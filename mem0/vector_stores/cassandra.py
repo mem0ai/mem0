@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -7,8 +8,8 @@ import numpy as np
 from pydantic import BaseModel
 
 try:
-    from cassandra.cluster import Cluster
     from cassandra.auth import PlainTextAuthProvider
+    from cassandra.cluster import Cluster
 except ImportError:
     raise ImportError(
         "Apache Cassandra vector store requires cassandra-driver. "
@@ -18,6 +19,17 @@ except ImportError:
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+_SAFE_IDENTIFIER_RE = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]{0,127}$')
+
+
+def _validate_identifier(name: str, label: str = "identifier") -> str:
+    if not _SAFE_IDENTIFIER_RE.match(name):
+        raise ValueError(
+            f"Invalid {label} '{name}': only letters, digits, and underscores are allowed, "
+            "must start with a letter or underscore, and be at most 128 characters."
+        )
+    return name
 
 
 class OutputData(BaseModel):
@@ -59,8 +71,8 @@ class CassandraDB(VectorStoreBase):
         self.port = port
         self.username = username
         self.password = password
-        self.keyspace = keyspace
-        self.collection_name = collection_name
+        self.keyspace = _validate_identifier(keyspace, "keyspace")
+        self.collection_name = _validate_identifier(collection_name, "collection_name")
         self.embedding_model_dims = embedding_model_dims
         self.secure_connect_bundle = secure_connect_bundle
         self.protocol_version = protocol_version
@@ -156,7 +168,7 @@ class CassandraDB(VectorStoreBase):
             vector_size (int, optional): Vector dimension (uses self.embedding_model_dims if not provided)
             distance (str): Distance metric (cosine, euclidean, dot_product)
         """
-        table_name = name or self.collection_name
+        table_name = _validate_identifier(name, "table_name") if name else self.collection_name
         dims = vector_size or self.embedding_model_dims
 
         try:
@@ -214,7 +226,7 @@ class CassandraDB(VectorStoreBase):
         self,
         query: str,
         vectors: List[float],
-        limit: int = 5,
+        top_k: int = 5,
         filters: Optional[Dict] = None,
     ) -> List[OutputData]:
         """
@@ -223,7 +235,7 @@ class CassandraDB(VectorStoreBase):
         Args:
             query (str): Query string (not used in vector search)
             vectors (List[float]): Query vector
-            limit (int): Number of results to return
+            top_k (int): Number of results to return
             filters (Dict, optional): Filters to apply to the search
 
         Returns:
@@ -263,9 +275,9 @@ class CassandraDB(VectorStoreBase):
 
                 scored_results.append((row.id, distance, row.payload))
 
-            # Sort by distance and limit
+            # Sort by distance and apply limit
             scored_results.sort(key=lambda x: x[1])
-            scored_results = scored_results[:limit]
+            scored_results = scored_results[:top_k]
 
             return [
                 OutputData(
@@ -375,12 +387,10 @@ class CassandraDB(VectorStoreBase):
             List[str]: List of collection names
         """
         try:
-            query = f"""
-                SELECT table_name
-                FROM system_schema.tables
-                WHERE keyspace_name = '{self.keyspace}'
-            """
-            rows = self.session.execute(query)
+            prepared = self.session.prepare(
+                "SELECT table_name FROM system_schema.tables WHERE keyspace_name = ?"
+            )
+            rows = self.session.execute(prepared, (self.keyspace,))
             return [row.table_name for row in rows]
         except Exception as e:
             logger.error(f"Failed to list collections: {e}")
@@ -427,14 +437,14 @@ class CassandraDB(VectorStoreBase):
     def list(
         self,
         filters: Optional[Dict] = None,
-        limit: int = 100
+        top_k: int = 100
     ) -> List[List[OutputData]]:
         """
         List all vectors in the collection.
 
         Args:
             filters (Dict, optional): Filters to apply
-            limit (int): Number of vectors to return
+            top_k (int): Number of vectors to return
 
         Returns:
             List[List[OutputData]]: List of vectors
@@ -443,7 +453,7 @@ class CassandraDB(VectorStoreBase):
             query = f"""
                 SELECT id, vector, payload
                 FROM {self.keyspace}.{self.collection_name}
-                LIMIT {limit}
+                LIMIT {top_k}
             """
             rows = self.session.execute(query)
 

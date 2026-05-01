@@ -1,5 +1,6 @@
 ---
 title: Performance Optimization
+description: "Best practices for optimizing reranker performance in Mem0, covering candidate sizing, batching, and tuning."
 ---
 
 Optimizing reranker performance is crucial for maintaining fast search response times while improving result quality. This guide covers best practices for different reranker types.
@@ -152,7 +153,7 @@ def measure_reranker_performance(config, queries, user_id):
     latencies = []
     for query in queries:
         start_time = time.time()
-        results = memory.search(query, user_id=user_id)
+        results = memory.search(query, filters={"user_id": user_id})
         latency = time.time() - start_time
         latencies.append(latency)
 
@@ -190,7 +191,7 @@ class CachedReranker:
 
     @lru_cache(maxsize=1000)
     def search_cached(self, query_hash, user_id):
-        return self.memory.search(query, user_id=user_id)
+        return self.memory.search(query, filters={"user_id": user_id})
 
     def search(self, query, user_id):
         query_hash = hashlib.md5(f"{query}_{user_id}".encode()).hexdigest()

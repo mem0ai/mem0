@@ -21,7 +21,7 @@ Adding memory is how Mem0 captures useful details from a conversation so your ag
 - **Messages** – The ordered list of user/assistant turns you send to `add`.
 - **Infer** – Controls whether Mem0 extracts structured memories (`infer=True`, default) or stores raw messages.
 - **Metadata** – Optional filters (e.g., `{"category": "movie_recommendations"}`) that improve retrieval later.
-- **User / Session identifiers** – `user_id`, `session_id`, or `run_id` that scope the memory for future searches.
+- **User / Session identifiers** – `user_id`, `agent_id`, or `run_id` that scope the memory for future searches.
 
 ## How does it work?
 
@@ -70,7 +70,6 @@ messages = [
 client.add(
     messages=messages,
     user_id="alice",
-    
 )
 ```
 
@@ -84,10 +83,8 @@ const messages = [
   { role: "assistant", content: "Great! I’ll remember that for future suggestions." }
 ];
 
-await client.add({
-  messages,
+await client.add(messages, {
   user_id: "alice",
-  version: "v2"
 });
 ```
 </CodeGroup>
@@ -158,6 +155,10 @@ Add memory whenever your agent learns something useful:
 - A new entity is introduced
 - A user gives feedback or clarification
 
+<Callout type="tip" icon="plug">
+  **MCP Alternative**: With <Link href="/platform/mem0-mcp">Mem0 MCP</Link>, AI agents can add memories automatically based on context.
+</Callout>
+
 Storing this context allows the agent to reason better in future interactions.
 
 
@@ -171,7 +172,6 @@ For full list of supported fields, required formats, and advanced options, see t
 | Capability | Mem0 Platform | Mem0 OSS |
 | --- | --- | --- |
 | Conflict resolution | Automatic with dashboard visibility | SDK handles merges locally; you control storage |
-| Graph writes | Toggle per request (`enable_graph=True`) | Requires configuring a graph provider |
 | Rate limits | Managed quotas per workspace | Limited by your hardware and provider APIs |
 | Dashboard visibility | Yes — inspect memories visually | Inspect via CLI, logs, or custom UI |
 

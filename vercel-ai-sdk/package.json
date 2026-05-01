@@ -1,6 +1,6 @@
 {
   "name": "@mem0/vercel-ai-provider",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "Vercel AI Provider for providing memory to LLMs",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -19,6 +19,11 @@
     "test:edge": "vitest --config vitest.edge.config.js --run",
     "test:node": "vitest --config vitest.node.config.js --run"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "vercel-ai-sdk"
+  },
   "keywords": [
     "ai",
     "vercel-ai"
@@ -35,7 +40,6 @@
     "@ai-sdk/provider-utils": "3.0.0",
     "ai": "5.0.2",
     "dotenv": "^16.4.5",
-    "mem0ai": "^2.1.12",
     "partial-json": "0.1.7",
     "zod": "^3.25.0"
   },

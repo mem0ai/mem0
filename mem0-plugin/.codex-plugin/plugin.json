@@ -1,0 +1,35 @@
+{
+  "name": "mem0",
+  "version": "0.1.1",
+  "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search to Codex workflows using the Mem0 Platform MCP server.",
+  "author": {
+    "name": "Mem0",
+    "email": "support@mem0.ai"
+  },
+  "homepage": "https://mem0.ai",
+  "repository": "https://github.com/mem0ai/mem0",
+  "license": "Apache-2.0",
+  "skills": "./skills/",
+  "mcpServers": "./.codex-mcp.json",
+  "interface": {
+    "displayName": "Mem0",
+    "shortDescription": "Persistent memory layer for AI coding workflows",
+    "longDescription": "Mem0 adds long-term memory to Codex. Store decisions, user preferences, project context, and session state across conversations. Memories are automatically retrieved via semantic search so Codex always has the right context.",
+    "developerName": "Mem0",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://mem0.ai",
+    "privacyPolicyURL": "https://mem0.ai/privacy",
+    "termsOfServiceURL": "https://mem0.ai/terms",
+    "defaultPrompt": [
+      "Search my memories for recent project decisions",
+      "Remember that I prefer TypeScript over JavaScript",
+      "What do you know about my coding preferences?"
+    ],
+    "brandColor": "#FBBF24",
+    "logo": "./logo.svg"
+  }
+}

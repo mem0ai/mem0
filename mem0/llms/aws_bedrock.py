@@ -17,8 +17,9 @@ from mem0.memory.utils import extract_json
 logger = logging.getLogger(__name__)
 
 PROVIDERS = [
-    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer", 
-    "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama"
+    "ai21", "amazon", "anthropic", "cohere", "meta", "mistral", "stability", "writer",
+    "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama",
+    "minimax",
 ]
 
 
@@ -120,6 +121,10 @@ class AWSBedrockLLM(LLMBase):
         """Initialize provider-specific settings and capabilities."""
         # Determine capabilities based on provider and model
         self.supports_tools = self.provider in ["anthropic", "cohere", "amazon"]
+        # MiniMax M2.x is intentionally excluded from supports_tools: tool use for MiniMax
+        # on Amazon Bedrock is only available via the bedrock-mantle (OpenAI-compatible)
+        # endpoint, not via the bedrock-runtime Converse API used by this class.
+        # See: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-minimax-minimax-m2-5.html
         self.supports_vision = self.provider in ["anthropic", "amazon", "meta", "mistral"]
         self.supports_streaming = self.provider in ["anthropic", "cohere", "mistral", "amazon", "meta"]
 
@@ -228,6 +233,12 @@ class AWSBedrockLLM(LLMBase):
 
         return "\n\nHuman: " + "".join(formatted_messages) + "\n\nAssistant:"
 
+    def _merge_optional_top_p(self, target: Dict[str, Any], *, key: str = "top_p") -> None:
+        """Add nucleus sampling to ``target`` only when ``model_config`` has ``top_p`` set."""
+        top_p = self.model_config.get("top_p")
+        if top_p is not None:
+            target[key] = top_p
+
     def _prepare_input(self, prompt: str) -> Dict[str, Any]:
         """
         Prepare input for the current provider's model.
@@ -268,44 +279,38 @@ class AWSBedrockLLM(LLMBase):
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": self.model_config.get("max_tokens", 5000),
                     "temperature": self.model_config.get("temperature", 0.1),
-                    "top_p": self.model_config.get("top_p", 0.9),
                 }
+                self._merge_optional_top_p(input_body)
             else:
                 # Legacy Amazon models
-                input_body = {
-                    "inputText": prompt,
-                    "textGenerationConfig": {
-                        "maxTokenCount": self.model_config.get("max_tokens", 5000),
-                        "topP": self.model_config.get("top_p", 0.9),
-                        "temperature": self.model_config.get("temperature", 0.1),
-                    },
+                text_gen_config: Dict[str, Any] = {
+                    "maxTokenCount": self.model_config.get("max_tokens", 5000),
+                    "temperature": self.model_config.get("temperature", 0.1),
                 }
-                # Remove None values
-                input_body["textGenerationConfig"] = {
-                    k: v for k, v in input_body["textGenerationConfig"].items() if v is not None
-                }
+                self._merge_optional_top_p(text_gen_config, key="topP")
+                input_body = {"inputText": prompt, "textGenerationConfig": text_gen_config}
         elif self.provider == "anthropic":
             input_body = {
                 "messages": [{"role": "user", "content": [{"type": "text", "text": prompt}]}],
                 "max_tokens": self.model_config.get("max_tokens", 2000),
                 "temperature": self.model_config.get("temperature", 0.1),
-                "top_p": self.model_config.get("top_p", 0.9),
                 "anthropic_version": "bedrock-2023-05-31",
             }
+            self._merge_optional_top_p(input_body)
         elif self.provider == "meta":
             input_body = {
                 "prompt": prompt,
                 "max_gen_len": self.model_config.get("max_tokens", 5000),
                 "temperature": self.model_config.get("temperature", 0.1),
-                "top_p": self.model_config.get("top_p", 0.9),
             }
+            self._merge_optional_top_p(input_body)
         elif self.provider == "mistral":
             input_body = {
                 "prompt": prompt,
                 "max_tokens": self.model_config.get("max_tokens", 5000),
                 "temperature": self.model_config.get("temperature", 0.1),
-                "top_p": self.model_config.get("top_p", 0.9),
             }
+            self._merge_optional_top_p(input_body)
         else:
             # Generic case - add all model config parameters
             input_body.update(self.model_config)
@@ -479,6 +484,37 @@ class AWSBedrockLLM(LLMBase):
 
         return converse_tools
 
+    def _default_max_tokens_for_converse(self) -> int:
+        """Default maxTokens if ``max_tokens`` is missing (Nova: 5000, else 2000)."""
+        model_id = (self.config.model or "").lower()
+        if self.provider == "amazon" and "nova" in model_id:
+            return 5000
+        return 2000
+
+    def _build_inference_config(self) -> Dict[str, Any]:
+        """Build Converse ``inferenceConfig``.
+
+        Anthropic and MiniMax reasoning models reject requests that include both
+        ``temperature`` and ``topP`` simultaneously, so ``topP`` is omitted for
+        those providers even when the user has configured it.
+        """
+        inference_config: Dict[str, Any] = {
+            "maxTokens": self.model_config.get("max_tokens", self._default_max_tokens_for_converse()),
+            "temperature": self.model_config.get("temperature", 0.1),
+        }
+
+        top_p = self.model_config.get("top_p")
+        if top_p is not None:
+            if self.provider in ("anthropic", "minimax"):
+                # Both Anthropic and MiniMax M2.x (reasoning models) raise a
+                # ValidationException when temperature and topP are both present
+                # in inferenceConfig.  Omit topP and rely on temperature only.
+                logger.debug("Omitting topP for %s Converse (using temperature); top_p=%s", self.provider, top_p)
+            else:
+                inference_config["topP"] = top_p
+
+        return inference_config
+
     def _generate_with_tools(self, messages: List[Dict[str, str]], tools: List[Dict], stream: bool = False) -> Dict[str, Any]:
         """Generate response with tool calling support using correct message format."""
         # Format messages for tool-enabled models
@@ -501,11 +537,7 @@ class AWSBedrockLLM(LLMBase):
         converse_params = {
             "modelId": self.config.model,
             "messages": formatted_messages,
-            "inferenceConfig": {
-                "maxTokens": self.model_config.get("max_tokens", 2000),
-                "temperature": self.model_config.get("temperature", 0.1),
-                "topP": self.model_config.get("top_p", 0.9),
-            }
+            "inferenceConfig": self._build_inference_config(),
         }
 
         # Add system message if present (for Anthropic)
@@ -531,11 +563,7 @@ class AWSBedrockLLM(LLMBase):
             converse_params = {
                 "modelId": self.config.model,
                 "messages": formatted_messages,
-                "inferenceConfig": {
-                    "maxTokens": self.model_config.get("max_tokens", 2000),
-                    "temperature": self.model_config.get("temperature", 0.1),
-                    "topP": self.model_config.get("top_p", 0.9),
-                }
+                "inferenceConfig": self._build_inference_config(),
             }
 
             # Add system message if present
@@ -553,27 +581,47 @@ class AWSBedrockLLM(LLMBase):
             else:
                 return str(response)
 
-        elif self.provider == "amazon" and "nova" in self.config.model.lower():
-            # Nova models use converse API even without tools
-            formatted_messages = self._format_messages_amazon(messages)
-            input_body = {
-                "messages": formatted_messages,
-                "max_tokens": self.model_config.get("max_tokens", 5000),
-                "temperature": self.model_config.get("temperature", 0.1),
-                "top_p": self.model_config.get("top_p", 0.9),
+        elif self.provider == "minimax":
+            # MiniMax models (e.g. minimax.minimax-m2.5) use the Bedrock Converse API.
+            # M2.5 is a reasoning model whose response content array may include a
+            # `reasoningContent` block before the actual `text` block, so we iterate
+            # to find the first block that contains a "text" key.
+            # System messages must be passed via the top-level `system` parameter
+            # (not as a message with role="system") per the Converse API spec.
+            system_parts = []
+            converse_messages = []
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if not isinstance(content, str):
+                    content = str(content)
+                if role == "system":
+                    system_parts.append(content)
+                else:
+                    converse_messages.append({"role": role, "content": [{"text": content}]})
+            if not converse_messages:
+                converse_messages = [{"role": "user", "content": [{"text": ""}]}]
+            converse_params = {
+                "modelId": self.config.model,
+                "messages": converse_messages,
+                "inferenceConfig": self._build_inference_config(),
             }
-            
-            # Use converse API for Nova models
+            if system_parts:
+                converse_params["system"] = [{"text": "\n".join(system_parts)}]
+            response = self.client.converse(**converse_params)
+            for block in response["output"]["message"]["content"]:
+                if "text" in block:
+                    return block["text"]
+            return ""
+
+        elif self.provider == "amazon" and "nova" in self.config.model.lower():
+            # Nova models use the Converse API even without tools
+            formatted_messages = self._format_messages_amazon(messages)
             response = self.client.converse(
                 modelId=self.config.model,
-                messages=input_body["messages"],
-                inferenceConfig={
-                    "maxTokens": input_body["max_tokens"],
-                    "temperature": input_body["temperature"],
-                    "topP": input_body["top_p"],
-                }
+                messages=formatted_messages,
+                inferenceConfig=self._build_inference_config(),
             )
-            
             return self._parse_response(response)
         else:
             # For other providers and legacy Amazon models (like Titan)

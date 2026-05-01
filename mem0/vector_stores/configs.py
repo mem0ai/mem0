@@ -35,6 +35,7 @@ class VectorStoreConfig(BaseModel):
         "faiss": "FAISSConfig",
         "langchain": "LangchainConfig",
         "s3_vectors": "S3VectorsConfig",
+        "turbopuffer": "TurbopufferConfig",
     }
 
     @model_validator(mode="after")

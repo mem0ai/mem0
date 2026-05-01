@@ -1,0 +1,146 @@
+name: TypeScript SDK CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mem0-ts/**'
+      - '.github/workflows/ts-sdk-ci.yml'
+  pull_request:
+    paths:
+      - 'mem0-ts/**'
+
+jobs:
+  check_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      ts_sdk_changed: ${{ steps.filter.outputs.ts_sdk }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            ts_sdk:
+              - 'mem0-ts/**'
+
+  changelog_check:
+    needs: check_changes
+    if: github.event_name == 'pull_request' && needs.check_changes.outputs.ts_sdk_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require CHANGELOG entry when SDK version changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          base_version=$(git show "$BASE_SHA:mem0-ts/package.json" 2>/dev/null | jq -r .version || echo "")
+          head_version=$(jq -r .version mem0-ts/package.json)
+
+          echo "Base version: ${base_version:-<unknown>}"
+          echo "Head version: $head_version"
+
+          if [ -z "$base_version" ] || [ "$base_version" = "$head_version" ]; then
+            echo "mem0-ts/package.json version unchanged — no CHANGELOG entry required."
+            exit 0
+          fi
+
+          echo "Detected version bump ${base_version} -> ${head_version}. Checking docs/changelog/sdk.mdx…"
+
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- docs/changelog/sdk.mdx | grep -q .; then
+            echo "Changelog update present in docs/changelog/sdk.mdx ✅"
+          else
+            echo "::error file=mem0-ts/package.json::mem0-ts/package.json version changed from ${base_version} to ${head_version} but docs/changelog/sdk.mdx was not updated in this PR. Add a new <Update> entry under the TypeScript tab for v${head_version}."
+            exit 1
+          fi
+
+  build_ts_sdk:
+    needs: check_changes
+    if: needs.check_changes.outputs.ts_sdk_changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+          cache-dependency-path: mem0-ts/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: mem0-ts
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: mem0-ts
+        run: npx prettier --check .
+
+      - name: Build
+        working-directory: mem0-ts
+        run: pnpm run build
+
+      - name: Run unit tests
+        working-directory: mem0-ts
+        run: pnpm run test:unit
+
+      - name: Verify package exports
+        working-directory: mem0-ts
+        run: |
+          node -e "const m = require('./dist/index.js'); console.log('Client exports:', Object.keys(m).length)"
+          node -e "const m = require('./dist/oss/index.js'); console.log('OSS exports:', Object.keys(m).length)"
+
+      - name: Upload coverage
+        if: matrix.node-version == 20
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: mem0-ts/coverage/
+
+  integration_ts_sdk:
+    needs: build_ts_sdk
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+          cache-dependency-path: mem0-ts/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: mem0-ts
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: mem0-ts
+        run: pnpm run build
+
+      - name: Run integration tests (with cleanup)
+        working-directory: mem0-ts
+        env:
+          MEM0_API_KEY: ${{ secrets.MEM0_API_KEY }}
+        run: pnpm run test:integration

@@ -81,6 +81,7 @@ export class AzureAISearch implements VectorStore {
   private readonly hybridSearch: boolean;
   private readonly vectorFilterMode: string;
   private readonly apiKey: string | undefined;
+  private _initPromise?: Promise<void>;
 
   constructor(config: AzureAISearchConfig) {
     this.serviceName = config.serviceName;
@@ -117,6 +118,13 @@ export class AzureAISearch implements VectorStore {
    * Initialize the Azure AI Search index if it doesn't exist
    */
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       const collections = await this.listCols();
       if (!collections.includes(this.indexName)) {
@@ -319,11 +327,50 @@ export class AzureAISearch implements VectorStore {
   }
 
   /**
+   * Keyword search using Azure AI Search native full-text (BM25) capabilities
+   */
+  async keywordSearch(
+    query: string,
+    topK: number = 5,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null> {
+    try {
+      const filterExpression = filters
+        ? this.buildFilterExpression(filters)
+        : undefined;
+
+      const searchResults = await this.searchClient.search(query, {
+        filter: filterExpression,
+        top: topK,
+        searchFields: ["payload"],
+      });
+
+      const results: VectorStoreResult[] = [];
+
+      for await (const result of searchResults.results) {
+        const payloadStr = result.document.payload as string;
+        const payload = JSON.parse(this.extractJson(payloadStr));
+
+        results.push({
+          id: result.document.id as string,
+          score: result.score,
+          payload,
+        });
+      }
+
+      return results;
+    } catch (error) {
+      console.error("Error during keyword search:", error);
+      return null;
+    }
+  }
+
+  /**
    * Search for similar vectors
    */
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const filterExpression = filters
@@ -333,7 +380,7 @@ export class AzureAISearch implements VectorStore {
     const vectorQuery: VectorizedQuery<any> = {
       kind: "vector",
       vector: query,
-      kNearestNeighborsCount: limit,
+      kNearestNeighborsCount: topK,
       fields: ["vector"],
     };
 
@@ -347,7 +394,7 @@ export class AzureAISearch implements VectorStore {
           filterMode: this.vectorFilterMode as any,
         },
         filter: filterExpression,
-        top: limit,
+        top: topK,
         searchFields: ["payload"],
       });
     } else {
@@ -358,7 +405,7 @@ export class AzureAISearch implements VectorStore {
           filterMode: this.vectorFilterMode as any,
         },
         filter: filterExpression,
-        top: limit,
+        top: topK,
       });
     }
 
@@ -493,7 +540,7 @@ export class AzureAISearch implements VectorStore {
    */
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const filterExpression = filters
       ? this.buildFilterExpression(filters)
@@ -501,7 +548,7 @@ export class AzureAISearch implements VectorStore {
 
     const searchResults = await this.searchClient.search("*", {
       filter: filterExpression,
-      top: limit,
+      top: topK,
     });
 
     const results: VectorStoreResult[] = [];

@@ -1,0 +1,124 @@
+---
+title: "Vibecoding with Mem0"
+sidebarTitle: "Vibecoding"
+description: "Agent skills, starter prompts, and setup for building with Mem0 using AI coding tools."
+icon: "wand-magic-sparkles"
+---
+
+These docs are designed to be easily consumable by LLMs. Each page has a button that lets you copy the page as Markdown or paste directly into ChatGPT, Claude, or any AI coding tool.
+
+We follow the llms.txt standard:
+
+- [llms.txt](https://docs.mem0.ai/llms.txt)
+
+<CardGroup cols={2}>
+  <Card title="Get an API Key" icon="key" href="https://app.mem0.ai/login?utm_source=oss&utm_medium=vibecoding">
+    Sign up for Mem0 Platform and start building
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/platform/quickstart">
+    Store your first memory in under 5 minutes
+  </Card>
+</CardGroup>
+
+## Agent Skills
+
+Teach your coding assistant how to build with Mem0:
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0
+```
+
+Works with Claude Code, Cursor, Windsurf, and any assistant that supports skills. Once installed, your assistant understands Mem0's full API, framework integrations, and common patterns.
+
+## MCP Server Setup
+
+Connect Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode, or any MCP-compatible client to Mem0.
+
+Get your API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=vibecoding" rel="nofollow">app.mem0.ai</a>, then add Mem0 MCP with a single command:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
+```
+
+For per-client setup and advanced options, see [Mem0 MCP Setup](/platform/mem0-mcp).
+
+## Universal Starter Prompt
+
+Copy this into any AI tool to start building with Mem0:
+
+```text
+I want to start building with Mem0 — a self-improving memory layer for LLM
+applications that gives agents persistent context across sessions.
+
+## Mem0 Resources
+
+**Documentation:**
+- Main docs: https://docs.mem0.ai
+- Platform Quickstart: https://docs.mem0.ai/platform/quickstart
+- OSS Python Quickstart: https://docs.mem0.ai/open-source/python-quickstart
+- OSS Node.js Quickstart: https://docs.mem0.ai/open-source/node-quickstart
+- API Reference: https://docs.mem0.ai/api-reference
+- Full LLM-friendly docs: https://docs.mem0.ai/llms.txt
+
+**Code & Examples:**
+- Core repo: https://github.com/mem0ai/mem0
+- Python SDK: pip install mem0ai
+- TypeScript SDK: npm install mem0ai
+- Cookbooks: https://docs.mem0.ai/cookbooks/overview
+
+**What Mem0 Does:**
+Mem0 is a memory layer for AI apps — managed (Mem0 Platform) or self-hosted
+(Open Source). It stores, retrieves, and manages user memories so agents
+remember preferences, learn from interactions, and personalize over time.
+Sub-50ms retrieval. Dual storage: vector embeddings + graph databases.
+
+**Architecture Overview:**
+- Memory is scoped by user_id, agent_id, or run_id
+- Core operations: add, search, update, delete
+- Memory types: factual (preferences, facts), episodic (past interactions),
+  semantic (concept relationships), working (session state)
+- Integration pattern: retrieve relevant memories → generate response → store
+  new memories
+
+**Quick Usage (Python Platform):**
+  from mem0 import MemoryClient
+  client = MemoryClient(api_key="m0-xxx")
+  client.add("I prefer dark mode and use VS Code.", user_id="user1")
+  results = client.search("What editor do they use?", filters={"user_id": "user1"})
+
+**Quick Usage (JavaScript Platform):**
+  import MemoryClient from 'mem0ai';
+  const client = new MemoryClient({ apiKey: 'm0-xxx' });
+  await client.add([{ role: "user", content: "I prefer dark mode." }], { userId: "user1" });
+  const results = await client.search("What editor?", { filters: { userId: "user1" } });
+
+**Quick Usage (Python Open Source):**
+  from mem0 import Memory
+  m = Memory()
+  m.add("I prefer dark mode and use VS Code.", user_id="user1")
+  results = m.search("What editor do they use?", filters={"user_id": "user1"})
+
+Help me integrate Mem0 into my project. Start by asking what I'm building,
+what language/framework I'm using, and whether I want managed or self-hosted.
+```
+
+## Go Deeper
+
+<CardGroup cols={2}>
+  <Card title="Platform Quickstart" icon="cloud" href="/platform/quickstart">
+    Get started with the managed API
+  </Card>
+  <Card title="Open Source" icon="code-branch" href="/open-source/overview">
+    Self-host with full control
+  </Card>
+  <Card title="Cookbooks" icon="book" href="/cookbooks/overview">
+    Production-ready tutorials and examples
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Explore every REST endpoint
+  </Card>
+</CardGroup>

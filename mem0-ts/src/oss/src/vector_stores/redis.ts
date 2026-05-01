@@ -9,6 +9,19 @@ import type {
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
 
+/**
+ * Escape RediSearch TAG filter special characters. Any punctuation in the
+ * value (including `-`, which appears in every UUID) must be backslash-
+ * escaped, otherwise RediSearch either parses it as an operator (`-` is
+ * minus, `|` is OR) or rejects the whole expression as a syntax error.
+ */
+function escapeRedisTagValue(value: unknown): string {
+  return String(value).replace(
+    /([,.<>{}\[\]"':;!@#$%^&*()\-+=~|/\\\s])/g,
+    "\\$1",
+  );
+}
+
 interface RedisConfig extends VectorStoreConfig {
   redisUrl: string;
   collectionName: string;
@@ -139,6 +152,7 @@ export class RedisDB implements VectorStore {
   private readonly indexName: string;
   private readonly indexPrefix: string;
   private readonly schema: RedisSchema;
+  private _initPromise?: Promise<void>;
 
   constructor(config: RedisConfig) {
     this.indexName = config.collectionName;
@@ -240,6 +254,13 @@ export class RedisDB implements VectorStore {
   }
 
   async initialize(): Promise<void> {
+    if (!this._initPromise) {
+      this._initPromise = this._doInitialize();
+    }
+    return this._initPromise;
+  }
+
+  private async _doInitialize(): Promise<void> {
     try {
       await this.client.connect();
       console.log("Connected to Redis");
@@ -248,17 +269,25 @@ export class RedisDB implements VectorStore {
       const modulesResponse =
         (await this.client.moduleList()) as unknown as any[];
 
-      // Parse module list to find search module
-      const hasSearch = modulesResponse.some((module: any[]) => {
-        const moduleMap = new Map();
-        for (let i = 0; i < module.length; i += 2) {
-          moduleMap.set(module[i], module[i + 1]);
+      const hasSearch = modulesResponse.some((mod: any) => {
+        // node-redis v4+ returns objects: { name: "search", ver: ..., ... }
+        if (typeof mod === "object" && !Array.isArray(mod) && mod.name) {
+          const name = String(mod.name).toLowerCase();
+          return name === "search" || name === "searchlight";
         }
-        const moduleName = moduleMap.get("name");
-        return (
-          moduleName?.toLowerCase() === "search" ||
-          moduleName?.toLowerCase() === "searchlight"
-        );
+        // Fallback: legacy flat array format [key, value, key, value, ...]
+        if (Array.isArray(mod)) {
+          const moduleMap = new Map();
+          for (let i = 0; i < mod.length; i += 2) {
+            moduleMap.set(mod[i], mod[i + 1]);
+          }
+          const name = moduleMap.get("name");
+          return (
+            name?.toLowerCase() === "search" ||
+            name?.toLowerCase() === "searchlight"
+          );
+        }
+        return false;
       });
 
       if (!hasSearch) {
@@ -349,16 +378,20 @@ export class RedisDB implements VectorStore {
     }
   }
 
+  async keywordSearch(): Promise<null> {
+    return null;
+  }
+
   async search(
     query: number[],
-    limit: number = 5,
+    topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const snakeFilters = filters ? toSnakeCase(filters) : undefined;
     const filterExpr = snakeFilters
       ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null)
-          .map(([key, value]) => `@${key}:{${value}}`)
+          .filter(([_, value]) => value !== null && value !== undefined)
+          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
           .join(" ")
       : "*";
 
@@ -383,14 +416,14 @@ export class RedisDB implements VectorStore {
       DIALECT: 2,
       LIMIT: {
         from: 0,
-        size: limit,
+        size: topK,
       },
     };
 
     try {
       const results = (await this.client.ft.search(
         this.indexName,
-        `${filterExpr} =>[KNN ${limit} @embedding $vec AS __vector_score]`,
+        `${filterExpr} =>[KNN ${topK} @embedding $vec AS __vector_score]`,
         searchOptions,
       )) as unknown as RedisSearchResult;
 
@@ -514,7 +547,7 @@ export class RedisDB implements VectorStore {
 
       return {
         id: vectorId,
-        payload,
+        payload: toCamelCase(payload),
       };
     } catch (error) {
       console.error("Error getting vector:", error);
@@ -590,13 +623,13 @@ export class RedisDB implements VectorStore {
 
   async list(
     filters?: SearchFilters,
-    limit: number = 100,
+    topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
     const snakeFilters = filters ? toSnakeCase(filters) : undefined;
     const filterExpr = snakeFilters
       ? Object.entries(snakeFilters)
-          .filter(([_, value]) => value !== null)
-          .map(([key, value]) => `@${key}:{${value}}`)
+          .filter(([_, value]) => value !== null && value !== undefined)
+          .map(([key, value]) => `@${key}:{${escapeRedisTagValue(value)}}`)
           .join(" ")
       : "*";
 
@@ -605,7 +638,7 @@ export class RedisDB implements VectorStore {
       SORTDIR: "DESC",
       LIMIT: {
         from: 0,
-        size: limit,
+        size: topK,
       },
     };
 

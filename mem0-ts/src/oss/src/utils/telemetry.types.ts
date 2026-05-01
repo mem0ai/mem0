@@ -23,6 +23,8 @@ export interface TelemetryEventData {
   timestamp?: string;
   client_source: "browser" | "nodejs";
   client_version: string;
+  /** Set by the sampling layer so PostHog dashboards can extrapolate via 1/sample_rate. */
+  sample_rate?: number;
   [key: string]: any;
 }
 

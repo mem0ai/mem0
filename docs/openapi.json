@@ -4,7 +4,7 @@
 		"title": "Mem0 API Docs",
 		"description": "mem0.ai API Docs",
 		"contact": {
-			"email": "deshraj@mem0.ai"
+			"email": "support@mem0.ai"
 		},
 		"license": {
 			"name": "Apache 2.0"
@@ -183,7 +183,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\nusers = client.users()\nprint(users)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\nusers = client.users()\nprint(users)"
 					},
 					{
 						"lang": "JavaScript",
@@ -222,7 +222,7 @@
 				}
 			}
 		},
-		"/v1/entities/{entity_type}/{entity_id}/": {
+		"/v2/entities/{entity_type}/{entity_id}/": {
 			"get": {
 				"tags": [
 					"entities"
@@ -329,27 +329,27 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"DELETE\", url, headers=headers)\n\nprint(response.text)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "const options = {method: 'DELETE', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+						"source": "const options = {method: 'DELETE', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
 					},
 					{
 						"lang": "cURL",
-						"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/ \\\n  --header 'Authorization: Token <api-key>'"
+						"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/ \\\n  --header 'Authorization: Token <api-key>'"
 					},
 					{
 						"lang": "Go",
-						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\"\n\n\treq, _ := http.NewRequest(\"DELETE\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\"\n\n\treq, _ := http.NewRequest(\"DELETE\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
 					},
 					{
 						"lang": "PHP",
-						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"DELETE\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
 					},
 					{
 						"lang": "Java",
-						"source": "HttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/v1/entities/{entity_type}/{entity_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+						"source": "HttpResponse<String> response = Unirest.delete(\"https://api.mem0.ai/v2/entities/{entity_type}/{entity_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
 					}
 				]
 			}
@@ -457,7 +457,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+					{
+						"lang": "Python",
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/events/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "const options = {method: 'GET', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/events/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+					},
+					{
+						"lang": "cURL",
+						"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/events/ \\\n  --header 'Authorization: Token <api-key>'"
+					},
+					{
+						"lang": "Go",
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/events/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+					},
+					{
+						"lang": "PHP",
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/events/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+					},
+					{
+						"lang": "Java",
+						"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/events/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					}
+				]
 			}
 		},
 		"/v1/event/{event_id}/": {
@@ -563,7 +589,33 @@
 							}
 						}
 					}
-				}
+				},
+				"x-code-samples": [
+					{
+						"lang": "Python",
+						"source": "import requests\n\nurl = \"https://api.mem0.ai/v1/event/{event_id}/\"\n\nheaders = {\"Authorization\": \"Token <api-key>\"}\n\nresponse = requests.request(\"GET\", url, headers=headers)\n\nprint(response.text)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "const options = {method: 'GET', headers: {Authorization: 'Token <api-key>'}};\n\nfetch('https://api.mem0.ai/v1/event/{event_id}/', options)\n  .then(response => response.json())\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+					},
+					{
+						"lang": "cURL",
+						"source": "curl --request GET \\\n  --url https://api.mem0.ai/v1/event/{event_id}/ \\\n  --header 'Authorization: Token <api-key>'"
+					},
+					{
+						"lang": "Go",
+						"source": "package main\n\nimport (\n\t\"fmt\"\n\t\"net/http\"\n\t\"io/ioutil\"\n)\n\nfunc main() {\n\n\turl := \"https://api.mem0.ai/v1/event/{event_id}/\"\n\n\treq, _ := http.NewRequest(\"GET\", url, nil)\n\n\treq.Header.Add(\"Authorization\", \"Token <api-key>\")\n\n\tres, _ := http.DefaultClient.Do(req)\n\n\tdefer res.Body.Close()\n\tbody, _ := ioutil.ReadAll(res.Body)\n\n\tfmt.Println(res)\n\tfmt.Println(string(body))\n\n}"
+					},
+					{
+						"lang": "PHP",
+						"source": "<?php\n\n$curl = curl_init();\n\ncurl_setopt_array($curl, [\n  CURLOPT_URL => \"https://api.mem0.ai/v1/event/{event_id}/\",\n  CURLOPT_RETURNTRANSFER => true,\n  CURLOPT_ENCODING => \"\",\n  CURLOPT_MAXREDIRS => 10,\n  CURLOPT_TIMEOUT => 30,\n  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,\n  CURLOPT_CUSTOMREQUEST => \"GET\",\n  CURLOPT_HTTPHEADER => [\n    \"Authorization: Token <api-key>\"\n  ],\n]);\n\n$response = curl_exec($curl);\n$err = curl_error($curl);\n\ncurl_close($curl);\n\nif ($err) {\n  echo \"cURL Error #:\" . $err;\n} else {\n  echo $response;\n}"
+					},
+					{
+						"lang": "Java",
+						"source": "HttpResponse<String> response = Unirest.get(\"https://api.mem0.ai/v1/event/{event_id}/\")\n  .header(\"Authorization\", \"Token <api-key>\")\n  .asString();"
+					}
+				]
 			}
 		},
 		"/v1/exports/": {
@@ -665,7 +717,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\njson_schema = {pydantic_json_schema}\nfilters = {\n    \"AND\": [\n        {\"user_id\": \"alex\"}\n    ]\n}\n\nresponse = client.create_memory_export(\n    schema=json_schema,\n    filters=filters\n)\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\njson_schema = {pydantic_json_schema}\nfilters = {\n    \"AND\": [\n        {\"user_id\": \"alex\"}\n    ]\n}\n\nresponse = client.create_memory_export(\n    schema=json_schema,\n    filters=filters\n)\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -793,7 +845,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"project_id\")\n\nmemory_export_id = \"<memory_export_id>\"\n\nresponse = client.get_memory_export(memory_export_id=memory_export_id)\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\nmemory_export_id = \"<memory_export_id>\"\n\nresponse = client.get_memory_export(memory_export_id=memory_export_id)\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -996,8 +1048,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1044,7 +1096,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(user_id=\"<user_id>\")\n\nprint(user_memories)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Retrieve memories for a specific user\nuser_memories = client.get_all(filters={\"user_id\": \"<user_id>\"})\n\nprint(user_memories)"
 					},
 					{
 						"lang": "JavaScript",
@@ -1151,11 +1203,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"<user-message>\"},\n    {\"role\": \"assistant\", \"content\": \"<assistant-response>\"}\n]\n\nclient.add(messages, user_id=\"<user-id>\", version=\"v2\")"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\nmessages = [\n    {\"role\": \"user\", \"content\": \"<user-message>\"},\n    {\"role\": \"assistant\", \"content\": \"<assistant-response>\"}\n]\n\nclient.add(messages, user_id=\"<user-id>\")"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst messages = [\n  { role: \"user\", content: \"Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts.\" },\n  { role: \"assistant\", content: \"Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions.\" }\n];\n\nclient.add(messages, { user_id: \"<user_id>\", version: \"v2\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst messages = [\n  { role: \"user\", content: \"Hi, I'm Alex. I'm a vegetarian and I'm allergic to nuts.\" },\n  { role: \"assistant\", content: \"Hello Alex! I've noted that you're a vegetarian and have a nut allergy. I'll keep this in mind for any food-related recommendations or discussions.\" }\n];\n\nclient.add(messages, { user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1180,8 +1232,8 @@
 				"tags": [
 					"memories"
 				],
-				"description": "Delete memories.",
-				"operationId": "memories_delete",
+				"description": "Delete memories by filter. At least one filter is required — previously omitting all filters silently deleted everything; now it returns a validation error.",
+				"operationId": "memories_delete_all",
 				"parameters": [
 					{
 						"name": "user_id",
@@ -1189,7 +1241,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by user ID."
+						"description": "Filter by user ID. Pass `*` to delete memories for all users."
 					},
 					{
 						"name": "agent_id",
@@ -1197,7 +1249,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by agent ID."
+						"description": "Filter by agent ID. Pass `*` to delete memories for all agents."
 					},
 					{
 						"name": "app_id",
@@ -1205,7 +1257,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by app ID."
+						"description": "Filter by app ID. Pass `*` to delete memories for all apps."
 					},
 					{
 						"name": "run_id",
@@ -1213,7 +1265,7 @@
 						"schema": {
 							"type": "string"
 						},
-						"description": "Filter memories by run ID."
+						"description": "Filter by run ID. Pass `*` to delete memories for all runs."
 					},
 					{
 						"name": "metadata",
@@ -1263,15 +1315,15 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Delete all memories for a specific user\nclient.delete_all(user_id=\"<user_id>\")\n\n# Delete all memories for every user in the project (wildcard)\nclient.delete_all(user_id=\"*\")\n\n# Full project wipe — all four filters must be explicitly set to \"*\"\nclient.delete_all(user_id=\"*\", agent_id=\"*\", app_id=\"*\", run_id=\"*\")\n\n# NOTE: Calling delete_all() with no filters raises a validation error.\n# At least one filter is required to prevent accidental data loss."
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\n// Delete all memories for a specific user\nclient.deleteAll({ user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Delete all memories for every user in the project (wildcard)\nclient.deleteAll({ user_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));\n\n// Full project wipe — all four filters must be explicitly set to \"*\"\nclient.deleteAll({ user_id: \"*\", agent_id: \"*\", app_id: \"*\", run_id: \"*\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
-						"source": "curl --request DELETE \\\n  --url https://api.mem0.ai/v1/memories/ \\\n  --header 'Authorization: Token <api-key>'"
+						"source": "# Delete memories for a specific user\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=<user_id>' \\\n  --header 'Authorization: Token <api-key>'\n\n# Delete memories for all users (wildcard)\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*' \\\n  --header 'Authorization: Token <api-key>'\n\n# Full project wipe — all four filters must be set to *\ncurl --request DELETE \\\n  --url 'https://api.mem0.ai/v1/memories/?user_id=*&agent_id=*&app_id=*&run_id=*' \\\n  --header 'Authorization: Token <api-key>'"
 					},
 					{
 						"lang": "Go",
@@ -1341,8 +1393,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1389,11 +1441,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Retrieve memories with filters\nmemories = client.get_all(\n    filters={\n        \"AND\": [\n            {\n                \"user_id\": \"alex\"\n            },\n            {\n                \"created_at\": {\n                    \"gte\": \"2024-07-01\",\n                    \"lte\": \"2024-07-31\"\n                }\n            }\n        ]\n    },\n    version=\"v2\"\n)\n\nprint(memories)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Retrieve memories with filters\nmemories = client.get_all(\n    filters={\n        \"AND\": [\n            {\n                \"user_id\": \"alex\"\n            },\n            {\n                \"created_at\": {\n                    \"gte\": \"2024-07-01\",\n                    \"lte\": \"2024-07-31\"\n                }\n            }\n        ]\n    }\n)\n\nprint(memories)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst filters = {\n  AND: [\n    { user_id: 'alex' },\n    { created_at: { gte: '2024-07-01', lte: '2024-07-31' } }\n  ]\n};\n\nclient.getAll({ filters, api_version: 'v2' })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst filters = {\n  AND: [\n    { user_id: 'alex' },\n    { created_at: { gte: '2024-07-01', lte: '2024-07-31' } }\n  ]\n};\n\nclient.getAll({ filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1488,8 +1540,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1537,11 +1589,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, user_id=\"<user_id>\", output_format=\"v1.1\")\nprint(results)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nquery = \"Your search query here\"\n\nresults = client.search(query, filters={\"user_id\": \"<user_id>\"})\nprint(results)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\", output_format: \"v1.1\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1623,8 +1675,8 @@
 											},
 											"expiration_date": {
 												"type": "string",
-												"format": "date-time",
-												"description": "The date and time when the memory will expire. Format: YYYY-MM-DD.",
+												"format": "date",
+												"description": "The date when the memory will expire. Format: YYYY-MM-DD.",
 												"title": "Expiration date",
 												"nullable": true,
 												"default": null
@@ -1656,11 +1708,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nquery = \"What do you know about me?\"\nfilters = {\n   \"OR\":[\n      {\n         \"user_id\":\"alex\"\n      },\n      {\n         \"agent_id\":{\n            \"in\":[\n               \"travel-assistant\",\n               \"customer-support\"\n            ]\n         }\n      }\n   ]\n}\nclient.search(query, version=\"v2\", filters=filters)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nquery = \"What do you know about me?\"\nfilters = {\n   \"OR\":[\n      {\n         \"user_id\":\"alex\"\n      },\n      {\n         \"agent_id\":{\n            \"in\":[\n               \"travel-assistant\",\n               \"customer-support\"\n            ]\n         }\n      }\n   ]\n}\nclient.search(query, filters=filters)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"What do you know about me?\";\nconst filters = {\n  OR: [\n    { user_id: \"alex\" },\n    { agent_id: { in: [\"travel-assistant\", \"customer-support\"] } }\n  ]\n};\n\nclient.search(query, { api_version: \"v2\", filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"What do you know about me?\";\nconst filters = {\n  OR: [\n    { user_id: \"alex\" },\n    { agent_id: { in: [\"travel-assistant\", \"customer-support\"] } }\n  ]\n};\n\nclient.search(query, { filters })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1682,12 +1734,510 @@
 				"x-codegen-request-body-name": "data"
 			}
 		},
+		"/v3/memories/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"summary": "Get all memories (V3, paginated)",
+				"description": "List memories scoped by filters, paginated. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. `filters` supports the same operator set as V2 search (`AND`, `OR`, `NOT`, `in`, `gte`, `lte`, etc.). Response is a paginated envelope; pass `page` and `page_size` as query parameters to step through results.",
+				"operationId": "memories_list_v3",
+				"parameters": [
+					{
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"default": 1
+						},
+						"description": "1-indexed page number."
+					},
+					{
+						"in": "query",
+						"name": "page_size",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 200,
+							"default": 100
+						},
+						"description": "Results per page."
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"filters"
+								],
+								"properties": {
+									"filters": {
+										"type": "object",
+										"description": "Entity and metadata filters. Must include at least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`).",
+										"additionalProperties": true
+									}
+								}
+							},
+							"example": {
+								"filters": {
+									"user_id": "alice"
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Paginated envelope of memories.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"count": {
+											"type": "integer",
+											"description": "Total number of memories matching the filters."
+										},
+										"next": {
+											"type": "string",
+											"format": "uri",
+											"nullable": true,
+											"description": "URL for the next page, or `null` if this is the last page."
+										},
+										"previous": {
+											"type": "string",
+											"format": "uri",
+											"nullable": true,
+											"description": "URL for the previous page, or `null` if this is the first page."
+										},
+										"results": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"id": {
+														"type": "string",
+														"format": "uuid",
+														"description": "Unique memory identifier."
+													},
+													"memory": {
+														"type": "string",
+														"description": "The extracted memory fact."
+													},
+													"score": {
+														"type": "number",
+														"format": "float",
+														"minimum": 0,
+														"maximum": 1,
+														"description": "Combined multi-signal relevance score in [0, 1] (search responses only)."
+													},
+													"metadata": {
+														"type": "object",
+														"additionalProperties": true,
+														"description": "User-supplied metadata attached to the memory."
+													},
+													"categories": {
+														"type": "array",
+														"items": {
+															"type": "string"
+														}
+													},
+													"created_at": {
+														"type": "string",
+														"format": "date-time"
+													},
+													"updated_at": {
+														"type": "string",
+														"format": "date-time"
+													}
+												},
+												"required": [
+													"id",
+													"memory",
+													"created_at"
+												]
+											}
+										}
+									},
+									"required": [
+										"count",
+										"next",
+										"previous",
+										"results"
+									]
+								},
+								"example": {
+									"count": 123,
+									"next": "https://api.mem0.ai/v3/memories/?page=2&page_size=100",
+									"previous": null,
+									"results": [
+										{
+											"id": "mem-uuid",
+											"memory": "User moved to San Francisco from New York in January 2026",
+											"metadata": {},
+											"categories": [
+												"location"
+											],
+											"created_at": "2026-01-15T10:30:00Z",
+											"updated_at": "2026-01-15T10:30:00Z"
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error — e.g. empty `filters` or no positively-scoped entity ID."
+					},
+					"401": {
+						"description": "Unauthorized — missing or invalid API key."
+					}
+				},
+				"security": [
+					{
+						"tokenAuth": []
+					}
+				],
+				"x-codeSamples": [
+					{
+						"lang": "cURL",
+						"source": "curl -X POST 'https://api.mem0.ai/v3/memories/?page=1&page_size=50' \\\n  -H \"Authorization: Token <api-key>\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"filters\": {\"user_id\": \"alice\"}}'"
+					},
+					{
+						"lang": "Python",
+						"source": "from mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\npage = client.get_all(filters={\"user_id\": \"alice\"}, page=1, page_size=50)\n# page == {\"count\": 123, \"next\": \"...\", \"previous\": None, \"results\": [...]}\nprint(page[\"count\"], len(page[\"results\"]))"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "import MemoryClient from \"mem0ai\";\n\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst page = await client.getAll({\n  filters: { userId: \"alice\" },\n  page: 1,\n  pageSize: 50,\n});\nconsole.log(page.count, page.results.length);"
+					}
+				]
+			}
+		},
+		"/v3/memories/add/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"summary": "Add memories (V3)",
+				"description": "Extract and store memories from a conversation using the V3 additive pipeline. Entity IDs (`user_id` / `agent_id` / `run_id`) are accepted at the top level. At least one entity ID is required so the memory is scoped to a session.",
+				"operationId": "memories_add_v3",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"messages"
+								],
+								"properties": {
+									"messages": {
+										"type": "array",
+										"description": "Conversation messages to extract memories from.",
+										"items": {
+											"type": "object",
+											"properties": {
+												"role": {
+													"type": "string",
+													"enum": [
+														"user",
+														"assistant",
+														"system"
+													]
+												},
+												"content": {
+													"type": "string"
+												}
+											},
+											"required": [
+												"role",
+												"content"
+											]
+										}
+									},
+									"user_id": {
+										"type": "string",
+										"description": "Scope memories to this user."
+									},
+									"agent_id": {
+										"type": "string",
+										"description": "Scope memories to this agent."
+									},
+									"run_id": {
+										"type": "string",
+										"description": "Scope memories to this session / run."
+									},
+									"metadata": {
+										"type": "object",
+										"additionalProperties": true,
+										"description": "User-supplied metadata to attach to each extracted memory."
+									},
+									"custom_instructions": {
+										"type": "string",
+										"description": "Project-level instructions that guide extraction for this call."
+									},
+									"infer": {
+										"type": "boolean",
+										"default": true,
+										"description": "When `false`, stores each message verbatim without running the extraction LLM."
+									}
+								}
+							},
+							"example": {
+								"messages": [
+									{
+										"role": "user",
+										"content": "I just moved to San Francisco from New York."
+									},
+									{
+										"role": "assistant",
+										"content": "Got it — I'll update your location."
+									}
+								],
+								"user_id": "alice"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Memory addition queued; returns an event identifier clients can poll via `GET /v1/event/{event_id}/`.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": {
+											"type": "string"
+										},
+										"status": {
+											"type": "string",
+											"enum": [
+												"PENDING",
+												"SUCCEEDED",
+												"FAILED"
+											]
+										},
+										"event_id": {
+											"type": "string",
+											"format": "uuid"
+										}
+									}
+								},
+								"example": {
+									"message": "Memory processing has been queued for background execution",
+									"status": "PENDING",
+									"event_id": "2c4d1f44-4f7b-4b2f-9f6e-7b5b4f5a1234"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error — e.g. missing `messages` or no entity ID supplied."
+					},
+					"401": {
+						"description": "Unauthorized — missing or invalid API key."
+					}
+				},
+				"security": [
+					{
+						"tokenAuth": []
+					}
+				],
+				"x-codeSamples": [
+					{
+						"lang": "cURL",
+						"source": "curl -X POST https://api.mem0.ai/v3/memories/add/ \\\n  -H \"Authorization: Token <api-key>\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"messages\": [\n      {\"role\": \"user\", \"content\": \"I just moved to San Francisco from New York.\"},\n      {\"role\": \"assistant\", \"content\": \"Got it — I\\u0027ll update your location.\"}\n    ],\n    \"user_id\": \"alice\"\n  }'"
+					},
+					{
+						"lang": "Python",
+						"source": "from mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\nresult = client.add(\n    messages=[\n        {\"role\": \"user\", \"content\": \"I just moved to San Francisco from New York.\"},\n        {\"role\": \"assistant\", \"content\": \"Got it — I'll update your location.\"}\n    ],\n    user_id=\"alice\",\n)\nprint(result)"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "import MemoryClient from \"mem0ai\";\n\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst result = await client.add(\n  [\n    { role: \"user\", content: \"I just moved to San Francisco from New York.\" },\n    { role: \"assistant\", content: \"Got it — I'll update your location.\" },\n  ],\n  { userId: \"alice\" }\n);\nconsole.log(result);"
+					}
+				]
+			}
+		},
+		"/v3/memories/search/": {
+			"post": {
+				"tags": [
+					"memories"
+				],
+				"summary": "Search memories (V3)",
+				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval — the returned `score` is a combined `[0, 1]` value; per-signal component scores are not exposed on the response. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
+				"operationId": "memories_search_v3",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": [
+									"query",
+									"filters"
+								],
+								"properties": {
+									"query": {
+										"type": "string",
+										"minLength": 1,
+										"description": "Natural-language search query."
+									},
+									"filters": {
+										"type": "object",
+										"description": "Entity and metadata filters. Must include at least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`). Supports `AND`, `OR`, `NOT`, and comparison operators (`in`, `gte`, `lte`, `gt`, `lt`, `contains`, `icontains`, `ne`).",
+										"additionalProperties": true
+									},
+									"top_k": {
+										"type": "integer",
+										"minimum": 1,
+										"maximum": 1000,
+										"default": 10,
+										"description": "Number of results to return."
+									},
+									"threshold": {
+										"type": "number",
+										"minimum": 0.0,
+										"maximum": 1.0,
+										"default": 0.1,
+										"description": "Minimum semantic relevance score. Pass `0.0` to disable filtering."
+									},
+									"rerank": {
+										"type": "boolean",
+										"default": false,
+										"description": "Apply the managed reranker for better ordering (adds latency)."
+									}
+								}
+							},
+							"example": {
+								"query": "where does the user live?",
+								"filters": {
+									"user_id": "alice"
+								},
+								"top_k": 10
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Ranked search results.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"results": {
+											"type": "array",
+											"items": {
+												"type": "object",
+												"properties": {
+													"id": {
+														"type": "string",
+														"format": "uuid",
+														"description": "Unique memory identifier."
+													},
+													"memory": {
+														"type": "string",
+														"description": "The extracted memory fact."
+													},
+													"score": {
+														"type": "number",
+														"format": "float",
+														"minimum": 0,
+														"maximum": 1,
+														"description": "Combined multi-signal relevance score in [0, 1] (search responses only)."
+													},
+													"metadata": {
+														"type": "object",
+														"additionalProperties": true,
+														"description": "User-supplied metadata attached to the memory."
+													},
+													"categories": {
+														"type": "array",
+														"items": {
+															"type": "string"
+														}
+													},
+													"created_at": {
+														"type": "string",
+														"format": "date-time"
+													},
+													"updated_at": {
+														"type": "string",
+														"format": "date-time"
+													}
+												},
+												"required": [
+													"id",
+													"memory",
+													"created_at"
+												]
+											}
+										}
+									},
+									"required": [
+										"results"
+									]
+								},
+								"example": {
+									"results": [
+										{
+											"id": "mem-uuid",
+											"memory": "User moved to San Francisco from New York in January 2026",
+											"score": 0.82,
+											"metadata": {},
+											"categories": [
+												"location"
+											],
+											"created_at": "2026-01-15T10:30:00Z",
+											"updated_at": "2026-01-15T10:30:00Z"
+										}
+									]
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Validation error — e.g. empty `query`, missing `filters`, or no positively-scoped entity ID."
+					},
+					"401": {
+						"description": "Unauthorized — missing or invalid API key."
+					}
+				},
+				"security": [
+					{
+						"tokenAuth": []
+					}
+				],
+				"x-codeSamples": [
+					{
+						"lang": "cURL",
+						"source": "curl -X POST https://api.mem0.ai/v3/memories/search/ \\\n  -H \"Authorization: Token <api-key>\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"query\": \"where does the user live?\",\n    \"filters\": {\"user_id\": \"alice\"},\n    \"top_k\": 10\n  }'"
+					},
+					{
+						"lang": "Python",
+						"source": "from mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your-api-key\")\n\nresults = client.search(\n    \"where does the user live?\",\n    filters={\"user_id\": \"alice\"},\n    top_k=10,\n)\nfor r in results[\"results\"]:\n    print(r[\"memory\"], r[\"score\"])"
+					},
+					{
+						"lang": "JavaScript",
+						"source": "import MemoryClient from \"mem0ai\";\n\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst results = await client.search(\"where does the user live?\", {\n  filters: { userId: \"alice\" },\n  topK: 10,\n});\nfor (const r of results.results) {\n  console.log(r.memory, r.score);\n}"
+					}
+				]
+			}
+		},
 		"/v1/memories/{entity_type}/{entity_id}/": {
 			"get": {
 				"tags": [
 					"memories"
 				],
-				"operationId": "memories_read",
+				"operationId": "memories_entity_read",
 				"responses": {
 					"200": {
 						"description": "Successfully retrieved memories.",
@@ -1812,7 +2362,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nmemory = client.get(memory_id=\"<memory_id>\")"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nmemory = client.get(memory_id=\"<memory_id>\")"
 					},
 					{
 						"lang": "JavaScript",
@@ -1937,7 +2487,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Update a memory\nmemory_id = \"<memory_id>\"\nclient.update(\n    memory_id=memory_id,\n    text=\"Your updated memory message here\",\n    metadata={\"category\": \"example\"}\n)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Update a memory\nmemory_id = \"<memory_id>\"\nclient.update(\n    memory_id=memory_id,\n    text=\"Your updated memory message here\",\n    metadata={\"category\": \"example\"}\n)"
 					},
 					{
 						"lang": "JavaScript",
@@ -2001,7 +2551,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nmemory_id = \"<memory_id>\"\nclient.delete(memory_id=memory_id)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nmemory_id = \"<memory_id>\"\nclient.delete(memory_id=memory_id)"
 					},
 					{
 						"lang": "JavaScript",
@@ -2147,7 +2697,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Add some message to create history\nmessages = [{\"role\": \"user\", \"content\": \"<user-message>\"}]\nclient.add(messages, user_id=\"<user-id>\")\n\n# Add second message to update history\nmessages.append({\"role\": \"user\", \"content\": \"<user-message>\"})\nclient.add(messages, user_id=\"<user-id>\")\n\n# Get history of how memory changed over time\nmemory_id = \"<memory-id-here>\"\nhistory = client.history(memory_id)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Add some message to create history\nmessages = [{\"role\": \"user\", \"content\": \"<user-message>\"}]\nclient.add(messages, user_id=\"<user-id>\")\n\n# Add second message to update history\nmessages.append({\"role\": \"user\", \"content\": \"<user-message>\"})\nclient.add(messages, user_id=\"<user-id>\")\n\n# Get history of how memory changed over time\nmemory_id = \"<memory-id-here>\"\nhistory = client.history(memory_id)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3556,7 +4106,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nresponse = client.get_project()\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\n\nclient = MemoryClient(api_key=\"your_api_key\")\n\nresponse = client.get_project()\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -3634,6 +4184,10 @@
 											"type": "object"
 										},
 										"description": "List of custom categories to be used for memory categorization."
+									},
+									"multilingual": {
+										"type": "boolean",
+										"description": "Whether to use the input language for memory storage and retrieval."
 									}
 								}
 							}
@@ -4355,7 +4909,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\nupdate_memories = [\n    {\n        \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n        \"text\": \"Watches football\"\n    },\n    {\n        \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n        \"text\": \"Likes to travel\"\n    }\n]\n\nresponse = client.batch_update(update_memories)\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\nupdate_memories = [\n    {\n        \"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\",\n        \"text\": \"Watches football\"\n    },\n    {\n        \"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\",\n        \"text\": \"Likes to travel\"\n    }\n]\n\nresponse = client.batch_update(update_memories)\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4434,7 +4988,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\ndelete_memories = [\n    {\"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"},\n    {\"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"}\n]\n\nresponse = client.batch_delete(delete_memories)\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\ndelete_memories = [\n    {\"memory_id\": \"285ed74b-6e05-4043-b16b-3abd5b533496\"},\n    {\"memory_id\": \"2c9bd859-d1b7-4d33-a6b8-94e0147c4f07\"}\n]\n\nresponse = client.batch_delete(delete_memories)\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4539,7 +5093,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Get all webhooks\nwebhooks = client.get_webhooks(project_id=\"your_project_id\")\nprint(webhooks)\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Get all webhooks\nwebhooks = client.get_webhooks(project_id=\"your_project_id\")\nprint(webhooks)\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\", \"memory:categorize\"]\n)\nprint(webhook)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4606,7 +5160,8 @@
 											"enum": [
 												"memory:add",
 												"memory:update",
-												"memory:delete"
+												"memory:delete",
+												"memory:categorize"
 											]
 										},
 										"description": "List of event types to subscribe to."
@@ -4701,7 +5256,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Create a webhook\nwebhook = client.create_webhook(\n    url=\"https://your-webhook-url.com\",\n    name=\"My Webhook\",\n    project_id=\"your_project_id\",\n    event_types=[\"memory:add\", \"memory:categorize\"]\n)\nprint(webhook)"
 					},
 					{
 						"lang": "JavaScript",
@@ -4767,7 +5322,8 @@
 											"enum": [
 												"memory:add",
 												"memory:update",
-												"memory:delete"
+												"memory:delete",
+												"memory:categorize"
 											]
 										},
 										"description": "New list of event types to subscribe to"
@@ -4845,11 +5401,11 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Update a webhook\nwebhook = client.update_webhook(\n    webhook_id=\"your_webhook_id\",\n    name=\"Updated Webhook\",\n    url=\"https://new-webhook-url.com\",\n    event_types=[\"memory:add\"]\n)\nprint(webhook)\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Update a webhook\nwebhook = client.update_webhook(\n    webhook_id=\"your_webhook_id\",\n    name=\"Updated Webhook\",\n    url=\"https://new-webhook-url.com\",\n    event_types=[\"memory:add\", \"memory:categorize\"]\n)\nprint(webhook)\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: 'your-api-key' });\n\n// Update a webhook\nclient.updateWebhook('your_webhook_id', {\n  name: 'Updated Webhook',\n  url: 'https://new-webhook-url.com',\n  event_types: ['memory:add']\n})\n  .then(webhook => console.log(webhook))\n  .catch(err => console.error(err));\n\n// Delete a webhook\nclient.deleteWebhook('your_webhook_id')\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: 'your-api-key' });\n\n// Update a webhook\nclient.updateWebhook('your_webhook_id', {\n  name: 'Updated Webhook',\n  url: 'https://new-webhook-url.com',\n  event_types: ['memory:add', 'memory:categorize']\n})\n  .then(webhook => console.log(webhook))\n  .catch(err => console.error(err));\n\n// Delete a webhook\nclient.deleteWebhook('your_webhook_id')\n  .then(response => console.log(response))\n  .catch(err => console.error(err));"
 					},
 					{
 						"lang": "cURL",
@@ -4940,7 +5496,7 @@
 				"x-code-samples": [
 					{
 						"lang": "Python",
-						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\", org_id=\"your_org_id\", project_id=\"your_project_id\")\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
+						"source": "# To use the Python SDK, install the package:\n# pip install mem0ai\n\nfrom mem0 import MemoryClient\nclient = MemoryClient(api_key=\"your_api_key\")\n\n# Delete a webhook\nresponse = client.delete_webhook(webhook_id=\"your_webhook_id\")\nprint(response)"
 					},
 					{
 						"lang": "JavaScript",
@@ -5118,9 +5674,10 @@
 						"nullable": true
 					},
 					"expiration_date": {
-						"description": "The date and time when the memory will expire. Format: YYYY-MM-DD",
+						"description": "The date when the memory will expire. Format: YYYY-MM-DD",
 						"title": "Expiration date",
 						"type": "string",
+						"format": "date",
 						"nullable": true
 					},
 					"org_id": {
@@ -5568,26 +6125,26 @@
 			},
 			"DeleteMemoriesInput": {
 				"type": "object",
-				"description": "Input for deleting memories associated with a specific user, agent, app, or run.",
+				"description": "Filters for bulk memory deletion. At least one field is required. Pass \"*\" for a field to delete all memories for that entity type. Set all four to \"*\" for a full project wipe.",
 				"properties": {
 					"user_id": {
 						"type": "string",
-						"description": "The unique identifier of the user whose memories should be deleted.",
+						"description": "User ID to delete memories for. Pass \"*\" for all users.",
 						"nullable": true
 					},
 					"agent_id": {
 						"type": "string",
-						"description": "The unique identifier of the agent whose memories should be deleted.",
+						"description": "Agent ID to delete memories for. Pass \"*\" for all agents.",
 						"nullable": true
 					},
 					"app_id": {
 						"type": "string",
-						"description": "The unique identifier of the application whose memories should be deleted.",
+						"description": "App ID to delete memories for. Pass \"*\" for all apps.",
 						"nullable": true
 					},
 					"run_id": {
 						"type": "string",
-						"description": "The unique identifier of the run whose memories should be deleted.",
+						"description": "Run ID to delete memories for. Pass \"*\" for all runs.",
 						"nullable": true
 					}
 				},

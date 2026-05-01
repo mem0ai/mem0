@@ -1,0 +1,320 @@
+{
+  "id": "openclaw-mem0",
+  "name": "Memory (Mem0)",
+  "description": "Mem0 memory backend for OpenClaw — platform (mem0.ai cloud) or self-hosted open-source. Auto-recall and auto-capture are opt-in (disabled by default). Supports OpenAI, Anthropic, Ollama (fully local), Qdrant, and PGVector providers.",
+  "version": "1.0.11",
+  "kind": "memory",
+  "skills": ["skills"],
+  "commandAliases": [
+    {
+      "name": "mem0",
+      "cliCommand": "mem0"
+    }
+  ],
+  "contracts": {
+    "tools": [
+      "memory_search", "memory_add", "memory_get", "memory_list",
+      "memory_update", "memory_delete", "memory_event_list", "memory_event_status"
+    ]
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "mem0",
+        "envVars": ["MEM0_API_KEY"]
+      },
+      {
+        "id": "openclaw-mem0-oss",
+        "envVars": ["OPENAI_API_KEY", "ANTHROPIC_API_KEY"]
+      }
+    ]
+  },
+  "providerAuthChoices": [
+    {
+      "provider": "mem0",
+      "method": "api-key",
+      "choiceId": "mem0-api-key",
+      "choiceLabel": "Mem0 API key",
+      "choiceHint": "Required for platform mode. Get your key at https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=openclaw-plugin",
+      "groupId": "mem0",
+      "groupLabel": "Mem0",
+      "optionKey": "apiKey",
+      "cliFlag": "--mem0-api-key",
+      "cliOption": "--mem0-api-key <key>",
+      "cliDescription": "Mem0 platform API key"
+    },
+    {
+      "provider": "openclaw-mem0-oss",
+      "method": "config",
+      "choiceId": "oss-openai",
+      "choiceLabel": "Open Source with OpenAI",
+      "choiceHint": "Self-hosted mode using OpenAI for LLM and embeddings",
+      "groupId": "oss",
+      "groupLabel": "Open Source (self-hosted)",
+      "optionKey": "oss.llm.config.apiKey",
+      "cliFlag": "--oss-llm-key",
+      "cliOption": "--oss-llm-key <key>",
+      "cliDescription": "OpenAI API key for OSS LLM"
+    },
+    {
+      "provider": "openclaw-mem0-oss",
+      "method": "config",
+      "choiceId": "oss-ollama",
+      "choiceLabel": "Open Source with Ollama (local)",
+      "choiceHint": "Fully local mode, no API keys needed",
+      "groupId": "oss",
+      "groupLabel": "Open Source (self-hosted)",
+      "optionKey": "oss.llm.config.ollama_base_url",
+      "cliFlag": "--oss-llm-url",
+      "cliOption": "--oss-llm-url <url>",
+      "cliDescription": "Ollama base URL for local LLM"
+    }
+  ],
+  "uiHints": {
+    "mode": {
+      "label": "Mode",
+      "help": "\"platform\" for Mem0 cloud, \"open-source\" for self-hosted"
+    },
+    "apiKey": {
+      "label": "Mem0 API Key",
+      "sensitive": true,
+      "placeholder": "m0-...",
+      "help": "Platform mode only. Use a SecretRef ({\"source\":\"env\",\"provider\":\"default\",\"id\":\"MEM0_API_KEY\"}) or ${MEM0_API_KEY} instead of storing the key directly."
+    },
+    "userId": {
+      "label": "Default User ID",
+      "placeholder": "default",
+      "help": "User ID for scoping memories"
+    },
+    "autoCapture": {
+      "label": "Auto-Capture",
+      "help": "Automatically store conversation context after each agent turn"
+    },
+    "autoRecall": {
+      "label": "Auto-Recall",
+      "help": "Automatically inject relevant memories before each agent turn"
+    },
+    "customInstructions": {
+      "label": "Custom Instructions",
+      "placeholder": "Only store user preferences and important facts...",
+      "help": "Natural language rules for what Mem0 should store or exclude (platform mode)"
+    },
+    "customCategories": {
+      "label": "Custom Categories",
+      "advanced": true,
+      "help": "Map of category names to descriptions for memory tagging (platform mode only). Sensible defaults are built in."
+    },
+    "customPrompt": {
+      "label": "Custom Prompt (Open-Source)",
+      "advanced": true,
+      "help": "Custom prompt for open-source mode memory extraction."
+    },
+    "searchThreshold": {
+      "label": "Search Threshold",
+      "placeholder": "0.3",
+      "help": "Minimum similarity score for search results (0-1). Default: 0.3"
+    },
+    "topK": {
+      "label": "Top K Results",
+      "placeholder": "5",
+      "help": "Maximum number of memories to retrieve"
+    },
+    "userEmail": {
+      "label": "User Email",
+      "sensitive": true,
+      "advanced": true,
+      "help": "Email address associated with the Mem0 account. Set automatically during platform login."
+    },
+    "oss": {
+      "label": "Open-Source Configuration",
+      "advanced": true,
+      "help": "Optional. Configure custom embedder, vector store, LLM, or history DB for open-source mode. For API keys in sub-provider configs, use SecretRef objects or ${VAR} syntax instead of plaintext values."
+    },
+    "oss.llm.config.apiKey": {
+      "label": "OSS LLM API Key",
+      "sensitive": true,
+      "advanced": true,
+      "help": "API key for open-source LLM provider. Use SecretRef or ${VAR} syntax."
+    },
+    "oss.embedder.config.apiKey": {
+      "label": "OSS Embedder API Key",
+      "sensitive": true,
+      "advanced": true,
+      "help": "API key for open-source embedder provider. Use SecretRef or ${VAR} syntax."
+    },
+    "skills": {
+      "label": "Agentic Memory Skills",
+      "advanced": true,
+      "help": "Enable skills-based memory extraction. The agent controls what to remember (triage), how to recall (recall), and periodic cleanup (dream). Disables auto-capture when active."
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "mode": {
+        "type": "string",
+        "enum": [
+          "platform",
+          "open-source"
+        ],
+        "description": "Required. 'platform' requires MEM0_API_KEY. 'open-source' requires OPENAI_API_KEY (default) or no keys with Ollama."
+      },
+      "apiKey": {
+        "type": "string",
+        "sensitive": true,
+        "description": "Platform API key. Prefer SecretRef or ${MEM0_API_KEY} env var over plaintext."
+      },
+      "userId": {
+        "type": "string"
+      },
+      "baseUrl": {
+        "type": "string",
+        "description": "API base URL override (default: https://api.mem0.ai)"
+      },
+      "userEmail": {
+        "type": "string",
+        "sensitive": true,
+        "description": "Email associated with Mem0 account. Set automatically during platform login."
+      },
+      "autoCapture": {
+        "type": "boolean",
+        "default": true,
+        "description": "When true, extracts durable facts after each agent turn. Enabled by default. Ignored in skills mode."
+      },
+      "autoRecall": {
+        "type": "boolean",
+        "default": true,
+        "description": "When true, injects relevant memories before each agent turn. Enabled by default. Ignored in skills mode."
+      },
+      "customInstructions": {
+        "type": "string"
+      },
+      "customCategories": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "customPrompt": {
+        "type": "string"
+      },
+      "searchThreshold": {
+        "type": "number"
+      },
+      "topK": {
+        "type": "number"
+      },
+      "anonymousTelemetryId": {
+        "type": "string",
+        "description": "Persistent anonymous telemetry identifier"
+      },
+      "oss": {
+        "type": "object",
+        "properties": {
+          "embedder": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "config": {
+                "type": "object"
+              }
+            }
+          },
+          "vectorStore": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "config": {
+                "type": "object"
+              }
+            }
+          },
+          "llm": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "config": {
+                "type": "object"
+              }
+            }
+          },
+          "historyDbPath": {
+            "type": "string"
+          },
+          "disableHistory": {
+            "type": "boolean"
+          }
+        }
+      },
+      "skills": {
+        "type": "object",
+        "properties": {
+          "triage": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "importanceThreshold": { "type": "number" },
+              "credentialPatterns": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "recall": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "strategy": { "type": "string", "enum": ["always", "smart", "manual"] },
+              "tokenBudget": { "type": "number" },
+              "maxMemories": { "type": "number" },
+              "rerank": { "type": "boolean" },
+              "keywordSearch": { "type": "boolean" },
+              "filterMemories": { "type": "boolean" },
+              "threshold": { "type": "number" },
+              "identityAlwaysInclude": { "type": "boolean" },
+              "categoryOrder": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "dream": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "auto": { "type": "boolean" },
+              "minHours": { "type": "number" },
+              "minSessions": { "type": "number" },
+              "minMemories": { "type": "number" }
+            }
+          },
+          "domain": { "type": "string" },
+          "customRules": {
+            "type": "object",
+            "properties": {
+              "include": { "type": "array", "items": { "type": "string" } },
+              "exclude": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "categories": { "type": "object" }
+        }
+      }
+    },
+    "required": []
+  },
+  "providerEndpoints": [
+    {
+      "endpointClass": "api",
+      "hosts": ["api.mem0.ai"]
+    },
+    {
+      "endpointClass": "dashboard",
+      "hosts": ["app.mem0.ai"]
+    },
+    {
+      "endpointClass": "telemetry",
+      "hosts": ["us.i.posthog.com"]
+    }
+  ]
+}

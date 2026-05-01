@@ -52,6 +52,7 @@ class ValkeyDB(VectorStoreBase):
         hnsw_m: int = 16,
         hnsw_ef_construction: int = 200,
         hnsw_ef_runtime: int = 10,
+        cluster_mode: bool = False,
     ):
         """
         Initialize the Valkey vector store.
@@ -65,6 +66,7 @@ class ValkeyDB(VectorStoreBase):
             hnsw_m (int, optional): HNSW M parameter (connections per node). Defaults to 16.
             hnsw_ef_construction (int, optional): HNSW ef_construction parameter. Defaults to 200.
             hnsw_ef_runtime (int, optional): HNSW ef_runtime parameter. Defaults to 10.
+            cluster_mode (bool, optional): Enable cluster mode for Valkey cluster (CME) deployments. Defaults to False.
         """
         self.embedding_model_dims = embedding_model_dims
         self.collection_name = collection_name
@@ -74,6 +76,7 @@ class ValkeyDB(VectorStoreBase):
         self.hnsw_m = hnsw_m
         self.hnsw_ef_construction = hnsw_ef_construction
         self.hnsw_ef_runtime = hnsw_ef_runtime
+        self.cluster_mode = cluster_mode
 
         # Validate index type
         if self.index_type not in ["hnsw", "flat"]:
@@ -81,8 +84,13 @@ class ValkeyDB(VectorStoreBase):
 
         # Connect to Valkey
         try:
-            self.client = valkey.from_url(valkey_url)
-            logger.debug(f"Successfully connected to Valkey at {valkey_url}")
+            if self.cluster_mode:
+                from valkey.cluster import ValkeyCluster
+
+                self.client = ValkeyCluster.from_url(valkey_url)
+            else:
+                self.client = valkey.from_url(valkey_url)
+            logger.debug(f"Successfully connected to Valkey at {valkey_url} (cluster_mode={cluster_mode})")
         except Exception as e:
             logger.exception(f"Failed to connect to Valkey at {valkey_url}: {e}")
             raise
@@ -185,7 +193,6 @@ class ValkeyDB(VectorStoreBase):
         """
         # Check if the search module is available
         try:
-            # Try to execute a search command
             self.client.execute_command("FT._LIST")
         except ResponseError as e:
             if "unknown command" in str(e).lower():
@@ -353,6 +360,9 @@ class ValkeyDB(VectorStoreBase):
         """
         Execute a search query.
 
+        In cluster mode, the valkey-search module's built-in coordinator handles
+        fan-out across all shards and aggregates results server-side.
+
         Args:
             query (str): The search query to execute.
             params (dict): The query parameters.
@@ -410,14 +420,14 @@ class ValkeyDB(VectorStoreBase):
 
         return memory_results
 
-    def search(self, query: str, vectors: list, limit: int = 5, filters: dict = None, ef_runtime: int = None):
+    def search(self, query: str, vectors: list, top_k: int = 5, filters: dict = None, ef_runtime: int = None):
         """
         Search for similar vectors in the index.
 
         Args:
             query (str): The search query.
             vectors (list): The vector to search for.
-            limit (int, optional): Maximum number of results to return. Defaults to 5.
+            top_k (int, optional): Maximum number of results to return. Defaults to 5.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
             ef_runtime (int, optional): HNSW ef_runtime parameter for this query. Only used with HNSW index. Defaults to None.
 
@@ -429,10 +439,10 @@ class ValkeyDB(VectorStoreBase):
 
         # Build the KNN part with optional EF_RUNTIME for HNSW
         if self.index_type == "hnsw" and ef_runtime is not None:
-            knn_part = f"[KNN {limit} @embedding $vec_param EF_RUNTIME {ef_runtime} AS vector_score]"
+            knn_part = f"[KNN {top_k} @embedding $vec_param EF_RUNTIME {ef_runtime} AS vector_score]"
         else:
             # For FLAT indexes or when ef_runtime is None, use basic KNN
-            knn_part = f"[KNN {limit} @embedding $vec_param AS vector_score]"
+            knn_part = f"[KNN {top_k} @embedding $vec_param AS vector_score]"
 
         # Build the complete query
         q = self._build_search_query(knn_part, filters)
@@ -491,8 +501,11 @@ class ValkeyDB(VectorStoreBase):
                 "hash": payload.get("hash", f"hash_{vector_id}"),  # Use a default hash if not provided
                 "memory": payload.get("data", f"data_{vector_id}"),  # Use a default data if not provided
                 "created_at": int(datetime.fromisoformat(payload["created_at"]).timestamp()),
-                "embedding": np.array(vector, dtype=np.float32).tobytes(),
             }
+
+            # Only update embedding if vector is provided
+            if vector is not None:
+                hash_data["embedding"] = np.array(vector, dtype=np.float32).tobytes()
 
             # Add updated_at if available
             if "updated_at" in payload:
@@ -765,7 +778,7 @@ class ValkeyDB(VectorStoreBase):
 
         return q
 
-    def list(self, filters: dict = None, limit: int = None) -> list:
+    def list(self, filters: dict = None, top_k: int = None) -> list:
         """
         List all recent created memories from the vector store.
 
@@ -775,7 +788,7 @@ class ValkeyDB(VectorStoreBase):
                 Values are used as-is without validation - wildcards, special characters,
                 lists, etc. are passed through literally to Valkey search.
                 Multiple filters are combined with AND logic.
-            limit (int, optional): Maximum number of results to return. Defaults to 1000
+            top_k (int, optional): Maximum number of results to return. Defaults to 1000
                 if not specified.
 
         Returns:
@@ -786,10 +799,10 @@ class ValkeyDB(VectorStoreBase):
             # Since Valkey search requires vector format, use a dummy vector search
             # that returns all documents by using a zero vector and large K
             dummy_vector = [0.0] * self.embedding_model_dims
-            search_limit = limit if limit is not None else 1000  # Large default
+            search_limit = top_k if top_k is not None else 1000  # Large default
 
             # Use the existing search method which handles filters properly
-            search_results = self.search("", dummy_vector, limit=search_limit, filters=filters)
+            search_results = self.search("", dummy_vector, top_k=search_limit, filters=filters)
 
             # Convert search results to list format (match Redis format)
             class MemoryResult:

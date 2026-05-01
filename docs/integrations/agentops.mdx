@@ -1,5 +1,6 @@
 ---
 title: AgentOps
+description: "Integrate Mem0 with AgentOps for automatic monitoring, analytics, and real-time tracking of memory operations."
 ---
 
 Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [AgentOps](https://agentops.ai), a comprehensive monitoring and analytics platform for AI agents. This integration enables automatic tracking and analysis of memory operations, providing insights into agent performance and memory usage patterns.
@@ -23,7 +24,7 @@ pip install mem0ai agentops python-dotenv
 2. Valid API keys:
    - [AgentOps API Key](https://app.agentops.ai/dashboard/api-keys)
    - OpenAI API Key (for LLM operations)
-   - [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys) (optional, for cloud operations)
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-agentops" rel="nofollow">Mem0 API Key</a> (optional, for cloud operations)
 
 ## Basic Integration Example
 
@@ -49,7 +50,7 @@ local_config = {
     "llm": {
         "provider": "openai",
         "config": {
-            "model": "gpt-4.1-nano-2025-04-14",
+            "model": "gpt-5-mini",
             "temperature": 0.1,
             "max_tokens": 2000,
         },
@@ -102,7 +103,7 @@ def demonstrate_sync_memory(local_config, sample_messages, sample_preferences, u
         ]
 
         for query in search_queries:
-            results = memory.search(query, user_id=user_id)
+            results = memory.search(query, filters={"user_id": user_id})
         
             if results and "results" in results:
                 for j, result in enumerate(results['results']): 
@@ -110,7 +111,7 @@ def demonstrate_sync_memory(local_config, sample_messages, sample_preferences, u
             else:
                 print("No results found")
 
-        all_memories = memory.get_all(user_id=user_id)
+        all_memories = memory.get_all(filters={"user_id": user_id})
         if all_memories and "results" in all_memories:
             print(f"Total memories: {len(all_memories['results'])}")
 

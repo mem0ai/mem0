@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from mem0.configs.vector_stores.chroma import ChromaDbConfig
 from mem0.vector_stores.chroma import ChromaDB
 
 
@@ -38,7 +39,7 @@ def test_search_vectors(chromadb_instance, mock_chromadb_client):
     chromadb_instance.collection.query.return_value = mock_result
 
     vectors = [[0.1, 0.2, 0.3]]
-    results = chromadb_instance.search(query="", vectors=vectors, limit=2)
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=2)
 
     chromadb_instance.collection.query.assert_called_once_with(query_embeddings=vectors, where=None, n_results=2)
 
@@ -59,7 +60,7 @@ def test_search_vectors_with_filters(chromadb_instance, mock_chromadb_client):
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = chromadb_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     # Verify that _generate_where_clause was called with the filters
     expected_where = {"$and": [{"user_id": {"$eq": "alice"}}, {"agent_id": {"$eq": "agent1"}}, {"run_id": {"$eq": "run1"}}]}
@@ -85,7 +86,7 @@ def test_search_vectors_with_single_filter(chromadb_instance, mock_chromadb_clie
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"user_id": "alice"}
-    results = chromadb_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     # Verify that single filter is passed with $eq operator
     expected_where = {"user_id": {"$eq": "alice"}}
@@ -107,7 +108,7 @@ def test_search_vectors_with_no_filters(chromadb_instance, mock_chromadb_client)
     chromadb_instance.collection.query.return_value = mock_result
 
     vectors = [[0.1, 0.2, 0.3]]
-    results = chromadb_instance.search(query="", vectors=vectors, limit=2, filters=None)
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=2, filters=None)
 
     chromadb_instance.collection.query.assert_called_once_with(
         query_embeddings=vectors, where=None, n_results=2
@@ -161,7 +162,7 @@ def test_list_vectors(chromadb_instance):
     }
     chromadb_instance.collection.get.return_value = mock_result
 
-    results = chromadb_instance.list(limit=2)
+    results = chromadb_instance.list(top_k=2)
 
     chromadb_instance.collection.get.assert_called_once_with(where=None, limit=2)
 
@@ -180,7 +181,7 @@ def test_list_vectors_with_filters(chromadb_instance):
     chromadb_instance.collection.get.return_value = mock_result
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = chromadb_instance.list(filters=filters, limit=2)
+    results = chromadb_instance.list(filters=filters, top_k=2)
 
     # Verify that _generate_where_clause was called with the filters
     expected_where = {"$and": [{"user_id": {"$eq": "alice"}}, {"agent_id": {"$eq": "agent1"}}, {"run_id": {"$eq": "run1"}}]}
@@ -202,7 +203,7 @@ def test_list_vectors_with_single_filter(chromadb_instance):
     chromadb_instance.collection.get.return_value = mock_result
 
     filters = {"user_id": "alice"}
-    results = chromadb_instance.list(filters=filters, limit=2)
+    results = chromadb_instance.list(filters=filters, top_k=2)
 
     # Verify that single filter is passed with $eq operator
     expected_where = {"user_id": {"$eq": "alice"}}
@@ -249,3 +250,15 @@ def test_generate_where_clause_non_string_values():
     # ChromaDB accepts non-string values in filters
     expected = {"$and": [{"user_id": {"$eq": "alice"}}, {"count": {"$eq": 5}}, {"active": {"$eq": True}}]}
     assert result == expected
+
+
+def test_chroma_config_accepts_default_tmp_path():
+    """Test that ChromaDbConfig accepts the default /tmp/chroma path."""
+    config = ChromaDbConfig(path="/tmp/chroma")
+    assert config.path == "/tmp/chroma"
+
+
+def test_chroma_config_rejects_no_config():
+    """Test that ChromaDbConfig rejects when no connection config is provided."""
+    with pytest.raises(ValueError):
+        ChromaDbConfig()

@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Dict, List, Optional
 
@@ -6,6 +7,7 @@ from openai import AzureOpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 SCOPE = "https://cognitiveservices.azure.com/.default"
 
@@ -16,7 +18,7 @@ class AzureOpenAIStructuredLLM(LLMBase):
 
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
-            self.config.model = "gpt-4.1-nano-2025-04-14"
+            self.config.model = "gpt-5-mini"
 
         api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
@@ -83,9 +85,35 @@ class AzureOpenAIStructuredLLM(LLMBase):
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
-        if tools:
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
-
         response = self.client.chat.completions.create(**params)
         return self._parse_response(response, tools)
+
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+
+        Args:
+            response: The raw response from API.
+            tools: The list of tools provided in the request.
+
+        Returns:
+            str or dict: The processed response.
+        """
+        if tools:
+            processed_response = {
+                "content": response.choices[0].message.content,
+                "tool_calls": [],
+            }
+
+            if response.choices[0].message.tool_calls:
+                for tool_call in response.choices[0].message.tool_calls:
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
+                        }
+                    )
+
+            return processed_response
+        else:
+            return response.choices[0].message.content

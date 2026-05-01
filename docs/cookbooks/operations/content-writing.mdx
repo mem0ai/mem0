@@ -16,6 +16,8 @@ Integrating Mem0 into your writing workflow helps you:
 
 ## Setup
 
+<Tabs>
+  <Tab title="Platform">
 ```python
 import os
 from openai import OpenAI
@@ -32,13 +34,81 @@ openai = OpenAI()
 USER_ID = "content_writer"
 RUN_ID = "smart_editing_session"
 ```
+  </Tab>
+  <Tab title="Open Source">
+Here we use **Mem0 open source** (`Memory`): all local, no API keys needed for memory. Vectors in **Qdrant**, LLM and embeddings via **Ollama**. The **OpenAI** Python SDK calls Ollama's **OpenAI-compatible** `/v1` endpoint for content rewriting.
+
+### Installation
+
+Install the required dependencies:
+
+```bash
+pip install mem0ai qdrant-client openai ollama
+```
+
+Then start Qdrant and pull the Ollama models:
+
+```bash
+docker run -d -p 6333:6333 qdrant/qdrant
+ollama pull llama3.1:latest
+ollama pull nomic-embed-text:latest
+```
+
+<Note>You can swap `nomic-embed-text` for any Ollama-supported embedding model (e.g., `snowflake-arctic-embed`, `mxbai-embed-large`). Just update the `model` in the `embedder` config and set `embedding_model_dims` in the Qdrant config to match the model's output dimensions (768 for `nomic-embed-text`).</Note>
+
+```python
+from openai import OpenAI
+from mem0 import Memory
+
+OLLAMA_URL = "http://localhost:11434"
+CHAT_MODEL = "llama3.1:latest"
+
+# Set up Mem0 with local providers
+memory = Memory.from_config({
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": "content_writing",
+            "host": "localhost",
+            "port": 6333,
+            "embedding_model_dims": 768,
+        },
+    },
+    "llm": {
+        "provider": "ollama",
+        "config": {
+            "model": CHAT_MODEL,
+            "temperature": 0,
+            "max_tokens": 2000,
+            "ollama_base_url": OLLAMA_URL,
+        },
+    },
+    "embedder": {
+        "provider": "ollama",
+        "config": {
+            "model": "nomic-embed-text:latest",
+            "ollama_base_url": OLLAMA_URL,
+        },
+    },
+})
+
+# OpenAI SDK pointed at Ollama for content rewriting
+ollama_chat = OpenAI(base_url=f"{OLLAMA_URL}/v1", api_key="ollama")
+
+USER_ID = "content_writer"
+RUN_ID = "smart_editing_session"
+```
+  </Tab>
+</Tabs>
 
 ## Storing Your Writing Preferences in Mem0
 
+<Tabs>
+  <Tab title="Platform">
 ```python
 def store_writing_preferences():
     """Store your writing preferences in Mem0."""
-    
+
     preferences = """My writing preferences:
 1. Use headings and sub-headings for structure.
 2. Keep paragraphs concise (8–10 sentences max).
@@ -61,9 +131,41 @@ def store_writing_preferences():
 
     return response
 ```
+  </Tab>
+  <Tab title="Open Source">
+```python
+def store_writing_preferences():
+    """Store your writing preferences in Mem0."""
+
+    preferences = """My writing preferences:
+1. Use headings and sub-headings for structure.
+2. Keep paragraphs concise (8–10 sentences max).
+3. Incorporate specific numbers and statistics.
+4. Provide concrete examples.
+5. Use bullet points for clarity.
+6. Avoid jargon and buzzwords."""
+
+    messages = [
+        {"role": "user", "content": "Here are my writing style preferences."},
+        {"role": "assistant", "content": preferences},
+    ]
+
+    response = memory.add(
+        messages,
+        user_id=USER_ID,
+        run_id=RUN_ID,
+        metadata={"type": "preferences", "category": "writing_style"},
+    )
+
+    return response
+```
+  </Tab>
+</Tabs>
 
 ## Editing Content Using Stored Preferences
 
+<Tabs>
+  <Tab title="Platform">
 ```python
 def apply_writing_style(original_content):
     """Use preferences stored in Mem0 to guide content rewriting."""
@@ -100,36 +202,80 @@ Preferences:
     ]
 
     response = openai.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         messages=messages
     )
     clean_response = response.choices[0].message.content.strip()
 
     return clean_response
 ```
+  </Tab>
+  <Tab title="Open Source">
+```python
+def apply_writing_style(original_content):
+    """Use preferences stored in Mem0 to guide content rewriting."""
+
+    results = memory.search(
+        query="What are my writing style preferences?",
+        user_id=USER_ID,
+        run_id=RUN_ID,
+    )
+
+    if not results:
+        print("No preferences found.")
+        return None
+
+    preferences = "\n".join(r["memory"] for r in results.get("results", []))
+
+    system_prompt = f"""
+You are a writing assistant.
+
+Apply the following writing style preferences to improve the user's content:
+
+Preferences:
+{preferences}
+"""
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"""Original Content:
+    {original_content}"""},
+    ]
+
+    # Ollama via OpenAI-compatible API
+    response = ollama_chat.chat.completions.create(
+        model=CHAT_MODEL,
+        messages=messages,
+    )
+    clean_response = response.choices[0].message.content.strip()
+
+    return clean_response
+```
+  </Tab>
+</Tabs>
 
 ## Complete Workflow: Content Editing
 
 ```python
 def content_writing_workflow(content):
     """Automated workflow for editing a document based on writing preferences."""
-    
+
     # Store writing preferences (if not already stored)
     store_writing_preferences()  # Ideally done once, or with a conditional check
-    
+
     # Edit the document with Mem0 preferences
     edited_content = apply_writing_style(content)
-    
+
     if not edited_content:
         return "Failed to edit document."
-    
+
     # Display results
     print("\n=== ORIGINAL DOCUMENT ===\n")
     print(content)
-    
+
     print("\n=== EDITED DOCUMENT ===\n")
     print(edited_content)
-    
+
     return edited_content
 ```
 
@@ -138,8 +284,8 @@ def content_writing_workflow(content):
 ```python
 # Define your document
 original_content = """Project Proposal
-    
-The following proposal outlines our strategy for the Q3 marketing campaign. 
+
+The following proposal outlines our strategy for the Q3 marketing campaign.
 We believe this approach will significantly increase our market share.
 
 Increase brand awareness
@@ -160,8 +306,8 @@ Your document will be transformed into a structured, well-formatted version base
 ### Original Document
 ```
 Project Proposal
-    
-The following proposal outlines our strategy for the Q3 marketing campaign. 
+
+The following proposal outlines our strategy for the Q3 marketing campaign.
 We believe this approach will significantly increase our market share.
 
 Increase brand awareness
@@ -204,7 +350,7 @@ This proposal outlines our strategy for the Q3 marketing campaign. We aim to sig
 
 ### Conclusion
 
-We believe this strategy will effectively increase our market share. To achieve these goals, we need your support and collaboration. Let’s work together to make this campaign a success. Please review the proposal and provide your feedback by the end of the week.
+We believe this strategy will effectively increase our market share. To achieve these goals, we need your support and collaboration. Let's work together to make this campaign a success. Please review the proposal and provide your feedback by the end of the week.
 ```
 
 Mem0 enables a seamless, intelligent content-writing workflow, perfect for content creators, marketers, and technical writers looking to scale their personal tone and structure across work.

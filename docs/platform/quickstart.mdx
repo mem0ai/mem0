@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: "Get started with Mem0 Platform in minutes"
+description: "Set up your Mem0 Platform account, install the SDK, and store your first memory in under five minutes."
 icon: "bolt"
 iconType: "solid"
 ---
@@ -9,8 +9,8 @@ Get started with Mem0 Platform's hosted API in under 5 minutes. This guide shows
 
 ## Prerequisites
 
-- Mem0 Platform account ([Sign up here](https://app.mem0.ai))
-- API key ([Get one from dashboard](https://app.mem0.ai/settings/api-keys))
+- Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-quickstart" rel="nofollow">Sign up here</a>)
+- API key (<a href="https://app.mem0.ai/dashboard/settings?tab=api-keys&subtab=configuration" rel="nofollow">Get one from dashboard</a>)
 - Python 3.10+, Node.js 14+, or cURL
 
 ## Installation
@@ -46,6 +46,10 @@ const client = new MemoryClient({ apiKey: 'your-api-key' });
 export MEM0_API_KEY="your-api-key"
 ```
 
+```bash CLI
+mem0 init --api-key "your-api-key"
+```
+
 </CodeGroup>
 </Step>
 
@@ -64,12 +68,12 @@ const messages = [
     {"role": "user", "content": "I'm a vegetarian and allergic to nuts."},
     {"role": "assistant", "content": "Got it! I'll remember your dietary preferences."}
 ];
-await client.add(messages, { user_id: "user123" });
+await client.add(messages, { userId: "user123" });
 ````
 
 ```bash cURL
-curl -X POST https://api.mem0.ai/v1/memories/add \
-  -H "Authorization: Bearer $MEM0_API_KEY" \
+curl -X POST https://api.mem0.ai/v3/memories/add/ \
+  -H "Authorization: Token $MEM0_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [
@@ -78,6 +82,10 @@ curl -X POST https://api.mem0.ai/v1/memories/add \
     ],
     "user_id": "user123"
   }'
+```
+
+```bash CLI
+mem0 add "I'm a vegetarian and allergic to nuts." --user-id user123
 ```
 
 </CodeGroup>
@@ -96,13 +104,17 @@ console.log(results);
 ````
 
 ```bash cURL
-curl -X POST https://api.mem0.ai/v1/memories/search \
-  -H "Authorization: Bearer $MEM0_API_KEY" \
+curl -X POST https://api.mem0.ai/v3/memories/search/ \
+  -H "Authorization: Token $MEM0_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What are my dietary restrictions?",
     "filters": {"user_id": "user123"}
   }'
+```
+
+```bash CLI
+mem0 search "What are my dietary restrictions?" --user-id user123
 ```
 
 </CodeGroup>
@@ -126,6 +138,10 @@ curl -X POST https://api.mem0.ai/v1/memories/search \
 
 </Step>
 </Steps>
+
+<Callout type="tip" icon="plug">
+  **Pro Tip**: Want AI agents to manage their own memory automatically? Use <Link href="/platform/mem0-mcp">Mem0 MCP</Link> to let LLMs decide when to save, search, and update memories.
+</Callout>
 
 ## What's Next?
 

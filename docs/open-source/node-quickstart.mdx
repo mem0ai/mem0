@@ -43,7 +43,7 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movie_recom
 
 <Step title="Search memories">
 ```ts
-const results = await memory.search("What do you know about me?", { userId: "alice" });
+const results = await memory.search("What do you know about me?", { filters: { userId: "alice" } });
 console.log(results);
 ```
 
@@ -67,7 +67,7 @@ console.log(results);
 </Steps>
 
 <Note>
-By default the Node SDK uses local-friendly settings (OpenAI `gpt-4.1-nano-2025-04-14`, `text-embedding-3-small`, in-memory vector store, and SQLite history). Swap components by passing a config as shown below.
+By default the Node SDK uses local-friendly settings (OpenAI `gpt-5-mini`, `text-embedding-3-small`, in-memory vector store, and SQLite history). Swap components by passing a config as shown below.
 </Note>
 
 ## Configure for production
@@ -76,7 +76,6 @@ By default the Node SDK uses local-friendly settings (OpenAI `gpt-4.1-nano-2025-
 import { Memory } from "mem0ai/oss";
 
 const memory = new Memory({
-  version: "v1.1",
   embedder: {
     provider: "openai",
     config: {
@@ -106,7 +105,7 @@ const memory = new Memory({
 
 <CodeGroup>
 ```ts Get all memories
-const allMemories = await memory.getAll({ userId: "alice" });
+const allMemories = await memory.getAll({ filters: { userId: "alice" } });
 console.log(allMemories);
 ```
 
@@ -116,7 +115,7 @@ console.log(singleMemory);
 ```
 
 ```ts Search memories
-const result = await memory.search("What do you know about me?", { userId: "alice" });
+const result = await memory.search("What do you know about me?", { filters: { userId: "alice" } });
 console.log(result);
 ```
 
@@ -210,14 +209,6 @@ Mem0 offers granular configuration across vector stores, LLMs, embedders, and hi
 | `topK` | Token count to keep | All |
 | `openaiBaseUrl` | Base URL override | OpenAI |
   </Accordion>
-  <Accordion title="Graph store">
-| Parameter | Description | Default |
-| --- | --- | --- |
-| `provider` | Graph store provider (e.g., `"neo4j"`) | `"neo4j"` |
-| `url` | Connection URL | `process.env.NEO4J_URL` |
-| `username` | Username | `process.env.NEO4J_USERNAME` |
-| `password` | Password | `process.env.NEO4J_PASSWORD` |
-  </Accordion>
   <Accordion title="Embedder">
 | Parameter | Description | Default |
 | --- | --- | --- |
@@ -229,8 +220,7 @@ Mem0 offers granular configuration across vector stores, LLMs, embedders, and hi
 | Parameter | Description | Default |
 | --- | --- | --- |
 | `historyDbPath` | Path to history database | `"{mem0_dir}/history.db"` |
-| `version` | API version | `"v1.0"` |
-| `customPrompt` | Custom processing prompt | `undefined` |
+| `customInstructions` | Custom processing prompt | `undefined` |
   </Accordion>
   <Accordion title="History store">
 | Parameter | Description | Default |
@@ -242,7 +232,6 @@ Mem0 offers granular configuration across vector stores, LLMs, embedders, and hi
   <Accordion title="Complete config example">
 ```ts
 const config = {
-  version: "v1.1",
   embedder: {
     provider: "openai",
     config: {
@@ -273,7 +262,7 @@ const config = {
     }
   },
   disableHistory: false,
-  customPrompt: "I'm a virtual assistant. I'm here to help you with your queries."
+  customInstructions: "I'm a virtual assistant. I'm here to help you with your queries."
 };
 ```
   </Accordion>
@@ -282,7 +271,7 @@ const config = {
 ## What's next?
 
 <CardGroup cols={3}>
-  <Card title="Explore Memory Operations" icon="database" href="/open-source/overview">
+  <Card title="Explore Memory Operations" icon="database" href="/core-concepts/memory-operations/add">
     Review CRUD patterns, filters, and advanced retrieval across the OSS stack.
   </Card>
   <Card title="Customize Configuration" icon="sliders" href="/open-source/configuration">

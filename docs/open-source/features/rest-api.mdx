@@ -14,7 +14,15 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 </Info>
 
 <Warning>
-  Add your own authentication and HTTPS before exposing the server to anything beyond your internal network. The default image does not include auth.
+  **First time self-hosting, or upgrading from a pre-1.x build?** Start at [Self-Hosted Setup](/open-source/setup). It walks through the stack, the setup wizard, and the upgrade path for deployments that relied on open endpoints or `ADMIN_API_KEY`. This page covers the API surface and auth modes only.
+</Warning>
+
+<Warning>
+  **OSS vs Platform API paths:** The self-hosted OSS server does **not** use the `/v1/` prefix. For example, the endpoint is `POST /memories`, not `POST /v1/memories/`. The [API Reference](/api-reference) documents the hosted platform at `api.mem0.ai` which uses `/v1/` paths — those do not apply to the OSS server.
+</Warning>
+
+<Warning>
+  Enable API key authentication (see below) and HTTPS before exposing the server to anything beyond your internal network.
 </Warning>
 
 ---
@@ -22,6 +30,7 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 ## Feature
 
 - **CRUD endpoints:** Create, retrieve, search, update, delete, and reset memories by `user_id`, `agent_id`, or `run_id`.
+- **Authentication:** On by default. Dashboard sessions use JWTs; programmatic clients use per-user `X-API-Key` headers. Legacy `ADMIN_API_KEY` is still supported.
 - **Status health check:** Access base routes to confirm the server is online.
 - **OpenAPI explorer:** Visit `/docs` for interactive testing and schema reference.
 
@@ -35,51 +44,75 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
   <Tab title="Steps">
 1. Create `server/.env` with your keys:
 
-```bash
-OPENAI_API_KEY=your-openai-api-key
-```
+    ```bash
+    OPENAI_API_KEY=your-openai-api-key
+    JWT_SECRET=$(openssl rand -base64 48)
+    ```
 
-2. Start the stack:
+2. Bootstrap the stack in one command:
 
-```bash
-cd server
-docker compose up
-```
+    ```bash
+    cd server
+    make bootstrap    # starts Compose, creates an admin, issues the first API key
+    ```
 
-3. Reach the API at `http://localhost:8888`. Edits to the server or library auto-reload.
+    Or to start the stack only and finish setup via the browser wizard at http://localhost:3000:
+
+    ```bash
+    cd server
+    docker compose up -d
+    ```
+
+3. API is at `http://localhost:8888`. Code edits auto-reload.
   </Tab>
 </Tabs>
 
-### Run with Docker
+<AccordionGroup>
+  <Accordion title="Other install paths">
+    **Run with Docker**
 
-<Tabs>
-  <Tab title="Pull image">
+    <Tabs>
+      <Tab title="Pull image">
 ```bash
 docker pull mem0/mem0-api-server
 ```
-  </Tab>
-  <Tab title="Build locally">
+      </Tab>
+      <Tab title="Build locally">
 ```bash
 docker build -t mem0-api-server .
 ```
-  </Tab>
-</Tabs>
+      </Tab>
+    </Tabs>
 
-1. Create a `.env` file with `OPENAI_API_KEY`.  
-2. Run the container:
+    1. Create a `.env` file with `OPENAI_API_KEY` and `JWT_SECRET`.
+    2. Run the container:
 
-```bash
-docker run -p 8000:8000 --env-file .env mem0-api-server
-```
+    ```bash
+    docker run -p 8000:8000 --env-file .env mem0-api-server
+    ```
 
-3. Visit `http://localhost:8000`.
+    3. Visit `http://localhost:8000`.
 
-### Run directly (no Docker)
+    **Run directly (no Docker)**
 
-```bash
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
+    <Warning>
+      This path skips Docker and assumes Postgres is already running and reachable at `POSTGRES_HOST:POSTGRES_PORT`. For a single-command local setup with Postgres included, use Docker Compose above.
+    </Warning>
+
+    ```bash
+    pip install -r requirements.txt
+    uvicorn main:app --reload
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Compose publishes internal port 8000 as 8888 on the host. Raw Docker and raw uvicorn listen on 8000 unless remapped.
+</Note>
+
+<Note>
+  `JWT_SECRET` is required once auth is enabled — the server returns `500` on auth endpoints if it's unset. Generate one with `openssl rand -base64 48`. See [Self-Hosted Setup](/open-source/setup#configure-the-environment) for the full env var table.
+</Note>
 
 <Tip>
   Use a process manager such as `systemd`, Supervisor, or PM2 when deploying the FastAPI server for production resilience.
@@ -91,12 +124,86 @@ uvicorn main:app --reload
 
 ---
 
+## Authentication
+
+Auth is on by default. Protected endpoints require either a JWT (from the dashboard login flow) or an `X-API-Key` header. The `/` redirect, `/docs`, and `/openapi.json` routes stay open so you can reach the OpenAPI explorer.
+
+| Mode | How to send it | When to use it |
+|---|---|---|
+| Bearer JWT | `Authorization: Bearer <access_token>` | Dashboard sessions; tokens come from `POST /auth/login` and refresh via `POST /auth/refresh` |
+| Per-user API key | `X-API-Key: m0sk_...` | Programmatic access scoped to a single dashboard user |
+| Legacy `ADMIN_API_KEY` | `X-API-Key: <env value>` | Back-compat for deployments that set the `ADMIN_API_KEY` env var |
+| `AUTH_DISABLED=true` | — | Local development only; bypasses auth entirely |
+
+The `/docs` OpenAPI explorer supports both auth modes. Click **Authorize** at the top of the page and paste either `Bearer <access_token>` (JWT) or your `X-API-Key` value. Protected endpoints return `401` until you authorize.
+
+### Log in and use a JWT
+
+Register the first admin (only works when no user exists yet), then log in:
+
+```bash
+# First admin only — returns 403 after the first admin is registered
+curl -X POST http://localhost:8888/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Admin", "email": "admin@example.com", "password": "strong-password"}'
+```
+
+```bash
+curl -X POST http://localhost:8888/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com", "password": "your-password"}'
+```
+
+Use the returned `access_token` as a bearer token:
+
+```bash
+curl -X POST http://localhost:8888/memories \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{
+    "messages": [{"role": "user", "content": "I love pizza."}],
+    "user_id": "alice"
+  }'
+```
+
+When the access token expires, exchange the refresh token at `POST /auth/refresh`.
+
+### Create and use a per-user API key
+
+Create a key from the dashboard **API Keys** page, or call `POST /api-keys` with a JWT. The full `m0sk_...` value is returned **once** at creation time — store it securely.
+
+```bash
+curl -X POST http://localhost:8888/memories \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: m0sk_your_key_here" \
+  -d '{
+    "messages": [{"role": "user", "content": "I love pizza."}],
+    "user_id": "alice"
+  }'
+```
+
+Per-user keys inherit the creating user's scope. List or revoke them via `GET /api-keys` and `DELETE /api-keys/{id}`.
+
+### Legacy `ADMIN_API_KEY`
+
+Set the `ADMIN_API_KEY` environment variable and send it as `X-API-Key`. The request is treated as admin-level and is not tied to a dashboard user. This mode is kept for back-compat with older self-hosted deployments — prefer JWT or per-user keys for new setups.
+
+```bash
+ADMIN_API_KEY=your-long-admin-key
+```
+
+<Warning>
+  Setting `AUTH_DISABLED=true` makes every protected endpoint open — the server logs a warning at startup when it's enabled. The server also warns when `ADMIN_API_KEY` is shorter than 16 characters. Never enable `AUTH_DISABLED` in production, and always use a long `ADMIN_API_KEY` if you rely on the legacy fallback.
+</Warning>
+
+---
+
 ## See it in action
 
 ### Create and search memories via HTTP
 
 ```bash
-curl -X POST http://localhost:8000/memories \
+curl -X POST http://localhost:8888/memories \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [
@@ -111,18 +218,83 @@ curl -X POST http://localhost:8000/memories \
 </Info>
 
 ```bash
-curl "http://localhost:8000/memories/search?user_id=alice&query=vegetable"
+curl -X POST http://localhost:8888/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "vegetable",
+    "user_id": "alice"
+  }'
 ```
 
 ### Explore with OpenAPI docs
 
-1. Navigate to `http://localhost:8000/docs`.  
-2. Pick an endpoint (e.g., `POST /memories/search`).  
+1. Navigate to `http://localhost:8888/docs` (Compose) or `http://localhost:8000/docs` (raw Docker / uvicorn).
+2. Pick an endpoint (e.g., `POST /search`).  
 3. Fill in parameters and click **Execute** to try requests in-browser.
 
 <Tip>
   Export the generated `curl` snippets from the OpenAPI UI to bootstrap integration tests.
 </Tip>
+
+---
+
+## Endpoint reference
+
+The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
+
+### Memory operations
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/configure` | Set memory configuration. Rejects unbundled providers with a 400 |
+| `GET` | `/configure` | Get the current memory configuration |
+| `GET` | `/configure/providers` | List the LLM and embedder providers bundled in the container |
+| `POST` | `/memories` | Create memories |
+| `GET` | `/memories` | Get all memories (filter by `user_id`, `agent_id`, or `run_id`) |
+| `GET` | `/memories/{memory_id}` | Get a specific memory |
+| `PUT` | `/memories/{memory_id}` | Update a memory |
+| `DELETE` | `/memories/{memory_id}` | Delete a specific memory |
+| `DELETE` | `/memories` | Delete all memories for an identifier |
+| `GET` | `/memories/{memory_id}/history` | Get memory history |
+| `POST` | `/search` | Search memories |
+| `POST` | `/reset` | Reset all memories |
+
+### Authentication
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/auth/setup-status` | Returns `{needsSetup: bool}`. Open, no auth required |
+| `POST` | `/auth/register` | Register the first admin. Registration closes after the first admin is created; additional accounts are provisioned by the existing admin. |
+| `POST` | `/auth/login` | Exchange email and password for access and refresh JWTs |
+| `POST` | `/auth/refresh` | Exchange a refresh token for a new access token |
+| `GET` | `/auth/me` | Get the current authenticated user (JWT required) |
+| `PATCH` | `/auth/me` | Update the caller's name or email. 409 if the new email is already in use |
+| `POST` | `/auth/change-password` | Change the caller's password. 401 if the current password is wrong; new password must be at least 8 characters |
+
+### API keys
+
+All `/api-keys` endpoints require a JWT.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api-keys` | List the caller's API keys |
+| `POST` | `/api-keys` | Create a new key; the full `m0sk_...` value is returned once |
+| `DELETE` | `/api-keys/{id}` | Revoke an API key |
+
+### Request logs
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/requests?limit=N` | Recent API call log (JWT or admin key) |
+
+### Entities
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/entities` | Distinct `user_id` / `agent_id` / `run_id` values with memory counts |
+| `DELETE` | `/entities/{entity_type}/{entity_id}` | Cascade-delete all memories for an entity; `entity_type` is `user`, `agent`, or `run` |
+
+The `/auth/*`, `/api-keys`, `/requests`, and `/entities` routes are new to the self-hosted server and primarily back the dashboard, but you can call them directly from your own tooling.
 
 ---
 
@@ -137,7 +309,7 @@ curl "http://localhost:8000/memories/search?user_id=alice&query=vegetable"
 
 ## Best practices
 
-1. **Add authentication:** Protect endpoints with API gateways, proxies, or custom FastAPI middleware.
+1. **Keep auth on:** Auth is enabled by default. Never set `AUTH_DISABLED=true` in production. If you rely on `ADMIN_API_KEY`, use a long value (16+ chars) or prefer per-user API keys.
 2. **Use HTTPS:** Terminate TLS at your load balancer or reverse proxy.
 3. **Monitor uptime:** Track request rates, latency, and error codes per endpoint.
 4. **Version configs:** Keep environment files and Docker Compose definitions in source control.

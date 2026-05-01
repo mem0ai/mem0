@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_session_start.sh",
+        "matcher": "startup|resume|compact"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/block_memory_write.sh",
+        "matcher": "Write|Edit"
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_pre_compact.sh"
+      },
+      {
+        "command": "python3 ${CURSOR_PLUGIN_ROOT}/scripts/on_pre_compact.py",
+        "timeout": 30
+      }
+    ],
+    "stop": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_stop.sh",
+        "timeout": 10
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
+        "timeout": 5
+      }
+    ]
+  }
+}

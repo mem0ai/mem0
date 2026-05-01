@@ -179,7 +179,7 @@ class Weaviate(VectorStoreBase):
                 batch.add_object(collection=self.collection_name, properties=data_object, uuid=object_id, vector=vector)
 
     def search(
-        self, query: str, vectors: List[float], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[float], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -194,7 +194,7 @@ class Weaviate(VectorStoreBase):
         response = collection.query.hybrid(
             query="",
             vector=vectors,
-            limit=limit,
+            limit=top_k,
             filters=combined_filter,
             return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
             return_metadata=MetadataQuery(score=True),
@@ -214,6 +214,55 @@ class Weaviate(VectorStoreBase):
                 score = obj.metadata.score
             else:
                 score = 1.0  # Default score if none provided
+            results.append(
+                OutputData(
+                    id=str(obj.uuid),
+                    score=score,
+                    payload=payload,
+                )
+            )
+        return results
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Search for memories using BM25 keyword search.
+
+        Args:
+            query (str): Search query text.
+            top_k (int): Maximum number of results. Defaults to 5.
+            filters (dict, optional): Filters to apply (user_id, agent_id, run_id).
+
+        Returns:
+            List[OutputData]: Search results.
+        """
+        collection = self.client.collections.get(str(self.collection_name))
+        filter_conditions = []
+        if filters:
+            for key, value in filters.items():
+                if value and key in ["user_id", "agent_id", "run_id"]:
+                    filter_conditions.append(Filter.by_property(key).equal(value))
+        combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
+        response = collection.query.bm25(
+            query=query,
+            query_properties=["data"],
+            limit=top_k,
+            filters=combined_filter,
+            return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
+            return_metadata=MetadataQuery(score=True),
+        )
+        results = []
+        for obj in response.objects:
+            payload = obj.properties.copy()
+
+            for id_field in ["run_id", "agent_id", "user_id"]:
+                if id_field in payload and payload[id_field] is None:
+                    del payload[id_field]
+
+            payload["id"] = str(obj.uuid).split("'")[0]
+            if obj.metadata.score is not None:
+                score = obj.metadata.score
+            else:
+                score = 1.0
             results.append(
                 OutputData(
                     id=str(obj.uuid),
@@ -313,7 +362,7 @@ class Weaviate(VectorStoreBase):
             return schema
         return None
 
-    def list(self, filters=None, limit=100) -> List[OutputData]:
+    def list(self, filters=None, top_k=100) -> List[OutputData]:
         """
         List all vectors in a collection.
         """
@@ -325,7 +374,7 @@ class Weaviate(VectorStoreBase):
                     filter_conditions.append(Filter.by_property(key).equal(value))
         combined_filter = Filter.all_of(filter_conditions) if filter_conditions else None
         response = collection.query.fetch_objects(
-            limit=limit,
+            limit=top_k,
             filters=combined_filter,
             return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
         )

@@ -1,0 +1,68 @@
+{
+  "name": "@mem0/openclaw-mem0",
+  "version": "1.0.11",
+  "type": "module",
+  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "openclaw"
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "memory",
+    "mem0",
+    "long-term-memory"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "openclaw.plugin.json",
+    "skills"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "0.34.47",
+    "mem0ai": "3.0.2"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.4.24",
+      "minGatewayVersion": ">=2026.4.24"
+    },
+    "build": {
+      "openclawVersion": "2026.4.24",
+      "pluginSdkVersion": "2026.4.24"
+    },
+    "install": {
+      "npmSpec": "@mem0/openclaw-mem0"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "overrides": {
+      "protobufjs@<7.5.5": "^7.5.5"
+    }
+  }
+}

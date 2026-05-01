@@ -1,5 +1,6 @@
 ---
 title: AutoGen
+description: "Build conversational AI agents with AutoGen and Mem0 for context-aware, personalized interactions."
 ---
 
 Build conversational AI agents with memory capabilities. This integration combines AutoGen for creating AI agents with Mem0 for memory management, enabling context-aware and personalized interactions.
@@ -18,7 +19,7 @@ pip install autogen mem0ai openai python-dotenv
 
 First, we'll import the necessary libraries and set up our configurations.
 
-<Note>Remember to get the Mem0 API key from [Mem0 Platform](https://app.mem0.ai).</Note>
+<Note>Remember to get the Mem0 API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-autogen" rel="nofollow">Mem0 Platform</a>.</Note>
 
 ```python
 import os
@@ -31,7 +32,7 @@ load_dotenv()
 
 # Configuration
 # OPENAI_API_KEY = 'sk-xxx'  # Replace with your actual OpenAI API key
-# MEM0_API_KEY = 'your-mem0-key'  # Replace with your actual Mem0 API key from https://app.mem0.ai
+# MEM0_API_KEY = 'your-mem0-key'  # Replace with your actual Mem0 API key from https://app.mem0.ai?utm_source=oss&utm_medium=integration-autogen
 USER_ID = "alice"
 
 # Set up OpenAI API key
@@ -71,7 +72,7 @@ Create a function to get context-aware responses based on user's question and pr
 
 ```python
 def get_context_aware_response(question):
-    relevant_memories = memory_client.search(question, user_id=USER_ID)
+    relevant_memories = memory_client.search(question, filters={"user_id": USER_ID})
     context = "\n".join([m["memory"] for m in relevant_memories.get('results', [])])
 
     prompt = f"""Answer the user question considering the previous interactions:
@@ -103,7 +104,7 @@ manager = ConversableAgent(
 )
 
 def escalate_to_manager(question):
-    relevant_memories = memory_client.search(question, user_id=USER_ID)
+    relevant_memories = memory_client.search(question, filters={"user_id": USER_ID})
     context = "\n".join([m["memory"] for m in relevant_memories.get('results', [])])
 
     prompt = f"""

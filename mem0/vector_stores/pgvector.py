@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 # Try to import psycopg (psycopg3) first, then fall back to psycopg2
 try:
+    from psycopg import sql
     from psycopg.types.json import Json
     from psycopg_pool import ConnectionPool
     PSYCOPG_VERSION = 3
@@ -14,6 +15,7 @@ try:
     logger.info("Using psycopg (psycopg3) with ConnectionPool for PostgreSQL connections")
 except ImportError:
     try:
+        from psycopg2 import sql
         from psycopg2.extras import Json, execute_values
         from psycopg2.pool import ThreadedConnectionPool as ConnectionPool
         PSYCOPG_VERSION = 2
@@ -144,6 +146,10 @@ class PGVector(VectorStoreBase):
                 cur.close()
                 self.connection_pool.putconn(conn)
 
+    def _col(self) -> "sql.Identifier":
+        """Return a safely-quoted SQL identifier for the collection table."""
+        return sql.Identifier(self.collection_name)
+
     def create_col(self) -> None:
         """
         Create a new collection (table in PostgreSQL).
@@ -152,33 +158,46 @@ class PGVector(VectorStoreBase):
         with self._get_cursor(commit=True) as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector")
             cur.execute(
-                f"""
-                CREATE TABLE IF NOT EXISTS {self.collection_name} (
+                sql.SQL("""
+                CREATE TABLE IF NOT EXISTS {} (
                     id UUID PRIMARY KEY,
-                    vector vector({self.embedding_model_dims}),
+                    vector vector({}),
                     payload JSONB
                 );
-                """
+                """).format(self._col(), sql.Literal(self.embedding_model_dims))
             )
             if self.use_diskann and self.embedding_model_dims < 2000:
                 cur.execute("SELECT * FROM pg_extension WHERE extname = 'vectorscale'")
                 if cur.fetchone():
                     # Create DiskANN index if extension is installed for faster search
                     cur.execute(
-                        f"""
-                        CREATE INDEX IF NOT EXISTS {self.collection_name}_diskann_idx
-                        ON {self.collection_name}
+                        sql.SQL("""
+                        CREATE INDEX IF NOT EXISTS {} ON {}
                         USING diskann (vector);
-                        """
+                        """).format(
+                            sql.Identifier(f"{self.collection_name}_diskann_idx"),
+                            self._col(),
+                        )
                     )
             elif self.use_hnsw:
                 cur.execute(
-                    f"""
-                    CREATE INDEX IF NOT EXISTS {self.collection_name}_hnsw_idx
-                    ON {self.collection_name}
+                    sql.SQL("""
+                    CREATE INDEX IF NOT EXISTS {} ON {}
                     USING hnsw (vector vector_cosine_ops)
-                    """
+                    """).format(
+                        sql.Identifier(f"{self.collection_name}_hnsw_idx"),
+                        self._col(),
+                    )
                 )
+            cur.execute(
+                sql.SQL("""
+                CREATE INDEX IF NOT EXISTS {} ON {}
+                USING gin(to_tsvector('simple', payload->>'text_lemmatized'));
+                """).format(
+                    sql.Identifier(f"{self.collection_name}_text_lemmatized_idx"),
+                    self._col(),
+                )
+            )
 
     def insert(self, vectors: list[list[float]], payloads=None, ids=None) -> None:
         logger.info(f"Inserting {len(vectors)} vectors into collection {self.collection_name}")
@@ -188,14 +207,14 @@ class PGVector(VectorStoreBase):
         if PSYCOPG_VERSION == 3:
             with self._get_cursor(commit=True) as cur:
                 cur.executemany(
-                    f"INSERT INTO {self.collection_name} (id, vector, payload) VALUES (%s, %s, %s)",
+                    sql.SQL("INSERT INTO {} (id, vector, payload) VALUES (%s, %s, %s)").format(self._col()),
                     data,
                 )
         else:
             with self._get_cursor(commit=True) as cur:
                 execute_values(
                     cur,
-                    f"INSERT INTO {self.collection_name} (id, vector, payload) VALUES %s",
+                    sql.SQL("INSERT INTO {} (id, vector, payload) VALUES %s").format(self._col()),
                     data,
                 )
 
@@ -203,7 +222,7 @@ class PGVector(VectorStoreBase):
         self,
         query: str,
         vectors: list[float],
-        limit: Optional[int] = 5,
+        top_k: Optional[int] = 5,
         filters: Optional[dict] = None,
     ) -> List[OutputData]:
         """
@@ -212,7 +231,7 @@ class PGVector(VectorStoreBase):
         Args:
             query (str): Query.
             vectors (List[float]): Query vector.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Dict, optional): Filters to apply to the search. Defaults to None.
 
         Returns:
@@ -226,22 +245,64 @@ class PGVector(VectorStoreBase):
                 filter_conditions.append("payload->>%s = %s")
                 filter_params.extend([k, str(v)])
 
-        filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
+        filter_clause = sql.SQL("WHERE " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         with self._get_cursor() as cur:
             cur.execute(
-                f"""
+                sql.SQL("""
                 SELECT id, vector <=> %s::vector AS distance, payload
-                FROM {self.collection_name}
-                {filter_clause}
+                FROM {}
+                {}
                 ORDER BY distance
                 LIMIT %s
-                """,
-                (vectors, *filter_params, limit),
+                """).format(self._col(), filter_clause),
+                (vectors, *filter_params, top_k),
             )
 
             results = cur.fetchall()
         return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+
+    def keyword_search(self, query, top_k=5, filters=None):
+        """
+        Search using PostgreSQL full-text search on lemmatized text.
+
+        Args:
+            query (str): The search query text.
+            top_k (int, optional): Number of results to return. Defaults to 5.
+            filters (dict, optional): Filters to apply to the search. Defaults to None.
+
+        Returns:
+            List[OutputData]: Search results ranked by text relevance.
+        """
+        filter_conditions = []
+        filter_params = []
+
+        if filters:
+            for k, v in filters.items():
+                filter_conditions.append("payload->>%s = %s")
+                filter_params.extend([k, str(v)])
+
+        filter_clause = sql.SQL("AND " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
+
+        try:
+            with self._get_cursor() as cur:
+                cur.execute(
+                    sql.SQL("""
+                    SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'text_lemmatized'), plainto_tsquery('simple', %s)) AS score, payload
+                    FROM {}
+                    WHERE to_tsvector('simple', payload->>'text_lemmatized') @@ plainto_tsquery('simple', %s)
+                    {}
+                    ORDER BY score DESC
+                    LIMIT %s
+                    """).format(self._col(), filter_clause),
+                    (query, query, *filter_params, top_k),
+                )
+
+                results = cur.fetchall()
+            return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+        except Exception as e:
+            logger.debug(f"Keyword search failed: {e}")
+            return None
 
     def delete(self, vector_id: str) -> None:
         """
@@ -251,7 +312,7 @@ class PGVector(VectorStoreBase):
             vector_id (str): ID of the vector to delete.
         """
         with self._get_cursor(commit=True) as cur:
-            cur.execute(f"DELETE FROM {self.collection_name} WHERE id = %s", (vector_id,))
+            cur.execute(sql.SQL("DELETE FROM {} WHERE id = %s").format(self._col()), (vector_id,))
 
     def update(
         self,
@@ -270,7 +331,7 @@ class PGVector(VectorStoreBase):
         with self._get_cursor(commit=True) as cur:
             if vector:
                cur.execute(
-                    f"UPDATE {self.collection_name} SET vector = %s WHERE id = %s",
+                    sql.SQL("UPDATE {} SET vector = %s WHERE id = %s").format(self._col()),
                     (vector, vector_id),
                 )
             if payload:
@@ -278,13 +339,13 @@ class PGVector(VectorStoreBase):
                 if PSYCOPG_VERSION == 3:
                     # psycopg3 uses psycopg.types.json.Json
                     cur.execute(
-                        f"UPDATE {self.collection_name} SET payload = %s WHERE id = %s",
+                        sql.SQL("UPDATE {} SET payload = %s WHERE id = %s").format(self._col()),
                         (Json(payload), vector_id),
                     )
                 else:
                     # psycopg2 uses psycopg2.extras.Json
                     cur.execute(
-                        f"UPDATE {self.collection_name} SET payload = %s WHERE id = %s",
+                        sql.SQL("UPDATE {} SET payload = %s WHERE id = %s").format(self._col()),
                         (Json(payload), vector_id),
                     )
 
@@ -301,7 +362,7 @@ class PGVector(VectorStoreBase):
         """
         with self._get_cursor() as cur:
             cur.execute(
-                f"SELECT id, vector, payload FROM {self.collection_name} WHERE id = %s",
+                sql.SQL("SELECT id, vector, payload FROM {} WHERE id = %s").format(self._col()),
                 (vector_id,),
             )
             result = cur.fetchone()
@@ -323,7 +384,7 @@ class PGVector(VectorStoreBase):
     def delete_col(self) -> None:
         """Delete a collection."""
         with self._get_cursor(commit=True) as cur:
-            cur.execute(f"DROP TABLE IF EXISTS {self.collection_name}")
+            cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(self._col()))
 
     def col_info(self) -> dict[str, Any]:
         """
@@ -334,14 +395,14 @@ class PGVector(VectorStoreBase):
         """
         with self._get_cursor() as cur:
             cur.execute(
-                f"""
+                sql.SQL("""
                 SELECT
                     table_name,
-                    (SELECT COUNT(*) FROM {self.collection_name}) as row_count,
-                    (SELECT pg_size_pretty(pg_total_relation_size('{self.collection_name}'))) as total_size
+                    (SELECT COUNT(*) FROM {}) as row_count,
+                    (SELECT pg_size_pretty(pg_total_relation_size({}::regclass))) as total_size
                 FROM information_schema.tables
                 WHERE table_schema = 'public' AND table_name = %s
-            """,
+            """).format(self._col(), sql.Literal(self.collection_name)),
                 (self.collection_name,),
             )
             result = cur.fetchone()
@@ -350,14 +411,14 @@ class PGVector(VectorStoreBase):
     def list(
         self,
         filters: Optional[dict] = None,
-        limit: Optional[int] = 100
+        top_k: Optional[int] = 100
     ) -> List[OutputData]:
         """
         List all vectors in a collection.
 
         Args:
             filters (Dict, optional): Filters to apply to the list.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors.
@@ -370,17 +431,18 @@ class PGVector(VectorStoreBase):
                 filter_conditions.append("payload->>%s = %s")
                 filter_params.extend([k, str(v)])
 
-        filter_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else ""
-
-        query = f"""
-            SELECT id, vector, payload
-            FROM {self.collection_name}
-            {filter_clause}
-            LIMIT %s
-        """
+        filter_clause = sql.SQL("WHERE " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         with self._get_cursor() as cur:
-            cur.execute(query, (*filter_params, limit))
+            cur.execute(
+                sql.SQL("""
+                SELECT id, vector, payload
+                FROM {}
+                {}
+                LIMIT %s
+                """).format(self._col(), filter_clause),
+                (*filter_params, top_k),
+            )
             results = cur.fetchall()
         return [[OutputData(id=str(r[0]), score=None, payload=r[2]) for r in results]]
 

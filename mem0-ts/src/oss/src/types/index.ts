@@ -15,6 +15,7 @@ export interface Message {
 export interface EmbeddingConfig {
   apiKey?: string;
   model?: string | any;
+  baseURL?: string;
   url?: string;
   embeddingDims?: number;
   modelProperties?: Record<string, any>;
@@ -23,6 +24,7 @@ export interface EmbeddingConfig {
 export interface VectorStoreConfig {
   collectionName?: string;
   dimension?: number;
+  dbPath?: string;
   client?: any;
   instance?: any;
   [key: string]: any;
@@ -41,23 +43,12 @@ export interface HistoryStoreConfig {
 export interface LLMConfig {
   provider?: string;
   baseURL?: string;
+  url?: string;
   config?: Record<string, any>;
   apiKey?: string;
   model?: string | any;
   modelProperties?: Record<string, any>;
-}
-
-export interface Neo4jConfig {
-  url: string;
-  username: string;
-  password: string;
-}
-
-export interface GraphStoreConfig {
-  provider: string;
-  config: Neo4jConfig;
-  llm?: LLMConfig;
-  customPrompt?: string;
+  timeout?: number;
 }
 
 export interface MemoryConfig {
@@ -77,9 +68,7 @@ export interface MemoryConfig {
   historyStore?: HistoryStoreConfig;
   disableHistory?: boolean;
   historyDbPath?: string;
-  customPrompt?: string;
-  graphStore?: GraphStoreConfig;
-  enableGraph?: boolean;
+  customInstructions?: string;
 }
 
 export interface MemoryItem {
@@ -93,15 +82,14 @@ export interface MemoryItem {
 }
 
 export interface SearchFilters {
-  userId?: string;
-  agentId?: string;
-  runId?: string;
+  user_id?: string;
+  agent_id?: string;
+  run_id?: string;
   [key: string]: any;
 }
 
 export interface SearchResult {
   results: MemoryItem[];
-  relations?: any[];
 }
 
 export interface VectorStoreResult {
@@ -129,6 +117,7 @@ export const MemoryConfigSchema = z.object({
       .object({
         collectionName: z.string().optional(),
         dimension: z.number().optional(),
+        dbPath: z.string().optional(),
         client: z.any().optional(),
       })
       .passthrough(),
@@ -140,28 +129,12 @@ export const MemoryConfigSchema = z.object({
       model: z.union([z.string(), z.any()]).optional(),
       modelProperties: z.record(z.string(), z.any()).optional(),
       baseURL: z.string().optional(),
+      url: z.string().optional(),
+      timeout: z.number().optional(),
     }),
   }),
   historyDbPath: z.string().optional(),
-  customPrompt: z.string().optional(),
-  enableGraph: z.boolean().optional(),
-  graphStore: z
-    .object({
-      provider: z.string(),
-      config: z.object({
-        url: z.string(),
-        username: z.string(),
-        password: z.string(),
-      }),
-      llm: z
-        .object({
-          provider: z.string(),
-          config: z.record(z.string(), z.any()),
-        })
-        .optional(),
-      customPrompt: z.string().optional(),
-    })
-    .optional(),
+  customInstructions: z.string().optional(),
   historyStore: z
     .object({
       provider: z.string(),

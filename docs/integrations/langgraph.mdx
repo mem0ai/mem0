@@ -1,5 +1,6 @@
 ---
 title: LangGraph
+description: "Build customer support agents using LangGraph for conversation flow and Mem0 for personalized responses."
 ---
 
 Build a personalized Customer Support AI Agent using LangGraph for conversation flow and Mem0 for memory retention. This integration enables context-aware and efficient support experiences.
@@ -22,7 +23,7 @@ pip install langgraph langchain-openai mem0ai python-dotenv
 
 Import required modules and set up configurations:
 
-<Note>Remember to get the Mem0 API key from [Mem0 Platform](https://app.mem0.ai).</Note>
+<Note>Remember to get the Mem0 API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-langgraph" rel="nofollow">Mem0 Platform</a>.</Note>
 
 ```python
 from typing import Annotated, TypedDict, List
@@ -67,7 +68,7 @@ def chatbot(state: State):
 
     try:
         # Retrieve relevant memories
-        memories = mem0.search(messages[-1].content, user_id=user_id)
+        memories = mem0.search(messages[-1].content, filters={"user_id": user_id})
         
         # Handle dict response format
         memory_list = memories['results']

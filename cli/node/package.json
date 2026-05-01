@@ -1,0 +1,47 @@
+{
+  "name": "@mem0/cli",
+  "version": "0.2.4",
+  "description": "The official CLI for mem0 — the memory layer for AI agents",
+  "type": "module",
+  "bin": {
+    "mem0": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --write src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "Apache-2.0",
+  "author": "mem0.ai <founders@mem0.ai>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "cli/node"
+  },
+  "keywords": ["mem0", "memory", "ai", "agents", "cli"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "chalk": "^5.3.0",
+    "cli-table3": "^0.6.4",
+    "ora": "^8.0.0",
+    "boxen": "^7.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.7.0",
+    "vitest": "^1.5.0",
+    "@biomejs/biome": "^1.7.0",
+    "@types/node": "^20.0.0"
+  }
+}

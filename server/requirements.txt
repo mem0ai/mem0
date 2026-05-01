@@ -1,6 +1,25 @@
 fastapi==0.115.8
 uvicorn==0.34.0
-pydantic==2.10.4
+pydantic[email]==2.10.4
 mem0ai>=0.1.48
 python-dotenv==1.0.1
 psycopg>=3.2.8
+psycopg-pool>=3.2.6,<4.0.0
+
+# Bundled LLM/embedder providers. Extend by adding the provider's package
+# here, rebuilding the image, and updating BUNDLED_*_PROVIDERS in main.py.
+anthropic>=0.39,<1.0
+google-generativeai>=0.8,<1.0
+
+# Auth & database (Phase 1)
+sqlalchemy>=2.0,<3.0
+alembic>=1.13,<2.0
+passlib[bcrypt]>=1.7,<2.0
+bcrypt==4.0.1
+python-jose[cryptography]>=3.3,<4.0
+
+# Anonymous telemetry — on by default, opt out with MEM0_TELEMETRY=false
+posthog>=3.0,<8.0
+
+# Per-IP rate limiting on auth endpoints
+slowapi>=0.1.9,<1.0

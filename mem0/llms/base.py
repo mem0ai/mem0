@@ -54,14 +54,19 @@ class LLMBase(ABC):
             "o1", "o1-preview", "o3-mini", "o3",
             "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
         }
-        
-        if model.lower() in reasoning_models:
-            return True
-        
+
         model_lower = model.lower()
-        if any(reasoning_model in model_lower for reasoning_model in ["gpt-5", "o1", "o3"]):
+        # Strip provider prefixes (e.g. "openai/o3-mini" -> "o3-mini")
+        base_model = model_lower.rsplit("/", 1)[-1]
+
+        if base_model in reasoning_models:
             return True
-            
+
+        # Match o1/o3 family with prefixes (o1-2024-12-17, o3-2025-04-16)
+        # but NOT gpt-5.x variants (gpt-5.4-mini supports temperature)
+        if any(base_model.startswith(prefix) for prefix in ["o1-", "o1.", "o3-", "o3."]):
+            return True
+
         return False
 
     def _get_supported_params(self, **kwargs) -> Dict:
@@ -88,7 +93,12 @@ class LLMBase(ABC):
                 supported_params["tools"] = kwargs["tools"]
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
-                
+
+            # Add reasoning_effort if configured
+            reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+            if reasoning_effort:
+                supported_params["reasoning_effort"] = reasoning_effort
+
             return supported_params
         else:
             # For regular models, include all common parameters

@@ -8,10 +8,12 @@ These tests verify:
 4. Update/upsert operations
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
-from mem0.vector_stores.milvus import MilvusDB
+
+import pytest
+
 from mem0.configs.vector_stores.milvus import MetricType
+from mem0.vector_stores.milvus import MilvusDB
 
 
 class TestMilvusDB:
@@ -118,7 +120,7 @@ class TestMilvusDB:
         results = milvus_db.search(
             query="test query",
             vectors=query_vector,
-            limit=5,
+            top_k=5,
             filters=filters
         )
         
@@ -199,7 +201,7 @@ class TestMilvusDB:
             {"id": "mem2", "metadata": {"user_id": "alice"}}
         ]
         
-        results = milvus_db.list(filters={"user_id": "alice"}, limit=10)
+        results = milvus_db.list(filters={"user_id": "alice"}, top_k=10)
         
         # Verify query was called with filter
         call_args = mock_milvus_client.query.call_args
@@ -232,6 +234,75 @@ class TestMilvusDB:
         assert parsed[0].payload == {"user_id": "alice"}
         assert parsed[1].id == "mem2"
         assert parsed[1].score == 0.85
+
+    def test_update_with_none_vector_fetches_existing(self, milvus_db, mock_milvus_client):
+        """Test that update with vector=None fetches the existing vector (fixes #3708)."""
+        vector_id = "test_id"
+        existing_vector = [0.5] * 1536
+        payload = {"user_id": "alice", "data": "Updated memory"}
+
+        mock_milvus_client.get.return_value = [
+            {"id": vector_id, "vectors": existing_vector, "metadata": {"user_id": "alice"}}
+        ]
+
+        milvus_db.update(vector_id=vector_id, vector=None, payload=payload)
+
+        mock_milvus_client.get.assert_called_once_with(
+            collection_name="test_collection", ids=vector_id
+        )
+        call_args = mock_milvus_client.upsert.call_args
+        assert call_args[1]['data']['vectors'] == existing_vector
+        assert call_args[1]['data']['metadata'] == payload
+
+    def test_update_with_none_payload_fetches_existing(self, milvus_db, mock_milvus_client):
+        """Test that update with payload=None fetches the existing metadata."""
+        vector_id = "test_id"
+        vector = [0.1] * 1536
+        existing_metadata = {"user_id": "alice", "data": "Original"}
+
+        mock_milvus_client.get.return_value = [
+            {"id": vector_id, "vectors": [0.5] * 1536, "metadata": existing_metadata}
+        ]
+
+        milvus_db.update(vector_id=vector_id, vector=vector, payload=None)
+
+        call_args = mock_milvus_client.upsert.call_args
+        assert call_args[1]['data']['vectors'] == vector
+        assert call_args[1]['data']['metadata'] == existing_metadata
+
+    def test_update_with_both_none_fetches_existing(self, milvus_db, mock_milvus_client):
+        """Test that update with both vector=None and payload=None fetches existing data."""
+        vector_id = "test_id"
+        existing_vector = [0.5] * 1536
+        existing_metadata = {"user_id": "alice"}
+
+        mock_milvus_client.get.return_value = [
+            {"id": vector_id, "vectors": existing_vector, "metadata": existing_metadata}
+        ]
+
+        milvus_db.update(vector_id=vector_id, vector=None, payload=None)
+
+        # Should only call get once even though both are None
+        assert mock_milvus_client.get.call_count == 1
+        call_args = mock_milvus_client.upsert.call_args
+        assert call_args[1]['data']['vectors'] == existing_vector
+        assert call_args[1]['data']['metadata'] == existing_metadata
+
+    def test_update_with_none_vector_raises_on_missing_record(self, milvus_db, mock_milvus_client):
+        """Test that update raises ValueError when the record doesn't exist."""
+        mock_milvus_client.get.return_value = []
+
+        with pytest.raises(ValueError, match="not found"):
+            milvus_db.update(vector_id="nonexistent", vector=None, payload={"data": "test"})
+
+    def test_update_with_none_vector_raises_on_missing_vector_data(self, milvus_db, mock_milvus_client):
+        """Test that update raises ValueError when existing record has no vector."""
+        mock_milvus_client.get.return_value = [
+            {"id": "test_id", "vectors": None, "metadata": {"user_id": "alice"}}
+        ]
+
+        with pytest.raises(ValueError, match="no vector data"):
+            milvus_db.update(vector_id="test_id", vector=None, payload={"data": "test"})
 
     def test_collection_already_exists(self, mock_milvus_client):
         """Test that existing collection is not recreated."""

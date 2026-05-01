@@ -1,6 +1,6 @@
 ---
 title: Python SDK Quickstart
-description: "Get started with Mem0 quickly!"
+description: "Install the Mem0 Python SDK, configure your environment, and store your first memory in under five minutes."
 icon: "snake"
 ---
 
@@ -79,7 +79,7 @@ print(results)
 
 <Note>
 By default `Memory()` wires up:
-- OpenAI `gpt-4.1-nano-2025-04-14` for fact extraction and updates
+- OpenAI `gpt-5-mini` for fact extraction and updates
 - OpenAI `text-embedding-3-small` embeddings (1536 dimensions)
 - Qdrant vector store with on-disk data at `/tmp/qdrant`
 - SQLite history at `~/.mem0/history.db`
@@ -89,7 +89,7 @@ By default `Memory()` wires up:
 ## What's Next?
 
 <CardGroup cols={3}>
-<Card title="Memory Operations" icon="database" href="/open-source/overview">
+<Card title="Memory Operations" icon="database" href="/core-concepts/memory-operations/add">
 Learn how to search, update, and manage memories with full CRUD operations
 </Card>
 
@@ -98,7 +98,7 @@ Learn how to search, update, and manage memories with full CRUD operations
 </Card>
 
 <Card title="Advanced Features" icon="sparkles" href="/open-source/features/async-memory">
-Explore async support, graph memory, and multi-agent memory organization
+Explore async support and multi-agent memory organization
 </Card>
 </CardGroup>
 

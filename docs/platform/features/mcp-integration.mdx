@@ -1,0 +1,158 @@
+---
+title: MCP Integration
+description: "Connect any AI client to Mem0 using Model Context Protocol for universal memory access"
+---
+
+> Model Context Protocol (MCP) provides a standardized way for AI agents to manage their own memory through Mem0, without manual API calls.
+
+## Why use MCP
+
+When building AI applications, memory management often requires manual integration. MCP eliminates this complexity by:
+
+- **Universal compatibility**: Works with any MCP-compatible client (Claude, Claude Code, Cursor, Windsurf, VS Code, OpenCode)
+- **Agent autonomy**: AI agents decide when to save, search, or update memories
+- **Zero infrastructure**: No servers to maintain - Mem0's cloud MCP handles everything
+- **Standardized protocol**: One integration works across all your AI tools
+
+## Setup
+
+Add Mem0 MCP to all supported clients with a single command:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
+```
+
+Or configure a specific client:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "cursor"
+```
+
+For manual configuration, add this to your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "mem0-mcp": {
+      "type": "http",
+      "url": "https://mcp.mem0.ai/mcp"
+    }
+  }
+}
+```
+
+For detailed per-client instructions, see the [Mem0 MCP Quickstart](/platform/mem0-mcp).
+
+## Available tools
+
+The MCP server exposes 11 memory tools to your AI client:
+
+| Tool | Purpose |
+|------|---------|
+| `add_memory` | Store conversations or facts |
+| `search_memories` | Find relevant memories with filters |
+| `get_memories` | List memories with pagination |
+| `update_memory` | Modify existing memory content |
+| `delete_memory` | Remove specific memories |
+| `delete_all_memories` | Bulk delete memories |
+| `delete_entities` | Remove user/agent/app entities |
+| `get_memory` | Retrieve single memory by ID |
+| `list_entities` | View stored entities |
+| `list_events` | List memory operation events with filters and pagination |
+| `get_event_status` | Check the status of an async memory operation by `event_id` |
+
+## How it works
+
+1. **Configure the MCP server** - Add Mem0 MCP to your AI client using the setup command above
+2. **Agent connects** - Your AI client connects to Mem0's cloud MCP server over HTTP
+3. **Autonomous memory** - The agent decides when to store/retrieve memories as part of its reasoning
+4. **No manual API calls** - The agent manages memory automatically through MCP tools
+
+## Example interactions
+
+Once connected, your AI agent can:
+
+```
+User: Remember that I'm allergic to peanuts
+Agent: [calls add_memory] Got it! I've saved your peanut allergy.
+
+User: What dietary restrictions do I know about?
+Agent: [calls search_memories] You have a peanut allergy.
+```
+
+The agent automatically decides when to use memory tools based on context.
+
+## Try these prompts
+
+```python
+# Multi-task operations
+"Generate 5 user personas for our e-commerce app with different demographics, store them all, then search for existing personas"
+
+# Natural context retrieval
+"Anything about my work preferences I should remember?"
+
+# Complex information updates
+"Update my current project: the mobile app is now 80% complete, we've fixed the login issues, and the launch date is March 15"
+
+# Time-based queries
+"What meetings did I have last week about Project Phoenix?"
+
+# Memory cleanup
+"Delete all test data and temporary memories from our development phase"
+
+# Personal preferences
+"I drink oat milk cappuccino with one sugar every morning, and I prefer standing desks"
+
+# Health and wellness tracking
+"I'm allergic to peanuts and shellfish, and I go for 5km runs on weekday mornings"
+```
+
+These examples demonstrate how MCP enables natural language memory operations - the AI agent automatically determines when to add, search, update, or delete memories based on context.
+
+## What you can do
+
+The Mem0 MCP server enables powerful memory capabilities for your AI applications:
+
+- **Health tracking**: "I'm allergic to peanuts and shellfish" - Add new health information
+- **Research data**: "Store these trial parameters: 200 participants, double-blind, placebo-controlled" - Save structured data
+- **Preference queries**: "What do you know about my dietary preferences?" - Search and retrieve relevant memories
+- **Project updates**: "Update my project status: the mobile app is now 80% complete" - Modify existing memory
+- **Data cleanup**: "Delete all memories from 2023" - Bulk remove outdated information
+- **Topic overview**: "Show me everything about Project Phoenix" - List all memories for a subject
+
+## Performance tips
+
+- Enable graph memories for relationship-aware recall
+- Use specific filters when searching large memory sets
+- Batch operations when adding multiple memories
+- Monitor memory usage in the Mem0 dashboard
+
+## Best practices
+
+- **Use the cloud MCP**: The hosted MCP server at `https://mcp.mem0.ai/mcp` handles infrastructure for you
+- **Use wildcards**: `user_id: "*"` to search across all users
+- **Monitor usage**: Track memory operations in the dashboard
+- **Document patterns**: Share successful prompt patterns with your team
+
+<CardGroup cols={2}>
+  <Card
+    title="Memory Filters"
+    description="Refine memory retrieval with powerful filtering capabilities"
+    icon="scale-balanced"
+    href="/platform/features/v2-memory-filters"
+  />
+  <Card
+    title="Gemini 3 with MCP"
+    description="See MCP in action with Google's Gemini 3 model"
+    icon="book-open"
+    href="/cookbooks/frameworks/gemini-3-with-mem0-mcp"
+  />
+</CardGroup>

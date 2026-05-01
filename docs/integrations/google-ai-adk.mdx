@@ -1,5 +1,6 @@
 ---
 title: Google ADK
+description: "Integrate Mem0 with Google Agent Development Kit for persistent memory across multi-agent workflows."
 ---
 
 Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Google ADK (Agent Development Kit)](https://github.com/google/adk-python), an open-source framework for building multi-agent workflows. This integration enables agents to access persistent memory across conversations, enhancing context retention and personalization.
@@ -21,7 +22,7 @@ pip install google-adk mem0ai python-dotenv
 ```
 
 2. Valid API keys:
-   - [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys)
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-google-ai-adk" rel="nofollow">Mem0 API Key</a>
    - Google AI Studio API Key
 
 ## Basic Integration Example
@@ -267,7 +268,7 @@ memories = mem0.search(
             {"categories": {"contains": "travel"}}
         ]
     },
-    limit=5
+    top_k=5
 )
 
 # Configure agent with custom model settings

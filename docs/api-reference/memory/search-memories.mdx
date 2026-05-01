@@ -1,9 +1,14 @@
 ---
 title: 'Search Memories'
-openapi: post /v2/memories/search/
+description: "Search memories with hybrid retrieval (semantic + BM25 + entity matching) and advanced filtering using logical and comparison operators."
+openapi: post /v3/memories/search/
 ---
 
-The v2 search API is powerful and flexible, allowing for more precise memory retrieval. It supports complex logical operations (AND, OR, NOT) and comparison operators for advanced filtering capabilities. The comparison operators include:
+Relevance-ranked hybrid search across stored memories. V3 uses multi-signal retrieval — semantic, BM25 keyword, and entity matching scored in parallel and fused. The returned `score` is a combined `[0, 1]` value.
+
+Entity IDs (`user_id`, `agent_id`, `app_id`, `run_id`) **must** be passed inside the `filters` object — top-level entity IDs are rejected with 400. At least one entity ID is required.
+
+The `filters` object supports complex logical operations (AND, OR, NOT) and comparison operators:
 - `in`: Matches any of the values specified
 - `gte`: Greater than or equal to
 - `lte`: Less than or equal to
@@ -12,6 +17,14 @@ The v2 search API is powerful and flexible, allowing for more precise memory ret
 - `ne`: Not equal to
 - `icontains`: Case-insensitive containment check
 - `*`: Wildcard character that matches everything
+
+### Search parameter defaults
+
+| Parameter | V1/V2 | V3 |
+| --- | --- | --- |
+| `top_k` | Supported (default 10) | Supported (1-1000, default 10) |
+| `threshold` | No default | Default `0.1` (pass `0.0` to disable) |
+| `rerank` | Default `true` | Default `false` (pass `true` to enable) |
 
 <CodeGroup>
 ```python Platform API Example
@@ -32,20 +45,19 @@ related_memories = client.search(
 
 ```json Output
 {
-  "memories": [
+  "results": [
     {
       "id": "ea925981-272f-40dd-b576-be64e4871429",
       "memory": "Likes to play cricket and plays cricket on weekends.",
       "metadata": {
         "category": "hobbies"
       },
-      "score": 0.32116443111457704,
+      "score": 0.82,
       "created_at": "2024-07-26T10:29:36.630547-07:00",
       "updated_at": null,
-      "user_id": "alice",
-      "agent_id": "sports-agent"
+      "categories": ["hobbies"]
     }
-  ],
+  ]
 }
 ```
 </CodeGroup>

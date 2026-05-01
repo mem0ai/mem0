@@ -31,6 +31,7 @@ class AzureOpenAILLM(LLMBase):
                 top_k=config.top_k,
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
+                reasoning_effort=getattr(config, 'reasoning_effort', None),
                 http_client_proxies=config.http_client,
             )
 
@@ -38,7 +39,7 @@ class AzureOpenAILLM(LLMBase):
 
         # Model name should match the custom deployment name chosen for it.
         if not self.config.model:
-            self.config.model = "gpt-4.1-nano-2025-04-14"
+            self.config.model = "gpt-5-mini"
 
         api_key = self.config.azure_kwargs.api_key or os.getenv("LLM_AZURE_OPENAI_API_KEY")
         azure_deployment = self.config.azure_kwargs.azure_deployment or os.getenv("LLM_AZURE_DEPLOYMENT")
@@ -133,6 +134,8 @@ class AzureOpenAILLM(LLMBase):
             "messages": messages,
         })
 
+        if response_format:
+            params["response_format"] = response_format
         if tools:
             params["tools"] = tools
             params["tool_choice"] = tool_choice

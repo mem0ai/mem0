@@ -38,7 +38,7 @@ client = MemoryClient(api_key="your-api-key")
 ```
 
 <Note>
-Replace `your-api-key` with your actual Mem0 API key from the [dashboard](https://app.mem0.ai). Without proper API authentication, memory operations will fail.
+Replace `your-api-key` with your actual Mem0 API key from the <a href="https://app.mem0.ai?utm_source=oss&utm_medium=cookbook-memory-ingestion" rel="nofollow">dashboard</a>. Without proper API authentication, memory operations will fail.
 </Note>
 
 ---
@@ -513,11 +513,6 @@ These controls prevent retrieval failures and ensure your AI assistant works wit
 
 Start with conservative filters (only store confirmed facts) and iterate based on your application's needs. Combine custom instructions with confidence thresholds for the most reliable memory ingestion pipeline.
 
-<CardGroup cols={2}>
-  <Card title="Expire Short-Term Data" icon="timer" href="/cookbooks/essentials/memory-expiration-short-and-long-term">
-    Automatically clean up session context before it clutters retrieval.
-  </Card>
-  <Card title="Choose Your Memory Architecture" icon="sitemap" href="/cookbooks/essentials/choosing-memory-architecture-vector-vs-graph">
-    Learn when to layer graph memory alongside vectors for multi-hop queries.
-  </Card>
-</CardGroup>
+<Card title="Build a Mem0 Companion" icon="users" href="/cookbooks/essentials/building-ai-companion">
+  Learn core memory patterns including temporary vs permanent data handling.
+</Card>

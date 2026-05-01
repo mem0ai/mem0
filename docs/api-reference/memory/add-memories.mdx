@@ -1,28 +1,29 @@
 ---
-title: 'Add Memories'
-openapi: post /v1/memories/
+title: Add Memories
+description: "Add facts, messages, or metadata to a user memory store with async processing and event tracking via the V3 additive pipeline."
+openapi: post /v3/memories/add/
 ---
 
-Add new facts, messages, or metadata to a user’s memory store. The Add Memories endpoint accepts either raw text or conversational turns and commits them asynchronously so the memory is ready for later search, retrieval, and graph queries.
+Extract and store memories from a conversation using the V3 additive pipeline. The endpoint uses single-pass ADD-only extraction — one LLM call, no UPDATE/DELETE. Memories accumulate over time; nothing is overwritten.
 
 ## Endpoint
 
 - **Method**: `POST`
-- **URL**: `/v1/memories/`
+- **URL**: `/v3/memories/add/`
 - **Content-Type**: `application/json`
 
-Memories are processed asynchronously by default. The response contains queued events you can track while the platform finalizes enrichment.
+Processing is asynchronous. The response returns an `event_id` you can poll via `GET /v1/event/{event_id}/`.
 
 ## Required headers
 
 | Header | Required | Description |
 | --- | --- | --- |
-| `Authorization: Bearer <MEM0_API_KEY>` | Yes | API key scoped to your workspace. |
+| `Authorization: Token <MEM0_API_KEY>` | Yes | API key scoped to your workspace. |
 | `Accept: application/json` | Yes | Ensures a JSON response. |
 
 ## Request body
 
-Provide at least one message or direct memory string. Most callers supply `messages` so Mem0 can infer structured memories as part of ingestion.
+Provide conversation messages for Mem0 to extract memories from. At least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`) is required so the memory is scoped to a session. Entity IDs are accepted at the top level.
 
 <CodeGroup>
 ```json Basic request
@@ -42,31 +43,31 @@ Provide at least one message or direct memory string. Most callers supply `messa
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `user_id` | string | No* | Associates the memory with a user. Provide when you want the memory scoped to a specific identity. |
-| `messages` | array | No* | Conversation turns for Mem0 to infer memories from. Each object should include `role` and `content`. |
-| `memory` | string | No* | Direct memory text when you do not need inference. |
+| `messages` | array | Yes | Conversation turns for Mem0 to extract memories from. Each object should include `role` and `content`. |
+| `user_id` | string | No* | Associates the memory with a user. |
+| `agent_id` | string | No* | Associates the memory with an agent. |
+| `run_id` | string | No* | Associates the memory with a run. |
+| `app_id` | string | No* | Associates the memory with an app. |
 | `metadata` | object | Optional | Custom key/value metadata (e.g., `{"topic": "preferences"}`). |
 | `infer` | boolean (default `true`) | Optional | Set to `false` to skip inference and store the provided text as-is. |
-| `async_mode` | boolean (default `true`) | Optional | Controls asynchronous processing. Most clients leave this enabled. |
-| `output_format` | string (default `v1.1`) | Optional | Response format. `v1.1` wraps results in a `results` array. |
 
-> \* Provide either `messages` or `memory` to describe what you are storing. For scoped memories, include `user_id`. You can also attach `agent_id`, `app_id`, `run_id`, `project_id`, or `org_id` to refine ownership.
+> \* At least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`) is required.
+
+<Tip>
+  Need more details? See [all request parameters](#body-messages) below for complete field descriptions, types, and constraints.
+</Tip>
 
 ## Response
 
-Successful requests return an array of events queued for processing. Each event includes the generated memory text and an identifier you can persist for auditing.
+The request is queued for background processing. The response contains an `event_id` for tracking status.
 
 <CodeGroup>
 ```json 200 response
-[
-  {
-    "id": "mem_01JF8ZS4Y0R0SPM13R5R6H32CJ",
-    "event": "ADD",
-    "data": {
-      "memory": "The user moved to Austin in 2025."
-    }
-  }
-]
+{
+  "message": "Memory processing has been queued for background execution",
+  "status": "PENDING",
+  "event_id": "evt-uuid"
+}
 ```
 
 ```json 400 response
@@ -79,20 +80,7 @@ Successful requests return an array of events queued for processing. Each event 
 ```
 </CodeGroup>
 
-## Graph relationships
+<Info>
+Poll the event status via `GET /v1/event/{event_id}/`. Status will be `SUCCEEDED` or `FAILED` once processing completes.
+</Info>
 
-Add Memories can enrich the knowledge graph on write. Set `enable_graph: true` to create entity nodes and relationships for the stored memory. Use this when you want downstream `get_all` or search calls to traverse connected entities.
-
-<CodeGroup>
-```json Graph-aware request
-{
-  "user_id": "alice",
-  "messages": [
-    { "role": "user", "content": "I met with Dr. Lee at General Hospital." }
-  ],
-  "enable_graph": true
-}
-```
-</CodeGroup>
-
-The response follows the same format, and related entities become available in [Graph Memory](/platform/features/graph-memory) queries.
