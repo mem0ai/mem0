@@ -45,7 +45,7 @@ def test_search_vectors(chromadb_instance, mock_chromadb_client):
 
     assert len(results) == 2
     assert results[0].id == "id1"
-    assert results[0].score == 0.1
+    assert results[0].score == pytest.approx(1.0 / (1.0 + 0.1))  # distance-to-similarity conversion
     assert results[0].payload == {"name": "vector1"}
 
 
@@ -150,7 +150,7 @@ def test_get_vector(chromadb_instance):
     chromadb_instance.collection.get.assert_called_once_with(ids=["id1"])
 
     assert result.id == "id1"
-    assert result.score == 0.1
+    assert result.score == pytest.approx(1.0 / (1.0 + 0.1))  # distance-to-similarity conversion
     assert result.payload == {"name": "vector1"}
 
 
@@ -250,6 +250,39 @@ def test_generate_where_clause_non_string_values():
     # ChromaDB accepts non-string values in filters
     expected = {"$and": [{"user_id": {"$eq": "alice"}}, {"count": {"$eq": 5}}, {"active": {"$eq": True}}]}
     assert result == expected
+
+
+def test_search_distance_to_similarity_conversion(chromadb_instance, mock_chromadb_client):
+    """Test that ChromaDB distances are converted to similarity scores.
+
+    Regression test for https://github.com/mem0ai/mem0/issues/4999
+    ChromaDB returns distances (lower = more similar), but downstream scoring
+    expects similarity scores (higher = more similar, range [0, 1]).
+    Without conversion, distances > 1.0 get clamped and all results appear
+    equally relevant with score 1.0.
+    """
+    mock_result = {
+        "ids": [["id1", "id2", "id3"]],
+        "distances": [[0.41, 1.32, 1.45]],
+        "metadatas": [[{"data": "relevant"}, {"data": "less relevant"}, {"data": "least relevant"}]],
+    }
+    chromadb_instance.collection.query.return_value = mock_result
+
+    vectors = [[0.1, 0.2, 0.3]]
+    results = chromadb_instance.search(query="", vectors=vectors, top_k=3)
+
+    assert len(results) == 3
+
+    # Scores should be in (0, 1] range using 1/(1+distance) conversion
+    assert results[0].score == pytest.approx(1.0 / (1.0 + 0.41))  # ~0.709
+    assert results[1].score == pytest.approx(1.0 / (1.0 + 1.32))  # ~0.431
+    assert results[2].score == pytest.approx(1.0 / (1.0 + 1.45))  # ~0.408
+
+    # Most similar result (lowest distance) should have highest score
+    assert results[0].score > results[1].score > results[2].score
+
+    # No scores should be clamped to 1.0
+    assert all(r.score < 1.0 for r in results)
 
 
 def test_chroma_config_accepts_default_tmp_path():
