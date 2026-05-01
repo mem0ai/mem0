@@ -31,11 +31,9 @@ class Constants:
 
     # All Search Types
     VECTOR = "vector"
-    VECTOR_SCORE_THRESHOLD = "vector_score_threshold"
     FULL_TEXT_SEARCH = "full_text_search"
     FULL_TEXT_RANKING = "full_text_ranking"
     HYBRID = "hybrid"
-    HYBRID_SCORE_THRESHOLD = "hybrid_score_threshold"
 
     # Default Database & Container Names
     VECTOR_SEARCH_DB = "vectorSearchDB"
@@ -95,9 +93,6 @@ class Constants:
     WEIGHTS = "weights"
     SIMILARITY_SCORE = "SimilarityScore"
     FILTER_VALUE = "filter_value"
-
-    # Default similarity score threshold
-    DEFAULT_THRESHOLD: float = 0.5
 
     DISTANCE_COSINE = "cosine"
     DISTANCE_DOT_PRODUCT = "dotproduct"
@@ -174,12 +169,16 @@ class AzureCosmosDBNoSql(VectorStoreBase):
 
     VALID_SEARCH_TYPES = (
         Constants.VECTOR,
-        Constants.VECTOR_SCORE_THRESHOLD,
         Constants.FULL_TEXT_SEARCH,
         Constants.FULL_TEXT_RANKING,
         Constants.HYBRID,
-        Constants.HYBRID_SCORE_THRESHOLD,
     )
+
+    # Search types that accept a similarity-score ``threshold`` knob.
+    _THRESHOLD_CAPABLE_SEARCH_TYPES = (Constants.VECTOR, Constants.HYBRID)
+
+    # Search types that accept a hybrid ``weights`` knob.
+    _WEIGHTS_CAPABLE_SEARCH_TYPES = (Constants.HYBRID,)
 
     def _validate_vector_id(self, vector_id: str) -> None:
         """Raise ValueError if vector_id is falsy."""
@@ -233,8 +232,9 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             database_name: Name of the database. Defaults to 'vectorSearchDB'.
             collection_name: Name of the container. Defaults to 'vectorSearchContainer'.
             search_type: Default search type. Must be one of
-                [vector, vector_score_threshold, full_text_search, full_text_ranking,
-                hybrid, hybrid_score_threshold]. Defaults to 'vector'.
+                [vector, full_text_search, full_text_ranking, hybrid]. Defaults to 'vector'.
+                Note: ``vector`` and ``hybrid`` accept an optional ``threshold`` knob at
+                ``search()`` time; ``hybrid`` additionally accepts ``weights``.
             metadata_key: Metadata field name used in the data schema. Defaults to 'metadata'.
             create_collection: Whether to create the container if it does not exist.
                 Defaults to True.
@@ -372,7 +372,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 Constants.FULL_TEXT_SEARCH,
                 Constants.FULL_TEXT_RANKING,
                 Constants.HYBRID,
-                Constants.HYBRID_SCORE_THRESHOLD,
             ):
                 raise ValueError(
                     f"'search_type' must be a full-text search type when 'full_text_search_enabled=True'. "
@@ -512,7 +511,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         projection_mapping: Optional[Dict[str, Any]] = None,
         where: Optional[str] = None,
         weights: Optional[List[float]] = None,
-        threshold: Optional[float] = Constants.DEFAULT_THRESHOLD,
+        threshold: Optional[float] = None,
     ) -> List[OutputData]:
         """
         Search for similar items in the Cosmos DB collection.
@@ -531,8 +530,10 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 with AND. When both 'filters' and 'where' are provided, the two conditions are merged
                 into a single WHERE clause using AND.
             search_type: The type of search to perform. Valid options are:
-                [vector, vector_score_threshold, full_text_search, full_text_ranking, hybrid, hybrid_score_threshold].
+                [vector, full_text_search, full_text_ranking, hybrid].
                 Defaults to the instance-level search_type set at construction time.
+                The optional ``threshold`` knob applies only to ``vector`` and ``hybrid``;
+                the optional ``weights`` knob applies only to ``hybrid``.
             return_with_vectors: Set to True to include vector embeddings in the search results.
                 Only applicable for vector and hybrid search types.
             offset_limit: Optional OFFSET and LIMIT clause for pagination.
@@ -550,13 +551,16 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 SECURITY: this argument is interpolated verbatim into the SQL text. Never pass
                 untrusted / user-supplied input here — use the structured 'filters' dict for
                 anything that originates from end-user data.
-            weights: Optional weights for hybrid search ranking.
-            threshold: Similarity score threshold for filtering results. The
-                comparison direction depends on the configured
-                ``distanceFunction``: for ``cosine`` and ``dotproduct`` (higher
-                = more similar) results are kept when ``score >= threshold``;
-                for ``euclidean`` (lower = more similar) results are kept when
-                ``score <= threshold``.
+            weights: Optional weights for hybrid search ranking. Only valid for
+                ``search_type='hybrid'``; a ``ValueError`` is raised otherwise.
+            threshold: Optional similarity-score cutoff applied to results after
+                Cosmos returns them. Only valid for ``search_type='vector'`` or
+                ``'hybrid'`` (the modes that project a ``VectorDistance``
+                score); a ``ValueError`` is raised otherwise. The comparison
+                direction depends on the configured ``distanceFunction``: for
+                ``cosine`` and ``dotproduct`` (higher = more similar) results
+                are kept when ``score >= threshold``; for ``euclidean`` (lower
+                = more similar) results are kept when ``score <= threshold``.
         """
         # Fall back to the instance-level default when the caller omits search_type
         search_type = search_type or self._search_type
@@ -578,6 +582,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             vector=vectors,
             return_with_vectors=return_with_vectors,
             full_text_rank_filter=full_text_rank_filter,
+            weights=weights,
+            threshold=threshold,
         )
         sql_query, parameters = self._construct_query(
             limit=limit,
@@ -606,6 +612,8 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         vector: Optional[List[float]] = None,
         return_with_vectors: bool = False,
         full_text_rank_filter: Optional[List[Dict[str, str]]] = None,
+        weights: Optional[List[float]] = None,
+        threshold: Optional[float] = None,
     ):
         # Validate search_type
         if search_type not in self.VALID_SEARCH_TYPES:
@@ -630,7 +638,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         if search_type in (
             Constants.FULL_TEXT_RANKING,
             Constants.HYBRID,
-            Constants.HYBRID_SCORE_THRESHOLD,
         ) and not full_text_rank_filter:
             raise ValueError(
                 f"'full_text_rank_filter' is required for search_type '{search_type}'. "
@@ -652,17 +659,23 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                     "not project the embedding."
                 )
 
-    def _is_vector_search_with_threshold(self, search_type: str) -> bool:
-        """
-        Check if the search type requires vector search with score threshold.
+        # ``threshold`` is only meaningful for search types that project a
+        # VectorDistance score (vector, hybrid). Reject it loudly for
+        # full-text-only modes so callers don't silently get unfiltered results.
+        if threshold is not None and search_type not in self._THRESHOLD_CAPABLE_SEARCH_TYPES:
+            valid = ', '.join(self._THRESHOLD_CAPABLE_SEARCH_TYPES)
+            raise ValueError(
+                f"'threshold' is only valid for search types that compute a VectorDistance "
+                f"projection ({valid}). Got search_type='{search_type}'."
+            )
 
-        Args:
-            search_type (str): The type of search.
-        """
-        return search_type in (
-            Constants.VECTOR_SCORE_THRESHOLD,
-            Constants.HYBRID_SCORE_THRESHOLD,
-        )
+        # ``weights`` controls RRF rank fusion and is only meaningful for hybrid.
+        if weights is not None and search_type not in self._WEIGHTS_CAPABLE_SEARCH_TYPES:
+            valid = ', '.join(self._WEIGHTS_CAPABLE_SEARCH_TYPES)
+            raise ValueError(
+                f"'weights' is only valid for hybrid search types ({valid}). "
+                f"Got search_type='{search_type}'."
+            )
 
     def _is_full_text_search_type(self, search_type: str) -> bool:
         """
@@ -675,7 +688,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             Constants.FULL_TEXT_SEARCH,
             Constants.FULL_TEXT_RANKING,
             Constants.HYBRID,
-            Constants.HYBRID_SCORE_THRESHOLD,
         )
 
     def _is_vector_search_type(self, search_type: str) -> bool:
@@ -687,9 +699,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         """
         return search_type in (
             Constants.VECTOR,
-            Constants.VECTOR_SCORE_THRESHOLD,
             Constants.HYBRID,
-            Constants.HYBRID_SCORE_THRESHOLD,
         )
 
     def _is_hybrid_search_type(self, search_type: str) -> bool:
@@ -699,10 +709,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         Args:
             search_type (str): The type of search.
         """
-        return search_type in (
-            Constants.HYBRID,
-            Constants.HYBRID_SCORE_THRESHOLD,
-        )
+        return search_type == Constants.HYBRID
 
     def _passes_score_threshold(self, score: float, threshold: float) -> bool:
         """Compare a Cosmos DB ``VectorDistance`` score to a user-supplied threshold
@@ -737,9 +744,11 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         if projection_mapping:
             projection_fields = [f"{self._table_alias}.{key} as {alias}" for key, alias in projection_mapping.items()]
         else:
-            # Use SELECT * so that all payload fields (data, hash, user_id, etc.) are
-            # returned rather than only the fields known at query-build time.
-            projection_fields = ["*"]
+            # Project the document via its alias (e.g. "c") rather than "*".
+            # Cosmos DB rejects ``SELECT *, VectorDistance(...)`` with BadRequest;
+            # ``SELECT c, VectorDistance(...)`` returns the full document wrapped
+            # under the alias key, which is unwrapped in _build_output_data_from_item.
+            projection_fields = [self._table_alias]
 
         # For vector search types, append the VectorDistance score projection.
         # SELECT * already includes the raw vector field; return_with_vectors is
@@ -809,7 +818,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         full_text_rank_filter: Optional[List[Dict[str, str]]] = None,
     ) -> str:
         order_by_clause = ""
-        if search_type in (Constants.VECTOR, Constants.VECTOR_SCORE_THRESHOLD):
+        if search_type == Constants.VECTOR:
             vector_distance_proj_field = param_mapping.gen_vector_distance_proj_field(
                 vector_field=self._vector_key, vector=vector
             )
@@ -817,7 +826,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         elif search_type in (
             Constants.FULL_TEXT_RANKING,
             Constants.HYBRID,
-            Constants.HYBRID_SCORE_THRESHOLD,
         ):
             components = [
                 self._generate_order_by_component_with_full_text_rank_filter(
@@ -902,7 +910,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         parameters: Optional[List[Dict[str, Any]]] = None,
         return_with_vectors: bool = False,
         projection_mapping: Optional[Dict[str, Any]] = None,
-        threshold: Optional[float] = Constants.DEFAULT_THRESHOLD,
+        threshold: Optional[float] = None,
     ) -> List[OutputData]:
         parameters = parameters if parameters else []
 
@@ -913,11 +921,10 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             enable_cross_partition_query=True,
         )
 
-        # Filter items if it was threshold-based search. Comparison direction
-        # depends on the configured distance function — see
-        # ``_passes_score_threshold`` for the metric-aware semantics.
-        if self._is_vector_search_with_threshold(search_type):
-            threshold = threshold if threshold is not None else 0.0
+        # Filter items if a threshold was supplied and the search projects a
+        # VectorDistance score. Comparison direction depends on the configured
+        # distance function — see ``_passes_score_threshold``.
+        if threshold is not None and search_type in self._THRESHOLD_CAPABLE_SEARCH_TYPES:
             filtered_items = [
                 item for item in items
                 if self._passes_score_threshold(
@@ -945,6 +952,19 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         return_with_vectors: Optional[bool] = True,
         projection_mapping: Optional[Dict[str, Any]] = None,
     ) -> OutputData:
+        # When the projection uses ``SELECT c, VectorDistance(...) as SimilarityScore``
+        # the document is returned wrapped under the table alias key (e.g. ``"c"``)
+        # alongside any computed projections. Unwrap it so the rest of the
+        # field-extraction logic can stay alias-agnostic.
+        if (
+            not projection_mapping
+            and self._table_alias in item
+            and isinstance(item[self._table_alias], dict)
+        ):
+            doc = item[self._table_alias]
+            extras = {k: v for k, v in item.items() if k != self._table_alias}
+            item = {**doc, **extras}
+
         item_id = str(item.get(Constants.ID))
         score = item.get(Constants.SIMILARITY_SCORE, 0.0)
 
@@ -1101,11 +1121,15 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         param_mapping = ParamMapping(table=self._table_alias)
 
         # Build query
-        # Syntax : SELECT <limit_clause> * FROM c WHERE <where_clause>
-        # Example: SELECT TOP @limit * FROM c WHERE c.metadata.a=@filter_value_0
+        # Syntax : SELECT <limit_clause> c FROM c WHERE <where_clause>
+        # Example: SELECT TOP @limit c FROM c WHERE c.metadata.a=@filter_value_0
+        # Use the table alias rather than ``*`` so that downstream parsing
+        # (``_build_output_data_from_item``) shares the same unwrapping path
+        # used by vector queries (where ``SELECT *, VectorDistance(...)`` is
+        # rejected by Cosmos DB).
         query = "SELECT"
         query += self._generate_limit_clause(param_mapping=param_mapping, limit=limit)
-        query += f" * FROM {self._table_alias}"
+        query += f" {self._table_alias} FROM {self._table_alias}"
         query += self._generate_where_clause(param_mapping=param_mapping, filters=filters)
 
         parameters = param_mapping.export_parameter_list()

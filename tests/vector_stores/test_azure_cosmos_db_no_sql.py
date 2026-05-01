@@ -330,7 +330,7 @@ def test_score_threshold_boundary(cosmos_db_client_fixture):
     mock_collection.query_items.return_value = query_items
 
     results = cosmos_db_vector.search(
-        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        search_type=Constants.VECTOR,
         vectors=[0.1, 0.2, 0.3],
         limit=5,
         threshold=threshold,
@@ -375,7 +375,7 @@ def test_threshold_higher_is_better_metrics(cosmos_db_client_fixture, distance_f
     ]
 
     results = store.search(
-        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        search_type=Constants.VECTOR,
         vectors=[0.1] * VECTOR_DIMENSION,
         limit=10,
         threshold=threshold,
@@ -403,7 +403,7 @@ def test_threshold_lower_is_better_for_euclidean(cosmos_db_client_fixture, dista
     ]
 
     results = store.search(
-        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        search_type=Constants.VECTOR,
         vectors=[0.1] * VECTOR_DIMENSION,
         limit=10,
         threshold=threshold,
@@ -425,7 +425,7 @@ def test_threshold_default_metric_is_cosine(cosmos_db_client_fixture):
     ]
 
     results = store.search(
-        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        search_type=Constants.VECTOR,
         vectors=[0.1] * VECTOR_DIMENSION,
         limit=10,
         threshold=0.5,
@@ -433,8 +433,8 @@ def test_threshold_default_metric_is_cosine(cosmos_db_client_fixture):
     assert {r.id for r in results} == {"high"}
 
 
-def test_threshold_applies_to_hybrid_score_threshold_with_euclidean(cosmos_db_client_fixture):
-    """HYBRID_SCORE_THRESHOLD also routes through the metric-aware filter."""
+def test_threshold_applies_to_hybrid_with_euclidean(cosmos_db_client_fixture):
+    """HYBRID + threshold also routes through the metric-aware filter."""
     store, mock_collection = _build_store_with_distance(cosmos_db_client_fixture, "euclidean")
 
     mock_collection.query_items.return_value = [
@@ -443,7 +443,7 @@ def test_threshold_applies_to_hybrid_score_threshold_with_euclidean(cosmos_db_cl
     ]
 
     results = store.search(
-        search_type=Constants.HYBRID_SCORE_THRESHOLD,
+        search_type=Constants.HYBRID,
         query="hello",
         vectors=[0.1] * VECTOR_DIMENSION,
         limit=10,
@@ -462,7 +462,7 @@ def test_threshold_zero_is_respected_for_euclidean(cosmos_db_client_fixture):
     ]
 
     results = store.search(
-        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        search_type=Constants.VECTOR,
         vectors=[0.1] * VECTOR_DIMENSION,
         limit=10,
         threshold=0.0,
@@ -493,11 +493,49 @@ def test_passes_score_threshold_unit(
     assert store._passes_score_threshold(score=score, threshold=threshold) is expected
 
 
+# ---------------------------------------------------------------------------
+# search() — threshold and weights are rejected for incompatible search types
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "search_type",
+    [Constants.FULL_TEXT_SEARCH, Constants.FULL_TEXT_RANKING],
+)
+def test_threshold_rejected_for_full_text_search_types(cosmos_db_client_fixture, search_type):
+    """`threshold` is only valid for search types that compute a VectorDistance projection."""
+    cosmos_db_vector, _, _, _ = cosmos_db_client_fixture
+
+    with pytest.raises(ValueError, match=r"'threshold' is only valid for"):
+        cosmos_db_vector.search(
+            search_type=search_type,
+            full_text_rank_filter=[{"search_field": "description", "search_text": "any"}],
+            threshold=0.5,
+        )
+
+
+@pytest.mark.parametrize(
+    "search_type",
+    [Constants.VECTOR, Constants.FULL_TEXT_SEARCH, Constants.FULL_TEXT_RANKING],
+)
+def test_weights_rejected_for_non_hybrid_search_types(cosmos_db_client_fixture, search_type):
+    """`weights` is only meaningful for hybrid search."""
+    cosmos_db_vector, _, _, _ = cosmos_db_client_fixture
+
+    kwargs = {"search_type": search_type, "weights": [2, 1]}
+    if search_type == Constants.VECTOR:
+        kwargs["vectors"] = [0.1, 0.2, 0.3]
+    else:
+        kwargs["full_text_rank_filter"] = [{"search_field": "description", "search_text": "any"}]
+
+    with pytest.raises(ValueError, match=r"'weights' is only valid for"):
+        cosmos_db_vector.search(**kwargs)
+
+
 def test_search_with_errors(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     # Test invalid search type
-    error_message = r"Invalid search_type 'invalid_type'. Valid options are: vector, vector_score_threshold, full_text_search, full_text_ranking, hybrid, hybrid_score_threshold."
+    error_message = r"Invalid search_type 'invalid_type'\. Valid options are: vector, full_text_search, full_text_ranking, hybrid\."
     with pytest.raises(ValueError, match=error_message):
         cosmos_db_vector.search(
             search_type="invalid_type",
@@ -733,7 +771,7 @@ def test_list(cosmos_db_client_fixture):
     assert results[0].id == "vec1"
     assert results[1].id == "vec2"
     mock_collection.query_items.assert_called_once()
-    expected_query = "SELECT TOP @limit * FROM c"
+    expected_query = "SELECT TOP @limit c FROM c"
     expected_parameters = [
         {"name": "@limit", "value": 100},
     ]
@@ -746,7 +784,7 @@ def test_list(cosmos_db_client_fixture):
     # Test with filters and limit
     filters = {"metadata.a": 1, "id": "vec3"}
     limit = 2
-    expected_query = "SELECT TOP @limit * FROM c WHERE c.metadata.a=@filter_value_0 AND c.id=@filter_value_1"
+    expected_query = "SELECT TOP @limit c FROM c WHERE c.metadata.a=@filter_value_0 AND c.id=@filter_value_1"
     expected_parameters = [
         {"name": "@limit", "value": limit},
         {"name": "@filter_value_0", "value": 1},
@@ -1180,7 +1218,7 @@ def test_search_full_text_disabled_raises_error():
 # ---------------------------------------------------------------------------
 
 def test_search_hybrid_returns_all_items_regardless_of_score(cosmos_db_client_fixture):
-    """HYBRID search (not HYBRID_SCORE_THRESHOLD) must not apply a threshold filter."""
+    """HYBRID search without a threshold must not apply a threshold filter."""
     cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
     query_items = [
@@ -1286,6 +1324,7 @@ def get_kwargs(
         offset_limit: Optional[str] = None,
         where: Optional[str] = None,
         weights: Optional[List[float]] = None,
+        threshold: Optional[float] = None,
 ) -> Dict[str, Any]:
     kwargs: Dict[str, Any] = {
         "search_type": search_type,
@@ -1308,6 +1347,8 @@ def get_kwargs(
         kwargs["where"] = where
     if weights is not None:
         kwargs["weights"] = weights
+    if threshold is not None:
+        kwargs["threshold"] = threshold
 
     return kwargs
 
@@ -1320,7 +1361,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 1: Simple Vector search with k
     expected_query = (
-        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
@@ -1383,7 +1424,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 2: with vector
     expected_query = (
-        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
@@ -1513,7 +1554,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 4: With offset_limit
     off_set_limit = "OFFSET 5 LIMIT 1"
     expected_query = (
-        "SELECT *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector) "
         f"{off_set_limit}"
     )
@@ -1559,7 +1600,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 5: With where filter (raw `where` is wrapped in parens to preserve precedence)
     where_filter = "c.user_id='alice'"
     expected_query = (
-        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         "WHERE (c.user_id='alice') "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
@@ -1587,7 +1628,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 6: filters dict only (no raw where)
     filters = {"user_id": "alice", "hash": "abc123"}
     expected_query = (
-        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         "WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
@@ -1617,7 +1658,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 7: filters dict AND raw where combined with AND
     where_filter = "FullTextContains(c.description, 'sci-fi')"
     expected_query = (
-        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND ({where_filter}) "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
@@ -1647,7 +1688,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 8: Vector score threshold — items below threshold are filtered out
     expected_query = (
-        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
@@ -1688,9 +1729,10 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     queries_and_parameters.append(
         (
             get_kwargs(
-                search_type=Constants.VECTOR_SCORE_THRESHOLD,
+                search_type=Constants.VECTOR,
                 vectors=vectors,
                 limit=limit,
+                threshold=0.5,
             ),
             expected_query,
             expected_parameters,
@@ -1712,7 +1754,7 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
     # Case 1: Simple full text search (raw `where` is wrapped in parens to preserve precedence)
     where = "FullTextContainsAny(c.description, 'intelligent', 'herders')"
     expected_query = (
-        "SELECT TOP @limit * "
+        "SELECT TOP @limit c "
         "FROM c "
         "WHERE (FullTextContainsAny(c.description, 'intelligent', 'herders'))"
     )
@@ -1772,7 +1814,7 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
 
     # Case 2: Simple full text ranking
     expected_query = (
-        "SELECT TOP @limit * "
+        "SELECT TOP @limit c "
         "FROM c "
         "ORDER BY RANK FullTextScore(c[@description], @description_term_0, @description_term_1)"
     )
@@ -1820,7 +1862,7 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
         {"search_field": "metadata", "search_text": search_text}
     ]
     expected_query = (
-        "SELECT TOP @limit * "
+        "SELECT TOP @limit c "
         "FROM c "
         "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), FullTextScore(c[@metadata], @metadata_term_0, @metadata_term_1))"
     )
@@ -1860,7 +1902,7 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
 
     # Case 1: Hybrid search with score threshold
     expected_query = (
-        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), VectorDistance(c[@vectorKey], @vector))"
     )
@@ -1907,10 +1949,11 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     queries_and_parameters.append(
         (
             get_kwargs(
-                search_type=Constants.HYBRID_SCORE_THRESHOLD,
+                search_type=Constants.HYBRID,
                 vectors=vectors,
                 limit=limit,
-                full_text_rank_filter=full_text_rank_filter
+                full_text_rank_filter=full_text_rank_filter,
+                threshold=0.5,
             ),
             expected_query,
             expected_parameters,
@@ -1922,7 +1965,7 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     # Case 2: Hybrid search with weights
     weights = [2, 1]
     expected_query = (
-        "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
+        "SELECT TOP @limit c, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
         "ORDER BY RANK RRF(FullTextScore(c[@description], @description_term_0, @description_term_1), VectorDistance(c[@vectorKey], @vector), @weights)"
     )
@@ -1939,11 +1982,12 @@ def get_hybrid_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     queries_and_parameters.append(
         (
             get_kwargs(
-                search_type=Constants.HYBRID_SCORE_THRESHOLD,
+                search_type=Constants.HYBRID,
                 vectors=vectors,
                 limit=limit,
                 full_text_rank_filter=full_text_rank_filter,
                 weights=weights,
+                threshold=0.5,
             ),
             expected_query,
             expected_parameters,
@@ -1992,7 +2036,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             limit=limit,
         ),
         (
-            "SELECT TOP @limit *, "
+            "SELECT TOP @limit c, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             "FROM c "
             "WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 "
@@ -2019,7 +2063,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             limit=limit,
         ),
         (
-            "SELECT TOP @limit *, "
+            "SELECT TOP @limit c, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             f"FROM c "
             f"WHERE ({where_expr}) "
@@ -2045,7 +2089,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             limit=limit,
         ),
         (
-            "SELECT TOP @limit *, "
+            "SELECT TOP @limit c, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             "FROM c "
             f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND ({where_expr}) "
@@ -2070,7 +2114,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             limit=limit,
         ),
         (
-            "SELECT TOP @limit *, "
+            "SELECT TOP @limit c, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             "FROM c ORDER BY VectorDistance(c[@vectorKey], @vector)"
         ),
