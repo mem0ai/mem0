@@ -79,8 +79,10 @@ class AWSBedrockLLM(LLMBase):
         try:
             aws_config = self.config.get_aws_config()
 
-            # Create Bedrock runtime client
-            self.client = boto3.client("bedrock-runtime", **aws_config)
+            # Create Bedrock runtime client. boto3.client() does NOT accept
+            # `profile_name` as a kwarg — only boto3.Session() does. If
+            # `profile_name` is in aws_config, build a Session first.
+            self.client = self._build_client("bedrock-runtime", aws_config)
 
             # Test connection
             self._test_connection()
@@ -100,11 +102,21 @@ class AWSBedrockLLM(LLMBase):
             else:
                 raise ValueError(f"AWS Bedrock error: {e}")
 
+    @staticmethod
+    def _build_client(service_name: str, aws_config: Dict[str, Any]):
+        """Build a boto3 client, routing `profile_name` through Session()."""
+        cfg = dict(aws_config)
+        profile_name = cfg.pop("profile_name", None)
+        if profile_name:
+            session = boto3.Session(profile_name=profile_name)
+            return session.client(service_name, **cfg)
+        return boto3.client(service_name, **cfg)
+
     def _test_connection(self):
         """Test connection to AWS Bedrock service."""
         try:
             # List available models to test connection
-            bedrock_client = boto3.client("bedrock", **self.config.get_aws_config())
+            bedrock_client = self._build_client("bedrock", self.config.get_aws_config())
             response = bedrock_client.list_foundation_models()
             self.available_models = [model["modelId"] for model in response["modelSummaries"]]
 
