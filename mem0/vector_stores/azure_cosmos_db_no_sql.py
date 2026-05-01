@@ -99,6 +99,10 @@ class Constants:
     # Default similarity score threshold
     DEFAULT_THRESHOLD: float = 0.5
 
+    DISTANCE_COSINE = "cosine"
+    DISTANCE_DOT_PRODUCT = "dotproduct"
+    DISTANCE_EUCLIDEAN = "euclidean"
+
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -547,7 +551,12 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 untrusted / user-supplied input here — use the structured 'filters' dict for
                 anything that originates from end-user data.
             weights: Optional weights for hybrid search ranking.
-            threshold: Similarity score threshold for filtering results.
+            threshold: Similarity score threshold for filtering results. The
+                comparison direction depends on the configured
+                ``distanceFunction``: for ``cosine`` and ``dotproduct`` (higher
+                = more similar) results are kept when ``score >= threshold``;
+                for ``euclidean`` (lower = more similar) results are kept when
+                ``score <= threshold``.
         """
         # Fall back to the instance-level default when the caller omits search_type
         search_type = search_type or self._search_type
@@ -694,6 +703,28 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             Constants.HYBRID,
             Constants.HYBRID_SCORE_THRESHOLD,
         )
+
+    def _passes_score_threshold(self, score: float, threshold: float) -> bool:
+        """Compare a Cosmos DB ``VectorDistance`` score to a user-supplied threshold
+        using semantics that match the configured ``distanceFunction``.
+
+        Cosmos DB's ``VectorDistance`` does *not* normalize across metrics
+        (`docs <https://learn.microsoft.com/azure/cosmos-db/vector-search>`_):
+
+        * **cosine**     — values from -1 (least similar) to +1 (most similar). Higher is better.
+        * **dotproduct** — values from -inf to +inf. Higher is better.
+        * **euclidean**  — values from 0 (most similar) to +inf (least similar). LOWER is better.
+
+        A ``>= threshold`` comparison therefore only makes sense for cosine and
+        dotproduct. For euclidean we must invert it (``<= threshold``) so that
+        a perfect match (distance 0) is *not* filtered out as "too low a score".
+        """
+        distance_function = (
+            self._vector_properties.get(Constants.DISTANCE_FUNCTION) or Constants.DISTANCE_COSINE
+        ).lower()
+        if distance_function == Constants.DISTANCE_EUCLIDEAN:
+            return score <= threshold
+        return score >= threshold
 
     def _generate_projection_fields(
         self,
@@ -882,10 +913,18 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             enable_cross_partition_query=True,
         )
 
-        # Filter items if it was threshold-based search
+        # Filter items if it was threshold-based search. Comparison direction
+        # depends on the configured distance function — see
+        # ``_passes_score_threshold`` for the metric-aware semantics.
         if self._is_vector_search_with_threshold(search_type):
-            threshold = threshold or 0.0
-            filtered_items = [item for item in items if item.get(Constants.SIMILARITY_SCORE, 0.0) >= threshold]
+            threshold = threshold if threshold is not None else 0.0
+            filtered_items = [
+                item for item in items
+                if self._passes_score_threshold(
+                    score=item.get(Constants.SIMILARITY_SCORE, 0.0),
+                    threshold=threshold,
+                )
+            ]
         else:
             filtered_items = items
 

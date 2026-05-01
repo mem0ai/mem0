@@ -341,6 +341,158 @@ def test_score_threshold_boundary(cosmos_db_client_fixture):
     assert results[0].id == 'vec1'
 
 
+# ---------------------------------------------------------------------------
+# Distance-function semantics for VectorDistance score thresholds.
+#
+# Per https://learn.microsoft.com/azure/cosmos-db/vector-search :
+#   - cosine     : -1 (least similar)  ..  +1 (most similar)   higher = better
+#   - dotproduct : -inf (least similar) .. +inf (most similar) higher = better
+#   - euclidean  :  0  (most similar)  .. +inf (least similar) LOWER  = better
+#
+# The threshold filter must invert its comparison for euclidean, otherwise a
+# perfect match (distance 0) is filtered out and a terrible match (large
+# distance) is kept.
+# ---------------------------------------------------------------------------
+
+
+def _build_store_with_distance(cosmos_db_client_fixture, distance_function: str):
+    """Return the fixture's store mutated to use the given distance function."""
+    store, mock_collection, _, _ = cosmos_db_client_fixture
+    store._vector_properties[Constants.DISTANCE_FUNCTION] = distance_function
+    return store, mock_collection
+
+
+@pytest.mark.parametrize("distance_function", ["cosine", "Cosine", "dotproduct", "DotProduct"])
+def test_threshold_higher_is_better_metrics(cosmos_db_client_fixture, distance_function):
+    """For cosine and dotproduct, score >= threshold is kept (higher = more similar)."""
+    store, mock_collection = _build_store_with_distance(cosmos_db_client_fixture, distance_function)
+
+    threshold = 0.5
+    mock_collection.query_items.return_value = [
+        {"id": "above", "SimilarityScore": 0.9, "description": "above", "hash": "h1"},
+        {"id": "equal", "SimilarityScore": 0.5, "description": "equal", "hash": "h2"},
+        {"id": "below", "SimilarityScore": 0.1, "description": "below", "hash": "h3"},
+    ]
+
+    results = store.search(
+        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        vectors=[0.1] * VECTOR_DIMENSION,
+        limit=10,
+        threshold=threshold,
+    )
+
+    kept_ids = {r.id for r in results}
+    assert kept_ids == {"above", "equal"}
+
+
+@pytest.mark.parametrize("distance_function", ["euclidean", "Euclidean", "EUCLIDEAN"])
+def test_threshold_lower_is_better_for_euclidean(cosmos_db_client_fixture, distance_function):
+    """For euclidean, score <= threshold is kept (lower distance = more similar).
+
+    This is the regression test for the Cosmos-DB-specific bug where a perfect
+    match (distance 0) was being filtered out as "below" the similarity
+    threshold. See ``_passes_score_threshold`` in the adapter for context.
+    """
+    store, mock_collection = _build_store_with_distance(cosmos_db_client_fixture, distance_function)
+
+    threshold = 0.5
+    mock_collection.query_items.return_value = [
+        {"id": "perfect", "SimilarityScore": 0.0, "description": "perfect", "hash": "h1"},
+        {"id": "near", "SimilarityScore": 0.5, "description": "near", "hash": "h2"},
+        {"id": "far", "SimilarityScore": 1.5, "description": "far", "hash": "h3"},
+    ]
+
+    results = store.search(
+        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        vectors=[0.1] * VECTOR_DIMENSION,
+        limit=10,
+        threshold=threshold,
+    )
+
+    kept_ids = {r.id for r in results}
+    # Perfect (0) and near (0.5) are within the radius; far (1.5) is not.
+    assert kept_ids == {"perfect", "near"}
+
+
+def test_threshold_default_metric_is_cosine(cosmos_db_client_fixture):
+    """If distanceFunction is unset, fall back to cosine semantics (higher = better)."""
+    store, mock_collection, _, _ = cosmos_db_client_fixture
+    store._vector_properties.pop(Constants.DISTANCE_FUNCTION, None)
+
+    mock_collection.query_items.return_value = [
+        {"id": "high", "SimilarityScore": 0.9, "description": "high", "hash": "h1"},
+        {"id": "low", "SimilarityScore": 0.1, "description": "low", "hash": "h2"},
+    ]
+
+    results = store.search(
+        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        vectors=[0.1] * VECTOR_DIMENSION,
+        limit=10,
+        threshold=0.5,
+    )
+    assert {r.id for r in results} == {"high"}
+
+
+def test_threshold_applies_to_hybrid_score_threshold_with_euclidean(cosmos_db_client_fixture):
+    """HYBRID_SCORE_THRESHOLD also routes through the metric-aware filter."""
+    store, mock_collection = _build_store_with_distance(cosmos_db_client_fixture, "euclidean")
+
+    mock_collection.query_items.return_value = [
+        {"id": "near", "SimilarityScore": 0.2, "description": "near", "hash": "h1"},
+        {"id": "far", "SimilarityScore": 5.0, "description": "far", "hash": "h2"},
+    ]
+
+    results = store.search(
+        search_type=Constants.HYBRID_SCORE_THRESHOLD,
+        query="hello",
+        vectors=[0.1] * VECTOR_DIMENSION,
+        limit=10,
+        threshold=1.0,
+    )
+    assert {r.id for r in results} == {"near"}
+
+
+def test_threshold_zero_is_respected_for_euclidean(cosmos_db_client_fixture):
+    """threshold=0 with euclidean must keep only exact matches, not be coerced."""
+    store, mock_collection = _build_store_with_distance(cosmos_db_client_fixture, "euclidean")
+
+    mock_collection.query_items.return_value = [
+        {"id": "exact", "SimilarityScore": 0.0, "description": "exact", "hash": "h1"},
+        {"id": "close", "SimilarityScore": 0.001, "description": "close", "hash": "h2"},
+    ]
+
+    results = store.search(
+        search_type=Constants.VECTOR_SCORE_THRESHOLD,
+        vectors=[0.1] * VECTOR_DIMENSION,
+        limit=10,
+        threshold=0.0,
+    )
+    assert {r.id for r in results} == {"exact"}
+
+
+@pytest.mark.parametrize(
+    "distance_function,score,threshold,expected",
+    [
+        ("cosine", 0.9, 0.5, True),
+        ("cosine", 0.5, 0.5, True),
+        ("cosine", 0.4, 0.5, False),
+        ("cosine", -0.1, 0.0, False),
+        ("dotproduct", 100.0, 1.0, True),
+        ("dotproduct", -1.0, 0.0, False),
+        ("euclidean", 0.0, 0.5, True),
+        ("euclidean", 0.5, 0.5, True),
+        ("euclidean", 0.51, 0.5, False),
+        ("euclidean", 100.0, 0.5, False),
+    ],
+)
+def test_passes_score_threshold_unit(
+    cosmos_db_client_fixture, distance_function, score, threshold, expected
+):
+    """Unit test the metric-aware comparison helper directly."""
+    store, _ = _build_store_with_distance(cosmos_db_client_fixture, distance_function)
+    assert store._passes_score_threshold(score=score, threshold=threshold) is expected
+
+
 def test_search_with_errors(cosmos_db_client_fixture):
     cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
 
