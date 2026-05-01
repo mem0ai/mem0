@@ -424,3 +424,92 @@ class TestMiniMaxProvider:
             assert msg["role"] != "system"
         # user message must be present
         assert kwargs["messages"][0]["role"] == "user"
+
+
+# ---------------------------------------------------------------------------
+# profile_name routing
+#
+# AWSBedrockConfig.get_aws_config() can include `profile_name` (when the user
+# sets aws_profile=). boto3.client() rejects that kwarg — only
+# boto3.Session() accepts it. Verify the construction is routed accordingly.
+# ---------------------------------------------------------------------------
+
+class TestProfileNameRouting:
+
+    def test_no_profile_uses_boto3_client_directly(self):
+        """Without aws_profile, AWSBedrockLLM should call boto3.client(...) directly."""
+        with patch("mem0.llms.aws_bedrock.boto3") as mock_b3:
+            runtime_client = MagicMock()
+            bedrock_client = MagicMock()
+            bedrock_client.list_foundation_models.return_value = {"modelSummaries": []}
+            mock_b3.client.side_effect = lambda service, **_: (
+                runtime_client if service == "bedrock-runtime" else bedrock_client
+            )
+
+            AWSBedrockLLM(AWSBedrockConfig(
+                model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+                aws_region="us-west-2",
+            ))
+
+            # Session() must NOT be touched at all when no profile is set.
+            mock_b3.Session.assert_not_called()
+            # boto3.client was called with region_name and no profile_name.
+            for call in mock_b3.client.call_args_list:
+                args, kwargs = call
+                assert "profile_name" not in kwargs
+
+    def test_with_profile_routes_through_session(self):
+        """With aws_profile, construction must go through boto3.Session(profile_name=...)
+        rather than boto3.client(profile_name=...) — the latter raises TypeError."""
+        with patch("mem0.llms.aws_bedrock.boto3") as mock_b3:
+            session = MagicMock(name="Session")
+            runtime_client = MagicMock(name="bedrock-runtime")
+            bedrock_client = MagicMock(name="bedrock")
+            bedrock_client.list_foundation_models.return_value = {"modelSummaries": []}
+            session.client.side_effect = lambda service, **_: (
+                runtime_client if service == "bedrock-runtime" else bedrock_client
+            )
+            mock_b3.Session.return_value = session
+
+            AWSBedrockLLM(AWSBedrockConfig(
+                model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+                aws_region="us-west-2",
+                aws_profile="my-sso-profile",
+            ))
+
+            # boto3.Session(profile_name=...) was called.
+            mock_b3.Session.assert_called_with(profile_name="my-sso-profile")
+            # boto3.client(...) was NOT called directly.
+            mock_b3.client.assert_not_called()
+            # Both bedrock-runtime and bedrock were created via session.client(...).
+            services_called = [c.args[0] for c in session.client.call_args_list]
+            assert "bedrock-runtime" in services_called
+            assert "bedrock" in services_called
+            # No call passed profile_name as a kwarg (would TypeError on real boto3).
+            for c in session.client.call_args_list:
+                assert "profile_name" not in c.kwargs
+
+    def test_profile_name_stripped_from_session_client_kwargs(self):
+        """Even when profile_name is in aws_config, it must not leak through to
+        Session.client() — only Session(profile_name=...) accepts it."""
+        with patch("mem0.llms.aws_bedrock.boto3") as mock_b3:
+            session = MagicMock()
+            runtime_client = MagicMock()
+            bedrock_client = MagicMock()
+            bedrock_client.list_foundation_models.return_value = {"modelSummaries": []}
+            session.client.side_effect = lambda service, **_: (
+                runtime_client if service == "bedrock-runtime" else bedrock_client
+            )
+            mock_b3.Session.return_value = session
+
+            AWSBedrockLLM(AWSBedrockConfig(
+                model="anthropic.claude-3-5-sonnet-20240620-v1:0",
+                aws_region="us-east-1",
+                aws_profile="dev",
+            ))
+
+            for call in session.client.call_args_list:
+                # region_name should still be forwarded
+                assert call.kwargs.get("region_name") == "us-east-1"
+                # profile_name must be popped before this call
+                assert "profile_name" not in call.kwargs
