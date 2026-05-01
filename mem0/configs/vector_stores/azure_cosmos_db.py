@@ -25,7 +25,7 @@ class AzureCosmosDBConfig(BaseModel):
 
     def __init__(self, **data):
         try:
-            from azure.cosmos import CosmosClient
+            from azure.cosmos import CosmosClient  # noqa: F401  (availability check)
         except ImportError as e:
             raise ImportError(
                 "The 'azure-cosmos' library is required. Install it with: pip install azure-cosmos"

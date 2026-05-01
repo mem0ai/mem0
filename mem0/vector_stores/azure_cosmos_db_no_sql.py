@@ -1,4 +1,5 @@
 """Vector Store for CosmosDB NoSql."""
+import re
 import uuid
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -8,6 +9,12 @@ from pydantic import BaseModel
 from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
+
+# A filter key is a dot-separated chain of identifiers, e.g. "user_id" or
+# "metadata.category". We refuse anything else so that callers cannot smuggle
+# SQL fragments through the filter dict (the values are always parameterized,
+# but the keys are interpolated into the SQL text).
+_FILTER_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
 
 try:
     from azure.cosmos import CosmosClient, DatabaseProxy, ContainerProxy, CosmosDict
@@ -170,17 +177,6 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         Constants.HYBRID_SCORE_THRESHOLD,
     )
 
-    @property
-    def _excluded_payload_fields(self) -> frozenset:
-        """The complete set of fields stripped from a raw Cosmos DB item before
-        building the public payload. Cached once in ``__init__``:
-          - five Cosmos DB internal fields (_rid, _self, _etag, _attachments, _ts)
-          - ``id``              — surfaced separately as OutputData.id
-          - ``SimilarityScore`` — surfaced separately as OutputData.score
-          - the vector key      — included only when return_with_vectors=True
-        """
-        return self.__excluded_payload_fields
-
     def _validate_vector_id(self, vector_id: str) -> None:
         """Raise ValueError if vector_id is falsy."""
         if not vector_id:
@@ -259,7 +255,7 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         self._text_key = vector_search_fields.get(Constants.TEXT_FIELD) if vector_search_fields else None
         self._vector_key = vector_search_fields.get(Constants.VECTOR_FIELD) if vector_search_fields else None
         # Built once — _vector_key never changes after __init__.
-        self.__excluded_payload_fields: frozenset = frozenset({
+        self._excluded_payload_fields: frozenset = frozenset({
             Constants.COSMOS_FIELD_RID,
             Constants.COSMOS_FIELD_SELF,
             Constants.COSMOS_FIELD_ETAG,
@@ -545,7 +541,11 @@ class AzureCosmosDBNoSql(VectorStoreBase):
             where: Optional raw WHERE clause expression for filtering results. This allows flexible
                 filtering and is required for 'full_text_search' type,
                 e.g. "FullTextContains(c.description, 'energetic')". When both 'where' and
-                'filters' are provided, the two conditions are combined with AND.
+                'filters' are provided, the two conditions are combined with AND (the raw
+                'where' fragment is wrapped in parentheses to preserve precedence).
+                SECURITY: this argument is interpolated verbatim into the SQL text. Never pass
+                untrusted / user-supplied input here — use the structured 'filters' dict for
+                anything that originates from end-user data.
             weights: Optional weights for hybrid search ranking.
             threshold: Similarity score threshold for filtering results.
         """
@@ -638,7 +638,9 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         else:
             if return_with_vectors:
                 raise ValueError(
-                    "'return_with_vectors' can only be True for vector search types using vector embeddings."
+                    "'return_with_vectors' can only be True for vector or hybrid search types "
+                    "(those that compute a VectorDistance projection). Full-text-only modes do "
+                    "not project the embedding."
                 )
 
     def _is_vector_search_with_threshold(self, search_type: str) -> bool:
@@ -733,6 +735,16 @@ class AzureCosmosDBNoSql(VectorStoreBase):
         where_clauses = []
         if filters:
             for idx, (key, value) in enumerate(filters.items()):
+                # Filter keys are interpolated into the SQL text (only values
+                # are parameterized via ParamMapping). Reject anything that is
+                # not a dot-separated identifier chain so a caller cannot
+                # smuggle SQL fragments through filters={"user_id OR 1=1 --": ...}.
+                if not isinstance(key, str) or not _FILTER_KEY_RE.match(key):
+                    raise ValueError(
+                        f"Invalid filter key {key!r}. Filter keys must be a "
+                        f"dot-separated chain of identifiers (e.g. 'user_id' "
+                        f"or 'metadata.category')."
+                    )
                 filter_key = f"{self._table_alias}.{key}"
                 filter_value = param_mapping.gen_param_key(key=f"{Constants.FILTER_VALUE}_{idx}", value=value)
                 where_clauses.append(f"{filter_key}={filter_value}")
@@ -823,15 +835,18 @@ class AzureCosmosDBNoSql(VectorStoreBase):
 
         query += f" FROM {self._table_alias}"
 
-        # Build WHERE clause by merging `filters` dict and raw `where` string with AND
+        # Build WHERE clause by merging `filters` dict and raw `where` string with AND.
+        # `where` is wrapped in parentheses so that an OR inside the raw fragment
+        # cannot bind looser than the AND that joins it to the structured filters
+        # (otherwise `WHERE c.user_id=@v0 AND x=1 OR y=2` would parse as
+        # `(c.user_id=@v0 AND x=1) OR y=2` and leak rows across tenants).
         filters_clause = self._generate_where_clause(param_mapping=param_mapping, filters=filters)
         if filters_clause and where:
-            # filters_clause already starts with " WHERE ...", append the raw where with AND
-            query += filters_clause + f" AND {where}"
+            query += filters_clause + f" AND ({where})"
         elif filters_clause:
             query += filters_clause
         elif where:
-            query += f" WHERE {where}"
+            query += f" WHERE ({where})"
 
         if search_type != Constants.FULL_TEXT_SEARCH:
             order_by_clause = self._generate_order_by_clause(
@@ -931,9 +946,11 @@ class AzureCosmosDBNoSql(VectorStoreBase):
                 partition_key=partition_key_value,
             )
             logger.info("Deleted document with ID '%s'.", vector_id)
-        except CosmosResourceNotFoundError as e:
-            logger.error("Error deleting document: %s", e)
-            raise e
+        except CosmosResourceNotFoundError:
+            logger.warning(
+                "delete: document with ID '%s' was not found — treating as a no-op.",
+                vector_id,
+            )
 
     def update(
         self,

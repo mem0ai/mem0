@@ -102,8 +102,10 @@ def cosmos_db_client_fixture(mock_cosmos_client):
         full_text_search_enabled=True,
     )
 
-    mock_db.create_database_if_not_exists.call_count = 0
-    mock_db.create_container_if_not_exists.call_count = 0
+    # `create_database_if_not_exists` lives on the CosmosClient, not on the
+    # database proxy. Reset on the correct mock and use the idiomatic API.
+    mock_client.create_database_if_not_exists.reset_mock()
+    mock_db.create_container_if_not_exists.reset_mock()
 
     return azure_cosmos_db_nosql_vector, mock_collection, mock_db, mock_cosmos_client
 
@@ -357,7 +359,7 @@ def test_search_with_errors(cosmos_db_client_fixture):
         cosmos_db_vector.search(search_type=search_type)
 
     # Test for `return_with_vectors` without vector
-    error_message = "'return_with_vectors' can only be True for vector search types using vector embeddings."
+    error_message = "'return_with_vectors' can only be True for vector or hybrid search types"
     with pytest.raises(ValueError, match=error_message):
         cosmos_db_vector.search(
             search_type=Constants.FULL_TEXT_SEARCH,
@@ -383,14 +385,17 @@ def test_delete(cosmos_db_client_fixture):
     )
 
 def test_delete_cosmos_resource_not_found(cosmos_db_client_fixture):
-    """Test that CosmosResourceNotFoundError is raised and handled in delete."""
+    """delete() is idempotent: a missing item is treated as a no-op (matches Qdrant/Pinecone)."""
     cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
     from mem0.vector_stores.azure_cosmos_db_no_sql import CosmosResourceNotFoundError
     vector_id = "vec_not_found"
-    # Correctly instantiate with int status_code and str message
     mock_collection.delete_item.side_effect = CosmosResourceNotFoundError(404, "Not found")
-    with pytest.raises(CosmosResourceNotFoundError):
-        cosmos_db_vector.delete(vector_id=vector_id, partition_key_value=vector_id)
+    # Should not raise — the higher-level delete_all() flow depends on this.
+    cosmos_db_vector.delete(vector_id=vector_id, partition_key_value=vector_id)
+    mock_collection.delete_item.assert_called_once_with(
+        item=vector_id,
+        partition_key=vector_id,
+    )
 
 
 def test_update(cosmos_db_client_fixture):
@@ -822,6 +827,107 @@ def test_delete_defaults_partition_key_to_vector_id(cosmos_db_client_fixture):
     cosmos_db_vector.delete(vector_id="vec1")  # no partition_key_value
 
     mock_collection.delete_item.assert_called_once_with(item="vec1", partition_key="vec1")
+
+
+# ---------------------------------------------------------------------------
+# Filter-key SQL-injection guard (search() and list())
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "bad_key",
+    [
+        "user_id OR 1=1 --",                # classic OR-injection chain
+        "user_id; DROP TABLE c; --",        # stacked-statement attempt
+        "user_id=@v0 OR 1=1",               # closes the equality early
+        "metadata.user_id OR 1=1",          # nested key with OR-injection
+        "metadata..user_id",                # malformed dotted chain
+        ".user_id",                         # leading dot
+        "user_id.",                         # trailing dot
+        "1user_id",                         # leading digit (not an identifier)
+        "user id",                          # whitespace inside
+        "",                                 # empty key
+    ],
+)
+def test_search_rejects_invalid_filter_keys(cosmos_db_client_fixture, bad_key):
+    """Filter keys are interpolated into SQL — anything that is not a dot-separated
+    identifier chain must be rejected so callers cannot smuggle SQL fragments."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        cosmos_db_vector.search(
+            search_type=Constants.VECTOR,
+            vectors=[0.1] * VECTOR_DIMENSION,
+            filters={bad_key: "alice"},
+        )
+    # Query must never have been issued against the collection.
+    mock_collection.query_items.assert_not_called()
+
+
+def test_list_rejects_invalid_filter_keys(cosmos_db_client_fixture):
+    """Same identifier-chain validation applies to list() filters."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    with pytest.raises(ValueError, match="Invalid filter key"):
+        cosmos_db_vector.list(filters={"user_id OR 1=1 --": "alice"})
+    mock_collection.query_items.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "good_key",
+    ["user_id", "metadata", "metadata.user_id", "metadata.nested.field", "_underscored", "a1.b2"],
+)
+def test_search_accepts_valid_filter_keys(cosmos_db_client_fixture, good_key):
+    """Sanity check: legitimate keys still pass through the validator."""
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+
+    mock_collection.query_items.return_value = []
+    # Should not raise.
+    cosmos_db_vector.search(
+        search_type=Constants.VECTOR,
+        vectors=[0.1] * VECTOR_DIMENSION,
+        filters={good_key: "alice"},
+    )
+    mock_collection.query_items.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Combined `filters` + raw `where`: the raw fragment must be parenthesized
+# so a nested OR can never bind looser than the AND that joins it to the
+# structured filters (otherwise rows could leak across tenants).
+# ---------------------------------------------------------------------------
+
+def test_search_parenthesizes_raw_where_when_combined_with_filters(cosmos_db_client_fixture):
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+    mock_collection.query_items.return_value = []
+
+    cosmos_db_vector.search(
+        search_type=Constants.VECTOR,
+        vectors=[0.1] * VECTOR_DIMENSION,
+        filters={"user_id": "alice"},
+        where="x=1 OR y=2",
+        limit=5,
+    )
+
+    issued_query = mock_collection.query_items.call_args.kwargs["query"]
+    assert "AND (x=1 OR y=2)" in issued_query, issued_query
+    # Defense-in-depth: the unparenthesized form must NOT appear.
+    assert "AND x=1 OR y=2" not in issued_query, issued_query
+
+
+def test_search_parenthesizes_raw_where_alone(cosmos_db_client_fixture):
+    cosmos_db_vector, mock_collection, mock_db, mock_cosmos_client = cosmos_db_client_fixture
+    mock_collection.query_items.return_value = []
+
+    cosmos_db_vector.search(
+        search_type=Constants.VECTOR,
+        vectors=[0.1] * VECTOR_DIMENSION,
+        where="x=1 OR y=2",
+        limit=5,
+    )
+
+    issued_query = mock_collection.query_items.call_args.kwargs["query"]
+    assert "WHERE (x=1 OR y=2)" in issued_query, issued_query
+
 
 
 # ---------------------------------------------------------------------------
@@ -1298,12 +1404,12 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         )
     )
 
-    # Case 5: With where filter
+    # Case 5: With where filter (raw `where` is wrapped in parens to preserve precedence)
     where_filter = "c.user_id='alice'"
     expected_query = (
         "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
-        "WHERE c.user_id='alice' "
+        "WHERE (c.user_id='alice') "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
@@ -1361,7 +1467,7 @@ def get_vector_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
     expected_query = (
         "SELECT TOP @limit *, VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
         "FROM c "
-        f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND {where_filter} "
+        f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND ({where_filter}) "
         "ORDER BY VectorDistance(c[@vectorKey], @vector)"
     )
     expected_parameters = [
@@ -1451,12 +1557,12 @@ def get_full_text_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], 
     full_text_rank_filter = [{"search_field": "description", "search_text": search_text}]
     limit = 2
 
-    # Case 1: Simple full text search
+    # Case 1: Simple full text search (raw `where` is wrapped in parens to preserve precedence)
     where = "FullTextContainsAny(c.description, 'intelligent', 'herders')"
     expected_query = (
         "SELECT TOP @limit * "
         "FROM c "
-        "WHERE FullTextContainsAny(c.description, 'intelligent', 'herders')"
+        "WHERE (FullTextContainsAny(c.description, 'intelligent', 'herders'))"
     )
     expected_parameters = [
         {"name": "@limit", "value": limit},
@@ -1751,7 +1857,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
         expected_output_data,
     ))
 
-    # Case 2: raw where only
+    # Case 2: raw where only (now wrapped in parens to preserve precedence)
     where_expr = "c.user_id='alice'"
     queries_and_parameters.append((
         get_kwargs(
@@ -1764,7 +1870,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             "SELECT TOP @limit *, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             f"FROM c "
-            f"WHERE {where_expr} "
+            f"WHERE ({where_expr}) "
             "ORDER BY VectorDistance(c[@vectorKey], @vector)"
         ),
         [
@@ -1790,7 +1896,7 @@ def get_filter_search_queries_and_parameters() -> List[Tuple[Dict[str, Any], str
             "SELECT TOP @limit *, "
             "VectorDistance(c[@vectorKey], @vector) as SimilarityScore "
             "FROM c "
-            f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND {where_expr} "
+            f"WHERE c.user_id=@filter_value_0 AND c.hash=@filter_value_1 AND ({where_expr}) "
             "ORDER BY VectorDistance(c[@vectorKey], @vector)"
         ),
         [
