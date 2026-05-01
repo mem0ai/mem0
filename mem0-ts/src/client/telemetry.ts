@@ -81,6 +81,10 @@ class UnifiedTelemetry implements TelemetryClient {
   }
 }
 
+function isTelemetryEnabled(): boolean {
+  return MEM0_TELEMETRY;
+}
+
 const telemetry = new UnifiedTelemetry(POSTHOG_API_KEY, POSTHOG_HOST);
 
 async function captureClientEvent(
@@ -110,4 +114,4 @@ async function captureClientEvent(
   );
 }
 
-export { telemetry, captureClientEvent, generateHash };
+export { telemetry, captureClientEvent, generateHash, isTelemetryEnabled };

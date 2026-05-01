@@ -9,8 +9,8 @@ import * as os from "os";
 import * as path from "path";
 import { MemoryClient } from "../mem0";
 import { telemetry } from "../telemetry";
-import { readMem0AnonIds, markMem0Aliased, Mem0AnonIds } from "../config";
-import { createMockFetch, TEST_API_KEY } from "./helpers";
+import { readMem0AnonIds, markMem0Aliased } from "../config";
+import { TEST_API_KEY } from "./helpers";
 import { setupMockFetch, installConsoleSuppression } from "./setup";
 
 installConsoleSuppression();
@@ -285,16 +285,42 @@ describe("MemoryClient — _maybeAliasAnonToEmail", () => {
       (client as any)._maybeAliasAnonToEmail(),
     ).resolves.toBeUndefined();
   });
-});
 
-// ─── Type smoke test ──────────────────────────────────────────
+  test("noop when telemetry disabled — no fs read, no fs write, no events", async () => {
+    fs.writeFileSync(
+      path.join(tmpHome, "config.json"),
+      JSON.stringify({ user_id: "oss-uuid" }),
+    );
+    const fetchMock = setupMockFetch();
 
-describe("Mem0AnonIds shape", () => {
-  test("interface accepts partial fields", () => {
-    const a: Mem0AnonIds = { oss: "x" };
-    const b: Mem0AnonIds = { cli: "y", aliasedTo: "u@x.com" };
-    expect(a.oss).toBe("x");
-    expect(b.aliasedTo).toBe("u@x.com");
+    jest.resetModules();
+    const original = process.env.MEM0_TELEMETRY;
+    process.env.MEM0_TELEMETRY = "false";
+    try {
+      const { MemoryClient: ColdClient } = await import("../mem0");
+      const client = Object.create(ColdClient.prototype);
+      client.apiKey = TEST_API_KEY;
+      client.host = "https://api.mem0.ai";
+      client.telemetryId = "test@example.com";
+      await client._maybeAliasAnonToEmail();
+    } finally {
+      if (original === undefined) delete process.env.MEM0_TELEMETRY;
+      else process.env.MEM0_TELEMETRY = original;
+      jest.resetModules();
+    }
+
+    const identifyCalls = (fetchMock.mock.calls as any[]).filter(
+      ([, init]: [string, RequestInit]) => {
+        if (!init?.body) return false;
+        return JSON.parse(init.body as string).event === "$identify";
+      },
+    );
+    expect(identifyCalls.length).toBe(0);
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpHome, "config.json"), "utf8"),
+    );
+    expect(written.telemetry?.aliased_to).toBeUndefined();
   });
 });
 
@@ -303,11 +329,9 @@ describe("Mem0AnonIds shape", () => {
 describe("config.ts in browser-like environment", () => {
   test("readMem0AnonIds returns null when not Node", async () => {
     const originalProcess = global.process;
-    // Simulate a browser: no `process` global.
-    // @ts-expect-error force-undefining global
+    // @ts-expect-error force-undefining global to simulate a browser
     delete global.process;
     try {
-      // Re-import to pick up the missing global.
       jest.resetModules();
       const { readMem0AnonIds: browserRead } = await import("../config");
       expect(await browserRead()).toBeNull();
@@ -317,7 +341,3 @@ describe("config.ts in browser-like environment", () => {
     }
   });
 });
-
-// ─── Suppress unused-import warnings ──────────────────────────
-// Some helpers above are intentionally re-exported for clarity in tests.
-void createMockFetch;

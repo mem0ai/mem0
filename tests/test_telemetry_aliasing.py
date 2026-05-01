@@ -297,6 +297,23 @@ class TestMaybeAliasAnonToEmail:
             client_main._maybe_alias_anon_to_email("not-an-email")
             telemetry.capture_identify.assert_not_called()
 
+    def test_skips_when_telemetry_disabled(self):
+        """When client_telemetry.posthog is None (MEM0_TELEMETRY=false), do nothing —
+        no fs read, no fs write, no event. Re-enabling telemetry later must still alias."""
+        from mem0.client import main as client_main
+
+        disabled = MagicMock()
+        disabled.posthog = None
+        with (
+            patch.object(client_main, "client_telemetry", disabled),
+            patch.object(client_main, "read_anon_ids") as read,
+            patch.object(client_main, "mark_aliased") as mark,
+        ):
+            client_main._maybe_alias_anon_to_email("user@example.com")
+            read.assert_not_called()
+            mark.assert_not_called()
+            disabled.capture_identify.assert_not_called()
+
     def test_does_not_raise_on_telemetry_failure(self):
         from mem0.client import main as client_main
 

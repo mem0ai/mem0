@@ -2,12 +2,10 @@
  * Best-effort read/write of ~/.mem0/config.json from the TS SDK.
  *
  * Used to stitch PostHog identities: the OSS Python SDK and the Python CLI
- * each persist an anonymous distinct_id here, and the TS MemoryClient needs
- * to read those on init so it can fire $identify and merge them into the
- * email-based identity.
+ * each persist an anonymous distinct_id here, and the TS MemoryClient reads
+ * those on init to fire $identify and merge them into the email identity.
  *
- * Node-only. In browsers (or any environment without `process.versions.node`)
- * every function returns null/no-ops without attempting `fs` access.
+ * Node-only. Browsers (no `process.versions.node`) no-op.
  */
 
 export interface Mem0AnonIds {
@@ -16,62 +14,38 @@ export interface Mem0AnonIds {
   aliasedTo?: string;
 }
 
-function isNode(): boolean {
-  try {
-    return (
-      typeof process !== "undefined" &&
-      !!process.versions &&
-      !!process.versions.node
-    );
-  } catch {
-    return false;
-  }
-}
-
-async function loadNodeModules(): Promise<{
+interface NodeFs {
   fs: typeof import("fs");
   path: typeof import("path");
-  os: typeof import("os");
-} | null> {
-  if (!isNode()) return null;
+  configPath: string;
+}
+
+async function getNodeFs(): Promise<NodeFs | null> {
+  if (typeof process === "undefined" || !process.versions?.node) return null;
   try {
     const [fs, path, os] = await Promise.all([
       import("fs"),
       import("path"),
       import("os"),
     ]);
+    const fsMod = (fs as any).default ?? fs;
+    const pathMod = (path as any).default ?? path;
+    const osMod = (os as any).default ?? os;
+    const dir = process.env.MEM0_DIR || pathMod.join(osMod.homedir(), ".mem0");
     return {
-      fs: fs.default ?? fs,
-      path: path.default ?? path,
-      os: os.default ?? os,
+      fs: fsMod,
+      path: pathMod,
+      configPath: pathMod.join(dir, "config.json"),
     };
   } catch {
     return null;
   }
 }
 
-async function configPath(): Promise<{
-  path: string;
-  modules: NonNullable<Awaited<ReturnType<typeof loadNodeModules>>>;
-} | null> {
-  const modules = await loadNodeModules();
-  if (!modules) return null;
+function loadConfig(node: NodeFs): Record<string, any> | null {
   try {
-    const dir =
-      process.env.MEM0_DIR || modules.path.join(modules.os.homedir(), ".mem0");
-    return { path: modules.path.join(dir, "config.json"), modules };
-  } catch {
-    return null;
-  }
-}
-
-async function loadRawConfig(): Promise<Record<string, unknown> | null> {
-  const resolved = await configPath();
-  if (!resolved) return null;
-  try {
-    if (!resolved.modules.fs.existsSync(resolved.path)) return null;
-    const raw = resolved.modules.fs.readFileSync(resolved.path, "utf8");
-    const parsed = JSON.parse(raw);
+    if (!node.fs.existsSync(node.configPath)) return null;
+    const parsed = JSON.parse(node.fs.readFileSync(node.configPath, "utf8"));
     return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
     return null;
@@ -79,40 +53,41 @@ async function loadRawConfig(): Promise<Record<string, unknown> | null> {
 }
 
 export async function readMem0AnonIds(): Promise<Mem0AnonIds | null> {
-  const config = await loadRawConfig();
+  const node = await getNodeFs();
+  if (!node) return null;
+  const config = loadConfig(node);
   if (!config) return null;
   const telemetry =
     config.telemetry && typeof config.telemetry === "object"
-      ? (config.telemetry as Record<string, unknown>)
+      ? config.telemetry
       : {};
-  const oss = typeof config.user_id === "string" ? config.user_id : undefined;
-  const cli =
-    typeof telemetry.anonymous_id === "string"
-      ? telemetry.anonymous_id
-      : undefined;
-  const aliasedTo =
-    typeof telemetry.aliased_to === "string" ? telemetry.aliased_to : undefined;
-  return { oss, cli, aliasedTo };
+  return {
+    oss: typeof config.user_id === "string" ? config.user_id : undefined,
+    cli:
+      typeof telemetry.anonymous_id === "string"
+        ? telemetry.anonymous_id
+        : undefined,
+    aliasedTo:
+      typeof telemetry.aliased_to === "string"
+        ? telemetry.aliased_to
+        : undefined,
+  };
 }
 
 export async function markMem0Aliased(email: string): Promise<void> {
-  const resolved = await configPath();
-  if (!resolved) return;
+  const node = await getNodeFs();
+  if (!node) return;
   try {
-    const dirname = resolved.modules.path.dirname(resolved.path);
-    resolved.modules.fs.mkdirSync(dirname, { recursive: true });
-    const config = (await loadRawConfig()) ?? {};
+    node.fs.mkdirSync(node.path.dirname(node.configPath), { recursive: true });
+    const config = loadConfig(node) ?? {};
     const telemetry =
       config.telemetry && typeof config.telemetry === "object"
-        ? (config.telemetry as Record<string, unknown>)
+        ? config.telemetry
         : {};
     telemetry.aliased_to = email;
     config.telemetry = telemetry;
-    resolved.modules.fs.writeFileSync(
-      resolved.path,
-      JSON.stringify(config, null, 4),
-    );
+    node.fs.writeFileSync(node.configPath, JSON.stringify(config, null, 4));
   } catch {
-    // Read-only filesystem (Lambda, container) — alias is best-effort.
+    // Best-effort: read-only filesystems and unwritable paths just skip.
   }
 }

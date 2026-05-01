@@ -114,29 +114,17 @@ class AnonymousTelemetry:
             _logger.debug("Failed to capture telemetry event %r: %s", event_name, e)
 
     def capture_identify(self, anon_id, email):
-        """Send a PostHog $identify event so the anon person merges into the
-        identified person. Distinct_id is the new identity (email); the prior
-        anonymous distinct_id is passed as $anon_distinct_id per PostHog spec.
-
-        Never raises.
-        """
+        """Fire $identify with $anon_distinct_id so PostHog merges anon_id into email."""
         if self.posthog is None:
             return
         if not anon_id or not email or anon_id == email:
             return
-        properties = {
-            "$anon_distinct_id": anon_id,
-            "client_source": "python",
-            "client_version": mem0.__version__,
-            "python_version": sys.version,
-            "os": sys.platform,
-            "os_version": platform.version(),
-            "os_release": platform.release(),
-            "processor": platform.processor(),
-            "machine": platform.machine(),
-        }
         try:
-            self.posthog.capture(distinct_id=email, event="$identify", properties=properties)
+            self.posthog.capture(
+                distinct_id=email,
+                event="$identify",
+                properties={"$anon_distinct_id": anon_id, "client_source": "python"},
+            )
         except Exception as e:
             _logger.debug("Failed to capture $identify for %r: %s", email, e)
 

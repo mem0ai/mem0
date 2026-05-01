@@ -34,13 +34,14 @@ ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
 
 
 def _maybe_alias_anon_to_email(user_email):
-    """Stitch prior anonymous PostHog identities to the resolved email.
+    """Fire $identify per prior anon ID so PostHog merges them into email.
 
-    Reads ~/.mem0/config.json for both anon IDs (OSS user_id, CLI
-    telemetry.anonymous_id), fires one $identify per anon that hasn't been
-    aliased yet, then sets telemetry.aliased_to so this only happens once
-    per (anon_id, email) pair. Best-effort — never raises.
+    Idempotent via telemetry.aliased_to — only writes the flag when telemetry
+    is actually enabled, so disabling/re-enabling MEM0_TELEMETRY still works.
+    Best-effort — never raises.
     """
+    if client_telemetry.posthog is None:
+        return
     if not user_email or "@" not in user_email:
         return
     try:

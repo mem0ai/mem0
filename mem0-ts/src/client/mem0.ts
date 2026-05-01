@@ -20,7 +20,12 @@ import {
   CreateMemoryExportPayload,
   GetMemoryExportPayload,
 } from "./mem0.types";
-import { captureClientEvent, generateHash, telemetry } from "./telemetry";
+import {
+  captureClientEvent,
+  generateHash,
+  isTelemetryEnabled,
+  telemetry,
+} from "./telemetry";
 import { readMem0AnonIds, markMem0Aliased } from "./config";
 import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
 import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
@@ -136,6 +141,7 @@ export default class MemoryClient {
   }
 
   private async _maybeAliasAnonToEmail(): Promise<void> {
+    if (!isTelemetryEnabled()) return;
     try {
       const email = this.telemetryId;
       if (!email || !email.includes("@")) return;
