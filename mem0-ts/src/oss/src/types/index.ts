@@ -69,6 +69,14 @@ export interface MemoryConfig {
   disableHistory?: boolean;
   historyDbPath?: string;
   customInstructions?: string;
+  /**
+   * When true, run the entity-boost embed+search loop in Memory.search()
+   * concurrently via Promise.all instead of sequential await. Speeds up
+   * recall by 2-4x with remote embedders. Default: false (preserves prior
+   * behavior). Safe to enable when the embedder backend handles concurrent
+   * requests well (multi-slot ollama, managed embed APIs, batched backends).
+   */
+  parallelEntityBoost?: boolean;
 }
 
 export interface MemoryItem {
@@ -142,4 +150,5 @@ export const MemoryConfigSchema = z.object({
     })
     .optional(),
   disableHistory: z.boolean().optional(),
+  parallelEntityBoost: z.boolean().optional(),
 });

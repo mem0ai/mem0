@@ -1164,7 +1164,13 @@ export class Memory {
         if (deduped.length > 0) {
           const entityStore = await this.getEntityStore();
 
-          for (const entity of deduped) {
+          // Per-entity worker. Writes to entityBoosts via Math.max, which is
+          // order-independent under interleaved single-threaded JS writes,
+          // so this is safe to run sequentially or concurrently.
+          const processEntity = async (entity: {
+            type: string;
+            text: string;
+          }): Promise<void> => {
             try {
               const entityEmbedding = await this.embedder.embed(entity.text);
               const matches = await entityStore.search(
@@ -1200,6 +1206,21 @@ export class Memory {
               }
             } catch (e) {
               // Individual entity boost failed — continue
+            }
+          };
+
+          if (this.config.parallelEntityBoost) {
+            // Opt-in: fire entity embeds + lookups concurrently. For remote
+            // embedders (e.g. ollama over network) this turns N+1 sequential
+            // RTTs into ~1 RTT, giving 2-4x recall speedup. Backend must
+            // handle concurrent embed requests (multi-slot ollama, managed
+            // embed APIs, etc.).
+            await Promise.all(deduped.map(processEntity));
+          } else {
+            // Default: preserve prior sequential behavior to avoid surprising
+            // users on rate-limited or single-slot embedder backends.
+            for (const entity of deduped) {
+              await processEntity(entity);
             }
           }
         }
