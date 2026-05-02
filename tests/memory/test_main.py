@@ -115,6 +115,53 @@ class TestPromptOverridesCustomInstructions:
         assert "config-level instructions" in user_prompt
 
 
+class TestContentBlockNormalization:
+    def test_add_flattens_text_only_content_blocks_when_vision_is_disabled(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory._add_to_vector_store = MagicMock(return_value=[{"id": "1"}])
+
+        result = memory.add(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "First line"},
+                        {"type": "text", "text": "Second line"},
+                    ],
+                }
+            ],
+            user_id="user-1",
+        )
+
+        assert result == {"results": [{"id": "1"}]}
+        normalized_messages = memory._add_to_vector_store.call_args.args[0]
+        assert normalized_messages == [{"role": "user", "content": "First line\nSecond line"}]
+
+    @pytest.mark.asyncio
+    async def test_async_add_flattens_text_only_content_blocks_when_vision_is_disabled(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory._add_to_vector_store = mocker.AsyncMock(return_value=[{"id": "1"}])
+
+        result = await memory.add(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "First line"},
+                        {"type": "text", "text": "Second line"},
+                    ],
+                }
+            ],
+            user_id="user-1",
+        )
+
+        assert result == {"results": [{"id": "1"}]}
+        normalized_messages = memory._add_to_vector_store.call_args.args[0]
+        assert normalized_messages == [{"role": "user", "content": "First line\nSecond line"}]
+
+
 class TestAsyncUpdate:
     @pytest.fixture
     def mock_async_memory(self, mocker):

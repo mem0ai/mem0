@@ -167,6 +167,23 @@ def get_image_description(image_obj, llm, vision_details):
     return response
 
 
+def _flatten_text_content_blocks(content_blocks):
+    """Flatten OpenAI-style text content blocks into plain text."""
+    text_parts = []
+
+    for block in content_blocks:
+        if isinstance(block, str):
+            text_parts.append(block)
+            continue
+
+        if isinstance(block, dict) and block.get("type") == "text":
+            text = block.get("text")
+            if text:
+                text_parts.append(text)
+
+    return "\n".join(text_parts).strip()
+
+
 def parse_vision_messages(messages, llm=None, vision_details="auto"):
     """
     Parse the vision messages from the messages
@@ -179,15 +196,27 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
 
         # Handle message content
         if isinstance(msg["content"], list):
+            if llm is None:
+                flattened_text = _flatten_text_content_blocks(msg["content"])
+                if flattened_text:
+                    normalized_msg = dict(msg)
+                    normalized_msg["content"] = flattened_text
+                    returned_messages.append(normalized_msg)
+                continue
+
             # Multiple image URLs in content
             description = get_image_description(msg, llm, vision_details)
-            returned_messages.append({"role": msg["role"], "content": description})
+            normalized_msg = dict(msg)
+            normalized_msg["content"] = description
+            returned_messages.append(normalized_msg)
         elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
             # Single image content
             image_url = msg["content"]["image_url"]["url"]
             try:
                 description = get_image_description(image_url, llm, vision_details)
-                returned_messages.append({"role": msg["role"], "content": description})
+                normalized_msg = dict(msg)
+                normalized_msg["content"] = description
+                returned_messages.append(normalized_msg)
             except Exception:
                 raise Exception(f"Error while downloading {image_url}.")
         else:
