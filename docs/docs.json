@@ -83,7 +83,8 @@
                           "platform/advanced-memory-operations",
                           "platform/features/criteria-retrieval",
                           "platform/features/contextual-add",
-                          "platform/features/custom-instructions"
+                          "platform/features/custom-instructions",
+                          "platform/features/memory-decay"
                         ]
                       },
                       {
