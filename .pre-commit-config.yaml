@@ -6,7 +6,7 @@ repos:
         entry: ruff check
         language: system
         types: [python]
-        args: [--fix] 
+        args: [--fix]
 
       - id: isort
         name: isort
@@ -14,3 +14,12 @@ repos:
         language: system
         types: [python]
         args: ["--profile", "black"]
+
+      # Local boundary check: every memory operation must go through
+      # ScopedMemoryClient. See README_Local.md §"Backend hardening".
+      - id: openmemory-scoped-client-boundary
+        name: ScopedMemoryClient boundary
+        entry: python scripts/check_scoped_client_boundary.py
+        language: system
+        files: ^openmemory/api/(app/mcp_server\.py|app/routers/memories\.py)$
+        pass_filenames: false
