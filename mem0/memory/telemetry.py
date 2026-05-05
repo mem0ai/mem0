@@ -114,20 +114,29 @@ class AnonymousTelemetry:
             _logger.debug("Failed to capture telemetry event %r: %s", event_name, e)
 
     def capture_identify(self, anon_id, email):
-        """Fire $identify with $anon_distinct_id so PostHog merges anon_id into email."""
+        """Fire $identify synchronously so the bool return reflects delivery.
+
+        Returns True only when the SDK returned a non-None UUID. False
+        when telemetry is disabled, when the sync client cannot be
+        constructed, when the SDK returns None (e.g. @no_throw caught
+        an HTTP error), or when capture() raises.
+        """
         if self.posthog is None:
             return False
         if not anon_id or not email or anon_id == email:
             return False
+        sync_client = _get_sync_posthog()
+        if sync_client is None:
+            return False
         try:
-            self.posthog.capture(
+            result = sync_client.capture(
                 distinct_id=email,
                 event="$identify",
                 properties={"$anon_distinct_id": anon_id, "client_source": "python"},
             )
-            return True
+            return result is not None
         except Exception as e:
-            _logger.debug("Failed to capture $identify for %r: %s", email, e)
+            _logger.debug("Failed to capture $identify: %s", e)
             return False
 
     def close(self):
@@ -175,6 +184,41 @@ def _shutdown_oss_telemetry():
         if _oss_telemetry_instance is not None:
             _oss_telemetry_instance.close()
             _oss_telemetry_instance = None
+
+
+# ─── Sync PostHog client for $identify only ──────────────────────────────
+# $identify must give an honest delivery signal so we only persist an alias
+# marker when PostHog actually accepted the event. The default async client
+# enqueues on a background thread, so capture() returns a UUID immediately
+# regardless of HTTP outcome. sync_mode=True bypasses the queue and either
+# raises (posthog<7) or returns None (posthog>=7 via @no_throw) on failure.
+_sync_posthog_instance = None
+_sync_posthog_lock = threading.Lock()
+
+
+def _get_sync_posthog():
+    """Lazy-init a sync-mode PostHog client used only for $identify.
+
+    Returns None if telemetry is disabled or the constructor raises.
+    """
+    global _sync_posthog_instance
+    if not MEM0_TELEMETRY:
+        return None
+    if _sync_posthog_instance is not None:
+        return _sync_posthog_instance
+    with _sync_posthog_lock:
+        if _sync_posthog_instance is not None:
+            return _sync_posthog_instance
+        try:
+            _sync_posthog_instance = Posthog(
+                project_api_key=PROJECT_API_KEY,
+                host=HOST,
+                sync_mode=True,
+            )
+        except Exception as e:
+            _logger.debug("Failed to init sync PostHog client: %s", e)
+            _sync_posthog_instance = None
+        return _sync_posthog_instance
 
 
 # Module-level client telemetry singleton (used by capture_client_event).
