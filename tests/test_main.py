@@ -99,8 +99,10 @@ def test_search(memory_instance):
     memory_instance.vector_store.keyword_search = Mock(return_value=None)  # No BM25
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
-         patch("mem0.memory.main.extract_entities", return_value=[]):
+    with (
+        patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"),
+        patch("mem0.memory.main.extract_entities", return_value=[]),
+    ):
         result = memory_instance.search("test query", filters={"user_id": "test_user"})
 
     assert "results" in result
@@ -184,6 +186,34 @@ def test_delete_all(memory_instance):
     # Ensure the collection is NOT dropped — only matched memories should be removed
     memory_instance.vector_store.reset.assert_not_called()
 
+    assert result["message"] == "Memories deleted successfully!"
+
+
+def test_delete_all_fetches_all_pages(memory_instance):
+    """delete_all must loop until the vector store returns a partial batch.
+
+    Regression test for #4869: the old code called list() once with the default
+    top_k=100, so only the first page of memories was deleted when more than
+    batch_size entries existed.
+    """
+    batch_size = 500
+    # First call returns a full batch (simulates more pages available)
+    full_batch = [Mock(id=str(i)) for i in range(batch_size)]
+    # Second call returns a partial batch (signals last page)
+    partial_batch = [Mock(id=str(i)) for i in range(batch_size, batch_size + 50)]
+
+    memory_instance.vector_store.list = Mock(
+        side_effect=[
+            (full_batch, None),
+            (partial_batch, None),
+        ]
+    )
+    memory_instance._delete_memory = Mock()
+
+    result = memory_instance.delete_all(user_id="test_user")
+
+    assert memory_instance._delete_memory.call_count == batch_size + 50
+    assert memory_instance.vector_store.list.call_count == 2
     assert result["message"] == "Memories deleted successfully!"
 
 
@@ -317,8 +347,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, threshold=0)
 
         assert "results" in result
@@ -330,8 +362,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, threshold=1.0)
 
         assert "results" in result
@@ -343,8 +377,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
