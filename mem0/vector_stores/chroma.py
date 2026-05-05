@@ -99,7 +99,8 @@ class ChromaDB(VectorStoreBase):
         for i in range(max_length):
             entry = OutputData(
                 id=ids[i] if isinstance(ids, list) and ids and i < len(ids) else None,
-                score=(distances[i] if isinstance(distances, list) and distances and i < len(distances) else None),
+                # Chroma returns L2 distance (lower = better): convert to similarity (higher = better)
+                score=(1.0 / (1.0 + distances[i]) if isinstance(distances, list) and distances and i < len(distances) and distances[i] is not None else None),
                 payload=(metadatas[i] if isinstance(metadatas, list) and metadatas and i < len(metadatas) else None),
             )
             result.append(entry)

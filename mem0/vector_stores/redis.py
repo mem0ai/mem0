@@ -158,7 +158,8 @@ class RedisDB(VectorStoreBase):
         return [
             MemoryResult(
                 id=result["memory_id"],
-                score=float(result["vector_distance"]),
+                # Redis cosine distance (range [0, 2]): convert to similarity (higher = better)
+                score=max(0.0, 1.0 - float(result["vector_distance"])),
                 payload={
                     "hash": result["hash"],
                     "data": result["memory"],
