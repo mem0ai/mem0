@@ -56,7 +56,7 @@ export interface PromptUpdatePayload {
    * ranking is restored to the pre-decay behaviour. Off by default.
    * See https://docs.mem0.ai/platform/features/memory-decay
    */
-  decayEnabled?: boolean;
+  decay?: boolean;
   [key: string]: any;
 }
 

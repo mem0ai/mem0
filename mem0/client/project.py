@@ -398,7 +398,7 @@ class Project(BaseProject):
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         multilingual: Optional[bool] = None,
-        decay_enabled: Optional[bool] = None,
+        decay: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -408,7 +408,7 @@ class Project(BaseProject):
             custom_categories: New categories for the project
             retrieval_criteria: New retrieval criteria for the project
             multilingual: Whether to use the input language for memory storage and retrieval
-            decay_enabled: Toggle Memory Decay for this project. When True, search-time
+            decay: Toggle Memory Decay for this project. When True, search-time
                 ranking boosts recently-used memories and gently dampens stale ones; when
                 False, ranking is restored to the pre-decay behaviour. Off by default.
 
@@ -427,12 +427,12 @@ class Project(BaseProject):
             and custom_categories is None
             and retrieval_criteria is None
             and multilingual is None
-            and decay_enabled is None
+            and decay is None
         ):
             raise ValueError(
                 "At least one parameter must be provided for update: "
                 "custom_instructions, custom_categories, retrieval_criteria, "
-                "multilingual, decay_enabled"
+                "multilingual, decay"
             )
 
         payload = self._prepare_params(
@@ -441,7 +441,7 @@ class Project(BaseProject):
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
                 "multilingual": multilingual,
-                "decay_enabled": decay_enabled,
+                "decay": decay,
             }
         )
         response = self._client.patch(
@@ -457,7 +457,7 @@ class Project(BaseProject):
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
                 "multilingual": multilingual,
-                "decay_enabled": decay_enabled,
+                "decay": decay,
                 "sync_type": "sync",
             },
         )
@@ -722,7 +722,7 @@ class AsyncProject(BaseProject):
         custom_categories: Optional[List[str]] = None,
         retrieval_criteria: Optional[List[Dict[str, Any]]] = None,
         multilingual: Optional[bool] = None,
-        decay_enabled: Optional[bool] = None,
+        decay: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Update project settings.
@@ -732,7 +732,7 @@ class AsyncProject(BaseProject):
             custom_categories: New categories for the project
             retrieval_criteria: New retrieval criteria for the project
             multilingual: Whether to use the input language for memory storage and retrieval
-            decay_enabled: Toggle Memory Decay for this project. When True, search-time
+            decay: Toggle Memory Decay for this project. When True, search-time
                 ranking boosts recently-used memories and gently dampens stale ones; when
                 False, ranking is restored to the pre-decay behaviour. Off by default.
 
@@ -751,12 +751,12 @@ class AsyncProject(BaseProject):
             and custom_categories is None
             and retrieval_criteria is None
             and multilingual is None
-            and decay_enabled is None
+            and decay is None
         ):
             raise ValueError(
                 "At least one parameter must be provided for update: "
                 "custom_instructions, custom_categories, retrieval_criteria, "
-                "multilingual, decay_enabled"
+                "multilingual, decay"
             )
 
         payload = self._prepare_params(
@@ -765,7 +765,7 @@ class AsyncProject(BaseProject):
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
                 "multilingual": multilingual,
-                "decay_enabled": decay_enabled,
+                "decay": decay,
             }
         )
         response = await self._client.patch(
@@ -781,7 +781,7 @@ class AsyncProject(BaseProject):
                 "custom_categories": custom_categories,
                 "retrieval_criteria": retrieval_criteria,
                 "multilingual": multilingual,
-                "decay_enabled": decay_enabled,
+                "decay": decay,
                 "sync_type": "async",
             },
         )

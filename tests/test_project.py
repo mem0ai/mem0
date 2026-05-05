@@ -3,7 +3,7 @@ parameter-passthrough surface.
 
 Verifies the kwarg → JSON payload mapping for every supported field
 (``custom_instructions``, ``custom_categories``, ``retrieval_criteria``,
-``multilingual``, ``decay_enabled``), the ValueError when no field is
+``multilingual``, ``decay``), the ValueError when no field is
 provided, and the URL/method shape. The HTTP layer is mocked.
 """
 
@@ -44,42 +44,42 @@ def _patch_payload(http):
 
 
 class TestProjectUpdateDecay:
-    def test_decay_enabled_true_sent_in_payload(self, project):
+    def test_decay_true_sent_in_payload(self, project):
         proj, http = project
-        proj.update(decay_enabled=True)
-        assert _patch_payload(http) == {"decay_enabled": True}
+        proj.update(decay=True)
+        assert _patch_payload(http) == {"decay": True}
 
-    def test_decay_enabled_false_sent_in_payload(self, project):
+    def test_decay_false_sent_in_payload(self, project):
         """Explicit ``False`` must round-trip — not be filtered as falsy."""
         proj, http = project
-        proj.update(decay_enabled=False)
-        assert _patch_payload(http) == {"decay_enabled": False}
+        proj.update(decay=False)
+        assert _patch_payload(http) == {"decay": False}
 
-    def test_decay_enabled_combined_with_multilingual(self, project):
+    def test_decay_combined_with_multilingual(self, project):
         proj, http = project
-        proj.update(multilingual=True, decay_enabled=True)
+        proj.update(multilingual=True, decay=True)
         assert _patch_payload(http) == {
             "multilingual": True,
-            "decay_enabled": True,
+            "decay": True,
         }
 
-    def test_decay_enabled_omitted_when_none(self, project):
-        """When the caller doesn't pass ``decay_enabled``, it must not appear in
+    def test_decay_omitted_when_none(self, project):
+        """When the caller doesn't pass ``decay``, it must not appear in
         the payload — backwards compatible with pre-decay callers."""
         proj, http = project
         proj.update(multilingual=False)
         payload = _patch_payload(http)
         assert payload == {"multilingual": False}
-        assert "decay_enabled" not in payload
+        assert "decay" not in payload
 
-    def test_no_args_raises_with_decay_enabled_in_message(self, project):
+    def test_no_args_raises_with_decay_in_message(self, project):
         proj, _ = project
-        with pytest.raises(ValueError, match=r"decay_enabled"):
+        with pytest.raises(ValueError, match=r"decay"):
             proj.update()
 
     def test_url_targets_project_endpoint(self, project):
         proj, http = project
-        proj.update(decay_enabled=True)
+        proj.update(decay=True)
         args, _ = http.patch.call_args
         assert args[0] == "/api/v1/orgs/organizations/org1/projects/proj1/"
 
