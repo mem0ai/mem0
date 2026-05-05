@@ -23,27 +23,11 @@ client.add(messages, user_id="alice", infer=False)
 ```
 
 ```markdown Output
-{
-  "message": "Memories stored successfully",
-  "status": "SUCCEEDED",
-  "event_id": "evt_123",
-  "results": [
-    {
-      "id": "19d6d7aa-2454-4e58-96fc-e74d9e9f8dd1",
-      "memory": "Alice loves playing badminton",
-      "event": "ADD"
-    },
-    {
-      "id": "8557f05d-7b3c-47e5-b409-9886f9e314fc",
-      "memory": "Alice mostly cooks at home because of her gym plan",
-      "event": "ADD"
-    }
-  ]
-}
+[]
 ```
 </CodeGroup>
 
-In V3, `infer=False` stores the supplied memory text directly and returns a successful event envelope with the created memories in `results`.
+You can see that the output of the add call is an empty list.
 
 <Note>Only messages with the role "user" will be used for storage. Messages with roles such as "assistant" or "system" will be ignored during the storage process.</Note>
 
@@ -95,9 +79,6 @@ client.get_all(filters={"AND": [{"user_id": "alice"}]})
 
 ```json Output
 {
-  "count": 2,
-  "next": null,
-  "previous": null,
   "results": [
     {
       "id": "19d6d7aa-2454-4e58-96fc-e74d9e9f8dd1",

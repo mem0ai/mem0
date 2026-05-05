@@ -307,6 +307,7 @@ If your application previously read graph relations from the API response (`rela
 
 - **V1 and V2 endpoints continue to work.** There is no requirement to migrate to V3 endpoints immediately.
 - **Existing memories are preserved.** The new algorithm does not modify or re-process previously stored memories.
+- **Search response shape is unchanged.** The top-level `score` and `results[]` array are the same; existing code that reads `score` continues to work. What changed is the scoring method behind the number (multi-signal fusion instead of pure cosine), so the absolute values shift even when ranking stays comparable.
 - **Search remains backward-compatible at the top level.** Existing code that reads `results[]` and `score` continues to work, but V3 can now include extra top-level result fields such as `score_breakdown`, `memory_type`, and temporal fields when available.
 - **List response shape changed.** `get_all` now returns a paginated envelope (`{count, next, previous, results}`) instead of a bare `{results: [...]}`. Update code that reads `response["results"]` to continue working, or switch to the client SDKs which handle both shapes.
 
