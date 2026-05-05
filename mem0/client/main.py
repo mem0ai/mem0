@@ -56,7 +56,7 @@ def _maybe_alias_anon_to_email(user_email):
             if client_telemetry.capture_identify(anon_id, user_email):
                 mark_aliased(anon_id, user_email)
     except Exception as e:
-        logger.debug("Failed to alias anon telemetry to %r: %s", user_email, e)
+        logger.debug("Failed to alias anon telemetry: %s", e)
 
 
 class MemoryClient:
