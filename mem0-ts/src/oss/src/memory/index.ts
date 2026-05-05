@@ -463,16 +463,21 @@ export class Memory {
   private async _getTelemetryId() {
     try {
       if (
-        !this.telemetryId ||
         this.telemetryId === "anonymous" ||
         this.telemetryId === "anonymous-supabase"
       ) {
-        this.telemetryId =
-          (await getOrCreateMem0UserId()) ||
-          (await this.vectorStore.getUserId());
-        try {
-          await this.vectorStore.setUserId(this.telemetryId);
-        } catch {}
+        const existing = await this.vectorStore.getUserId();
+        if (existing && !existing.startsWith("anonymous")) {
+          // Preserve a real vector-store UUID so prior PostHog events stay
+          // tied to this user's identity. Cross-surface stitching with
+          // CLI/Python OSS for these existing users is deferred.
+          this.telemetryId = existing;
+        } else {
+          this.telemetryId = (await getOrCreateMem0UserId()) || existing;
+          try {
+            await this.vectorStore.setUserId(this.telemetryId);
+          } catch {}
+        }
       }
       return this.telemetryId;
     } catch (error) {
