@@ -53,6 +53,7 @@ import {
   ScoredResult,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
+import { getOrCreateMem0UserId } from "../../../client/config";
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
@@ -466,7 +467,12 @@ export class Memory {
         this.telemetryId === "anonymous" ||
         this.telemetryId === "anonymous-supabase"
       ) {
-        this.telemetryId = await this.vectorStore.getUserId();
+        this.telemetryId =
+          (await getOrCreateMem0UserId()) ||
+          (await this.vectorStore.getUserId());
+        try {
+          await this.vectorStore.setUserId(this.telemetryId);
+        } catch {}
       }
       return this.telemetryId;
     } catch (error) {

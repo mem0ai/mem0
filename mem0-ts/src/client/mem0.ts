@@ -20,7 +20,18 @@ import {
   CreateMemoryExportPayload,
   GetMemoryExportPayload,
 } from "./mem0.types";
-import { captureClientEvent, generateHash } from "./telemetry";
+import {
+  captureClientEvent,
+  generateHash,
+  isTelemetryEnabled,
+  telemetry,
+} from "./telemetry";
+import {
+  getOrCreateMem0UserId,
+  isMem0Aliased,
+  markMem0Aliased,
+  readMem0AnonIds,
+} from "./config";
 import { camelToSnake, camelToSnakeKeys, snakeToCamelKeys } from "./utils";
 import { createExceptionFromResponse, MemoryError } from "../common/exceptions";
 
@@ -118,6 +129,8 @@ export default class MemoryClient {
         this.telemetryId = generateHash(this.apiKey);
       }
 
+      await this._maybeAliasAnonToEmail();
+
       captureClientEvent("init", this, {
         client_type: "MemoryClient",
       }).catch((error: any) => {
@@ -129,6 +142,30 @@ export default class MemoryClient {
         error: error?.message || "Unknown error",
         stack: error?.stack || "No stack trace",
       });
+    }
+  }
+
+  private async _maybeAliasAnonToEmail(): Promise<void> {
+    if (!isTelemetryEnabled()) return;
+    try {
+      const email = this.telemetryId;
+      if (!email || !email.includes("@")) return;
+      const sharedAnonId = await getOrCreateMem0UserId();
+      const anonIds = await readMem0AnonIds();
+      if (!anonIds && !sharedAnonId) return;
+      const candidates = [anonIds?.oss || sharedAnonId, anonIds?.cli].filter(
+        (id): id is string => !!id && id !== email,
+      );
+      const seen = new Set<string>();
+      for (const anonId of candidates) {
+        if (seen.has(anonId) || (await isMem0Aliased(anonId, email))) continue;
+        seen.add(anonId);
+        if (await telemetry.captureIdentify(anonId, email)) {
+          await markMem0Aliased(anonId, email);
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to alias telemetry identity:", error);
     }
   }
 
