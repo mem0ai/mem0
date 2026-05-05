@@ -1,0 +1,8 @@
+# Default: let Git decide, except where line endings matter for execution.
+* text=auto
+
+# Shell scripts and Dockerfiles must use LF — they are executed inside Linux
+# containers and CRLF line endings break the shebang on a Windows checkout.
+*.sh         text eol=lf
+Dockerfile*  text eol=lf
+entrypoint.* text eol=lf
