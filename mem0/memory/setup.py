@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import uuid
+from hashlib import sha256
 
 # Set up the directory path
 VECTOR_ID = str(uuid.uuid4())
@@ -63,29 +64,57 @@ def get_user_id():
 
 
 def read_anon_ids():
-    """Return both anon IDs and the aliased_to flag from ~/.mem0/config.json.
+    """Return anon IDs and alias markers from ~/.mem0/config.json.
 
-    Returns a dict with keys "oss", "cli", "aliased_to" (any may be None).
-    OSS Python writes top-level "user_id"; the CLI writes
-    "telemetry.anonymous_id". They may coexist depending on which surface
-    ran first.
+    Returns a dict with keys "oss", "cli", "aliased_pairs" (IDs may be
+    None). OSS Python writes top-level "user_id"; the CLI writes
+    "telemetry.anonymous_id". They may coexist depending on which surface ran
+    first.
     """
     config = _load_config()
     telemetry = config.get("telemetry") if isinstance(config.get("telemetry"), dict) else {}
+    aliased_pairs = telemetry.get("aliased_pairs")
     return {
         "oss": config.get("user_id"),
         "cli": telemetry.get("anonymous_id"),
-        "aliased_to": telemetry.get("aliased_to"),
+        "aliased_pairs": aliased_pairs if isinstance(aliased_pairs, list) else [],
     }
 
 
-def mark_aliased(email):
-    """Persist telemetry.aliased_to = email so $identify only fires once."""
+def _alias_pair_marker(anon_id, email):
+    return sha256(f"{anon_id}\0{email}".encode("utf-8")).hexdigest()
+
+
+def is_aliased(anon_id, email):
+    """Return whether anon_id -> email has already been identified."""
+    if not anon_id or not email:
+        return False
+    config = _load_config()
+    telemetry = config.get("telemetry") if isinstance(config.get("telemetry"), dict) else {}
+    aliased_pairs = telemetry.get("aliased_pairs")
+    if not isinstance(aliased_pairs, list):
+        return False
+    return _alias_pair_marker(anon_id, email) in aliased_pairs
+
+
+def mark_aliased(anon_id, email):
+    """Persist an anon_id -> email alias marker so $identify fires once per pair.
+
+    The marker is hashed to avoid storing platform emails in the local config.
+    """
+    if not anon_id or not email:
+        return
     config = _load_config()
     telemetry = config.get("telemetry")
     if not isinstance(telemetry, dict):
         telemetry = {}
-    telemetry["aliased_to"] = email
+    aliased_pairs = telemetry.get("aliased_pairs")
+    if not isinstance(aliased_pairs, list):
+        aliased_pairs = []
+    marker = _alias_pair_marker(anon_id, email)
+    if marker not in aliased_pairs:
+        aliased_pairs.append(marker)
+    telemetry["aliased_pairs"] = aliased_pairs
     config["telemetry"] = telemetry
     _write_config(config)
 

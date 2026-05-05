@@ -82,7 +82,7 @@ class TestReadAnonIds:
 
         _write_config(tmp_mem0_dir, {"user_id": "oss-uuid"})
         anon = setup_module.read_anon_ids()
-        assert anon == {"oss": "oss-uuid", "cli": None, "aliased_to": None}
+        assert anon == {"oss": "oss-uuid", "cli": None, "aliased_pairs": []}
 
     def test_returns_cli_only(self, tmp_mem0_dir):
         import mem0.memory.setup as setup_module
@@ -92,7 +92,7 @@ class TestReadAnonIds:
             {"telemetry": {"anonymous_id": "cli-anon-123"}},
         )
         anon = setup_module.read_anon_ids()
-        assert anon == {"oss": None, "cli": "cli-anon-123", "aliased_to": None}
+        assert anon == {"oss": None, "cli": "cli-anon-123", "aliased_pairs": []}
 
     def test_returns_both(self, tmp_mem0_dir):
         import mem0.memory.setup as setup_module
@@ -101,35 +101,35 @@ class TestReadAnonIds:
             tmp_mem0_dir,
             {
                 "user_id": "oss-uuid",
-                "telemetry": {"anonymous_id": "cli-anon-123", "aliased_to": "user@x.com"},
+                "telemetry": {"anonymous_id": "cli-anon-123", "aliased_pairs": ["pair-marker"]},
             },
         )
         anon = setup_module.read_anon_ids()
         assert anon == {
             "oss": "oss-uuid",
             "cli": "cli-anon-123",
-            "aliased_to": "user@x.com",
+            "aliased_pairs": ["pair-marker"],
         }
 
     def test_no_config_returns_all_none(self, tmp_mem0_dir):
         import mem0.memory.setup as setup_module
 
         anon = setup_module.read_anon_ids()
-        assert anon == {"oss": None, "cli": None, "aliased_to": None}
+        assert anon == {"oss": None, "cli": None, "aliased_pairs": []}
 
     def test_malformed_json_does_not_raise(self, tmp_mem0_dir):
         import mem0.memory.setup as setup_module
 
         (tmp_mem0_dir / "config.json").write_text("{not json")
         anon = setup_module.read_anon_ids()
-        assert anon == {"oss": None, "cli": None, "aliased_to": None}
+        assert anon == {"oss": None, "cli": None, "aliased_pairs": []}
 
 
 # ─── mark_aliased ────────────────────────────────────────────────────────────
 
 
 class TestMarkAliased:
-    def test_writes_aliased_to_preserving_other_fields(self, tmp_mem0_dir):
+    def test_writes_aliased_pair_preserving_other_fields(self, tmp_mem0_dir):
         import mem0.memory.setup as setup_module
 
         _write_config(
@@ -139,19 +139,29 @@ class TestMarkAliased:
                 "telemetry": {"anonymous_id": "cli-anon-123"},
             },
         )
-        setup_module.mark_aliased("user@example.com")
+        setup_module.mark_aliased("oss-uuid", "user@example.com")
         config = json.loads((tmp_mem0_dir / "config.json").read_text())
         assert config["user_id"] == "oss-uuid"
         assert config["telemetry"]["anonymous_id"] == "cli-anon-123"
-        assert config["telemetry"]["aliased_to"] == "user@example.com"
+        assert len(config["telemetry"]["aliased_pairs"]) == 1
+        assert setup_module.is_aliased("oss-uuid", "user@example.com")
 
     def test_creates_telemetry_section_when_missing(self, tmp_mem0_dir):
         import mem0.memory.setup as setup_module
 
         _write_config(tmp_mem0_dir, {"user_id": "oss-uuid"})
-        setup_module.mark_aliased("user@example.com")
+        setup_module.mark_aliased("oss-uuid", "user@example.com")
         config = json.loads((tmp_mem0_dir / "config.json").read_text())
-        assert config["telemetry"]["aliased_to"] == "user@example.com"
+        assert len(config["telemetry"]["aliased_pairs"]) == 1
+
+    def test_tracks_each_pair_independently(self, tmp_mem0_dir):
+        import mem0.memory.setup as setup_module
+
+        _write_config(tmp_mem0_dir, {"user_id": "oss-uuid"})
+        setup_module.mark_aliased("oss-uuid", "user@example.com")
+        assert setup_module.is_aliased("oss-uuid", "user@example.com")
+        assert not setup_module.is_aliased("new-uuid", "user@example.com")
+        assert not setup_module.is_aliased("oss-uuid", "other@example.com")
 
 
 # ─── capture_identify ────────────────────────────────────────────────────────
@@ -230,14 +240,16 @@ class TestMaybeAliasAnonToEmail:
             patch.object(
                 client_main,
                 "read_anon_ids",
-                return_value={"oss": "oss-uuid", "cli": None, "aliased_to": None},
+                return_value={"oss": "oss-uuid", "cli": None, "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased") as mark,
             patch.object(client_main, "client_telemetry") as telemetry,
         ):
+            telemetry.capture_identify.return_value = True
             client_main._maybe_alias_anon_to_email("user@example.com")
             telemetry.capture_identify.assert_called_once_with("oss-uuid", "user@example.com")
-            mark.assert_called_once_with("user@example.com")
+            mark.assert_called_once_with("oss-uuid", "user@example.com")
 
     def test_fires_identify_for_cli_anon(self):
         from mem0.client import main as client_main
@@ -246,11 +258,13 @@ class TestMaybeAliasAnonToEmail:
             patch.object(
                 client_main,
                 "read_anon_ids",
-                return_value={"oss": None, "cli": "cli-anon-xyz", "aliased_to": None},
+                return_value={"oss": None, "cli": "cli-anon-xyz", "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased"),
             patch.object(client_main, "client_telemetry") as telemetry,
         ):
+            telemetry.capture_identify.return_value = True
             client_main._maybe_alias_anon_to_email("user@example.com")
             telemetry.capture_identify.assert_called_once_with("cli-anon-xyz", "user@example.com")
 
@@ -261,26 +275,29 @@ class TestMaybeAliasAnonToEmail:
             patch.object(
                 client_main,
                 "read_anon_ids",
-                return_value={"oss": "oss-uuid", "cli": "cli-anon", "aliased_to": None},
+                return_value={"oss": "oss-uuid", "cli": "cli-anon", "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased"),
             patch.object(client_main, "client_telemetry") as telemetry,
         ):
+            telemetry.capture_identify.return_value = True
             client_main._maybe_alias_anon_to_email("user@example.com")
             assert telemetry.capture_identify.call_count == 2
             calls = {c.args for c in telemetry.capture_identify.call_args_list}
             assert ("oss-uuid", "user@example.com") in calls
             assert ("cli-anon", "user@example.com") in calls
 
-    def test_skips_when_already_aliased(self):
+    def test_skips_when_pair_already_aliased(self):
         from mem0.client import main as client_main
 
         with (
             patch.object(
                 client_main,
                 "read_anon_ids",
-                return_value={"oss": "oss-uuid", "cli": None, "aliased_to": "user@example.com"},
+                return_value={"oss": "oss-uuid", "cli": None, "aliased_pairs": ["pair-marker"]},
             ),
+            patch.object(client_main, "is_aliased", return_value=True),
             patch.object(client_main, "mark_aliased") as mark,
             patch.object(client_main, "client_telemetry") as telemetry,
         ):
@@ -323,12 +340,14 @@ class TestMaybeAliasAnonToEmail:
             patch.object(
                 client_main,
                 "read_anon_ids",
-                return_value={"oss": "oss-uuid", "cli": None, "aliased_to": None},
+                return_value={"oss": "oss-uuid", "cli": None, "aliased_pairs": []},
             ),
-            patch.object(client_main, "mark_aliased"),
+            patch.object(client_main, "is_aliased", return_value=False),
+            patch.object(client_main, "mark_aliased") as mark,
             patch.object(client_main, "client_telemetry", mock_telemetry),
         ):
             client_main._maybe_alias_anon_to_email("user@example.com")  # must not raise
+            mark.assert_not_called()
 
     def test_skips_anon_id_equal_to_email(self):
         """Defensive: if the anon_id somehow already is the email, don't self-alias."""
@@ -338,8 +357,9 @@ class TestMaybeAliasAnonToEmail:
             patch.object(
                 client_main,
                 "read_anon_ids",
-                return_value={"oss": "user@example.com", "cli": None, "aliased_to": None},
+                return_value={"oss": "user@example.com", "cli": None, "aliased_pairs": []},
             ),
+            patch.object(client_main, "is_aliased", return_value=False),
             patch.object(client_main, "mark_aliased"),
             patch.object(client_main, "client_telemetry") as telemetry,
         ):
@@ -363,9 +383,9 @@ class TestMaybeAliasAnonToEmail:
 
 class TestEndToEndIdempotency:
     """Verify the real config flow: two consecutive _maybe_alias_anon_to_email
-    calls fire $identify exactly once thanks to the persisted aliased_to flag."""
+    calls fire $identify exactly once thanks to the persisted pair marker."""
 
-    def test_second_call_is_noop_after_aliased_to_persisted(self, tmp_mem0_dir):
+    def test_second_call_is_noop_after_pair_marker_persisted(self, tmp_mem0_dir):
         # Pre-populate config with an OSS user_id only.
         _write_config(tmp_mem0_dir, {"user_id": "oss-uuid"})
         # Reload setup so it uses the tempdir, then reload client.main so it
@@ -378,13 +398,14 @@ class TestEndToEndIdempotency:
         importlib.reload(client_main)
 
         with patch.object(client_main, "client_telemetry") as telemetry:
+            telemetry.capture_identify.return_value = True
             client_main._maybe_alias_anon_to_email("user@example.com")
             first_call_count = telemetry.capture_identify.call_count
             assert first_call_count >= 1
 
-            # Second call should hit the aliased_to short-circuit.
+            # Second call should hit the aliased_pairs short-circuit.
             client_main._maybe_alias_anon_to_email("user@example.com")
             assert telemetry.capture_identify.call_count == first_call_count
 
         config = json.loads((tmp_mem0_dir / "config.json").read_text())
-        assert config["telemetry"]["aliased_to"] == "user@example.com"
+        assert len(config["telemetry"]["aliased_pairs"]) == 1

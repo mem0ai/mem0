@@ -116,17 +116,19 @@ class AnonymousTelemetry:
     def capture_identify(self, anon_id, email):
         """Fire $identify with $anon_distinct_id so PostHog merges anon_id into email."""
         if self.posthog is None:
-            return
+            return False
         if not anon_id or not email or anon_id == email:
-            return
+            return False
         try:
             self.posthog.capture(
                 distinct_id=email,
                 event="$identify",
                 properties={"$anon_distinct_id": anon_id, "client_source": "python"},
             )
+            return True
         except Exception as e:
             _logger.debug("Failed to capture $identify for %r: %s", email, e)
+            return False
 
     def close(self):
         if self.posthog is not None:

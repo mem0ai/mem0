@@ -1,7 +1,7 @@
 /**
  * Tests for PostHog identity stitching in the TS MemoryClient.
  *
- * Covers $identify firing, idempotency via aliased_to, and the node/browser
+ * Covers $identify firing, idempotency via pair markers, and the node/browser
  * gate. Mocks fs and fetch; never touches the real ~/.mem0/config.json.
  */
 import * as fs from "fs";
@@ -9,11 +9,22 @@ import * as os from "os";
 import * as path from "path";
 import { MemoryClient } from "../mem0";
 import { telemetry } from "../telemetry";
-import { readMem0AnonIds, markMem0Aliased } from "../config";
+import {
+  getOrCreateMem0UserId,
+  isMem0Aliased,
+  markMem0Aliased,
+  readMem0AnonIds,
+} from "../config";
 import { TEST_API_KEY } from "./helpers";
 import { setupMockFetch, installConsoleSuppression } from "./setup";
 
 installConsoleSuppression();
+
+function setupMockFetchWithPostHog(): jest.Mock {
+  return setupMockFetch(
+    new Map([["us.i.posthog.com", { status: 200, body: "ok" }]]),
+  );
+}
 
 // ─── config.ts (node-only fs read/write) ──────────────────────
 
@@ -50,23 +61,34 @@ describe("config.ts — readMem0AnonIds / markMem0Aliased", () => {
     expect(ids).toEqual({
       oss: "oss-uuid",
       cli: undefined,
-      aliasedTo: undefined,
+      aliasedPairs: [],
     });
   });
 
-  test("reads CLI anonymous_id and aliased_to", async () => {
+  test("reads CLI anonymous_id and aliased_pairs", async () => {
     fs.writeFileSync(
       path.join(tmpHome, "config.json"),
       JSON.stringify({
-        telemetry: { anonymous_id: "cli-anon", aliased_to: "u@x.com" },
+        telemetry: { anonymous_id: "cli-anon", aliased_pairs: ["pair-marker"] },
       }),
     );
     const ids = await readMem0AnonIds();
     expect(ids).toEqual({
       oss: undefined,
       cli: "cli-anon",
-      aliasedTo: "u@x.com",
+      aliasedPairs: ["pair-marker"],
     });
+  });
+
+  test("getOrCreateMem0UserId creates and reuses shared SDK user_id", async () => {
+    const first = await getOrCreateMem0UserId();
+    const second = await getOrCreateMem0UserId();
+    expect(first).toBeTruthy();
+    expect(second).toBe(first);
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpHome, "config.json"), "utf8"),
+    );
+    expect(written.user_id).toBe(first);
   });
 
   test("returns null on malformed JSON", async () => {
@@ -82,13 +104,14 @@ describe("config.ts — readMem0AnonIds / markMem0Aliased", () => {
         telemetry: { anonymous_id: "cli-anon" },
       }),
     );
-    await markMem0Aliased("user@example.com");
+    await markMem0Aliased("oss-uuid", "user@example.com");
     const written = JSON.parse(
       fs.readFileSync(path.join(tmpHome, "config.json"), "utf8"),
     );
     expect(written.user_id).toBe("oss-uuid");
     expect(written.telemetry.anonymous_id).toBe("cli-anon");
-    expect(written.telemetry.aliased_to).toBe("user@example.com");
+    expect(written.telemetry.aliased_pairs).toHaveLength(1);
+    expect(await isMem0Aliased("oss-uuid", "user@example.com")).toBe(true);
   });
 
   test("markMem0Aliased creates telemetry section when missing", async () => {
@@ -96,18 +119,31 @@ describe("config.ts — readMem0AnonIds / markMem0Aliased", () => {
       path.join(tmpHome, "config.json"),
       JSON.stringify({ user_id: "oss-uuid" }),
     );
-    await markMem0Aliased("user@example.com");
+    await markMem0Aliased("oss-uuid", "user@example.com");
     const written = JSON.parse(
       fs.readFileSync(path.join(tmpHome, "config.json"), "utf8"),
     );
-    expect(written.telemetry.aliased_to).toBe("user@example.com");
+    expect(written.telemetry.aliased_pairs).toHaveLength(1);
+  });
+
+  test("markMem0Aliased tracks each pair independently", async () => {
+    fs.writeFileSync(
+      path.join(tmpHome, "config.json"),
+      JSON.stringify({ user_id: "oss-uuid" }),
+    );
+    await markMem0Aliased("oss-uuid", "user@example.com");
+    expect(await isMem0Aliased("oss-uuid", "user@example.com")).toBe(true);
+    expect(await isMem0Aliased("other-uuid", "user@example.com")).toBe(false);
+    expect(await isMem0Aliased("oss-uuid", "other@example.com")).toBe(false);
   });
 
   test("markMem0Aliased does not throw when target dir is unwritable", async () => {
     // Point at a path that cannot be written to (a file-as-dir collision).
     fs.writeFileSync(path.join(tmpHome, "blocker"), "x");
     process.env.MEM0_DIR = path.join(tmpHome, "blocker"); // file used as dir
-    await expect(markMem0Aliased("user@example.com")).resolves.toBeUndefined();
+    await expect(
+      markMem0Aliased("oss-uuid", "user@example.com"),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -130,6 +166,7 @@ describe("telemetry.captureIdentify", () => {
     expect(payload.event).toBe("$identify");
     expect(payload.distinct_id).toBe("user@example.com");
     expect(payload.properties.$anon_distinct_id).toBe("anon-uuid");
+    expect(payload.properties.$process_person_profile).toBeUndefined();
   });
 
   test("skips when anon equals email", async () => {
@@ -180,12 +217,12 @@ describe("MemoryClient — _maybeAliasAnonToEmail", () => {
     return client;
   }
 
-  test("fires $identify on first init and persists aliased_to", async () => {
+  test("fires $identify on first init and persists pair marker", async () => {
     fs.writeFileSync(
       path.join(tmpHome, "config.json"),
       JSON.stringify({ user_id: "oss-uuid" }),
     );
-    const fetchMock = setupMockFetch();
+    const fetchMock = setupMockFetchWithPostHog();
 
     const client = makeStubClient("test@example.com");
     await (client as any)._maybeAliasAnonToEmail();
@@ -204,7 +241,31 @@ describe("MemoryClient — _maybeAliasAnonToEmail", () => {
     const written = JSON.parse(
       fs.readFileSync(path.join(tmpHome, "config.json"), "utf8"),
     );
-    expect(written.telemetry.aliased_to).toBe("test@example.com");
+    expect(written.telemetry.aliased_pairs).toHaveLength(1);
+  });
+
+  test("platform-first init creates shared anon ID and identifies it", async () => {
+    const fetchMock = setupMockFetchWithPostHog();
+
+    const client = makeStubClient("test@example.com");
+    await (client as any)._maybeAliasAnonToEmail();
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpHome, "config.json"), "utf8"),
+    );
+    expect(written.user_id).toBeTruthy();
+    expect(written.telemetry.aliased_pairs).toHaveLength(1);
+
+    const identifyCalls = (fetchMock.mock.calls as any[]).filter(
+      ([, init]: [string, RequestInit]) => {
+        if (!init?.body) return false;
+        return JSON.parse(init.body as string).event === "$identify";
+      },
+    );
+    expect(identifyCalls.length).toBe(1);
+    const body = JSON.parse(identifyCalls[0][1].body);
+    expect(body.distinct_id).toBe("test@example.com");
+    expect(body.properties.$anon_distinct_id).toBe(written.user_id);
   });
 
   test("second init does not refire $identify", async () => {
@@ -212,10 +273,11 @@ describe("MemoryClient — _maybeAliasAnonToEmail", () => {
       path.join(tmpHome, "config.json"),
       JSON.stringify({
         user_id: "oss-uuid",
-        telemetry: { aliased_to: "test@example.com" },
+        telemetry: {},
       }),
     );
-    const fetchMock = setupMockFetch();
+    await markMem0Aliased("oss-uuid", "test@example.com");
+    const fetchMock = setupMockFetchWithPostHog();
 
     const client = makeStubClient("test@example.com");
     await (client as any)._maybeAliasAnonToEmail();
@@ -237,7 +299,7 @@ describe("MemoryClient — _maybeAliasAnonToEmail", () => {
         telemetry: { anonymous_id: "cli-anon" },
       }),
     );
-    const fetchMock = setupMockFetch();
+    const fetchMock = setupMockFetchWithPostHog();
 
     const client = makeStubClient("test@example.com");
     await (client as any)._maybeAliasAnonToEmail();
@@ -255,6 +317,11 @@ describe("MemoryClient — _maybeAliasAnonToEmail", () => {
     );
     expect(anonIds).toContain("oss-uuid");
     expect(anonIds).toContain("cli-anon");
+
+    const written = JSON.parse(
+      fs.readFileSync(path.join(tmpHome, "config.json"), "utf8"),
+    );
+    expect(written.telemetry.aliased_pairs).toHaveLength(2);
   });
 
   test("noop when telemetryId is not an email", async () => {
@@ -320,7 +387,7 @@ describe("MemoryClient — _maybeAliasAnonToEmail", () => {
     const written = JSON.parse(
       fs.readFileSync(path.join(tmpHome, "config.json"), "utf8"),
     );
-    expect(written.telemetry?.aliased_to).toBeUndefined();
+    expect(written.telemetry?.aliased_pairs).toBeUndefined();
   });
 });
 
