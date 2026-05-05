@@ -49,7 +49,12 @@ Provide conversation messages for Mem0 to extract memories from. At least one en
 | `run_id` | string | No* | Associates the memory with a run. |
 | `app_id` | string | No* | Associates the memory with an app. |
 | `metadata` | object | Optional | Custom key/value metadata (e.g., `{"topic": "preferences"}`). |
+| `timestamp` | integer | Optional | Unix timestamp used to anchor imported or historical memories. |
+| `observation_date` | string | Optional | Original conversation date (`YYYY-MM-DD`) for temporal grounding. |
+| `observation_datetime` | string | Optional | Original conversation datetime for more precise temporal grounding. |
+| `timezone` | string | Optional | IANA timezone used when resolving relative dates. |
 | `infer` | boolean (default `true`) | Optional | Set to `false` to skip inference and store the provided text as-is. |
+| `temporal_reasoning` | boolean | Optional | Overrides the deployment default for temporal enrichment on this write. |
 
 > \* At least one entity ID (`user_id`, `agent_id`, `app_id`, or `run_id`) is required.
 
@@ -84,3 +89,6 @@ The request is queued for background processing. The response contains an `event
 Poll the event status via `GET /v1/event/{event_id}/`. Status will be `SUCCEEDED` or `FAILED` once processing completes.
 </Info>
 
+<Note>
+  Some deployments run temporal enrichment in a follow-up async step. In that mode, the add event can complete successfully before temporal search fields are fully available on later searches.
+</Note>

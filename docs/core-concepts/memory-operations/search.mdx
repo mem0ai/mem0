@@ -156,6 +156,10 @@ const memories = memory.search("food preferences", {
   Expect an array of memory documents. Platform responses include vectors, metadata, and timestamps; OSS returns your stored schema.
 </Info>
 
+<Note>
+  On Mem0 Platform v3, time-aware queries can also return top-level temporal fields such as `memory_type`, `event_date`, `event_start`, `event_end`, `effective_plan_status`, `temporal_surface`, and `score_breakdown.temporal_boost`. See <Link href="/platform/features/temporal-reasoning">Temporal Reasoning</Link>.
+</Note>
+
 ## Filter patterns
 
 Filters help narrow down search results. Common use cases:
@@ -211,7 +215,7 @@ client.search("preferences", filters={
 - **Use natural language**: Mem0 understands intent, so describe what you're looking for naturally
 - **Scope with user ID**: Always provide `user_id` to scope search to relevant memories
   - **Platform API**: Use `filters={"user_id": "alice"}`
-  - **OSS**: Use `user_id="alice"` as parameter
+  - **OSS**: Use `filters={"user_id": "alice"}`
 - **Combine filters**: Use AND/OR logic to create precise queries (Platform)
 - **Consider wildcard filters**: Use wildcard filters (e.g., `run_id: "*"`) for broader matches
 - **Tune parameters**: Adjust `top_k` for result count, `threshold` for relevance cutoff

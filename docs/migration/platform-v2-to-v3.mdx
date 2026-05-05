@@ -42,7 +42,7 @@ Previously, when an agent said something like "I've booked your flight for March
 
 ### Retrieval is hybrid now
 
-Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, or entities that appear across multiple memories. The response shape is unchanged:
+Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, entities that appear across multiple memories, and time-aware queries. Existing code that reads `results[]` and the top-level `score` continues to work, but V3 can return additional top-level fields when the platform has more structured context available:
 
 ```json
 {
@@ -51,14 +51,20 @@ Search now uses hybrid retrieval, which improves ranking quality — especially 
       "id": "mem-uuid",
       "memory": "User moved to San Francisco in January 2026",
       "score": 0.82,
+      "score_breakdown": {
+        "temporal_boost": 0.18
+      },
       "metadata": {},
-      "categories": ["location"]
+      "categories": ["location"],
+      "memory_type": "state",
+      "event_date": "2026-01-15",
+      "temporal_surface": "January 2026"
     }
   ]
 }
 ```
 
-The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries.
+The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries. Search responses may include fields such as `score_breakdown`, `memory_type`, `event_date`, `effective_plan_status`, `temporal_surface`, and `reference_date_used` when relevant.
 
 ## API Changes
 
@@ -164,8 +170,15 @@ Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `F
       "id": "mem-uuid",
       "memory": "User moved to San Francisco from New York in January 2026",
       "score": 0.82,
+      "score_breakdown": {
+        "temporal_boost": 0.18
+      },
       "metadata": {},
       "categories": ["location"],
+      "memory_type": "state",
+      "event_date": "2026-01-15",
+      "temporal_surface": "January 2026",
+      "reference_date_used": "2026-01-20",
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z"
     }
@@ -186,6 +199,12 @@ Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `F
       "memory": "...",
       "metadata": {},
       "categories": [],
+      "event_date": "2026-01-15",
+      "event_start": "2026-01-15",
+      "event_end": null,
+      "time_precision": "day",
+      "timezone": "UTC",
+      "plan_status": null,
       "created_at": "2026-01-15T10:30:00Z",
       "updated_at": "2026-01-15T10:30:00Z"
     }
@@ -288,7 +307,7 @@ If your application previously read graph relations from the API response (`rela
 
 - **V1 and V2 endpoints continue to work.** There is no requirement to migrate to V3 endpoints immediately.
 - **Existing memories are preserved.** The new algorithm does not modify or re-process previously stored memories.
-- **Search response shape is unchanged.** The top-level `score` and `results[]` array are the same; existing code that reads `score` continues to work. What changed is the scoring method behind the number (multi-signal fusion instead of pure cosine), so the absolute values shift even when ranking stays comparable.
+- **Search remains backward-compatible at the top level.** Existing code that reads `results[]` and `score` continues to work, but V3 can now include extra top-level result fields such as `score_breakdown`, `memory_type`, and temporal fields when available.
 - **List response shape changed.** `get_all` now returns a paginated envelope (`{count, next, previous, results}`) instead of a bare `{results: [...]}`. Update code that reads `response["results"]` to continue working, or switch to the client SDKs which handle both shapes.
 
 ## Performance Improvements

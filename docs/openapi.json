@@ -417,10 +417,10 @@
 														"nullable": true,
 														"description": "Additional metadata associated with the event."
 													},
-													"results": {
-														"type": "array",
-														"description": "Array of results produced by the event."
-													},
+							"results": {
+								"type": "array",
+								"description": "Array of results produced by the event. For add events, this confirms the write completed; temporal enrichment may continue asynchronously on some deployments."
+							},
 													"created_at": {
 														"type": "string",
 														"format": "date-time",
@@ -1593,7 +1593,7 @@
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { filters: { user_id: \"<user_id>\" } })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1828,17 +1828,30 @@
 														"type": "string",
 														"description": "The extracted memory fact."
 													},
-													"score": {
-														"type": "number",
-														"format": "float",
-														"minimum": 0,
-														"maximum": 1,
-														"description": "Combined multi-signal relevance score in [0, 1] (search responses only)."
+                    "user_id": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "External user identifier scoping this memory, if any."
 													},
-													"metadata": {
-														"type": "object",
-														"additionalProperties": true,
-														"description": "User-supplied metadata attached to the memory."
+													"agent_id": {
+														"type": "string",
+														"nullable": true,
+														"description": "External agent identifier scoping this memory, if any."
+													},
+													"app_id": {
+														"type": "string",
+														"nullable": true,
+														"description": "External app identifier scoping this memory, if any."
+													},
+													"run_id": {
+														"type": "string",
+														"nullable": true,
+														"description": "External run identifier scoping this memory, if any."
+													},
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": true,
+                      "description": "User-supplied metadata attached to the memory."
 													},
 													"categories": {
 														"type": "array",
@@ -1853,8 +1866,56 @@
 													"updated_at": {
 														"type": "string",
 														"format": "date-time"
-													}
-												},
+													},
+                    "plan_status": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Stored plan status if this memory is a plan."
+                    },
+                    "event_date": {
+                      "type": "string",
+                      "format": "date",
+                      "nullable": true,
+														"description": "Primary event date when available."
+													},
+													"event_start": {
+														"type": "string",
+														"format": "date",
+														"nullable": true,
+														"description": "Start date for an event or interval when available."
+													},
+                    "event_end": {
+                      "type": "string",
+                      "format": "date",
+                      "nullable": true,
+                      "description": "End date for an event or interval when available."
+                    },
+                    "time_precision": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Temporal precision for the resolved date information."
+                    },
+                    "timezone": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Stored timezone associated with the temporal record, when available."
+                    },
+                    "polarity": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Stored temporal polarity, when available."
+                    },
+                    "temporal_relation": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Stored temporal relation, when available."
+                    },
+                    "state_key": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Stored state key for state-like memories, when available."
+                    }
+                  },
 												"required": [
 													"id",
 													"memory",
@@ -1875,18 +1936,28 @@
 									"next": "https://api.mem0.ai/v3/memories/?page=2&page_size=100",
 									"previous": null,
 									"results": [
-										{
-											"id": "mem-uuid",
-											"memory": "User moved to San Francisco from New York in January 2026",
-											"metadata": {},
-											"categories": [
-												"location"
-											],
-											"created_at": "2026-01-15T10:30:00Z",
-											"updated_at": "2026-01-15T10:30:00Z"
-										}
-									]
-								}
+                  {
+                    "id": "mem-uuid",
+                    "memory": "User moved to San Francisco from New York in January 2026",
+                    "user_id": "alice",
+                    "metadata": {},
+                    "categories": [
+                      "location"
+                    ],
+                    "created_at": "2026-01-15T10:30:00Z",
+                    "updated_at": "2026-01-15T10:30:00Z",
+                    "event_date": "2026-01-15",
+                    "event_start": "2026-01-15",
+                    "event_end": null,
+                    "time_precision": "day",
+                    "timezone": "UTC",
+                    "polarity": "positive",
+                    "temporal_relation": "on",
+                    "state_key": null,
+                    "plan_status": null
+                  }
+                ]
+              }
 							}
 						}
 					},
@@ -1968,6 +2039,10 @@
 										"type": "string",
 										"description": "Scope memories to this agent."
 									},
+									"app_id": {
+										"type": "string",
+										"description": "Scope memories to this app."
+									},
 									"run_id": {
 										"type": "string",
 										"description": "Scope memories to this session / run."
@@ -1981,10 +2056,48 @@
 										"type": "string",
 										"description": "Project-level instructions that guide extraction for this call."
 									},
+									"observation_date": {
+										"type": "string",
+										"format": "date",
+										"nullable": true,
+										"description": "Original conversation date used for temporal grounding."
+									},
+									"observation_datetime": {
+										"type": "string",
+										"format": "date-time",
+										"nullable": true,
+										"description": "Original conversation datetime used for temporal grounding."
+									},
+									"timezone": {
+										"type": "string",
+										"nullable": true,
+										"description": "IANA timezone used to resolve observation dates and relative dates."
+									},
+									"multilingual": {
+										"type": "boolean",
+										"nullable": true,
+										"description": "Extract memories in the same language as the input."
+									},
+									"timestamp": {
+										"type": "integer",
+										"nullable": true,
+										"description": "Unix epoch timestamp for when the conversation happened."
+									},
+									"expiration_date": {
+										"type": "string",
+										"format": "date",
+										"nullable": true,
+										"description": "Optional expiration date for stored memories."
+									},
 									"infer": {
 										"type": "boolean",
 										"default": true,
 										"description": "When `false`, stores each message verbatim without running the extraction LLM."
+									},
+									"temporal_reasoning": {
+										"type": "boolean",
+										"nullable": true,
+										"description": "Enable V3 temporal reasoning write-path metadata. Defaults to the deployment setting."
 									}
 								}
 							},
@@ -2071,7 +2184,7 @@
 					"memories"
 				],
 				"summary": "Search memories (V3)",
-				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval — the returned `score` is a combined `[0, 1]` value; per-signal component scores are not exposed on the response. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
+				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval and can also apply temporal reasoning for time-aware queries. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
 				"operationId": "memories_search_v3",
 				"requestBody": {
 					"required": true,
@@ -2112,6 +2225,26 @@
 										"type": "boolean",
 										"default": false,
 										"description": "Apply the managed reranker for better ordering (adds latency)."
+									},
+									"reference_date": {
+										"oneOf": [
+											{
+												"type": "integer"
+											},
+											{
+												"type": "number"
+											},
+											{
+												"type": "string"
+											}
+										],
+										"nullable": true,
+										"description": "Optional query anchor time for relative temporal interpretation. Accepts Unix epoch, YYYY-MM-DD, or ISO datetime."
+									},
+									"temporal_reasoning": {
+										"type": "boolean",
+										"nullable": true,
+										"description": "Enable V3 temporal intent and temporal scoring. Defaults to the deployment setting."
 									}
 								}
 							},
@@ -2191,7 +2324,23 @@
 										{
 											"id": "mem-uuid",
 											"memory": "User moved to San Francisco from New York in January 2026",
+											"user_id": "alice",
 											"score": 0.82,
+											"score_breakdown": {
+												"semantic": 0.78,
+												"bm25": 0.0,
+												"entity": 0.0,
+												"temporal_boost": 0.04
+											},
+											"memory_type": "event",
+											"event_date": "2026-01-15",
+											"event_start": "2026-01-15",
+											"event_end": "2026-01-15",
+											"plan_status": null,
+											"effective_plan_status": null,
+											"time_precision": "day",
+											"temporal_surface": "Jan 15, 2026",
+											"reference_date_used": "2026-01-20",
 											"metadata": {},
 											"categories": [
 												"location"

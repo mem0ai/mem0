@@ -72,13 +72,13 @@ client = MemoryClient(api_key="m0-...")
 ```
 
 <Info icon="check">
-  Run `client.get_all(filters={"user_id": "test_connection"})` to verify your API key works. It should return an empty list or valid results.
+  Run `client.get_all(filters={"user_id": "test_connection"}, page=1, page_size=1)` to verify your API key works. A healthy response is a paginated envelope like `{"count": 0, "next": null, "previous": null, "results": []}` or the same shape with results.
 </Info>
 
 ### 3. Update Retrieval Calls (Critical)
 
 <Warning>
-  **Critical Change**: Platform uses v2 endpoints that require filtering parameters to be nested inside a `filters` dictionary.
+  **Critical Change**: Platform uses V3 endpoints and requires entity filters to be nested inside a `filters` dictionary.
 </Warning>
 
 <Note>
@@ -94,6 +94,10 @@ client = MemoryClient(api_key="m0-...")
 | `delete_all()` | `m.delete_all(user_id="alex")` | `client.delete_all(user_id="alex")` |
 
 Note: `add()` and `delete()` methods remain unchanged. The `update()` method is not available in Platform - use delete + add pattern instead.
+
+<Note>
+  Platform search stays compatible with the normal `results[]` shape, but V3 may include additional top-level fields such as `score_breakdown`, `memory_type`, `event_date`, and `effective_plan_status` when the platform has structured context for the result.
+</Note>
 
 <AccordionGroup>
   <Accordion title="Search Memories">
@@ -132,11 +136,11 @@ Note: `add()` and `delete()` methods remain unchanged. The `update()` method is 
     ```
 
     ```python Platform (New)
-    # Get all memories for a user
-    memories = client.get_all(filters={"user_id": "alex"}, top_k=10)
+    # Get the first page of memories for a user
+    page = client.get_all(filters={"user_id": "alex"}, page=1, page_size=10)
 
-    # Get memories with pagination
-    memories = client.get_all(filters={"user_id": "alex"}, top_k=5, offset=10)
+    # Get the next page
+    next_page = client.get_all(filters={"user_id": "alex"}, page=2, page_size=10)
     ```
     </CodeGroup>
   </Accordion>

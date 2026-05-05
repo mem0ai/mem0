@@ -18,6 +18,21 @@ The `filters` object supports complex logical operations (AND, OR, NOT) and comp
 - `icontains`: Case-insensitive containment check
 - `*`: Wildcard character that matches everything
 
+## Temporal fields in V3 responses
+
+When Temporal Reasoning is enabled for a query, search results can include additional **top-level** fields such as:
+
+- `memory_type`
+- `event_date`
+- `event_start`
+- `event_end`
+- `plan_status`
+- `effective_plan_status`
+- `time_precision`
+- `temporal_surface`
+- `reference_date_used`
+- `score_breakdown.temporal_boost`
+
 ### Search parameter defaults
 
 | Parameter | V1/V2 | V3 |
@@ -49,10 +64,17 @@ related_memories = client.search(
     {
       "id": "ea925981-272f-40dd-b576-be64e4871429",
       "memory": "Likes to play cricket and plays cricket on weekends.",
+      "user_id": "alice",
       "metadata": {
         "category": "hobbies"
       },
       "score": 0.82,
+      "score_breakdown": {
+        "semantic": 0.79,
+        "bm25": 0.0,
+        "entity": 0.0,
+        "temporal_boost": 0.0
+      },
       "created_at": "2024-07-26T10:29:36.630547-07:00",
       "updated_at": null,
       "categories": ["hobbies"]
@@ -61,6 +83,54 @@ related_memories = client.search(
 }
 ```
 </CodeGroup>
+
+### Temporal example
+
+<CodeGroup>
+```python Platform API Example
+results = client.search(
+    query="what did I do last week?",
+    filters={"user_id": "alice"},
+    reference_date="2025-03-21T00:00:00Z",
+)
+```
+
+```json Output
+{
+  "results": [
+    {
+      "id": "9b59b0fd-0b31-4a0b-a3ad-7f26bb4f1f8d",
+      "memory": "Finished the Q1 product review on March 10, 2025.",
+      "user_id": "alice",
+      "score": 0.91,
+      "score_breakdown": {
+        "semantic": 0.84,
+        "bm25": 0.0,
+        "entity": 0.0,
+        "temporal_boost": 0.07
+      },
+      "memory_type": "event",
+      "event_date": "2025-03-10",
+      "event_start": "2025-03-10",
+      "event_end": "2025-03-10",
+      "plan_status": null,
+      "effective_plan_status": null,
+      "time_precision": "day",
+      "temporal_surface": "Mar 10, 2025",
+      "reference_date_used": "2025-03-21",
+      "metadata": {},
+      "categories": [],
+      "created_at": "2025-03-10T00:00:00Z",
+      "updated_at": "2025-03-10T00:00:00Z"
+    }
+  ]
+}
+```
+</CodeGroup>
+
+<Note>
+  Temporal fields are most useful on `search`. The paginated `get_all` endpoint remains a broader retrieval surface and does not mirror the full time-aware search result shape.
+</Note>
 
 <CodeGroup>
 ```python Wildcard Example

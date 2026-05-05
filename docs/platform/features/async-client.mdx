@@ -73,7 +73,7 @@ await client.search("What is Alice's favorite sport?", { filters: { userId: "ali
 
 ### Get All
 
-Retrieve all memories for a user asynchronously.
+Retrieve a paginated list of memories for a user asynchronously.
 
 <Callout type="warning" title="Filters Required">
 `get_all()` now requires filters to be specified.
@@ -82,14 +82,26 @@ Retrieve all memories for a user asynchronously.
 <CodeGroup>
 
 ```python Python
-await client.get_all(filters={"AND": [{"user_id": "alice"}]})
+page = await client.get_all(
+    filters={"AND": [{"user_id": "alice"}]},
+    page=1,
+    page_size=50,
+)
 ```
 
 ```javascript JavaScript
-await client.getAll({ filters: {"AND": [{"user_id": "alice"}]} });
+const page = await client.getAll({
+  filters: { "AND": [{ user_id: "alice" }] },
+  page: 1,
+  pageSize: 50,
+});
 ```
 
 </CodeGroup>
+
+<Note>
+  The async client returns the same paginated envelope as the sync client: `{"count", "next", "previous", "results"}`.
+</Note>
 
 ### Delete
 
