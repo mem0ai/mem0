@@ -463,6 +463,7 @@ export class Memory {
   private async _getTelemetryId() {
     try {
       if (
+        !this.telemetryId ||
         this.telemetryId === "anonymous" ||
         this.telemetryId === "anonymous-supabase"
       ) {
