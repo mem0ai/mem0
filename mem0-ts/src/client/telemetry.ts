@@ -99,15 +99,16 @@ class UnifiedTelemetry implements TelemetryClient {
       });
 
       if (!response.ok) {
-        console.error(
-          "Telemetry identify capture failed:",
-          await response.text(),
-        );
-        return false;
+        console.debug("Telemetry identify capture failed:", response.status);
       }
+      // Any HTTP response (2xx / 4xx / 5xx) marks the pair aliased.
+      // PostHog person-merge is idempotent at the person level, so a
+      // duplicate $identify on a recovered server is harmless. Only a
+      // genuine network failure (no response) leaves the marker absent
+      // so the next init can retry.
       return true;
     } catch (error) {
-      console.error("Telemetry identify capture failed:", error);
+      console.debug("Telemetry identify capture failed:", error);
       return false;
     }
   }
