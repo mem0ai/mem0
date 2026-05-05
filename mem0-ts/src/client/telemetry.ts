@@ -64,12 +64,12 @@ class UnifiedTelemetry implements TelemetryClient {
       });
 
       if (!response.ok) {
-        console.error("Telemetry event capture failed:", await response.text());
+        console.debug("Telemetry event capture failed:", response.status);
         return false;
       }
       return true;
     } catch (error) {
-      console.error("Telemetry event capture failed:", error);
+      console.debug("Telemetry event capture failed:", error);
       return false;
     }
   }

@@ -134,7 +134,7 @@ export default class MemoryClient {
       captureClientEvent("init", this, {
         client_type: "MemoryClient",
       }).catch((error: any) => {
-        console.error("Failed to capture event:", error);
+        console.debug("Failed to capture event:", error);
       });
     } catch (error: any) {
       console.error("Failed to initialize client:", error);
@@ -165,7 +165,7 @@ export default class MemoryClient {
         }
       }
     } catch (error: any) {
-      console.error("Failed to alias telemetry identity:", error);
+      console.debug("Failed to alias telemetry identity:", error);
     }
   }
 
@@ -175,7 +175,7 @@ export default class MemoryClient {
       args_count: args.length,
       keys: args.length > 0 ? args[0] : [],
     }).catch((error: any) => {
-      console.error("Failed to capture event:", error);
+      console.debug("Failed to capture event:", error);
     });
   }
 
