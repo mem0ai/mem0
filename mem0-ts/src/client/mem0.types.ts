@@ -50,6 +50,13 @@ export interface PromptUpdatePayload {
   memoryDepth?: string | null;
   usecaseSetting?: string | number;
   multilingual?: boolean;
+  /**
+   * Toggle Memory Decay for this project. When `true`, search-time ranking
+   * boosts recently-used memories and gently dampens stale ones; when `false`,
+   * ranking is restored to the pre-decay behaviour. Off by default.
+   * See https://docs.mem0.ai/platform/features/memory-decay
+   */
+  decayEnabled?: boolean;
   [key: string]: any;
 }
 
