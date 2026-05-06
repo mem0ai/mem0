@@ -36,17 +36,22 @@ class OpenAIStructuredLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        params = {
-            "model": self.config.model,
-            "messages": messages,
-            "temperature": self.config.temperature,
-        }
-
+        optional = {}
         if response_format:
-            params["response_format"] = response_format
+            optional["response_format"] = response_format
         if tools:
-            params["tools"] = tools
-            params["tool_choice"] = tool_choice
+            optional["tools"] = tools
+            optional["tool_choice"] = tool_choice
+
+        params = self._get_supported_params(
+            messages=messages,
+            temperature=self.config.temperature,
+            **optional,
+        )
+        # model must always be present regardless of reasoning model filtering
+        params["model"] = self.config.model
+        # Strip any remaining None values to avoid sending them to the API
+        params = {k: v for k, v in params.items() if v is not None}
 
         response = self.client.beta.chat.completions.parse(**params)
         return response.choices[0].message.content
