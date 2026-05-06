@@ -141,6 +141,22 @@ def _validate_and_trim_entity_id(value: Optional[str], name: str) -> Optional[st
     return trimmed
 
 
+def _require_entity_filter_scope(filters: dict) -> None:
+    """Require at least one entity scope filter to prevent unauthorized cross-user data access (IDOR).
+
+    All store operations must be scoped to at least one of user_id, agent_id, or run_id.
+    An empty scope would allow unrestricted access across all users' data.
+
+    Raises:
+        ValueError: If no entity scope filter is present.
+    """
+    if not any(filters.get(k) for k in ("user_id", "agent_id", "run_id")):
+        raise ValueError(
+            "At least one of 'user_id', 'agent_id', or 'run_id' must be present in filters "
+            "to prevent unauthorized cross-user data access."
+        )
+
+
 def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[int] = None) -> None:
     """
     Validates search parameters.
@@ -415,6 +431,7 @@ class Memory(MemoryBase):
         try:
             entity_embedding = self.embedding_model.embed(entity_text, "add")
             search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+            _require_entity_filter_scope(search_filters)
 
             existing = self.entity_store.search(
                 query=entity_text,
@@ -469,6 +486,7 @@ class Memory(MemoryBase):
         if self._entity_store is None:
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         try:
             listed = self.entity_store.list(filters=search_filters, top_k=10000)
             rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
@@ -705,6 +723,7 @@ class Memory(MemoryBase):
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
             query=parsed_messages,
@@ -796,7 +815,7 @@ class Memory(MemoryBase):
             if not text or text not in embed_map:
                 continue
 
-            mem_hash = hashlib.md5(text.encode()).hexdigest()
+            mem_hash = hashlib.sha256(text.encode()).hexdigest()
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
                 continue
@@ -1461,6 +1480,7 @@ class Memory(MemoryBase):
             return {}
 
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        _require_entity_filter_scope(search_filters)
         memory_boosts = {}
 
         try:
@@ -1592,7 +1612,7 @@ class Memory(MemoryBase):
         memory_id = str(uuid.uuid4())
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        new_metadata["hash"] = hashlib.sha256(data.encode()).hexdigest()
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
@@ -1671,7 +1691,7 @@ class Memory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
 
         new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        new_metadata["hash"] = hashlib.sha256(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -2210,7 +2230,7 @@ class AsyncMemory(MemoryBase):
             if not text or text not in embed_map:
                 continue
 
-            mem_hash = hashlib.md5(text.encode()).hexdigest()
+            mem_hash = hashlib.sha256(text.encode()).hexdigest()
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
                 logger.debug(f"Skipping duplicate memory (hash match, async): {text[:50]}")
                 continue
