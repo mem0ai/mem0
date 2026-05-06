@@ -51,12 +51,14 @@ improve your answer. The agent -- not this hook -- owns this decision.
 - Run **2-4 parallel** \`search_memories\` calls with different angles, not one
   query that echoes the user's prompt.
 - Phrase queries as **nouns** ("auth module decisions"), not full sentences.
-- Use \`metadata.type\` filters where they fit:
-  - \`{"metadata.type": "decision"}\` -- design / architecture questions
-  - \`{"metadata.type": "anti_pattern"}\` -- debugging, error handling
-  - \`{"metadata.type": "user_preference"}\` -- tooling, stack, style
-  - \`{"metadata.type": "convention"}\` -- established patterns in this project
-- Scope every query with \`{"user_id": "$USER_ID"}\`.
+- Filter shape: the root must be a logical operator (\`AND\` / \`OR\` / \`NOT\`)
+  with an array, and metadata uses a **nested** object (not dotted keys).
+  Combine \`user_id\` with one \`metadata.type\` clause per call:
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "decision"}}]}\` -- design / architecture
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "anti_pattern"}}]}\` -- debugging, error handling
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "user_preference"}}]}\` -- tooling, stack, style
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "convention"}}]}\` -- established patterns
+- Or scope with just \`{"AND": [{"user_id": "$USER_ID"}]}\` when no metadata filter fits.
 - Empty results are normal -- proceed without context.
 EOF
 

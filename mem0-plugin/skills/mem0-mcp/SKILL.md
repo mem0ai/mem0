@@ -43,18 +43,25 @@ When you do search, run **2–4 parallel** `search_memories` calls at different 
 - Use entity names, not pronouns. Resolve "that thing" from recent context first.
 - Don't search on meta-questions ("what was that?") — use recent context or `get_memories` ordered by `created_at`.
 
-**Metadata filters** match the same `metadata.type` values written under "After completing significant work" below:
+**Metadata filters** match the same `type` values written under "After completing significant work" below.
 
-| Filter | Use for |
+Two rules from the v2 filter spec:
+
+1. The root **must** be a logical operator (`AND` / `OR` / `NOT`) with an array. A bare `{"user_id": "..."}` won't work.
+2. Metadata uses a **nested** object, not a dotted key. `{"metadata": {"type": "decision"}}`, never `{"metadata.type": "decision"}`. Only top-level metadata keys are filterable.
+
+Combine `user_id` with one metadata clause per call:
+
+| `metadata.type` clause | Use for |
 |--------|---------|
-| `{"metadata.type": "decision"}` | design / architecture / "how should we" questions |
-| `{"metadata.type": "anti_pattern"}` | debugging, error handling, things that failed before |
-| `{"metadata.type": "user_preference"}` | tooling, stack, style — always include for code work |
-| `{"metadata.type": "convention"}` | established patterns in this project |
+| `{"metadata": {"type": "decision"}}` | design / architecture / "how should we" questions |
+| `{"metadata": {"type": "anti_pattern"}}` | debugging, error handling, things that failed before |
+| `{"metadata": {"type": "user_preference"}}` | tooling, stack, style — always include for code work |
+| `{"metadata": {"type": "convention"}}` | established patterns in this project |
 
-Combine with `user_id` using AND:
+Full filter (replace `<your_user_id>` with the active user_id from your runtime):
 ```python
-filters={"AND": [{"user_id": "alice"}, {"metadata.type": "decision"}]}
+filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"type": "decision"}}]}
 ```
 
 ### Worked example
@@ -67,15 +74,16 @@ search_memories(query="Refactor the auth module to use JWT")
 # Hits whatever shares words. Misses prior decisions and preferences.
 ```
 
-Do (parallel):
+Do (parallel — substitute the active `user_id` for `<your_user_id>`):
 ```python
 search_memories(query="auth module decisions",
-                filters={"AND": [{"user_id": "alice"}, {"metadata.type": "decision"}]})
-search_memories(query="JWT", filters={"user_id": "alice"})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"type": "decision"}}]})
+search_memories(query="JWT",
+                filters={"AND": [{"user_id": "<your_user_id>"}]})
 search_memories(query="auth refactor failures",
-                filters={"AND": [{"user_id": "alice"}, {"metadata.type": "anti_pattern"}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"type": "anti_pattern"}}]})
 search_memories(query="auth",
-                filters={"AND": [{"user_id": "alice"}, {"metadata.type": "user_preference"}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"type": "user_preference"}}]})
 ```
 
 ## After completing significant work
