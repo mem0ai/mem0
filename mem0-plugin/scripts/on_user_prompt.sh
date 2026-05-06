@@ -1,61 +1,65 @@
 #!/usr/bin/env bash
 # Hook: UserPromptSubmit
 #
-# Fires on every user message. Searches mem0 for relevant memories
-# and injects them into Claude's context before processing.
+# Fires on every user message. Instead of pre-searching mem0 with the
+# raw prompt, this injects a decision rubric telling the agent when
+# and how to search itself. The agent has more context than this
+# script does -- let it decide.
 #
-# Input:  JSON on stdin with prompt, session_id, cwd, transcript_path
-# Output: Matching memories as context text (exit 0)
-#
-# Skips search for very short prompts (< 20 chars) and when
-# MEM0_API_KEY is not set. Uses a 3s timeout to minimize latency.
+# Input:  JSON on stdin (prompt, session_id, cwd, transcript_path)
+# Output: Decision rubric injected into Claude's context (exit 0)
 
-# Intentionally omit -e so the script always exits 0 even if
-# curl or jq fail — must never block the user's prompt.
+# Intentionally omit -e so the script always exits 0 even if jq fails --
+# must never block the user's prompt.
 set -uo pipefail
 
 INPUT=$(cat)
 PROMPT=$(echo "$INPUT" | jq -r '.prompt // ""' 2>/dev/null || echo "")
 
-# Skip trivial prompts — not worth a network call
+# Acknowledgements and short replies don't warrant memory context
 if [ ${#PROMPT} -lt 20 ]; then
   exit 0
 fi
 
-API_KEY="${MEM0_API_KEY:-}"
-if [ -z "$API_KEY" ]; then
+# No API key means the agent can't search anyway
+if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
 
 USER_ID="${MEM0_USER_ID:-${USER:-default}}"
 
-# Build request body safely via jq to avoid injection
-BODY=$(jq -n --arg query "$PROMPT" --arg user_id "$USER_ID" \
-  '{query: $query, filters: {user_id: $user_id}, top_k: 5}')
+cat <<EOF
+## Memory check
 
-# Search mem0 for memories relevant to this prompt
-RESPONSE=$(curl -s --max-time 3 \
-  -X POST "https://api.mem0.ai/v2/memories/search/" \
-  -H "Authorization: Token $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d "$BODY" \
-  2>/dev/null || echo "")
+Before responding, decide whether persistent memory context from mem0 would
+improve your answer. The agent -- not this hook -- owns this decision.
 
-if [ -z "$RESPONSE" ]; then
-  exit 0
-fi
+**Search WHEN** the user:
+- references past work, decisions, or things "we" built
+- asks "how should we...", "best way to...", or any decision-style question
+- hits an error, bug, or asks for debugging help
+- requests work that touches their stack, tools, conventions, or preferences
+- starts a non-trivial task in a known project
 
-# Extract memories from response (API returns a flat array)
-MEMORIES=$(echo "$RESPONSE" | jq -r '
-  if type == "array" then . else .results // [] end |
-  if length == 0 then empty else
-  "## Relevant memories from mem0\n\n" +
-  (map(select(.memory != null) | "- " + .memory) | join("\n"))
-  end
-' 2>/dev/null || echo "")
+**Skip WHEN:**
+- the prompt is an acknowledgement or continuation
+- the user is *stating* new info -- that's a write trigger (\`add_memory\`), not a search
+- it's a pure syntax / factual question answerable from general knowledge
+- you already searched this scope earlier in the turn
 
-if [ -n "$MEMORIES" ]; then
-  echo "$MEMORIES"
-fi
+**If searching, do it well:**
+- Run **2-4 parallel** \`search_memories\` calls with different angles, not one
+  query that echoes the user's prompt.
+- Phrase queries as **nouns** ("auth module decisions"), not full sentences.
+- Filter shape: the root must be a logical operator (\`AND\` / \`OR\` / \`NOT\`)
+  with an array, and metadata uses a **nested** object (not dotted keys).
+  Combine \`user_id\` with one \`metadata.type\` clause per call:
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "decision"}}]}\` -- design / architecture
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "anti_pattern"}}]}\` -- debugging, error handling
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "user_preference"}}]}\` -- tooling, stack, style
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "convention"}}]}\` -- established patterns
+- Or scope with just \`{"AND": [{"user_id": "$USER_ID"}]}\` when no metadata filter fits.
+- Empty results are normal -- proceed without context.
+EOF
 
 exit 0
