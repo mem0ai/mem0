@@ -26,6 +26,7 @@ class LlmConfig(BaseModel):
             "minimax",
             "xai",
             "sarvam",
+            "futurmix",
             "lmstudio",
             "vllm",
             "langchain",
