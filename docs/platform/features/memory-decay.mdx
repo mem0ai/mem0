@@ -1,0 +1,193 @@
+---
+title: Memory Decay
+description: "Boost recently-used memories and gently dampen stale ones at search time, without filtering anything out."
+---
+
+# Memory Decay
+
+Older memories drift in relevance at different speeds. A user's coffee order matters every morning; a one-off project name from last quarter rarely matters again. Memory Decay makes that intuition explicit at search time: every time a memory is returned in a search it gets a small reinforcement, and memories that haven't been touched in a while have their ranking score gently dampened.
+
+It is **a soft ranking bias, never a filter.** Decay never zeroes a candidate out — at worst it scales its score by `0.3×`. Anything that would have surfaced without decay can still surface with decay on, just with a different ranking among similarly-scored results.
+
+<Info>
+  **Use Memory Decay when…**
+  - Search results are crowded with old facts the user no longer cares about.
+  - You want recently-used memories to drift to the top automatically — without writing custom scoring logic.
+  - You want this preference applied per project so cohorts can be compared side-by-side.
+</Info>
+
+<Warning>
+  Memory Decay is **opt-in per project** and **off by default**. Search behavior is bit-identical to today until you turn it on. The toggle applies to v3 search only.
+</Warning>
+
+## How it works
+
+Every memory carries a small piece of bookkeeping: when was it last retrieved, and how often. Memory Decay turns that history into a *scaling factor* in the range `0.3×` to `1.5×` and multiplies it into the ranking score at search time.
+
+| Memory state | Scaling factor | Ranking effect |
+|---|---|---|
+| Just accessed | ≈ **1.5×** | Strong boost |
+| Touched today | 1.2 – 1.4× | Mild boost |
+| Idle for a few days | 0.6 – 1.0× | Mild dampening |
+| Idle for weeks | 0.4 – 0.6× | Stronger dampening |
+| Idle for many months / years | ≈ **0.3×** | Floor — never lower |
+
+The bounds matter: `0.3` is the floor and `1.5` is the ceiling, so decay can meaningfully reorder candidates without ever dominating the underlying relevance score.
+
+At search time the pipeline:
+
+1. Widens the candidate pool (`top_k × 3`, with a floor of 50) so reordering has room.
+2. Multiplies each candidate's score by its scaling factor.
+3. Sorts on the unclamped product so the full `0.3×–1.5×` range can rearrange candidates.
+4. Returns the public `score` clamped to `[0, 1]` so the API contract is preserved.
+5. Truncates to the `top_k` you requested.
+6. Records a fire-and-forget reinforcement against each returned memory — its access history grows by one, capped at the most recent 20 touches.
+
+Memories created before decay was enabled don't yet have an access history. They use a sensible fallback: their `updated_at` is treated as a single past touch, so the same scale above applies based on how stale that update is — a recently-updated legacy memory enters near the neutral band, a long-stale one sits closer to the floor. Once surfaced in a search after decay is on, they accumulate access history naturally and behave like any other memory.
+
+## Configure access
+
+- Set `MEM0_API_KEY` in your environment, or pass it to the SDK constructor.
+- Initialize the client with the organization and project you want to scope to.
+
+The toggle lives on the project. You enable decay by patching the project's `decay` field; everything else — your `add` calls, your `search` calls, your application code — stays exactly the same.
+
+## Enable decay for a project
+
+### 1. Turn the flag on
+
+The toggle is exposed on the standard project-update endpoint, the same place where `multilingual` and `custom_categories` live.
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/ \
+  -H "Authorization: Token $MEM0_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"decay": true}'
+```
+
+```python Python
+import os
+import requests
+
+org_id = os.environ["MEM0_ORG_ID"]
+project_id = os.environ["MEM0_PROJECT_ID"]
+
+requests.patch(
+    f"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/",
+    headers={"Authorization": f"Token {os.environ['MEM0_API_KEY']}"},
+    json={"decay": True},
+)
+```
+
+```javascript Node.js
+const res = await fetch(
+  `https://api.mem0.ai/api/v1/orgs/organizations/${process.env.MEM0_ORG_ID}/projects/${process.env.MEM0_PROJECT_ID}/`,
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: `Token ${process.env.MEM0_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ decay: true }),
+  },
+);
+```
+
+```json Response
+{ "message": "Updated decay" }
+```
+</CodeGroup>
+
+### 2. Confirm the state
+
+`decay` is returned on every project read. To fetch only this field, use `?fields=decay`.
+
+<CodeGroup>
+```bash cURL
+curl "https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/?fields=decay" \
+  -H "Authorization: Token $MEM0_API_KEY"
+```
+
+```json Response
+{ "decay": true }
+```
+</CodeGroup>
+
+### 3. Turn it back off
+
+The toggle is fully reversible. Setting it to `false` immediately restores the pre-decay ranking; nothing about your stored memories is modified or lost.
+
+<CodeGroup>
+```bash cURL
+curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/ \
+  -H "Authorization: Token $MEM0_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"decay": false}'
+```
+</CodeGroup>
+
+<Note>
+  The toggle is idempotent. Re-applying the same value is a no-op, and access history accumulated while decay was on is preserved if you flip it back on later.
+</Note>
+
+## What changes when decay is on
+
+- **Search ranking reorders.** A relevant memory you reinforced an hour ago will tend to outrank an equally-relevant memory that was last touched a month ago.
+- **The candidate pool over-fetches** to give the scaling factor room to reorder. You still get exactly the `top_k` you requested, but the items returned can come from a deeper slice of the pre-decay ranking than before.
+- **The public `score` field stays in `[0, 1]`.** Even when the internal product exceeds 1, the field returned to the client is clamped, so existing assertions and downstream UI logic continue to work.
+
+## What stays the same
+
+- **Public API shape** — every endpoint accepts the same parameters and returns the same fields. You don't touch your client code.
+- **Threshold semantics on the request side** — your `threshold` is still applied during candidate selection.
+- **Memory creation and storage** — every new memory still lands the same way. Decay is a search-time concern.
+- **Per-memory data** — categories, metadata, timestamps, embeddings: untouched.
+
+<Warning>
+  Because the scaling factor is applied *after* the threshold filter has already run, an item that passed the request `threshold` can come back with a public `score` slightly below it (a stale candidate dampened by `0.3×`). This is intentional — decay is a soft bias, not a filter. If you require a hard `score >= threshold` invariant on the response, filter client-side after the call.
+</Warning>
+
+## Lifecycle of a memory under decay
+
+| Stage | Scaling factor | Effect |
+|---|---|---|
+| Just added | ≈ 1.5× | Strong boost — fresh facts surface easily. |
+| Reinforced on a recent search | 1.2 – 1.5× | Sustains its boost for the next several searches. |
+| Idle for a few days | 0.6 – 1.0× | Falls back into the neutral band. |
+| Idle for weeks | 0.4 – 0.6× | Mild dampening — can still surface for strong matches. |
+| Pre-decay legacy memory (no access history) | 0.3 – 1.0× | Falls back to `updated_at`: recently-updated entries land near 1.0×, long-stale entries approach the 0.3× floor. |
+
+The reinforcement is bounded: each memory tracks at most the last 20 access timestamps, so the boost stays well-behaved no matter how many times a memory is retrieved.
+
+## FAQ
+
+**Will decay ever drop a result that would otherwise surface?**
+No. The floor is `0.3×` — the scaling factor can dampen a score, never zero it. Threshold filtering happens *before* decay, so any candidate that cleared the threshold is in the pool decay reorders.
+
+**Why is the public score sometimes below my requested threshold?**
+The threshold is applied to the candidate pool pre-decay; the scaling factor then reshapes scores in the `0.3×–1.5×` band. A stale-but-relevant candidate can come back with a final score slightly under your threshold by design — the candidate stays visible but visibly dampened. Filter client-side if you need a hard floor on the response.
+
+**Does decay change how I add memories?**
+No. The `client.add(...)` path is unchanged. Decay is a search-time ranking adjustment.
+
+**What if I had memories before turning decay on?**
+They use a fallback: the memory's `updated_at` is treated as a single historical touch, so the same scaling applies based on how stale that update is — a recently-updated legacy memory enters near the neutral band (~1.0×), a long-stale one closer to the floor (~0.3×). Once retrieved they accumulate access history and behave like any other memory.
+
+**Can I tune how aggressively decay scales scores?**
+Not in this version. The current scaling is calibrated to be conservative — wide enough to meaningfully reorder candidates, narrow enough to never dominate the underlying relevance score. Per-project tuning is on the roadmap.
+
+**Can I see the scaling factor per result?**
+Internal scoring details are persisted on the search Event for support and debugging. They aren't exposed in the public response by design — the response surface stays a single `score` field.
+
+**Does decay interact with reranking?**
+Yes — they layer cleanly. The reranker produces a richer relevance score; decay then biases that score by reinforcement history before final truncation to `top_k`.
+
+## What's next
+
+This release is deliberately the simplest version of decay we could ship — every memory contributes to ranking through its access history alone, so the signal can be evaluated in isolation. On the roadmap:
+
+- **Category-aware weighting.** A fact tagged `health` will be able to carry more weight than a passing observation tagged `misc`, so important categories don't get dampened the same way as noise.
+- **Auto-tuning per project.** Project-scoped automatic adjustment of how aggressively decay scales scores, based on observed access patterns — replacing the fixed scaling band with one that fits your workload.
+
+Both extensions are forward-compatible — no migration on your side will be needed when they ship.

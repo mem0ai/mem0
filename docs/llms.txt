@@ -187,6 +187,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Criteria-Based Retrieval](https://docs.mem0.ai/platform/features/criteria-retrieval) [Platform]: Use when targeting memories by custom criteria, not just semantic similarity.
 - [Contextual Add](https://docs.mem0.ai/platform/features/contextual-add) [Platform]: Use when `add()` should consider the surrounding conversation, not just the latest turn.
 - [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions) [Platform]: Use when tailoring what Mem0 extracts and stores on Platform.
+- [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones — opt-in per project, search-time only, never filters candidates out.
 - [Advanced Memory Operations](https://docs.mem0.ai/platform/advanced-memory-operations) [Platform]: Use when basic CRUD is not enough - batch ops, complex filters, workflows.
 
 ### Features - Data Management
