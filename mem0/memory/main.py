@@ -703,15 +703,34 @@ class Memory(MemoryBase):
         last_messages = self.db.get_last_messages(session_scope, limit=10)
         parsed_messages = parse_messages(messages)
 
-        # Phase 1: Existing memory retrieval
+        # Phase 1: Existing memory retrieval (semantic + keyword for full recall)
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
-        existing_results = self.vector_store.search(
+        semantic_results = self.vector_store.search(
             query=parsed_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
         )
+
+        # Supplement with keyword search to catch near-duplicates that semantic
+        # search alone may miss (e.g. same fact expressed with different wording)
+        query_lemmatized = lemmatize_for_bm25(parsed_messages)
+        keyword_results = self.vector_store.keyword_search(
+            query=query_lemmatized,
+            top_k=10,
+            filters=search_filters,
+        )
+
+        # Merge and deduplicate by ID
+        existing_results_map = {}
+        for mem in semantic_results:
+            existing_results_map[mem.id] = mem
+        if keyword_results:
+            for mem in keyword_results:
+                if mem.id not in existing_results_map:
+                    existing_results_map[mem.id] = mem
+        existing_results = list(existing_results_map.values())
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -826,19 +845,28 @@ class Memory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        successful_ids = set()
         try:
             self.vector_store.insert(
                 vectors=all_vectors,
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            successful_ids = set(all_ids)
         except Exception:
             # Fallback: insert one by one
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    successful_ids.add(mid)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid}: {e}")
+
+        # Filter to only successfully inserted memories
+        records = [r for r in records if r[0] in successful_ids]
+        if not records:
+            self.db.save_messages(messages, session_scope)
+            return []
 
         # Batch history
         history_records = [
@@ -2118,16 +2146,36 @@ class AsyncMemory(MemoryBase):
         last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
         parsed_messages = parse_messages(messages)
 
-        # Phase 1: Existing memory retrieval
+        # Phase 1: Existing memory retrieval (semantic + keyword for full recall)
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
-        existing_results = await asyncio.to_thread(
+        semantic_results = await asyncio.to_thread(
             self.vector_store.search,
             query=parsed_messages,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
         )
+
+        # Supplement with keyword search to catch near-duplicates that semantic
+        # search alone may miss (e.g. same fact expressed with different wording)
+        query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, parsed_messages)
+        keyword_results = await asyncio.to_thread(
+            self.vector_store.keyword_search,
+            query=query_lemmatized,
+            top_k=10,
+            filters=search_filters,
+        )
+
+        # Merge and deduplicate by ID
+        existing_results_map = {}
+        for mem in semantic_results:
+            existing_results_map[mem.id] = mem
+        if keyword_results:
+            for mem in keyword_results:
+                if mem.id not in existing_results_map:
+                    existing_results_map[mem.id] = mem
+        existing_results = list(existing_results_map.values())
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -2190,11 +2238,19 @@ class AsyncMemory(MemoryBase):
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             embed_map = {}
-            for text in mem_texts:
+
+            async def _embed_one(text):
                 try:
-                    embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+                    result = await asyncio.to_thread(self.embedding_model.embed, text, "add")
+                    return text, result
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
+                    return text, None
+
+            gathered = await asyncio.gather(*[_embed_one(text) for text in mem_texts])
+            for text, embedding in gathered:
+                if embedding is not None:
+                    embed_map[text] = embedding
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         existing_hashes = set()
@@ -2240,6 +2296,7 @@ class AsyncMemory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        successful_ids = set()
         try:
             await asyncio.to_thread(
                 self.vector_store.insert,
@@ -2247,12 +2304,20 @@ class AsyncMemory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            successful_ids = set(all_ids)
         except Exception:
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    successful_ids.add(mid)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
+
+        # Filter to only successfully inserted memories
+        records = [r for r in records if r[0] in successful_ids]
+        if not records:
+            await asyncio.to_thread(self.db.save_messages, messages, session_scope)
+            return []
 
         # Batch history
         history_records = [
