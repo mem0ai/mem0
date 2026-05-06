@@ -43,7 +43,8 @@ export function snakeToCamelKeys(obj: any): any {
   return Object.fromEntries(
     Object.entries(obj).map(([key, value]) => [
       snakeToCamel(key),
-      snakeToCamelKeys(value),
+      // Preserve user-defined metadata keys as-is (no case conversion)
+      key === "metadata" ? value : snakeToCamelKeys(value),
     ]),
   );
 }
