@@ -190,6 +190,7 @@ class VectorStoreFactory:
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
         "turbopuffer": "mem0.vector_stores.turbopuffer.TurbopufferDB",
+        "logosdb": "mem0.vector_stores.logosdb.LogosDB",
     }
 
     @classmethod
