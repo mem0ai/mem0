@@ -12,6 +12,7 @@ import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryVectorStore } from "../vector_stores/memory";
 import {
   ensureSQLiteDirectory,
+  getDefaultHistoryDbPath,
   getDefaultVectorStoreDbPath,
 } from "../utils/sqlite";
 
@@ -36,7 +37,7 @@ describe("backward compat: ConfigManager.mergeConfig", () => {
     expect(cfg.llm.provider).toBe("openai");
     expect(cfg.historyStore).toBeDefined();
     expect(cfg.historyStore!.provider).toBe("sqlite");
-    expect(cfg.historyStore!.config.historyDbPath).toBe("memory.db");
+    expect(cfg.historyStore!.config.historyDbPath).toBe(getDefaultHistoryDbPath());
     expect(cfg.disableHistory).toBe(false);
   });
 

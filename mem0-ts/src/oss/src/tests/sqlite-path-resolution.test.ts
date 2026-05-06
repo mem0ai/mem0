@@ -6,6 +6,7 @@ import { SQLiteManager } from "../storage/SQLiteManager";
 import { MemoryVectorStore } from "../vector_stores/memory";
 import {
   ensureSQLiteDirectory,
+  getDefaultHistoryDbPath,
   getDefaultVectorStoreDbPath,
 } from "../utils/sqlite";
 
@@ -41,10 +42,10 @@ describe("ConfigManager.mergeConfig – historyDbPath handling", () => {
     expect(cfg.historyStore?.config.historyDbPath).toBe("/tmp/explicit.db");
   });
 
-  it("preserves default memory.db when nothing is provided", () => {
+  it("preserves default historyDbPath when nothing is provided", () => {
     const cfg = ConfigManager.mergeConfig({});
     expect(cfg.historyStore?.provider).toBe("sqlite");
-    expect(cfg.historyStore?.config.historyDbPath).toBe("memory.db");
+    expect(cfg.historyStore?.config.historyDbPath).toBe(getDefaultHistoryDbPath());
   });
 
   it("respects only historyStore.config when top-level is absent", () => {
@@ -286,5 +287,12 @@ describe("getDefaultVectorStoreDbPath", () => {
   it("returns path under homedir/.mem0", () => {
     const result = getDefaultVectorStoreDbPath();
     expect(result).toBe(path.join(os.homedir(), ".mem0", "vector_store.db"));
+  });
+});
+
+describe("getDefaultHistoryDbPath", () => {
+  it("returns path under homedir/.mem0/history.db", () => {
+    const result = getDefaultHistoryDbPath();
+    expect(result).toBe(path.join(os.homedir(), ".mem0", "history.db"));
   });
 });
