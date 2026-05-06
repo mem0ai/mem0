@@ -28,6 +28,7 @@ from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
+from app.utils.scoped_client import ScopedMemoryClient
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
@@ -76,6 +77,8 @@ async def add_memories(text: str, infer: bool = True) -> str:
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
+    scoped = ScopedMemoryClient(memory_client, uid)
+
     try:
         db = SessionLocal()
         try:
@@ -86,13 +89,14 @@ async def add_memories(text: str, infer: bool = True) -> str:
             if not app.is_active:
                 return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
 
-            response = memory_client.add(text,
-                                         user_id=uid,
-                                         metadata={
-                                            "source_app": "openmemory",
-                                            "mcp_client": client_name,
-                                         },
-                                         infer=infer)
+            response = scoped.add(
+                text,
+                metadata={
+                    "source_app": "openmemory",
+                    "mcp_client": client_name,
+                },
+                infer=infer,
+            )
 
             # Process the response and update database
             if isinstance(response, dict) and 'results' in response:
@@ -160,6 +164,8 @@ async def search_memory(query: str) -> str:
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
+    scoped = ScopedMemoryClient(memory_client, uid)
+
     try:
         db = SessionLocal()
         try:
@@ -170,18 +176,7 @@ async def search_memory(query: str) -> str:
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
             accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
 
-            filters = {
-                "user_id": uid
-            }
-
-            embeddings = memory_client.embedding_model.embed(query, "search")
-
-            hits = memory_client.vector_store.search(
-                query=query, 
-                vectors=embeddings, 
-                limit=10, 
-                filters=filters,
-            )
+            hits = scoped.search(query, top_k=10)
 
             allowed = set(str(mid) for mid in accessible_memory_ids) if accessible_memory_ids else None
 
@@ -238,14 +233,16 @@ async def list_memories() -> str:
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
+    scoped = ScopedMemoryClient(memory_client, uid)
+
     try:
         db = SessionLocal()
         try:
             # Get or create user and app
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
-            # Get all memories
-            memories = memory_client.get_all(user_id=uid)
+            # Get all memories scoped to this user
+            memories = scoped.get_all(top_k=1000)
             filtered_memories = []
 
             # Filter memories based on permissions
@@ -307,6 +304,8 @@ async def delete_memories(memory_ids: list[str]) -> str:
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
+    scoped = ScopedMemoryClient(memory_client, uid)
+
     try:
         db = SessionLocal()
         try:
@@ -327,7 +326,7 @@ async def delete_memories(memory_ids: list[str]) -> str:
             # Delete from vector store
             for memory_id in ids_to_delete:
                 try:
-                    memory_client.delete(str(memory_id))
+                    scoped.delete(str(memory_id))
                 except Exception as delete_error:
                     logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
@@ -381,6 +380,8 @@ async def delete_all_memories() -> str:
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
+    scoped = ScopedMemoryClient(memory_client, uid)
+
     try:
         db = SessionLocal()
         try:
@@ -393,7 +394,7 @@ async def delete_all_memories() -> str:
             # delete the accessible memories only
             for memory_id in accessible_memory_ids:
                 try:
-                    memory_client.delete(str(memory_id))
+                    scoped.delete(str(memory_id))
                 except Exception as delete_error:
                     logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
