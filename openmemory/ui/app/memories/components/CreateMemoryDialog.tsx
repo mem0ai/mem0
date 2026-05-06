@@ -17,11 +17,23 @@ import { Loader2 } from "lucide-react";
 import { useMemoriesApi } from "@/hooks/useMemoriesApi";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/store";
 
 export function CreateMemoryDialog() {
   const { createMemory, isLoading, fetchMemories } = useMemoriesApi();
   const [open, setOpen] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  // Empty user_id means the all-users (admin) view is active. Memories
+  // need an owner, so the create action is disabled in that mode.
+  const activeUserId = useSelector((state: RootState) => state.profile.userId);
+  const isAllUsers = activeUserId === "";
 
   const handleCreateMemory = async (text: string) => {
     try {
@@ -36,6 +48,31 @@ export function CreateMemoryDialog() {
       toast.error("Failed to create memory");
     }
   };
+
+  if (isAllUsers) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-primary/40 text-white cursor-not-allowed"
+                disabled
+              >
+                <GoPlus />
+                Create Memory
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            Pick a specific user to add a memory.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

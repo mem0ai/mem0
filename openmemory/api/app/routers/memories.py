@@ -34,6 +34,23 @@ def get_memory_or_404(db: Session, memory_id: UUID) -> Memory:
     return memory
 
 
+def resolve_user_or_none(db: Session, user_id: Optional[str]) -> Optional[User]:
+    """Resolve a user_id string to a User row, or None for the all-users view.
+
+    Pass None or an empty string for the all-users (admin) scope: read-only
+    listing endpoints will skip the per-user filter entirely.
+
+    If a non-empty user_id is provided but no such User exists, raises 404 —
+    this preserves the previous behavior for scoped queries.
+    """
+    if not user_id:
+        return None
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
 def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, user_id: UUID):
     memory = get_memory_or_404(db, memory_id)
     old_state = memory.state
@@ -100,7 +117,10 @@ def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
 # List all memories with filtering
 @router.get("/", response_model=Page[MemoryResponse])
 async def list_memories(
-    user_id: str,
+    user_id: Optional[str] = Query(
+        None,
+        description="Scope to a single user_id. Pass empty string or omit for all-users (admin) view.",
+    ),
     app_id: Optional[UUID] = None,
     from_date: Optional[int] = Query(
         None,
@@ -119,17 +139,18 @@ async def list_memories(
     sort_direction: Optional[str] = Query(None, description="Sort direction (asc or desc)"),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = resolve_user_or_none(db, user_id)
 
     # Build base query
     query = db.query(Memory).filter(
-        Memory.user_id == user.id,
         Memory.state != MemoryState.deleted,
         Memory.state != MemoryState.archived,
         Memory.content.ilike(f"%{search_query}%") if search_query else True
     )
+
+    # Apply per-user scoping unless this is the all-users view.
+    if user is not None:
+        query = query.filter(Memory.user_id == user.id)
 
     # Apply filters
     if app_id:
@@ -188,19 +209,23 @@ async def list_memories(
 # Get all categories
 @router.get("/categories")
 async def get_categories(
-    user_id: str,
+    user_id: Optional[str] = Query(
+        None,
+        description="Scope to a single user_id. Pass empty string or omit for all-users (admin) view.",
+    ),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = resolve_user_or_none(db, user_id)
 
-    # Get unique categories associated with the user's memories
-    # Get all memories
-    memories = db.query(Memory).filter(Memory.user_id == user.id, Memory.state != MemoryState.deleted, Memory.state != MemoryState.archived).all()
-    # Get all categories from memories
+    # Get unique categories associated with the user's memories.
+    query = db.query(Memory).filter(
+        Memory.state != MemoryState.deleted,
+        Memory.state != MemoryState.archived,
+    )
+    if user is not None:
+        query = query.filter(Memory.user_id == user.id)
+    memories = query.all()
     categories = [category for memory in memories for category in memory.categories]
-    # Get unique categories
     unique_categories = list(set(categories))
 
     return {
@@ -530,7 +555,7 @@ async def update_memory(
     return memory
 
 class FilterMemoriesRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
     page: int = 1
     size: int = 10
     search_query: Optional[str] = None
@@ -547,15 +572,15 @@ async def filter_memories(
     request: FilterMemoriesRequest,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = resolve_user_or_none(db, request.user_id)
 
     # Build base query
     query = db.query(Memory).filter(
-        Memory.user_id == user.id,
         Memory.state != MemoryState.deleted,
     )
+
+    if user is not None:
+        query = query.filter(Memory.user_id == user.id)
 
     # Filter archived memories based on show_archived parameter
     if not request.show_archived:
@@ -639,30 +664,32 @@ async def filter_memories(
 @router.get("/{memory_id}/related", response_model=Page[MemoryResponse])
 async def get_related_memories(
     memory_id: UUID,
-    user_id: str,
+    user_id: Optional[str] = Query(
+        None,
+        description="Scope to a single user_id. Pass empty string or omit for all-users (admin) view.",
+    ),
     params: Params = Depends(),
     db: Session = Depends(get_db)
 ):
-    # Validate user
-    user = db.query(User).filter(User.user_id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    
+    user = resolve_user_or_none(db, user_id)
+
     # Get the source memory
     memory = get_memory_or_404(db, memory_id)
-    
+
     # Extract category IDs from the source memory
     category_ids = [category.id for category in memory.categories]
-    
+
     if not category_ids:
         return Page.create([], total=0, params=params)
-    
+
     # Build query for related memories
     query = db.query(Memory).distinct(Memory.id).filter(
-        Memory.user_id == user.id,
         Memory.id != memory_id,
         Memory.state != MemoryState.deleted
-    ).join(Memory.categories).filter(
+    )
+    if user is not None:
+        query = query.filter(Memory.user_id == user.id)
+    query = query.join(Memory.categories).filter(
         Category.id.in_(category_ids)
     ).options(
         joinedload(Memory.categories),
