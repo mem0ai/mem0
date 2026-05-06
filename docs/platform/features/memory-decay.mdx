@@ -30,7 +30,7 @@ Every memory carries a small piece of bookkeeping: when was it last retrieved, a
 | Touched today | 1.2 – 1.4× | Mild boost |
 | Idle for a few days | 0.6 – 1.0× | Mild dampening |
 | Idle for weeks | 0.4 – 0.6× | Stronger dampening |
-| No history yet | ≈ **0.3×** | Floor — won't go lower |
+| Idle for many months / years | ≈ **0.3×** | Floor — never lower |
 
 The bounds matter: `0.3` is the floor and `1.5` is the ceiling, so decay can meaningfully reorder candidates without ever dominating the underlying relevance score.
 
@@ -43,7 +43,7 @@ At search time the pipeline:
 5. Truncates to the `top_k` you requested.
 6. Records a fire-and-forget reinforcement against each returned memory — its access history grows by one, capped at the most recent 20 touches.
 
-Memories created before decay was enabled don't yet have an access history. They use a sensible fallback — their last update is treated as a single past touch — so they don't get pinned to the floor on the first retrieval. As they're surfaced in subsequent searches they accumulate access history naturally.
+Memories created before decay was enabled don't yet have an access history. They use a sensible fallback: their `updated_at` is treated as a single past touch, so the same scale above applies based on how stale that update is — a recently-updated legacy memory enters near the neutral band, a long-stale one sits closer to the floor. Once surfaced in a search after decay is on, they accumulate access history naturally and behave like any other memory.
 
 ## Configure access
 
@@ -56,7 +56,7 @@ The toggle lives on the project. You enable decay by patching the project's `dec
 
 ### 1. Turn the flag on
 
-The toggle is exposed on the standard project-update endpoint, the same place where `enable_graph`, `multilingual`, and `custom_categories` live.
+The toggle is exposed on the standard project-update endpoint, the same place where `multilingual` and `custom_categories` live.
 
 <CodeGroup>
 ```bash cURL
@@ -156,7 +156,7 @@ curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PR
 | Reinforced on a recent search | 1.2 – 1.5× | Sustains its boost for the next several searches. |
 | Idle for a few days | 0.6 – 1.0× | Falls back into the neutral band. |
 | Idle for weeks | 0.4 – 0.6× | Mild dampening — can still surface for strong matches. |
-| Never reinforced (legacy) | Mid-band | Computed from the memory's last update — not pinned to the floor. |
+| Pre-decay legacy memory (no access history) | 0.3 – 1.0× | Falls back to `updated_at`: recently-updated entries land near 1.0×, long-stale entries approach the 0.3× floor. |
 
 The reinforcement is bounded: each memory tracks at most the last 20 access timestamps, so the boost stays well-behaved no matter how many times a memory is retrieved.
 
@@ -172,7 +172,7 @@ The threshold is applied to the candidate pool pre-decay; the scaling factor the
 No. The `client.add(...)` path is unchanged. Decay is a search-time ranking adjustment.
 
 **What if I had memories before turning decay on?**
-They use a fallback — the memory's last-update timestamp is treated as its single historical touch — so they get a fair starting point on the very first search after you flip the flag. As they're retrieved they accumulate access history naturally.
+They use a fallback: the memory's `updated_at` is treated as a single historical touch, so the same scaling applies based on how stale that update is — a recently-updated legacy memory enters near the neutral band (~1.0×), a long-stale one closer to the floor (~0.3×). Once retrieved they accumulate access history and behave like any other memory.
 
 **Can I tune how aggressively decay scales scores?**
 Not in this version. The current scaling is calibrated to be conservative — wide enough to meaningfully reorder candidates, narrow enough to never dominate the underlying relevance score. Per-project tuning is on the roadmap.
