@@ -23,6 +23,7 @@ class VectorStoreConfig(BaseModel):
         "upstash_vector": "UpstashVectorConfig",
         "azure_ai_search": "AzureAISearchConfig",
         "azure_mysql": "AzureMySQLConfig",
+        "azure_cosmos_db": "AzureCosmosDBConfig",
         "redis": "RedisDBConfig",
         "valkey": "ValkeyConfig",
         "databricks": "DatabricksConfig",
