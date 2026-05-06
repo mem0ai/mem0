@@ -16,6 +16,7 @@ from mem0.configs.base import MemoryConfig, MemoryItem
 from mem0.configs.enums import MemoryType
 from mem0.configs.prompts import (
     ADDITIVE_EXTRACTION_PROMPT,
+    ADDITIVE_EXTRACTION_SCHEMA,
     AGENT_CONTEXT_SUFFIX,
     PROCEDURAL_MEMORY_SYSTEM_PROMPT,
     generate_additive_extraction_prompt,
@@ -741,7 +742,10 @@ class Memory(MemoryBase):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format={"type": "json_object"},
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"schema": ADDITIVE_EXTRACTION_SCHEMA},
+                },
             )
         except Exception as e:
             logger.error(f"LLM extraction failed: {e}")
@@ -2158,7 +2162,10 @@ class AsyncMemory(MemoryBase):
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                response_format={"type": "json_object"},
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {"schema": ADDITIVE_EXTRACTION_SCHEMA},
+                },
             )
         except Exception as e:
             logger.error(f"LLM extraction failed (async): {e}")
