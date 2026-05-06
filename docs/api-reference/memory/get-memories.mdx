@@ -19,6 +19,31 @@ The `filters` object supports complex logical operations (AND, OR, NOT) and comp
 
 Pass `page` and `page_size` as query parameters to paginate through results.
 
+## Temporal fields on `get_all`
+
+`get_all` returns the **stored** memory record. For temporally enriched memories, that can include top-level fields such as:
+
+- `event_date`
+- `event_start`
+- `event_end`
+- `time_precision`
+- `timezone`
+- `polarity`
+- `temporal_relation`
+- `state_key`
+- `plan_status`
+
+These are stored memory attributes, not search-time interpretation fields.
+
+`get_all` does **not** add search-only fields such as:
+
+- `effective_plan_status`
+- `temporal_surface`
+- `reference_date_used`
+- `score_breakdown`
+
+Those fields belong to `search`, where Mem0 interprets a query in context.
+
 <CodeGroup>
 ```python Code
 memories = client.get_all(
@@ -46,14 +71,38 @@ memories = client.get_all(
         {
             "id": "f4cbdb08-7062-4f3e-8eb2-9f5c80dfe64c",
             "memory": "Alex is planning a trip to San Francisco from July 1st to July 10th",
+            "user_id": "alex",
+            "metadata": {},
+            "categories": [],
             "created_at": "2024-07-01T12:00:00Z",
-            "updated_at": "2024-07-01T12:00:00Z"
+            "updated_at": "2024-07-01T12:00:00Z",
+            "event_date": "2024-07-01",
+            "event_start": "2024-07-01",
+            "event_end": "2024-07-10",
+            "time_precision": "interval",
+            "timezone": "UTC",
+            "polarity": "positive",
+            "temporal_relation": "during",
+            "state_key": null,
+            "plan_status": "pending"
         },
         {
             "id": "a2b8c3d4-5e6f-7g8h-9i0j-1k2l3m4n5o6p",
             "memory": "Alex prefers vegetarian restaurants",
+            "user_id": "alex",
+            "metadata": {},
+            "categories": [],
             "created_at": "2024-07-05T15:30:00Z",
-            "updated_at": "2024-07-05T15:30:00Z"
+            "updated_at": "2024-07-05T15:30:00Z",
+            "event_date": null,
+            "event_start": null,
+            "event_end": null,
+            "time_precision": null,
+            "timezone": null,
+            "polarity": null,
+            "temporal_relation": null,
+            "state_key": null,
+            "plan_status": null
         }
     ]
 }
@@ -65,3 +114,6 @@ memories = client.get_all(
 The response is a paginated envelope with `count`, `next`, `previous`, and `results`. Use `page` and `page_size` query params to step through results.
 </Info>
 
+<Note>
+`get_all` is best for exports, audits, and raw record inspection. Use <a href="/api-reference/memory/search-memories">Search Memories</a> when you want time-aware ranking or query interpretation.
+</Note>

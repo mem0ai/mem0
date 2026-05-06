@@ -1,0 +1,390 @@
+---
+title: Time-Aware Retrieval
+description: Use Mem0 Platform v3 Temporal Reasoning to make one memory store answer past, upcoming, and current questions correctly.
+---
+
+An assistant often stores all of these in the same user profile:
+
+- "I finished the Q1 product review on March 10, 2025."
+- "I have a dentist appointment on April 18, 2025 at 2 PM."
+- "I am the product lead at Acme Corp."
+
+Those memories are all relevant to the same person, but they should not rank the same way for every question. A query like `what did I do last week?` should favor the finished review. A query like `what do I have coming up?` should favor the appointment. A query like `where do I work right now?` should favor the ongoing role.
+
+This cookbook shows how to get that behavior with Mem0 Platform v3 using the normal `add()` and `search()` flow.
+
+<Info icon="clock">
+**Time to complete:** ~15 minutes · **Languages:** Python, JavaScript
+</Info>
+
+## Setup
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+USER_ID = "jordan"
+REFERENCE_DATE = "2025-03-21T00:00:00Z"
+```
+
+```javascript JavaScript
+import MemoryClient from "mem0ai";
+
+const client = new MemoryClient({ apiKey: process.env.MEM0_API_KEY });
+const USER_ID = "jordan";
+const REFERENCE_DATE = "2025-03-21T00:00:00Z";
+```
+</CodeGroup>
+
+<Note>
+  These examples target **Mem0 Platform v3**. Writes are asynchronous, so allow a short delay before validating search behavior.
+</Note>
+
+## Seed Memories
+
+Start with one past event, one future plan, and one ongoing state:
+
+<CodeGroup>
+```python Python
+client.add(
+    [{"role": "user", "content": "I finished the Q1 product review on March 10, 2025."}],
+    user_id=USER_ID,
+)
+
+client.add(
+    [{"role": "user", "content": "I have a dentist appointment on April 18, 2025 at 2 PM."}],
+    user_id=USER_ID,
+)
+
+client.add(
+    [{"role": "user", "content": "I am the product lead at Acme Corp."}],
+    user_id=USER_ID,
+)
+```
+
+```javascript JavaScript
+await client.add(
+  [{ role: "user", content: "I finished the Q1 product review on March 10, 2025." }],
+  { userId: USER_ID }
+);
+
+await client.add(
+  [{ role: "user", content: "I have a dentist appointment on April 18, 2025 at 2 PM." }],
+  { userId: USER_ID }
+);
+
+await client.add(
+  [{ role: "user", content: "I am the product lead at Acme Corp." }],
+  { userId: USER_ID }
+);
+```
+</CodeGroup>
+
+## Compare Retrieval Modes
+
+The easiest way to understand Temporal Reasoning is to compare the same query in two modes:
+
+- **Standard retrieval** with `temporal_reasoning=False`
+- **Temporal retrieval** with the default time-aware mode enabled
+
+### Mode 1: Standard Retrieval
+
+This is useful for broad semantic lookups, but it does not try to interpret `last week` against a timeline.
+
+<CodeGroup>
+```python Python
+results = client.search(
+    "what did I do last week?",
+    filters={"user_id": USER_ID},
+    reference_date=REFERENCE_DATE,
+    temporal_reasoning=False,
+)
+
+for item in results["results"]:
+    print(item["memory"])
+```
+
+```javascript JavaScript
+const results = await client.search("what did I do last week?", {
+  filters: { user_id: USER_ID },
+  referenceDate: REFERENCE_DATE,
+  temporalReasoning: false,
+});
+
+results.results.forEach((item) => console.log(item.memory));
+```
+</CodeGroup>
+
+**Illustrative output:**
+```text
+I finished the Q1 product review on March 10, 2025.
+I have a dentist appointment on April 18, 2025 at 2 PM.
+I am the product lead at Acme Corp.
+```
+
+That result set is semantically reasonable, but it is not yet behaving like a time-aware assistant.
+
+### Mode 2: Temporal Retrieval
+
+Now run the same query with temporal mode enabled. This is the default, so you can omit the flag.
+
+<CodeGroup>
+```python Python
+results = client.search(
+    "what did I do last week?",
+    filters={"user_id": USER_ID},
+    reference_date=REFERENCE_DATE,
+)
+
+for item in results["results"]:
+    print(
+        item["memory"],
+        item.get("memory_type"),
+        item.get("event_date"),
+        item.get("temporal_surface"),
+    )
+```
+
+```javascript JavaScript
+const results = await client.search("what did I do last week?", {
+  filters: { user_id: USER_ID },
+  referenceDate: REFERENCE_DATE,
+});
+
+results.results.forEach((item) => {
+  console.log(item.memory, item.memoryType, item.eventDate, item.temporalSurface);
+});
+```
+</CodeGroup>
+
+**Illustrative output:**
+```text
+I finished the Q1 product review on March 10, 2025.  event  2025-03-10  Mar 10, 2025
+```
+
+The impact is not just better ranking. Mem0 is now using the query’s time intent plus the stored temporal fields to prefer the memory that fits `last week`.
+
+<Info icon="check">
+Expected behavior: with temporal mode on, the March 10 event should lead for `last week`, while the April 18 appointment and the ongoing job title should not dominate the answer.
+</Info>
+
+## See the Three Query Shapes
+
+The same memory store can now support three different retrieval patterns.
+
+### 1. Past-oriented retrieval
+
+Use this for questions about completed activity.
+
+```python
+client.search(
+    "what did I do last week?",
+    filters={"user_id": USER_ID},
+    reference_date=REFERENCE_DATE,
+)
+```
+
+Expected outcome: the completed review ranks above future plans and ongoing profile facts.
+
+### 2. Upcoming retrieval
+
+Use this for scheduled commitments and future-facing assistant flows.
+
+<CodeGroup>
+```python Python
+upcoming = client.search(
+    "what do I have coming up?",
+    filters={"user_id": USER_ID},
+    reference_date=REFERENCE_DATE,
+)
+
+for item in upcoming["results"]:
+    print(item["memory"], item.get("memory_type"), item.get("effective_plan_status"))
+```
+
+```javascript JavaScript
+const upcoming = await client.search("what do I have coming up?", {
+  filters: { user_id: USER_ID },
+  referenceDate: REFERENCE_DATE,
+});
+
+upcoming.results.forEach((item) => {
+  console.log(item.memory, item.memoryType, item.effectivePlanStatus);
+});
+```
+</CodeGroup>
+
+**Illustrative output:**
+```text
+I have a dentist appointment on April 18, 2025 at 2 PM.  plan  upcoming
+```
+
+<Warning>
+  Upcoming queries work best when the source memory includes a real date or date range. Vague text like "we should schedule something soon" is less reliable for future-oriented retrieval.
+</Warning>
+
+### 3. Current-state retrieval
+
+Use this for durable facts that are still true now.
+
+<CodeGroup>
+```python Python
+current = client.search(
+    "where do I work right now?",
+    filters={"user_id": USER_ID},
+    reference_date=REFERENCE_DATE,
+)
+
+for item in current["results"]:
+    print(item["memory"], item.get("memory_type"), item.get("temporal_surface"))
+```
+
+```javascript JavaScript
+const current = await client.search("where do I work right now?", {
+  filters: { user_id: USER_ID },
+  referenceDate: REFERENCE_DATE,
+});
+
+current.results.forEach((item) => {
+  console.log(item.memory, item.memoryType, item.temporalSurface);
+});
+```
+</CodeGroup>
+
+**Illustrative output:**
+```text
+I am the product lead at Acme Corp.  state  ongoing
+```
+
+## Use the Right Controls
+
+There are two public controls that matter most in production:
+
+- `reference_date` anchors relative phrases like `last week`, `tomorrow`, and `right now`
+- `temporal_reasoning` lets you switch between standard retrieval and temporal retrieval for a specific request
+
+### Deterministic tests and demos
+
+Use `reference_date` whenever the wording is relative.
+
+<CodeGroup>
+```python Python
+client.search(
+    "what did I do last week?",
+    filters={"user_id": USER_ID},
+    reference_date="2025-03-21T00:00:00Z",
+)
+```
+
+```javascript JavaScript
+await client.search("what did I do last week?", {
+  filters: { user_id: USER_ID },
+  referenceDate: "2025-03-21T00:00:00Z",
+});
+```
+</CodeGroup>
+
+### Standard retrieval for timeless queries
+
+Turn temporal mode off when a question is not time-sensitive.
+
+<CodeGroup>
+```python Python
+client.search(
+    "what is my job title?",
+    filters={"user_id": USER_ID},
+    temporal_reasoning=False,
+)
+```
+
+```javascript JavaScript
+await client.search("what is my job title?", {
+  filters: { user_id: USER_ID },
+  temporalReasoning: false,
+});
+```
+</CodeGroup>
+
+### Historical imports
+
+If you are backfilling old data, send the original event time instead of relying only on ingestion time.
+
+<CodeGroup>
+```python Python
+from datetime import datetime, timezone
+
+client.add(
+    [{"role": "user", "content": "I attended the partner summit on November 15, 2024."}],
+    user_id=USER_ID,
+    timestamp=int(datetime(2024, 11, 15, tzinfo=timezone.utc).timestamp()),
+)
+```
+
+```javascript JavaScript
+await client.add(
+  [{ role: "user", content: "I attended the partner summit on November 15, 2024." }],
+  {
+    userId: USER_ID,
+    timestamp: Math.floor(new Date("2024-11-15T00:00:00Z").getTime() / 1000),
+  }
+);
+```
+</CodeGroup>
+
+### Combine with normal Platform filters
+
+Temporal retrieval still respects the normal entity filters.
+
+<CodeGroup>
+```python Python
+client.search(
+    "what did we discuss last week?",
+    filters={
+        "AND": [
+            {"user_id": USER_ID},
+            {"agent_id": "task-planner"},
+        ]
+    },
+    reference_date=REFERENCE_DATE,
+)
+```
+
+```javascript JavaScript
+await client.search("what did we discuss last week?", {
+  filters: {
+    AND: [
+      { user_id: USER_ID },
+      { agent_id: "task-planner" },
+    ],
+  },
+  referenceDate: REFERENCE_DATE,
+});
+```
+</CodeGroup>
+
+## What You Built
+
+- Past questions can favor completed events instead of just semantically related memories.
+- Upcoming questions can surface scheduled plans instead of historical notes.
+- Current-state questions can keep stable facts available without letting them take over every search.
+- You can switch between standard retrieval and temporal retrieval per request with `temporal_reasoning`.
+
+## Next Steps
+
+If your application depends on relative time language, keep `reference_date` in your tests and evals, and pass `timestamp` when you backfill older conversations. That keeps time-aware retrieval predictable without adding a separate timeline system to your stack.
+
+<CardGroup cols={2}>
+  <Card
+    title="Temporal Reasoning Feature Guide"
+    description="See the supported query patterns, public response fields, and configuration knobs."
+    icon="clock"
+    href="/platform/features/temporal-reasoning"
+  />
+  <Card
+    title="Control Memory Ingestion"
+    description="Pair time-aware retrieval with stricter write controls and cleaner stored facts."
+    icon="filter"
+    href="/cookbooks/essentials/controlling-memory-ingestion"
+  />
+</CardGroup>

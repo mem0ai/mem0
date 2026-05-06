@@ -38,8 +38,8 @@ client.add(
 )
 
 # Read
-client.search("What does Alice like to do?", user_id="alice")
-client.get_all(user_id="alice")
+client.search("What does Alice like to do?", filters={"user_id": "alice"})
+client.get_all(filters={"user_id": "alice"}, page=1, page_size=50)
 client.get(memory_id="<id>")
 
 # Update
@@ -68,8 +68,8 @@ await client.add(
 );
 
 // Read
-await client.search("What does Alice like to do?", { user_id: "alice" });
-await client.getAll({ user_id: "alice" });
+await client.search("What does Alice like to do?", { filters: { user_id: "alice" } });
+await client.getAll({ filters: { user_id: "alice" }, page: 1, pageSize: 50 });
 await client.get("<memory_id>");
 
 // Update
