@@ -8,7 +8,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -1125,51 +1125,54 @@ class Memory(MemoryBase):
 
     def search(
         self,
-        query: str,
+        query: Optional[str] = None,
         *,
         top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        query_vector: Optional[List[float]] = None,
         **kwargs,
     ):
         """
-        Searches for memories based on a query.
+        Searches for memories based on a query or precomputed vector.
+
+        Notes on `query_vector`:
+        When `query_vector` is provided, the internal embedding step is skipped and the
+        provided vector is used directly for semantic (ANN) retrieval. Useful when the
+        caller has already embedded the query and would otherwise pay the cost twice
+        (e.g. searching multiple namespaces / user_ids on the same query).
+
+        If `query` is None (only `query_vector` was supplied), keyword (BM25) search and
+        entity-boost steps are skipped because they require the original text. Pass both
+        `query` and `query_vector` to keep all hybrid scoring paths active while still
+        avoiding the duplicate embed.
 
         Args:
-            query (str): Query to search for.
+            query (str, optional): Query to search for.
             top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
-
-                Enhanced metadata filtering with operators:
-                - {"key": "value"} - exact match
-                - {"key": {"eq": "value"}} - equals
-                - {"key": {"ne": "value"}} - not equals
-                - {"key": {"in": ["val1", "val2"]}} - in list
-                - {"key": {"nin": ["val1", "val2"]}} - not in list
-                - {"key": {"gt": 10}} - greater than
-                - {"key": {"gte": 10}} - greater than or equal
-                - {"key": {"lt": 10}} - less than
-                - {"key": {"lte": 10}} - less than or equal
-                - {"key": {"contains": "text"}} - contains text
-                - {"key": {"icontains": "text"}} - case-insensitive contains
-                - {"key": "*"} - wildcard match (any value)
-                - {"AND": [filter1, filter2]} - logical AND
-                - {"OR": [filter1, filter2]} - logical OR
-                - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            query_vector (List[float], optional): Precomputed embedding vector for the query.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if threshold/top_k values are invalid.
+            ValueError: If neither query nor query_vector is provided, if filters doesn't 
+                contain at least one of user_id, agent_id, run_id, or if threshold/top_k 
+                values are invalid.
         """
+        if query is None and query_vector is None:
+            raise ValueError(
+                "Either `query` (text) or `query_vector` (precomputed embedding) "
+                "must be provided to search()."
+            )
+
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
@@ -1224,7 +1227,7 @@ class Memory(MemoryBase):
             },
         )
 
-        original_memories = self._search_vector_store(query, effective_filters, limit, threshold)
+        original_memories = self._search_vector_store(query, effective_filters, limit, threshold, query_vector=query_vector)
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -1340,17 +1343,24 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold=0.1):
+    def _search_vector_store(self, query, filters, limit, threshold=0.1, query_vector=None):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
 
-        # Step 1: Preprocess query
-        query_lemmatized = lemmatize_for_bm25(query)
-        query_entities = extract_entities(query)
+        # Step 1: Preprocess query (text-only — skip when no query string was provided)
+        if query is not None:
+            query_lemmatized = lemmatize_for_bm25(query)
+            query_entities = extract_entities(query)
+        else:
+            query_lemmatized = None
+            query_entities = None
 
-        # Step 2: Embed query
-        embeddings = self.embedding_model.embed(query, "search")
+        # Step 2: Embed query (skip if precomputed vector is provided)
+        if query_vector is None:
+            embeddings = self.embedding_model.embed(query, "search")
+        else:
+            embeddings = query_vector
 
         # Step 3: Semantic search (over-fetch for scoring pool)
         internal_limit = max(limit * 4, 60)
@@ -1358,10 +1368,12 @@ class Memory(MemoryBase):
             query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
 
-        # Step 4: Keyword search (if store supports it)
-        keyword_results = self.vector_store.keyword_search(
-            query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
+        # Step 4: Keyword search (skip when we have no query text — BM25 needs lemmatized text)
+        keyword_results = None
+        if query_lemmatized is not None:
+            keyword_results = self.vector_store.keyword_search(
+                query=query_lemmatized, top_k=internal_limit, filters=filters
+            )
 
         # Step 5: Compute BM25 scores from keyword results
         bm25_scores = {}
@@ -2540,51 +2552,54 @@ class AsyncMemory(MemoryBase):
 
     async def search(
         self,
-        query: str,
+        query: Optional[str] = None,
         *,
         top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        query_vector: Optional[List[float]] = None,
         **kwargs,
     ):
         """
-        Searches for memories based on a query.
+        Searches for memories based on a query or precomputed vector.
+
+        Notes on `query_vector`:
+        When `query_vector` is provided, the internal embedding step is skipped and the
+        provided vector is used directly for semantic (ANN) retrieval. Useful when the
+        caller has already embedded the query and would otherwise pay the cost twice
+        (e.g. searching multiple namespaces / user_ids on the same query).
+
+        If `query` is None (only `query_vector` was supplied), keyword (BM25) search and
+        entity-boost steps are skipped because they require the original text. Pass both
+        `query` and `query_vector` to keep all hybrid scoring paths active while still
+        avoiding the duplicate embed.
 
         Args:
-            query (str): Query to search for.
+            query (str, optional): Query to search for.
             top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
-
-                Enhanced metadata filtering with operators:
-                - {"key": "value"} - exact match
-                - {"key": {"eq": "value"}} - equals
-                - {"key": {"ne": "value"}} - not equals
-                - {"key": {"in": ["val1", "val2"]}} - in list
-                - {"key": {"nin": ["val1", "val2"]}} - not in list
-                - {"key": {"gt": 10}} - greater than
-                - {"key": {"gte": 10}} - greater than or equal
-                - {"key": {"lt": 10}} - less than
-                - {"key": {"lte": 10}} - less than or equal
-                - {"key": {"contains": "text"}} - contains text
-                - {"key": {"icontains": "text"}} - case-insensitive contains
-                - {"key": "*"} - wildcard match (any value)
-                - {"AND": [filter1, filter2]} - logical AND
-                - {"OR": [filter1, filter2]} - logical OR
-                - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            query_vector (List[float], optional): Precomputed embedding vector for the query.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if threshold/top_k values are invalid.
+            ValueError: If neither query nor query_vector is provided, if filters doesn't 
+                contain at least one of user_id, agent_id, run_id, or if threshold/top_k 
+                values are invalid.
         """
+        if query is None and query_vector is None:
+            raise ValueError(
+                "Either `query` (text) or `query_vector` (precomputed embedding) "
+                "must be provided to search()."
+            )
+
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
@@ -2605,8 +2620,6 @@ class AsyncMemory(MemoryBase):
             effective_filters["run_id"] = _validate_and_trim_entity_id(
                 effective_filters["run_id"], "run_id"
             )
-
-        # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -2641,7 +2654,7 @@ class AsyncMemory(MemoryBase):
             },
         )
 
-        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold)
+        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold, query_vector=query_vector)
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -2760,16 +2773,23 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold=0.1):
+    async def _search_vector_store(self, query, filters, limit, threshold=0.1, query_vector=None):
         if threshold is None:
             threshold = 0.1
 
-        # Step 1: Preprocess query (CPU-bound)
-        query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query)
-        query_entities = await asyncio.to_thread(extract_entities, query)
+        # Step 1: Preprocess query (CPU-bound, text-only — skip when no query string was provided)
+        if query is not None:
+            query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query)
+            query_entities = await asyncio.to_thread(extract_entities, query)
+        else:
+            query_lemmatized = None
+            query_entities = None
 
         # Step 2: Embed query
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
+        if query_vector is None:
+            embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
+        else:
+            embeddings = query_vector
 
         # Step 3: Semantic search (over-fetch)
         internal_limit = max(limit * 4, 60)
@@ -2777,10 +2797,12 @@ class AsyncMemory(MemoryBase):
             self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
         )
 
-        # Step 4: Keyword search (if store supports it)
-        keyword_results = await asyncio.to_thread(
-            self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
+        # Step 4: Keyword search (skip when we have no query text — BM25 needs lemmatized text)
+        keyword_results = None
+        if query_lemmatized is not None:
+            keyword_results = await asyncio.to_thread(
+                self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
+            )
 
         # Step 5: Compute BM25 scores
         bm25_scores = {}
