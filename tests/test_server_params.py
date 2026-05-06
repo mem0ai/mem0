@@ -298,6 +298,8 @@ class TestUnknownFieldsIgnored:
 class TestExistingParamsUnchanged:
 
     def test_search_filters_still_forwarded(self, client, mock_memory):
+        # /search translates top-level user_id/agent_id/run_id into filters
+        # because Memory.search() rejects them as top-level kwargs.
         resp = client.post("/search", json={
             "query": "food",
             "user_id": "u1",
@@ -306,9 +308,9 @@ class TestExistingParamsUnchanged:
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["user_id"] == "u1"
-        assert kwargs["agent_id"] == "a1"
-        assert kwargs["filters"] == {"category": "food"}
+        assert "user_id" not in kwargs
+        assert "agent_id" not in kwargs
+        assert kwargs["filters"] == {"category": "food", "user_id": "u1", "agent_id": "a1"}
 
     def test_add_metadata_still_forwarded(self, client, mock_memory):
         resp = client.post("/memories", json={
@@ -322,6 +324,81 @@ class TestExistingParamsUnchanged:
         assert kwargs["user_id"] == "u1"
         assert kwargs["agent_id"] == "a1"
         assert kwargs["metadata"] == {"source": "test"}
+
+
+# ===========================================================================
+# /search: translate top-level entity ids into filters
+# ===========================================================================
+# Memory.search() rejects user_id/agent_id/run_id at the top level (raises
+# ValueError); they must be inside `filters={...}`. The handler accepts them
+# at the top level for client convenience and translates here.
+
+class TestSearchEntityIdsAsFilters:
+
+    def test_user_id_translated(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "user_id" not in kwargs
+        assert kwargs["filters"] == {"user_id": "u1"}
+
+    def test_agent_id_translated(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "agent_id": "a1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "agent_id" not in kwargs
+        assert kwargs["filters"] == {"agent_id": "a1"}
+
+    def test_run_id_translated(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "run_id": "r1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "run_id" not in kwargs
+        assert kwargs["filters"] == {"run_id": "r1"}
+
+    def test_all_three_translated_together(self, client, mock_memory):
+        resp = client.post("/search", json={
+            "query": "food", "user_id": "u1", "agent_id": "a1", "run_id": "r1",
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "user_id" not in kwargs
+        assert "agent_id" not in kwargs
+        assert "run_id" not in kwargs
+        assert kwargs["filters"] == {"user_id": "u1", "agent_id": "a1", "run_id": "r1"}
+
+    def test_caller_filters_preserved_alongside_entity_ids(self, client, mock_memory):
+        resp = client.post("/search", json={
+            "query": "food",
+            "user_id": "u1",
+            "filters": {"category": "food", "tag": "spicy"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"] == {"category": "food", "tag": "spicy", "user_id": "u1"}
+
+    def test_caller_filters_take_precedence_over_conflicting_entity_id(self, client, mock_memory):
+        # If the caller already put user_id inside filters, the top-level
+        # value should NOT clobber it.
+        resp = client.post("/search", json={
+            "query": "food",
+            "user_id": "top-level-u",
+            "filters": {"user_id": "filters-u"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"] == {"user_id": "filters-u"}
+
+    def test_no_entity_ids_no_filters_kwarg(self, client, mock_memory):
+        # When the caller sends no entity ids and no filters, filters must
+        # not appear in the kwargs (so Memory.search() uses its own default).
+        resp = client.post("/search", json={"query": "food"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "filters" not in kwargs
+        assert "user_id" not in kwargs
+        assert "agent_id" not in kwargs
+        assert "run_id" not in kwargs
 
 
 # ===========================================================================
