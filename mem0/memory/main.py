@@ -728,11 +728,13 @@ class Memory(MemoryBase):
 
         custom_instr = prompt or self.custom_instructions
 
+        metadata_timestamp = metadata.get("timestamp") if metadata is not None else None
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=metadata_timestamp,
         )
 
         try:
@@ -2144,11 +2146,13 @@ class AsyncMemory(MemoryBase):
 
         custom_instr = prompt or self.custom_instructions
 
+        metadata_timestamp = metadata.get("timestamp") if metadata is not None else None
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=metadata_timestamp,
         )
 
         try:
@@ -3220,3 +3224,4 @@ class AsyncMemory(MemoryBase):
 
     async def chat(self, query):
         raise NotImplementedError("Chat function not implemented yet.")
+
