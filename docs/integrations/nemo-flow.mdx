@@ -1,0 +1,242 @@
+---
+title: NeMo Flow
+description: "Use NeMo Flow as a hidden runtime layer for automatic Mem0 recall and capture around instrumented LLM calls."
+---
+
+This page describes the optional Mem0 + NeMo Flow integration added in this branch.
+
+The integration is an adapter layer: Mem0 owns memory, identity, recall, and writes; NeMo Flow owns the LLM execution interception point and observability lifecycle.
+
+## Current DX
+
+Install the optional dependency:
+
+```bash
+pip install "mem0ai[nemo_flow]"
+```
+
+Use the integration module as the namespace:
+
+```python
+from mem0 import MemoryClient
+from mem0.integrations import nemo_flow
+
+memory = MemoryClient(api_key="...")
+
+handle = nemo_flow.install(memory)
+
+with nemo_flow.memory_scope(user_id="alex", thread_id="thread-123"):
+    result = await agent.ainvoke(...)
+
+handle.uninstall()
+```
+
+`thread_id` is a LangGraph-friendly alias for Mem0 `run_id`. You can also use `run_id` directly.
+
+## What It Does
+
+`nemo_flow.install(memory)` registers a NeMo Flow LLM execution intercept that:
+
+1. Resolves Mem0 identity from `memory_scope(...)` or NeMo Flow scope metadata.
+2. Extracts the latest user query from the LLM request.
+3. Calls `memory.search(...)` with Mem0 filters.
+4. Injects formatted memories into a copied LLM request.
+5. Calls the downstream model.
+6. Extracts the user/assistant exchange from the request and response.
+7. Calls `memory.add(...)` with top-level Mem0 session IDs.
+
+The integration supports `Memory`, `AsyncMemory`, `MemoryClient`, and `AsyncMemoryClient`-style objects as long as they expose compatible `search` and `add` methods.
+
+## Read Path
+
+The read path runs before the downstream model call.
+
+```text
+instrumented LLM call
+  -> NeMo Flow LLM execution pipeline
+  -> Mem0 execution intercept
+  -> resolve memory identity
+  -> extract latest user query
+  -> memory.search(...)
+  -> format memories
+  -> inject memory system message
+  -> downstream model call
+```
+
+The identity usually comes from `memory_scope(...)`:
+
+```python
+with nemo_flow.memory_scope(user_id="alex", thread_id="thread-123"):
+    await agent.ainvoke(...)
+```
+
+That scope produces Mem0 filters such as:
+
+```python
+{"user_id": "alex", "run_id": "thread-123"}
+```
+
+The adapter then calls:
+
+```python
+memory.search(
+    query,
+    filters={"user_id": "alex", "run_id": "thread-123"},
+    top_k=5,
+    threshold=0.1,
+)
+```
+
+If memories are found, the default formatter produces:
+
+```text
+Relevant memories:
+- Alex prefers jasmine tea in the afternoon.
+```
+
+The adapter copies the original LLM request and inserts that text as a system message after any existing system messages and before the latest user message. The original request object is not mutated in place.
+
+The read path is fail-open by default. If recall fails and `fail_open=True`, the model call continues with the original request.
+
+## Write Path
+
+The write path runs after the downstream model call returns.
+
+```text
+downstream model response
+  -> Mem0 execution intercept resumes
+  -> extract user message from original request
+  -> extract assistant message from response
+  -> memory.add(...)
+  -> return original model response
+```
+
+The adapter stores a two-message interaction:
+
+```python
+[
+    {"role": "user", "content": "What tea do I prefer?"},
+    {"role": "assistant", "content": "You prefer jasmine tea."},
+]
+```
+
+For hosted Mem0, session identity is passed as top-level arguments, not as `filters`:
+
+```python
+memory.add(
+    messages,
+    user_id="alex",
+    run_id="thread-123",
+    metadata={"user_id": "alex", "run_id": "thread-123"},
+    infer=True,
+)
+```
+
+This top-level write shape is important because hosted `MemoryClient.add(...)` requires at least one entity ID such as `user_id`, `agent_id`, or `run_id`.
+
+The write path is also fail-open by default. If capture fails and `fail_open=True`, the model response is still returned to the caller.
+
+## Important Boundary
+
+Installing this package does not automatically patch LangGraph, LangChain, OpenAI, or every model client.
+
+The Mem0 intercept runs only when the actual LLM call enters NeMo Flow, for example through:
+
+```python
+await nemo_flow_runtime.llm.execute("model-name", request, real_llm_call)
+```
+
+or through a framework/provider integration that calls NeMo Flow internally.
+
+That means the current PR gives us the Mem0 + NeMo Flow adapter, but not the full vanilla LangGraph story. For ordinary LangGraph apps, the next useful layer is likely a model wrapper such as:
+
+```python
+model = nemo_flow.wrap_model(ChatOpenAI(...))
+agent = create_react_agent(model, tools=[])
+```
+
+That wrapper is not part of this PR.
+
+## Observability
+
+The adapter emits NeMo Flow scopes, not standalone mark events:
+
+- `mem0.memory` as a custom scope for the active memory identity.
+- `mem0.recall` as a retriever scope around `memory.search(...)`.
+- `mem0.capture` as a custom scope around `memory.add(...)`.
+
+Recall and capture have natural start/end lifecycles, so scopes are a better fit than mark events. Mark events are still useful for future one-off milestones, such as compaction decisions or policy skips.
+
+Scope payloads intentionally avoid raw query text and memory text. They record operational metadata such as query length, `top_k`, result count, injection status, message count, and stored status.
+
+## Public API
+
+```python
+from mem0.integrations import nemo_flow
+
+handle = nemo_flow.install(
+    memory,
+    name="mem0.memory",
+    priority=50,
+    auto_recall=True,
+    auto_capture=True,
+    top_k=5,
+    threshold=0.1,
+    infer=True,
+    metadata=None,
+    fail_open=True,
+    enable_observability=True,
+    activate_runtime=True,
+)
+
+with nemo_flow.memory_scope(
+    user_id="alex",
+    agent_id=None,
+    run_id=None,
+    thread_id="thread-123",
+    filters=None,
+):
+    ...
+```
+
+Backward-compatible aliases are available:
+
+- `nemo_flow.memory_context`
+- `nemo_flow.mem0_context`
+- `nemo_flow.install_mem0`
+
+## What Was Verified
+
+The branch includes:
+
+- Unit tests for install/uninstall, recall, prompt injection, capture, identity resolution, top-level hosted session IDs, and legacy aliases.
+- `examples/misc/nemo_flow_memory.py`, a no-credentials smoke test using a Mem0-compatible in-memory object and real `nemo_flow.llm.execute(...)`.
+- `tests/test_nemo_flow_platform_smoke.py`, an opt-in hosted Mem0 Platform smoke test.
+
+The hosted smoke was run against Mem0 Platform and verified:
+
+1. Seed real hosted memory.
+2. Recall through the NeMo Flow intercept.
+3. Inject recalled memory into the LLM request.
+4. Capture the assistant response back into Mem0.
+5. Search for the written marker.
+6. Best-effort delete the temporary test user.
+
+## Current Limitations
+
+- Non-streaming LLM execution only. Streaming needs a `register_llm_stream_execution(...)` path.
+- Vanilla LangGraph/LangChain calls are not automatically visible to NeMo Flow.
+- The default memory formatter injects a system message with `Relevant memories:`; production applications may want a custom formatter.
+- The response extractor is best-effort across common OpenAI-style and text-like responses.
+
+## Assessment
+
+This is the right first lane for the integration:
+
+- It keeps NeMo Flow optional via `mem0ai[nemo_flow]`.
+- It keeps the user-facing API in Mem0.
+- It avoids adding premature first-class memory concepts to NeMo Flow core.
+- It uses NeMo Flow execution intercepts for pre-call recall and post-call capture.
+- It uses scopes for observability rather than duplicate mark events.
+
+The main remaining product gap is a wrapper or instrumentation helper that makes vanilla LangGraph/LangChain model calls enter NeMo Flow without requiring patched framework packages.

@@ -398,6 +398,7 @@
                     "pages": [
                       "integrations/langchain",
                       "integrations/langgraph",
+                      "integrations/nemo-flow",
                       "integrations/llama-index",
                       "integrations/crewai",
                       "integrations/autogen",
