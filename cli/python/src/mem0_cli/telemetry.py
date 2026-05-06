@@ -4,6 +4,9 @@ Sends fire-and-forget events to PostHog by spawning a detached subprocess
 (telemetry_sender.py). The parent CLI process exits immediately; the
 subprocess handles email resolution, caching, and the HTTP POST.
 
+The Mem0 API key is passed via environment variable (not command-line argument)
+to avoid exposure through /proc/<pid>/cmdline, ps, and process inspection tools.
+
 Disable with: MEM0_TELEMETRY=false
 """
 
@@ -129,11 +132,17 @@ def capture_event(
             "payload": payload,
             "posthog_host": POSTHOG_HOST,
             "needs_email": not distinct_id or "@" not in distinct_id,
-            "mem0_api_key": config.platform.api_key or "",
             "mem0_base_url": config.platform.base_url or "https://api.mem0.ai",
             "config_path": str(CONFIG_FILE),
             "anon_distinct_id_to_alias": anon_id_to_alias,
         }
+
+        # Pass API key via environment variable instead of argv to prevent
+        # exposure through /proc/<pid>/cmdline, ps, and process inspectors.
+        # subprocess.Popen inherits the full env dict automatically.
+        env = {**os.environ}
+        if config.platform.api_key:
+            env["MEM0_API_KEY"] = config.platform.api_key
 
         subprocess.Popen(
             [sys.executable, "-m", "mem0_cli.telemetry_sender", json.dumps(context)],
@@ -141,6 +150,7 @@ def capture_event(
             stderr=subprocess.DEVNULL,
             start_new_session=True,
             close_fds=True,
+            env=env,
         )
     except Exception:
         pass
