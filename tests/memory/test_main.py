@@ -114,6 +114,81 @@ class TestPromptOverridesCustomInstructions:
         user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
         assert "config-level instructions" in user_prompt
 
+class TestObservationDatePrompt:
+    @staticmethod
+    def _prompt_section(prompt, section_name):
+        return prompt.split(f"## {section_name}\n", 1)[1].split("\n\n", 1)[0]
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.custom_instructions = None
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.llm.generate_response.return_value = '{"memory": []}'
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.custom_instructions = None
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.llm.generate_response.return_value = '{"memory": []}'
+        return memory
+
+    def test_created_at_metadata_sets_observation_date(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"created_at": "2023-05-24T10:00:00+00:00"},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args.kwargs["messages"][1]["content"]
+        assert "## Observation Date\n2023-05-24T10:00:00+00:00" in user_prompt
+
+    def test_timestamp_metadata_takes_precedence_over_created_at(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={
+                "timestamp": "2022-01-16T09:30:00+00:00",
+                "created_at": "2026-04-24T00:00:00+00:00",
+            },
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args.kwargs["messages"][1]["content"]
+        assert "## Observation Date\n2022-01-16T09:30:00+00:00" in user_prompt
+
+    def test_defaults_observation_date_to_current_date_without_timestamp(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args.kwargs["messages"][1]["content"]
+        assert self._prompt_section(user_prompt, "Observation Date") == self._prompt_section(
+            user_prompt, "Current Date"
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_created_at_metadata_sets_observation_date(self, mock_async_memory):
+        await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"created_at": "2023-05-24T10:00:00+00:00"},
+            effective_filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_async_memory.llm.generate_response.call_args.kwargs["messages"][1]["content"]
+        assert "## Observation Date\n2023-05-24T10:00:00+00:00" in user_prompt
+
 
 class TestAsyncUpdate:
     @pytest.fixture
