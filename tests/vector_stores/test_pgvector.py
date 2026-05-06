@@ -1443,6 +1443,64 @@ class TestPGVector(unittest.TestCase):
         self.assertEqual(results[0][0].payload["user_id"], "alice")
         self.assertEqual(results[0][0].payload["agent_id"], "agent1")
 
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_list_with_linked_memory_id_psycopg3(self, mock_get_cursor, mock_connection_pool):
+        """Targeted list for entity cleanup: jsonb @> linked_memory_ids, no vector column."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        payload = {
+            "user_id": "alice",
+            "agent_id": "agent1",
+            "linked_memory_ids": ["mem-1", "mem-2"],
+            "data": "Acme Corp",
+        }
+        self.mock_cursor.fetchall.return_value = [(self.test_ids[0], payload)]
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+        )
+
+        memory_id = "mem-1"
+        filters = {"user_id": "alice", "agent_id": "agent1"}
+        results = pgvector.list_with_linked_memory_id(memory_id, filters=filters)
+
+        mock_get_cursor.assert_called()
+        link_calls = [
+            call
+            for call in self.mock_cursor.execute.call_args_list
+            if "SELECT id, payload" in str(call)
+            and "linked_memory_ids" in str(call)
+            and "@>" in str(call)
+        ]
+        self.assertTrue(len(link_calls) > 0, "expected jsonb containment query")
+        bad_calls = [
+            call
+            for call in self.mock_cursor.execute.call_args_list
+            if "SELECT id, vector, payload" in str(call) and "linked_memory_ids" in str(call)
+        ]
+        self.assertEqual(len(bad_calls), 0, "entity unlink query must not load embedding vectors")
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].id, self.test_ids[0])
+        self.assertIsNone(results[0].score)
+        self.assertEqual(results[0].payload, payload)
+
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
     @patch.object(PGVector, '_get_cursor')

@@ -446,6 +446,32 @@ class PGVector(VectorStoreBase):
             results = cur.fetchall()
         return [[OutputData(id=str(r[0]), score=None, payload=r[2]) for r in results]]
 
+    def list_with_linked_memory_id(
+        self,
+        memory_id: str,
+        filters: Optional[dict] = None,
+    ) -> List[OutputData]:
+        """Return entity rows that list memory_id in payload linked_memory_ids (no vector I/O)."""
+        filter_conditions = ["(payload->'linked_memory_ids') @> %s::jsonb"]
+        filter_params: list[Any] = [Json([memory_id])]
+
+        if filters:
+            for k, v in filters.items():
+                filter_conditions.append("payload->>%s = %s")
+                filter_params.extend([k, str(v)])
+
+        where_clause = "WHERE " + " AND ".join(filter_conditions)
+        query = f"""
+            SELECT id, payload
+            FROM {self.collection_name}
+            {where_clause}
+        """
+
+        with self._get_cursor() as cur:
+            cur.execute(query, tuple(filter_params))
+            results = cur.fetchall()
+        return [OutputData(id=str(r[0]), score=None, payload=r[1]) for r in results]
+
     def __del__(self) -> None:
         """
         Close the database connection pool when the object is deleted.
