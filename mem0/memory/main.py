@@ -647,6 +647,15 @@ class Memory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
+        # Guard: return early when messages list is empty or contains no meaningful content.
+        # This prevents the LLM from hallucinating memories when called with an empty payload.
+        has_content = any(
+            isinstance(m, dict) and m.get("content") and str(m["content"]).strip()
+            for m in messages
+        )
+        if not messages or not has_content:
+            return {"results": []}
+
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             return results
@@ -2052,6 +2061,15 @@ class AsyncMemory(MemoryBase):
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
+
+        # Guard: return early when messages list is empty or contains no meaningful content.
+        # This prevents the LLM from hallucinating memories when called with an empty payload.
+        has_content = any(
+            isinstance(m, dict) and m.get("content") and str(m["content"]).strip()
+            for m in messages
+        )
+        if not messages or not has_content:
+            return {"results": []}
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = await self._create_procedural_memory(
