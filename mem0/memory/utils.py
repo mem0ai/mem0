@@ -188,12 +188,12 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
                     try:
                         desc = get_image_description(image_url, llm, vision_details)
                         parts_out.append(desc)
-                    except Exception:
-                        raise Exception(f"Error while downloading {image_url}.")
+                    except Exception as e:
+                        raise Exception(f"Error processing image {image_url}: {e}") from e
                 elif isinstance(part, dict) and part.get("type") == "text":
                     parts_out.append(part["text"])
                 # Ignore unknown part types silently
-            returned_messages.append({"role": msg["role"], "content": " ".join(parts_out)})
+            returned_messages.append({"role": msg["role"], "content": "\n".join(parts_out)})
         elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
             # Single image content
             image_url = msg["content"]["image_url"]["url"]
