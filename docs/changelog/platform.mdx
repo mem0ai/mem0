@@ -4,6 +4,13 @@ description: "Release notes for the Mem0 hosted platform — backend, dashboard,
 mode: "wide"
 ---
 
+<Update label="2026-05-04" description="">
+
+**New Features:**
+- **Memory Decay:** Per-project search-time ranking bias that boosts recently-used memories and gently dampens stale ones. Opt-in via `decay` on the project endpoint; off by default. The scaling factor stays in `0.3×–1.5×`, the public `score` remains clamped to `[0, 1]`, and the bias never filters a candidate out. See [Memory Decay docs](/platform/features/memory-decay).
+
+</Update>
+
 <Update label="2026-04-16" description="">
 
 **Improvements:**
