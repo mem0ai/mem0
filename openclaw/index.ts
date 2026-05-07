@@ -64,6 +64,28 @@ function categoriesToArray(
   return Object.entries(cats).map(([key, value]) => ({ [key]: value }));
 }
 
+const AUTO_CAPTURE_TIMEOUT_MS = 20_000;
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string,
+): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+}
+
 // ============================================================================
 // Plugin Definition
 // ============================================================================
@@ -842,13 +864,19 @@ function registerHooks(
 ) {
   // Auto-recall: inject relevant memories before agent starts
   if (cfg.autoRecall) {
-    api.on("before_agent_start", async (event, ctx) => {
+    api.on("before_prompt_build", async (event, ctx) => {
       if (!event.prompt || event.prompt.length < 5) return;
 
       // Skip non-interactive triggers (cron, heartbeat, automation)
       const trigger = (ctx as any)?.trigger ?? undefined;
       const sessionId = (ctx as any)?.sessionKey ?? undefined;
-      if (isNonInteractiveTrigger(trigger, sessionId)) {
+      if (
+        isNonInteractiveTrigger(trigger, sessionId, {
+          sessionId: (ctx as any)?.sessionId ?? undefined,
+          lane: (ctx as any)?.lane ?? undefined,
+          runId: (ctx as any)?.runId ?? (event as any)?.runId ?? undefined,
+        })
+      ) {
         api.logger.info("openclaw-mem0: skipping recall for non-interactive trigger");
         return;
       }
@@ -878,12 +906,38 @@ function registerHooks(
       try {
         // Use a larger candidate pool for recall, then filter down
         const recallTopK = Math.max((cfg.topK ?? 5) * 2, 10);
-
-        // Search long-term memories (user-scoped; subagents read from parent namespace)
-        let longTermResults = await provider.search(
+        const longTermSearch = provider.search(
           event.prompt,
           buildSearchOptions(undefined, recallTopK, undefined, recallSessionKey),
         );
+        const sessionSearch = sessionRunId
+          ? provider.search(
+              event.prompt,
+              buildSearchOptions(undefined, undefined, sessionRunId, recallSessionKey),
+            )
+          : Promise.resolve<MemoryItem[]>([]);
+        const broadSearch =
+          event.prompt.length < 100 || isNewSession
+            ? (() => {
+                const broadOpts = buildSearchOptions(
+                  undefined,
+                  5,
+                  undefined,
+                  recallSessionKey,
+                );
+                broadOpts.threshold = 0.5;
+                return provider.search(
+                  "recent decisions, preferences, active projects, and configuration",
+                  broadOpts,
+                );
+              })()
+            : Promise.resolve<MemoryItem[]>([]);
+
+        let [longTermResults, sessionResults, broadResults] = await Promise.all([
+          longTermSearch,
+          sessionSearch,
+          broadSearch,
+        ]);
 
         // Client-side threshold filter for auto-recall — use a stricter
         // threshold (0.6) than explicit tool searches (0.5) to avoid
@@ -908,13 +962,7 @@ function registerHooks(
         // with a general query to avoid cold-start blindness.
         // Use a lower threshold (0.5) since the generic query is
         // intentionally broad and strict thresholds defeat the purpose.
-        if (event.prompt.length < 100 || isNewSession) {
-          const broadOpts = buildSearchOptions(undefined, 5, undefined, recallSessionKey);
-          broadOpts.threshold = 0.5;
-          const broadResults = await provider.search(
-            "recent decisions, preferences, active projects, and configuration",
-            broadOpts,
-          );
+        if (broadResults.length > 0) {
           const existingIds = new Set(longTermResults.map((r) => r.id));
           for (const r of broadResults) {
             if (!existingIds.has(r.id)) {
@@ -929,16 +977,9 @@ function registerHooks(
         // Search session memories scoped to the unique session UUID (sessionRunId).
         // Using the UUID (not the channel sessionKey) ensures memories from a
         // previous conversation are never injected after /new resets the session.
-        let sessionResults: MemoryItem[] = [];
-        if (sessionRunId) {
-          sessionResults = await provider.search(
-            event.prompt,
-            buildSearchOptions(undefined, undefined, sessionRunId, recallSessionKey),
-          );
-          sessionResults = sessionResults.filter(
-            (r) => (r.score ?? 0) >= cfg.searchThreshold,
-          );
-        }
+        sessionResults = sessionResults.filter(
+          (r) => (r.score ?? 0) >= cfg.searchThreshold,
+        );
 
         // Deduplicate session results against long-term
         const longTermIds = new Set(longTermResults.map((r) => r.id));
@@ -994,7 +1035,13 @@ function registerHooks(
       // Skip non-interactive triggers (cron, heartbeat, automation)
       const trigger = (ctx as any)?.trigger ?? undefined;
       const sessionId = (ctx as any)?.sessionKey ?? undefined;
-      if (isNonInteractiveTrigger(trigger, sessionId)) {
+      if (
+        isNonInteractiveTrigger(trigger, sessionId, {
+          sessionId: (ctx as any)?.sessionId ?? undefined,
+          lane: (ctx as any)?.lane ?? undefined,
+          runId: (ctx as any)?.runId ?? (event as any)?.runId ?? undefined,
+        })
+      ) {
         api.logger.info("openclaw-mem0: skipping capture for non-interactive trigger");
         return;
       }
@@ -1132,9 +1179,10 @@ function registerHooks(
         });
 
         const addOpts = buildAddOptions(undefined, sessionRunId, sessionId);
-        const result = await provider.add(
-          formattedMessages,
-          addOpts,
+        const result = await withTimeout(
+          provider.add(formattedMessages, addOpts),
+          AUTO_CAPTURE_TIMEOUT_MS,
+          "openclaw-mem0 auto-capture",
         );
 
         const capturedCount = result.results?.length ?? 0;
@@ -1144,7 +1192,7 @@ function registerHooks(
           );
         }
       } catch (err) {
-        api.logger.warn(`openclaw-mem0: capture failed: ${String(err)}`);
+        api.logger.warn(`openclaw-mem0: capture skipped: ${String(err)}`);
       }
     });
   }
