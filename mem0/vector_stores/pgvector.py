@@ -250,10 +250,10 @@ class PGVector(VectorStoreBase):
         with self._get_cursor() as cur:
             cur.execute(
                 sql.SQL("""
-                SELECT id, vector <=> %s::vector AS distance, payload
+                SELECT id, 1 - (vector <=> %s::vector) AS score, payload
                 FROM {}
                 {}
-                ORDER BY distance
+                ORDER BY score DESC
                 LIMIT %s
                 """).format(self._col(), filter_clause),
                 (vectors, *filter_params, top_k),
