@@ -102,6 +102,11 @@ const memoryPlugin = {
     const cfg = mem0ConfigSchema.parse(api.pluginConfig);
     const provider = createProvider(cfg, api);
 
+    // Pre-warm the provider so the first real search doesn't pay the init cost
+    if (provider && "ensureMemory" in provider) {
+      (provider as any).ensureMemory().catch(() => {});
+    }
+
     // Track current session ID for tool-level session scoping.
     // NOTE: This is shared mutable state — tools don't receive ctx, so they
     // read this as a best-effort fallback. Hooks should use ctx.sessionKey

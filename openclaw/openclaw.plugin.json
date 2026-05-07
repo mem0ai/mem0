@@ -1,6 +1,48 @@
 {
   "id": "openclaw-mem0",
+  "name": "Memory (Mem0)",
+  "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source. Auto-recall and auto-capture remain configurable, and this fork preserves the OSS graph-store compatibility used by the Quin stack.",
+  "version": "0.4.1",
   "kind": "memory",
+  "commandAliases": [
+    {
+      "name": "mem0",
+      "cliCommand": "mem0"
+    }
+  ],
+  "contracts": {
+    "tools": [
+      "memory_search",
+      "memory_list",
+      "memory_store",
+      "memory_get",
+      "memory_forget"
+    ]
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "mem0",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "MEM0_API_KEY"
+        ]
+      },
+      {
+        "id": "openclaw-mem0-oss",
+        "authMethods": [
+          "config"
+        ],
+        "envVars": [
+          "OPENAI_API_KEY",
+          "ANTHROPIC_API_KEY"
+        ]
+      }
+    ],
+    "requiresRuntime": false
+  },
   "uiHints": {
     "mode": {
       "label": "Mode",
@@ -10,7 +52,7 @@
       "label": "Mem0 API Key",
       "sensitive": true,
       "placeholder": "m0-...",
-      "help": "API key from app.mem0.ai (or use ${MEM0_API_KEY}). Only needed for platform mode."
+      "help": "Platform mode only. Prefer ${MEM0_API_KEY} or a SecretRef instead of plaintext config values."
     },
     "anonymousTelemetryId": {
       "label": "Anonymous Telemetry ID",
@@ -34,11 +76,11 @@
     },
     "autoCapture": {
       "label": "Auto-Capture",
-      "help": "Automatically store conversation context after each agent turn"
+      "help": "Automatically store conversation context after each agent turn. Upstream default is off unless explicitly enabled."
     },
     "autoRecall": {
       "label": "Auto-Recall",
-      "help": "Automatically inject relevant memories before each agent turn"
+      "help": "Automatically inject relevant memories before each agent turn. Upstream default is off unless explicitly enabled."
     },
     "customInstructions": {
       "label": "Custom Instructions",
@@ -61,8 +103,8 @@
     },
     "searchThreshold": {
       "label": "Search Threshold",
-      "placeholder": "0.5",
-      "help": "Minimum similarity score for search results (0-1). Default: 0.5"
+      "placeholder": "0.3",
+      "help": "Minimum similarity score for search results (0-1). Upstream default: 0.3"
     },
     "topK": {
       "label": "Top K Results",
@@ -103,10 +145,12 @@
         "type": "string"
       },
       "autoCapture": {
-        "type": "boolean"
+        "type": "boolean",
+        "default": false
       },
       "autoRecall": {
-        "type": "boolean"
+        "type": "boolean",
+        "default": false
       },
       "customInstructions": {
         "type": "string"
@@ -124,7 +168,8 @@
         "type": "boolean"
       },
       "searchThreshold": {
-        "type": "number"
+        "type": "number",
+        "default": 0.3
       },
       "topK": {
         "type": "number"

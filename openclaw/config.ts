@@ -225,8 +225,8 @@ export const mem0ConfigSchema = {
         typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
       orgId: typeof cfg.orgId === "string" ? cfg.orgId : undefined,
       projectId: typeof cfg.projectId === "string" ? cfg.projectId : undefined,
-      autoCapture: cfg.autoCapture !== false,
-      autoRecall: cfg.autoRecall !== false,
+      autoCapture: cfg.autoCapture === true,
+      autoRecall: cfg.autoRecall === true,
       customInstructions:
         typeof cfg.customInstructions === "string"
           ? cfg.customInstructions
@@ -247,7 +247,7 @@ export const mem0ConfigSchema = {
           : DEFAULT_CUSTOM_INSTRUCTIONS,
       enableGraph: cfg.enableGraph === true,
       searchThreshold:
-        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
+        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.3,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
       oss: ossConfig,
     };

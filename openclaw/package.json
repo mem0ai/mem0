@@ -4,6 +4,11 @@
   "type": "module",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "openclaw"
+  },
   "keywords": [
     "openclaw",
     "plugin",
@@ -34,7 +39,18 @@
   "openclaw": {
     "extensions": [
       "./dist/index.js"
-    ]
+    ],
+    "compat": {
+      "pluginApi": ">=2026.3.28",
+      "minGatewayVersion": ">=2026.3.28"
+    },
+    "build": {
+      "openclawVersion": "2026.4.1",
+      "pluginSdkVersion": "2026.4.1"
+    },
+    "install": {
+      "npmSpec": "@mem0/openclaw-mem0"
+    }
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

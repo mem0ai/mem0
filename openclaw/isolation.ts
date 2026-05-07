@@ -14,7 +14,14 @@
  * These are system-initiated sessions (cron jobs, heartbeats, automation
  * pipelines) whose prompts would pollute the user's memory store.
  */
-const SKIP_TRIGGERS = new Set(["cron", "heartbeat", "automation", "schedule"]);
+const SKIP_TRIGGERS = new Set([
+  "cron",
+  "heartbeat",
+  "automation",
+  "schedule",
+  "startup",
+  "bootstrap",
+]);
 
 /**
  * Returns true if the session trigger is non-interactive and memory
@@ -26,12 +33,31 @@ const SKIP_TRIGGERS = new Set(["cron", "heartbeat", "automation", "schedule"]);
 export function isNonInteractiveTrigger(
   trigger: string | undefined,
   sessionKey: string | undefined,
+  metadata?: {
+    sessionId?: string | undefined;
+    lane?: string | undefined;
+    runId?: string | undefined;
+  },
 ): boolean {
   if (trigger && SKIP_TRIGGERS.has(trigger.toLowerCase())) return true;
 
-  // Fallback: detect cron/heartbeat from the session key pattern
-  if (sessionKey) {
-    if (/:cron:/i.test(sessionKey) || /:heartbeat:/i.test(sessionKey)) return true;
+  const sessionId = metadata?.sessionId;
+  const lane = metadata?.lane;
+  const runId = metadata?.runId;
+
+  // Fallback: detect cron/heartbeat/startup boot sessions from the session key pattern
+  if (sessionKey || sessionId || lane || runId) {
+    if (
+      /:cron:/i.test(sessionKey ?? "") ||
+      /:heartbeat:/i.test(sessionKey ?? "") ||
+      /^boot-/i.test(sessionKey ?? "") ||
+      /^boot-/i.test(sessionId ?? "") ||
+      /^supervisor-/i.test(sessionId ?? "") ||
+      /(^|:)context-engine-turn-maintenance(?::|$)/i.test(lane ?? "") ||
+      /^announce:v1:/i.test(runId ?? "")
+    ) {
+      return true;
+    }
   }
 
   return false;
