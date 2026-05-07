@@ -10,6 +10,7 @@ exec python3 - "$@" <<'PY'
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import platform
@@ -28,8 +29,10 @@ from urllib.request import Request, urlopen
 DEFAULT_BASE_URL = "https://api.mem0.ai"
 POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 POSTHOG_CAPTURE_URL = "https://us.i.posthog.com/i/v0/e/"
-SCRIPT_VERSION = "oss-to-platform-auth-v1"
+SCRIPT_VERSION = "oss-to-platform-migrate-v1"
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+DEFAULT_QDRANT_COLLECTION = "mem0"
+DEFAULT_EXPORT_PAGE_SIZE = 100
 
 
 class MigrationError(Exception):
@@ -231,6 +234,11 @@ def post_json_best_effort(url: str, payload: Dict[str, Any], timeout: float = 5.
         return False
 
 
+def telemetry_enabled() -> bool:
+    raw = os.environ.get("MEM0_TELEMETRY", "true")
+    return raw.lower() in ("true", "1", "yes")
+
+
 def telemetry_url() -> str:
     return os.environ.get("MEM0_MIGRATE_TELEMETRY_URL", POSTHOG_CAPTURE_URL)
 
@@ -239,7 +247,7 @@ def base_event_properties(anon_ids: Dict[str, Any], email: Optional[str] = None)
     properties: Dict[str, Any] = {
         "client_source": "python",
         "client_version": SCRIPT_VERSION,
-        "migration_phase": "auth",
+        "migration_phase": "auth_export",
         "local_anonymous_id": primary_anon_id(anon_ids),
         "oss_anonymous_id": anon_ids.get("oss"),
         "cli_anonymous_id": anon_ids.get("cli"),
@@ -263,6 +271,8 @@ def capture_migration_event(
     email: Optional[str] = None,
     additional: Optional[Dict[str, Any]] = None,
 ) -> bool:
+    if not telemetry_enabled():
+        return False
     distinct_id = email or primary_anon_id(anon_ids)
     properties = base_event_properties(anon_ids, email)
     if additional:
@@ -277,7 +287,7 @@ def capture_migration_event(
 
 
 def capture_identify(anon_id: str, email: str) -> bool:
-    if not anon_id or not email or anon_id == email:
+    if not telemetry_enabled() or not anon_id or not email or anon_id == email:
         return False
     payload = {
         "api_key": POSTHOG_API_KEY,
@@ -364,6 +374,30 @@ def prompt_line(prompt: str) -> str:
     if line == "":
         raise MigrationError("No input received from terminal.")
     return line.strip()
+
+
+def prompt_line_default(prompt: str, default: str) -> str:
+    answer = prompt_line(f"{prompt} [{default}]: ")
+    return answer or default
+
+
+def prompt_secret(prompt: str) -> str:
+    ensure_interactive_terminal()
+    try:
+        with open("/dev/tty", "w", encoding="utf-8") as tty_out:
+            return getpass.getpass(prompt, stream=tty_out).strip()
+    except OSError as exc:
+        raise MigrationError(
+            "No interactive terminal is available. Re-run with the required flags or environment variables."
+        ) from exc
+
+
+def has_interactive_terminal() -> bool:
+    try:
+        with open("/dev/tty", "r", encoding="utf-8"), open("/dev/tty", "w", encoding="utf-8"):
+            return True
+    except OSError:
+        return False
 
 
 def ensure_interactive_terminal() -> None:
@@ -479,22 +513,272 @@ def resolve_auth(args: argparse.Namespace, config: Dict[str, Any], base_url: str
     return email_code_auth(args, base_url)
 
 
+def default_export_path() -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return mem0_dir() / "migrations" / f"mem0-qdrant-export-{timestamp}.json"
+
+
+def strip_env_assignment(value: str, name: str) -> str:
+    prefix = f"{name}="
+    return value[len(prefix):] if value.startswith(prefix) else value
+
+
+def qdrant_url(args: argparse.Namespace) -> str:
+    value = args.qdrant_url or os.environ.get("QDRANT_URL")
+    if not value:
+        if not has_interactive_terminal():
+            raise MigrationError("Hosted Qdrant export requires --qdrant-url or QDRANT_URL.")
+        print_info("")
+        print_info("Python OSS hosted Qdrant export setup")
+        print_info("Enter the Qdrant Cloud details used by your OSS Memory configuration.")
+        value = prompt_line("Qdrant URL: ")
+    value = strip_env_assignment(value.strip(), "QDRANT_URL")
+    if not value:
+        raise MigrationError("Qdrant URL is required.")
+    return value.rstrip("/")
+
+
+def qdrant_api_key(args: argparse.Namespace) -> str:
+    value = args.qdrant_api_key or os.environ.get("QDRANT_API_KEY")
+    if not value:
+        if not has_interactive_terminal():
+            raise MigrationError("Hosted Qdrant export requires --qdrant-api-key or QDRANT_API_KEY.")
+        value = prompt_secret("Qdrant API key: ")
+    value = strip_env_assignment(value.strip(), "QDRANT_API_KEY")
+    if not value:
+        raise MigrationError("Qdrant API key is required.")
+    return value
+
+
+def qdrant_collection(args: argparse.Namespace) -> str:
+    value = args.qdrant_collection or os.environ.get("QDRANT_COLLECTION")
+    if not value:
+        if has_interactive_terminal():
+            value = prompt_line_default("Qdrant collection", DEFAULT_QDRANT_COLLECTION)
+        else:
+            value = DEFAULT_QDRANT_COLLECTION
+    value = value.strip()
+    if not value:
+        raise MigrationError("Qdrant collection name cannot be empty.")
+    return value
+
+
+def qdrant_headers(api_key: str) -> Dict[str, str]:
+    return {"api-key": api_key}
+
+
+def qdrant_request_json(
+    method: str,
+    url: str,
+    *,
+    api_key: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    try:
+        return request_json(method, url, payload=payload, headers=qdrant_headers(api_key), timeout=30.0)
+    except HTTPStatusError as exc:
+        if exc.status_code in (401, 403):
+            raise MigrationError("Qdrant authentication failed. Check your QDRANT_API_KEY.") from exc
+        if exc.status_code == 404:
+            raise MigrationError(f"Qdrant resource not found: {url}") from exc
+        raise MigrationError(f"Qdrant request failed: {exc.detail}") from exc
+
+
+def preflight_qdrant_collection(base_url: str, api_key: str, collection_name: str) -> None:
+    qdrant_request_json(
+        "GET",
+        f"{base_url}/collections/{collection_name}",
+        api_key=api_key,
+    )
+
+
+def qdrant_filter(args: argparse.Namespace) -> Optional[Dict[str, Any]]:
+    filters = []
+    for key, value in (("user_id", args.user_id), ("agent_id", args.agent_id), ("run_id", args.run_id)):
+        if value:
+            filters.append({"key": key, "match": {"value": value}})
+
+    if not filters:
+        if args.all:
+            return None
+        if not has_interactive_terminal():
+            raise MigrationError("Export requires --user-id, --agent-id, --run-id, or --all.")
+        print_info("")
+        print_info("Choose which OSS memories to export.")
+        print_info("Enter a user_id to export one user, or press Enter to export the full collection.")
+        user_id = prompt_line("User ID to export (press Enter for full collection): ")
+        if user_id:
+            args.user_id = user_id
+            filters.append({"key": "user_id", "match": {"value": user_id}})
+        elif prompt_yes_no("Export the full Qdrant collection?", default=False):
+            args.all = True
+            return None
+        else:
+            raise MigrationError("Export requires --user-id, --agent-id, --run-id, or --all.")
+
+    return {"must": filters}
+
+
+def scroll_qdrant_points(
+    base_url: str,
+    api_key: str,
+    collection_name: str,
+    scroll_filter: Optional[Dict[str, Any]],
+    page_size: int,
+) -> List[Dict[str, Any]]:
+    points: List[Dict[str, Any]] = []
+    offset = None
+
+    while True:
+        payload: Dict[str, Any] = {
+            "limit": page_size,
+            "with_payload": True,
+            "with_vector": False,
+        }
+        if scroll_filter is not None:
+            payload["filter"] = scroll_filter
+        if offset is not None:
+            payload["offset"] = offset
+
+        response = qdrant_request_json(
+            "POST",
+            f"{base_url}/collections/{collection_name}/points/scroll",
+            api_key=api_key,
+            payload=payload,
+        )
+        result = response.get("result")
+        if not isinstance(result, dict):
+            raise MigrationError("Qdrant scroll response did not include a result object.")
+
+        page_points = result.get("points")
+        if not isinstance(page_points, list):
+            raise MigrationError("Qdrant scroll response did not include a points list.")
+        points.extend(point for point in page_points if isinstance(point, dict))
+
+        offset = result.get("next_page_offset")
+        if offset is None:
+            break
+
+    return points
+
+
+def normalize_qdrant_point(point: Dict[str, Any]) -> Dict[str, Any]:
+    payload = point.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
+
+    promoted_payload_keys = ("user_id", "agent_id", "run_id", "actor_id", "role")
+    core_and_promoted_keys = {
+        "data",
+        "hash",
+        "created_at",
+        "updated_at",
+        "id",
+        "text_lemmatized",
+        "attributed_to",
+        *promoted_payload_keys,
+    }
+
+    record: Dict[str, Any] = {
+        "id": str(point.get("id")),
+        "memory": payload.get("data", ""),
+        "hash": payload.get("hash"),
+        "created_at": payload.get("created_at"),
+        "updated_at": payload.get("updated_at"),
+        "source": "python_oss_qdrant",
+        "source_payload": payload,
+    }
+
+    for key in promoted_payload_keys:
+        if key in payload:
+            record[key] = payload[key]
+
+    metadata = {key: value for key, value in payload.items() if key not in core_and_promoted_keys}
+    if metadata:
+        record["metadata"] = metadata
+
+    return record
+
+
+def write_export_file(output_path: Path, artifact: Dict[str, Any]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+    os.chmod(output_path, stat.S_IRUSR | stat.S_IWUSR)
+
+
+def export_qdrant_memories(args: argparse.Namespace, anon_ids: Dict[str, Any]) -> Tuple[Path, int]:
+    base_url = qdrant_url(args)
+    api_key = qdrant_api_key(args)
+    collection_name = qdrant_collection(args)
+    output_path = Path(args.output).expanduser() if args.output else default_export_path()
+    page_size = args.qdrant_page_size
+    if page_size < 1:
+        raise MigrationError("--qdrant-page-size must be greater than 0.")
+
+    scroll_filter = qdrant_filter(args)
+    preflight_qdrant_collection(base_url, api_key, collection_name)
+    points = scroll_qdrant_points(base_url, api_key, collection_name, scroll_filter, page_size)
+    records = [normalize_qdrant_point(point) for point in points]
+
+    artifact = {
+        "version": 1,
+        "kind": "mem0_oss_qdrant_export",
+        "exported_at": utc_now(),
+        "source": {
+            "sdk": "python",
+            "vector_store": "qdrant",
+            "storage": "hosted",
+            "collection": collection_name,
+            "url": base_url,
+            "filters": {
+                "user_id": args.user_id,
+                "agent_id": args.agent_id,
+                "run_id": args.run_id,
+                "all": args.all,
+            },
+        },
+        "local_anonymous_id": primary_anon_id(anon_ids),
+        "anonymous_ids": {
+            "oss": anon_ids.get("oss"),
+            "cli": anon_ids.get("cli"),
+        },
+        "record_count": len(records),
+        "records": records,
+    }
+    write_export_file(output_path, artifact)
+    return output_path, len(records)
+
+
 def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="oss-to-platform-migrate.sh",
-        description="Authenticate a local Mem0 OSS migration to a Mem0 Platform account.",
+        description="Migrate Python OSS hosted-Qdrant memories to a Mem0 Platform account.",
     )
     parser.add_argument("--auth-only", action="store_true", help="Run only auth/account resolution.")
+    parser.add_argument("--export-only", action="store_true", help="Run only Python OSS hosted-Qdrant JSON export.")
     parser.add_argument("--email", help="Email address for email-code authentication.")
     parser.add_argument("--code", help="Verification code for non-interactive email-code authentication.")
     parser.add_argument("--api-key", help="Platform API key to use for this run only.")
     parser.add_argument("--base-url", help=f"Mem0 Platform API base URL. Defaults to {DEFAULT_BASE_URL}.")
     parser.add_argument("--yes", action="store_true", help="Accept an existing valid Platform session without prompting.")
+    parser.add_argument("--qdrant-url", help="Hosted Qdrant URL for Python OSS memory export.")
+    parser.add_argument("--qdrant-api-key", help="Hosted Qdrant API key for this run only.")
+    parser.add_argument("--qdrant-collection", help=f"Qdrant collection name. Defaults to {DEFAULT_QDRANT_COLLECTION}.")
+    parser.add_argument("--qdrant-page-size", type=int, default=DEFAULT_EXPORT_PAGE_SIZE, help="Qdrant scroll page size.")
+    parser.add_argument("--user-id", help="Export memories matching this user_id.")
+    parser.add_argument("--agent-id", help="Export memories matching this agent_id.")
+    parser.add_argument("--run-id", help="Export memories matching this run_id.")
+    parser.add_argument("--all", action="store_true", help="Export the full Qdrant collection without a scope filter.")
+    parser.add_argument("--output", help="Path for the migration JSON export file.")
     return parser.parse_args(argv)
 
 
 def main(argv: List[str]) -> int:
     args = parse_args(argv)
+    if args.auth_only and args.export_only:
+        print_error("Cannot use both --auth-only and --export-only.")
+        return 1
+
     path = config_path()
     config = load_config(path)
     oss_anon_id = ensure_oss_anon_id(path, config)
@@ -502,22 +786,39 @@ def main(argv: List[str]) -> int:
     base_url = api_base_url(args, config)
 
     print_info("Mem0 OSS to Platform migration")
-    print_info("Auth phase")
+    if args.export_only:
+        print_info("Export phase")
+    else:
+        print_info("Auth phase")
     print_info("Supported environments: macOS, Linux, and Windows via WSL/Git Bash with bash and python3.")
-    print_info("No memories are imported during this auth step.")
+    if args.auth_only:
+        print_info("No memories are imported during this auth step.")
+    else:
+        print_info("No memories are imported to Platform during this step.")
     print_info("")
 
     capture_migration_event("oss.migrate.started", anon_ids, additional={"base_url": base_url})
 
     try:
-        _api_key, email, auth_method = resolve_auth(args, config, base_url)
-        capture_migration_event(
-            "oss.migrate.authenticated",
-            anon_ids,
-            email=email,
-            additional={"auth_method": auth_method, "base_url": base_url},
-        )
-        stitch_identities(path, config, anon_ids, email)
+        email = None
+        if not args.export_only:
+            phase_label = "Phase 1/1" if args.auth_only else "Phase 1/2"
+            print_info(f"{phase_label}: Authenticate with Mem0 Platform")
+            _api_key, email, auth_method = resolve_auth(args, config, base_url)
+            capture_migration_event(
+                "oss.migrate.authenticated",
+                anon_ids,
+                email=email,
+                additional={"auth_method": auth_method, "base_url": base_url},
+            )
+            stitch_identities(path, config, anon_ids, email)
+            print_info(f"Authenticated as {email}")
+            print_info("")
+
+        if not args.auth_only:
+            phase_label = "Phase 1/1" if args.export_only else "Phase 2/2"
+            print_info(f"{phase_label}: Export Python OSS memories from hosted Qdrant")
+            output_path, count = export_qdrant_memories(args, anon_ids)
     except MigrationError as exc:
         capture_migration_event(
             "oss.migrate.failed",
@@ -527,11 +828,14 @@ def main(argv: List[str]) -> int:
         print_error(str(exc))
         return 1
 
-    print_info(f"Authenticated as {email}")
     if args.auth_only:
         print_info("Auth-only mode complete. Export and import were not run.")
+    elif args.export_only:
+        print_info(f"Exported {count} memories to {output_path}")
+        print_info("Export-only mode complete. Platform import was not run.")
     else:
-        print_info("Auth complete. Export and import will be added in the next migration phase.")
+        print_info(f"Exported {count} memories to {output_path}")
+        print_info("Export complete. Platform import will be added in the next migration phase.")
     return 0
 
 

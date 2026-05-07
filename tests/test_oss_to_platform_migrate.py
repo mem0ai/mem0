@@ -20,10 +20,16 @@ class MigrationHTTPServer:
         ping_emails: dict[str, str] | None = None,
         verify_api_key: str = "verified-key",
         verify_status: int = 200,
+        qdrant_api_key: str = "qdrant-key",
+        qdrant_collection: str = "mem0",
+        qdrant_pages: list[dict[str, Any]] | None = None,
     ) -> None:
         self.ping_emails = ping_emails or {}
         self.verify_api_key = verify_api_key
         self.verify_status = verify_status
+        self.qdrant_api_key = qdrant_api_key
+        self.qdrant_collection = qdrant_collection
+        self.qdrant_pages = qdrant_pages or [{"points": [], "next_page_offset": None}]
         self.requests: list[dict[str, Any]] = []
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
         self.url = f"http://127.0.0.1:{self._server.server_port}"
@@ -81,6 +87,12 @@ class MigrationHTTPServer:
                     else:
                         self._send_json(401, {"detail": "Invalid token"})
                     return
+                if self.path == f"/collections/{owner.qdrant_collection}":
+                    if self.headers.get("api-key") != owner.qdrant_api_key:
+                        self._send_json(401, {"status": {"error": "unauthorized"}})
+                    else:
+                        self._send_json(200, {"result": {"status": "green"}, "status": "ok"})
+                    return
                 self._send_json(404, {"detail": "Not found"})
 
             def do_POST(self) -> None:
@@ -97,6 +109,24 @@ class MigrationHTTPServer:
                         self._send_json(owner.verify_status, {"error": "bad verification code"})
                     else:
                         self._send_json(200, {"api_key": owner.verify_api_key})
+                    return
+                if self.path == f"/collections/{owner.qdrant_collection}/points/scroll":
+                    if self.headers.get("api-key") != owner.qdrant_api_key:
+                        self._send_json(401, {"status": {"error": "unauthorized"}})
+                        return
+                    offset = body.get("offset")
+                    page_index = int(offset) if offset is not None else 0
+                    page = owner.qdrant_pages[page_index]
+                    self._send_json(
+                        200,
+                        {
+                            "result": {
+                                "points": page["points"],
+                                "next_page_offset": page.get("next_page_offset"),
+                            },
+                            "status": "ok",
+                        },
+                    )
                     return
                 self._send_json(404, {"detail": "Not found"})
 
@@ -150,6 +180,52 @@ def run_migration_script(
         check=False,
     )
     return result, mem0_dir
+
+
+def run_export_script(
+    tmp_path: Path,
+    server: MigrationHTTPServer,
+    *args: str,
+    config: dict[str, Any] | None = None,
+    qdrant_api_key: str = "qdrant-key",
+) -> tuple[subprocess.CompletedProcess[str], Path, Path]:
+    mem0_dir = tmp_path / "mem0"
+    output_path = tmp_path / "export.json"
+    if config is not None:
+        write_config(mem0_dir, config)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "MEM0_DIR": str(mem0_dir),
+            "MEM0_MIGRATE_TELEMETRY_URL": f"{server.url}/posthog",
+            "QDRANT_API_KEY": qdrant_api_key,
+        }
+    )
+    env.pop("MEM0_API_KEY", None)
+    env.pop("MEM0_BASE_URL", None)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(SCRIPT),
+            "--export-only",
+            "--qdrant-url",
+            server.url,
+            "--qdrant-collection",
+            server.qdrant_collection,
+            "--output",
+            str(output_path),
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        start_new_session=True,
+        timeout=20,
+        check=False,
+    )
+    return result, mem0_dir, output_path
 
 
 def posthog_events(server: MigrationHTTPServer) -> list[dict[str, Any]]:
@@ -343,4 +419,126 @@ def test_curl_piped_help_works() -> None:
     )
 
     assert result.returncode == 0, result.stderr
-    assert "Authenticate a local Mem0 OSS migration" in result.stdout
+    assert "Migrate Python OSS hosted-Qdrant memories" in result.stdout
+
+
+def test_export_qdrant_memories_to_json_without_vectors_or_api_key(tmp_path: Path) -> None:
+    pages = [
+        {
+            "points": [
+                {
+                    "id": "point-1",
+                    "vector": [0.1, 0.2],
+                    "payload": {
+                        "data": "User likes dark mode",
+                        "hash": "hash-1",
+                        "created_at": "2026-05-01T00:00:00Z",
+                        "updated_at": "2026-05-01T00:00:00Z",
+                        "user_id": "alice",
+                        "agent_id": "agent-1",
+                        "run_id": "run-1",
+                        "actor_id": "actor-1",
+                        "role": "user",
+                        "topic": "preferences",
+                        "text_lemmatized": "user like dark mode",
+                    },
+                }
+            ],
+            "next_page_offset": 1,
+        },
+        {
+            "points": [
+                {
+                    "id": "point-2",
+                    "vector": [0.3, 0.4],
+                    "payload": {
+                        "data": "User prefers concise answers",
+                        "hash": "hash-2",
+                        "user_id": "alice",
+                        "metadata_note": "extra",
+                    },
+                }
+            ],
+            "next_page_offset": None,
+        },
+    ]
+
+    with MigrationHTTPServer(qdrant_pages=pages) as server:
+        result, _mem0_dir, output_path = run_export_script(
+            tmp_path,
+            server,
+            "--user-id",
+            "alice",
+            "--qdrant-page-size",
+            "1",
+            config={"user_id": "oss-export-user"},
+        )
+
+    assert result.returncode == 0, result.stderr
+    assert "Exported 2 memories" in result.stdout
+
+    artifact = json.loads(output_path.read_text(encoding="utf-8"))
+    assert artifact["kind"] == "mem0_oss_qdrant_export"
+    assert artifact["source"]["sdk"] == "python"
+    assert artifact["source"]["vector_store"] == "qdrant"
+    assert artifact["source"]["storage"] == "hosted"
+    assert artifact["source"]["filters"]["user_id"] == "alice"
+    assert artifact["record_count"] == 2
+    assert artifact["local_anonymous_id"] == "oss-export-user"
+
+    first = artifact["records"][0]
+    assert first["id"] == "point-1"
+    assert first["memory"] == "User likes dark mode"
+    assert first["hash"] == "hash-1"
+    assert first["user_id"] == "alice"
+    assert first["agent_id"] == "agent-1"
+    assert first["run_id"] == "run-1"
+    assert first["actor_id"] == "actor-1"
+    assert first["role"] == "user"
+    assert first["metadata"] == {"topic": "preferences"}
+    assert all("vector" not in record for record in artifact["records"])
+    assert "qdrant-key" not in output_path.read_text(encoding="utf-8")
+
+    scroll_requests = [request for request in server.requests if request["path"].endswith("/points/scroll")]
+    assert len(scroll_requests) == 2
+    assert scroll_requests[0]["body"]["with_vector"] is False
+    assert scroll_requests[0]["body"]["filter"] == {"must": [{"key": "user_id", "match": {"value": "alice"}}]}
+    assert scroll_requests[1]["body"]["offset"] == 1
+
+
+def test_export_requires_scope_or_all(tmp_path: Path) -> None:
+    with MigrationHTTPServer() as server:
+        result, _mem0_dir, output_path = run_export_script(tmp_path, server)
+
+    assert result.returncode == 1
+    assert "Export requires --user-id, --agent-id, --run-id, or --all" in result.stderr
+    assert not output_path.exists()
+    assert not any(request["path"].endswith("/points/scroll") for request in server.requests)
+
+
+def test_export_all_uses_no_qdrant_filter(tmp_path: Path) -> None:
+    with MigrationHTTPServer(qdrant_pages=[{"points": [], "next_page_offset": None}]) as server:
+        result, _mem0_dir, output_path = run_export_script(tmp_path, server, "--all")
+
+    assert result.returncode == 0, result.stderr
+    artifact = json.loads(output_path.read_text(encoding="utf-8"))
+    assert artifact["record_count"] == 0
+    assert artifact["records"] == []
+
+    scroll_request = next(request for request in server.requests if request["path"].endswith("/points/scroll"))
+    assert "filter" not in scroll_request["body"]
+
+
+def test_export_invalid_qdrant_credentials_fail_clearly(tmp_path: Path) -> None:
+    with MigrationHTTPServer(qdrant_api_key="correct-key") as server:
+        result, _mem0_dir, output_path = run_export_script(
+            tmp_path,
+            server,
+            "--user-id",
+            "alice",
+            qdrant_api_key="wrong-key",
+        )
+
+    assert result.returncode == 1
+    assert "Qdrant authentication failed" in result.stderr
+    assert not output_path.exists()
