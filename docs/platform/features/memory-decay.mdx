@@ -59,39 +59,19 @@ The toggle lives on the project. You enable decay by patching the project's `dec
 The toggle is exposed on the standard project-update endpoint, the same place where `multilingual` and `custom_categories` live.
 
 <CodeGroup>
+```python Python
+client.project.update(decay=True)
+```
+
+```javascript JavaScript
+await client.project.update({ decay: true });
+```
+
 ```bash cURL
 curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/ \
   -H "Authorization: Token $MEM0_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"decay": true}'
-```
-
-```python Python
-import os
-import requests
-
-org_id = os.environ["MEM0_ORG_ID"]
-project_id = os.environ["MEM0_PROJECT_ID"]
-
-requests.patch(
-    f"https://api.mem0.ai/api/v1/orgs/organizations/{org_id}/projects/{project_id}/",
-    headers={"Authorization": f"Token {os.environ['MEM0_API_KEY']}"},
-    json={"decay": True},
-)
-```
-
-```javascript Node.js
-const res = await fetch(
-  `https://api.mem0.ai/api/v1/orgs/organizations/${process.env.MEM0_ORG_ID}/projects/${process.env.MEM0_PROJECT_ID}/`,
-  {
-    method: "PATCH",
-    headers: {
-      Authorization: `Token ${process.env.MEM0_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ decay: true }),
-  },
-);
 ```
 
 ```json Response
@@ -104,6 +84,16 @@ const res = await fetch(
 `decay` is returned on every project read. To fetch only this field, use `?fields=decay`.
 
 <CodeGroup>
+```python Python
+response = client.project.get(fields=["decay"])
+print(response["decay"])
+```
+
+```javascript JavaScript
+const response = await client.project.get({ fields: ["decay"] });
+console.log(response.decay);
+```
+
 ```bash cURL
 curl "https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/?fields=decay" \
   -H "Authorization: Token $MEM0_API_KEY"
@@ -119,6 +109,14 @@ curl "https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID
 The toggle is fully reversible. Setting it to `false` immediately restores the pre-decay ranking; nothing about your stored memories is modified or lost.
 
 <CodeGroup>
+```python Python
+client.project.update(decay=False)
+```
+
+```javascript JavaScript
+await client.project.update({ decay: false });
+```
+
 ```bash cURL
 curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/ \
   -H "Authorization: Token $MEM0_API_KEY" \
