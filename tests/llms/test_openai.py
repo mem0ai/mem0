@@ -365,3 +365,44 @@ def test_callback_with_tools(mock_openai_client):
     mock_callback.assert_called_once()
     # Check that tool_calls exists in the message
     assert hasattr(mock_callback.call_args[0][1].choices[0].message, 'tool_calls')
+
+
+def test_gpt5x_uses_max_completion_tokens(mock_openai_client):
+    """gpt-5.x variants must use max_completion_tokens, not max_tokens.
+
+    Regression test for https://github.com/mem0ai/mem0/issues/5054.
+    The OpenAI API rejects max_tokens for gpt-5.x models and requires
+    max_completion_tokens instead.
+    """
+    config = OpenAIConfig(model="gpt-5.4-mini", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_completion_tokens" in call_kwargs, "gpt-5.x should use max_completion_tokens"
+    assert "max_tokens" not in call_kwargs, "gpt-5.x should not send max_tokens"
+    assert call_kwargs["max_completion_tokens"] == 100
+
+
+def test_gpt4_uses_max_tokens(mock_openai_client):
+    """Non-gpt-5.x models must continue using max_tokens (not max_completion_tokens)."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" in call_kwargs, "gpt-4.x should keep using max_tokens"
+    assert "max_completion_tokens" not in call_kwargs, "gpt-4.x should not use max_completion_tokens"
+    assert call_kwargs["max_tokens"] == 100
