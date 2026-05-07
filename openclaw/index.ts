@@ -903,34 +903,56 @@ function registerHooks(
       // Fall back to sessionKey for gateways that don't yet emit ctx.sessionId.
       const sessionRunId = sessionUuid ?? sessionId;
 
+      // Per-search timeout so a cold/slow vector store never blocks the
+      // before_prompt_build hook budget. Each search falls back to [] on timeout.
+      const withSearchTimeout = (
+        p: Promise<MemoryItem[]>,
+        ms = 8000,
+      ): Promise<MemoryItem[]> =>
+        Promise.race([
+          p,
+          new Promise<MemoryItem[]>((resolve) =>
+            setTimeout(() => {
+              api.logger.warn("openclaw-mem0: search timed out, using empty results");
+              resolve([]);
+            }, ms),
+          ),
+        ]);
+
       try {
         // Use a larger candidate pool for recall, then filter down
         const recallTopK = Math.max((cfg.topK ?? 5) * 2, 10);
-        const longTermSearch = provider.search(
-          event.prompt,
-          buildSearchOptions(undefined, recallTopK, undefined, recallSessionKey),
+        const longTermSearch = withSearchTimeout(
+          provider.search(
+            event.prompt,
+            buildSearchOptions(undefined, recallTopK, undefined, recallSessionKey),
+          ),
         );
         const sessionSearch = sessionRunId
-          ? provider.search(
-              event.prompt,
-              buildSearchOptions(undefined, undefined, sessionRunId, recallSessionKey),
+          ? withSearchTimeout(
+              provider.search(
+                event.prompt,
+                buildSearchOptions(undefined, undefined, sessionRunId, recallSessionKey),
+              ),
             )
           : Promise.resolve<MemoryItem[]>([]);
         const broadSearch =
           event.prompt.length < 100 || isNewSession
-            ? (() => {
-                const broadOpts = buildSearchOptions(
-                  undefined,
-                  5,
-                  undefined,
-                  recallSessionKey,
-                );
-                broadOpts.threshold = 0.5;
-                return provider.search(
-                  "recent decisions, preferences, active projects, and configuration",
-                  broadOpts,
-                );
-              })()
+            ? withSearchTimeout(
+                (() => {
+                  const broadOpts = buildSearchOptions(
+                    undefined,
+                    5,
+                    undefined,
+                    recallSessionKey,
+                  );
+                  broadOpts.threshold = 0.5;
+                  return provider.search(
+                    "recent decisions, preferences, active projects, and configuration",
+                    broadOpts,
+                  );
+                })(),
+              )
             : Promise.resolve<MemoryItem[]>([]);
 
         let [longTermResults, sessionResults, broadResults] = await Promise.all([
