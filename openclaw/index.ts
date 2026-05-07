@@ -907,7 +907,7 @@ function registerHooks(
       // before_prompt_build hook budget. Each search falls back to [] on timeout.
       const withSearchTimeout = (
         p: Promise<MemoryItem[]>,
-        ms = 8000,
+        ms = 12000,
       ): Promise<MemoryItem[]> =>
         Promise.race([
           p,
