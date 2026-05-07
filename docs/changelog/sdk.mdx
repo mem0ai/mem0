@@ -7,6 +7,20 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-05-08" description="v2.0.2">
+
+**Bug Fixes:**
+- **Telemetry:** Stitch OSS and platform PostHog identities on `MemoryClient` init so `$identify` events fire and a single user is no longer tracked as two or three disconnected personas ([#5040](https://github.com/mem0ai/mem0/pull/5040))
+- **Security:** Harden against SQL injection and prompt injection ([#4997](https://github.com/mem0ai/mem0/pull/4997))
+
+**New Features:**
+- **SDK:** Expose `decay` on `project.update` ([#5062](https://github.com/mem0ai/mem0/pull/5062))
+
+**Improvements:**
+- **Plugin:** Hand `mem0` search decisions to the agent ([#4992](https://github.com/mem0ai/mem0/pull/4992))
+
+</Update>
+
 <Update label="2026-04-25" description="v2.0.1">
 
 **Bug Fixes:**
@@ -910,6 +924,18 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+<Update label="2026-05-08" description="v3.0.3">
+
+**Bug Fixes:**
+- **Telemetry:** Stitch OSS and platform PostHog identities on `MemoryClient` init so `$identify` events fire and a single user is no longer tracked as two or three disconnected personas ([#5040](https://github.com/mem0ai/mem0/pull/5040))
+- **Vector Stores:** Fix inverted vector distance in PGVector implementation ([#4944](https://github.com/mem0ai/mem0/pull/4944))
+- **Security:** Harden against SQL injection and prompt injection ([#4997](https://github.com/mem0ai/mem0/pull/4997))
+
+**New Features:**
+- **SDK:** Expose `decay` on `project.update` ([#5062](https://github.com/mem0ai/mem0/pull/5062))
+
+</Update>
+
 <Update label="2026-04-25" description="v3.0.2">
 
 **Bug Fixes:**

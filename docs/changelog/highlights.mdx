@@ -4,6 +4,19 @@ description: "Major product launches, headline features, and milestones for Mem0
 mode: "wide"
 ---
 
+<Update label="2026-05-08" description="Memory Decay">
+
+**Memory Decay — Recently-Used Memories Surface Higher, Automatically**
+
+Per-project search-time ranking bias that boosts recently-touched memories and gently dampens stale ones. Off by default; opt in per project via the `decay` field on the project endpoint, or via `client.project.update(decay=True)` in the SDKs (Python `v2.0.2` / TypeScript `v3.0.3`).
+
+- **Soft bias, never a filter.** The scaling factor stays in `0.3×–1.5×`. Decay can reorder candidates but never zeros them out — anything that surfaced before decay can still surface after.
+- **Reinforcement loop.** Every memory returned in a search has its access history updated, so frequently-used facts naturally float to the top over time.
+- **Public score still clamped to `[0, 1]`.** Existing API contract preserved; no client-side changes needed.
+- **v3 search only**, fully reversible. See [Memory Decay docs](/platform/features/memory-decay).
+
+</Update>
+
 <Update label="2026-04-14" description="Mem0 SDK v2.0.0 / v3.0.0">
 
 **New Memory Algorithm — State-of-the-Art Accuracy at ~3-4x Lower Cost**
