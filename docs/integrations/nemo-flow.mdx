@@ -3,17 +3,19 @@ title: NeMo Flow
 description: "Use NeMo Flow as a hidden runtime layer for automatic Mem0 recall and capture around instrumented LLM calls."
 ---
 
-This page describes the optional Mem0 + NeMo Flow integration added in this branch.
+Use the optional Mem0 + NeMo Flow integration to add automatic Mem0 recall and capture around LLM calls that run through NeMo Flow.
 
 The integration is an adapter layer: Mem0 owns memory, identity, recall, and writes; NeMo Flow owns the LLM execution interception point and observability lifecycle.
 
-## Current DX
+## Install
 
 Install the optional dependency:
 
 ```bash
 pip install "mem0ai[nemo_flow]"
 ```
+
+The optional NeMo Flow extra installs on Python 3.11+.
 
 Use the integration module as the namespace:
 
@@ -148,24 +150,29 @@ await nemo_flow_runtime.llm.execute("model-name", request, real_llm_call)
 
 or through a framework/provider integration that calls NeMo Flow internally.
 
-That means the current PR gives us the Mem0 + NeMo Flow adapter, but not the full vanilla LangGraph story. For ordinary LangGraph apps, the next useful layer is likely a model wrapper such as:
-
-```python
-model = nemo_flow.wrap_model(ChatOpenAI(...))
-agent = create_react_agent(model, tools=[])
-```
-
-That wrapper is not part of this PR.
+For ordinary LangGraph or LangChain apps, pair this adapter with the NeMo Flow instrumentation layer that routes provider calls into NeMo Flow.
 
 ## Observability
 
-The adapter emits NeMo Flow scopes, not standalone mark events:
+The adapter emits NeMo Flow scopes:
 
 - `mem0.memory` as a custom scope for the active memory identity.
 - `mem0.recall` as a retriever scope around `memory.search(...)`.
 - `mem0.capture` as a custom scope around `memory.add(...)`.
 
-Recall and capture have natural start/end lifecycles, so scopes are a better fit than mark events. Mark events are still useful for future one-off milestones, such as compaction decisions or policy skips.
+The adapter also emits NeMo Flow mark events for one-off milestones:
+
+| Event | Meaning |
+| --- | --- |
+| `mem0.identity.resolved` | Memory identity was resolved for an intercepted LLM call. |
+| `mem0.recall.context_built` | Memories were found and converted into recall context candidates. |
+| `mem0.recall.injected` | Formatted memory context was inserted into the LLM request. |
+| `mem0.recall.skipped` | Recall did not mutate the LLM request. |
+| `mem0.recall.failed` | Recall raised an exception. |
+| `mem0.capture.extracted` | The user/assistant exchange was extracted from the request and response. |
+| `mem0.capture.stored` | The extracted exchange was stored through Mem0. |
+| `mem0.capture.skipped` | Capture did not store an interaction. |
+| `mem0.capture.failed` | Capture raised an exception. |
 
 Scope payloads intentionally avoid raw query text and memory text. They record operational metadata such as query length, `top_k`, result count, injection status, message count, and stored status.
 
@@ -186,6 +193,8 @@ handle = nemo_flow.install(
     metadata=None,
     fail_open=True,
     enable_observability=True,
+    emit_mark_events=True,
+    emit_identity_events=True,
     activate_runtime=True,
 )
 
@@ -220,7 +229,8 @@ The hosted smoke was run against Mem0 Platform and verified:
 3. Inject recalled memory into the LLM request.
 4. Capture the assistant response back into Mem0.
 5. Search for the written marker.
-6. Best-effort delete the temporary test user.
+6. Observe Mem0 scopes and mark events.
+7. Best-effort delete the temporary test user.
 
 ## Current Limitations
 
@@ -229,14 +239,13 @@ The hosted smoke was run against Mem0 Platform and verified:
 - The default memory formatter injects a system message with `Relevant memories:`; production applications may want a custom formatter.
 - The response extractor is best-effort across common OpenAI-style and text-like responses.
 
-## Assessment
+## Why This Shape
 
-This is the right first lane for the integration:
+The integration is intentionally small:
 
 - It keeps NeMo Flow optional via `mem0ai[nemo_flow]`.
 - It keeps the user-facing API in Mem0.
-- It avoids adding premature first-class memory concepts to NeMo Flow core.
 - It uses NeMo Flow execution intercepts for pre-call recall and post-call capture.
-- It uses scopes for observability rather than duplicate mark events.
+- It uses scopes for lifecycles and mark events for milestones.
 
-The main remaining product gap is a wrapper or instrumentation helper that makes vanilla LangGraph/LangChain model calls enter NeMo Flow without requiring patched framework packages.
+The main remaining product gap is an instrumentation helper that makes vanilla LangGraph/LangChain model calls enter NeMo Flow without requiring patched framework packages.

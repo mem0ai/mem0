@@ -35,6 +35,10 @@ def _has_scope_event(events, nemo_flow, name: str, scope_category: str, category
     )
 
 
+def _has_mark_event(events, name: str) -> bool:
+    return any(getattr(event, "name", None) == name and type(event).__name__ == "MarkEvent" for event in events)
+
+
 @pytest.mark.asyncio
 async def test_nemo_flow_platform_storage_smoke():
     if os.getenv("RUN_MEM0_NEMO_FLOW_PLATFORM_SMOKE") != "1":
@@ -106,6 +110,11 @@ async def test_nemo_flow_platform_storage_smoke():
         assert _has_scope_event(events, nemo_flow, "mem0.capture", "end", "custom")
         assert _has_scope_event(events, nemo_flow, "demo-llm", "start", "llm")
         assert _has_scope_event(events, nemo_flow, "demo-llm", "end", "llm")
+        assert _has_mark_event(events, "mem0.identity.resolved")
+        assert _has_mark_event(events, "mem0.recall.context_built")
+        assert _has_mark_event(events, "mem0.recall.injected")
+        assert _has_mark_event(events, "mem0.capture.extracted")
+        assert _has_mark_event(events, "mem0.capture.stored")
     finally:
         nemo_flow.subscribers.deregister(subscriber_name)
         if handle is not None:

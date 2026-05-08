@@ -31,6 +31,7 @@ class FakeScope:
         self.stack = []
         self.pushed = []
         self.popped = []
+        self.events = []
 
     def get_handle(self):
         return self.handle
@@ -57,6 +58,9 @@ class FakeScope:
         elif handle in self.stack:
             self.stack.remove(handle)
         self.handle = self.stack[-1] if self.stack else None
+
+    def event(self, name, *, handle=None, data=None, metadata=None):
+        self.events.append({"name": name, "handle": handle, "data": data, "metadata": metadata})
 
 
 class HostedMemory:
@@ -225,7 +229,14 @@ async def test_context_identity_recalls_and_captures_with_hosted_memory(fake_nem
         {
             "name": "mem0.capture",
             "scope_type": "custom",
-            "input": {"message_count": 2, "infer": True},
+            "input": {
+                "message_count": 2,
+                "roles": ["user", "assistant"],
+                "role_counts": {"user": 1, "assistant": 1},
+                "content_chars": 30,
+                "content_chars_by_role": {"user": 20, "assistant": 10},
+                "infer": True,
+            },
             "metadata": {
                 "integration": "mem0",
                 "filter_keys": ["run_id", "user_id"],
@@ -235,9 +246,67 @@ async def test_context_identity_recalls_and_captures_with_hosted_memory(fake_nem
             },
         },
     ]
+    assert [item["name"] for item in fake_nemo_flow.scope.events] == [
+        "mem0.identity.resolved",
+        "mem0.recall.context_built",
+        "mem0.recall.injected",
+        "mem0.capture.extracted",
+        "mem0.capture.stored",
+    ]
+    assert fake_nemo_flow.scope.events[0]["data"] == {
+        "source": "memory_scope",
+        "has_scope": True,
+        "filter_count": 2,
+    }
+    assert fake_nemo_flow.scope.events[1]["data"] == {"result_count": 1, "memory_chars": 17}
+    assert fake_nemo_flow.scope.events[2]["data"] == {
+        "result_count": 1,
+        "memory_chars": 17,
+        "formatted_context_chars": len("Relevant memories:\n- User prefers tea."),
+        "message_count_before": 2,
+        "message_count_after": 3,
+        "insertion_index": 1,
+        "injected": True,
+    }
+    assert fake_nemo_flow.scope.events[3]["data"] == {
+        "message_count": 2,
+        "roles": ["user", "assistant"],
+        "role_counts": {"user": 1, "assistant": 1},
+        "content_chars": 30,
+        "content_chars_by_role": {"user": 20, "assistant": 10},
+    }
+    assert fake_nemo_flow.scope.events[4]["data"] == {
+        "message_count": 2,
+        "roles": ["user", "assistant"],
+        "role_counts": {"user": 1, "assistant": 1},
+        "content_chars": 30,
+        "content_chars_by_role": {"user": 20, "assistant": 10},
+        "stored": True,
+    }
     assert [{"name": item["name"], "output": item["output"]} for item in fake_nemo_flow.scope.popped] == [
-        {"name": "mem0.recall", "output": {"result_count": 1, "injected": True}},
-        {"name": "mem0.capture", "output": {"message_count": 2, "stored": True}},
+        {
+            "name": "mem0.recall",
+            "output": {
+                "result_count": 1,
+                "memory_chars": 17,
+                "formatted_context_chars": len("Relevant memories:\n- User prefers tea."),
+                "message_count_before": 2,
+                "message_count_after": 3,
+                "insertion_index": 1,
+                "injected": True,
+            },
+        },
+        {
+            "name": "mem0.capture",
+            "output": {
+                "message_count": 2,
+                "roles": ["user", "assistant"],
+                "role_counts": {"user": 1, "assistant": 1},
+                "content_chars": 30,
+                "content_chars_by_role": {"user": 20, "assistant": 10},
+                "stored": True,
+            },
+        },
         {"name": "mem0.memory", "output": None},
     ]
 
@@ -283,6 +352,7 @@ async def test_no_identity_skips_mem0_and_calls_next_with_original_request(fake_
     assert memory.add_calls == []
     assert fake_nemo_flow.scope.pushed == []
     assert fake_nemo_flow.scope.popped == []
+    assert fake_nemo_flow.scope.events == []
 
 
 @pytest.mark.asyncio
@@ -312,6 +382,22 @@ def test_legacy_names_remain_available():
     assert nemo_flow.memory_context is nemo_flow.memory_scope
     assert nemo_flow.mem0_context is nemo_flow.memory_scope
     assert nemo_flow.install_mem0 is nemo_flow.install
+
+
+def test_scope_and_event_registries_are_public():
+    assert nemo_flow.NEMO_FLOW_SCOPE_REGISTRY[nemo_flow.NemoFlowScope.MEMORY].name.value == "mem0.memory"
+    assert nemo_flow.NEMO_FLOW_SCOPE_REGISTRY[nemo_flow.NemoFlowScope.RECALL].scope_type_name == "Retriever"
+    assert nemo_flow.NEMO_FLOW_SCOPE_REGISTRY[nemo_flow.NemoFlowScope.CAPTURE].scope_type_name == "Custom"
+    assert (
+        nemo_flow.NEMO_FLOW_EVENT_REGISTRY[nemo_flow.NemoFlowEvent.IDENTITY_RESOLVED].name.value
+        == "mem0.identity.resolved"
+    )
+    assert nemo_flow.NEMO_FLOW_EVENT_REGISTRY[nemo_flow.NemoFlowEvent.RECALL_INJECTED].name.value == (
+        "mem0.recall.injected"
+    )
+    assert nemo_flow.NEMO_FLOW_EVENT_REGISTRY[nemo_flow.NemoFlowEvent.CAPTURE_STORED].name.value == (
+        "mem0.capture.stored"
+    )
 
 
 def test_thread_id_conflict_is_rejected():

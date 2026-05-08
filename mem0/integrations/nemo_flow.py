@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -80,6 +81,137 @@ InteractionExtractor = Callable[["nemo_flow.LLMRequest", "nemo_flow.Json"], Sequ
 MemoryFormatter = Callable[[Sequence[Mapping[str, Any]]], str]
 
 
+class NemoFlowScope(str, Enum):
+    """Named NeMo Flow scopes emitted by the integration."""
+
+    MEMORY = "mem0.memory"
+    RECALL = "mem0.recall"
+    CAPTURE = "mem0.capture"
+
+
+class NemoFlowEvent(str, Enum):
+    """Named NeMo Flow mark events emitted by the integration."""
+
+    IDENTITY_RESOLVED = "mem0.identity.resolved"
+    RECALL_SKIPPED = "mem0.recall.skipped"
+    RECALL_CONTEXT_BUILT = "mem0.recall.context_built"
+    RECALL_INJECTED = "mem0.recall.injected"
+    RECALL_FAILED = "mem0.recall.failed"
+    CAPTURE_SKIPPED = "mem0.capture.skipped"
+    CAPTURE_EXTRACTED = "mem0.capture.extracted"
+    CAPTURE_STORED = "mem0.capture.stored"
+    CAPTURE_FAILED = "mem0.capture.failed"
+
+
+class NemoFlowIdentitySource(str, Enum):
+    """Where memory identity came from for an intercepted LLM call."""
+
+    IDENTITY_RESOLVER = "identity_resolver"
+    MEMORY_SCOPE = "memory_scope"
+    SCOPE_METADATA = "scope_metadata"
+
+
+class NemoFlowSkipReason(str, Enum):
+    """Known reasons a recall or capture operation was skipped."""
+
+    EMPTY_QUERY = "empty_query"
+    NO_MEMORIES = "no_memories"
+    EMPTY_FORMATTED_CONTEXT = "empty_formatted_context"
+    UNSUPPORTED_REQUEST_CONTENT = "unsupported_request_content"
+    NO_SESSION_ID = "no_session_id"
+    NO_INTERACTION = "no_interaction"
+
+
+@dataclass(frozen=True)
+class NemoFlowScopeDefinition:
+    """Registry entry describing a NeMo Flow scope."""
+
+    name: NemoFlowScope
+    scope_type_name: str
+    description: str
+
+
+@dataclass(frozen=True)
+class NemoFlowEventDefinition:
+    """Registry entry describing a NeMo Flow mark event."""
+
+    name: NemoFlowEvent
+    description: str
+
+
+NEMO_FLOW_SCOPE_REGISTRY: Mapping[NemoFlowScope, NemoFlowScopeDefinition] = {
+    NemoFlowScope.MEMORY: NemoFlowScopeDefinition(
+        NemoFlowScope.MEMORY,
+        "Custom",
+        "Lexical scope carrying Mem0 memory identity.",
+    ),
+    NemoFlowScope.RECALL: NemoFlowScopeDefinition(
+        NemoFlowScope.RECALL,
+        "Retriever",
+        "Recall Mem0 memories before the provider LLM call.",
+    ),
+    NemoFlowScope.CAPTURE: NemoFlowScopeDefinition(
+        NemoFlowScope.CAPTURE,
+        "Custom",
+        "Capture the user/assistant interaction after the provider LLM call.",
+    ),
+}
+
+NEMO_FLOW_EVENT_REGISTRY: Mapping[NemoFlowEvent, NemoFlowEventDefinition] = {
+    NemoFlowEvent.IDENTITY_RESOLVED: NemoFlowEventDefinition(
+        NemoFlowEvent.IDENTITY_RESOLVED,
+        "Memory identity was resolved for an intercepted LLM call.",
+    ),
+    NemoFlowEvent.RECALL_SKIPPED: NemoFlowEventDefinition(
+        NemoFlowEvent.RECALL_SKIPPED,
+        "Recall did not mutate the LLM request.",
+    ),
+    NemoFlowEvent.RECALL_CONTEXT_BUILT: NemoFlowEventDefinition(
+        NemoFlowEvent.RECALL_CONTEXT_BUILT,
+        "Recall found memories and built formatted context candidates.",
+    ),
+    NemoFlowEvent.RECALL_INJECTED: NemoFlowEventDefinition(
+        NemoFlowEvent.RECALL_INJECTED,
+        "Recall injected formatted memory context into the LLM request.",
+    ),
+    NemoFlowEvent.RECALL_FAILED: NemoFlowEventDefinition(
+        NemoFlowEvent.RECALL_FAILED,
+        "Recall raised an exception.",
+    ),
+    NemoFlowEvent.CAPTURE_SKIPPED: NemoFlowEventDefinition(
+        NemoFlowEvent.CAPTURE_SKIPPED,
+        "Capture did not store an interaction.",
+    ),
+    NemoFlowEvent.CAPTURE_EXTRACTED: NemoFlowEventDefinition(
+        NemoFlowEvent.CAPTURE_EXTRACTED,
+        "Capture extracted messages from the LLM request and response.",
+    ),
+    NemoFlowEvent.CAPTURE_STORED: NemoFlowEventDefinition(
+        NemoFlowEvent.CAPTURE_STORED,
+        "Capture completed storage for the extracted interaction.",
+    ),
+    NemoFlowEvent.CAPTURE_FAILED: NemoFlowEventDefinition(
+        NemoFlowEvent.CAPTURE_FAILED,
+        "Capture raised an exception.",
+    ),
+}
+
+
+@dataclass(frozen=True)
+class ResolvedMemoryIdentity:
+    identity: MemoryIdentity
+    source: NemoFlowIdentitySource
+
+
+@dataclass(frozen=True)
+class MemoryInjection:
+    content: Mapping[str, Any]
+    mutated: bool
+    message_count_before: int = 0
+    message_count_after: int = 0
+    insert_at: int | None = None
+
+
 @dataclass(frozen=True)
 class NemoFlowMem0Config:
     """Configuration for the Mem0 NeMo Flow execution intercept."""
@@ -94,6 +226,8 @@ class NemoFlowMem0Config:
     metadata: Mapping[str, Any] | None = None
     fail_open: bool = True
     enable_observability: bool = True
+    emit_mark_events: bool = True
+    emit_identity_events: bool = True
     run_sync_in_thread: bool = False
     identity_resolver: IdentityResolver | None = None
     query_extractor: QueryExtractor | None = None
@@ -184,6 +318,8 @@ def install(
     metadata: Mapping[str, Any] | None = None,
     fail_open: bool = True,
     enable_observability: bool = True,
+    emit_mark_events: bool = True,
+    emit_identity_events: bool = True,
     activate_runtime: bool = True,
     run_sync_in_thread: bool = False,
     identity_resolver: IdentityResolver | None = None,
@@ -198,7 +334,8 @@ def install(
     with `mem0ai[nemo_flow]`. NeMo Flow is imported only when this function is
     called so the integration remains optional for regular Mem0 users. When
     observability is enabled, the adapter records nested NeMo Flow scopes for
-    recall and capture instead of standalone mark events.
+    recall and capture and emits NeMo Flow mark events for recall/capture
+    milestones.
     """
 
     nemo_flow = _load_nemo_flow()
@@ -215,6 +352,8 @@ def install(
         metadata=metadata,
         fail_open=fail_open,
         enable_observability=enable_observability,
+        emit_mark_events=emit_mark_events,
+        emit_identity_events=emit_identity_events,
         run_sync_in_thread=run_sync_in_thread,
         identity_resolver=identity_resolver,
         query_extractor=query_extractor,
@@ -241,9 +380,12 @@ class _Mem0NemoFlowIntercept:
         request: "nemo_flow.LLMRequest",
         next_call: Callable[["nemo_flow.LLMRequest"], Any],
     ) -> "nemo_flow.Json":
-        identity = self._resolve_identity(llm_name, request)
-        if identity is None or not identity.has_scope():
+        resolved = self._resolve_identity(llm_name, request)
+        if resolved is None or not resolved.identity.has_scope():
             return await next_call(request)
+
+        identity = resolved.identity
+        self._emit_identity_resolved(identity, resolved.source)
 
         request_for_call = request
         if self.config.auto_recall:
@@ -266,25 +408,34 @@ class _Mem0NemoFlowIntercept:
 
         return response
 
-    def _resolve_identity(self, llm_name: str, request: "nemo_flow.LLMRequest") -> MemoryIdentity | None:
+    def _resolve_identity(self, llm_name: str, request: "nemo_flow.LLMRequest") -> ResolvedMemoryIdentity | None:
         scope_metadata = _current_scope_metadata(self._nemo_flow)
         context = NemoFlowTurnContext(llm_name=llm_name, request=request, scope_metadata=scope_metadata)
 
         if self.config.identity_resolver is not None:
             identity = _coerce_identity(self.config.identity_resolver(context))
             if identity is not None:
-                return identity
+                return ResolvedMemoryIdentity(identity, NemoFlowIdentitySource.IDENTITY_RESOLVER)
 
         context_identity = _memory_identity.get()
         if context_identity is not None and context_identity.has_scope():
-            return context_identity
+            return ResolvedMemoryIdentity(context_identity, NemoFlowIdentitySource.MEMORY_SCOPE)
 
-        return _identity_from_metadata(scope_metadata)
+        metadata_identity = _identity_from_metadata(scope_metadata)
+        if metadata_identity is not None:
+            return ResolvedMemoryIdentity(metadata_identity, NemoFlowIdentitySource.SCOPE_METADATA)
+
+        return None
 
     async def _recall(self, request: "nemo_flow.LLMRequest", identity: MemoryIdentity) -> "nemo_flow.LLMRequest":
         query_extractor = self.config.query_extractor or _default_query_extractor
         query = query_extractor(request)
         if not query:
+            self._emit_event(
+                NemoFlowEvent.RECALL_SKIPPED,
+                data={"reason": NemoFlowSkipReason.EMPTY_QUERY.value},
+                metadata=_identity_observability_metadata(identity),
+            )
             return request
 
         search_kwargs: dict[str, Any] = {
@@ -295,8 +446,7 @@ class _Mem0NemoFlowIntercept:
             search_kwargs["threshold"] = self.config.threshold
 
         scope_handle = self._start_scope(
-            "mem0.recall",
-            "Retriever",
+            NemoFlowScope.RECALL,
             input={
                 "query_length": len(query),
                 "top_k": self.config.top_k,
@@ -310,21 +460,70 @@ class _Mem0NemoFlowIntercept:
             result = await self._invoke(self.memory.search, query, **search_kwargs)
             memories = _extract_memory_results(result)
             if not memories:
+                self._emit_event(
+                    NemoFlowEvent.RECALL_SKIPPED,
+                    handle=scope_handle,
+                    data={"reason": NemoFlowSkipReason.NO_MEMORIES.value, "result_count": 0},
+                    metadata=_identity_observability_metadata(identity),
+                )
                 return request
 
+            context_event_data = _recall_context_event_data(memories)
+            self._emit_event(
+                NemoFlowEvent.RECALL_CONTEXT_BUILT,
+                handle=scope_handle,
+                data=context_event_data,
+                metadata=_identity_observability_metadata(identity),
+            )
             formatter = self.config.memory_formatter or _default_memory_formatter
             memory_text = formatter(memories)
-            scope_output = {"result_count": len(memories), "injected": False}
+            scope_output = {
+                **context_event_data,
+                "formatted_context_chars": len(memory_text),
+                "injected": False,
+            }
             if not memory_text:
+                self._emit_event(
+                    NemoFlowEvent.RECALL_SKIPPED,
+                    handle=scope_handle,
+                    data={"reason": NemoFlowSkipReason.EMPTY_FORMATTED_CONTEXT.value},
+                    metadata=_identity_observability_metadata(identity),
+                )
                 return request
 
-            content = _content_with_memory(request.content, memory_text)
-            if content is request.content:
+            injection = _content_with_memory(request.content, memory_text)
+            if not injection.mutated:
+                self._emit_event(
+                    NemoFlowEvent.RECALL_SKIPPED,
+                    handle=scope_handle,
+                    data={"reason": NemoFlowSkipReason.UNSUPPORTED_REQUEST_CONTENT.value},
+                    metadata=_identity_observability_metadata(identity),
+                )
                 return request
-            scope_output = {"result_count": len(memories), "injected": True}
-            return self._nemo_flow.LLMRequest(request.headers, content)
+
+            scope_output = {
+                **context_event_data,
+                "formatted_context_chars": len(memory_text),
+                "message_count_before": injection.message_count_before,
+                "message_count_after": injection.message_count_after,
+                "insertion_index": injection.insert_at,
+                "injected": True,
+            }
+            self._emit_event(
+                NemoFlowEvent.RECALL_INJECTED,
+                handle=scope_handle,
+                data=scope_output,
+                metadata=_identity_observability_metadata(identity),
+            )
+            return self._nemo_flow.LLMRequest(request.headers, injection.content)
         except Exception as exc:
             scope_output = {"error_type": type(exc).__name__}
+            self._emit_event(
+                NemoFlowEvent.RECALL_FAILED,
+                handle=scope_handle,
+                data={"error_type": type(exc).__name__},
+                metadata=_identity_observability_metadata(identity),
+            )
             raise
         finally:
             self._end_scope(scope_handle, output=scope_output)
@@ -335,11 +534,6 @@ class _Mem0NemoFlowIntercept:
         response: "nemo_flow.Json",
         identity: MemoryIdentity,
     ) -> None:
-        interaction_extractor = self.config.interaction_extractor or _default_interaction_extractor
-        messages = interaction_extractor(request, response)
-        if not messages:
-            return
-
         add_kwargs: dict[str, Any] = {
             "metadata": _capture_metadata(identity, self.config.metadata),
             "infer": self.config.infer,
@@ -347,21 +541,54 @@ class _Mem0NemoFlowIntercept:
         local_kwargs = identity.local_kwargs()
         if not local_kwargs:
             logger.debug("Skipping Mem0 capture because Memory.add needs user_id, agent_id, or run_id")
+            self._emit_event(
+                NemoFlowEvent.CAPTURE_SKIPPED,
+                data={"reason": NemoFlowSkipReason.NO_SESSION_ID.value},
+                metadata=_identity_observability_metadata(identity),
+            )
             return
         add_kwargs.update(local_kwargs)
 
+        interaction_extractor = self.config.interaction_extractor or _default_interaction_extractor
+        messages = interaction_extractor(request, response)
+        if not messages:
+            self._emit_event(
+                NemoFlowEvent.CAPTURE_SKIPPED,
+                data={"reason": NemoFlowSkipReason.NO_INTERACTION.value},
+                metadata=_identity_observability_metadata(identity),
+            )
+            return
+
+        extracted_event_data = _interaction_event_data(messages)
         scope_handle = self._start_scope(
-            "mem0.capture",
-            "Custom",
-            input={"message_count": len(messages), "infer": self.config.infer},
+            NemoFlowScope.CAPTURE,
+            input={**extracted_event_data, "infer": self.config.infer},
             metadata=_identity_observability_metadata(identity),
         )
-        scope_output: dict[str, Any] = {"message_count": len(messages), "stored": False}
+        self._emit_event(
+            NemoFlowEvent.CAPTURE_EXTRACTED,
+            handle=scope_handle,
+            data=extracted_event_data,
+            metadata=_identity_observability_metadata(identity),
+        )
+        scope_output: dict[str, Any] = {**extracted_event_data, "stored": False}
         try:
             await self._invoke(self.memory.add, list(messages), **add_kwargs)
-            scope_output = {"message_count": len(messages), "stored": True}
+            scope_output = {**extracted_event_data, "stored": True}
+            self._emit_event(
+                NemoFlowEvent.CAPTURE_STORED,
+                handle=scope_handle,
+                data=scope_output,
+                metadata=_identity_observability_metadata(identity),
+            )
         except Exception as exc:
-            scope_output = {"message_count": len(messages), "stored": False, "error_type": type(exc).__name__}
+            scope_output = {**extracted_event_data, "stored": False, "error_type": type(exc).__name__}
+            self._emit_event(
+                NemoFlowEvent.CAPTURE_FAILED,
+                handle=scope_handle,
+                data=scope_output,
+                metadata=_identity_observability_metadata(identity),
+            )
             raise
         finally:
             self._end_scope(scope_handle, output=scope_output)
@@ -378,8 +605,7 @@ class _Mem0NemoFlowIntercept:
 
     def _start_scope(
         self,
-        name: str,
-        scope_type_name: str,
+        scope: NemoFlowScope,
         *,
         input: Mapping[str, Any] | None = None,
         metadata: Mapping[str, Any] | None = None,
@@ -388,9 +614,10 @@ class _Mem0NemoFlowIntercept:
             return None
 
         try:
-            scope_type = getattr(self._nemo_flow.ScopeType, scope_type_name)
+            definition = NEMO_FLOW_SCOPE_REGISTRY[scope]
+            scope_type = getattr(self._nemo_flow.ScopeType, definition.scope_type_name)
             return self._nemo_flow.scope.push(
-                name,
+                definition.name.value,
                 scope_type,
                 input=dict(input or {}),
                 metadata={"integration": "mem0", **dict(metadata or {})},
@@ -407,6 +634,42 @@ class _Mem0NemoFlowIntercept:
             self._nemo_flow.scope.pop(handle, output=dict(output or {}))
         except Exception:
             logger.debug("Failed to end NeMo Flow Mem0 scope", exc_info=True)
+
+    def _emit_identity_resolved(self, identity: MemoryIdentity, source: NemoFlowIdentitySource) -> None:
+        if not self.config.emit_identity_events:
+            return
+
+        self._emit_event(
+            NemoFlowEvent.IDENTITY_RESOLVED,
+            data={
+                "source": source.value,
+                "has_scope": identity.has_scope(),
+                "filter_count": len(identity.search_filters()),
+            },
+            metadata=_identity_observability_metadata(identity),
+        )
+
+    def _emit_event(
+        self,
+        event: NemoFlowEvent,
+        *,
+        handle: Any | None = None,
+        data: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> None:
+        if not self.config.enable_observability or not self.config.emit_mark_events:
+            return
+
+        try:
+            definition = NEMO_FLOW_EVENT_REGISTRY[event]
+            self._nemo_flow.scope.event(
+                definition.name.value,
+                handle=handle,
+                data=dict(data or {}),
+                metadata={"integration": "mem0", **dict(metadata or {})},
+            )
+        except Exception:
+            logger.debug("Failed to emit NeMo Flow Mem0 mark event", exc_info=True)
 
 
 def _load_nemo_flow() -> Any:
@@ -444,9 +707,10 @@ def _activate_runtime(nemo_flow_module: Any) -> None:
 def _push_memory_context_scope(nemo_flow_module: Any, identity: MemoryIdentity) -> Any | None:
     _activate_runtime(nemo_flow_module)
     try:
+        definition = NEMO_FLOW_SCOPE_REGISTRY[NemoFlowScope.MEMORY]
         return nemo_flow_module.scope.push(
-            "mem0.memory",
-            nemo_flow_module.ScopeType.Custom,
+            definition.name.value,
+            getattr(nemo_flow_module.ScopeType, definition.scope_type_name),
             metadata={"integration": "mem0", "mem0": _identity_scope_metadata(identity)},
         )
     except Exception:
@@ -532,6 +796,39 @@ def _identity_observability_metadata(identity: MemoryIdentity) -> dict[str, Any]
         "has_user_id": identity.user_id is not None,
         "has_agent_id": identity.agent_id is not None,
         "has_run_id": identity.run_id is not None,
+    }
+
+
+def _recall_context_event_data(memories: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    memory_chars = 0
+    for memory in memories:
+        text = _text_from_content(memory.get("memory") or memory.get("text") or memory.get("content"))
+        if text:
+            memory_chars += len(text)
+    return {"result_count": len(memories), "memory_chars": memory_chars}
+
+
+def _interaction_event_data(messages: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    roles: list[str] = []
+    role_counts: dict[str, int] = {}
+    content_chars_by_role: dict[str, int] = {}
+    content_chars = 0
+
+    for message in messages:
+        role = str(message.get("role", "unknown"))
+        text = _text_from_content(message.get("content")) or ""
+        text_length = len(text)
+        roles.append(role)
+        role_counts[role] = role_counts.get(role, 0) + 1
+        content_chars_by_role[role] = content_chars_by_role.get(role, 0) + text_length
+        content_chars += text_length
+
+    return {
+        "message_count": len(messages),
+        "roles": roles,
+        "role_counts": role_counts,
+        "content_chars": content_chars,
+        "content_chars_by_role": content_chars_by_role,
     }
 
 
@@ -629,10 +926,13 @@ def _default_memory_formatter(memories: Sequence[Mapping[str, Any]]) -> str:
     return "Relevant memories:\n" + "\n".join(lines)
 
 
-def _content_with_memory(content: Mapping[str, Any], memory_text: str) -> Mapping[str, Any]:
+def _content_with_memory(content: Any, memory_text: str) -> MemoryInjection:
+    if not isinstance(content, Mapping):
+        return MemoryInjection(content={}, mutated=False)
+
     messages = content.get("messages")
     if not isinstance(messages, Sequence) or isinstance(messages, (str, bytes)):
-        return content
+        return MemoryInjection(content=dict(content), mutated=False)
 
     new_content = copy.deepcopy(dict(content))
     new_messages = list(copy.deepcopy(messages))
@@ -645,7 +945,13 @@ def _content_with_memory(content: Mapping[str, Any], memory_text: str) -> Mappin
 
     new_messages.insert(insert_at, {"role": "system", "content": memory_text})
     new_content["messages"] = new_messages
-    return new_content
+    return MemoryInjection(
+        content=new_content,
+        mutated=True,
+        message_count_before=len(messages),
+        message_count_after=len(new_messages),
+        insert_at=insert_at,
+    )
 
 
 def _text_from_content(content: Any) -> str | None:
@@ -673,9 +979,17 @@ def _string_or_none(value: Any) -> str | None:
 
 
 __all__ = [
+    "NEMO_FLOW_EVENT_REGISTRY",
+    "NEMO_FLOW_SCOPE_REGISTRY",
     "MemoryIdentity",
+    "NemoFlowEvent",
+    "NemoFlowEventDefinition",
+    "NemoFlowIdentitySource",
     "NemoFlowMem0Config",
     "NemoFlowMem0Handle",
+    "NemoFlowScope",
+    "NemoFlowScopeDefinition",
+    "NemoFlowSkipReason",
     "NemoFlowTurnContext",
     "activate_runtime",
     "install",

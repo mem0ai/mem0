@@ -26,6 +26,10 @@ def _has_scope_event(events, name: str, scope_category: str, category: str | Non
     )
 
 
+def _has_mark_event(events, name: str) -> bool:
+    return any(getattr(event, "name", None) == name and type(event).__name__ == "MarkEvent" for event in events)
+
+
 @pytest.mark.asyncio
 async def test_nemo_flow_memory_example_smoke():
     module = _load_example_module()
@@ -67,3 +71,8 @@ async def test_nemo_flow_memory_example_smoke():
     assert _has_scope_event(events, "mem0.capture", "end", "custom")
     assert _has_scope_event(events, "demo-llm", "start", "llm")
     assert _has_scope_event(events, "demo-llm", "end", "llm")
+    assert _has_mark_event(events, "mem0.identity.resolved")
+    assert _has_mark_event(events, "mem0.recall.context_built")
+    assert _has_mark_event(events, "mem0.recall.injected")
+    assert _has_mark_event(events, "mem0.capture.extracted")
+    assert _has_mark_event(events, "mem0.capture.stored")
