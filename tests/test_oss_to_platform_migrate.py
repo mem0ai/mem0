@@ -8,6 +8,7 @@ from hashlib import sha256
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "oss-to-platform-migrate.sh"
@@ -23,6 +24,7 @@ class MigrationHTTPServer:
         qdrant_api_key: str = "qdrant-key",
         qdrant_collection: str = "mem0",
         qdrant_pages: list[dict[str, Any]] | None = None,
+        platform_memories: list[dict[str, Any]] | None = None,
     ) -> None:
         self.ping_emails = ping_emails or {}
         self.verify_api_key = verify_api_key
@@ -30,6 +32,7 @@ class MigrationHTTPServer:
         self.qdrant_api_key = qdrant_api_key
         self.qdrant_collection = qdrant_collection
         self.qdrant_pages = qdrant_pages or [{"points": [], "next_page_offset": None}]
+        self.platform_memories = platform_memories or []
         self.requests: list[dict[str, Any]] = []
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
         self.url = f"http://127.0.0.1:{self._server.server_port}"
@@ -98,6 +101,7 @@ class MigrationHTTPServer:
             def do_POST(self) -> None:
                 body = self._read_json()
                 self._record(body)
+                parsed = urlparse(self.path)
                 if self.path == "/posthog":
                     self._send_json(200, {"ok": True})
                     return
@@ -125,6 +129,55 @@ class MigrationHTTPServer:
                                 "next_page_offset": page.get("next_page_offset"),
                             },
                             "status": "ok",
+                        },
+                    )
+                    return
+                if parsed.path == "/v3/memories/":
+                    query = parse_qs(parsed.query)
+                    page = int(query.get("page", ["1"])[0])
+                    page_size = int(query.get("page_size", ["100"])[0])
+                    filters = body.get("filters") if isinstance(body.get("filters"), dict) else {}
+                    filtered = owner.platform_memories
+                    for key in ("user_id", "agent_id", "run_id"):
+                        if key in filters:
+                            filtered = [memory for memory in filtered if memory.get(key) == filters[key]]
+                    start = (page - 1) * page_size
+                    end = start + page_size
+                    page_results = filtered[start:end]
+                    next_url = (
+                        f"{owner.url}/v3/memories/?page={page + 1}&page_size={page_size}"
+                        if end < len(filtered)
+                        else None
+                    )
+                    self._send_json(
+                        200,
+                        {
+                            "count": len(filtered),
+                            "next": next_url,
+                            "previous": None,
+                            "results": page_results,
+                        },
+                    )
+                    return
+                if parsed.path == "/v3/memories/add/":
+                    memory_id = f"platform-{len(owner.platform_memories) + 1}"
+                    message = (body.get("messages") or [{}])[0]
+                    memory = {
+                        "id": memory_id,
+                        "memory": message.get("content"),
+                        "metadata": body.get("metadata"),
+                        "user_id": body.get("user_id"),
+                        "agent_id": body.get("agent_id"),
+                        "run_id": body.get("run_id"),
+                    }
+                    owner.platform_memories.append(memory)
+                    self._send_json(
+                        200,
+                        {
+                            "message": "Memories stored successfully",
+                            "status": "SUCCEEDED",
+                            "event_id": "event-1",
+                            "results": [{"id": memory_id, "data": {"memory": message.get("content")}, "event": "ADD"}],
                         },
                     )
                     return
@@ -210,6 +263,96 @@ def run_export_script(
             "bash",
             str(SCRIPT),
             "--export-only",
+            "--qdrant-url",
+            server.url,
+            "--qdrant-collection",
+            server.qdrant_collection,
+            "--output",
+            str(output_path),
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        start_new_session=True,
+        timeout=20,
+        check=False,
+    )
+    return result, mem0_dir, output_path
+
+
+def run_import_script(
+    tmp_path: Path,
+    server: MigrationHTTPServer,
+    input_path: Path,
+    *args: str,
+    config: dict[str, Any] | None = None,
+    api_key: str = "import-key",
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    mem0_dir = tmp_path / "mem0"
+    if config is not None:
+        write_config(mem0_dir, config)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "MEM0_DIR": str(mem0_dir),
+            "MEM0_MIGRATE_TELEMETRY_URL": f"{server.url}/posthog",
+            "MEM0_API_KEY": api_key,
+        }
+    )
+    env.pop("MEM0_BASE_URL", None)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(SCRIPT),
+            "--import-only",
+            "--base-url",
+            server.url,
+            "--input",
+            str(input_path),
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        start_new_session=True,
+        timeout=20,
+        check=False,
+    )
+    return result, mem0_dir
+
+
+def run_full_script(
+    tmp_path: Path,
+    server: MigrationHTTPServer,
+    *args: str,
+    config: dict[str, Any] | None = None,
+    qdrant_api_key: str = "qdrant-key",
+) -> tuple[subprocess.CompletedProcess[str], Path, Path]:
+    mem0_dir = tmp_path / "mem0"
+    output_path = tmp_path / "full-export.json"
+    if config is not None:
+        write_config(mem0_dir, config)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "MEM0_DIR": str(mem0_dir),
+            "MEM0_MIGRATE_TELEMETRY_URL": f"{server.url}/posthog",
+            "QDRANT_API_KEY": qdrant_api_key,
+        }
+    )
+    env.pop("MEM0_API_KEY", None)
+    env.pop("MEM0_BASE_URL", None)
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(SCRIPT),
+            "--base-url",
+            server.url,
             "--qdrant-url",
             server.url,
             "--qdrant-collection",
@@ -542,3 +685,154 @@ def test_export_invalid_qdrant_credentials_fail_clearly(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "Qdrant authentication failed" in result.stderr
     assert not output_path.exists()
+
+
+def test_import_platform_memories_from_export_json(tmp_path: Path) -> None:
+    input_path = tmp_path / "import.json"
+    input_path.write_text(
+        json.dumps(
+            {
+                "source": {"sdk": "python", "vector_store": "qdrant", "collection": "mem0_test"},
+                "records": [
+                    {
+                        "id": "local-1",
+                        "memory": "User likes barbecue",
+                        "hash": "hash-1",
+                        "created_at": "2026-05-07T00:00:00Z",
+                        "user_id": "alice",
+                        "metadata": {"topic": "food"},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with MigrationHTTPServer(ping_emails={"import-key": "alice@example.com"}) as server:
+        result, _mem0_dir = run_import_script(tmp_path, server, input_path)
+
+    assert result.returncode == 0, result.stderr
+    assert "Imported: 1" in result.stdout
+    assert "Failed: 0" in result.stdout
+
+    add_request = next(request for request in server.requests if request["path"] == "/v3/memories/add/")
+    body = add_request["body"]
+    assert body["messages"] == [{"role": "user", "content": "User likes barbecue"}]
+    assert body["user_id"] == "alice"
+    assert body["infer"] is False
+    assert body["source"] == "migration"
+    assert body["timestamp"] == 1778112000
+    assert body["metadata"]["topic"] == "food"
+    assert body["metadata"]["mem0_migration_source"] == "python_oss_qdrant"
+    assert body["metadata"]["mem0_migration_collection"] == "mem0_test"
+    assert body["metadata"]["mem0_migration_local_id"] == "local-1"
+    assert body["metadata"]["mem0_migration_local_hash"] == "hash-1"
+
+    events = posthog_events(server)
+    assert "oss.migrate.completed" in [event["event"] for event in events]
+
+
+def test_import_skips_existing_identical_memory(tmp_path: Path) -> None:
+    input_path = tmp_path / "import.json"
+    source = {"sdk": "python", "vector_store": "qdrant", "collection": "mem0_test"}
+    record = {"id": "local-1", "memory": "User likes barbecue", "hash": "hash-1", "user_id": "alice"}
+    input_path.write_text(json.dumps({"source": source, "records": [record]}), encoding="utf-8")
+    import_key = sha256("python:qdrant:mem0_test:local-1".encode("utf-8")).hexdigest()
+
+    existing = [
+        {
+            "id": "platform-1",
+            "memory": "User likes barbecue",
+            "user_id": "alice",
+            "metadata": {
+                "mem0_migration_import_key": import_key,
+                "mem0_migration_local_hash": "hash-1",
+            },
+        }
+    ]
+
+    with MigrationHTTPServer(ping_emails={"import-key": "alice@example.com"}, platform_memories=existing) as server:
+        result, _mem0_dir = run_import_script(tmp_path, server, input_path)
+
+    assert result.returncode == 0, result.stderr
+    assert "Imported: 0" in result.stdout
+    assert "Skipped existing identical: 1" in result.stdout
+    assert "Changed existing: 0" in result.stdout
+    assert not any(request["path"] == "/v3/memories/add/" for request in server.requests)
+
+
+def test_import_reports_changed_existing_without_update_or_add(tmp_path: Path) -> None:
+    input_path = tmp_path / "import.json"
+    source = {"sdk": "python", "vector_store": "qdrant", "collection": "mem0_test"}
+    record = {"id": "local-1", "memory": "User likes brisket", "hash": "hash-new", "user_id": "alice"}
+    input_path.write_text(json.dumps({"source": source, "records": [record]}), encoding="utf-8")
+    import_key = sha256("python:qdrant:mem0_test:local-1".encode("utf-8")).hexdigest()
+
+    existing = [
+        {
+            "id": "platform-1",
+            "memory": "User likes barbecue",
+            "user_id": "alice",
+            "metadata": {
+                "mem0_migration_import_key": import_key,
+                "mem0_migration_local_hash": "hash-old",
+            },
+        }
+    ]
+
+    with MigrationHTTPServer(ping_emails={"import-key": "alice@example.com"}, platform_memories=existing) as server:
+        result, _mem0_dir = run_import_script(tmp_path, server, input_path)
+
+    assert result.returncode == 0, result.stderr
+    assert "Imported: 0" in result.stdout
+    assert "Skipped existing identical: 0" in result.stdout
+    assert "Changed existing: 1" in result.stdout
+    assert not any(request["path"] == "/v3/memories/add/" for request in server.requests)
+    review_path_line = next(line for line in result.stdout.splitlines() if line.startswith("Review file: "))
+    review_path = Path(review_path_line.removeprefix("Review file: "))
+    review = json.loads(review_path.read_text(encoding="utf-8"))
+    assert review["records"][0]["status"] == "changed_existing"
+    assert review["records"][0]["platform_memory_id"] == "platform-1"
+
+
+def test_full_flow_auth_export_and_imports_memories(tmp_path: Path) -> None:
+    qdrant_pages = [
+        {
+            "points": [
+                {
+                    "id": "point-1",
+                    "payload": {
+                        "data": "User likes barbecue",
+                        "hash": "hash-1",
+                        "created_at": "2026-05-07T00:00:00Z",
+                        "user_id": "alice",
+                    },
+                }
+            ],
+            "next_page_offset": None,
+        }
+    ]
+
+    with MigrationHTTPServer(ping_emails={"verified-key": "alice@example.com"}, qdrant_pages=qdrant_pages) as server:
+        result, _mem0_dir, output_path = run_full_script(
+            tmp_path,
+            server,
+            "--email",
+            "alice@example.com",
+            "--code",
+            "123456",
+            "--user-id",
+            "alice",
+        )
+
+    assert result.returncode == 0, result.stderr
+    assert "Phase 1/3: Authenticate with Mem0 Platform" in result.stdout
+    assert "Phase 2/3: Export Python OSS memories from hosted Qdrant" in result.stdout
+    assert "Phase 3/3: Import memories into Mem0 Platform" in result.stdout
+    assert "Imported: 1" in result.stdout
+    assert output_path.exists()
+    assert any(request["path"] == "/v3/memories/add/" for request in server.requests)
+    events = posthog_events(server)
+    event_names = [event["event"] for event in events]
+    assert "oss.migrate.authenticated" in event_names
+    assert "oss.migrate.completed" in event_names

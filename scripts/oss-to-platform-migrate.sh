@@ -10,6 +10,7 @@ exec python3 - "$@" <<'PY'
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import getpass
 import json
 import os
@@ -33,6 +34,7 @@ SCRIPT_VERSION = "oss-to-platform-migrate-v1"
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 DEFAULT_QDRANT_COLLECTION = "mem0"
 DEFAULT_EXPORT_PAGE_SIZE = 100
+DEFAULT_PLATFORM_PAGE_SIZE = 100
 
 
 class MigrationError(Exception):
@@ -247,7 +249,7 @@ def base_event_properties(anon_ids: Dict[str, Any], email: Optional[str] = None)
     properties: Dict[str, Any] = {
         "client_source": "python",
         "client_version": SCRIPT_VERSION,
-        "migration_phase": "auth_export",
+        "migration_phase": "migration",
         "local_anonymous_id": primary_anon_id(anon_ids),
         "oss_anonymous_id": anon_ids.get("oss"),
         "cli_anonymous_id": anon_ids.get("cli"),
@@ -316,6 +318,15 @@ def stitch_identities(config_path_value: Path, config: Dict[str, Any], anon_ids:
 
 def auth_headers(language: str = "python") -> Dict[str, str]:
     return {
+        "X-Mem0-Source": "migration",
+        "X-Mem0-Client-Language": language,
+        "X-Mem0-Client-Version": SCRIPT_VERSION,
+    }
+
+
+def platform_headers(api_key: str, language: str = "python") -> Dict[str, str]:
+    return {
+        "Authorization": f"Token {api_key}",
         "X-Mem0-Source": "migration",
         "X-Mem0-Client-Language": language,
         "X-Mem0-Client-Version": SCRIPT_VERSION,
@@ -524,7 +535,18 @@ def strip_env_assignment(value: str, name: str) -> str:
 
 
 def qdrant_url(args: argparse.Namespace) -> str:
-    value = args.qdrant_url or os.environ.get("QDRANT_URL")
+    value = args.qdrant_url
+    env_value = os.environ.get("QDRANT_URL")
+    if not value and env_value:
+        if has_interactive_terminal():
+            normalized_env_value = strip_env_assignment(env_value.strip(), "QDRANT_URL")
+            print_info("")
+            print_info("Found QDRANT_URL in your environment:")
+            print_info(normalized_env_value)
+            if prompt_yes_no("Use this Qdrant URL?", default=True):
+                value = env_value
+        else:
+            value = env_value
     if not value:
         if not has_interactive_terminal():
             raise MigrationError("Hosted Qdrant export requires --qdrant-url or QDRANT_URL.")
@@ -539,7 +561,16 @@ def qdrant_url(args: argparse.Namespace) -> str:
 
 
 def qdrant_api_key(args: argparse.Namespace) -> str:
-    value = args.qdrant_api_key or os.environ.get("QDRANT_API_KEY")
+    value = args.qdrant_api_key
+    env_value = os.environ.get("QDRANT_API_KEY")
+    if not value and env_value:
+        if has_interactive_terminal():
+            print_info("")
+            print_info("Found QDRANT_API_KEY in your environment.")
+            if prompt_yes_no("Use this Qdrant API key?", default=True):
+                value = env_value
+        else:
+            value = env_value
     if not value:
         if not has_interactive_terminal():
             raise MigrationError("Hosted Qdrant export requires --qdrant-api-key or QDRANT_API_KEY.")
@@ -610,11 +641,9 @@ def qdrant_filter(args: argparse.Namespace) -> Optional[Dict[str, Any]]:
         if user_id:
             args.user_id = user_id
             filters.append({"key": "user_id", "match": {"value": user_id}})
-        elif prompt_yes_no("Export the full Qdrant collection?", default=False):
+        else:
             args.all = True
             return None
-        else:
-            raise MigrationError("Export requires --user-id, --agent-id, --run-id, or --all.")
 
     return {"must": filters}
 
@@ -749,6 +778,264 @@ def export_qdrant_memories(args: argparse.Namespace, anon_ids: Dict[str, Any]) -
     return output_path, len(records)
 
 
+def platform_request_json(
+    method: str,
+    url: str,
+    *,
+    api_key: str,
+    payload: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    try:
+        return request_json(method, url, payload=payload, headers=platform_headers(api_key), timeout=30.0)
+    except HTTPStatusError as exc:
+        if exc.status_code in (401, 403):
+            raise AuthError("Platform authentication failed. Check your MEM0_API_KEY or rerun email login.") from exc
+        raise MigrationError(f"Platform request failed: {exc.detail}") from exc
+
+
+def import_input_path(args: argparse.Namespace) -> Path:
+    if not args.input:
+        raise MigrationError("--input is required for --import-only.")
+    return Path(args.input).expanduser()
+
+
+def read_import_records(input_path: Path) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    try:
+        parsed = json.loads(input_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise MigrationError(f"Import file not found: {input_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise MigrationError(f"Import file is not valid JSON: {input_path}") from exc
+
+    if isinstance(parsed, list):
+        records = parsed
+        artifact: Dict[str, Any] = {}
+    elif isinstance(parsed, dict):
+        artifact = parsed
+        raw_records = parsed.get("records")
+        if not isinstance(raw_records, list):
+            raise MigrationError("Import artifact must contain a records array.")
+        records = raw_records
+    else:
+        raise MigrationError("Import file must be a JSON object or array.")
+
+    return artifact, [record for record in records if isinstance(record, dict)]
+
+
+def migration_import_key(source: Dict[str, Any], record: Dict[str, Any]) -> str:
+    raw = ":".join(
+        [
+            str(source.get("sdk") or "unknown"),
+            str(source.get("vector_store") or "unknown"),
+            str(source.get("collection") or "unknown"),
+            str(record.get("id") or ""),
+        ]
+    )
+    return sha256(raw.encode("utf-8")).hexdigest()
+
+
+def parse_timestamp(value: Any) -> Optional[int]:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp())
+    except ValueError:
+        return None
+
+
+def build_import_metadata(source: Dict[str, Any], record: Dict[str, Any]) -> Dict[str, Any]:
+    existing_metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+    metadata = dict(existing_metadata)
+    metadata.update(
+        {
+            "mem0_migration_source": record.get("source") or "python_oss_qdrant",
+            "mem0_migration_collection": source.get("collection"),
+            "mem0_migration_local_id": record.get("id"),
+            "mem0_migration_local_hash": record.get("hash"),
+            "mem0_migration_import_key": migration_import_key(source, record),
+        }
+    )
+    return {key: value for key, value in metadata.items() if value is not None}
+
+
+def build_import_payload(source: Dict[str, Any], record: Dict[str, Any]) -> Dict[str, Any]:
+    memory = record.get("memory")
+    if not isinstance(memory, str) or not memory.strip():
+        raise MigrationError("record is missing memory text")
+
+    payload: Dict[str, Any] = {
+        "messages": [{"role": "user", "content": memory}],
+        "metadata": build_import_metadata(source, record),
+        "infer": False,
+        "source": "migration",
+    }
+
+    for key in ("user_id", "agent_id", "run_id"):
+        value = record.get(key)
+        if value:
+            payload[key] = value
+
+    timestamp = parse_timestamp(record.get("created_at"))
+    if timestamp is not None:
+        payload["timestamp"] = timestamp
+
+    if not any(payload.get(key) for key in ("user_id", "agent_id", "run_id")):
+        raise MigrationError("record must have at least one of user_id, agent_id, or run_id")
+
+    return payload
+
+
+def payload_scope(payload: Dict[str, Any]) -> Tuple[str, str]:
+    for key in ("user_id", "agent_id", "run_id"):
+        value = payload.get(key)
+        if value:
+            return key, str(value)
+    raise MigrationError("import payload must have at least one of user_id, agent_id, or run_id")
+
+
+def platform_get_all_scope(base_url: str, api_key: str, scope_field: str, scope_value: str) -> List[Dict[str, Any]]:
+    memories: List[Dict[str, Any]] = []
+    page = 1
+    while True:
+        response = platform_request_json(
+            "POST",
+            f"{base_url}/v3/memories/?page={page}&page_size={DEFAULT_PLATFORM_PAGE_SIZE}",
+            api_key=api_key,
+            payload={"filters": {scope_field: scope_value}, "source": "migration"},
+        )
+        page_results = response.get("results")
+        if not isinstance(page_results, list):
+            raise MigrationError("Platform get_all response did not include a results list.")
+        memories.extend(memory for memory in page_results if isinstance(memory, dict))
+        if not response.get("next"):
+            return memories
+        page += 1
+
+
+def existing_migration_memories(
+    base_url: str,
+    api_key: str,
+    payloads: List[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    scopes: List[Tuple[str, str]] = []
+    seen_scopes: Set[Tuple[str, str]] = set()
+    for payload in payloads:
+        scope = payload_scope(payload)
+        if scope not in seen_scopes:
+            seen_scopes.add(scope)
+            scopes.append(scope)
+
+    existing: Dict[str, Dict[str, Any]] = {}
+    for scope_field, scope_value in scopes:
+        print_info(f"Checking existing Platform memories for {scope_field}={scope_value!r}...")
+        for memory in platform_get_all_scope(base_url, api_key, scope_field, scope_value):
+            metadata = memory.get("metadata")
+            if not isinstance(metadata, dict):
+                continue
+            key = metadata.get("mem0_migration_import_key")
+            if isinstance(key, str) and key:
+                existing[key] = memory
+    return existing
+
+
+def review_file_path(input_path: Path) -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return input_path.with_name(f"{input_path.stem}-import-review-{timestamp}.json")
+
+
+def write_import_review_file(input_path: Path, review_records: List[Dict[str, Any]], summary: Dict[str, Any]) -> Optional[Path]:
+    if not review_records:
+        return None
+    path = review_file_path(input_path)
+    payload = {
+        "version": 1,
+        "kind": "mem0_platform_import_review",
+        "created_at": utc_now(),
+        "summary": summary,
+        "records": review_records,
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)
+    return path
+
+
+def import_platform_memories(input_path: Path, api_key: str, base_url: str) -> Dict[str, Any]:
+    artifact, records = read_import_records(input_path)
+    source = artifact.get("source") if isinstance(artifact.get("source"), dict) else {}
+
+    payloads: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
+    review_records: List[Dict[str, Any]] = []
+    invalid = 0
+    for record in records:
+        try:
+            payloads.append((record, build_import_payload(source, record)))
+        except MigrationError as exc:
+            invalid += 1
+            review_records.append({"status": "invalid", "error": str(exc), "record": record})
+
+    existing = existing_migration_memories(base_url, api_key, [payload for _record, payload in payloads]) if payloads else {}
+
+    imported = 0
+    skipped_existing = 0
+    changed_existing = 0
+    failed = 0
+    statuses: Counter[str] = Counter()
+
+    for record, payload in payloads:
+        key = payload["metadata"]["mem0_migration_import_key"]
+        existing_memory = existing.get(key)
+        if existing_memory:
+            existing_metadata = existing_memory.get("metadata") if isinstance(existing_memory.get("metadata"), dict) else {}
+            existing_hash = existing_metadata.get("mem0_migration_local_hash")
+            local_hash = payload["metadata"].get("mem0_migration_local_hash")
+            if existing_hash == local_hash:
+                skipped_existing += 1
+            else:
+                changed_existing += 1
+                review_records.append(
+                    {
+                        "status": "changed_existing",
+                        "platform_memory_id": existing_memory.get("id"),
+                        "existing_hash": existing_hash,
+                        "local_hash": local_hash,
+                        "record": record,
+                    }
+                )
+            continue
+
+        try:
+            response = platform_request_json("POST", f"{base_url}/v3/memories/add/", api_key=api_key, payload=payload)
+            imported += 1
+            statuses[str(response.get("status", "unknown"))] += 1
+        except MigrationError as exc:
+            failed += 1
+            review_records.append({"status": "failed", "error": str(exc), "record": record})
+
+    summary = {
+        "input_records": len(records),
+        "valid_records": len(payloads),
+        "invalid": invalid,
+        "imported": imported,
+        "skipped_existing": skipped_existing,
+        "changed_existing": changed_existing,
+        "failed": failed,
+        "response_statuses": dict(statuses),
+    }
+    review_path = write_import_review_file(input_path, review_records, summary)
+    summary["review_path"] = str(review_path) if review_path else None
+    return summary
+
+
+def print_import_summary(summary: Dict[str, Any]) -> None:
+    print_info(f"Imported: {summary['imported']}")
+    print_info(f"Skipped existing identical: {summary['skipped_existing']}")
+    print_info(f"Changed existing: {summary['changed_existing']}")
+    print_info(f"Invalid: {summary['invalid']}")
+    print_info(f"Failed: {summary['failed']}")
+    if summary.get("review_path"):
+        print_info(f"Review file: {summary['review_path']}")
+
+
 def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="oss-to-platform-migrate.sh",
@@ -756,6 +1043,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     )
     parser.add_argument("--auth-only", action="store_true", help="Run only auth/account resolution.")
     parser.add_argument("--export-only", action="store_true", help="Run only Python OSS hosted-Qdrant JSON export.")
+    parser.add_argument("--import-only", action="store_true", help="Run only Platform import from a migration JSON file.")
     parser.add_argument("--email", help="Email address for email-code authentication.")
     parser.add_argument("--code", help="Verification code for non-interactive email-code authentication.")
     parser.add_argument("--api-key", help="Platform API key to use for this run only.")
@@ -770,13 +1058,15 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--run-id", help="Export memories matching this run_id.")
     parser.add_argument("--all", action="store_true", help="Export the full Qdrant collection without a scope filter.")
     parser.add_argument("--output", help="Path for the migration JSON export file.")
+    parser.add_argument("--input", help="Path to a migration JSON file to import into Platform.")
     return parser.parse_args(argv)
 
 
 def main(argv: List[str]) -> int:
     args = parse_args(argv)
-    if args.auth_only and args.export_only:
-        print_error("Cannot use both --auth-only and --export-only.")
+    exclusive_modes = [args.auth_only, args.export_only, args.import_only]
+    if sum(1 for enabled in exclusive_modes if enabled) > 1:
+        print_error("Use only one of --auth-only, --export-only, or --import-only.")
         return 1
 
     path = config_path()
@@ -788,23 +1078,53 @@ def main(argv: List[str]) -> int:
     print_info("Mem0 OSS to Platform migration")
     if args.export_only:
         print_info("Export phase")
+    elif args.import_only:
+        print_info("Import phase")
     else:
         print_info("Auth phase")
     print_info("Supported environments: macOS, Linux, and Windows via WSL/Git Bash with bash and python3.")
     if args.auth_only:
         print_info("No memories are imported during this auth step.")
-    else:
+    elif args.export_only:
         print_info("No memories are imported to Platform during this step.")
+    else:
+        print_info("Memories will be imported to your authenticated Mem0 Platform account.")
     print_info("")
 
     capture_migration_event("oss.migrate.started", anon_ids, additional={"base_url": base_url})
 
     try:
         email = None
-        if not args.export_only:
-            phase_label = "Phase 1/1" if args.auth_only else "Phase 1/2"
+        api_key = None
+        output_path = None
+        export_count = 0
+        import_summary: Optional[Dict[str, Any]] = None
+
+        if args.import_only:
+            input_path = import_input_path(args)
+            api_key, key_source = configured_api_key(args, config)
+            if not api_key:
+                raise MigrationError("--import-only requires --api-key, MEM0_API_KEY, or a stored Platform API key.")
+            try:
+                email = validate_api_key(api_key, base_url)
+            except MigrationError:
+                if key_source in ("flag", "env"):
+                    raise
+                email = None
+            if email:
+                capture_migration_event(
+                    "oss.migrate.authenticated",
+                    anon_ids,
+                    email=email,
+                    additional={"auth_method": f"{key_source}_api_key", "base_url": base_url},
+                )
+                stitch_identities(path, config, anon_ids, email)
+            print_info("Phase 1/1: Import memories into Mem0 Platform")
+            import_summary = import_platform_memories(input_path, api_key, base_url)
+        elif not args.export_only:
+            phase_label = "Phase 1/1" if args.auth_only else "Phase 1/3"
             print_info(f"{phase_label}: Authenticate with Mem0 Platform")
-            _api_key, email, auth_method = resolve_auth(args, config, base_url)
+            api_key, email, auth_method = resolve_auth(args, config, base_url)
             capture_migration_event(
                 "oss.migrate.authenticated",
                 anon_ids,
@@ -816,14 +1136,39 @@ def main(argv: List[str]) -> int:
             print_info("")
 
         if not args.auth_only:
-            phase_label = "Phase 1/1" if args.export_only else "Phase 2/2"
-            print_info(f"{phase_label}: Export Python OSS memories from hosted Qdrant")
-            output_path, count = export_qdrant_memories(args, anon_ids)
+            if args.export_only:
+                print_info("Phase 1/1: Export Python OSS memories from hosted Qdrant")
+                output_path, export_count = export_qdrant_memories(args, anon_ids)
+            elif not args.import_only:
+                print_info("Phase 2/3: Export Python OSS memories from hosted Qdrant")
+                output_path, export_count = export_qdrant_memories(args, anon_ids)
+                print_info(f"Exported {export_count} memories to {output_path}")
+                print_info("")
+                print_info("Phase 3/3: Import memories into Mem0 Platform")
+                import_summary = import_platform_memories(output_path, api_key or "", base_url)
+
+        if import_summary is not None:
+            capture_migration_event(
+                "oss.migrate.completed",
+                anon_ids,
+                email=email,
+                additional={
+                    "base_url": base_url,
+                    "phase": "import",
+                    "exported": export_count,
+                    "imported": import_summary["imported"],
+                    "skipped_existing": import_summary["skipped_existing"],
+                    "changed_existing": import_summary["changed_existing"],
+                    "invalid": import_summary["invalid"],
+                    "failed": import_summary["failed"],
+                },
+            )
     except MigrationError as exc:
         capture_migration_event(
             "oss.migrate.failed",
             anon_ids,
-            additional={"error": str(exc), "base_url": base_url, "phase": "auth"},
+            email=email,
+            additional={"error": str(exc), "base_url": base_url},
         )
         print_error(str(exc))
         return 1
@@ -831,11 +1176,17 @@ def main(argv: List[str]) -> int:
     if args.auth_only:
         print_info("Auth-only mode complete. Export and import were not run.")
     elif args.export_only:
-        print_info(f"Exported {count} memories to {output_path}")
+        print_info(f"Exported {export_count} memories to {output_path}")
         print_info("Export-only mode complete. Platform import was not run.")
+    elif args.import_only:
+        print_import_summary(import_summary or {})
+        print_info("Import-only mode complete. Export was not run.")
     else:
-        print_info(f"Exported {count} memories to {output_path}")
-        print_info("Export complete. Platform import will be added in the next migration phase.")
+        print_info("")
+        print_info(f"Export file: {output_path}")
+        print_info(f"Exported: {export_count}")
+        print_import_summary(import_summary or {})
+        print_info("Migration complete.")
     return 0
 
 
