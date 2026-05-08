@@ -728,11 +728,17 @@ class Memory(MemoryBase):
 
         custom_instr = prompt or self.custom_instructions
 
+        if "created_at" not in metadata:
+            current_date = datetime.now(timezone.utc).isoformat()
+        else:
+            current_date = datetime.fromisoformat(metadata["created_at"]).astimezone(timezone.utc).isoformat()
+
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            current_date=current_date,
         )
 
         try:
