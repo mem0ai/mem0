@@ -1,10 +1,10 @@
 import pytest
 
 from mem0.utils.scoring import (
+    ENTITY_BOOST_WEIGHT,
     get_bm25_params,
     normalize_bm25,
     score_and_rank,
-    ENTITY_BOOST_WEIGHT,
 )
 
 
@@ -125,6 +125,27 @@ class TestScoreAndRank:
         entity = {"a": 0.5}
         scored = score_and_rank(results, bm25, entity, threshold=0.1, top_k=10)
         assert scored[0]["score"] <= 1.0
+
+    def test_none_score_treated_as_zero(self):
+        # LangChain vector store returns Documents without scores, so score=None.
+        # dict.get("score", 0.0) returns None (key exists), causing TypeError on
+        # comparison. score=None must be treated as 0.0.
+        results = [
+            {"id": "a", "score": None, "payload": {"data": "mem a"}},
+            {"id": "b", "score": 0.8, "payload": {"data": "mem b"}},
+        ]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        # "a" has None score → treated as 0.0 → below threshold=0.1 → excluded
+        assert len(scored) == 1
+        assert scored[0]["id"] == "b"
+
+    def test_none_score_no_type_error_at_zero_threshold(self):
+        # Regression: None score must not raise TypeError even when threshold=0.0.
+        results = [{"id": "a", "score": None, "payload": {}}]
+        scored = score_and_rank(results, {}, {}, threshold=0.0, top_k=10)
+        # None → 0.0, and 0.0 is not < 0.0, so the result passes the gate.
+        assert len(scored) == 1
+        assert scored[0]["score"] == pytest.approx(0.0)
 
 
 class TestEntityBoostWeight:
