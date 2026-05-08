@@ -1463,6 +1463,27 @@ class Memory(MemoryBase):
             top_k=limit,
         )
 
+        # Step 8.5: Optional 1-hop graph expansion via LLM-asserted links.
+        # No-op when the config is disabled (default), so this change is
+        # backward compatible for every existing user.
+        ge_cfg = getattr(self.config, "graph_expansion", None)
+        if ge_cfg is not None and getattr(ge_cfg, "enabled", False):
+            from mem0.memory.graph_expansion import (
+                expand_with_links,
+                make_vector_store_fetcher,
+            )
+
+            fetcher = make_vector_store_fetcher(self.vector_store)
+            merged = expand_with_links(
+                scored_results,
+                fetcher,
+                seed_k=ge_cfg.seed_k,
+                max_links_per_seed=ge_cfg.max_links_per_seed,
+                max_expanded=ge_cfg.max_expanded,
+                expansion_score_weight=ge_cfg.expansion_score_weight,
+            )
+            scored_results = merged[:limit]
+
         # Step 9: Format results
         promoted_payload_keys = [
             "user_id",
@@ -2888,6 +2909,26 @@ class AsyncMemory(MemoryBase):
             threshold=threshold,
             top_k=limit,
         )
+
+        # Step 8.5: Optional 1-hop graph expansion via LLM-asserted links.
+        ge_cfg = getattr(self.config, "graph_expansion", None)
+        if ge_cfg is not None and getattr(ge_cfg, "enabled", False):
+            from mem0.memory.graph_expansion import (
+                expand_with_links,
+                make_vector_store_fetcher,
+            )
+
+            fetcher = make_vector_store_fetcher(self.vector_store)
+            merged = await asyncio.to_thread(
+                expand_with_links,
+                scored_results,
+                fetcher,
+                seed_k=ge_cfg.seed_k,
+                max_links_per_seed=ge_cfg.max_links_per_seed,
+                max_expanded=ge_cfg.max_expanded,
+                expansion_score_weight=ge_cfg.expansion_score_weight,
+            )
+            scored_results = merged[:limit]
 
         # Step 9: Format results
         promoted_payload_keys = [
