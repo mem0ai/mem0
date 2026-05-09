@@ -97,7 +97,46 @@ Extract key learnings and store them using the `add_memory` tool:
 - **Environment/setup discoveries** -> Include metadata `{"type": "environmental"}`
 - **Conventions established** -> Include metadata `{"type": "convention"}`
 
+> `metadata.type` (which you set explicitly) and `categories` (which the platform auto-tags after the project's custom-category list — see `scripts/setup_coding_categories.py`) are complementary. Always set `metadata.type` for explicit filtering; the platform fills in `categories` on its own. Don't try to set `categories` on `add_memory` calls — per-request overrides aren't supported on the managed API.
+
+### Expiration: high-churn vs durable
+
+Some memory types are state snapshots that go stale fast; others are durable facts that should outlive the session that created them. Mark the difference with `expiration_date` on writes.
+
+| Type | Expiration | Why |
+|---|---|---|
+| `session_state`, `compact_summary` | `expiration_date` ≈ today + 90 days | Describe a single moment of project state. Useless after a quarter; clutter the recall surface. |
+| `decision`, `anti_pattern`, `convention`, `user_preference`, `task_learning`, `environmental` | omit `expiration_date` | Durable facts. A decision made last year is still a decision; same for a convention or a user preference. |
+
+`add_memory` accepts `expiration_date` as a string (`"YYYY-MM-DD"`). The two server-side hooks (`on_pre_compact.py`, `capture_compact_summary.py`) already set this for the types they write. When you write directly via the MCP tool, follow the same rule.
+
+### Recency filter on recall
+
+When the user is asking about *current* state ("where were we", "what's the active task", "the latest decision on X"), filter recall to recent memories so stale snapshots don't surface:
+
+```python
+# Last 90 days only
+{"AND": [{"user_id": "<id>"}, {"metadata": {"type": "session_state"}}, {"created_at": {"gte": "<90 days ago, YYYY-MM-DD>"}}]}
+```
+
+Skip the recency filter when the user is asking about durable facts ("what conventions does this project use", "have we hit this bug before") — those are timeless and recency would hide them.
+
 Memories can be as detailed as needed -- include full context, reasoning, code snippets, file paths, and examples. Longer, searchable memories are more valuable than vague one-liners.
+
+### Use `infer=False` for already-structured content
+
+When you've done the extraction work yourself — pre-compaction summaries, decisions, anti-patterns, conventions you've explicitly identified — pass `infer=False` so the platform stores your text verbatim instead of running a second extraction pass over it.
+
+```python
+add_memory(
+    messages=[{"role": "user", "content": "<your structured fact>"}],
+    user_id="<active user_id>",
+    metadata={"type": "decision"},
+    infer=False,
+)
+```
+
+Stick to one mode per distinct piece of content — don't mix `infer=True` (default) and `infer=False` for the same fact, you'll get duplicates. Default (`infer=True`) is right for raw conversational signal you want extracted; `infer=False` is right for pre-extracted structure.
 
 ## Before losing context
 

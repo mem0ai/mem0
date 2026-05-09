@@ -12,6 +12,10 @@
 
 set -euo pipefail
 
+if [ -n "${MEM0_DEBUG:-}" ]; then
+  mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 INPUT=$(cat)

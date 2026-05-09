@@ -30,12 +30,6 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_pre_compact.sh",
             "statusMessage": "Preparing pre-compaction summary..."
-          },
-          {
-            "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/on_pre_compact.py",
-            "statusMessage": "Saving session state to mem0...",
-            "timeout": 30
           }
         ]
       }

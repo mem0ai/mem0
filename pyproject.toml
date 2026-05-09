@@ -154,3 +154,4 @@ known-first-party = ["mem0", "mem0_cli"]
 profile = "black"
 known_first_party = ["mem0", "mem0_cli"]
 # isort scope kept aligned with [tool.ruff.lint.isort] above.
+# black-equivalent profile here matches the formatter behaviour ruff applies.

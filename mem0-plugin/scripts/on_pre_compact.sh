@@ -5,11 +5,15 @@
 # the full context before it gets compressed.
 #
 # Output: Text instructions injected into Claude's context.
-# Claude still has the full conversation and can write an accurate summary.
-# A companion Python script (on_pre_compact.py) also runs to capture
-# transcript state directly via the Mem0 REST API as a safety net.
+# Claude still has the full conversation and can write an accurate summary,
+# which it stores via add_memory(infer=False) so the platform preserves
+# the structure verbatim instead of running a second extraction pass.
 
 set -euo pipefail
+
+if [ -n "${MEM0_DEBUG:-}" ]; then
+  mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
+fi
 
 cat <<'EOF'
 ## CRITICAL: Pre-Compaction Session Summary
@@ -18,7 +22,9 @@ Context compaction is about to happen. You are about to lose most of your conver
 
 ### Step 1: Store session summary
 
-Call `add_memory` with a thorough summary covering ALL of the following:
+Call `add_memory` with `infer=False` and a thorough summary covering ALL of the following.
+
+`infer=False` is critical here: you've already done the extraction work yourself using full context. Without it, the platform runs a second LLM pass that loses your structure and pulls fragmented facts. With it, your summary is preserved verbatim.
 
 ```
 ## Session Summary (Pre-Compaction)
@@ -44,11 +50,19 @@ Call `add_memory` with a thorough summary covering ALL of the following:
 the post-compaction agent continue without asking redundant questions]
 ```
 
-Include metadata: `{"type": "session_state", "source": "pre-compaction"}`
+Tool call shape:
+```
+add_memory(
+  messages=[{"role":"user","content":"<the summary above>"}],
+  user_id="<the active user_id from the SessionStart bootstrap>",
+  metadata={"type":"session_state","source":"pre-compaction"},
+  infer=False,
+)
+```
 
 ### Step 2: Store any unstored learnings
 
-If there are learnings from this session that you haven't stored yet, store them as separate memories:
+If there are learnings from this session that you haven't stored yet, store them as separate memories with `infer=False` (same reasoning -- you've already extracted the fact, don't re-extract):
 - Failed approaches -> metadata `{"type": "anti_pattern"}`
 - Successful strategies -> metadata `{"type": "task_learning"}`
 - Architecture decisions -> metadata `{"type": "decision"}`

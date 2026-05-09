@@ -13,6 +13,10 @@
 # must never block the user's prompt.
 set -uo pipefail
 
+if [ -n "${MEM0_DEBUG:-}" ]; then
+  mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
+fi
+
 INPUT=$(cat)
 PROMPT=$(echo "$INPUT" | jq -r '.prompt // ""' 2>/dev/null || echo "")
 
@@ -26,7 +30,10 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
 
-USER_ID="${MEM0_USER_ID:-${USER:-default}}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_identity.sh
+. "$SCRIPT_DIR/_identity.sh"
+USER_ID="$MEM0_RESOLVED_USER_ID"
 
 cat <<EOF
 ## Memory check
