@@ -67,9 +67,6 @@ class LiteLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        if not litellm.supports_function_calling(self.config.model):
-            raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
-
         params = {
             "model": self.config.model,
             "messages": messages,
@@ -80,6 +77,8 @@ class LiteLLM(LLMBase):
         if response_format:
             params["response_format"] = response_format
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
+            if not litellm.supports_function_calling(self.config.model):
+                raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
             params["tools"] = tools
             params["tool_choice"] = tool_choice
 
