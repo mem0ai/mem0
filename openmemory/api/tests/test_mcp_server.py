@@ -5,7 +5,9 @@ transport.  Tests exercise the full JSON-RPC flow — initialize, tools/list,
 tools/call — as well as error handling and context-variable isolation.
 """
 
+import json
 import os
+import uuid
 
 # Set dummy keys before any imports that trigger client initialization
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
@@ -14,7 +16,15 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from app.mcp_server import client_name_var, mcp, mcp_router, user_id_var
+from app import mcp_server
+from app.mcp_server import (
+    client_name_var,
+    list_memories,
+    mcp,
+    mcp_router,
+    search_memory,
+    user_id_var,
+)
 
 # MCP Streamable HTTP requires the Accept header to include application/json.
 # Including text/event-stream as well satisfies GET (SSE) requests.
@@ -374,6 +384,150 @@ class TestStreamableHTTPResponses:
             headers={**MCP_HEADERS, "Content-Type": "text/plain"},
         )
         assert resp.status_code in (400, 415)
+
+
+# ---------------------------------------------------------------------------
+# MCP tool implementations
+# ---------------------------------------------------------------------------
+
+class _FakeMemoryClient:
+    def __init__(self, *, search_response=None, list_response=None):
+        self.search_response = search_response or {"results": []}
+        self.list_response = list_response or []
+        self.search_calls = []
+        self.get_all_calls = []
+
+    def search(self, **kwargs):
+        self.search_calls.append(kwargs)
+        return self.search_response
+
+    def get_all(self, **kwargs):
+        self.get_all_calls.append(kwargs)
+        return self.list_response
+
+
+class _FakeQuery:
+    def __init__(self, memories):
+        self.memories = memories
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def all(self):
+        return self.memories
+
+
+class _FakeDb:
+    def __init__(self, memories):
+        self.memories = memories
+        self.added = []
+        self.committed = False
+        self.closed = False
+
+    def query(self, model):
+        return _FakeQuery(self.memories)
+
+    def add(self, obj):
+        self.added.append(obj)
+
+    def commit(self):
+        self.committed = True
+
+    def close(self):
+        self.closed = True
+
+
+def _set_tool_context(user_id="user1", client_name="testclient"):
+    user_token = user_id_var.set(user_id)
+    client_token = client_name_var.set(client_name)
+    return user_token, client_token
+
+
+def _reset_tool_context(tokens):
+    user_id_var.reset(tokens[0])
+    client_name_var.reset(tokens[1])
+
+
+def _patch_tool_dependencies(monkeypatch, memory_client, memory_ids):
+    memories = [type("MemoryRow", (), {"id": memory_id})() for memory_id in memory_ids]
+    db = _FakeDb(memories)
+    user = type("User", (), {"id": "db-user-id"})()
+    app = type("App", (), {"id": "db-app-id", "name": "testclient", "is_active": True})()
+
+    monkeypatch.setattr(mcp_server, "get_memory_client_safe", lambda: memory_client)
+    monkeypatch.setattr(mcp_server, "SessionLocal", lambda: db)
+    monkeypatch.setattr(mcp_server, "get_user_and_app", lambda db, user_id, app_id: (user, app))
+    monkeypatch.setattr(mcp_server, "check_memory_access_permissions", lambda db, memory, app_id: True)
+    return db
+
+
+class TestMCPToolImplementations:
+    """Focused unit tests for MCP tool calls into the mem0 public API."""
+
+    @pytest.mark.asyncio
+    async def test_search_memory_uses_public_search_api_and_returns_results(self, monkeypatch):
+        memory_id = "11111111-1111-4111-8111-111111111111"
+        memory_client = _FakeMemoryClient(
+            search_response={
+                "results": [
+                    {
+                        "id": memory_id,
+                        "memory": "User prefers concise answers",
+                        "hash": "abc123",
+                        "created_at": "2026-05-09T18:00:00Z",
+                        "updated_at": "2026-05-09T18:01:00Z",
+                        "score": 0.91,
+                    }
+                ]
+            }
+        )
+        db = _patch_tool_dependencies(monkeypatch, memory_client, [uuid.UUID(memory_id)])
+        tokens = _set_tool_context(user_id="user1", client_name="openclaw")
+        try:
+            response = await search_memory("concise")
+        finally:
+            _reset_tool_context(tokens)
+
+        assert memory_client.search_calls == [
+            {"query": "concise", "top_k": 10, "filters": {"user_id": "user1"}}
+        ]
+        assert json.loads(response) == {
+            "results": [
+                {
+                    "id": memory_id,
+                    "memory": "User prefers concise answers",
+                    "hash": "abc123",
+                    "created_at": "2026-05-09T18:00:00Z",
+                    "updated_at": "2026-05-09T18:01:00Z",
+                    "score": 0.91,
+                }
+            ]
+        }
+        assert db.committed is True
+        assert db.closed is True
+
+    @pytest.mark.asyncio
+    async def test_list_memories_uses_public_get_all_filters_and_returns_array(self, monkeypatch):
+        memory_id = "22222222-2222-4222-8222-222222222222"
+        memory = {
+            "id": memory_id,
+            "memory": "Use memory recall for relevant context",
+            "hash": "def456",
+            "created_at": "2026-05-09T18:00:00Z",
+            "updated_at": "2026-05-09T18:01:00Z",
+        }
+        memory_client = _FakeMemoryClient(list_response={"results": [memory]})
+        db = _patch_tool_dependencies(monkeypatch, memory_client, [uuid.UUID(memory_id)])
+        tokens = _set_tool_context(user_id="user1", client_name="openclaw")
+        try:
+            response = await list_memories()
+        finally:
+            _reset_tool_context(tokens)
+
+        assert memory_client.get_all_calls == [{"filters": {"user_id": "user1"}}]
+        assert json.loads(response) == [memory]
+        assert db.committed is True
+        assert db.closed is True
 
 
 # ---------------------------------------------------------------------------
