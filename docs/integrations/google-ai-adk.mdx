@@ -236,6 +236,94 @@ if __name__ == "__main__":
     interactive_chat()
 ```
 
+## MemoryService Integration (Recommended)
+
+For a more idiomatic ADK integration, you can implement ADK's native `MemoryService` interface. This approach provides automatic memory injection and session saving without requiring explicit tool calls.
+
+```python
+from typing import Optional
+from google.adk.memory.base_memory_service import BaseMemoryService
+from google.adk.memory.memory_entry import MemoryEntry
+from google.adk.tools.preload_memory_tool import PreloadMemoryTool
+from mem0 import MemoryClient
+
+class Mem0MemoryService(BaseMemoryService):
+    """MemoryService implementation using Mem0 Platform."""
+
+    def __init__(self, api_key: Optional[str] = None):
+        super().__init__()
+        api_key = api_key or os.environ.get("MEM0_API_KEY")
+        self._client = MemoryClient(api_key=api_key) if api_key else None
+
+    async def search_memory(self, *, app_name: str, user_id: str, query: str):
+        """Search for relevant memories."""
+        if not self.is_enabled():
+            return {"memories": []}
+
+        filters = {"user_id": user_id}
+        memories = self._client.search(query, filters=filters, limit=5)
+
+        memory_entries = []
+        for mem in memories.get("results", []):
+            memory_text = mem.get("memory", "")
+            if memory_text:
+                memory_entries.append(MemoryEntry(
+                    content=memory_text,
+                    author=mem.get("metadata", {}).get("author", "user"),
+                ))
+
+        return {"memories": memory_entries}
+
+    async def add_session_to_memory(self, session) -> None:
+        """Add session content to memory."""
+        if not self.is_enabled():
+            return
+
+        user_id = getattr(session, "user_id", None)
+        if not user_id:
+            return
+
+        messages = []
+        for event in session.events:
+            if hasattr(event, "content") and event.content:
+                role = getattr(event.content, "role", "user")
+                if role == "model":
+                    role = "assistant"
+                text = getattr(event.content, "text", "")
+                if text:
+                    messages.append({"role": role, "content": text})
+
+        if messages:
+            self._client.add(messages, user_id=user_id)
+
+# Create agent with automatic memory management
+memory_service = Mem0MemoryService()
+
+personal_assistant = Agent(
+    name="personal_assistant",
+    model="gemini-2.0-flash",
+    instruction="""You are a helpful personal assistant with memory capabilities.
+    Memories will be automatically injected into your context.""",
+    tools=[PreloadMemoryTool()]  # Automatically searches and injects memories
+)
+
+runner = Runner(
+    agent=personal_assistant,
+    app_name="memory_assistant",
+    session_service=session_service,
+    memory_service=memory_service,
+)
+```
+
+### Benefits of MemoryService Approach
+
+1. **Automatic Memory Injection**: `PreloadMemoryTool` automatically searches and injects relevant memories at the start of each conversation turn
+2. **Automatic Session Saving**: Callbacks can automatically save sessions to memory after each turn
+3. **Native ADK Integration**: Uses ADK's built-in memory architecture instead of custom tools
+4. **Better Token Efficiency**: Memory injection happens at prompt construction time, not as tool calls
+5. **Cleaner Agent Prompts**: No need to instruct agents to "use search_memory function"
+6. **Consistent Across Agents**: Works seamlessly in multi-agent hierarchies
+
 ## Key Features
 
 ### 1. Memory-Enhanced Function Tools
