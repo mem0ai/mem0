@@ -435,7 +435,7 @@
                       "integrations/flowise",
                       "integrations/langchain-tools",
                       "integrations/agentops",
-                      "integrations/keywords",
+                      "integrations/respan",
                       "integrations/raycast"
                     ]
                   }
