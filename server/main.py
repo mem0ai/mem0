@@ -194,6 +194,7 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = None
     top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
+    explain: Optional[bool] = Field(None, description="Include score details for each search result.")
 
 
 class GenerateInstructionsRequest(BaseModel):

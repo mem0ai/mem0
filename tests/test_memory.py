@@ -143,6 +143,42 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     assert result[0]["memory"] == "content"
 
 
+@patch('mem0.memory.main.extract_entities', return_value=[])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_explain_includes_score_details(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, _mock_extract_entities
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("mem_1", {"data": "content", "user_id": "test"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.return_value = [
+        MockVectorMemory("mem_1", {"data": "content", "user_id": "test"}, score=5.0)
+    ]
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    result = memory.search("test query", filters={"user_id": "test"}, explain=True)
+
+    details = result["results"][0]["score_details"]
+    assert details["semantic_score"] == 0.8
+    assert details["bm25_score"] > 0
+    assert details["entity_boost"] == 0.0
+    assert details["final_score"] == result["results"][0]["score"]
+    assert details["threshold"] == 0.1
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -934,4 +970,3 @@ async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_
         "AsyncMemory._create_memory must store text_lemmatized for BM25 keyword search"
     )
     assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
-

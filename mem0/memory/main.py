@@ -1131,6 +1131,7 @@ class Memory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        explain: bool = False,
         **kwargs,
     ):
         """
@@ -1161,6 +1162,7 @@ class Memory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            explain (bool, optional): Whether to include score_details for each result. Defaults to False.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -1220,11 +1222,12 @@ class Memory(MemoryBase):
                 "encoded_ids": encoded_ids,
                 "sync_type": "sync",
                 "threshold": threshold,
+                "explain": explain,
                 "advanced_filters": bool(filters and self._has_advanced_operators(filters)),
             },
         )
 
-        original_memories = self._search_vector_store(query, effective_filters, limit, threshold)
+        original_memories = self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -1340,7 +1343,7 @@ class Memory(MemoryBase):
                 return True
         return False
 
-    def _search_vector_store(self, query, filters, limit, threshold=0.1):
+    def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
@@ -1395,6 +1398,7 @@ class Memory(MemoryBase):
             entity_boosts=entity_boosts,
             threshold=threshold,
             top_k=limit,
+            explain=explain,
         )
 
         # Step 9: Format results
@@ -1432,6 +1436,8 @@ class Memory(MemoryBase):
                 if not memory_item_dict.get("metadata"):
                     memory_item_dict["metadata"] = {}
                 memory_item_dict["metadata"].update(additional_metadata)
+            if explain and "score_details" in scored:
+                memory_item_dict["score_details"] = scored["score_details"]
 
             original_memories.append(memory_item_dict)
 
@@ -2546,6 +2552,7 @@ class AsyncMemory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        explain: bool = False,
         **kwargs,
     ):
         """
@@ -2576,6 +2583,7 @@ class AsyncMemory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            explain (bool, optional): Whether to include score_details for each result. Defaults to False.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -2637,11 +2645,12 @@ class AsyncMemory(MemoryBase):
                 "encoded_ids": encoded_ids,
                 "sync_type": "async",
                 "threshold": threshold,
+                "explain": explain,
                 "advanced_filters": bool(filters and self._has_advanced_operators(filters)),
             },
         )
 
-        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold)
+        original_memories = await self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -2760,7 +2769,7 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
-    async def _search_vector_store(self, query, filters, limit, threshold=0.1):
+    async def _search_vector_store(self, query, filters, limit, threshold=0.1, explain=False):
         if threshold is None:
             threshold = 0.1
 
@@ -2814,6 +2823,7 @@ class AsyncMemory(MemoryBase):
             entity_boosts=entity_boosts,
             threshold=threshold,
             top_k=limit,
+            explain=explain,
         )
 
         # Step 9: Format results
@@ -2850,6 +2860,8 @@ class AsyncMemory(MemoryBase):
                 if not memory_item_dict.get("metadata"):
                     memory_item_dict["metadata"] = {}
                 memory_item_dict["metadata"].update(additional_metadata)
+            if explain and "score_details" in scored:
+                memory_item_dict["score_details"] = scored["score_details"]
 
             original_memories.append(memory_item_dict)
 
