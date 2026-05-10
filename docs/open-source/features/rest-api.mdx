@@ -226,6 +226,21 @@ curl -X POST http://localhost:8888/search \
   }'
 ```
 
+To include deterministic memories such as policies or personas before semantic matches, pass `include_pinned` with a metadata filter:
+
+```bash
+curl -X POST http://localhost:8888/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Can I get a refund after 45 days?",
+    "user_id": "support-bot",
+    "include_pinned": {"memory_type": "policy"},
+    "pinned_limit": 5
+  }'
+```
+
+Pinned memories are returned with `retrieval_type: "pinned"` and do not replace the normal semantic result set.
+
 ### Explore with OpenAPI docs
 
 1. Navigate to `http://localhost:8888/docs` (Compose) or `http://localhost:8000/docs` (raw Docker / uvicorn).

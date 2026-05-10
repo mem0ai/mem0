@@ -194,6 +194,11 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = None
     top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
+    include_pinned: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Metadata filter for deterministic memories to include before semantic results.",
+    )
+    pinned_limit: Optional[int] = Field(None, description="Maximum number of pinned memories to include.")
 
 
 class GenerateInstructionsRequest(BaseModel):

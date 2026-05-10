@@ -324,6 +324,64 @@ def _build_session_scope(filters):
     return "&".join(parts)
 
 
+def _unwrap_vector_store_list(list_result):
+    """Normalize vector store list() return shapes to a flat row list."""
+    if isinstance(list_result, (tuple, list)) and len(list_result) > 0:
+        first_element = list_result[0]
+        if isinstance(first_element, (list, tuple)):
+            return first_element
+        return list_result
+    return list_result or []
+
+
+def _matches_filter_value(payload_value: Any, expected_value: Any) -> bool:
+    """Evaluate a portable subset of metadata filters for pinned memories."""
+    if isinstance(expected_value, dict):
+        for operator, value in expected_value.items():
+            if operator == "eq":
+                if payload_value != value:
+                    return False
+            elif operator == "ne":
+                if payload_value == value:
+                    return False
+            elif operator == "in":
+                if not isinstance(value, (list, tuple, set)) or payload_value not in value:
+                    return False
+            elif operator == "nin":
+                if isinstance(value, (list, tuple, set)) and payload_value in value:
+                    return False
+            elif operator == "contains":
+                if payload_value is None:
+                    return False
+                if isinstance(payload_value, (list, tuple, set)):
+                    if value not in payload_value:
+                        return False
+                elif str(value) not in str(payload_value):
+                    return False
+            elif operator == "icontains":
+                if payload_value is None or str(value).lower() not in str(payload_value).lower():
+                    return False
+            else:
+                raise ValueError(f"Unsupported pinned memory filter operator: {operator}")
+        return True
+
+    if expected_value == "*":
+        return payload_value is not None
+    if isinstance(expected_value, (list, tuple, set)):
+        return payload_value in expected_value
+    return payload_value == expected_value
+
+
+def _matches_pinned_filter(payload: Dict[str, Any], pinned_filter: Dict[str, Any]) -> bool:
+    """Return whether a memory payload matches an include_pinned filter."""
+    for key, expected_value in pinned_filter.items():
+        if key in ENTITY_PARAMS:
+            continue
+        if not _matches_filter_value(payload.get(key), expected_value):
+            return False
+    return True
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -1131,6 +1189,8 @@ class Memory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        include_pinned: Optional[Dict[str, Any]] = None,
+        pinned_limit: int = 20,
         **kwargs,
     ):
         """
@@ -1161,6 +1221,9 @@ class Memory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            include_pinned (dict, optional): Metadata filter for deterministic memories to include
+                before semantic results. Entity scope still comes from `filters`.
+            pinned_limit (int, optional): Maximum number of pinned memories to include. Defaults to 20.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -1175,6 +1238,9 @@ class Memory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        _validate_search_params(top_k=pinned_limit)
+        if include_pinned is not None and not isinstance(include_pinned, dict):
+            raise ValueError("include_pinned must be a dictionary of metadata filters")
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -1209,6 +1275,10 @@ class Memory(MemoryBase):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
 
+        pinned_memories = []
+        if include_pinned and pinned_limit > 0:
+            pinned_memories = self._get_pinned_memories(effective_filters, include_pinned, pinned_limit)
+
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.search",
@@ -1226,6 +1296,10 @@ class Memory(MemoryBase):
 
         original_memories = self._search_vector_store(query, effective_filters, limit, threshold)
 
+        if pinned_memories:
+            pinned_ids = {memory["id"] for memory in pinned_memories}
+            original_memories = [memory for memory in original_memories if memory.get("id") not in pinned_ids]
+
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
             try:
@@ -1234,7 +1308,53 @@ class Memory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
-        return {"results": original_memories}
+        return {"results": pinned_memories + original_memories}
+
+    def _get_pinned_memories(self, filters: Dict[str, Any], pinned_filter: Dict[str, Any], limit: int):
+        entity_filters = {key: filters[key] for key in ENTITY_PARAMS if key in filters}
+        memories_result = self.vector_store.list(filters=entity_filters, top_k=max(limit * 5, limit))
+        actual_memories = _unwrap_vector_store_list(memories_result)
+
+        promoted_payload_keys = [
+            "user_id",
+            "agent_id",
+            "run_id",
+            "actor_id",
+            "role",
+        ]
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+
+        pinned_memories = []
+        for mem in actual_memories:
+            payload = mem.payload if hasattr(mem, "payload") else {}
+            if not payload.get("data") or not _matches_pinned_filter(payload, pinned_filter):
+                continue
+
+            memory_item_dict = MemoryItem(
+                id=mem.id,
+                memory=payload.get("data", ""),
+                hash=payload.get("hash"),
+                created_at=payload.get("created_at"),
+                updated_at=payload.get("updated_at"),
+                score=1.0,
+            ).model_dump()
+            memory_item_dict["retrieval_type"] = "pinned"
+
+            for key in promoted_payload_keys:
+                if key in payload:
+                    memory_item_dict[key] = payload[key]
+
+            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
+            if additional_metadata:
+                if not memory_item_dict.get("metadata"):
+                    memory_item_dict["metadata"] = {}
+                memory_item_dict["metadata"].update(additional_metadata)
+
+            pinned_memories.append(memory_item_dict)
+            if len(pinned_memories) >= limit:
+                break
+
+        return pinned_memories
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -2546,6 +2666,8 @@ class AsyncMemory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        include_pinned: Optional[Dict[str, Any]] = None,
+        pinned_limit: int = 20,
         **kwargs,
     ):
         """
@@ -2576,6 +2698,9 @@ class AsyncMemory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            include_pinned (dict, optional): Metadata filter for deterministic memories to include
+                before semantic results. Entity scope still comes from `filters`.
+            pinned_limit (int, optional): Maximum number of pinned memories to include. Defaults to 20.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -2590,6 +2715,9 @@ class AsyncMemory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        _validate_search_params(top_k=pinned_limit)
+        if include_pinned is not None and not isinstance(include_pinned, dict):
+            raise ValueError("include_pinned must be a dictionary of metadata filters")
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -2626,6 +2754,10 @@ class AsyncMemory(MemoryBase):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
 
+        pinned_memories = []
+        if include_pinned and pinned_limit > 0:
+            pinned_memories = await self._get_pinned_memories(effective_filters, include_pinned, pinned_limit)
+
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.search",
@@ -2643,6 +2775,10 @@ class AsyncMemory(MemoryBase):
 
         original_memories = await self._search_vector_store(query, effective_filters, limit, threshold)
 
+        if pinned_memories:
+            pinned_ids = {memory["id"] for memory in pinned_memories}
+            original_memories = [memory for memory in original_memories if memory.get("id") not in pinned_ids]
+
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
             try:
@@ -2654,7 +2790,55 @@ class AsyncMemory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
-        return {"results": original_memories}
+        return {"results": pinned_memories + original_memories}
+
+    async def _get_pinned_memories(self, filters: Dict[str, Any], pinned_filter: Dict[str, Any], limit: int):
+        entity_filters = {key: filters[key] for key in ENTITY_PARAMS if key in filters}
+        memories_result = await asyncio.to_thread(
+            self.vector_store.list, filters=entity_filters, top_k=max(limit * 5, limit)
+        )
+        actual_memories = _unwrap_vector_store_list(memories_result)
+
+        promoted_payload_keys = [
+            "user_id",
+            "agent_id",
+            "run_id",
+            "actor_id",
+            "role",
+        ]
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+
+        pinned_memories = []
+        for mem in actual_memories:
+            payload = mem.payload if hasattr(mem, "payload") else {}
+            if not payload.get("data") or not _matches_pinned_filter(payload, pinned_filter):
+                continue
+
+            memory_item_dict = MemoryItem(
+                id=mem.id,
+                memory=payload.get("data", ""),
+                hash=payload.get("hash"),
+                created_at=payload.get("created_at"),
+                updated_at=payload.get("updated_at"),
+                score=1.0,
+            ).model_dump()
+            memory_item_dict["retrieval_type"] = "pinned"
+
+            for key in promoted_payload_keys:
+                if key in payload:
+                    memory_item_dict[key] = payload[key]
+
+            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
+            if additional_metadata:
+                if not memory_item_dict.get("metadata"):
+                    memory_item_dict["metadata"] = {}
+                memory_item_dict["metadata"].update(additional_metadata)
+
+            pinned_memories.append(memory_item_dict)
+            if len(pinned_memories) >= limit:
+                break
+
+        return pinned_memories
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
         """
