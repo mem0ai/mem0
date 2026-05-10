@@ -32,6 +32,7 @@ from routers import entities as entities_router
 from routers import requests as requests_router
 from schemas import MessageResponse
 from server_state import get_current_config, get_memory_instance, initialize_state, set_session_factory, update_config
+from mcp_server import setup_mcp_server
 
 load_dotenv()
 
@@ -163,6 +164,7 @@ app.include_router(auth_router.router)
 app.include_router(api_keys_router.router)
 app.include_router(entities_router.router)
 app.include_router(requests_router.router)
+setup_mcp_server(app)
 
 
 class Message(BaseModel):
