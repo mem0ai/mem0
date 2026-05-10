@@ -156,6 +156,32 @@ const memories = memory.search("food preferences", {
   Expect an array of memory documents. Platform responses include vectors, metadata, and timestamps; OSS returns your stored schema.
 </Info>
 
+### Include pinned OSS memories
+
+Some memories are deterministic context, not ordinary semantic recall. Policies, personas, and hard constraints should be available without competing against conversational memories in the vector ranking. In OSS, store those memories with metadata and pass `include_pinned` at search time:
+
+```python
+from mem0 import Memory
+
+m = Memory()
+
+m.add(
+    "Refund policy: refunds are limited to 30 days.",
+    user_id="support-bot",
+    metadata={"memory_type": "policy"},
+    infer=False,
+)
+
+results = m.search(
+    "Can a customer get a refund after 45 days?",
+    filters={"user_id": "support-bot"},
+    include_pinned={"memory_type": "policy"},
+    pinned_limit=5,
+)
+```
+
+Pinned memories are returned before semantic matches with `retrieval_type="pinned"` and do not count against `top_k`. Normal semantic search, reranking, thresholds, and filters continue to work unchanged for the rest of the result set.
+
 ## Filter patterns
 
 Filters help narrow down search results. Common use cases:

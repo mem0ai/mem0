@@ -181,6 +181,109 @@ def test_get_all_handles_nested_list_from_chroma(mock_sqlite, mock_llm_factory, 
     assert result[2]["memory"] == "I live in California"
 
 
+@patch('mem0.memory.main.extract_entities', return_value=[])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_includes_pinned_memories_before_semantic_results(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, _mock_extract_entities
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.list.return_value = [
+        MockVectorMemory(
+            "policy_1",
+            {"data": "Refund policy is 30 days.", "user_id": "support", "memory_type": "policy"},
+        ),
+        MockVectorMemory(
+            "profile_1",
+            {"data": "The user likes concise answers.", "user_id": "support", "memory_type": "profile"},
+        ),
+    ]
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("semantic_1", {"data": "Semantic memory", "user_id": "support"}, score=0.72)
+    ]
+    mock_vector_store.keyword_search.return_value = []
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    result = memory.search(
+        "Can I get a refund after 45 days?",
+        filters={"user_id": "support"},
+        include_pinned={"memory_type": "policy"},
+        pinned_limit=5,
+    )
+
+    assert [memory["id"] for memory in result["results"]] == ["policy_1", "semantic_1"]
+    assert result["results"][0]["retrieval_type"] == "pinned"
+    assert result["results"][0]["score"] == 1.0
+    assert result["results"][0]["metadata"]["memory_type"] == "policy"
+    mock_vector_store.list.assert_called_once_with(filters={"user_id": "support"}, top_k=25)
+
+
+@patch('mem0.memory.main.extract_entities', return_value=[])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_deduplicates_pinned_memories_from_semantic_results(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, _mock_extract_entities
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    payload = {"data": "Pinned policy", "user_id": "support", "memory_type": "policy"}
+    mock_vector_store.list.return_value = [MockVectorMemory("policy_1", payload)]
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("policy_1", payload, score=0.95),
+        MockVectorMemory("semantic_1", {"data": "Semantic memory", "user_id": "support"}, score=0.72),
+    ]
+    mock_vector_store.keyword_search.return_value = []
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    result = memory.search(
+        "refund policy",
+        filters={"user_id": "support"},
+        include_pinned={"memory_type": "policy"},
+    )
+
+    assert [memory["id"] for memory in result["results"]] == ["policy_1", "semantic_1"]
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_rejects_invalid_include_pinned(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    with pytest.raises(ValueError, match="include_pinned must be a dictionary"):
+        memory.search("refund policy", filters={"user_id": "support"}, include_pinned=["policy"])
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -934,4 +1037,3 @@ async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_
         "AsyncMemory._create_memory must store text_lemmatized for BM25 keyword search"
     )
     assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
-
