@@ -61,12 +61,16 @@ def ensure_json_instruction(system_prompt, user_prompt):
 def parse_messages(messages):
     response = ""
     for msg in messages:
-        if msg["role"] == "system":
-            response += f"system: {msg['content']}\n"
-        if msg["role"] == "user":
-            response += f"user: {msg['content']}\n"
-        if msg["role"] == "assistant":
-            response += f"assistant: {msg['content']}\n"
+        role = msg.get("role")
+        content = msg.get("content")
+        if content is None:
+            continue
+        if role == "system":
+            response += f"system: {content}\n"
+        elif role == "user":
+            response += f"user: {content}\n"
+        elif role == "assistant":
+            response += f"assistant: {content}\n"
     return response
 
 
@@ -173,21 +177,29 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
     """
     returned_messages = []
     for msg in messages:
-        if msg["role"] == "system":
+        role = msg.get("role")
+        content = msg.get("content")
+        if role is None:
+            continue
+        if role == "system":
             returned_messages.append(msg)
             continue
 
+        # Skip messages without content (e.g. assistant tool_calls without text)
+        if content is None:
+            continue
+
         # Handle message content
-        if isinstance(msg["content"], list):
+        if isinstance(content, list):
             # Multiple image URLs in content
             description = get_image_description(msg, llm, vision_details)
-            returned_messages.append({"role": msg["role"], "content": description})
-        elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
+            returned_messages.append({"role": role, "content": description})
+        elif isinstance(content, dict) and content.get("type") == "image_url":
             # Single image content
-            image_url = msg["content"]["image_url"]["url"]
+            image_url = content["image_url"]["url"]
             try:
                 description = get_image_description(image_url, llm, vision_details)
-                returned_messages.append({"role": msg["role"], "content": description})
+                returned_messages.append({"role": role, "content": description})
             except Exception:
                 raise Exception(f"Error while downloading {image_url}.")
         else:
