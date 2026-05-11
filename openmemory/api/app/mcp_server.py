@@ -19,6 +19,7 @@ import contextvars
 import datetime
 import json
 import logging
+import os
 import uuid
 
 import anyio
@@ -174,32 +175,36 @@ async def search_memory(query: str) -> str:
                 "user_id": uid
             }
 
-            embeddings = memory_client.embedding_model.embed(query, "search")
-
-            hits = memory_client.vector_store.search(
-                query=query, 
-                vectors=embeddings, 
-                limit=10, 
+            initial_top_k = int(os.environ.get("RERANKER_INITIAL_TOP_K", "25"))
+            final_top_k = int(os.environ.get("RERANKER_TOP_K", "5"))
+            search_response = memory_client.search(
+                query=query,
+                top_k=initial_top_k,
                 filters=filters,
+                rerank=bool(memory_client.reranker),
             )
+            hits = search_response.get("results", [])
 
             allowed = set(str(mid) for mid in accessible_memory_ids) if accessible_memory_ids else None
 
             results = []
             for h in hits:
-                # All vector db search functions return OutputData class
-                id, score, payload = h.id, h.score, h.payload
-                if allowed and (h.id is None or h.id not in allowed):
+                id = h.get("id")
+                if allowed and (id is None or id not in allowed):
                     continue
                 
                 results.append({
                     "id": id, 
-                    "memory": payload.get("data"), 
-                    "hash": payload.get("hash"),
-                    "created_at": payload.get("created_at"), 
-                    "updated_at": payload.get("updated_at"), 
-                    "score": score,
+                    "memory": h.get("memory"), 
+                    "hash": h.get("hash"),
+                    "created_at": h.get("created_at"), 
+                    "updated_at": h.get("updated_at"), 
+                    "score": h.get("score"),
+                    "rerank_score": h.get("rerank_score"),
                 })
+
+                if len(results) >= final_top_k:
+                    break
 
             for r in results: 
                 if r.get("id"): 
