@@ -31,6 +31,8 @@
   ],
   "scripts": {
     "build": "tsup",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build",
     "test": "vitest run"
   },
   "dependencies": {
