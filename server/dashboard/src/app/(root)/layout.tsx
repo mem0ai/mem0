@@ -1,3 +1,7 @@
+import "@/styles/globals.css";
+import { cn } from "@/lib/utils";
+import { Inter, InterDisplay, Roboto, Fustat, DMMono } from "./fonts";
+import { PublicRuntimeConfigScript } from "@/components/public-runtime-config-script";
 import { Metadata } from "next";
 import { DashboardClientLayout } from "./dashboard-client-layout";
 
@@ -11,5 +15,31 @@ export default function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <DashboardClientLayout>{children}</DashboardClientLayout>;
+  return (
+    <html
+      lang="en"
+      className={cn(
+        Fustat.variable,
+        InterDisplay.variable,
+        Inter.variable,
+        Roboto.variable,
+        DMMono.variable,
+      )}
+      suppressHydrationWarning
+    >
+      <body
+        className={cn(
+          Inter.className,
+          InterDisplay.variable,
+          Roboto.variable,
+          Fustat.variable,
+          DMMono.variable,
+        )}
+        suppressHydrationWarning
+      >
+        <PublicRuntimeConfigScript />
+        <DashboardClientLayout>{children}</DashboardClientLayout>
+      </body>
+    </html>
+  );
 }

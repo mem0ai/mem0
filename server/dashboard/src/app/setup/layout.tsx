@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 import { Inter, Fustat, Roboto, DMMono, InterDisplay } from "../(root)/fonts";
+import { PublicRuntimeConfigScript } from "@/components/public-runtime-config-script";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/lib/auth";
@@ -27,6 +28,7 @@ export default function SetupLayout({
       suppressHydrationWarning
     >
       <body className="font-fustat" suppressHydrationWarning>
+        <PublicRuntimeConfigScript />
         <AuthProvider>
           <ThemeProvider
             attribute="class"

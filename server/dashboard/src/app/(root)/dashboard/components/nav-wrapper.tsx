@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { RootState } from "@/store/store";
 import { toggleSidebar } from "@/store/reducers/layoutReducer";
 import { useAuth } from "@/hooks/use-auth";
+import { getPublicInstanceName } from "@/lib/public-runtime-config";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,7 +36,7 @@ export default function NavWrapper() {
   );
   const { user, logout } = useAuth();
 
-  const instanceName = process.env.NEXT_PUBLIC_INSTANCE_NAME || "Mem0";
+  const instanceName = getPublicInstanceName();
 
   const handleToggle = useCallback(() => {
     dispatch(toggleSidebar());

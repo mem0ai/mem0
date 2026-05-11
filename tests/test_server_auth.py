@@ -55,6 +55,19 @@ def _load_app(env_overrides: dict):
     return server_main.app
 
 
+def _mcp_initialize_payload():
+    return {
+        "jsonrpc": "2.0",
+        "id": "1",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "pytest", "version": "0.1"},
+        },
+    }
+
+
 # ---------------------------------------------------------------------------
 # Auth disabled (ADMIN_API_KEY not set)
 # ---------------------------------------------------------------------------
@@ -130,6 +143,7 @@ class TestAuthDisabled:
         [
             ("POST", "/configure"),
             ("POST", "/memories"),
+            ("POST", "/mcp"),
             ("GET", "/memories"),
             ("GET", "/memories/test-id"),
             ("POST", "/search"),
@@ -209,6 +223,7 @@ class TestAuthEnabled:
         [
             ("POST", "/configure"),
             ("POST", "/memories"),
+            ("POST", "/mcp"),
             ("GET", "/memories"),
             ("GET", "/memories/test-id"),
             ("POST", "/search"),
@@ -220,7 +235,8 @@ class TestAuthEnabled:
         ],
     )
     def test_all_endpoints_reject_without_key(self, method, path):
-        resp = self.client.request(method, path)
+        kwargs = {"json": _mcp_initialize_payload()} if path == "/mcp" else {}
+        resp = self.client.request(method, path, **kwargs)
         assert resp.status_code == 401, f"{method} {path} should require auth"
 
     @pytest.mark.parametrize(
@@ -239,7 +255,8 @@ class TestAuthEnabled:
         ],
     )
     def test_all_endpoints_reject_wrong_key(self, method, path):
-        resp = self.client.request(method, path, headers={"X-API-Key": "wrong-key"})
+        kwargs = {"json": _mcp_initialize_payload()} if path == "/mcp" else {}
+        resp = self.client.request(method, path, headers={"X-API-Key": "wrong-key"}, **kwargs)
         assert resp.status_code == 401, f"{method} {path} should reject wrong key"
 
     # --- Acceptance cases ---
@@ -298,6 +315,30 @@ class TestAuthEnabled:
     def test_configure_with_key(self):
         resp = self._authed("POST", "/configure", json={"version": "v1.1"})
         assert resp.status_code == 200
+
+    def test_mcp_initialize_with_x_api_key(self):
+        resp = self._authed("POST", "/mcp", json=_mcp_initialize_payload())
+        assert resp.status_code == 200
+        assert resp.json()["result"]["serverInfo"]["name"] == "mem0-local"
+
+    def test_mcp_initialize_with_bearer_admin_api_key(self):
+        resp = self.client.post(
+            "/mcp",
+            json=_mcp_initialize_payload(),
+            headers={"Authorization": f"Bearer {self.API_KEY}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["result"]["serverInfo"]["name"] == "mem0-local"
+
+    def test_mcp_initialize_with_bearer_mem0_api_key(self):
+        with patch("auth._resolve_user_from_api_key", return_value=MagicMock()):
+            resp = self.client.post(
+                "/mcp",
+                json=_mcp_initialize_payload(),
+                headers={"Authorization": "Bearer m0sk_test_api_key"},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["result"]["serverInfo"]["name"] == "mem0-local"
 
 
 # ---------------------------------------------------------------------------

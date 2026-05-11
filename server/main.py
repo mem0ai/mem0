@@ -30,6 +30,7 @@ from routers import auth as auth_router
 from routers import api_keys as api_keys_router
 from routers import entities as entities_router
 from routers import requests as requests_router
+from mcp_server import router as mcp_router
 from schemas import MessageResponse
 from server_state import get_current_config, get_memory_instance, initialize_state, set_session_factory, update_config
 
@@ -53,7 +54,8 @@ SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
 BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
-BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini")
+BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini", "huggingface")
+BUNDLED_VECTOR_STORE_PROVIDERS = ("pgvector", "qdrant")
 
 
 def _warn_if_unconfigured() -> None:
@@ -108,26 +110,56 @@ POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
+DEFAULT_LLM_BASE_URL = os.environ.get("MEM0_DEFAULT_LLM_BASE_URL")
+DEFAULT_EMBEDDER_PROVIDER = os.environ.get("MEM0_DEFAULT_EMBEDDER_PROVIDER", "openai")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+DEFAULT_EMBEDDER_BASE_URL = os.environ.get("MEM0_DEFAULT_EMBEDDER_BASE_URL")
+
+VECTOR_STORE_PROVIDER = os.environ.get("MEM0_VECTOR_STORE_PROVIDER", "pgvector")
+QDRANT_HOST = os.environ.get("QDRANT_HOST", "axon-qdrant")
+QDRANT_PORT = os.environ.get("QDRANT_PORT", "6333")
+
+if VECTOR_STORE_PROVIDER == "qdrant":
+    vector_store_config = {
+        "host": QDRANT_HOST,
+        "port": int(QDRANT_PORT),
+        "collection_name": POSTGRES_COLLECTION_NAME,
+        "embedding_model_dims": 1024,
+    }
+else:
+    vector_store_config = {
+        "host": POSTGRES_HOST,
+        "port": int(POSTGRES_PORT),
+        "dbname": POSTGRES_DB,
+        "user": POSTGRES_USER,
+        "password": POSTGRES_PASSWORD,
+        "collection_name": POSTGRES_COLLECTION_NAME,
+        "embedding_model_dims": 1024,
+    }
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
-        "provider": "pgvector",
-        "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
+        "provider": VECTOR_STORE_PROVIDER,
+        "config": vector_store_config,
     },
     "llm": {
         "provider": "openai",
-        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "temperature": 0.2,
+            "model": DEFAULT_LLM_MODEL,
+            "openai_base_url": DEFAULT_LLM_BASE_URL,
+        },
     },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
+    "embedder": {
+        "provider": DEFAULT_EMBEDDER_PROVIDER,
+        "config": {
+            "api_key": os.environ.get("MEM0_DEFAULT_EMBEDDER_API_KEY", OPENAI_API_KEY),
+            "model": DEFAULT_EMBEDDER_MODEL,
+            "huggingface_base_url": DEFAULT_EMBEDDER_BASE_URL,
+        },
+    },
     "history_db_path": HISTORY_DB_PATH,
 }
 
@@ -153,7 +185,7 @@ app.add_exception_handler(UpstreamError, upstream_error_handler)
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DASHBOARD_URL],
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -163,6 +195,7 @@ app.include_router(auth_router.router)
 app.include_router(api_keys_router.router)
 app.include_router(entities_router.router)
 app.include_router(requests_router.router)
+app.include_router(mcp_router)
 
 
 class Message(BaseModel):
@@ -380,7 +413,7 @@ def _serialize_memory(row: Any) -> Dict[str, Any]:
 
 def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
     results = get_memory_instance().vector_store.list(top_k=limit)
-    rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
+    rows = results[0] if results and isinstance(results, (list, tuple)) and isinstance(results[0], list) else results or []
     return {"results": [_serialize_memory(row) for row in rows]}
 
 
