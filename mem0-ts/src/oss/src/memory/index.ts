@@ -1170,9 +1170,27 @@ export class Memory {
         if (deduped.length > 0) {
           const entityStore = await this.getEntityStore();
 
-          for (const entity of deduped) {
+          // Single batch embed for all unique query entities; fall back to
+          // serial embed() on batch failure (mirrors addToVectorStore pattern).
+          const entityTexts = deduped.map((e) => e.text);
+          let entityEmbeddings: (number[] | null)[];
+          try {
+            entityEmbeddings = await this.embedder.embedBatch(entityTexts);
+          } catch {
+            entityEmbeddings = [];
+            for (const t of entityTexts) {
+              try {
+                entityEmbeddings.push(await this.embedder.embed(t));
+              } catch {
+                entityEmbeddings.push(null);
+              }
+            }
+          }
+
+          for (let i = 0; i < deduped.length; i++) {
+            const entityEmbedding = entityEmbeddings[i];
+            if (!entityEmbedding) continue;
             try {
-              const entityEmbedding = await this.embedder.embed(entity.text);
               const matches = await entityStore.search(
                 entityEmbedding,
                 500,
