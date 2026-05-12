@@ -450,6 +450,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Elasticsearch](https://docs.mem0.ai/components/vectordbs/dbs/elasticsearch) [OSS]: Use when Elasticsearch is the backing store.
 - [OpenSearch](https://docs.mem0.ai/components/vectordbs/dbs/opensearch) [OSS]: Use when OpenSearch is the backing store.
 - [Supabase](https://docs.mem0.ai/components/vectordbs/dbs/supabase) [OSS]: Use when Supabase with pgvector is the backing store.
+- [Neon](https://docs.mem0.ai/components/vectordbs/dbs/neon) [OSS]: Use when Neon Postgres with pgvector is the backing store.
 - [Upstash Vector](https://docs.mem0.ai/components/vectordbs/dbs/upstash-vector) [OSS]: Use for serverless Upstash Vector.
 - [Vectorize](https://docs.mem0.ai/components/vectordbs/dbs/vectorize) [OSS]: Use when the store is Cloudflare Vectorize.
 - [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai) [OSS]: Use when the store is Google Cloud Vertex Vector Search.
