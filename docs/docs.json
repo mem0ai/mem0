@@ -72,7 +72,8 @@
                           "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
                           "platform/features/multimodal-support",
-                          "platform/features/custom-categories"
+                          "platform/features/custom-categories",
+                          "platform/features/temporal-reasoning"
                         ]
                       },
                       {

@@ -1,0 +1,145 @@
+---
+title: Temporal Reasoning
+description: "Time-aware memory retrieval for Mem0 Platform v3 so queries like 'last week', 'upcoming', and 'right now' return the right memories."
+icon: "clock"
+badge: "v3"
+---
+
+Some memories matter because of **when** they happened, not just because they sound similar. Temporal Reasoning lets Mem0 Platform v3 understand time-aware queries and return the most contextually appropriate results.
+
+<Info>
+  **Use Temporal Reasoning when…**
+  - Users ask questions like "what happened last week?" or "what do I have coming up?"
+  - Your app stores both past events and future plans for the same person
+  - You want time-aware retrieval without building your own date-parsing layer
+</Info>
+
+<Warning>
+  Temporal Reasoning is a **Mem0 Platform v3** feature. It is not available on OSS memory stores or older Platform endpoints.
+</Warning>
+
+## Configure access
+
+Confirm your `MEM0_API_KEY` is set and that you are using the v3 Platform client:
+
+```python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+```
+
+## How it works
+
+When a memory describes an event, a future plan, or an ongoing state, Temporal Reasoning recognizes the time context so the right results surface at search time.
+
+A query like `what did I do last week?` should return a completed past event — not an upcoming appointment and not a stable fact that hasn't changed. Temporal Reasoning handles that distinction automatically.
+
+### Memory types Temporal Reasoning handles
+
+| Type | What it represents | Example |
+| --- | --- | --- |
+| Dated occurrence | Something that happened at a known time | "I finished the Q1 review on March 10, 2025." |
+| Future plan | A future commitment or scheduled item | "I have a dentist appointment on March 18, 2025." |
+| Ongoing state | A fact that remains true over time | "I am the product lead at Acme Corp." |
+| Relationship | A durable connection between people or entities | "Priya manages Jordan." |
+| Preference | A stable preference or habit | "I prefer morning meetings." |
+
+Results come back in the normal search response shape — Temporal Reasoning affects ranking, not the response format.
+
+## Configure it
+
+Temporal Reasoning is enabled by default for all v3 searches and writes. There is no per-request toggle.
+
+Two parameters give you precise control when you need it:
+
+- `timestamp` on `add()` — anchors an imported memory to the time it actually happened, rather than the time it was added to Mem0
+- `reference_date` on `search()` — resolves relative phrases like `last week` against a fixed point in time
+
+<CodeGroup>
+```python Python
+from datetime import datetime, timezone
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Import a historical memory anchored to when it happened
+client.add(
+    [{"role": "user", "content": "I finished the Q1 review on March 10, 2025."}],
+    user_id="jordan",
+    timestamp=int(datetime(2025, 3, 10, tzinfo=timezone.utc).timestamp()),
+)
+
+# Search with a relative query anchored to a known date
+results = client.search(
+    "what did I do last week?",
+    filters={"user_id": "jordan"},
+    reference_date="2025-03-21T00:00:00Z",
+)
+```
+
+```javascript JavaScript
+import { MemoryClient } from "mem0ai";
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+// Import a historical memory anchored to when it happened
+await client.add(
+  [{ role: "user", content: "I finished the Q1 review on March 10, 2025." }],
+  {
+    userId: "jordan",
+    timestamp: Math.floor(new Date("2025-03-10T00:00:00Z").getTime() / 1000),
+  }
+);
+
+// Search with a relative query anchored to a known date
+const results = await client.search("what did I do last week?", {
+  filters: { user_id: "jordan" },
+  referenceDate: "2025-03-21T00:00:00Z",
+});
+```
+</CodeGroup>
+
+<Tip>
+  `reference_date` is especially useful in automated tests and demos because it makes relative phrases like `last week` resolve consistently every time.
+</Tip>
+
+## Supported query patterns
+
+<AccordionGroup>
+  <Accordion title="Historical questions">
+    Examples: `last week`, `last month`, `in March 2025`, `on 2025-03-10`
+  </Accordion>
+  <Accordion title="Upcoming questions">
+    Examples: `upcoming`, `next week`, `tomorrow`, `what do I have coming up?`
+  </Accordion>
+  <Accordion title="Current-state questions">
+    Examples: `right now`, `currently`, `where do I work now?`
+  </Accordion>
+  <Accordion title="As-of questions">
+    Examples: `as of March 2025`, `where was I living as of 2024?`
+  </Accordion>
+  <Accordion title="Duration questions">
+    Examples: `how long have I lived here?`, `since when have I worked there?`
+  </Accordion>
+</AccordionGroup>
+
+## Verify the feature is working
+
+- Run a temporal search with a time-aware query (e.g., "what did I do last week?") and confirm the memory that fits the time window ranks first.
+- Use `reference_date` in test queries so relative phrases resolve consistently across runs.
+- For backfilled data, pass `timestamp` on `add()` to confirm the memory reflects the right point in time.
+
+## Best practices
+
+- Use explicit dates in source conversations when events or plans matter temporally.
+- Pass `timestamp` during historical imports so the ingestion time does not become the only time anchor.
+- Scope searches with `filters` so time-aware ranking operates inside the right user boundary.
+- Use `reference_date` in automated tests and reproducible demos.
+
+<CardGroup cols={1}>
+  <Card title="Memory Timestamps" icon="calendar" href="/platform/features/timestamp">
+    Anchor imported memories to when they actually happened.
+  </Card>
+</CardGroup>
+
+<Snippet file="get-help.mdx" />

@@ -185,6 +185,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Features - Advanced Retrieval
 - [Advanced Retrieval](https://docs.mem0.ai/platform/features/advanced-retrieval) [Platform]: Use when the user needs keyword search, reranking, or hybrid retrieval.
 - [Criteria-Based Retrieval](https://docs.mem0.ai/platform/features/criteria-retrieval) [Platform]: Use when targeting memories by custom criteria, not just semantic similarity.
+- [Temporal Reasoning](https://docs.mem0.ai/platform/features/temporal-reasoning) [Platform]: Use when time-aware searches like last week, upcoming, or right now need better result ordering.
 - [Contextual Add](https://docs.mem0.ai/platform/features/contextual-add) [Platform]: Use when `add()` should consider the surrounding conversation, not just the latest turn.
 - [Custom Instructions](https://docs.mem0.ai/platform/features/custom-instructions) [Platform]: Use when tailoring what Mem0 extracts and stores on Platform.
 - [Memory Decay](https://docs.mem0.ai/platform/features/memory-decay) [Platform]: Use when search results should boost recently-reinforced memories and dampen stale ones — opt-in per project, search-time only, never filters candidates out.

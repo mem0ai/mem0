@@ -156,6 +156,10 @@ const memories = memory.search("food preferences", {
   Expect an array of memory documents. Platform responses include vectors, metadata, and timestamps; OSS returns your stored schema.
 </Info>
 
+<Note>
+  On Mem0 Platform v3, time-aware queries use Temporal Reasoning internally while preserving the normal search response shape. See <Link href="/platform/features/temporal-reasoning">Temporal Reasoning</Link>.
+</Note>
+
 ## Filter patterns
 
 Filters help narrow down search results. Common use cases:

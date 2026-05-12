@@ -4,6 +4,17 @@ description: "Release notes for the Mem0 hosted platform — backend, dashboard,
 mode: "wide"
 ---
 
+<Update label="2026-05-13" description="">
+
+**New Features:**
+- **Memory:** Added Temporal Reasoning for Platform v3 to improve ranking for time-aware queries such as `last week`, `upcoming`, `right now`, and `as of ...`
+- **Search:** Added `reference_date` support to anchor relative temporal queries for tests, backfills, and reproducible demos
+
+**Improvements:**
+- **API:** Temporal reasoning preserves the normal client response shape for search and get-all results
+
+</Update>
+
 <Update label="2026-05-04" description="">
 
 **New Features:**
@@ -301,4 +312,3 @@ mode: "wide"
 - **Core:** Fixed unicode error in user_id, agent_id, run_id and app_id
 
 </Update>
-

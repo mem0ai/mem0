@@ -55,7 +55,7 @@ mode: "wide"
 **Breaking Changes:**
 - **`add()` returns ADD-only events** — No more `"UPDATE"` or `"DELETE"` events. Memories accumulate; nothing is overwritten ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`search()` default `threshold` is now `0.1`** — Pass `threshold=0.0` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
-- **`search()` `score` is now a combined multi-signal score** — The top-level `score` fuses semantic similarity, BM25 keyword match, and entity boost into one value. Absolute numbers shift versus the old raw cosine score; retune any hard thresholds against representative queries. Per-signal scores are not exposed on the response ([#4805](https://github.com/mem0ai/mem0/pull/4805), [#4836](https://github.com/mem0ai/mem0/pull/4836))
+- **`search()` `score` is now a combined multi-signal score** — The top-level `score` fuses semantic similarity, BM25 keyword match, entity signals, and temporal boosts into one value. Absolute numbers shift versus the old raw cosine score; retune any hard thresholds against representative queries ([#4805](https://github.com/mem0ai/mem0/pull/4805), [#4836](https://github.com/mem0ai/mem0/pull/4836))
 - **`search()` default `rerank` is now `False`** — Pass `rerank=True` for previous behavior ([#4805](https://github.com/mem0ai/mem0/pull/4805))
 - **`top_k` default changed 100 → 20** in `Memory.get_all()` and `Memory.search()` (sync + async). Pass `top_k=100` explicitly to restore the old behavior ([#4843](https://github.com/mem0ai/mem0/pull/4843))
 - **Entity ID validation:** `user_id` / `agent_id` / `run_id` are trimmed; empty-string and whitespace-only values now raise `ValueError` ([#4843](https://github.com/mem0ai/mem0/pull/4843))

@@ -419,7 +419,7 @@
 													},
 													"results": {
 														"type": "array",
-														"description": "Array of results produced by the event."
+														"description": "Array of results produced by the event. For add events, this confirms the write completed; temporal reasoning enrichment runs asynchronously by default."
 													},
 													"created_at": {
 														"type": "string",
@@ -2071,7 +2071,7 @@
 					"memories"
 				],
 				"summary": "Search memories (V3)",
-				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval — the returned `score` is a combined `[0, 1]` value; per-signal component scores are not exposed on the response. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
+				"description": "Relevance-ranked search across stored memories. V3 uses hybrid retrieval and can also apply temporal reasoning for time-aware queries. Entity IDs **must** be passed inside the `filters` object — top-level `user_id` / `agent_id` / `run_id` are rejected with 400. At least one entity ID is required.",
 				"operationId": "memories_search_v3",
 				"requestBody": {
 					"required": true,
@@ -2112,6 +2112,21 @@
 										"type": "boolean",
 										"default": false,
 										"description": "Apply the managed reranker for better ordering (adds latency)."
+									},
+									"reference_date": {
+										"oneOf": [
+											{
+												"type": "integer"
+											},
+											{
+												"type": "number"
+											},
+											{
+												"type": "string"
+											}
+										],
+										"nullable": true,
+										"description": "Optional query anchor time for relative temporal interpretation. Accepts Unix epoch, YYYY-MM-DD, or ISO datetime."
 									}
 								}
 							},
