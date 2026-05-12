@@ -32,12 +32,12 @@ client = MemoryClient(api_key="your-api-key")
 
 Temporal Reasoning has two public-facing parts:
 
-- **Write-time enrichment**: when Mem0 stores a memory, it can attach temporal structure such as memory type and date bounds when that information is present in the text.
-- **Search-time interpretation**: when a query includes time language like `last week`, `upcoming`, or `right now`, Mem0 uses the stored temporal fields to return more appropriate results.
+- **Write-time enrichment**: when Mem0 stores a memory, it can infer internal temporal structure when that information is present in the text.
+- **Search-time interpretation**: when a query includes time language like `last week`, `upcoming`, or `right now`, Mem0 uses internal temporal signals to return more appropriate results.
 
 ### Memory types
 
-Mem0 normalizes temporal memories into a small set of developer-facing types:
+Mem0 normalizes temporal memories into a small set of internal classes:
 
 | Type | What it represents | Example |
 | --- | --- | --- |
@@ -47,7 +47,7 @@ Mem0 normalizes temporal memories into a small set of developer-facing types:
 | `relationship` | A durable connection between people or entities | "Priya manages Jordan." |
 | `preference` | A stable preference or habit | "I prefer morning meetings." |
 
-At search time, Temporal Reasoning influences how results are ranked — memories that match the temporal intent of the query receive a boost — but no temporal metadata is added to the API response. The ranking effect is transparent: results come back in the normal shape.
+At search time, Temporal Reasoning influences how results are ranked. The ranking effect is transparent: results come back in the normal shape.
 
 ## Configure it
 
@@ -209,9 +209,6 @@ results.results.forEach((item) => {
 <CardGroup cols={2}>
   <Card title="Memory Timestamps" icon="calendar" href="/platform/features/timestamp">
     Anchor imported memories to when they actually happened.
-  </Card>
-  <Card title="Answer Time-Aware Questions" icon="book-open" href="/cookbooks/essentials/temporal-memory-assistant">
-    Follow the cookbook for an end-to-end temporal retrieval workflow.
   </Card>
 </CardGroup>
 

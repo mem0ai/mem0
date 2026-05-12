@@ -330,7 +330,6 @@
                       "cookbooks/essentials/building-ai-companion",
                       "cookbooks/essentials/entity-partitioning-playbook",
                       "cookbooks/essentials/controlling-memory-ingestion",
-                      "cookbooks/essentials/temporal-memory-assistant",
                       "cookbooks/essentials/tagging-and-organizing-memories",
                       "cookbooks/essentials/exporting-memories"
                     ]

@@ -1866,55 +1866,7 @@
 													"updated_at": {
 														"type": "string",
 														"format": "date-time"
-													},
-                    "plan_status": {
-                      "type": "string",
-                      "nullable": true,
-                      "description": "Stored plan status if this memory is a plan."
-                    },
-                    "event_date": {
-                      "type": "string",
-                      "format": "date",
-                      "nullable": true,
-														"description": "Primary event date when available."
-													},
-													"event_start": {
-														"type": "string",
-														"format": "date",
-														"nullable": true,
-														"description": "Start date for an event or interval when available."
-													},
-                    "event_end": {
-                      "type": "string",
-                      "format": "date",
-                      "nullable": true,
-                      "description": "End date for an event or interval when available."
-                    },
-                    "time_precision": {
-                      "type": "string",
-                      "nullable": true,
-                      "description": "Temporal precision for the resolved date information."
-                    },
-                    "timezone": {
-                      "type": "string",
-                      "nullable": true,
-                      "description": "Stored timezone associated with the temporal record, when available."
-                    },
-                    "polarity": {
-                      "type": "string",
-                      "nullable": true,
-                      "description": "Stored temporal polarity, when available."
-                    },
-                    "temporal_relation": {
-                      "type": "string",
-                      "nullable": true,
-                      "description": "Stored temporal relation, when available."
-                    },
-                    "state_key": {
-                      "type": "string",
-                      "nullable": true,
-                      "description": "Stored state key for state-like memories, when available."
-                    }
+													}
                   },
 												"required": [
 													"id",
@@ -1945,16 +1897,7 @@
                       "location"
                     ],
                     "created_at": "2026-01-15T10:30:00Z",
-                    "updated_at": "2026-01-15T10:30:00Z",
-                    "event_date": "2026-01-15",
-                    "event_start": "2026-01-15",
-                    "event_end": null,
-                    "time_precision": "day",
-                    "timezone": "UTC",
-                    "polarity": "positive",
-                    "temporal_relation": "on",
-                    "state_key": null,
-                    "plan_status": null
+                    "updated_at": "2026-01-15T10:30:00Z"
                   }
                 ]
               }
@@ -2056,32 +1999,10 @@
 										"type": "string",
 										"description": "Project-level instructions that guide extraction for this call."
 									},
-									"observation_date": {
-										"type": "string",
-										"format": "date",
-										"nullable": true,
-										"description": "Original conversation date used for temporal grounding."
-									},
-									"observation_datetime": {
-										"type": "string",
-										"format": "date-time",
-										"nullable": true,
-										"description": "Original conversation datetime used for temporal grounding."
-									},
-									"timezone": {
-										"type": "string",
-										"nullable": true,
-										"description": "IANA timezone used to resolve observation dates and relative dates."
-									},
 									"multilingual": {
 										"type": "boolean",
 										"nullable": true,
 										"description": "Extract memories in the same language as the input."
-									},
-									"timestamp": {
-										"type": "integer",
-										"nullable": true,
-										"description": "Unix epoch timestamp for when the conversation happened."
 									},
 									"expiration_date": {
 										"type": "string",

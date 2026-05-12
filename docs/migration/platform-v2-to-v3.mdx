@@ -63,7 +63,7 @@ Search now uses hybrid retrieval, which improves ranking quality — especially 
 }
 ```
 
-The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries. Temporal signals are used internally for ranking and are not exposed as client-facing temporal metadata.
+The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries. Temporal signals are used internally for ranking and are not returned as extra client-facing data.
 
 ## API Changes
 
@@ -299,7 +299,7 @@ If your application previously read graph relations from the API response (`rela
 - **V1 and V2 endpoints continue to work.** There is no requirement to migrate to V3 endpoints immediately.
 - **Existing memories are preserved.** The new algorithm does not modify or re-process previously stored memories.
 - **Search response shape is unchanged.** The top-level `score` and `results[]` array are the same; existing code that reads `score` continues to work. What changed is the scoring method behind the number (multi-signal fusion instead of pure cosine), so the absolute values shift even when ranking stays comparable.
-- **Search remains backward-compatible at the top level.** Existing code that reads `results[]` and `score` continues to work. Temporal signals are applied internally during retrieval rather than returned as temporal fields in the client response.
+- **Search remains backward-compatible at the top level.** Existing code that reads `results[]` and `score` continues to work. Temporal signals are applied internally during retrieval and do not change the client response shape.
 - **List response shape changed.** `get_all` now returns a paginated envelope (`{count, next, previous, results}`) instead of a bare `{results: [...]}`. Update code that reads `response["results"]` to continue working, or switch to the client SDKs which handle both shapes.
 
 ## Performance Improvements
