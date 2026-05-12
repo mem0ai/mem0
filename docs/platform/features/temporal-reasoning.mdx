@@ -30,22 +30,22 @@ client = MemoryClient(api_key="your-api-key")
 
 ## How it works
 
-Temporal Reasoning has two public-facing parts:
+Temporal Reasoning works in two parts:
 
 - **Write-time enrichment**: when Mem0 stores a memory, it can infer internal temporal structure when that information is present in the text.
 - **Search-time interpretation**: when a query includes time language like `last week`, `upcoming`, or `right now`, Mem0 uses internal temporal signals to return more appropriate results.
 
-### Memory types
+### Temporal patterns
 
-Mem0 normalizes temporal memories into a small set of internal classes:
+Mem0 handles several common temporal patterns:
 
-| Type | What it represents | Example |
+| Pattern | What it represents | Example |
 | --- | --- | --- |
-| `event` | A dated occurrence | "I finished the Q1 review on March 10, 2025." |
-| `plan` | A future commitment or scheduled item | "I have a dentist appointment on March 18, 2025." |
-| `state` | An ongoing fact that can remain true over time | "I am the product lead at Acme Corp." |
-| `relationship` | A durable connection between people or entities | "Priya manages Jordan." |
-| `preference` | A stable preference or habit | "I prefer morning meetings." |
+| Dated occurrence | Something that happened at a known time | "I finished the Q1 review on March 10, 2025." |
+| Future plan | A future commitment or scheduled item | "I have a dentist appointment on March 18, 2025." |
+| Ongoing state | A fact that can remain true over time | "I am the product lead at Acme Corp." |
+| Relationship | A durable connection between people or entities | "Priya manages Jordan." |
+| Preference | A stable preference or habit | "I prefer morning meetings." |
 
 At search time, Temporal Reasoning influences how results are ranked. The ranking effect is transparent: results come back in the normal shape.
 
@@ -96,7 +96,7 @@ const results = await client.search("what did I do last week?", {
 </CodeGroup>
 
 <Tip>
-  `reference_date` is especially useful for tests, backfills, and cookbook examples because it makes relative phrases reproducible.
+  `reference_date` is especially useful for tests and backfills because it makes relative phrases reproducible.
 </Tip>
 
 ## See it in action
@@ -170,7 +170,7 @@ results.results.forEach((item) => {
 </CodeGroup>
 
 <Info icon="check">
-  Expected behavior: the March 10 review appears as a past `event`, the April 18 appointment does not lead this result set, and the ongoing role at Acme does not crowd out the dated answer.
+  Expected behavior: the March 10 review leads this result set, the April 18 appointment does not, and the ongoing role at Acme does not crowd out the dated answer.
 </Info>
 
 ## Supported query patterns
@@ -206,7 +206,7 @@ results.results.forEach((item) => {
 - Keep search scoped with `filters` so time-aware ranking runs inside the right entity boundary.
 - Use `reference_date` in automated tests and reproducible demos.
 
-<CardGroup cols={2}>
+<CardGroup cols={1}>
   <Card title="Memory Timestamps" icon="calendar" href="/platform/features/timestamp">
     Anchor imported memories to when they actually happened.
   </Card>
