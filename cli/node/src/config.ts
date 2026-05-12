@@ -21,6 +21,11 @@ export interface PlatformConfig {
 	apiKey: string;
 	baseUrl: string;
 	userEmail: string;
+	// Agent Mode (unclaimed-shadow signup)
+	agentMode: boolean; // true while the key is an unclaimed agent-mode key
+	createdVia: string; // "agent_mode" | "email" | "api_key" | "existing_key"
+	claimedAt: string; // ISO timestamp once the agent has been claimed
+	defaultUserId: string; // `user_<slug>` returned by bootstrap; auto-default scope
 }
 
 export interface DefaultsConfig {
@@ -54,6 +59,10 @@ export function createDefaultConfig(): Mem0Config {
 			apiKey: "",
 			baseUrl: DEFAULT_BASE_URL,
 			userEmail: "",
+			agentMode: false,
+			createdVia: "",
+			claimedAt: "",
+			defaultUserId: "",
 		},
 		telemetry: {
 			anonymousId: "",
@@ -79,6 +88,10 @@ export function loadConfig(): Mem0Config {
 		config.platform.apiKey = plat.api_key ?? "";
 		config.platform.baseUrl = plat.base_url ?? DEFAULT_BASE_URL;
 		config.platform.userEmail = plat.user_email ?? "";
+		config.platform.agentMode = Boolean(plat.agent_mode ?? false);
+		config.platform.createdVia = plat.created_via ?? "";
+		config.platform.claimedAt = plat.claimed_at ?? "";
+		config.platform.defaultUserId = plat.default_user_id ?? "";
 
 		const defaults = data.defaults ?? {};
 		config.defaults.userId = defaults.user_id ?? "";
@@ -118,6 +131,10 @@ export function saveConfig(config: Mem0Config): void {
 			api_key: config.platform.apiKey,
 			base_url: config.platform.baseUrl,
 			user_email: config.platform.userEmail,
+			agent_mode: config.platform.agentMode,
+			created_via: config.platform.createdVia,
+			claimed_at: config.platform.claimedAt,
+			default_user_id: config.platform.defaultUserId,
 		},
 		telemetry: {
 			anonymous_id: config.telemetry.anonymousId,

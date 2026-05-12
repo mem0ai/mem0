@@ -249,14 +249,31 @@ export async function runInit(
 		email?: string;
 		code?: string;
 		force?: boolean;
+		agent?: boolean;
+		source?: string;
 	} = {},
 ): Promise<void> {
+	const { detectAgentCaller } = await import("../agent-detect.js");
+	const { bootstrapViaBackend, claimViaDeviceFlow } = await import("./agent-mode.js");
+	const { isAgentMode } = await import("../state.js");
+	const { captureEvent } = await import("../telemetry.js");
+
+	const fireInit = (mode: "agent" | "email" | "api_key" | "existing_key", claimed = false) => {
+		const props: Record<string, unknown> = { command: "init", mode };
+		const caller = detectAgentCaller();
+		if (caller) props.agent_caller = caller;
+		if (opts.source) props.signup_source = opts.source;
+		if (claimed) props.claimed_agent_mode = true;
+		captureEvent("cli.init", props);
+	};
+
 	const config = createDefaultConfig();
 	const savedConfig = loadConfig();
 	const baseUrl =
 		process.env.MEM0_BASE_URL ||
 		savedConfig.platform.baseUrl ||
 		DEFAULT_BASE_URL;
+	config.platform.baseUrl = baseUrl;
 
 	// Guards
 	if (opts.code && !opts.email) {
@@ -266,6 +283,16 @@ export async function runInit(
 	if (opts.email && opts.apiKey) {
 		printError("Cannot use both --api-key and --email.");
 		process.exit(1);
+	}
+
+	// ── Claim flow: --email against an existing agent-mode config ───────────
+	if (opts.email && fs.existsSync(CONFIG_FILE) && savedConfig.platform.agentMode && savedConfig.platform.apiKey) {
+		const email = opts.email.trim().toLowerCase();
+		validateEmail(email);
+		printInfo(`Claiming Agent Mode account to ${email}...`);
+		await claimViaDeviceFlow(savedConfig, { email });
+		fireInit("email", true);
+		return;
 	}
 
 	// Warn if an existing config with an API key would be overwritten
@@ -338,6 +365,20 @@ export async function runInit(
 		return;
 	}
 
+	// ── Agent Mode auto-bootstrap (no email, no api_key flag) ───────────
+	// Positive agent signal required: --agent flag (local or global) OR a
+	// recognized agent env var. Pure "no TTY" alone is NOT enough — pipe
+	// users would get surprised by a silent shadow signup.
+	const agentCtx =
+		opts.agent === true ||
+		isAgentMode() ||
+		detectAgentCaller() !== null;
+	if (!opts.apiKey && !opts.email && agentCtx) {
+		await bootstrapViaBackend(config, { source: opts.source ?? null });
+		fireInit("agent");
+		return;
+	}
+
 	// ── API key flow ──────────────────────────────────────────────────────────
 
 	// Non-TTY: resolve defaults so partial flags work in pipelines / CI
@@ -345,7 +386,7 @@ export async function runInit(
 		if (!opts.apiKey) {
 			printError(
 				"Non-interactive terminal detected and --api-key is required.",
-				"Usage: mem0 init --api-key <key> [--user-id <id>]",
+				"Usage: mem0 init --api-key <key>, --email <addr>, or --agent for unattended Agent Mode bootstrap.",
 			);
 			process.exit(1);
 		}

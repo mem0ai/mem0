@@ -166,6 +166,10 @@ program.hook("preAction", (_thisCommand, actionCommand) => {
 			parentName && parentName !== "mem0"
 				? `${parentName}.${commandName}`
 				: commandName;
+		// init fires its own telemetry from runInit with full M1-M6 props
+		// (mode/agent_caller/signup_source/claimed_agent_mode); skip the
+		// auto-fire here so we don't double-count.
+		if (fullCommand === "init") return;
 		const isAgent = !!(program.opts().json || program.opts().agent);
 		captureEvent(
 			`cli.${fullCommand}`,
@@ -193,9 +197,11 @@ program
 		"Verification code (use with --email for non-interactive login).",
 	)
 	.option("--force", "Overwrite existing config without confirmation.", false)
+	.option("--agent", "Bootstrap an unattended Agent Mode account (no email required).", false)
+	.option("--source <channel>", "Channel attribution for signup (e.g. github, hn, ph).")
 	.addHelpText(
 		"after",
-		"\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456",
+		"\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456\n  $ mem0 init --agent             # Bootstrap an Agent Mode account (unattended)\n  $ mem0 init --email you@example.com  # Claims an existing Agent Mode key when one is present",
 	)
 	.action(async (opts) => {
 		const { runInit } = await import("./commands/init.js");
@@ -205,6 +211,8 @@ program
 			email: opts.email,
 			code: opts.code,
 			force: opts.force,
+			agent: opts.agent,
+			source: opts.source,
 		});
 	});
 
