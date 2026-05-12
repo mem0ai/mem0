@@ -215,7 +215,7 @@ client.search("preferences", filters={
 - **Use natural language**: Mem0 understands intent, so describe what you're looking for naturally
 - **Scope with user ID**: Always provide `user_id` to scope search to relevant memories
   - **Platform API**: Use `filters={"user_id": "alice"}`
-  - **OSS**: Use `filters={"user_id": "alice"}`
+  - **OSS**: Use `user_id="alice"` as parameter
 - **Combine filters**: Use AND/OR logic to create precise queries (Platform)
 - **Consider wildcard filters**: Use wildcard filters (e.g., `run_id: "*"`) for broader matches
 - **Tune parameters**: Adjust `top_k` for result count, `threshold` for relevance cutoff

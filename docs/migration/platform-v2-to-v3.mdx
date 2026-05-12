@@ -42,7 +42,7 @@ Previously, when an agent said something like "I've booked your flight for March
 
 ### Retrieval is hybrid now
 
-Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, entities that appear across multiple memories, and time-aware queries. Existing code that reads `results[]` and the top-level `score` continues to work, but V3 can return additional top-level fields when the platform has more structured context available:
+Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, entities that appear across multiple memories, and time-aware queries (via Temporal Reasoning). The response shape is unchanged:
 
 ```json
 {
@@ -51,11 +51,6 @@ Search now uses hybrid retrieval, which improves ranking quality — especially 
       "id": "mem-uuid",
       "memory": "User moved to San Francisco in January 2026",
       "score": 0.82,
-      "score_breakdown": {
-        "semantic": 0.74,
-        "bm25": 0.68,
-        "entity": 0.12
-      },
       "metadata": {},
       "categories": ["location"]
     }
@@ -63,7 +58,7 @@ Search now uses hybrid retrieval, which improves ranking quality — especially 
 }
 ```
 
-The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries. Temporal signals are used internally for ranking and are not returned as extra client-facing data.
+The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries. Temporal signals are applied internally during ranking and are not returned as extra client-facing fields.
 
 ## API Changes
 
@@ -169,11 +164,6 @@ Poll status via `GET /v1/event/{event_id}/` — status will be `SUCCEEDED` or `F
       "id": "mem-uuid",
       "memory": "User moved to San Francisco from New York in January 2026",
       "score": 0.82,
-      "score_breakdown": {
-        "semantic": 0.74,
-        "bm25": 0.68,
-        "entity": 0.12
-      },
       "metadata": {},
       "categories": ["location"],
       "created_at": "2026-01-15T10:30:00Z",
