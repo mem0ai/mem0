@@ -315,11 +315,11 @@ def _build_filters_and_metadata(
 
 
 def _build_session_scope(filters):
-    """Build deterministic session scope string from entity IDs."""
+    """Build deterministic session scope string from entity IDs and metadata."""
     parts = []
-    for key in sorted(["user_id", "agent_id", "run_id"]):
+    for key in sorted(filters.keys()):
         val = filters.get(key)
-        if val:
+        if val and isinstance(val, (str, int, float, bool)):
             parts.append(f"{key}={val}")
     return "&".join(parts)
 
@@ -704,7 +704,7 @@ class Memory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
-        search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = {k: v for k, v in filters.items() if v}
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
             query=parsed_messages,
@@ -2118,7 +2118,7 @@ class AsyncMemory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
-        search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        search_filters = {k: v for k, v in effective_filters.items() if v}
         query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
