@@ -236,7 +236,8 @@ def main_callback(
         _fire_telemetry("version")
         cmd_version()
         raise typer.Exit()
-    if ctx.invoked_subcommand:
+    if ctx.invoked_subcommand and ctx.invoked_subcommand != "init":
+        # init fires its own telemetry from init_cmd.run_init with full M1-M6 props.
         _fire_telemetry(ctx.invoked_subcommand)
 
 
@@ -851,6 +852,12 @@ def init(
     force: bool = typer.Option(
         False, "--force", help="Overwrite existing config without confirmation."
     ),
+    agent_signal: bool = typer.Option(
+        False, "--agent", help="Bootstrap an unattended Agent Mode account (no email required)."
+    ),
+    source: str | None = typer.Option(
+        None, "--source", help="Channel attribution for signup (e.g. github, hn, ph).",
+    ),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
@@ -859,10 +866,20 @@ def init(
       mem0 init --api-key m0-xxx --user-id alice
       mem0 init --email alice@company.com
       mem0 init --email alice@company.com --code 482901
+      mem0 init --agent           # Bootstrap an Agent Mode account (unattended)
+      mem0 init --email alice@company.com  # Claims an existing Agent Mode key when one is present
     """
     from mem0_cli.commands.init_cmd import run_init
 
-    run_init(api_key=api_key, user_id=user_id, email=email, code=code, force=force)
+    run_init(
+        api_key=api_key,
+        user_id=user_id,
+        email=email,
+        code=code,
+        force=force,
+        source=source,
+        agent=agent_signal,
+    )
 
 
 # (entity_app registered at module level, below sub-group definitions)

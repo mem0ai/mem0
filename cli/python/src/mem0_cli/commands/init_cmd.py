@@ -182,20 +182,62 @@ def run_init(
     email: str | None = None,
     code: str | None = None,
     force: bool = False,
+    source: str | None = None,
+    agent: bool = False,
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
     When both *api_key* and *user_id* are supplied, all prompts are skipped
     (non-interactive mode).  When running in a non-TTY without the required
     flags, an error message is printed.
+
+    Agent Mode dispatch (no email/api-key flags):
+      - If existing config has an active API key → reuse (existing_key path).
+      - Else if any positive agent signal (--agent, --json global, agent env
+        var, or `agent` flag) → POST /api/v1/auth/agent_mode/ and write config.
+      - Else fall through to the interactive wizard.
+
+    Claim dispatch:
+      - If `--email` is set AND existing config has `agent_mode=true`, run the
+        claim device-flow against the existing key instead of minting a new
+        email-based key.
     """
+    from mem0_cli.agent_detect import detect_agent_caller
+    from mem0_cli.commands.agent_mode_cmd import bootstrap_via_backend, claim_via_device_flow
+    from mem0_cli.state import is_agent_mode as _global_agent_mode
+    from mem0_cli.telemetry import capture_event
+
+    def _fire_init(mode: str, *, claimed: bool = False) -> None:
+        """Fire cli.init telemetry with M1-M6 properties."""
+        props: dict = {"command": "init", "mode": mode}
+        agent_caller = detect_agent_caller()
+        if agent_caller:
+            props["agent_caller"] = agent_caller
+        if source:
+            props["signup_source"] = source
+        if claimed:
+            props["claimed_agent_mode"] = True
+        capture_event("cli.init", props)
+
     config = Mem0Config()
 
     base_url = os.environ.get("MEM0_BASE_URL", config.platform.base_url or DEFAULT_BASE_URL)
+    config.platform.base_url = base_url
 
     if code and not email:
         print_error(err_console, "--code requires --email.")
         raise typer.Exit(1)
+
+    # ── Email + existing agent-mode config → claim flow ─────────────────
+    if email and CONFIG_FILE.exists():
+        existing = load_config()
+        if existing.platform.agent_mode and existing.platform.api_key:
+            email = email.strip().lower()
+            _validate_email(email)
+            print_info(console, f"Claiming Agent Mode account to {email}...")
+            claim_via_device_flow(existing, email=email)
+            _fire_init("email", claimed=True)
+            return
 
     # Warn if an existing config with an API key would be overwritten
     if not force and CONFIG_FILE.exists():
@@ -257,6 +299,16 @@ def run_init(
         console.print()
         return
 
+    # ── Agent Mode auto-bootstrap (no email, no api_key flag) ─────────
+    # Positive agent signal required: explicit --agent flag (local or global)
+    # OR a recognized agent env var. Pure "no TTY" alone is NOT enough — pipe
+    # users would get surprised by a silent shadow signup.
+    agent_ctx = agent or _global_agent_mode() or (detect_agent_caller() is not None)
+    if not api_key and not email and agent_ctx:
+        bootstrap_via_backend(config, source=source)
+        _fire_init("agent")
+        return
+
     # ── API key flow (existing) ───────────────────────────────────────
 
     # Non-TTY: resolve defaults so partial flags work in pipelines / CI
@@ -265,7 +317,7 @@ def run_init(
             print_error(
                 err_console,
                 "Non-interactive terminal detected and --api-key is required.",
-                hint="Run: mem0 init --api-key <key> [--user-id <id>]",
+                hint="Run: mem0 init --api-key <key>, --email <addr>, or --agent for unattended Agent Mode bootstrap.",
             )
             raise typer.Exit(1)
         user_id = user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
