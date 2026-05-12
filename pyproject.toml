@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "2.0.1"
+version = "2.0.2"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "support@mem0.ai" }
@@ -153,3 +153,6 @@ known-first-party = ["mem0", "mem0_cli"]
 [tool.isort]
 profile = "black"
 known_first_party = ["mem0", "mem0_cli"]
+# isort scope kept aligned with [tool.ruff.lint.isort] above.
+# black-equivalent profile here matches the formatter behaviour ruff applies.
+# Plugin-version bumps need a touch here to fire required CI checks (path-filter trap).

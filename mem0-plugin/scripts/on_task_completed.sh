@@ -9,6 +9,10 @@
 
 set -euo pipefail
 
+if [ -n "${MEM0_DEBUG:-}" ]; then
+  mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
+fi
+
 INPUT=$(cat)
 TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // "unknown task"' 2>/dev/null || echo "unknown task")
 

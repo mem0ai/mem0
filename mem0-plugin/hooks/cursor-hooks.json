@@ -15,10 +15,6 @@
     "preCompact": [
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_pre_compact.sh"
-      },
-      {
-        "command": "python3 ${CURSOR_PLUGIN_ROOT}/scripts/on_pre_compact.py",
-        "timeout": 30
       }
     ],
     "stop": [

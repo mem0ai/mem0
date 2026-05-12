@@ -109,6 +109,19 @@ client.project.update(
 )
 ```
 
+#### Toggle Memory Decay
+
+`decay` is a per-project boolean that turns on [Memory Decay](/platform/features/memory-decay) — a search-time ranking bias that reinforces recently-accessed memories and gently dampens stale ones. The flag is `false` by default; set it via the same project-update endpoint:
+
+```bash cURL
+curl -X PATCH https://api.mem0.ai/api/v1/orgs/organizations/$ORG_ID/projects/$PROJECT_ID/ \
+  -H "Authorization: Token $MEM0_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"decay": true}'
+```
+
+The current state is returned on every project read (and supports `?fields=decay` for a minimal response). Toggling has no effect on stored memories, only on how v3 search ranks them.
+
 ### Delete Project
 
 <Warning>

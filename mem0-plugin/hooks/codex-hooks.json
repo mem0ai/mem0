@@ -18,7 +18,7 @@
           {
             "type": "command",
             "command": "${CODEX_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
-            "statusMessage": "Searching mem0 memories...",
+            "statusMessage": "Checking memory relevance...",
             "timeout": 5
           }
         ]
