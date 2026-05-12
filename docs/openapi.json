@@ -417,10 +417,10 @@
 														"nullable": true,
 														"description": "Additional metadata associated with the event."
 													},
-							"results": {
-								"type": "array",
-								"description": "Array of results produced by the event. For add events, this confirms the write completed; temporal reasoning enrichment runs asynchronously by default."
-							},
+													"results": {
+														"type": "array",
+														"description": "Array of results produced by the event. For add events, this confirms the write completed; temporal reasoning enrichment runs asynchronously by default."
+													},
 													"created_at": {
 														"type": "string",
 														"format": "date-time",
@@ -1593,7 +1593,7 @@
 					},
 					{
 						"lang": "JavaScript",
-						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { filters: { user_id: \"<user_id>\" } })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
+						"source": "// To use the JavaScript SDK, install the package:\n// npm i mem0ai\n\nimport MemoryClient from 'mem0ai';\nconst client = new MemoryClient({ apiKey: \"your-api-key\" });\n\nconst query = \"Your search query here\";\n\nclient.search(query, { user_id: \"<user_id>\" })\n  .then(result => console.log(result))\n  .catch(error => console.error(error));"
 					},
 					{
 						"lang": "cURL",
@@ -1828,30 +1828,17 @@
 														"type": "string",
 														"description": "The extracted memory fact."
 													},
-                    "user_id": {
-                      "type": "string",
-                      "nullable": true,
-                      "description": "External user identifier scoping this memory, if any."
+													"score": {
+														"type": "number",
+														"format": "float",
+														"minimum": 0,
+														"maximum": 1,
+														"description": "Combined multi-signal relevance score in [0, 1] (search responses only)."
 													},
-													"agent_id": {
-														"type": "string",
-														"nullable": true,
-														"description": "External agent identifier scoping this memory, if any."
-													},
-													"app_id": {
-														"type": "string",
-														"nullable": true,
-														"description": "External app identifier scoping this memory, if any."
-													},
-													"run_id": {
-														"type": "string",
-														"nullable": true,
-														"description": "External run identifier scoping this memory, if any."
-													},
-                    "metadata": {
-                      "type": "object",
-                      "additionalProperties": true,
-                      "description": "User-supplied metadata attached to the memory."
+													"metadata": {
+														"type": "object",
+														"additionalProperties": true,
+														"description": "User-supplied metadata attached to the memory."
 													},
 													"categories": {
 														"type": "array",
@@ -1867,7 +1854,7 @@
 														"type": "string",
 														"format": "date-time"
 													}
-                  },
+												},
 												"required": [
 													"id",
 													"memory",
@@ -1888,19 +1875,18 @@
 									"next": "https://api.mem0.ai/v3/memories/?page=2&page_size=100",
 									"previous": null,
 									"results": [
-                  {
-                    "id": "mem-uuid",
-                    "memory": "User moved to San Francisco from New York in January 2026",
-                    "user_id": "alice",
-                    "metadata": {},
-                    "categories": [
-                      "location"
-                    ],
-                    "created_at": "2026-01-15T10:30:00Z",
-                    "updated_at": "2026-01-15T10:30:00Z"
-                  }
-                ]
-              }
+										{
+											"id": "mem-uuid",
+											"memory": "User moved to San Francisco from New York in January 2026",
+											"metadata": {},
+											"categories": [
+												"location"
+											],
+											"created_at": "2026-01-15T10:30:00Z",
+											"updated_at": "2026-01-15T10:30:00Z"
+										}
+									]
+								}
 							}
 						}
 					},
@@ -1982,10 +1968,6 @@
 										"type": "string",
 										"description": "Scope memories to this agent."
 									},
-									"app_id": {
-										"type": "string",
-										"description": "Scope memories to this app."
-									},
 									"run_id": {
 										"type": "string",
 										"description": "Scope memories to this session / run."
@@ -1998,17 +1980,6 @@
 									"custom_instructions": {
 										"type": "string",
 										"description": "Project-level instructions that guide extraction for this call."
-									},
-									"multilingual": {
-										"type": "boolean",
-										"nullable": true,
-										"description": "Extract memories in the same language as the input."
-									},
-									"expiration_date": {
-										"type": "string",
-										"format": "date",
-										"nullable": true,
-										"description": "Optional expiration date for stored memories."
 									},
 									"infer": {
 										"type": "boolean",
@@ -2235,13 +2206,7 @@
 										{
 											"id": "mem-uuid",
 											"memory": "User moved to San Francisco from New York in January 2026",
-											"user_id": "alice",
 											"score": 0.82,
-											"score_breakdown": {
-												"semantic": 0.78,
-												"bm25": 0.0,
-												"entity": 0.0
-											},
 											"metadata": {},
 											"categories": [
 												"location"
