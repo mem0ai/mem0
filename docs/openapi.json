@@ -419,7 +419,7 @@
 													},
 							"results": {
 								"type": "array",
-								"description": "Array of results produced by the event. For add events, this confirms the write completed; temporal enrichment may continue asynchronously on some deployments."
+								"description": "Array of results produced by the event. For add events, this confirms the write completed; temporal reasoning enrichment runs asynchronously by default."
 							},
 													"created_at": {
 														"type": "string",
