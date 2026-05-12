@@ -18,7 +18,13 @@ services:
       postgres:
         condition: service_healthy
     command: >
-      sh -c "rm -rf /app/packages && pip install -q --force-reinstall --no-deps mem0ai && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "
+      until pg_isready -h postgres -p 5432; do sleep 1; done;
+      rm -rf /app/packages &&
+      pip install -q --force-reinstall --no-deps mem0ai &&
+      alembic upgrade head &&
+      uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+      "
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
@@ -28,7 +34,14 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - AUTH_DISABLED=${AUTH_DISABLED:-false}
       - MEM0_TELEMETRY=${MEM0_TELEMETRY:-true}
-
+      - HTTP_PROXY=
+      - http_proxy=
+      - HTTPS_PROXY=
+      - https_proxy=
+      - all_proxy=
+      - ALL_PROXY=
+      - no_proxy=
+      - NO_PROXY=
   postgres:
       image: ankane/pgvector:v0.5.1
       restart: on-failure
