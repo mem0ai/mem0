@@ -7,6 +7,10 @@ Strategy:
 - The FastAPI app is imported lazily after env vars are set so module-level
   constants in server.auth (JWT_SECRET, AUTH_DISABLED, ADMIN_API_KEY) bind
   to the test values, not whatever the host shell has.
+- SQLAlchemy's generic Uuid type decorator rejects string values on SQLite
+  (it calls value.hex on bind); production uses Postgres which has native
+  UUID handling that accepts strings transparently. Patch the bind processor
+  to coerce str -> UUID for the test session.
 """
 
 from __future__ import annotations
@@ -22,6 +26,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.sql import sqltypes
 
 # Make server/ importable as a top-level package (matches uvicorn's CWD).
 SERVER_DIR = Path(__file__).resolve().parent.parent
@@ -31,6 +36,28 @@ sys.path.insert(0, str(SERVER_DIR))
 os.environ.setdefault("JWT_SECRET", "test-secret-do-not-use-in-prod-" + "x" * 32)
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 os.environ.setdefault("POSTGRES_HOST", "localhost")  # silence db url builder
+
+
+# JWT 'sub' is always a string per spec, so _resolve_user_from_jwt looks up
+# User by string PK. SQLite's generic Uuid type-decorator fails on strings;
+# Postgres' native UUID accepts them. Coerce at the bind layer once at import.
+_orig_uuid_bind_processor = sqltypes.Uuid.bind_processor
+
+
+def _patched_uuid_bind_processor(self, dialect):
+    proc = _orig_uuid_bind_processor(self, dialect)
+    if proc is None:
+        return proc
+
+    def wrapper(value):
+        if isinstance(value, str):
+            value = uuid.UUID(value)
+        return proc(value)
+
+    return wrapper
+
+
+sqltypes.Uuid.bind_processor = _patched_uuid_bind_processor
 
 
 @pytest.fixture
@@ -86,14 +113,18 @@ def client(test_session_factory, mock_memory, monkeypatch):
 
     # Neutralize the real Memory.from_config() call that initialize_state()
     # makes during main.py import — pgvector and the history sqlite path are
-    # both unavailable in tests.
+    # both unavailable in tests. update_config takes the same path on POST /configure.
     monkeypatch.setattr(server_state, "initialize_state", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(server_state, "get_memory_instance", lambda: mock_memory)
+    monkeypatch.setattr(server_state, "update_config", lambda updates: {"config": updates})
 
     from main import app  # noqa: E402
 
-    # Also patch the binding inside main.py since it imported get_memory_instance by name.
+    # Also patch the bindings inside main.py since it imported by name.
     monkeypatch.setattr("main.get_memory_instance", lambda: mock_memory)
+    monkeypatch.setattr("main.update_config", lambda updates: {"config": updates})
+    # Async request-log persistence uses the real SessionLocal (Postgres) — noop it.
+    monkeypatch.setattr("main._persist_request_log", lambda *_args, **_kwargs: None)
 
     def _override_get_db():
         db = test_session_factory()
