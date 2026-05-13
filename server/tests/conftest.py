@@ -35,7 +35,13 @@ os.environ.setdefault("POSTGRES_HOST", "localhost")  # silence db url builder
 
 @pytest.fixture
 def test_engine():
-    """Fresh in-memory SQLite engine per test (no cross-test pollution)."""
+    """Fresh in-memory SQLite engine per test (no cross-test pollution).
+
+    StaticPool is non-negotiable: in-memory SQLite is scoped to a single
+    connection, so every Session must share it. Without StaticPool, rows
+    inserted via db_session would be invisible to the TestClient's overridden
+    get_db (each Session would get its own empty in-memory DB).
+    """
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
