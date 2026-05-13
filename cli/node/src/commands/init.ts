@@ -254,7 +254,7 @@ export async function runInit(
 	} = {},
 ): Promise<void> {
 	const { detectAgentCaller } = await import("../agent-detect.js");
-	const { bootstrapViaBackend, claimViaDeviceFlow } = await import("./agent-mode.js");
+	const { bootstrapViaBackend, claimViaOtp } = await import("./agent-mode.js");
 	const { isAgentMode } = await import("../state.js");
 	const { captureEvent } = await import("../telemetry.js");
 
@@ -290,7 +290,7 @@ export async function runInit(
 		const email = opts.email.trim().toLowerCase();
 		validateEmail(email);
 		printInfo(`Claiming Agent Mode account to ${email}...`);
-		await claimViaDeviceFlow(savedConfig, { email });
+		await claimViaOtp(savedConfig, { email, code: opts.code });
 		fireInit("email", true);
 		return;
 	}

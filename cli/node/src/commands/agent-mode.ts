@@ -1,16 +1,12 @@
 /**
- * Agent Mode commands — bootstrap (unattended signup) and claim (human upgrade).
+ * Agent Mode commands — bootstrap (unattended signup) and OTP-based claim.
  */
 
-import { randomBytes } from "node:crypto";
-import { setTimeout as sleep } from "node:timers/promises";
+import readline from "node:readline";
 import { colors, printError, printInfo, printSuccess } from "../branding.js";
 import { type Mem0Config, saveConfig } from "../config.js";
 
-const { dim } = colors;
-
-const POLL_INTERVAL_MS = 2_000;
-const POLL_TIMEOUT_MS = 600_000; // 10 minutes — fits within backend's 15-minute CLILoginRequest expiry.
+const { brand, dim } = colors;
 
 const SOURCE_HEADERS = {
 	"X-Mem0-Source": "cli",
@@ -89,9 +85,17 @@ export async function bootstrapViaBackend(
 	);
 }
 
-export async function claimViaDeviceFlow(
+/**
+ * Claim an existing Agent Mode account via OTP — no browser, no polling.
+ *
+ * Hits /api/v1/auth/email_code/ to send a verification code, prompts for it
+ * interactively (or accepts via `code`), then sends it to /verify/ alongside
+ * `agent_mode_api_key`. Backend's verify_email_code runs upgrade-in-place
+ * inline and returns the claim result.
+ */
+export async function claimViaOtp(
 	config: Mem0Config,
-	{ email }: { email: string },
+	{ email, code }: { email: string; code?: string },
 ): Promise<void> {
 	const baseUrl = (config.platform.baseUrl || "https://api.mem0.ai").replace(/\/+$/, "");
 	if (!config.platform.apiKey || !config.platform.agentMode) {
@@ -99,97 +103,105 @@ export async function claimViaDeviceFlow(
 		process.exit(1);
 	}
 
-	const cliToken = randomBytes(32).toString("base64url");
 	const rawKey = config.platform.apiKey;
 
-	// 1. CLI initiates with claim_for_apikey
-	let initResp: Response;
-	try {
-		initResp = await fetch(`${baseUrl}/api/v1/accounts/cli_login/`, {
+	// Step 1: request OTP (unless --code was supplied)
+	if (!code) {
+		const sendResp = await fetch(`${baseUrl}/api/v1/auth/email_code/`, {
 			method: "POST",
-			headers: {
-				...SOURCE_HEADERS,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({ token: cliToken, claim_for_apikey: rawKey }),
+			headers: { ...SOURCE_HEADERS, "Content-Type": "application/json" },
+			body: JSON.stringify({ email }),
 			signal: AbortSignal.timeout(30_000),
 		});
-	} catch (err) {
-		printError(`Could not initiate claim: ${err instanceof Error ? err.message : String(err)}`);
-		process.exit(1);
-	}
-
-	if (!initResp.ok) {
-		let detail: string = initResp.statusText;
-		try {
-			const errBody = (await initResp.json()) as { error?: string };
-			if (errBody.error) detail = errBody.error;
-		} catch {
-			/* statusText fallback */
+		if (sendResp.status === 429) {
+			printError("Too many attempts. Try again in a few minutes.");
+			process.exit(1);
 		}
-		printError(`Could not initiate claim: ${detail}`);
-		process.exit(1);
-	}
-
-	const initBody = (await initResp.json()) as { login_url?: string };
-	const loginUrl = initBody.login_url ?? "";
-	printInfo("Open in your browser to claim:");
-	console.log(`  ${dim(loginUrl)}`);
-	// Best-effort open in the user's browser — fall back to printing the URL.
-	try {
-		const { default: open } = await import("open");
-		await open(loginUrl);
-	} catch {
-		/* user has the URL printed above */
-	}
-
-	// 2. Poll for completion
-	const deadline = Date.now() + POLL_TIMEOUT_MS;
-	while (Date.now() < deadline) {
-		await sleep(POLL_INTERVAL_MS);
-
-		let poll: Response;
-		try {
-			poll = await fetch(`${baseUrl}/api/v1/accounts/get_api_key_from_cli_token/`, {
-				method: "POST",
-				headers: {
-					...SOURCE_HEADERS,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ token: cliToken }),
-				signal: AbortSignal.timeout(15_000),
-			});
-		} catch {
-			continue; // transient — keep polling
-		}
-
-		if (!poll.ok) {
-			let err = "";
+		if (!sendResp.ok) {
+			let detail: string = sendResp.statusText;
 			try {
-				const errBody = (await poll.json()) as { error?: string };
-				err = errBody.error ?? "";
+				const errBody = (await sendResp.json()) as { error?: string };
+				if (errBody.error) detail = errBody.error;
 			} catch {
-				/* ignore */
+				/* leave as statusText */
 			}
-			if (err.toLowerCase().includes("expired")) {
-				printError("Claim link expired. Run `mem0 init --email <addr>` again.");
-				process.exit(1);
-			}
-			continue;
+			printError(`Failed to send code: ${detail}`);
+			process.exit(1);
 		}
 
-		const body = (await poll.json()) as { claimed?: boolean; claimed_at?: string };
-		if (body.claimed) {
-			config.platform.agentMode = false;
-			config.platform.claimedAt = body.claimed_at ?? new Date().toISOString();
-			config.platform.userEmail = email;
-			config.platform.createdVia = "email";
-			saveConfig(config);
-			printSuccess(`Agent claimed to ${email}. Your API key is unchanged.`);
-			return;
+		printSuccess(`Verification code sent to ${email}. Check your inbox.`);
+
+		if (!process.stdin.isTTY) {
+			printError(
+				"No --code provided and terminal is non-interactive.",
+				`Re-run: mem0 init --email ${email} --code <code>`,
+			);
+			process.exit(1);
+		}
+
+		console.log();
+		code = await promptLine(`  ${brand("Verification Code")}`);
+		if (!code) {
+			printError("Code is required.");
+			process.exit(1);
 		}
 	}
 
-	printError("Claim timed out. Run `mem0 init --email <addr>` again.");
-	process.exit(1);
+	// Step 2: verify + claim atomically
+	const verifyResp = await fetch(`${baseUrl}/api/v1/auth/email_code/verify/`, {
+		method: "POST",
+		headers: { ...SOURCE_HEADERS, "Content-Type": "application/json" },
+		body: JSON.stringify({
+			email,
+			code: code.trim(),
+			agent_mode_api_key: rawKey,
+		}),
+		signal: AbortSignal.timeout(30_000),
+	});
+
+	if (!verifyResp.ok) {
+		let detail: string = verifyResp.statusText;
+		let errCode = "";
+		try {
+			const errBody = (await verifyResp.json()) as { error?: string; code?: string };
+			if (errBody.error) detail = errBody.error;
+			if (errBody.code) errCode = errBody.code;
+		} catch {
+			/* leave as statusText */
+		}
+		printError(`Claim failed: ${detail}`);
+		if (errCode === "email_already_claimed") {
+			console.log(
+				`  ${dim("Tip: this email already has a Mem0 account. Sign in there and run `mem0 link <key>` to attach this agent.")}`,
+			);
+		}
+		process.exit(1);
+	}
+
+	const body = (await verifyResp.json()) as { claimed?: boolean; claimed_at?: string };
+	if (!body.claimed) {
+		printError(`Unexpected verify response: ${JSON.stringify(body)}`);
+		process.exit(1);
+	}
+
+	config.platform.agentMode = false;
+	config.platform.claimedAt = body.claimed_at ?? new Date().toISOString();
+	config.platform.userEmail = email;
+	config.platform.createdVia = "email";
+	saveConfig(config);
+
+	printSuccess(`Agent claimed to ${email}. Your API key is unchanged.`);
+}
+
+function promptLine(label: string): Promise<string> {
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	});
+	return new Promise((resolve) => {
+		rl.question(`${label}: `, (answer) => {
+			rl.close();
+			resolve(answer.trim());
+		});
+	});
 }

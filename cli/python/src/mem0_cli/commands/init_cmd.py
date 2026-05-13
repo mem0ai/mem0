@@ -203,7 +203,7 @@ def run_init(
         email-based key.
     """
     from mem0_cli.agent_detect import detect_agent_caller
-    from mem0_cli.commands.agent_mode_cmd import bootstrap_via_backend, claim_via_device_flow
+    from mem0_cli.commands.agent_mode_cmd import bootstrap_via_backend, claim_via_otp
     from mem0_cli.state import is_agent_mode as _global_agent_mode
     from mem0_cli.telemetry import capture_event
 
@@ -235,7 +235,7 @@ def run_init(
             email = email.strip().lower()
             _validate_email(email)
             print_info(console, f"Claiming Agent Mode account to {email}...")
-            claim_via_device_flow(existing, email=email)
+            claim_via_otp(existing, email=email, code=code)
             _fire_init("email", claimed=True)
             return
 

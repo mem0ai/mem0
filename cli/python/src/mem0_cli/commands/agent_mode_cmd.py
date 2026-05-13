@@ -1,18 +1,18 @@
-"""Agent Mode commands — bootstrap (unattended signup) and claim (human upgrade)."""
+"""Agent Mode commands — bootstrap (unattended signup) and claim (OTP-based human upgrade)."""
 
 from __future__ import annotations
 
-import secrets
-import time
-import webbrowser
+import sys
 from datetime import datetime, timezone
 from typing import Any
 
 import httpx
 import typer
 from rich.console import Console
+from rich.prompt import Prompt
 
 from mem0_cli.branding import (
+    BRAND_COLOR,
     DIM_COLOR,
     print_error,
     print_info,
@@ -22,11 +22,6 @@ from mem0_cli.config import Mem0Config, save_config
 
 console = Console()
 err_console = Console(stderr=True)
-
-# Claim polling: 2-second interval, 10-minute timeout matches the backend's
-# CLILoginRequest expires_at (15 minutes — we give up before the token does).
-_POLL_INTERVAL_SECS = 2
-_POLL_TIMEOUT_SECS = 600
 
 _SOURCE_HEADERS = {
     "X-Mem0-Source": "cli",
@@ -89,13 +84,16 @@ def bootstrap_via_backend(
     console.print(f"  [{DIM_COLOR}]To claim this account later: {envelope.get('claim_command', 'mem0 init --email <your-email>')}[/]")
 
 
-def claim_via_device_flow(config: Mem0Config, *, email: str) -> None:
-    """Run the claim flow against an existing agent-mode config.
+def claim_via_otp(config: Mem0Config, *, email: str, code: str | None = None) -> None:
+    """Claim an existing Agent Mode account via OTP — no browser, no polling.
 
-    Reuses the existing CLI device flow (initiate_cli_login → frontend OTP →
-    associate_cli_token → get_api_key_from_cli_token poll). The raw API key
-    never leaves the device — backend confirms claim, CLI updates only
-    `platform.agent_mode` and `platform.claimed_at`.
+    Reuses the standard email-code flow (`/api/v1/auth/email_code/` then
+    `/.../verify/`) and adds the local agent-mode API key in the verify body
+    as `agent_mode_api_key`. Backend's `verify_email_code` runs the
+    upgrade-in-place transaction inline and returns claim result.
+
+    On success: flips `platform.agent_mode=false`, sets `claimed_at`, stamps
+    `user_email`. The api_key value itself never changes.
     """
     base_url = (config.platform.base_url or "https://api.mem0.ai").rstrip("/")
     if not config.platform.api_key or not config.platform.agent_mode:
@@ -105,72 +103,78 @@ def claim_via_device_flow(config: Mem0Config, *, email: str) -> None:
         )
         raise typer.Exit(1)
 
-    cli_token = secrets.token_urlsafe(32)
     raw_key = config.platform.api_key
 
     with httpx.Client(timeout=30.0) as client:
-        try:
-            init_resp = client.post(
-                f"{base_url}/api/v1/accounts/cli_login/",
-                json={"token": cli_token, "claim_for_apikey": raw_key},
-                headers=_SOURCE_HEADERS,
+        # Step 1: request OTP (unless --code provided)
+        if not code:
+            send = client.post(
+                f"{base_url}/api/v1/auth/email_code/",
+                headers={**_SOURCE_HEADERS, "Content-Type": "application/json"},
+                json={"email": email},
             )
-        except httpx.HTTPError as exc:
-            print_error(err_console, f"Could not initiate claim: {exc}")
-            raise typer.Exit(1) from exc
-
-        if init_resp.status_code != 200:
-            try:
-                detail = init_resp.json().get("error", init_resp.text)
-            except Exception:
-                detail = init_resp.text
-            print_error(err_console, f"Could not initiate claim: {detail}")
-            raise typer.Exit(1)
-
-        login_url = init_resp.json().get("login_url", "")
-        print_info(console, "Open in your browser to claim:")
-        console.print(f"  [{DIM_COLOR}]{login_url}[/]")
-        try:
-            webbrowser.open(login_url)
-        except Exception:
-            pass  # Printing the URL is sufficient
-
-        # Poll for completion
-        deadline = time.monotonic() + _POLL_TIMEOUT_SECS
-        while time.monotonic() < deadline:
-            time.sleep(_POLL_INTERVAL_SECS)
-            try:
-                poll = client.post(
-                    f"{base_url}/api/v1/accounts/get_api_key_from_cli_token/",
-                    json={"token": cli_token},
-                    headers=_SOURCE_HEADERS,
-                )
-            except httpx.HTTPError:
-                continue  # transient — keep polling
-
-            if poll.status_code != 200:
-                # 400 "Token expired" / "Invalid token" → bail
+            if send.status_code == 429:
+                print_error(err_console, "Too many attempts. Try again in a few minutes.")
+                raise typer.Exit(1)
+            if send.status_code != 200:
                 try:
-                    err = poll.json().get("error", "")
+                    detail = send.json().get("error", send.text)
                 except Exception:
-                    err = poll.text
-                if "expired" in err.lower():
-                    print_error(err_console, "Claim link expired. Run `mem0 init --email <addr>` again.")
-                    raise typer.Exit(1)
-                continue
+                    detail = send.text
+                print_error(err_console, f"Failed to send code: {detail}")
+                raise typer.Exit(1)
 
-            body = poll.json()
-            if body.get("claimed"):
-                config.platform.agent_mode = False
-                config.platform.claimed_at = body.get("claimed_at") or _utcnow_iso()
-                config.platform.user_email = email
-                config.platform.created_via = "email"
-                save_config(config)
-                print_success(console, f"Agent claimed to {email}. Your API key is unchanged.")
-                return
+            print_success(console, f"Verification code sent to {email}. Check your inbox.")
 
-    print_error(err_console, "Claim timed out. Run `mem0 init --email <addr>` again.")
-    raise typer.Exit(1)
+            if not sys.stdin.isatty():
+                print_error(
+                    err_console,
+                    "No --code provided and terminal is non-interactive.",
+                    hint=f"Re-run: mem0 init --email {email} --code <code>",
+                )
+                raise typer.Exit(1)
+
+            console.print()
+            code = Prompt.ask(f"  [{BRAND_COLOR}]Verification Code[/]")
+            if not code:
+                print_error(err_console, "Code is required.")
+                raise typer.Exit(1)
+
+        # Step 2: verify + claim in one shot
+        verify = client.post(
+            f"{base_url}/api/v1/auth/email_code/verify/",
+            headers={**_SOURCE_HEADERS, "Content-Type": "application/json"},
+            json={
+                "email": email,
+                "code": code.strip(),
+                "agent_mode_api_key": raw_key,
+            },
+        )
+
+    if verify.status_code != 200:
+        try:
+            body = verify.json()
+            detail = body.get("error", verify.text)
+            code_str = body.get("code", "")
+        except Exception:
+            detail = verify.text
+            code_str = ""
+        print_error(err_console, f"Claim failed: {detail}")
+        if code_str == "email_already_claimed":
+            console.print(f"  [{DIM_COLOR}]Tip: this email already has a Mem0 account. Sign in there and run `mem0 link <key>` to attach this agent.[/]")
+        raise typer.Exit(1)
+
+    body = verify.json()
+    if not body.get("claimed"):
+        print_error(err_console, f"Unexpected verify response: {body}")
+        raise typer.Exit(1)
+
+    config.platform.agent_mode = False
+    config.platform.claimed_at = body.get("claimed_at") or _utcnow_iso()
+    config.platform.user_email = email
+    config.platform.created_via = "email"
+    save_config(config)
+    print_success(console, f"Agent claimed to {email}. Your API key is unchanged.")
 
 
 def _utcnow_iso() -> str:
