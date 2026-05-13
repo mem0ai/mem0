@@ -1,5 +1,21 @@
 import os
+import re
 from mem0 import Memory
+
+def load_config_with_env_vars(config_dict):
+    """Recursively replace ${ENV_VAR} placeholders with actual environment variables."""
+    if isinstance(config_dict, dict):
+        return {key: load_config_with_env_vars(value) for key, value in config_dict.items()}
+    elif isinstance(config_dict, list):
+        return [load_config_with_env_vars(item) for item in config_dict]
+    elif isinstance(config_dict, str):
+        # Replace ${VAR_NAME} with os.getenv('VAR_NAME', default='')
+        def replace_env_var(match):
+            var_name = match.group(1)
+            return os.getenv(var_name, f"${{{var_name}}}")  # fallback to placeholder if not found
+        return re.sub(r'\$\{([^}]+)\}', replace_env_var, config_dict)
+    else:
+        return config_dict
 
 config = {
      "vector_store": {
@@ -35,3 +51,6 @@ config = {
         }
     }
 }
+
+# Load config with environment variables resolved
+config = load_config_with_env_vars(config)
