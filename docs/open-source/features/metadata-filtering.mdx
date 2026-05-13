@@ -219,6 +219,43 @@ results = m.search(
 
 ---
 
+## Scope `Memory.add` by extra metadata keys
+
+`Memory.search` filters on any metadata field you pass. `Memory.add` does not: its candidate-retrieval pool and recent-message window are scoped only by `user_id`, `agent_id`, and `run_id`. So two `add` calls that share a `user_id` but differ in (say) `metadata["app_id"]` end up seeing each other's candidates, which can short-circuit fact extraction in multi-tenant setups.
+
+Pass `scoping_metadata_keys` on `Memory.add` (or `AsyncMemory.add`) to fold extra metadata keys into the retrieval filter and the SQLite session scope. Omit it and the call shape is unchanged.
+
+```python
+from mem0 import Memory
+
+m = Memory()
+
+m.add(
+    messages=[{"role": "user", "content": "prefers dark mode."}],
+    user_id="alice",
+    metadata={"app_id": "app-a"},
+    scoping_metadata_keys=["app_id"],
+)
+
+# Same user_id, different app_id, but isolated:
+m.add(
+    messages=[{"role": "user", "content": "prefers dark mode."}],
+    user_id="alice",
+    metadata={"app_id": "app-b"},
+    scoping_metadata_keys=["app_id"],
+)
+```
+
+<Info icon="check">
+  Each `add` partitions both the vector-store candidate pool and the SQLite recent-message window by the resolved keys. The two calls above stay independent even though they share `user_id="alice"`.
+</Info>
+
+<Warning>
+  Once you start using `scoping_metadata_keys`, new SQLite rows live under a longer scope string. Older rows written without the parameter stay under the 3-key scope and remain reachable on their own, but the two scopes don't intersect. Plan for that if your recent-message window needs to span both regimes.
+</Warning>
+
+---
+
 ## Configure it
 
 Tune your vector store so filter-heavy queries stay fast. Index fields you frequently filter on and keep complex checks for later in the evaluation order.
