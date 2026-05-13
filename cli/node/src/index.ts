@@ -13,7 +13,7 @@ import { colors, printError, printWarning } from "./branding.js";
 import type { Mem0Config } from "./config.js";
 import { loadConfig, saveConfig } from "./config.js";
 import { richFormatHelp } from "./help.js";
-import { setAgentMode } from "./state.js";
+import { isAgentMode, setAgentMode, takeNotice } from "./state.js";
 import { captureEvent } from "./telemetry.js";
 import { CLI_VERSION } from "./version.js";
 
@@ -197,8 +197,15 @@ program
 		"Verification code (use with --email for non-interactive login).",
 	)
 	.option("--force", "Overwrite existing config without confirmation.", false)
-	.option("--agent", "Bootstrap an unattended Agent Mode account (no email required).", false)
-	.option("--source <channel>", "Channel attribution for signup (e.g. github, hn, ph).")
+	.option(
+		"--agent",
+		"Bootstrap an unattended Agent Mode account (no email required).",
+		false,
+	)
+	.option(
+		"--source <channel>",
+		"Channel attribution for signup (e.g. github, hn, ph).",
+	)
 	.addHelpText(
 		"after",
 		"\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456\n  $ mem0 init --agent             # Bootstrap an Agent Mode account (unattended)\n  $ mem0 init --email you@example.com  # Claims an existing Agent Mode key when one is present",
@@ -777,4 +784,16 @@ program
 
 // ── Entrypoint ────────────────────────────────────────────────────────────
 
-program.parse();
+// Surface any unclaimed Agent Mode notice once per command, after the primary
+// output. In JSON/agent mode the notice is folded into the envelope by
+// formatJsonEnvelope, so skip the stderr banner there to avoid duplication.
+function surfaceNotice(): void {
+	const notice = takeNotice();
+	if (notice && !isAgentMode()) {
+		process.stderr.write(`\n\x1b[33m🔔 ${notice}\x1b[0m\n\n`);
+	}
+}
+
+program.parseAsync().finally(() => {
+	surfaceNotice();
+});

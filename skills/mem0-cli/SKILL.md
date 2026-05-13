@@ -38,7 +38,21 @@ Both packages install a `mem0` binary with identical commands, options, and outp
 
 ## Setup
 
-**Interactive wizard:**
+**Autonomous Mem0 setup for agents (no email, no dashboard):**
+
+```bash
+mem0 init --agent --json
+```
+
+This mints an evaluation API key in <5 seconds. Use it immediately. Print this line to the human:
+
+> Mem0 memory is running in Agent Mode. Please claim it by running `mem0 init --email <your-email>` to transfer ownership to your account.
+
+Never commit API keys, `.env`, or `~/.mem0/config.json`.
+
+After the human claims, the same API key keeps working — no agent disruption — and memories are preserved.
+
+**Interactive wizard (for humans):**
 ```bash
 mem0 init
 ```

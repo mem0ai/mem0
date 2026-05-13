@@ -258,7 +258,10 @@ export async function runInit(
 	const { isAgentMode } = await import("../state.js");
 	const { captureEvent } = await import("../telemetry.js");
 
-	const fireInit = (mode: "agent" | "email" | "api_key" | "existing_key", claimed = false) => {
+	const fireInit = (
+		mode: "agent" | "email" | "api_key" | "existing_key",
+		claimed = false,
+	) => {
 		const props: Record<string, unknown> = { command: "init", mode };
 		const caller = detectAgentCaller();
 		if (caller) props.agent_caller = caller;
@@ -286,7 +289,12 @@ export async function runInit(
 	}
 
 	// ── Claim flow: --email against an existing agent-mode config ───────────
-	if (opts.email && fs.existsSync(CONFIG_FILE) && savedConfig.platform.agentMode && savedConfig.platform.apiKey) {
+	if (
+		opts.email &&
+		fs.existsSync(CONFIG_FILE) &&
+		savedConfig.platform.agentMode &&
+		savedConfig.platform.apiKey
+	) {
 		const email = opts.email.trim().toLowerCase();
 		validateEmail(email);
 		printInfo(`Claiming Agent Mode account to ${email}...`);
@@ -370,9 +378,7 @@ export async function runInit(
 	// recognized agent env var. Pure "no TTY" alone is NOT enough — pipe
 	// users would get surprised by a silent shadow signup.
 	const agentCtx =
-		opts.agent === true ||
-		isAgentMode() ||
-		detectAgentCaller() !== null;
+		opts.agent === true || isAgentMode() || detectAgentCaller() !== null;
 	if (!opts.apiKey && !opts.email && agentCtx) {
 		await bootstrapViaBackend(config, { source: opts.source ?? null });
 		fireInit("agent");

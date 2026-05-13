@@ -15,7 +15,6 @@ from mem0_cli.branding import (
     BRAND_COLOR,
     DIM_COLOR,
     print_error,
-    print_info,
     print_success,
 )
 from mem0_cli.config import Mem0Config, save_config
@@ -81,7 +80,13 @@ def bootstrap_via_backend(
     save_config(config)
 
     print_success(console, f"Agent Mode active. Default user_id: {envelope['default_user_id']}")
-    console.print(f"  [{DIM_COLOR}]To claim this account later: {envelope.get('claim_command', 'mem0 init --email <your-email>')}[/]")
+    notice = envelope.get("mem0_notice")
+    if notice:
+        console.print(f"\n[yellow]🔔 {notice}[/yellow]\n")
+    else:
+        # Fallback if the backend hasn't deployed the unified notice yet.
+        claim_cmd = envelope.get("claim_command", "mem0 init --email <your-email>")
+        console.print(f"  [{DIM_COLOR}]To claim this account later: {claim_cmd}[/]")
 
 
 def claim_via_otp(config: Mem0Config, *, email: str, code: str | None = None) -> None:
@@ -161,7 +166,9 @@ def claim_via_otp(config: Mem0Config, *, email: str, code: str | None = None) ->
             code_str = ""
         print_error(err_console, f"Claim failed: {detail}")
         if code_str == "email_already_claimed":
-            console.print(f"  [{DIM_COLOR}]Tip: this email already has a Mem0 account. Sign in there and run `mem0 link <key>` to attach this agent.[/]")
+            console.print(
+                f"  [{DIM_COLOR}]Tip: this email already has a Mem0 account. Sign in there and run `mem0 link <key>` to attach this agent.[/]"
+            )
         raise typer.Exit(1)
 
     body = verify.json()

@@ -856,7 +856,9 @@ def init(
         False, "--agent", help="Bootstrap an unattended Agent Mode account (no email required)."
     ),
     source: str | None = typer.Option(
-        None, "--source", help="Channel attribution for signup (e.g. github, hn, ph).",
+        None,
+        "--source",
+        help="Channel attribution for signup (e.g. github, hn, ph).",
     ),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
@@ -1215,11 +1217,28 @@ def main() -> None:
     import sys
 
     # Allow --json/--agent anywhere in the command line (not just before subcommand).
-    _json_flags = {"--json", "--agent"}
-    if any(a in _json_flags for a in sys.argv[1:]):
+    # Special case: `mem0 init --agent` is a subcommand flag (Agent Mode bootstrap)
+    # consumed by init_cmd, not a global JSON-output toggle — leave it in argv.
+    argv_rest = sys.argv[1:]
+    is_init = "init" in argv_rest
+    _global_flags = {"--json"} if is_init else {"--json", "--agent"}
+    if any(a in _global_flags for a in argv_rest):
         from mem0_cli.state import set_agent_mode
 
         set_agent_mode(True)
-        sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in _json_flags]
+        sys.argv = [sys.argv[0]] + [a for a in argv_rest if a not in _global_flags]
 
-    app()
+    try:
+        app()
+    finally:
+        # Surface any unclaimed Agent Mode notice once per command, after the
+        # primary output. In JSON/agent mode the notice is folded into the
+        # envelope by format_json_envelope, so skip the stderr banner there
+        # to avoid duplicate output.
+        from mem0_cli.state import is_agent_mode, take_notice
+
+        notice = take_notice()
+        if notice and not is_agent_mode():
+            from rich.console import Console
+
+            Console(stderr=True).print(f"\n[yellow]🔔 {notice}[/yellow]\n")

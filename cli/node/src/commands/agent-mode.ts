@@ -21,13 +21,17 @@ export interface BootstrapEnvelope {
 	mcp_url?: string;
 	smoke_test_url?: string;
 	claim_command?: string;
+	mem0_notice?: string;
 }
 
 export async function bootstrapViaBackend(
 	config: Mem0Config,
 	{ source }: { source?: string | null } = {},
 ): Promise<void> {
-	const baseUrl = (config.platform.baseUrl || "https://api.mem0.ai").replace(/\/+$/, "");
+	const baseUrl = (config.platform.baseUrl || "https://api.mem0.ai").replace(
+		/\/+$/,
+		"",
+	);
 	const body: Record<string, unknown> = {};
 	if (source) body.source = source;
 
@@ -43,7 +47,9 @@ export async function bootstrapViaBackend(
 			signal: AbortSignal.timeout(30_000),
 		});
 	} catch (err) {
-		printError(`Network error contacting Mem0: ${err instanceof Error ? err.message : String(err)}`);
+		printError(
+			`Network error contacting Mem0: ${err instanceof Error ? err.message : String(err)}`,
+		);
 		process.exit(1);
 	}
 
@@ -79,10 +85,16 @@ export async function bootstrapViaBackend(
 	config.defaults.userId = envelope.default_user_id;
 	saveConfig(config);
 
-	printSuccess(`Agent Mode active. Default user_id: ${envelope.default_user_id}`);
-	console.log(
-		`  ${dim(`To claim this account later: ${envelope.claim_command ?? "mem0 init --email <your-email>"}`)}`,
+	printSuccess(
+		`Agent Mode active. Default user_id: ${envelope.default_user_id}`,
 	);
+	if (envelope.mem0_notice) {
+		console.log(`\n\x1b[33m🔔 ${envelope.mem0_notice}\x1b[0m\n`);
+	} else {
+		// Fallback for older backends without the unified notice field.
+		const claimCmd = envelope.claim_command ?? "mem0 init --email <your-email>";
+		console.log(`  ${dim(`To claim this account later: ${claimCmd}`)}`);
+	}
 }
 
 /**
@@ -97,9 +109,14 @@ export async function claimViaOtp(
 	config: Mem0Config,
 	{ email, code }: { email: string; code?: string },
 ): Promise<void> {
-	const baseUrl = (config.platform.baseUrl || "https://api.mem0.ai").replace(/\/+$/, "");
+	const baseUrl = (config.platform.baseUrl || "https://api.mem0.ai").replace(
+		/\/+$/,
+		"",
+	);
 	if (!config.platform.apiKey || !config.platform.agentMode) {
-		printError("This command requires an active Agent Mode config. Run `mem0 init` first.");
+		printError(
+			"This command requires an active Agent Mode config. Run `mem0 init` first.",
+		);
 		process.exit(1);
 	}
 
@@ -163,7 +180,10 @@ export async function claimViaOtp(
 		let detail: string = verifyResp.statusText;
 		let errCode = "";
 		try {
-			const errBody = (await verifyResp.json()) as { error?: string; code?: string };
+			const errBody = (await verifyResp.json()) as {
+				error?: string;
+				code?: string;
+			};
 			if (errBody.error) detail = errBody.error;
 			if (errBody.code) errCode = errBody.code;
 		} catch {
@@ -178,7 +198,10 @@ export async function claimViaOtp(
 		process.exit(1);
 	}
 
-	const body = (await verifyResp.json()) as { claimed?: boolean; claimed_at?: string };
+	const body = (await verifyResp.json()) as {
+		claimed?: boolean;
+		claimed_at?: string;
+	};
 	if (!body.claimed) {
 		printError(`Unexpected verify response: ${JSON.stringify(body)}`);
 		process.exit(1);
