@@ -101,7 +101,9 @@ def get_current_config() -> Dict[str, Any]:
 
 
 def get_memory_instance() -> Memory:
-    with _state_lock:
-        if _memory_instance is None:
-            raise RuntimeError("Mem0 runtime has not been initialized.")
-        return _memory_instance
+    #with _state_lock:
+    #    if _memory_instance is None:
+    #        raise RuntimeError("Mem0 runtime has not been initialized.")
+    #    return _memory_instance
+    from config import config
+    return  Memory.from_config(config)
