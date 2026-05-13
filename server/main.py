@@ -473,7 +473,7 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory(_auth=Depends(verify_auth)):
+def reset_memory(_admin=Depends(require_admin)):
     """Completely reset stored memories."""
     try:
         get_memory_instance().reset()

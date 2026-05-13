@@ -73,3 +73,31 @@ def test_post_configure_member_forbidden(client, auth_member_header):
 def test_post_configure_no_auth_unauthorized(client):
     response = client.post("/configure", json=_valid_config())
     assert response.status_code == 401
+
+
+# --- POST /reset ---
+
+
+def test_post_reset_admin_jwt(client, auth_admin_header):
+    response = client.post("/reset", headers=auth_admin_header)
+    assert response.status_code == 200
+
+
+def test_post_reset_admin_api_key(client, admin_api_key_env):
+    response = client.post("/reset", headers=admin_api_key_env)
+    assert response.status_code == 200
+
+
+def test_post_reset_auth_disabled(client, auth_disabled_env):
+    response = client.post("/reset")
+    assert response.status_code == 200
+
+
+def test_post_reset_member_forbidden(client, auth_member_header):
+    response = client.post("/reset", headers=auth_member_header)
+    assert response.status_code == 403
+
+
+def test_post_reset_no_auth_unauthorized(client):
+    response = client.post("/reset")
+    assert response.status_code == 401
