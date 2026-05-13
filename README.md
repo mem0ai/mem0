@@ -47,7 +47,7 @@
 | Benchmark | Old | New  | Tokens  | Latency p50  |
 | --- | --- | --- | --- | --- |
 | **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
-| **LongMemEval** | 67.8 | **93.4** | 6.8K  | 1.09s  |
+| **LongMemEval** | 67.8 | **94.8** | 6.8K  | 1.09s  |
 | **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
 | **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
 
@@ -58,12 +58,13 @@ All benchmarks run on the same production-representative model stack. Single-pas
 - **Agent-generated facts are first-class** -- when an agent confirms an action, that information is now stored with equal weight.
 - **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
 - **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
+- **Temporal Reasoning** -- time-aware retrieval that ranks the right dated instance for queries about current state, past events, and upcoming plans.
 
 See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
 
 ## Research Highlights
 - **91.6 on LoCoMo** -- +20 points over the previous algorithm
-- **93.4 on LongMemEval** -- +26 points, with +53.6 on assistant memory recall
+- **94.8 on LongMemEval** -- +27 points, with +53.6 on assistant memory recall
 - **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
 - [Read the full paper](https://mem0.ai/research)
 
