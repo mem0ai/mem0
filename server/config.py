@@ -19,7 +19,7 @@ config = {
         "provider": "deepseek",
         "config": {
             "model": "deepseek-v4-flash",
-            "api_key": "${deepseek-key}",
+            "api_key": "${DEEPSEEK_KEY}",
             "temperature": 0.1,
             "max_tokens": 2000,
             "deepseek_base_url": "https://api.deepseek.com"
@@ -29,7 +29,7 @@ config = {
         "provider": "openai",
         "config": {
             "model": "Qwen/Qwen3-VL-Embedding-8B",
-            "api_key": "${siliconflow-key}",
+            "api_key": "${SILICONFLOW_KEY}",
             "openai_base_url": "https://api.siliconflow.cn/v1",
             "embedding_dims": 1024
         }
