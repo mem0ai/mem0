@@ -185,3 +185,38 @@ def test_get_requests_member_forbidden(client, auth_member_header):
 def test_get_requests_no_auth_unauthorized(client):
     response = client.get("/requests")
     assert response.status_code == 401
+
+
+# --- GET /memories (no filter branch only) ---
+
+
+def test_get_memories_no_filter_admin_jwt(client, auth_admin_header):
+    response = client.get("/memories", headers=auth_admin_header)
+    assert response.status_code == 200
+
+
+def test_get_memories_no_filter_admin_api_key(client, admin_api_key_env):
+    response = client.get("/memories", headers=admin_api_key_env)
+    assert response.status_code == 200
+
+
+def test_get_memories_no_filter_auth_disabled(client, auth_disabled_env):
+    response = client.get("/memories")
+    assert response.status_code == 200
+
+
+def test_get_memories_no_filter_member_forbidden(client, auth_member_header):
+    """The info-disclosure branch (_list_all_memories) is admin-only."""
+    response = client.get("/memories", headers=auth_member_header)
+    assert response.status_code == 403
+
+
+def test_get_memories_filtered_member_succeeds(client, auth_member_header):
+    """Filtered queries are unchanged — member can still call them."""
+    response = client.get("/memories?user_id=alice", headers=auth_member_header)
+    assert response.status_code == 200
+
+
+def test_get_memories_no_auth_unauthorized(client):
+    response = client.get("/memories")
+    assert response.status_code == 401
