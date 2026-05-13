@@ -1,0 +1,38 @@
+name: Server CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - '.github/workflows/server-ci.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - '.github/workflows/server-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dev dependencies
+        working-directory: server
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        working-directory: server
+        env:
+          JWT_SECRET: ci-test-secret-do-not-use-in-prod-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          OPENAI_API_KEY: ci-test-key
+        run: pytest tests/ -v
