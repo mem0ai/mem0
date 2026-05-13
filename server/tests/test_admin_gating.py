@@ -101,3 +101,59 @@ def test_post_reset_member_forbidden(client, auth_member_header):
 def test_post_reset_no_auth_unauthorized(client):
     response = client.post("/reset")
     assert response.status_code == 401
+
+
+# --- GET /entities ---
+
+
+def test_get_entities_admin_jwt(client, auth_admin_header):
+    response = client.get("/entities", headers=auth_admin_header)
+    assert response.status_code == 200
+
+
+def test_get_entities_admin_api_key(client, admin_api_key_env):
+    response = client.get("/entities", headers=admin_api_key_env)
+    assert response.status_code == 200
+
+
+def test_get_entities_auth_disabled(client, auth_disabled_env):
+    response = client.get("/entities")
+    assert response.status_code == 200
+
+
+def test_get_entities_member_forbidden(client, auth_member_header):
+    response = client.get("/entities", headers=auth_member_header)
+    assert response.status_code == 403
+
+
+def test_get_entities_no_auth_unauthorized(client):
+    response = client.get("/entities")
+    assert response.status_code == 401
+
+
+# --- DELETE /entities/{type}/{id} ---
+
+
+def test_delete_entity_admin_jwt(client, auth_admin_header):
+    response = client.delete("/entities/user/alice", headers=auth_admin_header)
+    assert response.status_code == 200
+
+
+def test_delete_entity_admin_api_key(client, admin_api_key_env):
+    response = client.delete("/entities/user/alice", headers=admin_api_key_env)
+    assert response.status_code == 200
+
+
+def test_delete_entity_auth_disabled(client, auth_disabled_env):
+    response = client.delete("/entities/user/alice")
+    assert response.status_code == 200
+
+
+def test_delete_entity_member_forbidden(client, auth_member_header):
+    response = client.delete("/entities/user/alice", headers=auth_member_header)
+    assert response.status_code == 403
+
+
+def test_delete_entity_no_auth_unauthorized(client):
+    response = client.delete("/entities/user/alice")
+    assert response.status_code == 401
