@@ -26,6 +26,6 @@ RUN pip install -e .[graph]
 
 # Return to app directory and copy server code
 WORKDIR /app
-COPY server .
+COPY ../server .
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
