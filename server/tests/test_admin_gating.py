@@ -157,3 +157,31 @@ def test_delete_entity_member_forbidden(client, auth_member_header):
 def test_delete_entity_no_auth_unauthorized(client):
     response = client.delete("/entities/user/alice")
     assert response.status_code == 401
+
+
+# --- GET /requests ---
+
+
+def test_get_requests_admin_jwt(client, auth_admin_header):
+    response = client.get("/requests", headers=auth_admin_header)
+    assert response.status_code == 200
+
+
+def test_get_requests_admin_api_key(client, admin_api_key_env):
+    response = client.get("/requests", headers=admin_api_key_env)
+    assert response.status_code == 200
+
+
+def test_get_requests_auth_disabled(client, auth_disabled_env):
+    response = client.get("/requests")
+    assert response.status_code == 200
+
+
+def test_get_requests_member_forbidden(client, auth_member_header):
+    response = client.get("/requests", headers=auth_member_header)
+    assert response.status_code == 403
+
+
+def test_get_requests_no_auth_unauthorized(client):
+    response = client.get("/requests")
+    assert response.status_code == 401

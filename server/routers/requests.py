@@ -6,9 +6,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from auth import require_auth
+from auth import require_admin
 from db import get_db
-from models import RequestLog, User
+from models import RequestLog
 
 router = APIRouter(prefix="/requests", tags=["requests"])
 
@@ -30,7 +30,7 @@ API_KEY_AUTH_TYPES = ("api_key", "admin_api_key")
 
 @router.get("", response_model=list[RequestLogItem])
 def list_requests(
-    user: User = Depends(require_auth),
+    _admin=Depends(require_admin),
     db: Session = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=200),
 ):
