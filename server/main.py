@@ -13,7 +13,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
 
-from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
+from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, require_admin, verify_auth
 from errors import (
     UpstreamError,
     install_request_id_logging,
@@ -311,8 +311,8 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 
 
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
-    """Set memory configuration."""
+def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
+    """Set memory configuration. Requires admin role."""
     _validate_bundled_providers(config)
     update_config(config)
     return {"message": "Configuration set successfully"}

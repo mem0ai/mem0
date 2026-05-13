@@ -184,3 +184,20 @@ async def require_auth(
                 return default_user
         raise HTTPException(status_code=401, detail="Authentication required.")
     return user
+
+
+async def require_admin(
+    request: Request,
+    user: User | None = Depends(verify_auth),
+    db: Session = Depends(get_db),
+) -> User:
+    """Like require_auth but also enforces admin role."""
+    if user is None:
+        if getattr(request.state, "auth_type", "none") in {"admin_api_key", "disabled"}:
+            default_user = _get_default_user(db)
+            if default_user is not None:
+                return default_user
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required.")
+    return user
