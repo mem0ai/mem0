@@ -7,12 +7,14 @@ on:
       - custom-config
     paths:
       - 'server/**'
+      - 'mem0/**'
       - '.github/workflows/docker-build.yml'
   pull_request:
     branches:
       - main
       - custom-config
     paths:
+      - 'mem0/**'
       - 'server/**'
   release:
     types: [published]
