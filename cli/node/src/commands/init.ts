@@ -270,6 +270,7 @@ export async function runInit(
 		force?: boolean;
 		agent?: boolean;
 		source?: string;
+		agentCaller?: string;
 	} = {},
 ): Promise<void> {
 	const { detectAgentCaller } = await import("../agent-detect.js");
@@ -282,8 +283,8 @@ export async function runInit(
 		claimed = false,
 	) => {
 		const props: Record<string, unknown> = { command: "init", mode };
-		const caller = detectAgentCaller();
-		if (caller) props.agent_caller = caller;
+		// Self-declared via --agent-caller; not sniffed from env vars.
+		if (opts.agentCaller) props.agent_caller = opts.agentCaller;
 		if (opts.source) props.signup_source = opts.source;
 		if (claimed) props.claimed_agent_mode = true;
 		captureEvent("cli.init", props);
@@ -367,9 +368,13 @@ export async function runInit(
 			return;
 		}
 		// Rule 3: mint a fresh shadow (no valid key to reuse).
+		// agent_caller is self-declared via --agent-caller (Proof Editor-style),
+		// not derived from env-var sniffing. detectAgentCaller() above is still
+		// used as a context trigger (does this look like an agent?) but never
+		// to fill identity.
 		await bootstrapViaBackend(config, {
 			source: opts.source ?? null,
-			agentCaller: detectAgentCaller(),
+			agentCaller: opts.agentCaller ?? null,
 		});
 		fireInit("agent");
 		return;

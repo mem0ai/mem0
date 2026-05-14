@@ -197,6 +197,7 @@ def run_init(
     force: bool = False,
     source: str | None = None,
     agent: bool = False,
+    agent_caller: str | None = None,
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
@@ -223,8 +224,8 @@ def run_init(
     def _fire_init(mode: str, *, claimed: bool = False) -> None:
         """Fire cli.init telemetry with M1-M6 properties."""
         props: dict = {"command": "init", "mode": mode}
-        agent_caller = detect_agent_caller()
         if agent_caller:
+            # Self-declared via --agent-caller; not sniffed from env vars.
             props["agent_caller"] = agent_caller
         if source:
             props["signup_source"] = source
@@ -295,7 +296,10 @@ def run_init(
                 _fire_init("existing_key")
                 return
         # Rule 3: mint a fresh shadow (no valid key to reuse).
-        bootstrap_via_backend(config, source=source, agent_caller=detect_agent_caller())
+        # agent_caller is the agent's self-declared identity from --agent-caller
+        # (Proof Editor-style). Env-var auto-detect is still used above to
+        # decide we're in an agent context, but never to fill identity.
+        bootstrap_via_backend(config, source=source, agent_caller=agent_caller)
         _fire_init("agent")
         return
 

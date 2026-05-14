@@ -220,6 +220,10 @@ program
 		"--source <channel>",
 		"Channel attribution for signup (e.g. github, hn, ph).",
 	)
+	.option(
+		"--agent-caller <name>",
+		"Self-declared agent identity (e.g. claude-code, cursor). Used with --agent to attribute Agent Mode signups.",
+	)
 	// Accept `--json` at the init level too so the PRD-documented form
 	// `mem0 init --agent --json` works without requiring users to move it
 	// before the subcommand. Effect is identical to the global `--json`:
@@ -242,6 +246,7 @@ program
 			force: opts.force,
 			agent: opts.agent,
 			source: opts.source,
+			agentCaller: opts.agentCaller,
 		});
 	});
 

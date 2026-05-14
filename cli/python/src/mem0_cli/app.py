@@ -867,6 +867,11 @@ def init(
         "--source",
         help="Channel attribution for signup (e.g. github, hn, ph).",
     ),
+    agent_caller: str | None = typer.Option(
+        None,
+        "--agent-caller",
+        help="Self-declared agent identity (e.g. claude-code, cursor). Used with --agent to attribute Agent Mode signups.",
+    ),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
@@ -875,7 +880,7 @@ def init(
       mem0 init --api-key m0-xxx --user-id alice
       mem0 init --email alice@company.com
       mem0 init --email alice@company.com --code 482901
-      mem0 init --agent           # Bootstrap an Agent Mode account (unattended)
+      mem0 init --agent --agent-caller claude-code   # AI agent self-identifies on Agent Mode bootstrap
       mem0 init --email alice@company.com  # Claims an existing Agent Mode key when one is present
     """
     from mem0_cli.commands.init_cmd import run_init
@@ -888,6 +893,7 @@ def init(
         force=force,
         source=source,
         agent=agent_signal,
+        agent_caller=agent_caller,
     )
 
 
