@@ -143,6 +143,20 @@ export function saveConfig(config: Mem0Config): void {
 
 	fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));
 	fs.chmodSync(CONFIG_FILE, 0o600);
+
+	// Propagate api_key to ecosystem touchpoints (Claude plugin env injection,
+	// shell rc exports). Idempotent — updates only EXISTING entries; never
+	// creates new ones. Best-effort: errors swallowed so config.json is
+	// always authoritative, never blocked by plugin-state issues.
+	if (config.platform.apiKey) {
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-require-imports
+			const { syncApiKey } = require("./plugin-sync.js");
+			syncApiKey(config.platform.apiKey);
+		} catch {
+			/* swallow */
+		}
+	}
 }
 
 export function redactKey(key: string): string {

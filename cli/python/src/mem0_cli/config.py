@@ -160,6 +160,19 @@ def save_config(config: Mem0Config) -> None:
 
     os.chmod(CONFIG_FILE, stat.S_IRUSR | stat.S_IWUSR)  # 0600
 
+    # Propagate the active api_key to ecosystem touchpoints (Claude Code
+    # plugin env injection, shell rc exports). Idempotent — only updates
+    # EXISTING entries; never creates new ones. Best-effort: any IOError
+    # in the sync is swallowed so config.json is always the authoritative
+    # write, never blocked by plugin-state issues.
+    if config.platform.api_key:
+        try:
+            from mem0_cli.plugin_sync import sync_api_key
+
+            sync_api_key(config.platform.api_key)
+        except Exception:
+            pass
+
 
 def redact_key(key: str) -> str:
     """Redact an API key for display: m0-xxx...xxx"""
