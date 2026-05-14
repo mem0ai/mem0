@@ -17,11 +17,7 @@ load_dotenv()
 
 class MemorySearch:
     def __init__(self, output_path="results.json", top_k=10, filter_memories=False, is_graph=False):
-        self.mem0_client = MemoryClient(
-            api_key=os.getenv("MEM0_API_KEY"),
-            org_id=os.getenv("MEM0_ORGANIZATION_ID"),
-            project_id=os.getenv("MEM0_PROJECT_ID"),
-        )
+        self.mem0_client = MemoryClient(api_key=os.getenv("MEM0_API_KEY"))
         self.top_k = top_k
         self.openai_client = OpenAI()
         self.results = defaultdict(list)
@@ -43,7 +39,7 @@ class MemorySearch:
                     print("Searching with graph")
                     memories = self.mem0_client.search(
                         query,
-                        user_id=user_id,
+                        filters={"user_id": user_id},
                         top_k=self.top_k,
                         filter_memories=self.filter_memories,
                         enable_graph=True,
@@ -51,7 +47,7 @@ class MemorySearch:
                     )
                 else:
                     memories = self.mem0_client.search(
-                        query, user_id=user_id, top_k=self.top_k, filter_memories=self.filter_memories
+                        query, filters={"user_id": user_id}, top_k=self.top_k, filter_memories=self.filter_memories
                     )
                 break
             except Exception as e:
@@ -62,25 +58,17 @@ class MemorySearch:
                 time.sleep(retry_delay)
 
         end_time = time.time()
-        if not self.is_graph:
-            semantic_memories = [
-                {
-                    "memory": memory["memory"],
-                    "timestamp": memory["metadata"]["timestamp"],
-                    "score": round(memory["score"], 2),
-                }
-                for memory in memories
-            ]
-            graph_memories = None
-        else:
-            semantic_memories = [
-                {
-                    "memory": memory["memory"],
-                    "timestamp": memory["metadata"]["timestamp"],
-                    "score": round(memory["score"], 2),
-                }
-                for memory in memories["results"]
-            ]
+        memory_results = memories["results"]
+        semantic_memories = [
+            {
+                "memory": memory["memory"],
+                "timestamp": memory["metadata"]["timestamp"],
+                "score": round(memory["score"], 2),
+            }
+            for memory in memory_results
+        ]
+        graph_memories = None
+        if self.is_graph:
             graph_memories = [
                 {"source": relation["source"], "relationship": relation["relationship"], "target": relation["target"]}
                 for relation in memories["relations"]
