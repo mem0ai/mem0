@@ -196,6 +196,7 @@ async function setupPlatform(config: Mem0Config): Promise<void> {
 		process.exit(1);
 	}
 	config.platform.apiKey = apiKey;
+	config.platform.createdVia = "api_key";
 }
 
 async function setupDefaults(config: Mem0Config): Promise<void> {
@@ -359,6 +360,7 @@ export async function runInit(
 		config.platform.apiKey = apiKeyVal;
 		config.platform.baseUrl = baseUrl;
 		config.platform.userEmail = email;
+		config.platform.createdVia = "email";
 		config.defaults.userId =
 			opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 
@@ -403,6 +405,7 @@ export async function runInit(
 	// Non-interactive: both flags provided
 	if (opts.apiKey && opts.userId) {
 		config.platform.apiKey = opts.apiKey;
+		config.platform.createdVia = "api_key";
 		config.defaults.userId = opts.userId;
 		await validatePlatform(config);
 		saveConfig(config);
@@ -450,6 +453,7 @@ export async function runInit(
 			config.platform.apiKey = apiKeyVal;
 			config.platform.baseUrl = baseUrl;
 			config.platform.userEmail = email;
+			config.platform.createdVia = "email";
 			config.defaults.userId =
 				opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 

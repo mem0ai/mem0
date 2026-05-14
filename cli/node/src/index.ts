@@ -141,6 +141,11 @@ program
 	.description(
 		`◆ Mem0 CLI v${CLI_VERSION} · Node.js SDK\n\nThe Memory Layer for AI Agents`,
 	)
+	// Positional options: flags AFTER a subcommand name belong to that
+	// subcommand, not the global program. Without this, `mem0 init --agent`
+	// routes `--agent` to the program-level alias (for --json) and init's own
+	// `--agent` (Agent Mode bootstrap) silently never fires.
+	.enablePositionalOptions()
 	.option("--version", "Show version and exit.")
 	.on("option:version", () => {
 		console.log(`  ${colors.brand("◆ Mem0")} CLI v${CLI_VERSION}`);
@@ -149,7 +154,7 @@ program
 	.option("--json", "Output as JSON for agent/programmatic use.")
 	.option(
 		"--agent",
-		"Output as JSON for agent/programmatic use. (alias: --json)",
+		"Output as JSON for agent/programmatic use. (alias: --json) Place BEFORE the subcommand: `mem0 --agent <cmd>`. On `init`, `mem0 init --agent` is the Agent Mode bootstrap flag instead.",
 	)
 	.usage("<command> [options]")
 	.helpOption("--help", "Show this message and exit.")

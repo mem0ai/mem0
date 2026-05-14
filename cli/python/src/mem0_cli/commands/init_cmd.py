@@ -284,6 +284,7 @@ def run_init(
         config.platform.api_key = api_key_val
         config.platform.base_url = base_url
         config.platform.user_email = email
+        config.platform.created_via = "email"
         config.defaults.user_id = (
             user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
         )
@@ -325,6 +326,7 @@ def run_init(
     # Fully non-interactive when both flags provided
     if api_key and user_id:
         config.platform.api_key = api_key
+        config.platform.created_via = "api_key"
         config.defaults.user_id = user_id
         _validate_platform(config)
         save_config(config)
@@ -365,6 +367,7 @@ def run_init(
             config.platform.api_key = api_key_val
             config.platform.base_url = base_url
             config.platform.user_email = email_addr
+            config.platform.created_via = "email"
             config.defaults.user_id = (
                 user_id or os.environ.get("USER") or os.environ.get("USERNAME") or "mem0-cli"
             )
@@ -383,6 +386,7 @@ def run_init(
     # API key flow
     if api_key:
         config.platform.api_key = api_key
+        config.platform.created_via = "api_key"
     else:
         _setup_platform(config)
 
@@ -422,6 +426,7 @@ def _setup_platform(config: Mem0Config) -> None:
         raise typer.Exit(1)
 
     config.platform.api_key = api_key
+    config.platform.created_via = "api_key"
 
 
 def _setup_defaults(config: Mem0Config) -> None:
