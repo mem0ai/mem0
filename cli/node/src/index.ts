@@ -211,11 +211,19 @@ program
 		"--source <channel>",
 		"Channel attribution for signup (e.g. github, hn, ph).",
 	)
+	// Accept `--json` at the init level too so the PRD-documented form
+	// `mem0 init --agent --json` works without requiring users to move it
+	// before the subcommand. Effect is identical to the global `--json`:
+	// flip agent-mode output state.
+	.option("--json", "Output as JSON (alias for global `--json`).", false)
 	.addHelpText(
 		"after",
 		"\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456\n  $ mem0 init --agent             # Bootstrap an Agent Mode account (unattended)\n  $ mem0 init --email you@example.com  # Claims an existing Agent Mode key when one is present",
 	)
 	.action(async (opts) => {
+		// `--json` at init level mirrors the global flag — flip agent_mode
+		// state so downstream formatters use JSON envelopes.
+		if (opts.json) setAgentMode(true);
 		const { runInit } = await import("./commands/init.js");
 		await runInit({
 			apiKey: opts.apiKey,

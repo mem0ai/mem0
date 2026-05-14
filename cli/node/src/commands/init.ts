@@ -21,6 +21,8 @@ import {
 	redactKey,
 	saveConfig,
 } from "../config.js";
+import { formatJsonEnvelope } from "../output.js";
+import { isAgentMode } from "../state.js";
 
 const { brand, dim } = colors;
 
@@ -328,12 +330,30 @@ export async function runInit(
 	const agentCtx =
 		opts.agent === true || isAgentMode() || detectAgentCaller() !== null;
 	if (!opts.apiKey && !opts.email && agentCtx) {
+		const emitReuseEnvelope = (source: "env" | "config") => {
+			if (isAgentMode()) {
+				formatJsonEnvelope({
+					command: "init",
+					data: {
+						api_key_saved: false,
+						api_key_source: source,
+						agent_mode: false,
+						message:
+							"Existing Mem0 API key found and reused. No Agent Mode key was created.",
+					},
+				});
+			} else {
+				printSuccess(
+					source === "env"
+						? "Existing MEM0_API_KEY is valid; reusing it. No new Agent Mode key was minted."
+						: "Existing API key in config is valid; reusing it. No new Agent Mode key was minted.",
+				);
+			}
+		};
 		// Rule 1: env MEM0_API_KEY valid → reuse, no new key.
 		const envKey = (process.env.MEM0_API_KEY || "").trim();
 		if (envKey && (await pingKey(envKey, baseUrl))) {
-			printSuccess(
-				"Existing MEM0_API_KEY is valid; reusing it. No new Agent Mode key was minted.",
-			);
+			emitReuseEnvelope("env");
 			fireInit("existing_key");
 			return;
 		}
@@ -342,9 +362,7 @@ export async function runInit(
 			savedConfig.platform.apiKey &&
 			(await pingKey(savedConfig.platform.apiKey, baseUrl))
 		) {
-			printSuccess(
-				"Existing API key in config is valid; reusing it. No new Agent Mode key was minted.",
-			);
+			emitReuseEnvelope("config");
 			fireInit("existing_key");
 			return;
 		}

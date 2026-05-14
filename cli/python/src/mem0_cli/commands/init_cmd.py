@@ -258,23 +258,40 @@ def run_init(
     # is no valid key to reuse — in that case overwriting is correct.
     _agent_ctx = agent or _global_agent_mode() or (detect_agent_caller() is not None)
     if not api_key and not email and _agent_ctx:
+        from mem0_cli.output import format_json_envelope
+        from mem0_cli.state import is_agent_mode as _is_json_mode
+
+        def _emit_reuse(source: str) -> None:
+            if _is_json_mode():
+                format_json_envelope(
+                    console,
+                    command="init",
+                    data={
+                        "api_key_saved": False,
+                        "api_key_source": source,
+                        "agent_mode": False,
+                        "message": "Existing Mem0 API key found and reused. No Agent Mode key was created.",
+                    },
+                )
+            else:
+                msg = (
+                    "Existing MEM0_API_KEY is valid; reusing it. No new Agent Mode key was minted."
+                    if source == "env"
+                    else "Existing API key in config is valid; reusing it. No new Agent Mode key was minted."
+                )
+                print_success(console, msg)
+
         # Rule 1: env MEM0_API_KEY valid → reuse, no new key.
         _env_key = (os.environ.get("MEM0_API_KEY") or "").strip()
         if _env_key and _ping_key(_env_key, base_url):
-            print_success(
-                console,
-                "Existing MEM0_API_KEY is valid; reusing it. No new Agent Mode key was minted.",
-            )
+            _emit_reuse("env")
             _fire_init("existing_key")
             return
         # Rule 2: existing config api_key valid → reuse.
         if CONFIG_FILE.exists():
             _existing = load_config()
             if _existing.platform.api_key and _ping_key(_existing.platform.api_key, base_url):
-                print_success(
-                    console,
-                    "Existing API key in config is valid; reusing it. No new Agent Mode key was minted.",
-                )
+                _emit_reuse("config")
                 _fire_init("existing_key")
                 return
         # Rule 3: mint a fresh shadow (no valid key to reuse).

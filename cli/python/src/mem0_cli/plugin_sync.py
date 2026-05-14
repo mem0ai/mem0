@@ -26,6 +26,7 @@ Out of scope (deliberately not touched):
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -77,7 +78,10 @@ def _update_claude_settings(path: Path, api_key: str) -> bool:
 # Match `export MEM0_API_KEY="..."` (or single quotes, or no quotes).
 # Use [ \t]* (not \s*) for trailing whitespace so a trailing newline at
 # end-of-file is preserved when MEM0_API_KEY is the last line.
-_RC_LINE = re.compile(r'^([ \t]*export[ \t]+MEM0_API_KEY[ \t]*=[ \t]*)(["\']?)([^"\'\n]*)(["\']?)[ \t]*$', re.MULTILINE)
+_RC_LINE = re.compile(
+    r'^([ \t]*export[ \t]+MEM0_API_KEY[ \t]*=[ \t]*)(["\']?)([^"\'\n]*)(["\']?)[ \t]*$',
+    re.MULTILINE,
+)
 
 
 def _update_shell_rc(path: Path, api_key: str) -> bool:
@@ -110,8 +114,6 @@ def _atomic_write_text(path: Path, content: str) -> None:
             os.chmod(tmp_path, path.stat().st_mode & 0o777)
         os.replace(tmp_path, path)
     except Exception:
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
         raise
