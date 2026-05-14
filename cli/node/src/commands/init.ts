@@ -35,19 +35,62 @@ function validateEmail(email: string): void {
 	}
 }
 
-async function pingKey(
+/** @internal — exported for unit tests. */
+export async function pingKey(
 	apiKey: string,
 	baseUrl: string,
 	timeoutMs = 5000,
 ): Promise<boolean> {
+	// Returns false ONLY on a definitive "invalid key" signal (HTTP 401/403).
+	// Network errors, timeouts, and 5xx responses return true so we prefer
+	// reusing an existing key over silently minting a new shadow on a transient
+	// blip (which would also clobber config + plugin-sync targets).
 	try {
 		const resp = await fetch(`${baseUrl.replace(/\/+$/, "")}/v1/ping/`, {
 			headers: { Authorization: `Token ${apiKey}` },
 			signal: AbortSignal.timeout(timeoutMs),
 		});
-		return resp.status === 200;
+		return resp.status !== 401 && resp.status !== 403;
 	} catch {
-		return false;
+		return true; // unknown — prefer reuse
+	}
+}
+
+async function maybeIdentify(
+	key: string,
+	baseUrl: string,
+	agentCaller: string | undefined,
+): Promise<void> {
+	// Best-effort PATCH agent_caller when --agent-caller is supplied on a
+	// reused key. Silent no-op on any failure — reuse must not break.
+	if (!agentCaller) return;
+	try {
+		const resp = await fetch(
+			`${baseUrl.replace(/\/+$/, "")}/api/v1/auth/agent_mode/caller/`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: `Token ${key}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ agent_caller: agentCaller }),
+				signal: AbortSignal.timeout(10_000),
+			},
+		);
+		if (resp.ok) {
+			try {
+				const body = (await resp.json()) as { agent_caller?: string };
+				if (fs.existsSync(CONFIG_FILE)) {
+					const cfg = loadConfig();
+					cfg.platform.agentCaller = body.agent_caller ?? agentCaller;
+					saveConfig(cfg);
+				}
+			} catch {
+				/* swallow — best effort */
+			}
+		}
+	} catch {
+		/* swallow — best effort */
 	}
 }
 
@@ -354,6 +397,7 @@ export async function runInit(
 		// Rule 1: env MEM0_API_KEY valid → reuse, no new key.
 		const envKey = (process.env.MEM0_API_KEY || "").trim();
 		if (envKey && (await pingKey(envKey, baseUrl))) {
+			await maybeIdentify(envKey, baseUrl, opts.agentCaller);
 			emitReuseEnvelope("env");
 			fireInit("existing_key");
 			return;
@@ -363,6 +407,11 @@ export async function runInit(
 			savedConfig.platform.apiKey &&
 			(await pingKey(savedConfig.platform.apiKey, baseUrl))
 		) {
+			await maybeIdentify(
+				savedConfig.platform.apiKey,
+				baseUrl,
+				opts.agentCaller,
+			);
 			emitReuseEnvelope("config");
 			fireInit("existing_key");
 			return;

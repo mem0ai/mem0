@@ -1,11 +1,14 @@
 /**
- * Detect which AI agent is invoking the CLI via environment variables.
+ * Detect whether the CLI is being invoked from inside an AI-agent context.
  *
- * Used by `mem0 init` to:
- *   1. Decide whether to auto-bootstrap an Agent Mode key (positive agent signal).
- *   2. Tag the `agent_caller` PostHog property on the cli.init event.
+ * Used by `mem0 init` to auto-enter Agent Mode (Rule 3 bootstrap) when an
+ * agent runtime env var is present. The return value is a context **trigger
+ * only** — the canonical agent identity is self-declared by the agent via
+ * `--agent-caller <name>` (Proof Editor-style) and never sniffed from env
+ * vars to fill the `agent_caller` field on the APIKey row.
  *
- * Returns a canonical short name or null when no agent is detected.
+ * Returns a short name or null. Honest reporting depends on `--agent-caller`;
+ * this list is just enough to enable the zero-friction auto-bootstrap UX.
  */
 
 const AGENT_CALLER_ENV: ReadonlyArray<readonly [string, readonly string[]]> = [

@@ -49,7 +49,11 @@ export function syncApiKey(apiKey: string): string[] {
 	return updated;
 }
 
-function updateClaudeSettings(filePath: string, apiKey: string): boolean {
+/** @internal — exported for unit tests; consumers should use {@link syncApiKey}. */
+export function updateClaudeSettings(
+	filePath: string,
+	apiKey: string,
+): boolean {
 	if (!fs.existsSync(filePath)) return false;
 	let raw: string;
 	let data: Record<string, unknown>;
@@ -70,7 +74,8 @@ function updateClaudeSettings(filePath: string, apiKey: string): boolean {
 	return true;
 }
 
-function updateShellRc(filePath: string, apiKey: string): boolean {
+/** @internal — exported for unit tests; consumers should use {@link syncApiKey}. */
+export function updateShellRc(filePath: string, apiKey: string): boolean {
 	if (!fs.existsSync(filePath)) return false;
 	let text: string;
 	try {

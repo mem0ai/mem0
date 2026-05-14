@@ -24,6 +24,28 @@ export interface BootstrapEnvelope {
 	mem0_notice?: string;
 }
 
+function isValidEnvelope(v: unknown): v is BootstrapEnvelope {
+	return (
+		!!v &&
+		typeof v === "object" &&
+		typeof (v as BootstrapEnvelope).api_key === "string" &&
+		(v as BootstrapEnvelope).api_key.length > 0 &&
+		typeof (v as BootstrapEnvelope).default_user_id === "string" &&
+		(v as BootstrapEnvelope).default_user_id.length > 0
+	);
+}
+
+/**
+ * POST /api/v1/auth/agent_mode/ and mutate config in place.
+ *
+ * @param config - Mem0Config mutated in place with the new platform values.
+ * @param source - `--source` flag passthrough (analytics tag, free-form).
+ * @param agentCaller - Self-declared agent identity passed via `--agent-caller`
+ *   (e.g. `claude-code`, `cursor`). May be null when the caller omitted the
+ *   flag; the agent can backfill later via `mem0 identify <name>`. Sent to the
+ *   backend in the request body and saved into `platform.agentCaller` for
+ *   local introspection.
+ */
 export async function bootstrapViaBackend(
 	config: Mem0Config,
 	{
@@ -68,8 +90,11 @@ export async function bootstrapViaBackend(
 	if (!resp.ok) {
 		let detail: string = resp.statusText;
 		try {
-			const body = (await resp.json()) as { error?: string; detail?: string };
-			detail = body.error ?? body.detail ?? resp.statusText;
+			const errBody = (await resp.json()) as {
+				error?: string;
+				detail?: string;
+			};
+			detail = errBody.error ?? errBody.detail ?? resp.statusText;
 		} catch {
 			/* leave detail as statusText */
 		}
@@ -88,6 +113,15 @@ export async function bootstrapViaBackend(
 	}
 
 	const envelope = (await resp.json()) as BootstrapEnvelope;
+	if (!isValidEnvelope(envelope)) {
+		// Defend against partial/malformed backend responses (e.g. {api_key: null}).
+		// Without this guard, the typed `string` field is silently set to
+		// undefined/null and persisted, producing confusing downstream errors.
+		printError(
+			"Bootstrap response missing required fields — please update the CLI.",
+		);
+		process.exit(1);
+	}
 
 	config.platform.apiKey = envelope.api_key;
 	config.platform.baseUrl = baseUrl;
@@ -219,17 +253,17 @@ export async function claimViaOtp(
 		process.exit(1);
 	}
 
-	const body = (await verifyResp.json()) as {
+	const claimBody = (await verifyResp.json()) as {
 		claimed?: boolean;
 		claimed_at?: string;
 	};
-	if (!body.claimed) {
-		printError(`Unexpected verify response: ${JSON.stringify(body)}`);
+	if (!claimBody.claimed) {
+		printError(`Unexpected verify response: ${JSON.stringify(claimBody)}`);
 		process.exit(1);
 	}
 
 	config.platform.agentMode = false;
-	config.platform.claimedAt = body.claimed_at ?? new Date().toISOString();
+	config.platform.claimedAt = claimBody.claimed_at ?? new Date().toISOString();
 	config.platform.userEmail = email;
 	config.platform.createdVia = "email";
 	saveConfig(config);

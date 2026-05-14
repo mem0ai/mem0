@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -28,6 +29,26 @@ _SOURCE_HEADERS = {
 }
 
 
+def _validate_envelope(envelope: Any) -> None:
+    """Defend against partial/malformed backend responses.
+
+    A backend regression that returns ``{"api_key": null}`` would otherwise be
+    silently persisted, producing confusing downstream errors far from the
+    source. Fail fast with a clear message if the required fields are missing.
+    """
+    if not isinstance(envelope, dict):
+        print_error(err_console, "Bootstrap response was not a JSON object.")
+        raise typer.Exit(1)
+    for field in ("api_key", "default_user_id"):
+        value = envelope.get(field)
+        if not isinstance(value, str) or not value:
+            print_error(
+                err_console,
+                f"Bootstrap response missing required field {field!r} — please update the CLI.",
+            )
+            raise typer.Exit(1)
+
+
 def bootstrap_via_backend(
     config: Mem0Config,
     *,
@@ -39,9 +60,11 @@ def bootstrap_via_backend(
     Args:
         config: Mem0Config mutated in place with the new platform values.
         source: ``--source`` flag passthrough (analytics tag, free-form).
-        agent_caller: Canonical agent name detected from env vars
-            (claude-code, cursor, ...). Persisted on the backend APIKey and
-            saved into ``platform.agent_caller`` for local introspection.
+        agent_caller: Self-declared agent identity passed via ``--agent-caller``
+            (e.g. ``claude-code``, ``cursor``). May be None when the caller
+            omitted the flag; the agent can backfill later via
+            ``mem0 identify <name>``. Sent to the backend in the request body
+            and saved into ``platform.agent_caller`` for local introspection.
 
     Raises typer.Exit(1) on failure.
     """
@@ -72,9 +95,9 @@ def bootstrap_via_backend(
     if resp.status_code != 200:
         detail = resp.text
         try:
-            body = resp.json()
-            detail = body.get("error") or body.get("detail") or resp.text
-        except Exception:
+            err_body = resp.json()
+            detail = err_body.get("error") or err_body.get("detail") or resp.text
+        except (json.JSONDecodeError, ValueError, AttributeError):
             pass
         # Backend's @ratelimit decorator raises PermissionDenied, which DRF
         # translates to a generic 403 "You do not have permission to perform
@@ -89,6 +112,7 @@ def bootstrap_via_backend(
         raise typer.Exit(1)
 
     envelope = resp.json()
+    _validate_envelope(envelope)
     config.platform.api_key = envelope["api_key"]
     config.platform.base_url = base_url
     config.platform.agent_mode = True
@@ -185,10 +209,10 @@ def claim_via_otp(config: Mem0Config, *, email: str, code: str | None = None) ->
 
     if verify.status_code != 200:
         try:
-            body = verify.json()
-            detail = body.get("error", verify.text)
-            code_str = body.get("code", "")
-        except Exception:
+            err_body = verify.json()
+            detail = err_body.get("error", verify.text)
+            code_str = err_body.get("code", "")
+        except (json.JSONDecodeError, ValueError, AttributeError):
             detail = verify.text
             code_str = ""
         print_error(err_console, f"Claim failed: {detail}")
@@ -198,13 +222,13 @@ def claim_via_otp(config: Mem0Config, *, email: str, code: str | None = None) ->
             )
         raise typer.Exit(1)
 
-    body = verify.json()
-    if not body.get("claimed"):
-        print_error(err_console, f"Unexpected verify response: {body}")
+    claim_body = verify.json()
+    if not claim_body.get("claimed"):
+        print_error(err_console, f"Unexpected verify response: {claim_body}")
         raise typer.Exit(1)
 
     config.platform.agent_mode = False
-    config.platform.claimed_at = body.get("claimed_at") or _utcnow_iso()
+    config.platform.claimed_at = claim_body.get("claimed_at") or _utcnow_iso()
     config.platform.user_email = email
     config.platform.created_via = "email"
     save_config(config)

@@ -104,16 +104,22 @@ def _validate_email(email: str) -> None:
 
 
 def _ping_key(api_key: str, base_url: str, timeout: float = 5.0) -> bool:
-    """True if api_key passes /v1/ping/ against base_url within timeout."""
+    """Validate api_key against /v1/ping/.
+
+    Returns False ONLY on a definitive "invalid key" signal (HTTP 401 / 403).
+    Network errors, timeouts, and 5xx responses return True so we prefer
+    reusing an existing key over silently minting a new shadow on a transient
+    blip (which would also clobber config + plugin-sync targets).
+    """
     try:
         resp = httpx.get(
             f"{base_url.rstrip('/')}/v1/ping/",
             headers={"Authorization": f"Token {api_key}"},
             timeout=timeout,
         )
-        return resp.status_code == 200
-    except Exception:
-        return False
+    except httpx.HTTPError:
+        return True  # unknown — prefer reuse
+    return resp.status_code not in (401, 403)
 
 
 def _email_login(
@@ -282,9 +288,37 @@ def run_init(
                 )
                 print_success(console, msg)
 
+        def _maybe_identify(key: str) -> None:
+            """Best-effort PATCH agent_caller when --agent-caller is supplied on a
+            reused key. Silent no-op on any failure — reuse must not break.
+            """
+            if not agent_caller:
+                return
+            try:
+                resp = httpx.patch(
+                    f"{base_url.rstrip('/')}/api/v1/auth/agent_mode/caller/",
+                    headers={
+                        "Authorization": f"Token {key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={"agent_caller": agent_caller},
+                    timeout=10.0,
+                )
+                # Also reflect in local config so introspection matches backend.
+                if resp.status_code == 200 and CONFIG_FILE.exists():
+                    try:
+                        cfg = load_config()
+                        cfg.platform.agent_caller = resp.json().get("agent_caller", agent_caller)
+                        save_config(cfg)
+                    except Exception:
+                        pass
+            except httpx.HTTPError:
+                pass
+
         # Rule 1: env MEM0_API_KEY valid → reuse, no new key.
         _env_key = (os.environ.get("MEM0_API_KEY") or "").strip()
         if _env_key and _ping_key(_env_key, base_url):
+            _maybe_identify(_env_key)
             _emit_reuse("env")
             _fire_init("existing_key")
             return
@@ -292,6 +326,7 @@ def run_init(
         if CONFIG_FILE.exists():
             _existing = load_config()
             if _existing.platform.api_key and _ping_key(_existing.platform.api_key, base_url):
+                _maybe_identify(_existing.platform.api_key)
                 _emit_reuse("config")
                 _fire_init("existing_key")
                 return
