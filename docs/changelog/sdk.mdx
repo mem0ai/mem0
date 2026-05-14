@@ -1323,6 +1323,23 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-05-14" description="Python v0.2.5 / Node v0.2.5">
+
+**New Features:**
+- **Agent Mode (`mem0 init --agent`):** Zero-friction signup for AI agents — mints a working Mem0 API key in <5s with no email, no dashboard, no OTP. Returns an unclaimed shadow account the human can later claim with `mem0 init --email <their-email>` (memories preserved, same key keeps working) ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Self-declared agent identity:** Agents pass `--agent-caller <name>` (e.g. `claude-code`, `cursor`, `codex`) on `mem0 init --agent` so signups attribute to the right tool in analytics. Proof Editor-style — the agent declares itself rather than the CLI sniffing it from env vars ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **`mem0 identify <name>`:** New subcommand to self-tag an Agent Mode key after the fact when the agent forgot to pass `--agent-caller` on init. Idempotent — re-running just overwrites ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Plugin sync:** `~/.claude/settings.json::env::MEM0_API_KEY` and `~/.zshrc`/`.bashrc` `export MEM0_API_KEY=` lines stay in sync with `~/.mem0/config.json` automatically. Idempotent — only updates EXISTING entries, never creates new ones ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Claim flow:** `mem0 init --email <email>` claims an existing Agent Mode shadow via OTP. Upgrade-in-place — the API key never changes, memories transfer to the human's account ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+
+**Bug Fixes:**
+- **Decision tree network resilience:** `pingKey` now distinguishes network errors from invalid keys — returns false ONLY on HTTP 401/403, returns true on connection failures / timeouts / 5xx. Prevents a VPN flap from silently rotating the user's API key and rewriting plugin-sync targets ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Rate-limit error clarity:** DRF's opaque `"You do not have permission"` 403 from Agent Mode rate limits is now translated to `"Daily Agent Mode signup limit reached for this network (5/day). Try again from a different IP or after midnight UTC."` ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **JSON envelope `command` field:** `mem0 init --agent --json` error envelopes now populate the `command` field correctly instead of returning an empty string ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Bootstrap envelope validation:** Defends against partial/malformed backend responses (e.g. `{api_key: null}`) silently persisting null/undefined into typed string fields ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+
+</Update>
+
 <Update label="2026-04-22" description="Python v0.2.4 / Node v0.2.4">
 
 **New Features:**

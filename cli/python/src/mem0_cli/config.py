@@ -31,7 +31,9 @@ class PlatformConfig:
     # Agent Mode (unclaimed-shadow signup)
     agent_mode: bool = False  # True while the key is an unclaimed agent-mode key
     created_via: str = ""  # "agent_mode" | "email" | "api_key" | "existing_key"
-    agent_caller: str = ""  # canonical agent name when created_via == "agent_mode" (e.g. "claude-code")
+    agent_caller: str = (
+        ""  # canonical agent name when created_via == "agent_mode" (e.g. "claude-code")
+    )
     claimed_at: str = ""  # ISO timestamp once the agent has been claimed by a human
     default_user_id: str = ""  # `user_<slug>` returned by bootstrap; used as auto-default
 

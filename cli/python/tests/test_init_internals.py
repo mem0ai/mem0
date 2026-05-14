@@ -91,12 +91,7 @@ def test_shell_rc_does_not_create_new_export(tmp_path) -> None:
 
 def test_shell_rc_preserves_surrounding_content(tmp_path) -> None:
     rc = tmp_path / ".zshrc"
-    original = (
-        "# my zshrc\n"
-        "alias ll='ls -la'\n"
-        "export MEM0_API_KEY='old'\n"
-        "export OTHER=keepme\n"
-    )
+    original = "# my zshrc\nalias ll='ls -la'\nexport MEM0_API_KEY='old'\nexport OTHER=keepme\n"
     rc.write_text(original, encoding="utf-8")
     _update_shell_rc(rc, "newkey")
     after = rc.read_text(encoding="utf-8")
