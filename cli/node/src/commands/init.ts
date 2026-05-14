@@ -33,6 +33,22 @@ function validateEmail(email: string): void {
 	}
 }
 
+async function pingKey(
+	apiKey: string,
+	baseUrl: string,
+	timeoutMs = 5000,
+): Promise<boolean> {
+	try {
+		const resp = await fetch(`${baseUrl.replace(/\/+$/, "")}/v1/ping/`, {
+			headers: { Authorization: `Token ${apiKey}` },
+			signal: AbortSignal.timeout(timeoutMs),
+		});
+		return resp.status === 200;
+	} catch {
+		return false;
+	}
+}
+
 async function emailLogin(
 	email: string,
 	code: string | undefined,
@@ -304,6 +320,40 @@ export async function runInit(
 		return;
 	}
 
+	// ── Agent Mode path runs BEFORE the existing-config guard ──────────────
+	// Rule 1/2 will REUSE a valid existing key (not overwrite), so we must
+	// short-circuit before the guard prompts the user about overwriting.
+	// Rule 3 only mints when there's no valid key to reuse — in that case
+	// overwriting is what the user wants.
+	const agentCtx =
+		opts.agent === true || isAgentMode() || detectAgentCaller() !== null;
+	if (!opts.apiKey && !opts.email && agentCtx) {
+		// Rule 1: env MEM0_API_KEY valid → reuse, no new key.
+		const envKey = (process.env.MEM0_API_KEY || "").trim();
+		if (envKey && (await pingKey(envKey, baseUrl))) {
+			printSuccess(
+				"Existing MEM0_API_KEY is valid; reusing it. No new Agent Mode key was minted.",
+			);
+			fireInit("existing_key");
+			return;
+		}
+		// Rule 2: existing config api_key valid → reuse.
+		if (
+			savedConfig.platform.apiKey &&
+			(await pingKey(savedConfig.platform.apiKey, baseUrl))
+		) {
+			printSuccess(
+				"Existing API key in config is valid; reusing it. No new Agent Mode key was minted.",
+			);
+			fireInit("existing_key");
+			return;
+		}
+		// Rule 3: mint a fresh shadow (no valid key to reuse).
+		await bootstrapViaBackend(config, { source: opts.source ?? null });
+		fireInit("agent");
+		return;
+	}
+
 	// Warn if an existing config with an API key would be overwritten
 	if (
 		!opts.force &&
@@ -375,19 +425,9 @@ export async function runInit(
 		return;
 	}
 
-	// ── Agent Mode auto-bootstrap (no email, no api_key flag) ───────────
-	// Positive agent signal required: --agent flag (local or global) OR a
-	// recognized agent env var. Pure "no TTY" alone is NOT enough — pipe
-	// users would get surprised by a silent shadow signup.
-	const agentCtx =
-		opts.agent === true || isAgentMode() || detectAgentCaller() !== null;
-	if (!opts.apiKey && !opts.email && agentCtx) {
-		await bootstrapViaBackend(config, { source: opts.source ?? null });
-		fireInit("agent");
-		return;
-	}
-
 	// ── API key flow ──────────────────────────────────────────────────────────
+	// (Agent Mode branch runs earlier — see above, before the existing-config
+	// guard, so Rules 1/2 can REUSE a valid key without prompting overwrite.)
 
 	// Non-TTY: resolve defaults so partial flags work in pipelines / CI
 	if (!process.stdin.isTTY) {

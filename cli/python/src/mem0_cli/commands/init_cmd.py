@@ -103,6 +103,19 @@ def _validate_email(email: str) -> None:
         raise typer.Exit(1)
 
 
+def _ping_key(api_key: str, base_url: str, timeout: float = 5.0) -> bool:
+    """True if api_key passes /v1/ping/ against base_url within timeout."""
+    try:
+        resp = httpx.get(
+            f"{base_url.rstrip('/')}/v1/ping/",
+            headers={"Authorization": f"Token {api_key}"},
+            timeout=timeout,
+        )
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
 def _email_login(
     email: str,
     code: str | None,
@@ -239,6 +252,36 @@ def run_init(
             _fire_init("email", claimed=True)
             return
 
+    # ── Agent Mode path runs BEFORE the existing-config guard ──────────
+    # Rules 1/2 REUSE a valid existing key (not overwrite), so we must
+    # short-circuit before the guard prompts. Rule 3 mints only when there
+    # is no valid key to reuse — in that case overwriting is correct.
+    _agent_ctx = agent or _global_agent_mode() or (detect_agent_caller() is not None)
+    if not api_key and not email and _agent_ctx:
+        # Rule 1: env MEM0_API_KEY valid → reuse, no new key.
+        _env_key = (os.environ.get("MEM0_API_KEY") or "").strip()
+        if _env_key and _ping_key(_env_key, base_url):
+            print_success(
+                console,
+                "Existing MEM0_API_KEY is valid; reusing it. No new Agent Mode key was minted.",
+            )
+            _fire_init("existing_key")
+            return
+        # Rule 2: existing config api_key valid → reuse.
+        if CONFIG_FILE.exists():
+            _existing = load_config()
+            if _existing.platform.api_key and _ping_key(_existing.platform.api_key, base_url):
+                print_success(
+                    console,
+                    "Existing API key in config is valid; reusing it. No new Agent Mode key was minted.",
+                )
+                _fire_init("existing_key")
+                return
+        # Rule 3: mint a fresh shadow (no valid key to reuse).
+        bootstrap_via_backend(config, source=source)
+        _fire_init("agent")
+        return
+
     # Warn if an existing config with an API key would be overwritten
     if not force and CONFIG_FILE.exists():
         existing = load_config()
@@ -300,17 +343,9 @@ def run_init(
         console.print()
         return
 
-    # ── Agent Mode auto-bootstrap (no email, no api_key flag) ─────────
-    # Positive agent signal required: explicit --agent flag (local or global)
-    # OR a recognized agent env var. Pure "no TTY" alone is NOT enough — pipe
-    # users would get surprised by a silent shadow signup.
-    agent_ctx = agent or _global_agent_mode() or (detect_agent_caller() is not None)
-    if not api_key and not email and agent_ctx:
-        bootstrap_via_backend(config, source=source)
-        _fire_init("agent")
-        return
-
     # ── API key flow (existing) ───────────────────────────────────────
+    # (Agent Mode branch runs earlier — see above, before the existing-config
+    # guard, so Rules 1/2 can REUSE a valid key without prompting overwrite.)
 
     # Non-TTY: resolve defaults so partial flags work in pipelines / CI
     if not sys.stdin.isatty():
