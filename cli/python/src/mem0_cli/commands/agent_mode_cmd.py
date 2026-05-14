@@ -61,10 +61,21 @@ def bootstrap_via_backend(
         print_error(err_console, "Agent Mode is temporarily disabled. Try again later.")
         raise typer.Exit(1)
     if resp.status_code != 200:
+        detail = resp.text
         try:
-            detail = resp.json().get("error", resp.text)
+            body = resp.json()
+            detail = body.get("error") or body.get("detail") or resp.text
         except Exception:
-            detail = resp.text
+            pass
+        # Backend's @ratelimit decorator raises PermissionDenied, which DRF
+        # translates to a generic 403 "You do not have permission to perform
+        # this action." That's opaque — surface as the rate-limit it actually is.
+        if resp.status_code == 403 and "permission" in str(detail).lower():
+            print_error(
+                err_console,
+                "Daily Agent Mode signup limit reached for this network (5/day). Try again from a different IP or after midnight UTC.",
+            )
+            raise typer.Exit(1)
         print_error(err_console, f"Bootstrap failed: {detail}")
         raise typer.Exit(1)
 

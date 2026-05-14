@@ -64,10 +64,20 @@ export async function bootstrapViaBackend(
 	if (!resp.ok) {
 		let detail: string = resp.statusText;
 		try {
-			const errBody = (await resp.json()) as { error?: string };
-			if (errBody.error) detail = errBody.error;
+			const body = (await resp.json()) as { error?: string; detail?: string };
+			detail = body.error ?? body.detail ?? resp.statusText;
 		} catch {
 			/* leave detail as statusText */
+		}
+		// Backend's @ratelimit decorator raises PermissionDenied, which DRF
+		// translates to a generic 403 "You do not have permission to perform
+		// this action." That's opaque — surface it as the rate-limit message
+		// it actually is.
+		if (resp.status === 403 && /permission/i.test(detail)) {
+			printError(
+				"Daily Agent Mode signup limit reached for this network (5/day). Try again from a different IP or after midnight UTC.",
+			);
+			process.exit(1);
 		}
 		printError(`Bootstrap failed: ${detail}`);
 		process.exit(1);

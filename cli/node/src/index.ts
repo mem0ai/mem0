@@ -13,7 +13,7 @@ import { colors, printError, printWarning } from "./branding.js";
 import type { Mem0Config } from "./config.js";
 import { loadConfig, saveConfig } from "./config.js";
 import { richFormatHelp } from "./help.js";
-import { isAgentMode, setAgentMode, takeNotice } from "./state.js";
+import { isAgentMode, setAgentMode, setCurrentCommand, takeNotice } from "./state.js";
 import { captureEvent } from "./telemetry.js";
 import { CLI_VERSION } from "./version.js";
 
@@ -171,6 +171,10 @@ program.hook("preAction", (_thisCommand, actionCommand) => {
 			parentName && parentName !== "mem0"
 				? `${parentName}.${commandName}`
 				: commandName;
+		// Stash the active command name in shared state so the JSON
+		// error envelope (printError) can report which command failed
+		// instead of an empty `"command": ""` field.
+		setCurrentCommand(fullCommand);
 		// init fires its own telemetry from runInit with full M1-M6 props
 		// (mode/agent_caller/signup_source/claimed_agent_mode); skip the
 		// auto-fire here so we don't double-count.

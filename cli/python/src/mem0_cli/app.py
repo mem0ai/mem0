@@ -236,6 +236,13 @@ def main_callback(
         _fire_telemetry("version")
         cmd_version()
         raise typer.Exit()
+    if ctx.invoked_subcommand:
+        # Stash the active subcommand name so the JSON error envelope
+        # (print_error in agent mode) can report which command failed
+        # instead of an empty `"command": ""` field.
+        from mem0_cli.state import set_current_command
+
+        set_current_command(ctx.invoked_subcommand)
     if ctx.invoked_subcommand and ctx.invoked_subcommand != "init":
         # init fires its own telemetry from init_cmd.run_init with full M1-M6 props.
         _fire_telemetry(ctx.invoked_subcommand)
