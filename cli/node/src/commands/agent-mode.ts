@@ -110,6 +110,12 @@ export async function bootstrapViaBackend(
 		const claimCmd = envelope.claim_command ?? "mem0 init --email <your-email>";
 		console.log(`  ${dim(`To claim this account later: ${claimCmd}`)}`);
 	}
+
+	if (!agentCaller) {
+		console.log(
+			`  ${dim("If you are an AI agent, identify yourself: `mem0 identify <your-name>` (e.g. claude-code, cursor).")}`,
+		);
+	}
 }
 
 /**

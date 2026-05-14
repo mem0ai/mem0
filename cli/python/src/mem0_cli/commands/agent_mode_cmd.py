@@ -109,6 +109,12 @@ def bootstrap_via_backend(
         claim_cmd = envelope.get("claim_command", "mem0 init --email <your-email>")
         console.print(f"  [{DIM_COLOR}]To claim this account later: {claim_cmd}[/]")
 
+    if not agent_caller:
+        console.print(
+            f"  [{DIM_COLOR}]If you are an AI agent, identify yourself: "
+            f"`mem0 identify <your-name>` (e.g. claude-code, cursor).[/]"
+        )
+
 
 def claim_via_otp(config: Mem0Config, *, email: str, code: str | None = None) -> None:
     """Claim an existing Agent Mode account via OTP — no browser, no polling.

@@ -897,6 +897,23 @@ def init(
     )
 
 
+@app.command(rich_help_panel="Setup")
+def identify(
+    name: str = typer.Argument(..., help="Agent identity (e.g. claude-code, cursor, my-bot)."),
+) -> None:
+    """Tag your active Agent Mode key with the AI agent that's using it.
+
+    Run this once after `mem0 init --agent` if you didn't pass --agent-caller.
+    Idempotent — re-running just overwrites the value.
+
+    Example:
+      mem0 identify claude-code
+    """
+    from mem0_cli.commands.identify_cmd import run_identify
+
+    run_identify(name)
+
+
 # (entity_app registered at module level, below sub-group definitions)
 
 

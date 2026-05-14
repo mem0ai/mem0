@@ -250,6 +250,18 @@ program
 		});
 	});
 
+// ── Setup: identify (post-bootstrap agent self-tag) ──────────────────────
+
+program
+	.command("identify <name>")
+	.description(
+		"Tag your active Agent Mode key with the AI agent that's using it (e.g. claude-code, cursor).",
+	)
+	.action(async (name: string) => {
+		const { runIdentify } = await import("./commands/identify.js");
+		await runIdentify(name);
+	});
+
 // ── Memory: add ───────────────────────────────────────────────────────────
 
 program
