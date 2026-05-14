@@ -248,7 +248,7 @@ Bake the choice into the goal doc in step 5. Do not re-decide later.
 | OSS (default LLM) | `OPENAI_API_KEY` | https://platform.openai.com/api-keys |
 
 If present in env → continue.
-If `MEM0_API_KEY` is missing AND the track is **Platform** → **default to Agent Mode**: run `mem0 init --agent --json` (after `pip install mem0-cli` or `npm install -g @mem0/cli`) to mint an evaluation key without email/dashboard friction. Cache the key to `.env` (with user consent) and continue. Tell the user to claim later with `mem0 init --email <their-email>` — same key, no agent disruption.
+If `MEM0_API_KEY` is missing AND the track is **Platform** → **default to Agent Mode**: run `mem0 init --agent --agent-caller <your-name> --json` (after `pip install mem0-cli` or `npm install -g @mem0/cli`), substituting your agent identity (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init. Cache the key to `.env` (with user consent) and continue. Tell the user to claim later with `mem0 init --email <their-email>` — same key, no agent disruption.
 If missing AND **CI mode** (`MEM0_INTEGRATE_CI=1`) → exit with code 2 and the name of the missing key.
 
 Never echo key values into `trace.jsonl`. Persist to `.env` only with
