@@ -156,3 +156,4 @@ known_first_party = ["mem0", "mem0_cli"]
 # isort scope kept aligned with [tool.ruff.lint.isort] above.
 # black-equivalent profile here matches the formatter behaviour ruff applies.
 # Plugin-version bumps need a touch here to fire required CI checks (path-filter trap).
+# Last touched: plugin v0.1.3
