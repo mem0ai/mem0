@@ -32,16 +32,25 @@ def bootstrap_via_backend(
     config: Mem0Config,
     *,
     source: str | None = None,
+    agent_caller: str | None = None,
 ) -> None:
     """POST /api/v1/auth/agent_mode/ and mutate config in place.
 
-    Returns nothing — the caller saves the config and prints follow-up messages.
+    Args:
+        config: Mem0Config mutated in place with the new platform values.
+        source: ``--source`` flag passthrough (analytics tag, free-form).
+        agent_caller: Canonical agent name detected from env vars
+            (claude-code, cursor, ...). Persisted on the backend APIKey and
+            saved into ``platform.agent_caller`` for local introspection.
+
     Raises typer.Exit(1) on failure.
     """
     base_url = (config.platform.base_url or "https://api.mem0.ai").rstrip("/")
     body: dict[str, Any] = {}
     if source:
         body["source"] = source
+    if agent_caller:
+        body["agent_caller"] = agent_caller
 
     try:
         with httpx.Client(timeout=30.0) as client:
@@ -84,6 +93,7 @@ def bootstrap_via_backend(
     config.platform.base_url = base_url
     config.platform.agent_mode = True
     config.platform.created_via = "agent_mode"
+    config.platform.agent_caller = agent_caller or ""
     config.platform.claimed_at = ""
     config.platform.default_user_id = envelope["default_user_id"]
     # Adopt the slug-derived user_id as the default scope for memory ops.

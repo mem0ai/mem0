@@ -31,6 +31,7 @@ class PlatformConfig:
     # Agent Mode (unclaimed-shadow signup)
     agent_mode: bool = False  # True while the key is an unclaimed agent-mode key
     created_via: str = ""  # "agent_mode" | "email" | "api_key" | "existing_key"
+    agent_caller: str = ""  # canonical agent name when created_via == "agent_mode" (e.g. "claude-code")
     claimed_at: str = ""  # ISO timestamp once the agent has been claimed by a human
     default_user_id: str = ""  # `user_<slug>` returned by bootstrap; used as auto-default
 
@@ -90,6 +91,7 @@ def load_config() -> Mem0Config:
         config.platform.user_email = plat.get("user_email", "")
         config.platform.agent_mode = bool(plat.get("agent_mode", False))
         config.platform.created_via = plat.get("created_via", "")
+        config.platform.agent_caller = plat.get("agent_caller", "")
         config.platform.claimed_at = plat.get("claimed_at", "")
         config.platform.default_user_id = plat.get("default_user_id", "")
 
@@ -147,6 +149,7 @@ def save_config(config: Mem0Config) -> None:
             "user_email": config.platform.user_email,
             "agent_mode": config.platform.agent_mode,
             "created_via": config.platform.created_via,
+            "agent_caller": config.platform.agent_caller,
             "claimed_at": config.platform.claimed_at,
             "default_user_id": config.platform.default_user_id,
         },

@@ -295,7 +295,7 @@ def run_init(
                 _fire_init("existing_key")
                 return
         # Rule 3: mint a fresh shadow (no valid key to reuse).
-        bootstrap_via_backend(config, source=source)
+        bootstrap_via_backend(config, source=source, agent_caller=detect_agent_caller())
         _fire_init("agent")
         return
 

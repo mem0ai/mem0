@@ -26,7 +26,10 @@ export interface BootstrapEnvelope {
 
 export async function bootstrapViaBackend(
 	config: Mem0Config,
-	{ source }: { source?: string | null } = {},
+	{
+		source,
+		agentCaller,
+	}: { source?: string | null; agentCaller?: string | null } = {},
 ): Promise<void> {
 	const baseUrl = (config.platform.baseUrl || "https://api.mem0.ai").replace(
 		/\/+$/,
@@ -34,6 +37,7 @@ export async function bootstrapViaBackend(
 	);
 	const body: Record<string, unknown> = {};
 	if (source) body.source = source;
+	if (agentCaller) body.agent_caller = agentCaller;
 
 	let resp: Response;
 	try {
@@ -89,6 +93,7 @@ export async function bootstrapViaBackend(
 	config.platform.baseUrl = baseUrl;
 	config.platform.agentMode = true;
 	config.platform.createdVia = "agent_mode";
+	config.platform.agentCaller = agentCaller ?? "";
 	config.platform.claimedAt = "";
 	config.platform.defaultUserId = envelope.default_user_id;
 	// Adopt the slug-derived user_id as the default scope for memory ops.

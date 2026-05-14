@@ -24,6 +24,7 @@ export interface PlatformConfig {
 	// Agent Mode (unclaimed-shadow signup)
 	agentMode: boolean; // true while the key is an unclaimed agent-mode key
 	createdVia: string; // "agent_mode" | "email" | "api_key" | "existing_key"
+	agentCaller: string; // canonical agent name when createdVia === "agent_mode" (e.g. "claude-code")
 	claimedAt: string; // ISO timestamp once the agent has been claimed
 	defaultUserId: string; // `user_<slug>` returned by bootstrap; auto-default scope
 }
@@ -61,6 +62,7 @@ export function createDefaultConfig(): Mem0Config {
 			userEmail: "",
 			agentMode: false,
 			createdVia: "",
+			agentCaller: "",
 			claimedAt: "",
 			defaultUserId: "",
 		},
@@ -90,6 +92,7 @@ export function loadConfig(): Mem0Config {
 		config.platform.userEmail = plat.user_email ?? "";
 		config.platform.agentMode = Boolean(plat.agent_mode ?? false);
 		config.platform.createdVia = plat.created_via ?? "";
+		config.platform.agentCaller = plat.agent_caller ?? "";
 		config.platform.claimedAt = plat.claimed_at ?? "";
 		config.platform.defaultUserId = plat.default_user_id ?? "";
 
@@ -133,6 +136,7 @@ export function saveConfig(config: Mem0Config): void {
 			user_email: config.platform.userEmail,
 			agent_mode: config.platform.agentMode,
 			created_via: config.platform.createdVia,
+			agent_caller: config.platform.agentCaller,
 			claimed_at: config.platform.claimedAt,
 			default_user_id: config.platform.defaultUserId,
 		},

@@ -367,7 +367,10 @@ export async function runInit(
 			return;
 		}
 		// Rule 3: mint a fresh shadow (no valid key to reuse).
-		await bootstrapViaBackend(config, { source: opts.source ?? null });
+		await bootstrapViaBackend(config, {
+			source: opts.source ?? null,
+			agentCaller: detectAgentCaller(),
+		});
 		fireInit("agent");
 		return;
 	}
