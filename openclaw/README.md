@@ -19,6 +19,18 @@ openclaw --version
 |------------------|----------------|
 | `>= 2026.4.25`   | Fully supported |
 
+## Quick path for agents
+
+If you're an AI agent setting up Mem0 autonomously (no human dashboard signup), mint an evaluation API key in <5 seconds:
+
+```bash
+mem0 init --agent --json
+```
+
+No email, no OTP, no browser. The key is written to your Mem0 CLI config and exported as `MEM0_API_KEY` — pass it to `openclaw mem0 init --api-key $MEM0_API_KEY --user-id <id>` to wire OpenClaw up immediately. The human owner can later run `mem0 init --email <their-email>` to claim ownership: memories transfer, same API key keeps working, no agent disruption.
+
+Humans should follow the Quick Start below.
+
 ## Quick Start
 
 ### Platform (Mem0 Cloud)

@@ -237,6 +237,14 @@ def main_callback(
         cmd_version()
         raise typer.Exit()
     if ctx.invoked_subcommand:
+        # Stash the active subcommand name so the JSON error envelope
+        # (print_error in agent mode) can report which command failed
+        # instead of an empty `"command": ""` field.
+        from mem0_cli.state import set_current_command
+
+        set_current_command(ctx.invoked_subcommand)
+    if ctx.invoked_subcommand and ctx.invoked_subcommand != "init":
+        # init fires its own telemetry from init_cmd.run_init with full M1-M6 props.
         _fire_telemetry(ctx.invoked_subcommand)
 
 
@@ -851,6 +859,19 @@ def init(
     force: bool = typer.Option(
         False, "--force", help="Overwrite existing config without confirmation."
     ),
+    agent_signal: bool = typer.Option(
+        False, "--agent", help="Bootstrap an unattended Agent Mode account (no email required)."
+    ),
+    source: str | None = typer.Option(
+        None,
+        "--source",
+        help="Channel attribution for signup (e.g. github, hn, ph).",
+    ),
+    agent_caller: str | None = typer.Option(
+        None,
+        "--agent-caller",
+        help="Self-declared agent identity (e.g. claude-code, cursor). Used with --agent to attribute Agent Mode signups.",
+    ),
 ) -> None:
     """Interactive setup wizard for mem0 CLI.
 
@@ -859,10 +880,38 @@ def init(
       mem0 init --api-key m0-xxx --user-id alice
       mem0 init --email alice@company.com
       mem0 init --email alice@company.com --code 482901
+      mem0 init --agent --agent-caller claude-code   # AI agent self-identifies on Agent Mode bootstrap
+      mem0 init --email alice@company.com  # Claims an existing Agent Mode key when one is present
     """
     from mem0_cli.commands.init_cmd import run_init
 
-    run_init(api_key=api_key, user_id=user_id, email=email, code=code, force=force)
+    run_init(
+        api_key=api_key,
+        user_id=user_id,
+        email=email,
+        code=code,
+        force=force,
+        source=source,
+        agent=agent_signal,
+        agent_caller=agent_caller,
+    )
+
+
+@app.command(rich_help_panel="Setup")
+def identify(
+    name: str = typer.Argument(..., help="Agent identity (e.g. claude-code, cursor, my-bot)."),
+) -> None:
+    """Tag your active Agent Mode key with the AI agent that's using it.
+
+    Run this once after `mem0 init --agent` if you didn't pass --agent-caller.
+    Idempotent — re-running just overwrites the value.
+
+    Example:
+      mem0 identify claude-code
+    """
+    from mem0_cli.commands.identify_cmd import run_identify
+
+    run_identify(name)
 
 
 # (entity_app registered at module level, below sub-group definitions)
@@ -1198,11 +1247,28 @@ def main() -> None:
     import sys
 
     # Allow --json/--agent anywhere in the command line (not just before subcommand).
-    _json_flags = {"--json", "--agent"}
-    if any(a in _json_flags for a in sys.argv[1:]):
+    # Special case: `mem0 init --agent` is a subcommand flag (Agent Mode bootstrap)
+    # consumed by init_cmd, not a global JSON-output toggle — leave it in argv.
+    argv_rest = sys.argv[1:]
+    is_init = "init" in argv_rest
+    _global_flags = {"--json"} if is_init else {"--json", "--agent"}
+    if any(a in _global_flags for a in argv_rest):
         from mem0_cli.state import set_agent_mode
 
         set_agent_mode(True)
-        sys.argv = [sys.argv[0]] + [a for a in sys.argv[1:] if a not in _json_flags]
+        sys.argv = [sys.argv[0]] + [a for a in argv_rest if a not in _global_flags]
 
-    app()
+    try:
+        app()
+    finally:
+        # Surface any unclaimed Agent Mode notice once per command, after the
+        # primary output. In JSON/agent mode the notice is folded into the
+        # envelope by format_json_envelope, so skip the stderr banner there
+        # to avoid duplicate output.
+        from mem0_cli.state import is_agent_mode, take_notice
+
+        notice = take_notice()
+        if notice and not is_agent_mode():
+            from rich.console import Console
+
+            Console(stderr=True).print(f"\n[yellow]🔔 {notice}[/yellow]\n")

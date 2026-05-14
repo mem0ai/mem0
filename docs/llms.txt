@@ -11,6 +11,12 @@
 - Live MCP server: https://mcp.mem0.ai (see `platform/mem0-mcp`).
 - Source repo: https://github.com/mem0ai/mem0
 
+### Don't have a Mem0 API key?
+
+Run: `mem0 init --agent --agent-caller <your-name> --json` — replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init to attribute the signup.
+
+This mints an evaluation key in <5 seconds — no email, no dashboard, no OTP required. Use it immediately against the Platform API or MCP server. When the human is ready, claim with `mem0 init --email <your-email>` to transfer ownership (memories preserved, same API key, no agent disruption).
+
 ## Install
 
 - Python SDK: `pip install mem0ai`

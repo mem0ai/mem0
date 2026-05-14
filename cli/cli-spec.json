@@ -503,7 +503,7 @@
     },
     {
       "name": "init",
-      "description": "Setup wizard for mem0 CLI. Supports email login (--email) or manual API key (--api-key).",
+      "description": "Setup wizard for mem0 CLI. Supports Agent Mode bootstrap (--agent), email login (--email), or manual API key (--api-key).",
       "usage": "mem0 init [OPTIONS]",
       "needsBackend": false,
       "needsConfig": false,
@@ -516,7 +516,9 @@
         { "name": "user-id", "flags": ["-u", "--user-id"], "type": "string", "default": null, "help": "Default user ID (skip prompt)." },
         { "name": "email", "flags": ["--email"], "type": "string", "default": null, "help": "Login via email verification code." },
         { "name": "code", "flags": ["--code"], "type": "string", "default": null, "help": "Verification code (use with --email for non-interactive login)." },
-        { "name": "force", "flags": ["--force"], "type": "boolean", "default": false, "help": "Overwrite existing config without confirmation." }
+        { "name": "force", "flags": ["--force"], "type": "boolean", "default": false, "help": "Overwrite existing config without confirmation." },
+        { "name": "agent", "flags": ["--agent"], "type": "boolean", "default": false, "help": "Bootstrap an unattended Agent Mode account (no email required)." },
+        { "name": "source", "flags": ["--source"], "type": "string", "default": null, "help": "Channel attribution for signup (e.g. github, hn, ph)." }
       ]
     },
     {

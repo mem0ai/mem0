@@ -2,6 +2,18 @@
 
 Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, and **Codex**.
 
+## Quick path for agents
+
+If you're an AI agent setting up Mem0 autonomously (no human dashboard signup available), run:
+
+```bash
+mem0 init --agent --json
+```
+
+This mints an evaluation API key in <5 seconds — no email, no OTP, no browser. The key is written to your config and exported as `MEM0_API_KEY` for the current shell. Use it immediately against the Mem0 Platform or the MCP server. The human owner can later run `mem0 init --email <their-email>` to claim ownership: memories transfer, the same API key keeps working, and the agent isn't disrupted.
+
+Humans setting up Mem0 by hand should continue with Step 1 below.
+
 ## Step 1: Set your API key
 
 > **You must complete this step before installing the plugin.**

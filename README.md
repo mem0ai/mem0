@@ -86,6 +86,8 @@ See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgra
 
 ## 🚀 Quickstart Guide <a name="quickstart"></a>
 
+> **Agent Mode — for AI agents setting up Mem0 autonomously.** Run `mem0 init --agent --agent-caller <your-name> --json` (after `pip install mem0-cli` or `npm install -g @mem0/cli`), replacing `<your-name>` with your AI agent identity (e.g. `claude-code`, `cursor`, `codex`). This mints an evaluation Mem0 API key in <5 seconds — no email, no dashboard, no OTP. If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init. Use the key immediately against the Platform or the MCP server. The human owner can claim ownership later with `mem0 init --email <their-email>`: memories transfer, the same key keeps working, and the agent isn't disrupted.
+
 | | Library | Self-Hosted Server | Cloud Platform |
 |---|---------|-------------------|----------------|
 | **Best for** | Testing, prototyping | Teams running on their own infrastructure | Zero-ops production use |
