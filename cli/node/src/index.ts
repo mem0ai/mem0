@@ -13,7 +13,12 @@ import { colors, printError, printWarning } from "./branding.js";
 import type { Mem0Config } from "./config.js";
 import { loadConfig, saveConfig } from "./config.js";
 import { richFormatHelp } from "./help.js";
-import { isAgentMode, setAgentMode, setCurrentCommand, takeNotice } from "./state.js";
+import {
+	isAgentMode,
+	setAgentMode,
+	setCurrentCommand,
+	takeNotice,
+} from "./state.js";
 import { captureEvent } from "./telemetry.js";
 import { CLI_VERSION } from "./version.js";
 
