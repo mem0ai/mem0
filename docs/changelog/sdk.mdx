@@ -1326,7 +1326,7 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 <Update label="2026-05-14" description="Python v0.2.5 / Node v0.2.5">
 
 **New Features:**
-- **Agent Mode (`mem0 init --agent`):** Zero-friction signup for AI agents — mints a working Mem0 API key in <5s with no email, no dashboard, no OTP. Returns an unclaimed shadow account the human can later claim with `mem0 init --email <their-email>` (memories preserved, same key keeps working) ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+- **Agent Mode (`mem0 init --agent`):** Zero-friction signup for AI agents — mints a working Mem0 API key in under 5 seconds with no email, no dashboard, no OTP. Returns an unclaimed shadow account the human can later claim with `mem0 init --email <their-email>` (memories preserved, same key keeps working) ([#5123](https://github.com/mem0ai/mem0/pull/5123))
 - **Self-declared agent identity:** Agents pass `--agent-caller <name>` (e.g. `claude-code`, `cursor`, `codex`) on `mem0 init --agent` so signups attribute to the right tool in analytics. Proof Editor-style — the agent declares itself rather than the CLI sniffing it from env vars ([#5123](https://github.com/mem0ai/mem0/pull/5123))
 - **`mem0 identify <name>`:** New subcommand to self-tag an Agent Mode key after the fact when the agent forgot to pass `--agent-caller` on init. Idempotent — re-running just overwrites ([#5123](https://github.com/mem0ai/mem0/pull/5123))
 - **Plugin sync:** `~/.claude/settings.json::env::MEM0_API_KEY` and `~/.zshrc`/`.bashrc` `export MEM0_API_KEY=` lines stay in sync with `~/.mem0/config.json` automatically. Idempotent — only updates EXISTING entries, never creates new ones ([#5123](https://github.com/mem0ai/mem0/pull/5123))
