@@ -247,7 +247,7 @@ export async function claimViaOtp(
 		printError(`Claim failed: ${detail}`);
 		if (errCode === "email_already_claimed") {
 			console.log(
-				`  ${dim("Tip: this email already has a Mem0 account. Sign in there and run `mem0 link <key>` to attach this agent.")}`,
+				`  ${dim("Tip: this email already has a Mem0 account. Sign in at app.mem0.ai and contact support to merge this agent's data into your existing account.")}`,
 			);
 		}
 		process.exit(1);
