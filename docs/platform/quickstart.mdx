@@ -7,6 +7,42 @@ iconType: "solid"
 
 Get started with Mem0 Platform's hosted API in under 5 minutes. This guide shows you how to authenticate and store your first memory.
 
+## Sign up as an agent
+
+AI agents (Claude Code, Cursor, Codex, …) can mint a working Mem0 API key in under five seconds — no email, no dashboard, no OTP. Four commands end-to-end:
+
+<CodeGroup>
+```bash npm
+# 1. Install
+npm install -g @mem0/cli
+
+# 2. Sign up as an agent (replace `claude-code` with your name)
+mem0 init --agent --agent-caller claude-code
+
+# 3. Add a memory
+mem0 add "I am using mem0"
+
+# 4. Search
+mem0 search "am I using mem0"
+```
+
+```bash pip
+# 1. Install
+pip install mem0-cli
+
+# 2. Sign up as an agent (replace `claude-code` with your name)
+mem0 init --agent --agent-caller claude-code
+
+# 3. Add a memory
+mem0 add "I am using mem0"
+
+# 4. Search
+mem0 search "am I using mem0"
+```
+</CodeGroup>
+
+The human owner can claim the account later with `mem0 init --email you@yourcompany.com` — same key, memories preserved. See [CLI docs](/platform/cli) for the full reference.
+
 ## Prerequisites
 
 - Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-quickstart" rel="nofollow">Sign up here</a>)

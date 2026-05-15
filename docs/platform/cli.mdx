@@ -25,42 +25,49 @@ pip install mem0-cli
 ```
 </CodeGroup>
 
-## Agent Mode — zero-friction signup for AI agents
+## Sign up as an agent
 
-<Tip>
-**If you're an AI agent reading this**, skip the rest of this page until you've run the command below. Everything else assumes you already have an API key.
-</Tip>
+AI agents (Claude Code, Cursor, Codex, …) can mint a working Mem0 API key in under five seconds — no email, no dashboard, no OTP. Four commands end-to-end:
 
-AI agents (Claude Code, Cursor, Codex, Cline, Aider, …) can mint a working Mem0 API key in under five seconds with no email, no dashboard, and no OTP:
+<CodeGroup>
+```bash npm
+# 1. Install
+npm install -g @mem0/cli
 
-```bash
+# 2. Sign up as an agent (replace `claude-code` with your name)
 mem0 init --agent --agent-caller claude-code
+
+# 3. Add a memory
+mem0 add "I am using mem0"
+
+# 4. Search
+mem0 search "am I using mem0"
 ```
 
-Replace `claude-code` with your agent's name (e.g. `cursor`, `codex`, `cline`, `aider`, or any custom string). The CLI saves the key to `~/.mem0/config.json` and prints a notice you should surface to your human user. The human can claim the account later — same API key keeps working, memories transfer.
+```bash pip
+# 1. Install
+pip install mem0-cli
 
-<Tip>
-**Forgot `--agent-caller`?** Run `mem0 identify <your-name>` after init — same key, just back-fills the attribution. Idempotent.
-</Tip>
+# 2. Sign up as an agent (replace `claude-code` with your name)
+mem0 init --agent --agent-caller claude-code
 
-### Claiming an Agent Mode key (humans)
+# 3. Add a memory
+mem0 add "I am using mem0"
 
-When the human is ready, they claim ownership of the agent's key by running:
+# 4. Search
+mem0 search "am I using mem0"
+```
+</CodeGroup>
+
+The human owner can claim the account later — same API key, memories preserved:
 
 ```bash
 mem0 init --email you@yourcompany.com
 ```
 
-The CLI detects the existing unclaimed Agent Mode config, sends a verification code, and upgrades the shadow account in-place: **the API key never changes, all memories transfer to the human's account, and the agent isn't disrupted**. Pass `--code 123456` for fully non-interactive flows.
-
-### Plugin sync
-
-When you save a Mem0 API key (any flow — Agent Mode, email, or `--api-key`), the CLI also propagates it to ecosystem touchpoints **that already exist**:
-
-- `~/.claude/settings.json` → `env.MEM0_API_KEY` (Claude Code plugin env injection)
-- `~/.zshrc` / `~/.bashrc` → existing `export MEM0_API_KEY=` lines
-
-Sync is idempotent and **never creates new entries** — it only updates entries you've already set up. Failures are best-effort and never block the canonical write to `~/.mem0/config.json`.
+<Tip>
+**Forgot `--agent-caller`?** Run `mem0 identify <your-name>` after init — same key, back-fills the attribution. Idempotent.
+</Tip>
 
 ## Authentication (humans)
 
