@@ -15,6 +15,10 @@ Move your Mem0 implementation to managed infrastructure with enterprise features
 | Infrastructure & Code | Low (~30 mins) | None (Parallel run possible) |
 
 <Info>
+  Using Mem0 Open Source with **hosted Qdrant**? You can migrate your existing memories to Mem0 Platform with a one-line script below.
+</Info>
+
+<Info>
   **Why migrate to Platform?**
 
   - **Time to Market**: Set up in 5 minutes vs 30+ minutes for OSS configuration
@@ -34,7 +38,21 @@ Move your Mem0 implementation to managed infrastructure with enterprise features
 
 ## Migrate
 
-### 1. Install or Update SDK
+### 1. Import Memories Into Platform
+
+If your Mem0 Open Source setup uses **hosted Qdrant** as the vector store, you can import your existing memories to Mem0 Platform with one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mem0ai/mem0/main/scripts/oss-to-platform-migrate.sh | bash
+```
+
+<Note>
+  This migration script currently supports **hosted Qdrant only**. Support for local Qdrant, pgvector, and other vector stores is coming soon.
+</Note>
+
+If you are using a different vector store and want to migrate to Platform, please contact Mem0 support and we’ll send you a custom migration script for your setup.
+
+### 2. Install or Update SDK
 
 Ensure you have the latest version of the SDK, which supports both OSS and Platform clients.
 
@@ -42,7 +60,7 @@ Ensure you have the latest version of the SDK, which supports both OSS and Platf
 pip install mem0ai --upgrade
 ```
 
-### 2. Update Initialization
+### 3. Update Initialization
 
 Switch from the local `Memory` class to the managed `MemoryClient`.
 
@@ -75,7 +93,7 @@ client = MemoryClient(api_key="m0-...")
   Run `client.get_all(filters={"user_id": "test_connection"})` to verify your API key works. It should return an empty list or valid results.
 </Info>
 
-### 3. Update Retrieval Calls (Critical)
+### 4. Update Retrieval Calls (Critical)
 
 <Warning>
   **Critical Change**: Platform uses v2 endpoints that require filtering parameters to be nested inside a `filters` dictionary.
