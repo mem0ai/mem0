@@ -36,10 +36,11 @@ class TestPGVector(unittest.TestCase):
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
     def test_init_with_individual_params_psycopg3(self, mock_psycopg_pool):
         """Test initialization with individual parameters using psycopg3."""
-        # Mock psycopg3 to be available
-        mock_psycopg_pool.return_value = self.mock_pool_psycopg
+        mock_pool_instance = MagicMock()
+        mock_psycopg_pool.return_value = mock_pool_instance
         self.mock_cursor.fetchall.return_value = []  # No existing collections
-        
+        mock_pool_instance.connection.return_value = self.mock_conn
+
         pgvector = PGVector(
             dbname="test_db",
             collection_name="test_collection",
@@ -54,14 +55,60 @@ class TestPGVector(unittest.TestCase):
             maxconn=4,
         )
 
+        # Pool must be created with open=False to avoid blocking __init__
+        # during DNS resolution in Docker environments (issue #3950).
         mock_psycopg_pool.assert_called_once_with(
             conninfo="postgresql://test_user:test_pass@localhost:5432/test_db",
             min_size=1,
             max_size=4,
-            open=True,
+            open=False,
         )
+        # Background connection workers must be started immediately (non-blocking).
+        mock_pool_instance.open.assert_called_once_with(wait=False)
+
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_init_does_not_block_on_unreachable_host_psycopg3(self, mock_psycopg_pool):
+        """Regression test for issue #3950.
+
+        PGVector.__init__ must NOT block waiting for connections when the DB
+        host is temporarily unreachable (e.g. Docker Compose startup race).
+        The pool is created with open=False so the constructor returns
+        immediately; background workers are kicked off with open(wait=False).
+        """
+        import time
+
+        mock_pool_instance = MagicMock()
+        mock_psycopg_pool.return_value = mock_pool_instance
+        mock_pool_instance.connection.return_value = self.mock_conn
+        self.mock_cursor.fetchall.return_value = []
+
+        start = time.monotonic()
+        PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="unreachable-docker-host",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+        elapsed = time.monotonic() - start
+
+        # Constructor must return in well under 1 second — it must never call
+        # open(wait=True) which would block for the pool's reconnect_timeout.
+        self.assertLess(elapsed, 1.0, "PGVector.__init__ blocked waiting for connections")
+
+        # Confirm the non-blocking open path was taken.
+        mock_psycopg_pool.assert_called_once()
+        call_kwargs = mock_psycopg_pool.call_args.kwargs
+        self.assertFalse(call_kwargs.get("open", True), "Pool must be created with open=False")
+        mock_pool_instance.open.assert_called_once_with(wait=False)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -2064,10 +2111,11 @@ class TestPGVector(unittest.TestCase):
         """Test connection string handling with SSL mode."""
         mock_pool = MagicMock()
         mock_connection_pool.return_value = mock_pool
+        mock_pool.connection.return_value = self.mock_conn
         self.mock_cursor.fetchall.return_value = []  # No existing collections
-        
+
         connection_string = "postgresql://user:pass@localhost:5432/db"
-        
+
         pgvector = PGVector(
             dbname="test_db",  # Will be overridden by connection_string
             collection_name="test_collection",
@@ -2083,15 +2131,17 @@ class TestPGVector(unittest.TestCase):
             sslmode="require",
             connection_string=connection_string
         )
-        
+
         # Verify ConnectionPool was called with the connection string including sslmode
+        # and open=False to avoid blocking __init__ in Docker (issue #3950).
         expected_conn_string = f"{connection_string} sslmode=require"
         mock_connection_pool.assert_called_with(
             conninfo=expected_conn_string,
             min_size=1,
             max_size=4,
-            open=True
+            open=False
         )
+        mock_pool.open.assert_called_once_with(wait=False)
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
 

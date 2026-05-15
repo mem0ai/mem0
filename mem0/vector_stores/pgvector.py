@@ -103,7 +103,21 @@ class PGVector(VectorStoreBase):
         if self.connection_pool is None:
             if PSYCOPG_VERSION == 3:
                 # psycopg3 ConnectionPool
-                self.connection_pool = ConnectionPool(conninfo=connection_string, min_size=minconn, max_size=maxconn, open=True)
+                # Use open=False to avoid blocking __init__ while the pool eagerly
+                # resolves hostnames and opens min_size connections synchronously.
+                # In Docker / containerised environments the DB hostname may not be
+                # resolvable yet at startup, causing a 30-300 s hang or PoolTimeout.
+                # open(wait=False) starts background connection workers immediately
+                # without blocking; any unreachable-host error surfaces at the first
+                # real query instead of at import/initialisation time.
+                # See: https://github.com/mem0ai/mem0/issues/3950
+                self.connection_pool = ConnectionPool(
+                    conninfo=connection_string,
+                    min_size=minconn,
+                    max_size=maxconn,
+                    open=False,
+                )
+                self.connection_pool.open(wait=False)
             else:
                 # psycopg2 ThreadedConnectionPool
                 self.connection_pool = ConnectionPool(minconn=minconn, maxconn=maxconn, dsn=connection_string)
