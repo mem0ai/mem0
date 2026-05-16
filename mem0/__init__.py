@@ -1,5 +1,3 @@
-"""Mem0 — the memory layer for AI agents."""
-
 import importlib.metadata
 
 __version__ = importlib.metadata.version("mem0ai")

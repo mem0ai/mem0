@@ -1323,6 +1323,13 @@ See the [TypeScript SDK migration guide](https://docs.mem0.ai/migration/ts-v2-to
 
 <Tab title="CLI">
 
+<Update label="2026-05-16" description="Python v0.2.6 / Node v0.2.6">
+
+**Bug Fixes:**
+- **Claim flow error message:** The `email_already_claimed` tip in `mem0 init --email` previously suggested running `mem0 link <key>` — a command that doesn't exist. Replaced with honest copy pointing the user to sign in at app.mem0.ai with their existing credentials ([#5152](https://github.com/mem0ai/mem0/pull/5152))
+
+</Update>
+
 <Update label="2026-05-14" description="Python v0.2.5 / Node v0.2.5">
 
 **New Features:**
