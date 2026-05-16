@@ -1,6 +1,6 @@
 {
   "name": "@mem0/cli",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "The official CLI for mem0 — the memory layer for AI agents",
   "type": "module",
   "bin": {
