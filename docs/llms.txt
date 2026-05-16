@@ -159,6 +159,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Introduction](https://docs.mem0.ai/introduction) [Both]: Use when the user wants a one-page overview of how memory fits between the LLM and the app.
 - [Vibe Code with Mem0](https://docs.mem0.ai/vibecoding) [Both]: Use when the user is in Claude Code, Cursor, or Windsurf and wants memory wired into their editor.
 - [Platform Overview](https://docs.mem0.ai/platform/overview) [Platform]: Use when the user picks the managed product - 4-line integration, sub-50ms retrieval, dashboard.
+- [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup) [Platform]: Use when an AI agent needs to mint a Mem0 API key autonomously - four commands, no email or dashboard, human claims ownership later.
 - [Platform vs Open Source](https://docs.mem0.ai/platform/platform-vs-oss) [Both]: Use when the user is deciding between managed and self-hosted.
 - [Platform Quickstart](https://docs.mem0.ai/platform/quickstart) [Platform]: Use for the first Platform integration - API key plus `MemoryClient.add/search`.
 - [Platform CLI](https://docs.mem0.ai/platform/cli) [Platform]: Use when the user wants to manage Platform memories from the terminal.
