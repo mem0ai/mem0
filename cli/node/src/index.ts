@@ -13,7 +13,12 @@ import { colors, printError, printWarning } from "./branding.js";
 import type { Mem0Config } from "./config.js";
 import { loadConfig, saveConfig } from "./config.js";
 import { richFormatHelp } from "./help.js";
-import { setAgentMode } from "./state.js";
+import {
+	isAgentMode,
+	setAgentMode,
+	setCurrentCommand,
+	takeNotice,
+} from "./state.js";
 import { captureEvent } from "./telemetry.js";
 import { CLI_VERSION } from "./version.js";
 
@@ -141,6 +146,11 @@ program
 	.description(
 		`◆ Mem0 CLI v${CLI_VERSION} · Node.js SDK\n\nThe Memory Layer for AI Agents`,
 	)
+	// Positional options: flags AFTER a subcommand name belong to that
+	// subcommand, not the global program. Without this, `mem0 init --agent`
+	// routes `--agent` to the program-level alias (for --json) and init's own
+	// `--agent` (Agent Mode bootstrap) silently never fires.
+	.enablePositionalOptions()
 	.option("--version", "Show version and exit.")
 	.on("option:version", () => {
 		console.log(`  ${colors.brand("◆ Mem0")} CLI v${CLI_VERSION}`);
@@ -149,7 +159,7 @@ program
 	.option("--json", "Output as JSON for agent/programmatic use.")
 	.option(
 		"--agent",
-		"Output as JSON for agent/programmatic use. (alias: --json)",
+		"Output as JSON for agent/programmatic use. (alias: --json) Place BEFORE the subcommand: `mem0 --agent <cmd>`. On `init`, `mem0 init --agent` is the Agent Mode bootstrap flag instead.",
 	)
 	.usage("<command> [options]")
 	.helpOption("--help", "Show this message and exit.")
@@ -166,6 +176,14 @@ program.hook("preAction", (_thisCommand, actionCommand) => {
 			parentName && parentName !== "mem0"
 				? `${parentName}.${commandName}`
 				: commandName;
+		// Stash the active command name in shared state so the JSON
+		// error envelope (printError) can report which command failed
+		// instead of an empty `"command": ""` field.
+		setCurrentCommand(fullCommand);
+		// init fires its own telemetry from runInit with full M1-M6 props
+		// (mode/agent_caller/signup_source/claimed_agent_mode); skip the
+		// auto-fire here so we don't double-count.
+		if (fullCommand === "init") return;
 		const isAgent = !!(program.opts().json || program.opts().agent);
 		captureEvent(
 			`cli.${fullCommand}`,
@@ -193,11 +211,32 @@ program
 		"Verification code (use with --email for non-interactive login).",
 	)
 	.option("--force", "Overwrite existing config without confirmation.", false)
+	.option(
+		"--agent",
+		"Bootstrap an unattended Agent Mode account (no email required).",
+		false,
+	)
+	.option(
+		"--source <channel>",
+		"Channel attribution for signup (e.g. github, hn, ph).",
+	)
+	.option(
+		"--agent-caller <name>",
+		"Self-declared agent identity (e.g. claude-code, cursor). Used with --agent to attribute Agent Mode signups.",
+	)
+	// Accept `--json` at the init level too so the PRD-documented form
+	// `mem0 init --agent --json` works without requiring users to move it
+	// before the subcommand. Effect is identical to the global `--json`:
+	// flip agent-mode output state.
+	.option("--json", "Output as JSON (alias for global `--json`).", false)
 	.addHelpText(
 		"after",
-		"\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456",
+		"\nExamples:\n  $ mem0 init\n  $ mem0 init --api-key m0-xxx --user-id alice\n  $ mem0 init --email you@example.com\n  $ mem0 init --email you@example.com --code 123456\n  $ mem0 init --agent             # Bootstrap an Agent Mode account (unattended)\n  $ mem0 init --email you@example.com  # Claims an existing Agent Mode key when one is present",
 	)
 	.action(async (opts) => {
+		// `--json` at init level mirrors the global flag — flip agent_mode
+		// state so downstream formatters use JSON envelopes.
+		if (opts.json) setAgentMode(true);
 		const { runInit } = await import("./commands/init.js");
 		await runInit({
 			apiKey: opts.apiKey,
@@ -205,7 +244,22 @@ program
 			email: opts.email,
 			code: opts.code,
 			force: opts.force,
+			agent: opts.agent,
+			source: opts.source,
+			agentCaller: opts.agentCaller,
 		});
+	});
+
+// ── Setup: identify (post-bootstrap agent self-tag) ──────────────────────
+
+program
+	.command("identify <name>")
+	.description(
+		"Tag your active Agent Mode key with the AI agent that's using it (e.g. claude-code, cursor).",
+	)
+	.action(async (name: string) => {
+		const { runIdentify } = await import("./commands/identify.js");
+		await runIdentify(name);
 	});
 
 // ── Memory: add ───────────────────────────────────────────────────────────
@@ -769,4 +823,16 @@ program
 
 // ── Entrypoint ────────────────────────────────────────────────────────────
 
-program.parse();
+// Surface any unclaimed Agent Mode notice once per command, after the primary
+// output. In JSON/agent mode the notice is folded into the envelope by
+// formatJsonEnvelope, so skip the stderr banner there to avoid duplication.
+function surfaceNotice(): void {
+	const notice = takeNotice();
+	if (notice && !isAgentMode()) {
+		process.stderr.write(`\n\x1b[33m🔔 ${notice}\x1b[0m\n\n`);
+	}
+}
+
+program.parseAsync().finally(() => {
+	surfaceNotice();
+});

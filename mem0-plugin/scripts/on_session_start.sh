@@ -36,7 +36,7 @@ echo "## Mem0 Identity"
 echo ""
 echo "Active user_id: \`$MEM0_RESOLVED_USER_ID\`"
 echo ""
-echo "Always include \`{\"user_id\": \"$MEM0_RESOLVED_USER_ID\"}\` (wrapped in an \`AND\` clause) in every \`search_memories\` filter and as \`user_id\` on every \`add_memory\` call. This keeps memories under one bucket regardless of which machine you're on."
+echo "Always include \`{\"user_id\": \"$MEM0_RESOLVED_USER_ID\"}\` (wrapped in an \`AND\` clause) in every \`search_memories\` filter and as \`user_id\` on every \`add_memory\` call. This keeps the agent's MCP calls aligned with the bucket the hooks write to."
 echo ""
 
 if [ "$SOURCE" = "startup" ]; then

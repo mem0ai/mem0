@@ -22,6 +22,7 @@ export interface SearchMemoryOptions {
   topK?: number;
   threshold?: number;
   rerank?: boolean;
+  latestOnly?: boolean;
   fields?: string[];
   categories?: string[];
 }
@@ -32,6 +33,7 @@ export interface GetAllMemoryOptions {
   pageSize?: number;
   startDate?: string;
   endDate?: string;
+  latestOnly?: boolean;
   categories?: string[];
 }
 
