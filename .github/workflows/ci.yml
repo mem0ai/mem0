@@ -10,11 +10,12 @@ on:
       - '.github/workflows/**'
       - 'pyproject.toml'
   pull_request:
-    paths:
-      - 'mem0/**'
-      - 'tests/**'
-      - 'embedchain/**'
-      - 'pyproject.toml'
+    # No paths filter — the workflow runs on every PR so the required
+    # `build_mem0` / `build_embedchain` checks always report a status
+    # (otherwise they'd be stuck "Expected" on docs-only PRs forever).
+    # The inner `check_changes` job (uses dorny/paths-filter) decides
+    # whether the actual build/test work runs; jobs gated by its outputs
+    # are reported as "skipped → success" when no relevant paths changed.
 
 jobs:
   changelog_check:
