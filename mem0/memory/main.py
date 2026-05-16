@@ -1668,25 +1668,23 @@ class Memory(MemoryBase):
 
         prev_value = existing_memory.payload.get("data")
 
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        # Start from the full existing payload so ALL custom metadata is preserved (fixes #5160).
+        new_metadata = deepcopy(existing_memory.payload)
 
+        # Overlay caller-supplied metadata, but exclude actor_id which is immutable (see #4490).
+        if metadata is not None:
+            new_metadata.update({k: v for k, v in metadata.items() if k != "actor_id"})
+
+        # Update managed fields
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        # Preserve session identifiers from existing memory only if not provided in new metadata
-        if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
-            new_metadata["user_id"] = existing_memory.payload["user_id"]
-        if "agent_id" not in new_metadata and "agent_id" in existing_memory.payload:
-            new_metadata["agent_id"] = existing_memory.payload["agent_id"]
-        if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
-            new_metadata["run_id"] = existing_memory.payload["run_id"]
+        # actor_id is immutable — always preserve from the original memory
         if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-        if "role" not in new_metadata and "role" in existing_memory.payload:
-            new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -3099,26 +3097,23 @@ class AsyncMemory(MemoryBase):
 
         prev_value = existing_memory.payload.get("data")
 
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        # Start from the full existing payload so ALL custom metadata is preserved (fixes #5160).
+        new_metadata = deepcopy(existing_memory.payload)
 
+        # Overlay caller-supplied metadata, but exclude actor_id which is immutable (see #4490).
+        if metadata is not None:
+            new_metadata.update({k: v for k, v in metadata.items() if k != "actor_id"})
+
+        # Update managed fields
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        # Preserve session identifiers from existing memory only if not provided in new metadata
-        if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
-            new_metadata["user_id"] = existing_memory.payload["user_id"]
-        if "agent_id" not in new_metadata and "agent_id" in existing_memory.payload:
-            new_metadata["agent_id"] = existing_memory.payload["agent_id"]
-        if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
-            new_metadata["run_id"] = existing_memory.payload["run_id"]
-
+        # actor_id is immutable — always preserve from the original memory
         if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-        if "role" not in new_metadata and "role" in existing_memory.payload:
-            new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
