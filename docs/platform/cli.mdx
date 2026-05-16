@@ -25,51 +25,11 @@ pip install mem0-cli
 ```
 </CodeGroup>
 
-## Sign up as an agent
-
-AI agents (Claude Code, Cursor, Codex, …) can mint a working Mem0 API key in under five seconds — no email, no dashboard, no OTP. Four commands end-to-end:
-
-<CodeGroup>
-```bash npm
-# 1. Install
-npm install -g @mem0/cli
-
-# 2. Sign up as an agent (replace `claude-code` with your name)
-mem0 init --agent --agent-caller claude-code
-
-# 3. Add a memory
-mem0 add "I am using mem0"
-
-# 4. Search
-mem0 search "am I using mem0"
-```
-
-```bash pip
-# 1. Install
-pip install mem0-cli
-
-# 2. Sign up as an agent (replace `claude-code` with your name)
-mem0 init --agent --agent-caller claude-code
-
-# 3. Add a memory
-mem0 add "I am using mem0"
-
-# 4. Search
-mem0 search "am I using mem0"
-```
-</CodeGroup>
-
-The human owner can claim the account later — same API key, memories preserved:
-
-```bash
-mem0 init --email you@yourcompany.com
-```
-
 <Tip>
-**Forgot `--agent-caller`?** Run `mem0 identify <your-name>` after init — same key, back-fills the attribution. Idempotent.
+**Looking for Agent Mode signup?** See [Sign up as an agent](/platform/agent-signup) — install, signup, first memory in four commands.
 </Tip>
 
-## Authentication (humans)
+## Authentication
 
 Run the interactive setup wizard to configure your API key:
 
@@ -123,7 +83,6 @@ Interactive setup wizard. Prompts for your API key and default user ID.
 mem0 init
 mem0 init --api-key m0-xxx --user-id alice
 mem0 init --email alice@company.com
-mem0 init --agent --agent-caller claude-code   # zero-friction signup for AI agents
 ```
 
 If an existing configuration is detected, the CLI will ask for confirmation before overwriting. Use `--force` to skip the prompt (useful in CI/CD pipelines).
@@ -136,24 +95,13 @@ mem0 init --api-key m0-xxx --user-id alice --force
 |------|-------------|
 | `--api-key` | API key (skip prompt) |
 | `-u, --user-id` | Default user ID (skip prompt) |
-| `--email` | Login via email verification code (also used to claim an Agent Mode key) |
+| `--email` | Login via email verification code |
 | `--code` | Verification code (use with `--email` for non-interactive login) |
-| `--agent` | Bootstrap an Agent Mode account — no email, no dashboard |
-| `--agent-caller` | Self-declared agent identity for Agent Mode signups (e.g. `claude-code`, `cursor`) |
-| `--source` | Channel attribution for analytics (e.g. `github`, `hn`, `ph`) |
 | `--force` | Overwrite existing config without confirmation |
 
-### `mem0 identify`
-
-Tag your active Agent Mode key with the AI agent that's using it. Run this once after `mem0 init --agent` if you didn't pass `--agent-caller` on init. Idempotent — re-running just overwrites the value.
-
-```bash
-mem0 identify claude-code
-mem0 identify cursor
-mem0 identify my-custom-bot
-```
-
-The CLI calls `PATCH /api/v1/auth/agent_mode/caller/` against the active key. Only works on unclaimed Agent Mode keys; the backend rejects with 400 otherwise. Agent names are sanitized server-side (lowercased, restricted to `[a-z0-9._/-]`, truncated to 32 chars).
+<Note>
+AI agents should use `mem0 init --agent` — see [Sign up as an agent](/platform/agent-signup).
+</Note>
 
 ### `mem0 add`
 

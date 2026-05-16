@@ -1,0 +1,106 @@
+---
+title: Sign up as an agent
+description: "Zero-friction signup for AI agents — mint a working Mem0 API key in under five seconds. No email, no dashboard, no OTP."
+icon: "robot"
+iconType: "solid"
+---
+
+If you're an AI agent (Claude Code, Cursor, Codex, Cline, Aider, or any other autonomous coding tool), you don't need a human to set up Mem0 for you. Four commands — install, sign up, push a memory, search it — and you have persistent memory.
+
+## The 4-command demo
+
+<CodeGroup>
+```bash npm
+# 1. Install
+npm install -g @mem0/cli
+
+# 2. Sign up as an agent (replace `claude-code` with your name)
+mem0 init --agent --agent-caller claude-code
+
+# 3. Push a memory
+mem0 add "I am using mem0"
+
+# 4. Verify
+mem0 search "am I using mem0"
+```
+
+```bash pip
+# 1. Install
+pip install mem0-cli
+
+# 2. Sign up as an agent (replace `claude-code` with your name)
+mem0 init --agent --agent-caller claude-code
+
+# 3. Push a memory
+mem0 add "I am using mem0"
+
+# 4. Verify
+mem0 search "am I using mem0"
+```
+</CodeGroup>
+
+That's it — under 30 seconds from a fresh shell to a working memory store.
+
+## Identify yourself with `--agent-caller`
+
+Replace `claude-code` in the `init` command with your actual agent name (`cursor`, `codex`, `cline`, `aider`, or any short label). This attribution helps the Mem0 team understand which agents drive the most usage and prioritize integrations accordingly.
+
+<Tip>
+**Forgot `--agent-caller` on init?** Run `mem0 identify <your-name>` after the fact — same key, just back-fills the attribution. Idempotent.
+</Tip>
+
+## What happened when you ran `mem0 init --agent`?
+
+- A **shadow account** was minted on the Mem0 backend with a fresh API key.
+- The key was saved to `~/.mem0/config.json` (mode 0600) on the machine you ran the command on.
+- A default `user_id` was provisioned so `mem0 add` / `mem0 search` work without explicit scope flags.
+- The account is **unclaimed** — no human owns it yet.
+
+Every command run against this key prints a one-line reminder asking you to surface the claim instructions to your human user.
+
+## Claiming the account (for the human owner)
+
+When the human is ready to take ownership of the agent's account — and all the memories it has accumulated — they run:
+
+```bash
+mem0 init --email you@yourcompany.com
+```
+
+The CLI detects the existing Agent Mode config, sends a verification code, and upgrades the shadow account in-place:
+
+- **The API key never changes** — the agent isn't disrupted.
+- **All memories transfer** to the human's account.
+- **The account becomes fully featured** — dashboard access, billing, team sharing, etc.
+
+Pass `--code 123456` to skip the interactive code prompt for fully non-interactive flows.
+
+## Rate limits and quotas
+
+Agent Mode signups are rate-limited to **5 per day per IP address** to prevent abuse. If you hit the limit, the CLI returns:
+
+```
+Daily Agent Mode signup limit reached for this network (5/day).
+Try again from a different IP or after midnight UTC.
+```
+
+Unclaimed agent accounts get the standard Mem0 free-tier quotas. The human owner can upgrade after claiming.
+
+## What's next
+
+<CardGroup cols={2}>
+<Card title="CLI Reference" icon="terminal" href="/platform/cli">
+Full command-by-command reference for `mem0 add`, `mem0 search`, `mem0 list`, and the rest.
+</Card>
+
+<Card title="Memory Operations" icon="database" href="/core-concepts/memory-operations/add">
+How `add`, `search`, `update`, and `delete` work under the hood.
+</Card>
+
+<Card title="Mem0 MCP" icon="plug" href="/platform/mem0-mcp">
+Connect agents to Mem0 via the Model Context Protocol — alternative integration path.
+</Card>
+
+<Card title="Platform Overview" icon="star" href="/platform/overview">
+The full Mem0 Platform feature set once you claim your account.
+</Card>
+</CardGroup>

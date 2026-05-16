@@ -104,7 +104,7 @@ mem0 add "I am using mem0"
 mem0 search "am I using mem0"
 ```
 
-The human owner can claim the account later with `mem0 init --email <their-email>` — same key, memories preserved.
+The human owner can claim the account later with `mem0 init --email <their-email>` — same key, memories preserved. Full guide: [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup).
 
 | | Library | Self-Hosted Server | Cloud Platform |
 |---|---------|-------------------|----------------|
