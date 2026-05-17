@@ -153,6 +153,7 @@ See the [self-hosted docs](https://docs.mem0.ai/open-source/overview) for config
 
 1. Sign up on [Mem0 Platform](https://app.mem0.ai?utm_source=oss&utm_medium=readme)
 2. Embed the memory layer via SDK or API keys
+3. Using hosted Qdrant vectors? See the [Platform migration guide](https://docs.mem0.ai/migration/oss-to-platform) to import them into Mem0 Platform.
 
 ### CLI
 
