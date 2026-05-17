@@ -84,9 +84,17 @@ def format_entities(entities):
 def normalize_facts(raw_facts):
     """Normalize LLM-extracted facts to a list of strings.
 
-    Smaller LLMs (e.g. llama3.1:8b) sometimes return facts as objects
-    like {"fact": "..."} or {"text": "..."} instead of plain strings.
-    This mirrors the TypeScript FactRetrievalSchema validation.
+    Tolerates the common malformed shapes that real LLMs emit:
+
+    - plain string: ``"Name is Thales"``
+    - well-formed dict: ``{"fact": "..."}`` or ``{"text": "..."}``
+    - malformed key-as-fact: ``{"Name is Thales": "<arbitrary value>"}``
+      (single-key dict where the key itself is the fact text — observed
+      with grok-style reasoning models on OpenAI-compatible APIs)
+    - other dicts: a single string value is taken as the fact text
+
+    This mirrors the TypeScript FactRetrievalSchema validation and the
+    OpenClaw zod-union patch.
     """
     if not raw_facts:
         return []
@@ -96,6 +104,13 @@ def normalize_facts(raw_facts):
             fact = item
         elif isinstance(item, dict):
             fact = item.get("fact") or item.get("text")
+            if fact is None and len(item) == 1:
+                # Malformed: LLM put the fact text as the dict key.
+                key, value = next(iter(item.items()))
+                if isinstance(key, str) and key.strip():
+                    fact = key.strip()
+                elif isinstance(value, str) and value.strip():
+                    fact = value.strip()
             if fact is None:
                 logger.warning("Unexpected fact shape from LLM, skipping: %s", item)
                 continue
@@ -103,6 +118,55 @@ def normalize_facts(raw_facts):
             fact = str(item)
         if fact:
             normalized.append(fact)
+    return normalized
+
+
+def normalize_extracted_memories(raw_memories):
+    """Normalize the ``memory`` array returned by the fact-extraction LLM.
+
+    Each ``extracted_memory`` is expected to be a dict like
+    ``{"text": "...", "event": "ADD"}``. Real LLM output sometimes deviates;
+    this helper tolerates the same malformed shapes that ``normalize_facts``
+    handles, preserving the dict shape downstream code expects (``text``,
+    ``event``, optional ``id`` / ``attributed_to``).
+
+    - Well-formed: returned as-is.
+    - ``{"fact": "..."}`` / ``{"text": ""}`` with text in ``fact``: copied.
+    - Malformed single-key ``{factText: value}``: synthesized as ``{"text": key,
+      "event": "ADD"}`` (the value is discarded; it's typically LLM noise).
+
+    Plain strings are wrapped as ``{"text": s, "event": "ADD"}`` for symmetry
+    with ``normalize_facts``.
+    """
+    if not raw_memories:
+        return []
+    normalized = []
+    for item in raw_memories:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                normalized.append({"text": text, "event": "ADD"})
+            continue
+        if not isinstance(item, dict):
+            continue
+        if item.get("text"):
+            normalized.append(item)
+            continue
+        fact = item.get("fact")
+        if fact:
+            new_item = dict(item)
+            new_item["text"] = fact
+            normalized.append(new_item)
+            continue
+        if len(item) == 1:
+            key, value = next(iter(item.items()))
+            if isinstance(key, str) and key.strip():
+                normalized.append({"text": key.strip(), "event": "ADD"})
+                continue
+            if isinstance(value, str) and value.strip():
+                normalized.append({"text": value.strip(), "event": "ADD"})
+                continue
+        logger.warning("Unexpected extracted-memory shape from LLM, skipping: %s", item)
     return normalized
 
 
