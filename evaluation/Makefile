@@ -29,3 +29,6 @@ run-zep-search:
 
 run-openai:
 	python run_experiments.py --technique_type openai --output_folder results/
+
+run-sage:
+	python run_experiments.py --technique_type sage --top_k 10 --output_folder results/

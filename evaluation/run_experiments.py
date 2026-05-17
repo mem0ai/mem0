@@ -1,14 +1,12 @@
 import argparse
 import os
 
-from src.langmem import LangMemManager
-from src.memzero.add import MemoryADD
-from src.memzero.search import MemorySearch
-from src.openai.predict import OpenAIPredict
-from src.rag import RAGManager
 from src.utils import METHODS, TECHNIQUES
-from src.zep.add import ZepAdd
-from src.zep.search import ZepSearch
+
+# Backend imports are deferred to the matching branch in main() so that users
+# only need to install the dependencies for the technique they actually want
+# to run (e.g. langgraph for langmem, zep-cloud for zep, sage-agent-sdk for
+# sage). Top-level imports of every backend forced a union of all those deps.
 
 
 class Experiment:
@@ -30,6 +28,7 @@ def main():
     parser.add_argument("--filter_memories", action="store_true", default=False, help="Whether to filter memories")
     parser.add_argument("--is_graph", action="store_true", default=False, help="Whether to use graph-based search")
     parser.add_argument("--num_chunks", type=int, default=1, help="Number of chunks to process")
+    parser.add_argument("--expand_n", type=int, default=0, help="SAGE only: LLM-generated query expansions per question")
 
     args = parser.parse_args()
 
@@ -37,6 +36,8 @@ def main():
     print(f"Running experiments with technique: {args.technique_type}, chunk size: {args.chunk_size}")
 
     if args.technique_type == "mem0":
+        from src.memzero.add import MemoryADD
+        from src.memzero.search import MemorySearch
         if args.method == "add":
             memory_manager = MemoryADD(data_path="dataset/locomo10.json", is_graph=args.is_graph)
             memory_manager.process_all_conversations()
@@ -48,14 +49,18 @@ def main():
             memory_searcher = MemorySearch(output_file_path, args.top_k, args.filter_memories, args.is_graph)
             memory_searcher.process_data_file("dataset/locomo10.json")
     elif args.technique_type == "rag":
+        from src.rag import RAGManager
         output_file_path = os.path.join(args.output_folder, f"rag_results_{args.chunk_size}_k{args.num_chunks}.json")
         rag_manager = RAGManager(data_path="dataset/locomo10_rag.json", chunk_size=args.chunk_size, k=args.num_chunks)
         rag_manager.process_all_conversations(output_file_path)
     elif args.technique_type == "langmem":
+        from src.langmem import LangMemManager
         output_file_path = os.path.join(args.output_folder, "langmem_results.json")
         langmem_manager = LangMemManager(dataset_path="dataset/locomo10_rag.json")
         langmem_manager.process_all_conversations(output_file_path)
     elif args.technique_type == "zep":
+        from src.zep.add import ZepAdd
+        from src.zep.search import ZepSearch
         if args.method == "add":
             zep_manager = ZepAdd(data_path="dataset/locomo10.json")
             zep_manager.process_all_conversations("1")
@@ -64,9 +69,20 @@ def main():
             zep_manager = ZepSearch()
             zep_manager.process_data_file("dataset/locomo10.json", "1", output_file_path)
     elif args.technique_type == "openai":
+        from src.openai.predict import OpenAIPredict
         output_file_path = os.path.join(args.output_folder, "openai_results.json")
         openai_manager = OpenAIPredict()
         openai_manager.process_data_file("dataset/locomo10.json", output_file_path)
+    elif args.technique_type == "sage":
+        from src.sage import SAGEManager
+        output_file_path = os.path.join(
+            args.output_folder,
+            f"sage_results_top_{args.top_k}.json",
+        )
+        SAGEManager(
+            data_path="dataset/locomo10.json",
+            top_k=args.top_k,
+        ).process_all_conversations(output_file_path)
     else:
         raise ValueError(f"Invalid technique type: {args.technique_type}")
 
