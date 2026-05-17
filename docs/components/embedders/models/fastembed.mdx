@@ -1,0 +1,59 @@
+---
+title: FastEmbed
+description: Use FastEmbed embedding models with Mem0
+---
+
+# FastEmbed
+
+[FastEmbed](https://github.com/qdrant/fastembed) is a lightweight, fast embedding library supporting various models.
+
+## Usage
+
+To use FastEmbed as your embedding provider, set the `provider` to `"fastembed"` in your configuration.
+
+```python
+from mem0 import Memory
+
+memory = Memory(
+    embedder={
+        "provider": "fastembed",
+        "config": {
+            "model": "BAAI/bge-small-en-v1.5",
+            "cache_dir": "./cache",
+        }
+    }
+)
+```
+
+## Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | `str` | `"BAAI/bge-small-en-v1.5"` | The model name to use. |
+| `cache_dir` | `str` | `None` | Directory to cache downloaded models. |
+| `batch_size` | `int` | `256` | Batch size for encoding. |
+| `max_length` | `int` | `512` | Maximum sequence length. |
+| `show_progress` | `bool` | `True` | Whether to show a progress bar. |
+
+## Example
+
+```python
+from mem0 import Memory
+
+memory = Memory(
+    embedder={
+        "provider": "fastembed",
+        "config": {
+            "model": "BAAI/bge-small-en-v1.5",
+            "batch_size": 128,
+        }
+    }
+)
+
+# Add a memory
+memory.add("I love hiking on weekends", user_id="alice")
+
+# Search
+results = memory.search("What does Alice like to do?", user_id="alice")
+print(results)
+```
