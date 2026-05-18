@@ -379,15 +379,27 @@ async def delete_memories(
         )
 
     # Delete from vector store then mark as deleted in database
+    deleted_count = 0
+    failed_ids = []
     for memory_id in request.memory_ids:
         try:
             memory_client.delete(str(memory_id))
         except Exception as delete_error:
             logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
-        update_memory_state(db, memory_id, MemoryState.deleted, user.id)
+        try:
+            update_memory_state(db, memory_id, MemoryState.deleted, user.id)
+            deleted_count += 1
+        except HTTPException:
+            logging.warning(f"Failed to update memory state for {memory_id}: not found in database")
+            failed_ids.append(str(memory_id))
 
-    return {"message": f"Successfully deleted {len(request.memory_ids)} memories"}
+    if failed_ids:
+        return {
+            "message": f"Deleted {deleted_count} of {len(request.memory_ids)} memories",
+            "failed_ids": failed_ids,
+        }
+    return {"message": f"Successfully deleted {deleted_count} memories"}
 
 
 # Archive memories
