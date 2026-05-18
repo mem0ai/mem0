@@ -1,32 +1,36 @@
-# Mintlify Starter Kit
+﻿# GaussDB Documentation Notes
 
-Click on `Use this template` to copy the Mintlify starter kit. The starter kit contains examples including
+This directory contains the GaussDB-specific material added for the Mem0 vector store integration.
 
-- Guide pages
-- Navigation
-- Customizations
-- API Reference pages
-- Use of popular components
+## Main documents
 
-### Development
+- [Requirements Analysis](gaussdb-mem0-requirements-analysis.md)
+- [Technical Design](gaussdb-mem0-technical-design.md)
+- [User Guide](gaussdb-mem0-user-guide.md)
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mintlify) to preview the documentation changes locally. To install, use the following command
+## Preview locally
 
-```
+Install the Mintlify CLI:
+
+```bash
 npm i -g mintlify
 ```
 
-Run the following command at the root of your documentation (where mint.json is)
+Run the docs site from the `docs/` directory:
 
-```
+```bash
 mintlify dev
 ```
 
-### Publishing Changes
+## Scope
 
-Install our Github App to auto propagate changes from your repo to your deployment. Changes will be deployed to production automatically after pushing to the default branch. Find the link to install on your dashboard. 
+These GaussDB documents are intended to complement the standard Mem0 component documentation. They focus on:
 
-#### Troubleshooting
+- provider-specific design choices
+- deployment and operational guidance
+- centralized versus distributed behavior
+- filter semantics and known boundaries
 
-- Mintlify dev isn't running - Run `mintlify install` it'll re-install dependencies.
-- Page loads as a 404 - Make sure you are running in a folder with `mint.json`
+For public-facing integration docs, also see:
+
+- [GaussDB integration page](components/vectordbs/dbs/gaussdb.mdx)

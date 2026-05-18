@@ -1,0 +1,62 @@
+[
+  {
+    "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1",
+    "data": "Alice prefers quiet window seats on morning flights",
+    "text_lemmatized": "alice prefer quiet window seat morning flight",
+    "user_id": "alice",
+    "agent_id": "travel-agent",
+    "run_id": "quality-run",
+    "vector": [0.10, 0.20, 0.30],
+    "semantic_query": "flight seat preference",
+    "semantic_vector": [0.10, 0.20, 0.30],
+    "keyword_query": "window seat"
+  },
+  {
+    "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2",
+    "data": "Bob likes aisle seats on evening trains",
+    "text_lemmatized": "bob like aisle seat evening train",
+    "user_id": "bob",
+    "agent_id": "travel-agent",
+    "run_id": "quality-run",
+    "vector": [0.90, 0.10, 0.10],
+    "semantic_query": "train seat preference",
+    "semantic_vector": [0.90, 0.10, 0.10],
+    "keyword_query": "aisle seat"
+  },
+  {
+    "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3",
+    "data": "Carol prefers vegetarian lunch and jasmine tea",
+    "text_lemmatized": "carol prefer vegetarian lunch jasmine tea",
+    "user_id": "carol",
+    "agent_id": "food-agent",
+    "run_id": "quality-run",
+    "vector": [0.20, 0.80, 0.20],
+    "semantic_query": "meal preference",
+    "semantic_vector": [0.20, 0.80, 0.20],
+    "keyword_query": "vegetarian lunch"
+  },
+  {
+    "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4",
+    "data": "小王喜欢早晨喝拿铁咖啡",
+    "text_lemmatized": "小王 喜欢 早晨 喝 拿铁 咖啡",
+    "user_id": "xiaowang",
+    "agent_id": "cn-agent",
+    "run_id": "quality-run",
+    "vector": [0.30, 0.30, 0.70],
+    "semantic_query": "早晨饮品偏好",
+    "semantic_vector": [0.30, 0.30, 0.70],
+    "keyword_query": "拿铁 咖啡"
+  },
+  {
+    "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5",
+    "data": "小李 books flights with priority boarding",
+    "text_lemmatized": "小李 book flight priority boarding",
+    "user_id": "xiaoli",
+    "agent_id": "mixed-agent",
+    "run_id": "quality-run",
+    "vector": [0.40, 0.40, 0.40],
+    "semantic_query": "priority boarding flight",
+    "semantic_vector": [0.40, 0.40, 0.40],
+    "keyword_query": "priority boarding"
+  }
+]
