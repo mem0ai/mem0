@@ -303,6 +303,10 @@ const memoryPlugin = definePluginEntry({
       buildSearchOptions,
       {
         setCurrentSessionId: (id: string) => {
+          // Never overwrite a real session key with a subagent session key.
+          // Subagent before_prompt_build fires in the same process — without this guard,
+          // the parent agent's memory_add calls see isSubagentSession()=true and get blocked.
+          if (!id || isSubagentSession(id)) return;
           currentSessionId = id;
         },
         getStateDir: () => pluginStateDir,
