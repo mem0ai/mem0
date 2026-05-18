@@ -663,3 +663,101 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+def test_update_memory_preserves_custom_metadata(mocker):
+    """Custom metadata fields must survive a text-only update (issue #5160)."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "old data",
+            "user_id": "alice",
+            "category": "hobbies",
+            "priority": "high",
+            "source": "chat",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    memory._update_memory("mem-id", "new data", {"new data": [0.1, 0.2, 0.3]})
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["category"] == "hobbies"
+    assert stored["priority"] == "high"
+    assert stored["source"] == "chat"
+    assert stored["user_id"] == "alice"
+    assert stored["data"] == "new data"
+
+
+def test_update_memory_caller_metadata_overrides_existing(mocker):
+    """Caller-provided metadata should override existing fields while preserving untouched ones."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "old data",
+            "category": "hobbies",
+            "priority": "low",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    memory._update_memory(
+        "mem-id",
+        "new data",
+        {"new data": [0.1, 0.2, 0.3]},
+        metadata={"priority": "critical", "new_field": "added"},
+    )
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["category"] == "hobbies"  # preserved
+    assert stored["priority"] == "critical"  # overridden by caller
+    assert stored["new_field"] == "added"  # new field from caller
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_preserves_custom_metadata(mocker):
+    """Async: custom metadata must survive a text-only update (issue #5160)."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "old data",
+            "user_id": "bob",
+            "bucket_id": "bucket-42",
+            "tags": ["important"],
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    await memory._update_memory("mem-id", "new data", {"new data": [0.1, 0.2, 0.3]})
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["bucket_id"] == "bucket-42"
+    assert stored["tags"] == ["important"]
+    assert stored["user_id"] == "bob"
+    assert stored["data"] == "new data"
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_caller_metadata_overrides_existing(mocker):
+    """Async: caller-provided metadata should override existing fields while preserving untouched ones."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "old data",
+            "user_id": "carol",
+            "category": "work",
+            "priority": "low",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    await memory._update_memory(
+        "mem-id",
+        "new data",
+        {"new data": [0.1, 0.2, 0.3]},
+        metadata={"priority": "urgent", "department": "engineering"},
+    )
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["category"] == "work"  # preserved
+    assert stored["priority"] == "urgent"  # overridden by caller
+    assert stored["department"] == "engineering"  # new field from caller
+    assert stored["user_id"] == "carol"  # session field preserved
