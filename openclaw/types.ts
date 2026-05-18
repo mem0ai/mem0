@@ -30,7 +30,10 @@ export type Mem0Config = {
   needsSetup?: boolean;
   // Agentic harness skills
   skills?: SkillsConfig;
-  // Per-agent domain overrides: key = agent id, value = domain name
+  // Per-agent domain overrides AND injection allowlist.
+  // key = agent id, value = domain name (e.g. "companion", "beliefs", "investing").
+  // When set, ONLY agents listed here receive mem0 injection — unlisted agents are skipped entirely.
+  // This lets multi-agent setups pay mem0 costs only for agents that actually use memory.
   agentDomains?: Record<string, string>;
 };
 

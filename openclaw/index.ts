@@ -405,8 +405,16 @@ function registerHooks(
       const isSubagent = isSubagentSession(sessionId);
       const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
 
-      // Resolve per-agent domain override (agentDomains config key)
+      // agentDomains doubles as an injection allowlist: if set and agent not listed, skip mem0 entirely.
       const _agentId = extractAgentId(sessionId);
+      if (cfg.agentDomains && _agentId && !cfg.agentDomains[_agentId]) {
+        api.logger.info(
+          `openclaw-mem0: skipping mem0 for agent=${_agentId} (not in agentDomains)`,
+        );
+        return;
+      }
+
+      // Resolve per-agent domain override (agentDomains config key)
       const _agentDomain =
         _agentId && cfg.agentDomains?.[_agentId]
           ? cfg.agentDomains[_agentId]
