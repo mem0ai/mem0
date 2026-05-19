@@ -155,6 +155,7 @@ export class ConfigManager {
       })(),
       disableHistory:
         userConfig.disableHistory || DEFAULT_MEMORY_CONFIG.disableHistory,
+      parallelEntityBoost: userConfig.parallelEntityBoost === true,
     };
 
     // Validate the merged config
