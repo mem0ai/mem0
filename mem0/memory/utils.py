@@ -180,10 +180,19 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
         # Handle message content
         if isinstance(msg["content"], list):
             # Multiple image URLs in content
+            if llm is None:
+                # Vision disabled — pass multimodal content through unchanged
+                # rather than calling a non-existent LLM.
+                returned_messages.append(msg)
+                continue
             description = get_image_description(msg, llm, vision_details)
             returned_messages.append({"role": msg["role"], "content": description})
         elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
             # Single image content
+            if llm is None:
+                # Vision disabled — pass image dict through unchanged.
+                returned_messages.append(msg)
+                continue
             image_url = msg["content"]["image_url"]["url"]
             try:
                 description = get_image_description(image_url, llm, vision_details)

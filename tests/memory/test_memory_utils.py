@@ -1,5 +1,9 @@
 import pytest
-from mem0.memory.utils import remove_spaces_from_entities, sanitize_relationship_for_cypher
+from mem0.memory.utils import (
+    parse_vision_messages,
+    remove_spaces_from_entities,
+    sanitize_relationship_for_cypher,
+)
 
 
 class TestRemoveSpacesFromEntities:
@@ -55,3 +59,45 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestParseVisionMessagesNoLLM:
+    """
+    When enable_vision=False (the default), Memory.add() calls
+    parse_vision_messages(messages) without an LLM. Messages whose
+    content is a list or an image_url dict must pass through unchanged
+    instead of crashing on llm.generate_response().
+    """
+
+    def test_list_content_passes_through_without_llm(self):
+        messages = [
+            {"role": "user", "content": [{"type": "text", "text": "hi"}]}
+        ]
+        out = parse_vision_messages(messages)
+        assert out == messages
+
+    def test_image_url_dict_content_passes_through_without_llm(self):
+        messages = [
+            {
+                "role": "user",
+                "content": {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/cat.png"},
+                },
+            }
+        ]
+        out = parse_vision_messages(messages)
+        assert out == messages
+
+    def test_system_message_preserved(self):
+        messages = [
+            {"role": "system", "content": "you are a bot"},
+            {"role": "user", "content": [{"type": "text", "text": "hi"}]},
+        ]
+        out = parse_vision_messages(messages)
+        assert out == messages
+
+    def test_plain_text_message_unchanged(self):
+        messages = [{"role": "user", "content": "plain text"}]
+        out = parse_vision_messages(messages)
+        assert out == messages
