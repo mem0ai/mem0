@@ -64,7 +64,8 @@ def test_completions_create(mock_memory_client, mock_litellm):
     completions = Completions(mock_memory_client)
 
     messages = [{"role": "user", "content": "Hello, how are you?"}]
-    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    # MemoryClient.search() returns {"results": [...]}, not a bare list.
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
@@ -89,7 +90,7 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hello, how are you?"},
     ]
-    mock_memory_client.search.return_value = [{"memory": "Some relevant memory"}]
+    mock_memory_client.search.return_value = {"results": [{"memory": "Some relevant memory"}]}
     mock_litellm.completion.return_value = {"choices": [{"message": {"content": "I'm doing well, thank you!"}}]}
     mock_litellm.supports_function_calling.return_value = True
 
@@ -98,3 +99,94 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
     call_args = mock_litellm.completion.call_args[1]
     assert call_args["messages"][0]["role"] == "system"
     assert call_args["messages"][0]["content"] == "You are a helpful assistant."
+
+
+# ---------------------------------------------------------------------------
+# /search call shape: entity ids must go inside `filters`, not as top-level
+# kwargs. Both Memory.search() and MemoryClient.search() reject the latter.
+# ---------------------------------------------------------------------------
+
+def test_search_entity_ids_go_into_filters(mock_memory_client, mock_litellm):
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {"results": []}
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[{"role": "user", "content": "hi"}],
+        user_id="u1",
+        agent_id="a1",
+        run_id="r1",
+    )
+
+    _, kwargs = mock_memory_client.search.call_args
+    assert "user_id" not in kwargs
+    assert "agent_id" not in kwargs
+    assert "run_id" not in kwargs
+    assert kwargs["filters"] == {"user_id": "u1", "agent_id": "a1", "run_id": "r1"}
+
+
+def test_search_caller_filters_preserved_alongside_entity_ids(mock_memory_client, mock_litellm):
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {"results": []}
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[{"role": "user", "content": "hi"}],
+        user_id="u1",
+        filters={"category": "food"},
+    )
+
+    _, kwargs = mock_memory_client.search.call_args
+    assert kwargs["filters"] == {"category": "food", "user_id": "u1"}
+
+
+def test_search_caller_filters_take_precedence_over_top_level_entity(mock_memory_client, mock_litellm):
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {"results": []}
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[{"role": "user", "content": "hi"}],
+        user_id="top-level-u",
+        filters={"user_id": "filters-u"},
+    )
+
+    _, kwargs = mock_memory_client.search.call_args
+    assert kwargs["filters"] == {"user_id": "filters-u"}
+
+
+# ---------------------------------------------------------------------------
+# MemoryClient branch must iterate `relevant_memories["results"]`, not the
+# dict directly (which yields keys, raising TypeError on memory["memory"]).
+# ---------------------------------------------------------------------------
+
+def test_memoryclient_branch_iterates_results_key(mock_memory_client, mock_litellm):
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = {
+        "results": [
+            {"memory": "User likes teal"},
+            {"memory": "User lives in Santa Cruz"},
+        ]
+    }
+    mock_litellm.completion.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_litellm.supports_function_calling.return_value = True
+
+    completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=[{"role": "user", "content": "What do I like?"}],
+        user_id="u1",
+    )
+
+    # The system prompt + augmented user prompt are passed to litellm. The
+    # augmented prompt must include the memories' text — proves the proxy
+    # successfully iterated `relevant_memories["results"]`.
+    call_args = mock_litellm.completion.call_args[1]
+    augmented_user = call_args["messages"][-1]["content"]
+    assert "User likes teal" in augmented_user
+    assert "User lives in Santa Cruz" in augmented_user

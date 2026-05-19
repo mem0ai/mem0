@@ -167,12 +167,19 @@ class Completions:
         # Currently, only pass the last 6 messages to the search API to prevent long query
         message_input = [f"{message['role']}: {message['content']}" for message in messages][-6:]
         # TODO: Make it better by summarizing the past conversation
+
+        # Both Memory.search() and MemoryClient.search() reject user_id /
+        # agent_id / run_id as top-level kwargs; entity scoping must go
+        # inside `filters`. Caller-supplied filters take precedence over
+        # conflicting top-level entity ids.
+        merged_filters = dict(filters or {})
+        for key, value in (("user_id", user_id), ("agent_id", agent_id), ("run_id", run_id)):
+            if value is not None:
+                merged_filters.setdefault(key, value)
+
         return self.mem0_client.search(
             query="\n".join(message_input),
-            user_id=user_id,
-            agent_id=agent_id,
-            run_id=run_id,
-            filters=filters,
+            filters=merged_filters or None,
             top_k=top_k,
         )
 
@@ -185,5 +192,7 @@ class Completions:
             if relevant_memories.get("relations"):
                 entities = [entity for entity in relevant_memories["relations"]]
         elif isinstance(self.mem0_client, mem0.client.main.MemoryClient):
-            memories_text = "\n".join(memory["memory"] for memory in relevant_memories)
+            # MemoryClient.search() returns {"results": [...]}; iterating the
+            # dict directly yields keys, not memory objects.
+            memories_text = "\n".join(memory["memory"] for memory in relevant_memories["results"])
         return f"- Relevant Memories/Facts: {memories_text}\n\n- Entities: {entities}\n\n- User Question: {messages[-1]['content']}"
