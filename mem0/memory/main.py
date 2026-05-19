@@ -356,6 +356,7 @@ class Memory(MemoryBase):
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
+        self._vs_lock = asyncio.Lock()
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -727,12 +728,18 @@ class Memory(MemoryBase):
             system_prompt += AGENT_CONTEXT_SUFFIX
 
         custom_instr = prompt or self.custom_instructions
+        # Extract timestamp from metadata for historical date resolution in LLM prompts.
+        # Without this, relative dates like "last week" are resolved against the current
+        # date instead of the date the conversation actually occurred.
+        # See: https://github.com/mem0ai/mem0/issues/4963
+        observation_timestamp = metadata.get("timestamp") if metadata else None
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=observation_timestamp,
         )
 
         try:
@@ -1779,6 +1786,7 @@ class Memory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Failed to reset entity store: {e}")
             self._entity_store = None
+        self._vs_lock = asyncio.Lock()
 
         capture_event("mem0.reset", self, {"sync_type": "sync"})
 
@@ -1810,6 +1818,7 @@ class AsyncMemory(MemoryBase):
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
         self._entity_store = None
+        self._vs_lock = asyncio.Lock()
 
         # Initialize reranker if configured
         self.reranker = None
@@ -2064,7 +2073,9 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        # Lock vector store writes to prevent HNSW index corruption from concurrent upserts
+        async with self._vs_lock:
+            vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2143,12 +2154,18 @@ class AsyncMemory(MemoryBase):
             system_prompt += AGENT_CONTEXT_SUFFIX
 
         custom_instr = prompt or self.custom_instructions
+        # Extract timestamp from metadata for historical date resolution in LLM prompts.
+        # Without this, relative dates like "last week" are resolved against the current
+        # date instead of the date the conversation actually occurred.
+        # See: https://github.com/mem0ai/mem0/issues/4963
+        observation_timestamp = metadata.get("timestamp") if metadata else None
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=observation_timestamp,
         )
 
         try:

@@ -5,9 +5,11 @@ Usage: python -m mem0_cli.telemetry_sender '<json context>'
 This module is spawned by telemetry.capture_event() and runs independently
 of the parent CLI process. It:
 
-1. Resolves the user's email via /v1/ping/ if not already cached
-2. Caches the email in ~/.mem0/config.json for future runs
-3. Sends the PostHog event
+1. Reads the Mem0 API key from the MEM0_API_KEY environment variable
+   (not from the command-line, to avoid exposing it via ps/cmdline).
+2. Resolves the user's email via /v1/ping/ if not already cached.
+3. Caches the email in ~/.mem0/config.json for future runs.
+4. Sends the PostHog event.
 
 All errors are silently swallowed — this process must never produce output
 or affect the user experience.
@@ -16,6 +18,7 @@ or affect the user experience.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.request
 
@@ -24,8 +27,11 @@ def main() -> None:
     ctx = json.loads(sys.argv[1])
     payload = ctx["payload"]
 
-    if ctx.get("needs_email") and ctx.get("mem0_api_key"):
-        _resolve_and_cache_email(ctx, payload)
+    # Read API key from environment variable (not argv) to avoid exposure.
+    mem0_api_key = os.environ.get("MEM0_API_KEY", "")
+
+    if ctx.get("needs_email") and mem0_api_key:
+        _resolve_and_cache_email(ctx, payload, mem0_api_key)
 
     # Fire $identify *after* email resolution so PostHog links the stored
     # anonymous id directly to the final identity (email, not the api-key
@@ -52,14 +58,14 @@ def _send_identify_event(ctx: dict, payload: dict, anon_id: str) -> None:
     _send_posthog_event(ctx["posthog_host"], identify_payload)
 
 
-def _resolve_and_cache_email(ctx: dict, payload: dict) -> None:
+def _resolve_and_cache_email(ctx: dict, payload: dict, mem0_api_key: str) -> None:
     """Call /v1/ping/ to get the user's email, update the payload, and cache it."""
     try:
         ping_url = ctx["mem0_base_url"].rstrip("/") + "/v1/ping/"
         req = urllib.request.Request(
             ping_url,
             headers={
-                "Authorization": "Token " + ctx["mem0_api_key"],
+                "Authorization": "Token " + mem0_api_key,
                 "Content-Type": "application/json",
             },
         )
