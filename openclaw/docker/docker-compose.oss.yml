@@ -1,0 +1,23 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+    # No host port exposure — only accessible via Docker network (openclaw → qdrant:6333)
+    # Uncomment the next line for debugging: ports: ["127.0.0.1:6333:6333"]
+    expose:
+      - "6333"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/localhost/6333' || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  openclaw:
+    depends_on:
+      qdrant:
+        condition: service_healthy
+
+volumes:
+  qdrant_data:

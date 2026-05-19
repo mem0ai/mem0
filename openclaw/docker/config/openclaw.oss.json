@@ -1,0 +1,21 @@
+{
+  "plugins": {
+    "openclaw-mem0": {
+      "mode": "open-source",
+      "userId": "__MEM0_USER_ID__",
+      "autoCapture": true,
+      "autoRecall": true,
+      "searchThreshold": 0.5,
+      "topK": 5,
+      "oss": {
+        "vectorStore": {
+          "provider": "qdrant",
+          "config": {
+            "host": "qdrant",
+            "port": 6333
+          }
+        }
+      }
+    }
+  }
+}
