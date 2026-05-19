@@ -1,5 +1,5 @@
 import pytest
-from mem0.memory.utils import remove_spaces_from_entities, sanitize_relationship_for_cypher
+from mem0.memory.utils import parse_vision_messages, remove_spaces_from_entities, sanitize_relationship_for_cypher
 
 
 class TestRemoveSpacesFromEntities:
@@ -55,3 +55,36 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestParseVisionMessages:
+    def test_flattens_openai_text_parts_without_vision_llm(self):
+        messages = [
+            {"role": "user", "content": "你好"},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "For context:"},
+                    {"type": "text", "text": "xxxxxxx"},
+                ],
+            },
+        ]
+
+        assert parse_vision_messages(messages) == [
+            {"role": "user", "content": "你好"},
+            {"role": "user", "content": "For context:\nxxxxxxx"},
+        ]
+
+    def test_uses_llm_for_list_content_when_vision_enabled(self, mocker):
+        mock_llm = mocker.Mock()
+        mock_llm.generate_response.return_value = "image description"
+        message = {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe this"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+            ],
+        }
+
+        assert parse_vision_messages([message], llm=mock_llm) == [{"role": "user", "content": "image description"}]
+        mock_llm.generate_response.assert_called_once()

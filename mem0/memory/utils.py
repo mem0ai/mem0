@@ -179,6 +179,15 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
 
         # Handle message content
         if isinstance(msg["content"], list):
+            if llm is None:
+                text_parts = [
+                    part.get("text", "")
+                    for part in msg["content"]
+                    if isinstance(part, dict) and part.get("type") == "text" and part.get("text")
+                ]
+                returned_messages.append({"role": msg["role"], "content": "\n".join(text_parts)})
+                continue
+
             # Multiple image URLs in content
             description = get_image_description(msg, llm, vision_details)
             returned_messages.append({"role": msg["role"], "content": description})
@@ -292,4 +301,3 @@ def remove_spaces_from_entities(
         item["destination"] = item["destination"].lower().replace(" ", "_")
         cleaned.append(item)
     return cleaned
-
