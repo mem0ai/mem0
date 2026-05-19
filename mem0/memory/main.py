@@ -470,8 +470,11 @@ class Memory(MemoryBase):
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = self.entity_store.list(filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            if self.config.vector_store.provider == "pgvector":
+                rows = self.entity_store.list_by_linked_memory_id(memory_id, filters=search_filters)
+            else:
+                listed = self.entity_store.list(filters=search_filters, top_k=10000)
+                rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
                     payload = getattr(row, "payload", None) or {}
@@ -1903,8 +1906,13 @@ class AsyncMemory(MemoryBase):
             return
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         try:
-            listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
-            rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
+            if self.config.vector_store.provider == "pgvector":
+                rows = await asyncio.to_thread(
+                    self.entity_store.list_by_linked_memory_id, memory_id, filters=search_filters
+                )
+            else:
+                listed = await asyncio.to_thread(self.entity_store.list, filters=search_filters, top_k=10000)
+                rows = listed[0] if isinstance(listed, (list, tuple)) and listed and isinstance(listed[0], list) else listed
             for row in rows or []:
                 try:
                     payload = getattr(row, "payload", None) or {}

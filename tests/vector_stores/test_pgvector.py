@@ -2230,6 +2230,52 @@ class TestPGVector(unittest.TestCase):
             # Verify pool.closeall() was called
             mock_pool.closeall.assert_called()
 
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_list_by_linked_memory_id_psycopg3(self, mock_get_cursor, mock_connection_pool):
+        """Test list_by_linked_memory_id issues a targeted JSONB @> query."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+
+        # Configure the _get_cursor mock to return our mock cursor
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        row_id = str(uuid.uuid4())
+        self.mock_cursor.fetchall.return_value = [
+            (row_id, {"data": "Alice", "linked_memory_ids": ["test-memory-id"], "user_id": "u1"}),
+        ]
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+        )
+
+        results = pgvector.list_by_linked_memory_id("test-memory-id", filters={"user_id": "u1"})
+
+        # Verify a cursor was obtained
+        mock_get_cursor.assert_called()
+
+        # Verify the executed SQL uses JSONB @> containment syntax
+        executed_calls = [str(call) for call in self.mock_cursor.execute.call_args_list]
+        jsonb_calls = [c for c in executed_calls if "@>" in c and "::jsonb" in c]
+        self.assertTrue(len(jsonb_calls) > 0, "Expected a JSONB @> containment query to be executed")
+
+        # Verify result shape
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].id, row_id)
+        self.assertIsNone(results[0].score)
+
     def tearDown(self):
         """Clean up after each test."""
         pass
