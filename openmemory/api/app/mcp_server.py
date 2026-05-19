@@ -174,31 +174,28 @@ async def search_memory(query: str) -> str:
                 "user_id": uid
             }
 
-            embeddings = memory_client.embedding_model.embed(query, "search")
-
-            hits = memory_client.vector_store.search(
-                query=query, 
-                vectors=embeddings, 
-                limit=10, 
+            # Use the public mem0 search API for normalized memory results
+            response = memory_client.search(
+                query=query,
+                top_k=10,
                 filters=filters,
             )
 
             allowed = set(str(mid) for mid in accessible_memory_ids) if accessible_memory_ids else None
 
             results = []
-            for h in hits:
-                # All vector db search functions return OutputData class
-                id, score, payload = h.id, h.score, h.payload
-                if allowed and (h.id is None or h.id not in allowed):
+            for r in response.get("results", []):
+                rid = str(r.get("id", ""))
+                if allowed and (not rid or rid not in allowed):
                     continue
-                
+
                 results.append({
-                    "id": id, 
-                    "memory": payload.get("data"), 
-                    "hash": payload.get("hash"),
-                    "created_at": payload.get("created_at"), 
-                    "updated_at": payload.get("updated_at"), 
-                    "score": score,
+                    "id": rid,
+                    "memory": r.get("memory"),
+                    "hash": r.get("hash"),
+                    "created_at": r.get("created_at"),
+                    "updated_at": r.get("updated_at"),
+                    "score": r.get("score"),
                 })
 
             for r in results: 
@@ -245,7 +242,7 @@ async def list_memories() -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Get all memories
-            memories = memory_client.get_all(user_id=uid)
+            memories = memory_client.get_all(filters={"user_id": uid})
             filtered_memories = []
 
             # Filter memories based on permissions
