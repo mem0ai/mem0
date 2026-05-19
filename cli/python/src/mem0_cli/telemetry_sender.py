@@ -20,8 +20,18 @@ import sys
 import urllib.request
 
 
+def _load_context() -> dict:
+    """Load telemetry context from stdin, falling back to argv for compatibility."""
+    raw = ""
+    if not sys.stdin.isatty():
+        raw = sys.stdin.read().strip()
+    if not raw and len(sys.argv) > 1:
+        raw = sys.argv[1]
+    return json.loads(raw)
+
+
 def main() -> None:
-    ctx = json.loads(sys.argv[1])
+    ctx = _load_context()
     payload = ctx["payload"]
 
     if ctx.get("needs_email") and ctx.get("mem0_api_key"):

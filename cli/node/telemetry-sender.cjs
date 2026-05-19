@@ -19,6 +19,31 @@
 const https = require("https");
 const fs = require("fs");
 
+function loadContext() {
+	return new Promise((resolve, reject) => {
+		if (process.argv[2]) {
+			try {
+				resolve(JSON.parse(process.argv[2]));
+			} catch (err) {
+				reject(err);
+			}
+			return;
+		}
+
+		let data = "";
+		process.stdin.setEncoding("utf8");
+		process.stdin.on("data", (chunk) => (data += chunk));
+		process.stdin.on("end", () => {
+			try {
+				resolve(JSON.parse(data));
+			} catch (err) {
+				reject(err);
+			}
+		});
+		process.stdin.on("error", reject);
+	});
+}
+
 function httpsRequest(url, method, headers, body) {
 	return new Promise((resolve, reject) => {
 		const u = new URL(url);
@@ -108,7 +133,7 @@ async function sendIdentifyEvent(ctx, payload, anonId) {
 }
 
 async function main() {
-	const ctx = JSON.parse(process.argv[2]);
+	const ctx = await loadContext();
 	const payload = ctx.payload;
 
 	if (ctx.needsEmail && ctx.mem0ApiKey) {
