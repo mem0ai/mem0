@@ -24,6 +24,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         aws_session_token: Optional[str] = None,
         aws_profile: Optional[str] = None,
         model_kwargs: Optional[Dict[str, Any]] = None,
+        auth_mode: str = "sigv4",
         **kwargs,
     ):
         """
@@ -42,6 +43,7 @@ class AWSBedrockConfig(BaseLlmConfig):
             aws_session_token: AWS session token for temporary credentials
             aws_profile: AWS profile name for credentials
             model_kwargs: Additional model-specific parameters
+            auth_mode: Authentication mode - "sigv4" (default) or "api_key" (bearer token)
             **kwargs: Additional arguments passed to base class
         """
         super().__init__(
@@ -59,6 +61,7 @@ class AWSBedrockConfig(BaseLlmConfig):
         self.aws_session_token = aws_session_token
         self.aws_profile = aws_profile
         self.model_kwargs = model_kwargs or {}
+        self.auth_mode = auth_mode
 
     @property
     def provider(self) -> str:
