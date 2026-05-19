@@ -1,0 +1,188 @@
+﻿---
+title: "GaussDB"
+description: "Use GaussDB as a Mem0 vector store with native FLOATVECTOR support, scoped metadata filtering, and centralized BM25 keyword search."
+---
+
+GaussDB can be used as a Mem0 vector store provider for both centralized and distributed deployments, with centralized mode as the recommended production baseline.
+
+Current provider highlights:
+
+- native `FLOATVECTOR` storage
+- `gsdiskann` and `gsivfflat` vector indexes
+- scoped read isolation using `user_id`, `agent_id`, and `run_id`
+- typed exact metadata filtering
+- controlled typed range support for declared `number` and `datetime` fields
+- centralized BM25 `keyword_search`
+- optional custom schema support with `public` as the default
+
+## Driver
+
+Use a GaussDB-compatible `psycopg2` driver for your target GaussDB environment.
+
+The provider imports the driver through the `psycopg2` API and uses `ThreadedConnectionPool` internally.
+
+## Minimal usage
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+os.environ["GAUSSDB_DSN"] = "postgresql://gaussdb_user:gaussdb_password@127.0.0.1:19995/postgres"
+
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "collection_name": "mem0_prod",
+            "embedding_model_dims": 1536,
+            "deployment_mode": "centralized",
+        },
+    },
+}
+
+memory = Memory.from_config(config)
+memory.add("I prefer window seats on morning flights.", user_id="alice")
+results = memory.search("flight seat preference", filters={"user_id": "alice"})
+```
+
+You can also provide the full connection string directly in config:
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "connection_string": "postgresql://gaussdb_user:gaussdb_password@127.0.0.1:19995/postgres",
+            "collection_name": "mem0_prod",
+            "embedding_model_dims": 1536,
+            "deployment_mode": "centralized",
+        },
+    },
+}
+```
+
+## Main configuration fields
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `connection_string` | Full GaussDB DSN | `None` |
+| `host` / `port` / `database` / `user` / `password` | Individual connection fields when no DSN is provided | `None` / `postgres` |
+| `collection_name` | Main collection table name | `mem0` |
+| `embedding_model_dims` | Embedding vector dimension | `1536` |
+| `deployment_mode` | `centralized` or `distributed` | `centralized` |
+| `vector_index_type` | `gsdiskann` or `gsivfflat` | `gsdiskann` |
+| `vector_metric` | `cosine` or `l2` | `cosine` |
+| `schema` | Optional advanced schema name | `public` |
+| `minconn` / `maxconn` | Connection pool bounds | `1` / `5` |
+| `auto_create` | Create collection automatically on init | `True` |
+| `require_scoped_filters` | Optionally require positive scope filters on read paths | `False` |
+| `metadata_schema` | Optional typed metadata declarations | `{}` |
+| `sslmode` / `sslrootcert` | Optional SSL settings | `None` |
+
+## UTF8 recommendation
+
+The provider assumes UTF8 as the recommended database baseline.
+
+Current behavior:
+
+- all sessions set `client_encoding=UTF8`
+- initialization checks `server_encoding`
+- non-UTF8 servers trigger a warning instead of a hard startup failure
+
+For production, use a UTF8 database.
+
+## Scoped filtering
+
+By default, the provider does not require a positive scope filter on read paths.
+
+If you enable `require_scoped_filters=True`, the provider enforces a positive scope filter requirement.
+
+Valid positive scope examples:
+
+```python
+{"user_id": "u1"}
+{"user_id": {"eq": "u1"}}
+{"user_id": {"in": ["u1", "u2"]}}
+```
+
+Invalid positive scope examples:
+
+```python
+{"user_id": {"ne": "u1"}}
+{"$not": [{"user_id": "u1"}]}
+{"$or": [{"user_id": "u1"}, {"category": "public"}]}
+{"user_id": "*"}
+```
+
+## Typed filters and range behavior
+
+Supported typed exact operators:
+
+- `eq`
+- `ne`
+- `in`
+- `nin`
+
+Typed range behavior:
+
+- declared `number` and `datetime` fields receive true typed range handling
+- undeclared range emits a warning and falls back to compatibility literal matching
+- malformed rows in declared ranges are ignored rather than failing the whole query
+
+Example:
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "connection_string": "postgresql://gaussdb_user:gaussdb_password@127.0.0.1:19995/postgres",
+            "collection_name": "mem0_prod",
+            "embedding_model_dims": 1536,
+            "metadata_schema": {
+                "priority": "number",
+                "created_at": "datetime",
+            },
+        },
+    },
+}
+```
+
+## Wildcard, exists, missing, null
+
+The provider supports explicit metadata semantics for:
+
+- wildcard `*`
+- `exists`
+- `missing`
+- `null`
+
+Examples:
+
+```python
+{"category": "*"}
+{"optional": {"exists": True}}
+{"optional": {"missing": True}}
+{"optional": None}
+```
+
+## Score semantics
+
+GaussDB now returns raw distance instead of provider-specific normalized scores.
+
+That means:
+
+- smaller distance is better
+- score values should not be compared across providers
+
+## Keyword search
+
+- centralized mode: BM25 `keyword_search` supported
+- distributed mode: BM25 is not part of the current capability promise
+
+## Commercial posture
+
+Centralized mode is the primary commercial deployment target.
+
+Distributed mode is supported for core vector-store behavior, but should be presented with a narrower capability statement than centralized mode, especially around keyword search.
