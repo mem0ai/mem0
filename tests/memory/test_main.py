@@ -237,6 +237,14 @@ def _assert_utc_timestamp(timestamp: str):
     assert parsed.utcoffset().total_seconds() == 0
 
 
+def _mock_vector_memory(memory_id: str, payload: dict, score: float = 0.9):
+    memory = MagicMock()
+    memory.id = memory_id
+    memory.payload = payload
+    memory.score = score
+    return memory
+
+
 def test_create_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, Memory)
     memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
@@ -420,6 +428,237 @@ def test_search_and_get_all_consistent_after_update(mocker):
     # created_at should be the original, not the updated time
     assert search_results[0]["created_at"] == "2023-05-06T09:19:20+00:00"
     assert search_results[0]["updated_at"] == "2026-03-23T10:00:00+00:00"
+
+
+def test_add_to_vector_store_soft_supersedes_previous_memory(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.db.get_last_messages.return_value = []
+    memory.db.save_messages = MagicMock()
+
+    old_payload = {
+        "data": "I like pizza",
+        "hash": "old-hash",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "updated_at": "2026-01-01T00:00:00+00:00",
+        "user_id": "alice",
+        "is_active": True,
+    }
+    old_memory = _mock_vector_memory("old-memory-id", old_payload, score=0.95)
+
+    memory.vector_store.search.return_value = [old_memory]
+    memory.vector_store.get.return_value = _mock_vector_memory("old-memory-id", dict(old_payload), score=0.95)
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    memory.embedding_model.embed_batch.return_value = [[0.3, 0.2, 0.1]]
+    memory.llm.generate_response.return_value = (
+        '{"memory": [{"text": "I now prefer sushi", "event": "ADD", "previous_memory_id": "0"}]}'
+    )
+
+    mocker.patch("mem0.memory.main.lemmatize_for_bm25", side_effect=lambda text: text)
+    mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+
+    results = memory._add_to_vector_store(
+        messages=[{"role": "user", "content": "I now prefer sushi"}],
+        metadata={"user_id": "alice"},
+        filters={"user_id": "alice"},
+        infer=True,
+    )
+
+    assert len(results) == 1
+    new_memory_id = results[0]["id"]
+
+    insert_payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert insert_payload["is_active"] is True
+
+    soft_supersede_call = memory.vector_store.update.call_args
+    assert soft_supersede_call.kwargs["vector_id"] == "old-memory-id"
+    assert soft_supersede_call.kwargs["vector"] is None
+    assert soft_supersede_call.kwargs["payload"]["data"] == "I like pizza"
+    assert soft_supersede_call.kwargs["payload"]["is_active"] is False
+    assert soft_supersede_call.kwargs["payload"]["superseded_by"] == new_memory_id
+
+
+def test_search_hides_inactive_by_default_but_allows_explicit_filter(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+
+    active_memory = _mock_vector_memory(
+        "active-id",
+        {
+            "data": "Active memory",
+            "hash": "active-hash",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "alice",
+            "is_active": True,
+        },
+        score=0.95,
+    )
+    inactive_memory = _mock_vector_memory(
+        "inactive-id",
+        {
+            "data": "Inactive memory",
+            "hash": "inactive-hash",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "alice",
+            "is_active": False,
+        },
+        score=0.94,
+    )
+
+    memory.vector_store.search.side_effect = [[active_memory, inactive_memory], [inactive_memory]]
+    memory.vector_store.keyword_search.side_effect = [[], []]
+    mocker.patch("mem0.memory.main.lemmatize_for_bm25", side_effect=lambda text: text)
+    mocker.patch("mem0.memory.main.extract_entities", return_value=[])
+
+    default_results = memory._search_vector_store(
+        "memory",
+        filters={"user_id": "alice"},
+        limit=10,
+        threshold=0.0,
+    )
+    inactive_results = memory._search_vector_store(
+        "memory",
+        filters={"user_id": "alice", "is_active": False},
+        limit=10,
+        threshold=0.0,
+    )
+
+    assert [item["id"] for item in default_results] == ["active-id"]
+    assert [item["id"] for item in inactive_results] == ["inactive-id"]
+
+
+def test_get_all_hides_inactive_by_default_but_allows_explicit_filter(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+
+    active_memory = _mock_vector_memory(
+        "active-id",
+        {
+            "data": "Active memory",
+            "hash": "active-hash",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "alice",
+            "is_active": True,
+        },
+    )
+    inactive_memory = _mock_vector_memory(
+        "inactive-id",
+        {
+            "data": "Inactive memory",
+            "hash": "inactive-hash",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "alice",
+            "is_active": False,
+        },
+    )
+
+    memory.vector_store.list.side_effect = [
+        [[active_memory, inactive_memory]],
+        [[inactive_memory]],
+    ]
+
+    default_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=10)
+    inactive_results = memory._get_all_from_vector_store(
+        filters={"user_id": "alice", "is_active": False},
+        limit=10,
+    )
+
+    assert [item["id"] for item in default_results] == ["active-id"]
+    assert [item["id"] for item in inactive_results] == ["inactive-id"]
+
+
+@pytest.mark.asyncio
+async def test_async_search_hides_inactive_by_default_but_allows_explicit_filter(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+
+    active_memory = _mock_vector_memory(
+        "active-id",
+        {
+            "data": "Active memory",
+            "hash": "active-hash",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "alice",
+            "is_active": True,
+        },
+        score=0.95,
+    )
+    inactive_memory = _mock_vector_memory(
+        "inactive-id",
+        {
+            "data": "Inactive memory",
+            "hash": "inactive-hash",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "alice",
+            "is_active": False,
+        },
+        score=0.94,
+    )
+
+    memory.vector_store.search.side_effect = [[active_memory, inactive_memory], [inactive_memory]]
+    memory.vector_store.keyword_search.side_effect = [[], []]
+    mocker.patch("mem0.memory.main.lemmatize_for_bm25", side_effect=lambda text: text)
+    mocker.patch("mem0.memory.main.extract_entities", return_value=[])
+
+    default_results = await memory._search_vector_store(
+        "memory",
+        filters={"user_id": "alice"},
+        limit=10,
+        threshold=0.0,
+    )
+    inactive_results = await memory._search_vector_store(
+        "memory",
+        filters={"user_id": "alice", "is_active": False},
+        limit=10,
+        threshold=0.0,
+    )
+
+    assert [item["id"] for item in default_results] == ["active-id"]
+    assert [item["id"] for item in inactive_results] == ["inactive-id"]
+
+
+@pytest.mark.asyncio
+async def test_async_get_all_hides_inactive_by_default_but_allows_explicit_filter(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+
+    active_memory = _mock_vector_memory(
+        "active-id",
+        {
+            "data": "Active memory",
+            "hash": "active-hash",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "alice",
+            "is_active": True,
+        },
+    )
+    inactive_memory = _mock_vector_memory(
+        "inactive-id",
+        {
+            "data": "Inactive memory",
+            "hash": "inactive-hash",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "alice",
+            "is_active": False,
+        },
+    )
+
+    memory.vector_store.list.side_effect = [
+        [[active_memory, inactive_memory]],
+        [[inactive_memory]],
+    ]
+
+    default_results = await memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=10)
+    inactive_results = await memory._get_all_from_vector_store(
+        filters={"user_id": "alice", "is_active": False},
+        limit=10,
+    )
+
+    assert [item["id"] for item in default_results] == ["active-id"]
+    assert [item["id"] for item in inactive_results] == ["inactive-id"]
 
 
 class TestMetadataNotMutated:
@@ -661,5 +900,3 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
 
     stored = memory.vector_store.update.call_args.kwargs["payload"]
     assert stored["actor_id"] == "Alice"
-
-
