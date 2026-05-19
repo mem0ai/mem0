@@ -3,6 +3,7 @@
 import { createDataStreamResponse, jsonSchema, streamText } from "ai";
 import { addMemories, getMemories } from "@mem0/vercel-ai-provider";
 import { openai } from "@ai-sdk/openai";
+import { pollMemoryEvent } from "@/lib/utils";
 
 export const runtime = "edge";
 export const maxDuration = 30;
@@ -69,6 +70,7 @@ const retrieveMemories = (memories: any) => {
 
 export async function POST(req: Request) {
   const { messages, system, tools, userId } = await req.json();
+  const apiKey = process.env.MEM0_API_KEY ?? "";
 
   const memories = await getMemories(messages, { user_id: userId, rerank: true, threshold: 0.1 });
   const mem0Instructions = retrieveMemories(memories);
@@ -100,7 +102,15 @@ export async function POST(req: Request) {
 
       result.mergeIntoDataStream(writer);
 
-      const newMemories = await addMemoriesTask;
+      const pendingResponse = await addMemoriesTask;
+      const eventIds = pendingResponse.map(
+        (m: { event_id: string }) => m.event_id,
+      );
+      const newMemories = (
+        await Promise.all(
+          eventIds.map((id: string) => pollMemoryEvent(id, apiKey)),
+        )
+      ).flat();
       if (newMemories.length > 0) {
         writer.writeMessageAnnotation({
           type: "mem0-update",
