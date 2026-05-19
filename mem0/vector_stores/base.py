@@ -74,6 +74,22 @@ class VectorStoreBase(ABC):
         """
         return None
 
+    def list_with_linked_memory_id(self, memory_id: str, filters=None):
+        """List rows whose payload links this memory_id (e.g. linked_memory_ids).
+
+        Used for targeted entity-store cleanup on memory delete/update.
+        Override in subclasses that can query efficiently (e.g. JSONB on PostgreSQL).
+        Default None means callers should fall back to list() + Python filtering.
+
+        Args:
+            memory_id: Memory id that must appear in the store's linked_memory_ids payload.
+            filters: Optional metadata filters (same keys as list(): user_id, agent_id, run_id).
+
+        Returns:
+            Flat list of row objects with id and payload attributes, or None if unsupported.
+        """
+        return None
+
     def search_batch(self, queries: list, vectors_list: list, top_k: int = 1, filters: dict = None):
         """Batch search for multiple queries at once.
 
