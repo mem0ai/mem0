@@ -98,7 +98,7 @@ def score_and_rank(
         if mem_id is None:
             continue
 
-        semantic_score = result.get("score", 0.0)
+        semantic_score = result.get("score") or 0.0
         if semantic_score < threshold:
             continue
 
