@@ -400,9 +400,18 @@ class EmbedChain(JSONSerializable):
         chunks_before_addition = self.db.count()
 
         # Filter out empty documents and ensure they meet the API requirements
-        valid_documents = [doc for doc in documents if doc and isinstance(doc, str)]
-
-        documents = valid_documents
+        filtered = [
+            (doc, meta, id_)
+            for doc, meta, id_ in zip(documents, metadatas, ids)
+            if doc and isinstance(doc, str)
+        ]
+        if filtered:
+            documents, metadatas, ids = zip(*filtered)
+            documents = list(documents)
+            metadatas = list(metadatas)
+            ids = list(ids)
+        else:
+            documents, metadatas, ids = [], [], []
 
         # Chunk documents into batches of 2048 and handle each batch
         # helps wigth large loads of embeddings  that hit OpenAI limits
