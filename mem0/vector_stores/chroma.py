@@ -97,9 +97,13 @@ class ChromaDB(VectorStoreBase):
 
         result = []
         for i in range(max_length):
+            distance = distances[i] if isinstance(distances, list) and distances and i < len(distances) else None
+            # Convert distance to similarity score. ChromaDB returns distances (lower = more similar),
+            # but downstream scoring expects similarity scores (higher = more similar, range [0, 1]).
+            score = (1.0 / (1.0 + distance)) if distance is not None else None
             entry = OutputData(
                 id=ids[i] if isinstance(ids, list) and ids and i < len(ids) else None,
-                score=(distances[i] if isinstance(distances, list) and distances and i < len(distances) else None),
+                score=score,
                 payload=(metadatas[i] if isinstance(metadatas, list) and metadatas and i < len(metadatas) else None),
             )
             result.append(entry)
