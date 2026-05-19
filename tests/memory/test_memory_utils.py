@@ -1,5 +1,5 @@
 import pytest
-from mem0.memory.utils import remove_spaces_from_entities, sanitize_relationship_for_cypher
+from mem0.memory.utils import parse_vision_messages, remove_spaces_from_entities, sanitize_relationship_for_cypher
 
 
 class TestRemoveSpacesFromEntities:
@@ -55,3 +55,68 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestParseVisionMessages:
+    """
+    Covers parse_vision_messages, specifically that list-typed or image_url-typed
+    content does NOT crash when llm=None (vision disabled).
+    """
+
+    def test_plain_text_passthrough(self):
+        """Regular text messages are always passed through unchanged."""
+        messages = [{"role": "user", "content": "Hello"}]
+        assert parse_vision_messages(messages) == messages
+
+    def test_system_message_passthrough(self):
+        """System messages are always passed through regardless of content type."""
+        messages = [{"role": "system", "content": "You are helpful."}]
+        assert parse_vision_messages(messages) == messages
+
+    def test_list_content_no_llm_does_not_crash(self):
+        """
+        Regression test for: list-typed content with llm=None raises
+        AttributeError: 'NoneType' object has no attribute 'generate_response'.
+        When vision is disabled (llm=None) the message must be passed through as-is.
+        """
+        messages = [
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": "What do you see?"}],
+            }
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert result == messages
+
+    def test_image_url_dict_content_no_llm_does_not_crash(self):
+        """
+        Regression test: single image_url dict content with llm=None must not crash.
+        """
+        messages = [
+            {
+                "role": "user",
+                "content": {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}},
+            }
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert result == messages
+
+    def test_mixed_messages_no_llm(self):
+        """Mix of text and list-content messages — all passed through when llm=None."""
+        messages = [
+            {"role": "user", "content": "plain text"},
+            {"role": "user", "content": [{"type": "image_url", "image_url": {"url": "http://x.com/a.jpg"}}]},
+            {"role": "assistant", "content": "response"},
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert result == messages
+
+    def test_list_content_with_llm_calls_llm(self):
+        """When llm is provided, get_image_description should be called."""
+        class FakeLLM:
+            def generate_response(self, messages):
+                return "A described image"
+
+        messages = [{"role": "user", "content": [{"type": "image_url", "image_url": {"url": "http://x.com/img.jpg"}}]}]
+        result = parse_vision_messages(messages, llm=FakeLLM())
+        assert result == [{"role": "user", "content": "A described image"}]
