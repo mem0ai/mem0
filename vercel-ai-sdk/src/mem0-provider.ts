@@ -113,7 +113,7 @@ export function createMem0(
         mem0ApiKey: options.mem0ApiKey,
         apiKey: options.apiKey,
         mem0Config: options.mem0Config,
-        modelType: "completion",
+        modelType: "chat",
       },
       options.config
     );
