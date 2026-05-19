@@ -914,6 +914,65 @@ def identify(
     run_identify(name)
 
 
+@app.command(name="whoami", rich_help_panel="Setup")
+def whoami_cmd() -> None:
+    """Print your AGENTRUSH identifier (default_user_id).
+
+    Example:
+      mem0 whoami
+    """
+    from mem0_cli.commands.whoami_cmd import run_whoami
+
+    run_whoami()
+
+
+# ── AGENTRUSH sub-app ─────────────────────────────────────────────────────
+
+agent_rush_app = typer.Typer(
+    name="agent-rush",
+    help="AGENTRUSH game commands",
+    no_args_is_help=True,
+    rich_markup_mode="rich",
+)
+
+
+@agent_rush_app.callback(invoke_without_command=True)
+def _agent_rush_callback(ctx: typer.Context) -> None:
+    if ctx.invoked_subcommand:
+        _fire_telemetry(f"agent-rush.{ctx.invoked_subcommand}")
+
+
+@agent_rush_app.command(name="add")
+def agent_rush_add(
+    content: str = typer.Argument(..., help="Memory content (50–1000 characters, no URLs)."),
+) -> None:
+    """Submit a memory to AGENTRUSH.
+
+    Example:
+      mem0 agent-rush add "I enjoy solving constraint-satisfaction problems."
+    """
+    from mem0_cli.commands.agent_rush_cmd import run_agent_rush_add
+
+    run_agent_rush_add(content)
+
+
+@agent_rush_app.command(name="search")
+def agent_rush_search(
+    query: str = typer.Argument(..., help="Search query."),
+) -> None:
+    """Search AGENTRUSH memories.
+
+    Example:
+      mem0 agent-rush search "constraint satisfaction"
+    """
+    from mem0_cli.commands.agent_rush_cmd import run_agent_rush_search
+
+    run_agent_rush_search(query)
+
+
+app.add_typer(agent_rush_app, name="agent-rush", rich_help_panel="Setup")
+
+
 # (entity_app registered at module level, below sub-group definitions)
 
 
