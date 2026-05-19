@@ -5,6 +5,7 @@ import { LLMConfig, Message } from "../types";
 export class OpenAIStructuredLLM implements LLM {
   private openai: OpenAI;
   private model: string;
+  private extraHeaders?: Record<string, string>;
 
   constructor(config: LLMConfig) {
     this.openai = new OpenAI({
@@ -13,6 +14,7 @@ export class OpenAIStructuredLLM implements LLM {
       ...(config.timeout != null && { timeout: config.timeout }),
     });
     this.model = config.model || "gpt-5-mini";
+    this.extraHeaders = config.extraHeaders;
   }
 
   async generateResponse(
@@ -20,7 +22,7 @@ export class OpenAIStructuredLLM implements LLM {
     responseFormat?: { type: string } | null,
     tools?: any[],
   ): Promise<string | LLMResponse> {
-    const completion = await this.openai.chat.completions.create({
+    const params = {
       messages: messages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
         content:
@@ -32,7 +34,7 @@ export class OpenAIStructuredLLM implements LLM {
       ...(tools
         ? {
             tools: tools.map((tool) => ({
-              type: "function",
+              type: "function" as const,
               function: {
                 name: tool.function.name,
                 description: tool.function.description,
@@ -48,7 +50,12 @@ export class OpenAIStructuredLLM implements LLM {
               },
             }
           : {}),
-    });
+    };
+    const completion = this.extraHeaders
+      ? await this.openai.chat.completions.create(params, {
+          headers: this.extraHeaders,
+        })
+      : await this.openai.chat.completions.create(params);
 
     const response = completion.choices[0].message;
 
@@ -67,7 +74,7 @@ export class OpenAIStructuredLLM implements LLM {
   }
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
-    const completion = await this.openai.chat.completions.create({
+    const params = {
       messages: messages.map((msg) => ({
         role: msg.role as "system" | "user" | "assistant",
         content:
@@ -76,7 +83,12 @@ export class OpenAIStructuredLLM implements LLM {
             : JSON.stringify(msg.content),
       })),
       model: this.model,
-    });
+    };
+    const completion = this.extraHeaders
+      ? await this.openai.chat.completions.create(params, {
+          headers: this.extraHeaders,
+        })
+      : await this.openai.chat.completions.create(params);
     const response = completion.choices[0].message;
     return {
       content: response.content || "",
