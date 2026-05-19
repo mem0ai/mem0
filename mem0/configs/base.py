@@ -26,6 +26,47 @@ class MemoryItem(BaseModel):
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
 
 
+class GraphExpansionConfig(BaseModel):
+    """Configuration for optional 1-hop graph expansion at search time.
+
+    Off by default to preserve existing search behaviour. When enabled, the
+    search pipeline follows ``linked_memory_ids`` from the top-scored seed
+    memories and merges their 1-hop neighbours into the candidate pool.
+
+    See :mod:`mem0.memory.graph_expansion` for the algorithm.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable 1-hop graph expansion during search.",
+    )
+    seed_k: int = Field(
+        default=5,
+        ge=1,
+        description="Number of top scored candidates whose links are followed.",
+    )
+    max_links_per_seed: int = Field(
+        default=5,
+        ge=1,
+        description="Per-seed cap on outgoing links to prevent hub blow-up.",
+    )
+    max_expanded: int = Field(
+        default=20,
+        ge=1,
+        description="Global cap on expanded memories added per search call.",
+    )
+    expansion_score_weight: float = Field(
+        default=0.85,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Multiplier applied to the best seed score to score an expanded "
+            "memory. Values < 1.0 keep expanded items ranked below strong "
+            "direct semantic hits."
+        ),
+    )
+
+
 class MemoryConfig(BaseModel):
     vector_store: VectorStoreConfig = Field(
         description="Configuration for the vector store",
@@ -46,6 +87,10 @@ class MemoryConfig(BaseModel):
     reranker: Optional[RerankerConfig] = Field(
         description="Configuration for the reranker",
         default=None,
+    )
+    graph_expansion: GraphExpansionConfig = Field(
+        description="Configuration for 1-hop graph expansion at search time.",
+        default_factory=GraphExpansionConfig,
     )
     version: str = Field(
         description="The version of the API",
