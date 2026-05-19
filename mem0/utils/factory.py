@@ -169,6 +169,7 @@ class VectorStoreFactory:
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
+        "oracle": "mem0.vector_stores.oracle.OracleDB",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
         "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
@@ -228,7 +229,7 @@ class RerankerFactory:
     @classmethod
     def create(cls, provider_name: str, config: Optional[Union[BaseRerankerConfig, Dict]] = None, **kwargs):
         """
-        Create a reranker instance based on the provider and configuration.
+        Create a reranker instance configured for the specified provider.
 
         Args:
             provider_name: The reranker provider (e.g., 'cohere', 'sentence_transformer')

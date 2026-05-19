@@ -1,0 +1,139 @@
+name: oracle-vector-store-live
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/oracle-vector-store
+    paths:
+      - "mem0/vector_stores/oracle.py"
+      - "mem0/configs/vector_stores/oracle.py"
+      - "tests/vector_stores/test_oracle.py"
+      - ".github/workflows/oracle-vector-store-live.yml"
+      - "pyproject.toml"
+
+jobs:
+  smoke-test-live-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: oracle
+          APP_USER: mem0
+          APP_USER_PASSWORD: mem0password
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Prepare writable local directories
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.home" "$GITHUB_WORKSPACE/.cache"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[vector_stores]"
+
+      - name: Run live Oracle smoke test
+        env:
+          HOME: ${{ github.workspace }}/.home
+          XDG_CACHE_HOME: ${{ github.workspace }}/.cache
+        run: |
+          python - <<'PY'
+          import uuid
+
+          from mem0.vector_stores.oracle import OracleDB
+
+          collection_name = f"mem0_live_{uuid.uuid4().hex[:8]}"
+          db = OracleDB(
+              dsn="localhost:1521/FREEPDB1",
+              user="mem0",
+              password="mem0password",
+              collection_name=collection_name,
+              embedding_model_dims=3,
+              distance="COSINE",
+              search_mode="approx",
+              target_accuracy=90,
+              auto_create=True,
+              index_fallback_to_exact=True,
+              index={
+                  "create": True,
+                  "type": "hnsw",
+                  "target_accuracy": 90,
+                  "neighbors": 32,
+                  "efconstruction": 200,
+              },
+          )
+
+          ids = ["memory-a", "memory-b"]
+          vectors = [
+              [0.10, 0.20, 0.30],
+              [0.90, 0.80, 0.70],
+          ]
+          payloads = [
+              {"user_id": "alice", "category": "movies", "text": "likes sci-fi"},
+              {"user_id": "bob", "category": "travel", "text": "likes hiking"},
+          ]
+
+          db.insert(vectors=vectors, payloads=payloads, ids=ids)
+
+          approx = db.search(
+              query="sci-fi",
+              vectors=[0.11, 0.21, 0.31],
+              top_k=1,
+              filters={"user_id": "alice", "category": "movies"},
+          )
+          assert len(approx) == 1
+          assert approx[0].id == "memory-a"
+
+          db.search_mode = "exact"
+          exact = db.search(
+              query="sci-fi",
+              vectors=[0.11, 0.21, 0.31],
+              top_k=2,
+          )
+          assert len(exact) >= 1
+          assert exact[0].id == "memory-a"
+
+          fetched = db.get("memory-a")
+          assert fetched is not None
+          assert fetched.payload["user_id"] == "alice"
+
+          db.update("memory-a", payload={"user_id": "alice", "category": "books", "text": "likes fantasy"})
+          updated = db.get("memory-a")
+          assert updated.payload["category"] == "books"
+
+          listed = db.list(filters={"user_id": "alice"}, top_k=10)
+          assert len(listed) == 1
+          assert listed[0].id == "memory-a"
+
+          info = db.col_info()
+          assert info["count"] >= 2
+
+          db.delete("memory-b")
+          remaining = db.list(top_k=10)
+          assert len(remaining) == 1
+          assert remaining[0].id == "memory-a"
+
+          db.reset()
+          reset_rows = db.list(top_k=10)
+          assert reset_rows == []
+
+          print("Oracle live smoke test passed")
+          PY
