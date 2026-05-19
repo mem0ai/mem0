@@ -80,7 +80,8 @@ class S3Vectors(VectorStoreBase):
                 except json.JSONDecodeError:
                     logger.warning(f"Failed to parse metadata for key {v.get('key')}")
                     payload = {}
-            results.append(OutputData(id=v.get("key"), score=v.get("distance"), payload=payload))
+            # s3_vectors uses cosine distance (range [0, 2]): convert to similarity (higher = better)
+            results.append(OutputData(id=v.get("key"), score=max(0.0, 1.0 - float(v.get("distance") or 0)), payload=payload))
         return results
 
     def insert(self, vectors, payloads=None, ids=None):

@@ -260,7 +260,8 @@ class PGVector(VectorStoreBase):
             )
 
             results = cur.fetchall()
-        return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+        # `<=>` returns cosine distance (range [0, 2]): convert to similarity (higher = better)
+        return [OutputData(id=str(r[0]), score=max(0.0, 1.0 - float(r[1])), payload=r[2]) for r in results]
 
     def keyword_search(self, query, top_k=5, filters=None):
         """
