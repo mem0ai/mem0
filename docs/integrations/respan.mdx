@@ -1,22 +1,22 @@
 ---
-title: Keywords AI
-description: "Combine Mem0 persistent memory with Keywords AI observability for tracked, cost-optimized AI applications."
+title: Respan
+description: "Combine Mem0 persistent memory with Respan observability for tracked, cost-optimized AI applications."
 ---
 
-Build AI applications with persistent memory and comprehensive LLM observability by integrating Mem0 with Keywords AI.
+Build AI applications with persistent memory and comprehensive LLM observability by integrating Mem0 with Respan.
 
 ## Overview
 
-Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users. Keywords AI provides complete LLM observability.
+Mem0 is a self-improving memory layer for LLM applications, enabling personalized AI experiences that save costs and delight users. Respan (formerly Keywords AI) provides complete LLM observability.
 
-Combining Mem0 with Keywords AI allows you to:
+Combining Mem0 with Respan allows you to:
 1. Add persistent memory to your AI applications
 2. Track interactions across sessions
-3. Monitor memory usage and retrieval with Keywords AI observability
+3. Monitor memory usage and retrieval with Respan observability
 4. Optimize token usage and reduce costs
 
 <Note>
-You can get your Mem0 API key from the <a href="https://app.mem0.ai/?utm_source=oss&utm_medium=integration-keywords" rel="nofollow">Mem0 dashboard</a>.
+You can get your Mem0 API key from the <a href="https://app.mem0.ai/?utm_source=oss&utm_medium=integration-respan" rel="nofollow">Mem0 dashboard</a>.
 </Note>
 
 ## Setup and Configuration
@@ -24,7 +24,7 @@ You can get your Mem0 API key from the <a href="https://app.mem0.ai/?utm_source=
 Install the necessary libraries:
 
 ```bash
-pip install mem0ai keywordsai-sdk
+pip install mem0ai openai
 ```
 
 Set up your environment variables:
@@ -34,13 +34,13 @@ import os
 
 # Set your API keys
 os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
-os.environ["KEYWORDSAI_API_KEY"] = "your-keywords-api-key"
-os.environ["KEYWORDSAI_BASE_URL"] = "https://api.keywordsai.co/api/"
+os.environ["RESPAN_API_KEY"] = "your-respan-api-key"
+os.environ["RESPAN_BASE_URL"] = "https://api.respan.ai/api/"
 ```
 
 ## Basic Integration Example
 
-Here's a simple example of using Mem0 with Keywords AI:
+Here's a simple example of using Mem0 with Respan:
 
 ```python
 from mem0 import Memory
@@ -48,17 +48,17 @@ import os
 
 # Configuration
 api_key = os.getenv("MEM0_API_KEY")
-keywordsai_api_key = os.getenv("KEYWORDSAI_API_KEY")
-base_url = os.getenv("KEYWORDSAI_BASE_URL") # "https://api.keywordsai.co/api/"
+respan_api_key = os.getenv("RESPAN_API_KEY")
+base_url = os.getenv("RESPAN_BASE_URL") # "https://api.respan.ai/api/"
 
-# Set up Mem0 with Keywords AI as the LLM provider
+# Set up Mem0 with Respan as the LLM provider
 config = {
     "llm": {
         "provider": "openai",
         "config": {
             "model": "gpt-5-mini",
             "temperature": 0.0,
-            "api_key": keywordsai_api_key,
+            "api_key": respan_api_key,
             "openai_base_url": base_url,
         },
     }
@@ -79,7 +79,7 @@ print(result)
 
 ## Advanced Integration with OpenAI SDK
 
-For more advanced use cases, you can integrate Keywords AI with Mem0 through the OpenAI SDK:
+For more advanced use cases, you can integrate Respan with Mem0 through the OpenAI SDK:
 
 ```python
 from openai import OpenAI
@@ -88,8 +88,8 @@ import json
 
 # Initialize client
 client = OpenAI(
-    api_key=os.environ.get("KEYWORDSAI_API_KEY"),
-    base_url=os.environ.get("KEYWORDSAI_BASE_URL"),
+    api_key=os.environ.get("RESPAN_API_KEY"),
+    base_url=os.environ.get("RESPAN_BASE_URL"),
 )
 
 # Sample conversation messages
@@ -118,18 +118,18 @@ response = client.chat.completions.create(
 print(json.dumps(response.model_dump(), indent=4))
 ```
 
-For detailed information on this integration, refer to the official [Keywords AI Mem0 integration documentation](https://docs.keywordsai.co/integration/development-frameworks/mem0).
+For detailed information on this integration, refer to the official [Respan Mem0 integration documentation](https://www.respan.ai/docs/integrations/mem0).
 
 ## Key Features
 
 1. **Memory Integration**: Store and retrieve relevant information from past interactions
-2. **LLM Observability**: Track memory usage and retrieval patterns with Keywords AI
+2. **LLM Observability**: Track memory usage and retrieval patterns with Respan
 3. **Session Persistence**: Maintain context across multiple user sessions
 4. **Cost Optimization**: Reduce token usage through efficient memory retrieval
 
 ## Conclusion
 
-Integrating Mem0 with Keywords AI provides a powerful combination for building AI applications with persistent memory and comprehensive observability. This integration enables more personalized user experiences while providing insights into your application's memory usage.
+Integrating Mem0 with Respan provides a powerful combination for building AI applications with persistent memory and comprehensive observability. This integration enables more personalized user experiences while providing insights into your application's memory usage.
 
 <CardGroup cols={2}>
   <Card title="OpenAI Agents SDK" icon="cube" href="/integrations/openai-agents-sdk">
@@ -139,4 +139,3 @@ Integrating Mem0 with Keywords AI provides a powerful combination for building A
     Monitor agent performance with AgentOps
   </Card>
 </CardGroup>
-
