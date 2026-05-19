@@ -581,6 +581,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        timestamp: Optional[str] = None,
     ):
         """
         Create a new memory.
@@ -603,7 +604,10 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
-
+            timestamp (str, optional): ISO 8601 date/datetime string representing when the
+                messages were observed (e.g. "2024-01-15"). Passed to the extraction prompt
+                as the Observation Date so relative time expressions in historical messages
+                are resolved correctly. Defaults to None (uses current date).
 
         Returns:
             dict: A dictionary containing the result of the memory addition operation, typically
@@ -656,10 +660,10 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt, timestamp=timestamp)
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, timestamp=None):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -733,6 +737,7 @@ class Memory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=timestamp,
         )
 
         try:
@@ -1561,12 +1566,17 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # delete all vector memories in batches to handle stores with page limits
+        total_deleted = 0
+        while True:
+            memories = self.vector_store.list(filters=filters, top_k=100)[0]
+            if not memories:
+                break
+            for memory in memories:
+                self._delete_memory(memory.id)
+            total_deleted += len(memories)
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {total_deleted} memories")
 
         return {"message": "Memories deleted successfully!"}
 
@@ -2012,6 +2022,7 @@ class AsyncMemory(MemoryBase):
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
         llm=None,
+        timestamp: Optional[str] = None,
     ):
         """
         Create a new memory asynchronously.
@@ -2064,7 +2075,7 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt, timestamp=timestamp)
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2074,6 +2085,7 @@ class AsyncMemory(MemoryBase):
         effective_filters: dict,
         infer: bool,
         prompt: Optional[str] = None,
+        timestamp: Optional[str] = None,
     ):
         if not infer:
             returned_memories = []
@@ -2149,6 +2161,7 @@ class AsyncMemory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=timestamp,
         )
 
         try:
@@ -2970,15 +2983,18 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        # delete all vector memories in batches to handle stores with page limits
+        total_deleted = 0
+        while True:
+            memories = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=100)
+            batch = memories[0]
+            if not batch:
+                break
+            delete_tasks = [self._delete_memory(memory.id) for memory in batch]
+            await asyncio.gather(*delete_tasks)
+            total_deleted += len(batch)
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id))
-
-        await asyncio.gather(*delete_tasks)
-
-        logger.info(f"Deleted {len(memories[0])} memories")
+        logger.info(f"Deleted {total_deleted} memories")
 
         return {"message": "Memories deleted successfully!"}
 

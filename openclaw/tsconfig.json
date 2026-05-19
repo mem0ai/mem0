@@ -10,7 +10,7 @@
     "rootDir": ".",
     "strict": false,
     "noImplicitAny": false,
-    "types": ["node"],
+    "types": [],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
