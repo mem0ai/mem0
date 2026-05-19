@@ -52,7 +52,7 @@ class Completions:
     def create(
         self,
         model: str,
-        messages: List = [],
+        messages: Optional[List] = None,
         # Mem0 arguments
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
@@ -92,6 +92,9 @@ class Completions:
         api_key: Optional[str] = None,
         model_list: Optional[list] = None,  # pass in a list of api_base,keys, etc.
     ):
+        if messages is None:
+            messages = []
+
         if not any([user_id, agent_id, run_id]):
             raise ValueError("One of user_id, agent_id, run_id must be provided")
 
@@ -151,15 +154,17 @@ class Completions:
 
     def _async_add_to_memory(self, messages, user_id, agent_id, run_id, metadata, filters):
         def add_task():
-            logger.debug("Adding to memory asynchronously")
-            self.mem0_client.add(
-                messages=messages,
-                user_id=user_id,
-                agent_id=agent_id,
-                run_id=run_id,
-                metadata=metadata,
-                filters=filters,
-            )
+            try:
+                logger.debug("Adding to memory asynchronously")
+                self.mem0_client.add(
+                    messages=messages,
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    run_id=run_id,
+                    metadata=metadata,
+                )
+            except Exception:
+                logger.exception("Failed to add memory asynchronously")
 
         threading.Thread(target=add_task, daemon=True).start()
 
