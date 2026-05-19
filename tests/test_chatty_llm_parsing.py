@@ -91,6 +91,66 @@ That's the result."""
         parsed = json.loads(result)
         assert parsed["memory"][0]["id"] == "0"
 
+    def test_trailing_comma_in_array(self):
+        """Trailing commas in arrays should be repaired."""
+        text = '{"facts": ["Name is Alex", "Likes pizza",]}'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["facts"] == ["Name is Alex", "Likes pizza"]
+
+    def test_trailing_comma_in_object(self):
+        """Trailing commas in objects should be repaired."""
+        text = '{"id": "0", "text": "test", "event": "ADD",}'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["event"] == "ADD"
+
+    def test_unterminated_json_missing_closing_brace(self):
+        """Unterminated JSON with missing closing brace should be repaired."""
+        text = '{"facts": ["Name is Alex", "Likes pizza"]'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["facts"] == ["Name is Alex", "Likes pizza"]
+
+    def test_unterminated_json_missing_bracket_and_brace(self):
+        """Unterminated JSON with missing bracket and brace should be repaired."""
+        text = '{"facts": ["Name is Alex", "Likes pizza"'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["facts"] == ["Name is Alex", "Likes pizza"]
+
+    def test_think_tags_stripped(self):
+        """<think> tags should be stripped before extracting JSON."""
+        text = '<think>Let me analyze this</think>{"facts": ["Name is Alex"]}'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["facts"] == ["Name is Alex"]
+
+    def test_think_tags_with_chatty_text(self):
+        """<think> tags combined with chatty text should be handled."""
+        text = '<think>Processing...</think>\nHere are the facts:\n{"facts": ["Name is Alex"]}\nDone.'
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["facts"] == ["Name is Alex"]
+
+    def test_trailing_comma_and_unterminated(self):
+        """Combined trailing comma and unterminated JSON should be repaired."""
+        text = '{"facts": ["Name is Alex",  '
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert parsed["facts"] == ["Name is Alex"]
+
+    def test_gemini_style_reasoning_leak(self):
+        """Simulate Gemini leaking reasoning tokens before JSON output."""
+        text = """I'll extract the facts from this conversation.
+
+{"facts": ["User's name is Alex", "User likes basketball"]}
+
+These are the key facts."""
+        result = extract_json(text)
+        parsed = json.loads(result)
+        assert len(parsed["facts"]) == 2
+
 
 # --- Test remove_code_blocks ---
 

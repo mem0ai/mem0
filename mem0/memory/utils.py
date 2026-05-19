@@ -127,8 +127,16 @@ def extract_json(text):
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
     If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
     If that also fails, returns the text as-is.
+
+    Also applies best-effort repairs for common LLM JSON malformations:
+    - Strips <think>...</think> reasoning tags
+    - Removes trailing commas before } and ]
+    - Attempts to close unterminated JSON by appending missing brackets/braces
     """
     text = text.strip()
+    # Strip <think> tags that some reasoning models emit
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
     match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
     if match:
         json_str = match.group(1)
@@ -139,6 +147,63 @@ def extract_json(text):
             json_str = text[start_idx : end_idx + 1]
         else:
             json_str = text
+
+    json_str = _repair_json(json_str)
+    return json_str
+
+
+def _repair_json(json_str: str) -> str:
+    """Apply best-effort repairs to common JSON malformations from LLMs.
+
+    Fixes:
+    - Trailing commas before } and ] (e.g. ``[1, 2,]``)
+    - Unterminated JSON missing closing brackets/braces
+    """
+    # Remove trailing commas before closing brackets/braces
+    json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+
+    # Attempt to close unterminated JSON
+    try:
+        json_module = __import__("json")
+        json_module.loads(json_str)
+        return json_str
+    except (json_module.JSONDecodeError, ValueError):
+        pass
+
+    # Count unmatched brackets/braces (ignoring those inside strings)
+    open_braces = 0
+    open_brackets = 0
+    in_string = False
+    escape = False
+    for ch in json_str:
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"' and not escape:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch == "{":
+            open_braces += 1
+        elif ch == "}":
+            open_braces -= 1
+        elif ch == "[":
+            open_brackets += 1
+        elif ch == "]":
+            open_brackets -= 1
+
+    # Append missing closers
+    if open_brackets > 0 or open_braces > 0:
+        # Close in reverse order of typical nesting (brackets before braces)
+        json_str += "]" * max(0, open_brackets)
+        json_str += "}" * max(0, open_braces)
+        # Clean up any trailing commas introduced before our new closers
+        json_str = re.sub(r",\s*([}\]])", r"\1", json_str)
+
     return json_str
 
 
