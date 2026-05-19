@@ -291,6 +291,8 @@ class MilvusDB(VectorStoreBase):
             OutputData: Retrieved vector.
         """
         result = self.client.get(collection_name=self.collection_name, ids=vector_id)
+        if not result:
+            return None
         output = OutputData(
             id=result[0].get("id", None),
             score=None,
