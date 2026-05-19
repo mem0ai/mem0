@@ -1001,7 +1001,7 @@ class Memory(MemoryBase):
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
-        ).model_dump()
+        ).model_dump(exclude={"score"})
 
         for key in promoted_payload_keys:
             if key in memory.payload:
@@ -2416,7 +2416,7 @@ class AsyncMemory(MemoryBase):
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
-        ).model_dump()
+        ).model_dump(exclude={"score"})
 
         for key in promoted_payload_keys:
             if key in memory.payload:
