@@ -1,20 +1,20 @@
-import { ProviderV2 } from '@ai-sdk/provider';
-import { LanguageModelV2 } from '@ai-sdk/provider';
+import { ProviderV3 } from '@ai-sdk/provider';
+import { LanguageModelV3 } from '@ai-sdk/provider';
 import { withoutTrailingSlash } from "@ai-sdk/provider-utils";
 import { Mem0ChatModelId, Mem0ChatSettings, Mem0Config } from "./mem0-types";
 import { Mem0GenericLanguageModel } from "./mem0-generic-language-model";
 import { LLMProviderSettings } from "./mem0-types";
 
-export interface Mem0Provider extends ProviderV2 {
-  (modelId: Mem0ChatModelId, settings?: Mem0ChatSettings): LanguageModelV2;
+export interface Mem0Provider extends ProviderV3 {
+  (modelId: Mem0ChatModelId, settings?: Mem0ChatSettings): LanguageModelV3;
 
-  chat(modelId: Mem0ChatModelId, settings?: Mem0ChatSettings): LanguageModelV2;
-  completion(modelId: Mem0ChatModelId, settings?: Mem0ChatSettings): LanguageModelV2;
+  chat(modelId: Mem0ChatModelId, settings?: Mem0ChatSettings): LanguageModelV3;
+  completion(modelId: Mem0ChatModelId, settings?: Mem0ChatSettings): LanguageModelV3;
 
   languageModel(
     modelId: Mem0ChatModelId,
     settings?: Mem0ChatSettings
-  ): LanguageModelV2;
+  ): LanguageModelV3;
 }
 
 export interface Mem0ProviderSettings {
@@ -131,6 +131,7 @@ export function createMem0(
     return createGenericModel(modelId, settings);
   };
 
+  provider.specificationVersion = 'v3';
   provider.languageModel = createGenericModel;
   provider.completion = createCompletionModel;
   provider.chat = createChatModel;
