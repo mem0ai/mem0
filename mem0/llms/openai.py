@@ -79,7 +79,14 @@ class OpenAILLM(LLMBase):
 
             return processed_response
         else:
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            if not content:
+                # Some OpenAI-compatible endpoints (Ollama, DeepSeek, GLM, etc.) separate
+                # chain-of-thought into `reasoning_content` and leave `content` empty when
+                # a reasoning model is used. Fall back to `reasoning_content` so fact
+                # extraction still works instead of silently returning an empty result.
+                content = getattr(response.choices[0].message, "reasoning_content", None)
+            return content
 
     def generate_response(
         self,
