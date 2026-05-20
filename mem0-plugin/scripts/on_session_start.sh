@@ -55,6 +55,10 @@ You have access to persistent memory via the mem0 MCP tools. Before doing anythi
 IMPORTANT: Do NOT skip this step. Always bootstrap context first.
 EOF
 
+  # Auto-import declarative project files in background
+  MEM0_CWD="$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")" \
+    python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
+
 elif [ "$SOURCE" = "resume" ]; then
   cat <<'EOF'
 ## Mem0 Session Resumed
