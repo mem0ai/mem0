@@ -8,7 +8,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -314,14 +314,55 @@ def _build_filters_and_metadata(
     return base_metadata_template, effective_query_filters
 
 
-def _build_session_scope(filters):
-    """Build deterministic session scope string from entity IDs."""
-    parts = []
-    for key in sorted(["user_id", "agent_id", "run_id"]):
+def _build_session_scope(filters, scoping_filters=None):
+    """Build the SQLite session scope string from entity IDs and optional extra keys.
+
+    With no extra keys (default), output matches the legacy 3-key form so existing
+    rows remain reachable.
+    """
+    parts = {}
+    for key in ("user_id", "agent_id", "run_id"):
         val = filters.get(key)
         if val:
-            parts.append(f"{key}={val}")
-    return "&".join(parts)
+            parts[key] = val
+    if scoping_filters:
+        for key, val in scoping_filters.items():
+            if val is None or val == "":
+                continue
+            parts[key] = val
+    return "&".join(f"{k}={parts[k]}" for k in sorted(parts))
+
+
+def _resolve_scoping_filters(metadata, scoping_metadata_keys):
+    """Resolve the caller-named scoping keys against ``metadata``.
+
+    Rejects a bare string (common typo: Python would otherwise iterate characters)
+    and any of the canonical session-id keys (those have dedicated parameters).
+    Missing or empty values are skipped, matching how empty session ids are
+    handled upstream.
+    """
+    if not scoping_metadata_keys:
+        return {}
+    if isinstance(scoping_metadata_keys, str):
+        raise TypeError(
+            "scoping_metadata_keys must be a list/tuple/set of key names, not a bare string. "
+            f"Did you mean [{scoping_metadata_keys!r}]?"
+        )
+    reserved = {"user_id", "agent_id", "run_id"}.intersection(scoping_metadata_keys)
+    if reserved:
+        raise ValueError(
+            f"scoping_metadata_keys must not include session-id keys {sorted(reserved)}; "
+            "pass those as the dedicated user_id / agent_id / run_id arguments instead."
+        )
+    if not metadata:
+        return {}
+    resolved = {}
+    for key in scoping_metadata_keys:
+        val = metadata.get(key)
+        if val is None or val == "":
+            continue
+        resolved[key] = val
+    return resolved
 
 
 setup_config()
@@ -581,6 +622,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        scoping_metadata_keys: Optional[List[str]] = None,
     ):
         """
         Create a new memory.
@@ -603,6 +645,12 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            scoping_metadata_keys (List[str], optional): Extra ``metadata`` keys to
+                include in the candidate retrieval filter, the entity store filter,
+                and the SQLite recent-message scope. Use to partition multi-app
+                deployments that share a single ``user_id`` (e.g. via ``app_id``).
+                Cannot include ``user_id``/``agent_id``/``run_id``. Defaults to None,
+                in which case behavior is identical to previous releases.
 
 
         Returns:
@@ -624,6 +672,7 @@ class Memory(MemoryBase):
             run_id=run_id,
             input_metadata=metadata,
         )
+        scoping_filters = _resolve_scoping_filters(metadata, scoping_metadata_keys)
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise Mem0ValidationError(
@@ -656,10 +705,17 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        vector_store_result = self._add_to_vector_store(
+            messages,
+            processed_metadata,
+            effective_filters,
+            infer,
+            prompt=prompt,
+            scoping_filters=scoping_filters,
+        )
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, scoping_filters=None):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -699,12 +755,16 @@ class Memory(MemoryBase):
         # === V3 PHASED BATCH PIPELINE ===
 
         # Phase 0: Context gathering
-        session_scope = _build_session_scope(filters)
+        session_scope = _build_session_scope(filters, scoping_filters=scoping_filters)
         last_messages = self.db.get_last_messages(session_scope, limit=10)
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        if scoping_filters:
+            # NOTE: Phase 7 below reads the same `search_filters` dict for the
+            # entity_store calls, so this mutation partitions entities too.
+            search_filters.update(scoping_filters)
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
             query=parsed_messages,
@@ -2012,6 +2072,7 @@ class AsyncMemory(MemoryBase):
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
         llm=None,
+        scoping_metadata_keys: Optional[List[str]] = None,
     ):
         """
         Create a new memory asynchronously.
@@ -2027,12 +2088,18 @@ class AsyncMemory(MemoryBase):
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
+            scoping_metadata_keys (List[str], optional): Async mirror of the sync
+                ``Memory.add`` option. Same rules: extra ``metadata`` keys to thread
+                into the candidate retrieval filter, the entity store filter, and the
+                SQLite recent-message scope; cannot include
+                ``user_id``/``agent_id``/``run_id``; defaults to None (no change).
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
+        scoping_filters = _resolve_scoping_filters(metadata, scoping_metadata_keys)
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
@@ -2064,7 +2131,14 @@ class AsyncMemory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        vector_store_result = await self._add_to_vector_store(
+            messages,
+            processed_metadata,
+            effective_filters,
+            infer,
+            prompt=prompt,
+            scoping_filters=scoping_filters,
+        )
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2074,6 +2148,7 @@ class AsyncMemory(MemoryBase):
         effective_filters: dict,
         infer: bool,
         prompt: Optional[str] = None,
+        scoping_filters: Optional[Dict[str, Any]] = None,
     ):
         if not infer:
             returned_memories = []
@@ -2114,12 +2189,16 @@ class AsyncMemory(MemoryBase):
         # === V3 PHASED BATCH PIPELINE (async) ===
 
         # Phase 0: Context gathering
-        session_scope = _build_session_scope(effective_filters)
+        session_scope = _build_session_scope(effective_filters, scoping_filters=scoping_filters)
         last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
+        if scoping_filters:
+            # NOTE: Phase 7 below reads the same `search_filters` dict for the
+            # entity_store calls, so this mutation partitions entities too.
+            search_filters.update(scoping_filters)
         query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,

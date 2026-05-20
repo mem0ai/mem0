@@ -61,7 +61,12 @@ def test_add(memory_instance):
     assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True, prompt=None
+        [{"role": "user", "content": "Test message"}],
+        {"user_id": "test_user"},
+        {"user_id": "test_user"},
+        True,
+        prompt=None,
+        scoping_filters={},
     )
 
 
@@ -99,8 +104,10 @@ def test_search(memory_instance):
     memory_instance.vector_store.keyword_search = Mock(return_value=None)  # No BM25
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
-         patch("mem0.memory.main.extract_entities", return_value=[]):
+    with (
+        patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"),
+        patch("mem0.memory.main.extract_entities", return_value=[]),
+    ):
         result = memory_instance.search("test query", filters={"user_id": "test_user"})
 
     assert "results" in result
@@ -317,8 +324,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, threshold=0)
 
         assert "results" in result
@@ -330,8 +339,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, threshold=1.0)
 
         assert "results" in result
@@ -343,8 +354,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
