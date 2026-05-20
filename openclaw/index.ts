@@ -36,6 +36,7 @@ import {
   resolveUserId,
   isNonInteractiveTrigger,
   isSubagentSession,
+  extractAgentId,
 } from "./isolation.ts";
 import {
   loadTriagePrompt,
@@ -350,6 +351,10 @@ const memoryPlugin = definePluginEntry({
       buildSearchOptions,
       {
         setCurrentSessionId: (id: string) => {
+          // Never overwrite a real session key with a subagent session key.
+          // Subagent before_prompt_build fires in the same process — without this guard,
+          // the parent agent's memory_add calls see isSubagentSession()=true and get blocked.
+          if (!id || isSubagentSession(id)) return;
           currentSessionId = id;
         },
         getStateDir: () => pluginStateDir,
@@ -452,8 +457,31 @@ function registerHooks(
       const isSubagent = isSubagentSession(sessionId);
       const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
 
+      // agentDomains doubles as an injection allowlist: if set and agent not listed, skip mem0 entirely.
+      const _agentId = extractAgentId(sessionId);
+      if (cfg.agentDomains && _agentId && !cfg.agentDomains[_agentId]) {
+        api.logger.info(
+          `openclaw-mem0: skipping mem0 for agent=${_agentId} (not in agentDomains)`,
+        );
+        return;
+      }
+
+      // Resolve per-agent domain override (agentDomains config key)
+      const _agentDomain =
+        _agentId && cfg.agentDomains?.[_agentId]
+          ? cfg.agentDomains[_agentId]
+          : undefined;
+      const _effectiveSkills: typeof cfg.skills = _agentDomain
+        ? { ...(cfg.skills ?? {}), domain: _agentDomain }
+        : (cfg.skills ?? {});
+      if (_agentDomain) {
+        api.logger.info(
+          `openclaw-mem0: per-agent domain override: agent=${_agentId} domain=${_agentDomain}`,
+        );
+      }
+
       // Static protocol goes in prependSystemContext (cacheable across turns)
-      let systemContext = loadTriagePrompt(cfg.skills ?? {});
+      let systemContext = loadTriagePrompt(_effectiveSkills);
       if (isSubagent) {
         systemContext =
           "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories.\n\n" +
@@ -486,7 +514,7 @@ function registerHooks(
             provider,
             query,
             userId,
-            cfg.skills ?? {},
+            _effectiveSkills,
             sessionIdForRecall,
           );
 

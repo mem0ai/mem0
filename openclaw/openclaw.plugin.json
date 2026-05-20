@@ -299,6 +299,11 @@
           },
           "categories": { "type": "object" }
         }
+      },
+      "agentDomains": {
+        "type": "object",
+        "description": "Per-agent domain overrides. Key = agent id, value = domain name. Overrides global skills.domain for that agent only.",
+        "additionalProperties": { "type": "string" }
       }
     },
     "required": []
