@@ -5,6 +5,7 @@ mem0ai>=0.1.48
 python-dotenv==1.0.1
 psycopg>=3.2.8
 psycopg-pool>=3.2.6,<4.0.0
+psycopg-binary <=3.3.4
 
 # Bundled LLM/embedder providers. Extend by adding the provider's package
 # here, rebuilding the image, and updating BUNDLED_*_PROVIDERS in main.py.
