@@ -89,6 +89,43 @@ class TestAuthDisabled:
         })
         assert resp.status_code == 200
 
+    def test_create_memory_accepts_image_url_content_without_key(self):
+        image_content = {
+            "type": "image_url",
+            "image_url": {"url": "https://example.com/receipt.jpg"},
+        }
+
+        resp = self.client.post("/memories", json={
+            "messages": [{"role": "user", "content": image_content}],
+            "user_id": "Alice",
+        })
+
+        assert resp.status_code == 200
+        self.mock.add.assert_called_with(
+            messages=[{"role": "user", "content": image_content}],
+            user_id="Alice",
+        )
+
+    def test_create_memory_accepts_openai_multimodal_content_list_without_key(self):
+        multimodal_content = [
+            {"type": "text", "text": "Please remember this receipt."},
+            {
+                "type": "image_url",
+                "image_url": {"url": "https://example.com/receipt.jpg"},
+            },
+        ]
+
+        resp = self.client.post("/memories", json={
+            "messages": [{"role": "user", "content": multimodal_content}],
+            "user_id": "Alice",
+        })
+
+        assert resp.status_code == 200
+        self.mock.add.assert_called_with(
+            messages=[{"role": "user", "content": multimodal_content}],
+            user_id="Alice",
+        )
+
     def test_search_without_key(self):
         resp = self.client.post("/search", json={"query": "pizza", "user_id": "alice"})
         assert resp.status_code == 200
