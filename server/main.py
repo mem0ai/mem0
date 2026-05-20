@@ -416,7 +416,18 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
 def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
-        params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
+        # Memory.search() rejects user_id/agent_id/run_id as top-level kwargs;
+        # they must go inside filters={...}. Translate here so the request
+        # schema (which accepts them at the top level) keeps working.
+        dump = search_req.model_dump()
+        filters = dict(dump.get("filters") or {})
+        for entity_key in ("user_id", "agent_id", "run_id"):
+            val = dump.pop(entity_key, None)
+            if val is not None and entity_key not in filters:
+                filters[entity_key] = val
+        params = {k: v for k, v in dump.items() if v is not None and k != "query"}
+        if filters:
+            params["filters"] = filters
         return get_memory_instance().search(query=search_req.query, **params)
     except Exception:
         raise upstream_error()
