@@ -1,8 +1,8 @@
 /// <reference types="jest" />
 /**
  * OpenAI Embedder — unit tests (mocked OpenAI client).
- * Verifies that the `dimensions` parameter is only passed to the API
- * when the user explicitly configures `embeddingDims`.
+ * Verifies that OpenAI requests use float embeddings and only pass the
+ * `dimensions` parameter when the user explicitly configures `embeddingDims`.
  */
 
 const mockEmbeddingsCreate = jest.fn();
@@ -42,6 +42,7 @@ describe("OpenAIEmbedder (unit)", () => {
       expect(callArgs).toEqual({
         model: "text-embedding-3-small",
         input: "hello",
+        encoding_format: "float",
       });
     });
 
@@ -58,6 +59,7 @@ describe("OpenAIEmbedder (unit)", () => {
       expect(callArgs).toEqual({
         model: "text-embedding-3-small",
         input: "hello",
+        encoding_format: "float",
         dimensions: 1024,
       });
     });
@@ -87,6 +89,7 @@ describe("OpenAIEmbedder (unit)", () => {
 
       const callArgs = mockEmbeddingsCreate.mock.calls[0][0];
       expect(callArgs).not.toHaveProperty("dimensions");
+      expect(callArgs).toHaveProperty("encoding_format", "float");
     });
 
     it("passes dimensions in embedBatch when embeddingDims is explicitly set", async () => {
@@ -105,8 +108,37 @@ describe("OpenAIEmbedder (unit)", () => {
       expect(callArgs).toEqual({
         model: "text-embedding-3-small",
         input: ["hello", "world"],
+        encoding_format: "float",
         dimensions: 512,
       });
+    });
+  });
+
+  describe("encoding format", () => {
+    it("embed() explicitly requests float embeddings", async () => {
+      const embedder = new OpenAIEmbedder({
+        apiKey: "test-key",
+      });
+
+      await embedder.embed("hello");
+
+      const callArgs = mockEmbeddingsCreate.mock.calls[0][0];
+      expect(callArgs).toHaveProperty("encoding_format", "float");
+    });
+
+    it("embedBatch() explicitly requests float embeddings", async () => {
+      mockEmbeddingsCreate.mockResolvedValue({
+        data: [{ embedding: mockEmbedding }, { embedding: mockEmbedding }],
+      });
+
+      const embedder = new OpenAIEmbedder({
+        apiKey: "test-key",
+      });
+
+      await embedder.embedBatch(["hello", "world"]);
+
+      const callArgs = mockEmbeddingsCreate.mock.calls[0][0];
+      expect(callArgs).toHaveProperty("encoding_format", "float");
     });
   });
 
