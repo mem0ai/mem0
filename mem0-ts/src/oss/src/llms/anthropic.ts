@@ -8,10 +8,11 @@ export class AnthropicLLM implements LLM {
 
   constructor(config: LLMConfig) {
     const apiKey = config.apiKey || process.env.ANTHROPIC_API_KEY;
+    const baseURL = config.baseURL || process.env.ANTHROPIC_BASE_URL;
     if (!apiKey) {
       throw new Error("Anthropic API key is required");
     }
-    this.client = new Anthropic({ apiKey });
+    this.client = new Anthropic({ apiKey, baseURL });
     this.model = config.model || "claude-3-sonnet-20240229";
   }
 
