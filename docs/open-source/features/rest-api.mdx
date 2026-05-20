@@ -226,6 +226,20 @@ curl -X POST http://localhost:8888/search \
   }'
 ```
 
+Set `explain` to inspect the scoring signals used by OSS hybrid search:
+
+```bash
+curl -X POST http://localhost:8888/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "vegetable pizza",
+    "user_id": "alice",
+    "explain": true
+  }'
+```
+
+Each returned memory includes `score_details` only when explanation mode is enabled.
+
 ### Explore with OpenAPI docs
 
 1. Navigate to `http://localhost:8888/docs` (Compose) or `http://localhost:8000/docs` (raw Docker / uvicorn).
