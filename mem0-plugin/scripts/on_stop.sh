@@ -37,6 +37,8 @@ Before finishing, check if there are important learnings from this interaction t
 Memories can be as detailed as needed — include full context, reasoning, code snippets, file paths, and examples. Longer, searchable memories are more valuable than vague one-liners.
 
 If nothing notable happened in this interaction, it's fine to skip. Only store genuinely useful learnings.
+
+Always include `"project_id"` in the metadata of any memory you store.
 EOF
 
 # Capture transcript state in the background via Mem0 REST API

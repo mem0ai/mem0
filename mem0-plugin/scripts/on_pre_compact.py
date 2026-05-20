@@ -24,6 +24,7 @@ from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _identity import resolve_user_id
+from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-capture")
 log.setLevel(logging.DEBUG)
@@ -167,7 +168,7 @@ def build_content(state: dict, source: str) -> str:
     return "\n".join(parts)
 
 
-def store_memory(api_key: str, content: str, user_id: str, source: str, session_id: str = "") -> bool:
+def store_memory(api_key: str, content: str, user_id: str, source: str, session_id: str = "", project_id: str = "", branch: str = "") -> bool:
     """Store session state as a memory via the Mem0 REST API."""
     expires = (date.today() + timedelta(days=SESSION_STATE_EXPIRY_DAYS)).isoformat()
     body = {
@@ -179,6 +180,8 @@ def store_memory(api_key: str, content: str, user_id: str, source: str, session_
             "type": "session_state",
             "source": source,
             "session_id": session_id,
+            "project_id": project_id,
+            "branch": branch,
         },
         "expiration_date": expires,
     }
@@ -230,6 +233,8 @@ def main():
 
     session_id = hook_input.get("session_id", "")
     user_id = resolve_user_id()
+    project_id = resolve_project_id()
+    branch = resolve_branch()
 
     lines = tail_lines(transcript_path, MAX_TAIL_LINES)
     if not lines:
@@ -250,7 +255,7 @@ def main():
         len(state["bash_commands"]),
     )
 
-    store_memory(api_key, content, user_id, source, session_id)
+    store_memory(api_key, content, user_id, source, session_id, project_id, branch)
 
 
 if __name__ == "__main__":

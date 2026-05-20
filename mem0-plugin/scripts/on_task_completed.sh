@@ -13,6 +13,9 @@ if [ -n "${MEM0_DEBUG:-}" ]; then
   mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SCRIPT_DIR/_identity.sh" || true
+
 INPUT=$(cat)
 TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // "unknown task"' 2>/dev/null || echo "unknown task")
 
@@ -28,6 +31,7 @@ Extract key learnings from this completed task and store them using the mem0 \`a
 
 Memories can be as detailed as needed — include full context, reasoning, code snippets, and examples.
 Only store genuinely useful learnings — skip if the task was trivial.
+Include \`"project_id": "$MEM0_PROJECT_ID"\` in metadata for all memories.
 EOF
 
 exit 0

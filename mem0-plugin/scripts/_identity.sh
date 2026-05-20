@@ -14,3 +14,6 @@ _mem0_resolve_identity() {
 
 MEM0_RESOLVED_USER_ID="$(_mem0_resolve_identity)"
 export MEM0_RESOLVED_USER_ID
+
+# Also resolve project context
+. "$( cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd )/_project.sh"

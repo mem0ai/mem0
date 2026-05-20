@@ -32,11 +32,14 @@ SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "start
 # uses the same user_id the hooks resolved. Without this, the agent's
 # search_memories/add_memory MCP calls may bind to a different bucket
 # than what the hooks write to.
-echo "## Mem0 Identity"
+echo "## Mem0 Active"
 echo ""
-echo "Active user_id: \`$MEM0_RESOLVED_USER_ID\`"
+echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH\`"
 echo ""
-echo "Always include \`{\"user_id\": \"$MEM0_RESOLVED_USER_ID\"}\` (wrapped in an \`AND\` clause) in every \`search_memories\` filter and as \`user_id\` on every \`add_memory\` call. This keeps the agent's MCP calls aligned with the bucket the hooks write to."
+echo "Always include \`user_id\` + \`metadata.project_id\` in every \`search_memories\` filter and \`add_memory\` call:"
+echo "- user_id: \`$MEM0_RESOLVED_USER_ID\`"
+echo "- project_id: \`$MEM0_PROJECT_ID\`"
+echo "- branch: \`$MEM0_BRANCH\` (include in session-state / compact-summary metadata)"
 echo ""
 
 if [ "$SOURCE" = "startup" ]; then
