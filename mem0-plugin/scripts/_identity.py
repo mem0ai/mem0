@@ -15,3 +15,16 @@ def resolve_user_id() -> str:
     if explicit:
         return explicit
     return os.environ.get("USER") or "default"
+
+
+try:
+    from _project import resolve_branch, resolve_project_id, save_project_mapping
+except ImportError:
+    def resolve_project_id() -> str:
+        return os.path.basename(os.getcwd())
+
+    def resolve_branch() -> str:
+        return "unknown"
+
+    def save_project_mapping(cwd: str, project_id: str) -> None:
+        pass

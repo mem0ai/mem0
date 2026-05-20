@@ -2,6 +2,26 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.0
+
+### Added
+
+- **Project-scoped memories:** Deterministic `project_id` from git remote (`_project.sh` / `_project.py`). Memories are now isolated per-repo via `metadata.project_id` on every `add_memory` and `search_memories` call. Same repo cloned twice → same `project_id`.
+- **Branch-aware tagging:** `metadata.branch` stamped on session-state and compact-summary memories. Enables branch-scoped recall (e.g. "what was I doing on feature/auth-rewrite?").
+- **Auto-import of project files:** SessionStart detects CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules, mem0.md — hashes them (SHA-256), imports changed files as `project_profile` memories. Idempotent across sessions.
+- **Active identity banner:** SessionStart now prints `user=X | project=Y | branch=Z | memories=N` instead of a silent bootstrap.
+- **Session-end report:** Stop hook prints `Session: wrote N memories, retrieved M. Categories touched: ...` and appends to `~/.mem0/session-log.md`.
+- **`/mem0:onboard` skill:** Post-install wizard — verifies API key, detects and imports project files, installs coding categories, prints setup summary. 30 seconds to value.
+- **`/mem0:tour` skill:** Shows all memories for the current project grouped by category. Proof-of-value demo.
+- **`/mem0:switch-project` skill:** Manual `project_id` override for monorepos and non-git directories. Persists to `~/.mem0/project_map.json`.
+- **Session stats tracker** (`session_stats.py`): Tracks memory adds/searches per session for the end-of-session report.
+
+### Changed
+
+- All hooks and `mem0-mcp/SKILL.md` now include `project_id` in every filter and metadata example.
+- SessionStart banner replaces the previous "## Mem0 Identity" block with a compact one-liner.
+- `on_pre_compact.py` and `capture_compact_summary.py` now include `project_id` and `branch` in stored metadata.
+
 ## 0.1.3
 
 ### Fixed
