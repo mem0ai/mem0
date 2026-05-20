@@ -228,6 +228,27 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     return parsed.astimezone(timezone.utc).isoformat()
 
 
+def _extract_observation_timestamp(
+    metadata: Optional[Dict[str, Any]], messages: Optional[list] = None
+) -> Optional[str]:
+    """Find the timestamp that should anchor relative dates during extraction."""
+    metadata = metadata or {}
+    for key in ("timestamp", "created_at"):
+        value = metadata.get(key)
+        if value:
+            return value
+
+    for message in messages or []:
+        if not isinstance(message, dict):
+            continue
+        for key in ("timestamp", "created_at"):
+            value = message.get(key)
+            if value:
+                return value
+
+    return None
+
+
 def _build_filters_and_metadata(
     *,  # Enforce keyword-only arguments
     user_id: Optional[str] = None,
@@ -732,6 +753,7 @@ class Memory(MemoryBase):
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
+            timestamp=_extract_observation_timestamp(metadata, messages),
             custom_instructions=custom_instr,
         )
 
@@ -2148,6 +2170,7 @@ class AsyncMemory(MemoryBase):
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
+            timestamp=_extract_observation_timestamp(metadata, messages),
             custom_instructions=custom_instr,
         )
 
