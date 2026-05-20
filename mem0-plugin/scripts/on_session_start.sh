@@ -31,26 +31,32 @@ python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
 
-# Fetch memory count for this user (best-effort, don't block on failure, 5s timeout)
+# Fetch project-scoped memory count (best-effort, don't block on failure, 5s timeout)
 MEM0_COUNT="?"
 if command -v python3 >/dev/null 2>&1; then
   MEM0_COUNT=$(python3 -c "
-import json, os, urllib.request, urllib.error, urllib.parse
+import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
-params = urllib.parse.urlencode({'user_id': user_id, 'page_size': '1'})
+project_id = os.environ.get('MEM0_PROJECT_ID', '')
+body = json.dumps({
+    'query': 'project context',
+    'user_id': user_id,
+    'filters': {'AND': [{'user_id': user_id}, {'metadata': {'project_id': project_id}}]},
+    'limit': 100,
+}).encode()
 req = urllib.request.Request(
-    f'https://api.mem0.ai/v1/memories/?{params}',
-    headers={'Authorization': f'Token {api_key}'},
-    method='GET',
+    'https://api.mem0.ai/v2/memories/search/',
+    data=body,
+    headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
+    method='POST',
 )
 try:
     with urllib.request.urlopen(req, timeout=5) as r:
-        data = json.loads(r.read())
-        if isinstance(data, dict) and 'count' in data:
-            print(data['count'])
-        elif isinstance(data, list):
-            print(len(data))
+        results = json.loads(r.read())
+        if isinstance(results, list):
+            n = len(results)
+            print(f'{n}+' if n >= 100 else str(n))
         else:
             print('?')
 except Exception:

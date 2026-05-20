@@ -11,9 +11,9 @@ be tagged using the new list automatically.
 
 Usage:
   python setup_coding_categories.py            # dry-run: show current vs proposed, no changes
-  python setup_coding_categories.py --apply    # actually call project.update()
+  python setup_coding_categories.py --apply    # actually update the project
 
-Requires the mem0ai Python SDK and MEM0_API_KEY to be set.
+Requires MEM0_API_KEY to be set. No external dependencies (stdlib only).
 """
 
 from __future__ import annotations
@@ -22,6 +22,10 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
+import urllib.request
+
+API_BASE = "https://api.mem0.ai"
 
 CODING_CATEGORIES = [
     {
@@ -69,6 +73,65 @@ CODING_CATEGORIES = [
 ]
 
 
+def _api_headers(api_key: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Token {api_key}",
+        "Content-Type": "application/json",
+    }
+
+
+def _resolve_org_project(api_key: str) -> tuple[str, str]:
+    """Call GET /v1/ping/ to resolve org_id and project_id from API key."""
+    req = urllib.request.Request(
+        f"{API_BASE}/v1/ping/",
+        headers=_api_headers(api_key),
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            org_id = data.get("org_id", "")
+            project_id = data.get("project_id", "")
+            if not org_id or not project_id:
+                print("ERROR: API key did not return org_id/project_id.", file=sys.stderr)
+                sys.exit(1)
+            return org_id, project_id
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace") if e.fp else ""
+        print(f"ERROR: ping failed (HTTP {e.code}): {body}", file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"ERROR: cannot reach API: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _get_project(api_key: str, org_id: str, project_id: str) -> dict:
+    """GET project details including custom_categories."""
+    url = f"{API_BASE}/api/v1/orgs/organizations/{org_id}/projects/{project_id}/"
+    req = urllib.request.Request(url, headers=_api_headers(api_key), method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace") if e.fp else ""
+        print(f"ERROR: get project failed (HTTP {e.code}): {body}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _update_project(api_key: str, org_id: str, project_id: str, categories: list) -> dict:
+    """PATCH project to set custom_categories."""
+    url = f"{API_BASE}/api/v1/orgs/organizations/{org_id}/projects/{project_id}/"
+    payload = json.dumps({"custom_categories": categories}).encode("utf-8")
+    req = urllib.request.Request(url, data=payload, headers=_api_headers(api_key), method="PATCH")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace") if e.fp else ""
+        print(f"ERROR: update project failed (HTTP {e.code}): {body}", file=sys.stderr)
+        sys.exit(1)
+
+
 def _print_categories(label: str, cats):
     print(f"=== {label} ===")
     if cats:
@@ -83,42 +146,21 @@ def main() -> int:
     ap.add_argument(
         "--apply",
         action="store_true",
-        help="Actually call project.update(). Without this flag, runs in dry-run mode.",
+        help="Actually update the project. Without this flag, runs in dry-run mode.",
     )
     args = ap.parse_args()
 
-    if not os.environ.get("MEM0_API_KEY"):
+    api_key = os.environ.get("MEM0_API_KEY", "")
+    if not api_key:
         print("ERROR: MEM0_API_KEY is not set. Export it and try again.", file=sys.stderr)
         return 1
 
-    try:
-        from mem0 import MemoryClient
-    except ImportError:
-        print(
-            "ERROR: the mem0ai Python SDK is not installed.\n"
-            "Install with: pip install mem0ai\n"
-            "Then re-run this script.",
-            file=sys.stderr,
-        )
-        return 1
+    print("Resolving org/project from API key...")
+    org_id, project_id = _resolve_org_project(api_key)
+    print(f"org={org_id} project={project_id}\n")
 
-    try:
-        client = MemoryClient()
-    except Exception as e:
-        print(
-            f"ERROR initialising MemoryClient: {e}\n"
-            "Most commonly this is an invalid MEM0_API_KEY -- check the key at "
-            "https://app.mem0.ai/dashboard/api-keys",
-            file=sys.stderr,
-        )
-        return 1
-
-    try:
-        current = client.project.get(fields=["custom_categories"])
-        current_cats = current.get("custom_categories") if isinstance(current, dict) else None
-    except Exception as e:
-        print(f"ERROR fetching current categories: {e}", file=sys.stderr)
-        return 1
+    project = _get_project(api_key, org_id, project_id)
+    current_cats = project.get("custom_categories") if isinstance(project, dict) else None
 
     _print_categories("Current project categories", current_cats)
     _print_categories("Proposed coding categories", CODING_CATEGORIES)
@@ -128,12 +170,7 @@ def main() -> int:
         return 0
 
     print("Applying coding categories...")
-    try:
-        response = client.project.update(custom_categories=CODING_CATEGORIES)
-    except Exception as e:
-        print(f"ERROR applying update: {e}", file=sys.stderr)
-        return 1
-
+    response = _update_project(api_key, org_id, project_id, CODING_CATEGORIES)
     print("Done.", response if response else "")
     return 0
 
