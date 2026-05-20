@@ -1,0 +1,81 @@
+---
+title: FastEmbed
+description: "FastEmbed embedding provider for Mem0 - efficient, lightweight, and fast embedding models."
+---
+
+FastEmbed is a lightweight, fast, and efficient embedding library that runs in ONNX runtime. It's designed for high-performance embedding generation with minimal resource usage.
+
+## Usage
+
+To use FastEmbed as your embedding provider, set the `provider` field to `"fastembed"` in your embedding configuration.
+
+### Example Configuration
+
+```python
+from mem0 import Memory
+
+# Initialize Memory with FastEmbed configuration
+memory = Memory(
+    embedder={
+        "provider": "fastembed",
+        "config": {
+            "model": "thenlper/gte-large",  # Default model
+            "embedding_dims": 1024,  # Optional: embedding dimensions
+        }
+    }
+)
+```
+
+### Using with YAML Configuration
+
+If you're using a YAML configuration file:
+
+```yaml
+embedder:
+  provider: fastembed
+  config:
+    model: "thenlper/gte-large"
+    embedding_dims: 1024
+```
+
+## Configuration Parameters
+
+The following parameters can be configured for FastEmbed:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `model` | string | `"thenlper/gte-large"` | The FastEmbed model to use. Other options include `"BAAI/bge-small-en-v1.5"`, `"sentence-transformers/all-MiniLM-L6-v2"`, etc. |
+| `embedding_dims` | integer | Model-specific | The dimensionality of the embedding vectors. If not specified, it will be automatically detected from the model. |
+
+## Available Models
+
+FastEmbed supports various pre-trained models. Some popular options include:
+
+- `"thenlper/gte-large"` - General Text Embeddings (GTE) large model
+- `"BAAI/bge-small-en-v1.5"` - BGE small English model
+- `"sentence-transformers/all-MiniLM-L6-v2"` - MiniLM model
+- `"intfloat/e5-large-v2"` - E5 large model
+
+You can find more models in the [FastEmbed documentation](https://github.com/qdrant/fastembed).
+
+## Installation
+
+FastEmbed requires additional dependencies. Install them using:
+
+```bash
+pip install fastembed
+```
+
+## Performance
+
+FastEmbed is optimized for speed and memory efficiency:
+- Runs in ONNX runtime for maximum performance
+- Minimal memory footprint
+- Supports batch processing
+- No GPU required (but can utilize GPU if available)
+
+## Notes
+
+- FastEmbed is currently only supported in the Python implementation of Mem0.
+- The TypeScript implementation does not yet support FastEmbed.
+- Models are automatically downloaded on first use and cached locally.
