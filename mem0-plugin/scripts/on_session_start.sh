@@ -28,13 +28,40 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
 
+# Fetch memory count for this user (best-effort, don't block on failure, 5s timeout)
+MEM0_COUNT="?"
+if command -v python3 >/dev/null 2>&1; then
+  MEM0_COUNT=$(python3 -c "
+import json, os, urllib.request, urllib.error, urllib.parse
+api_key = os.environ.get('MEM0_API_KEY', '')
+user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
+params = urllib.parse.urlencode({'user_id': user_id, 'page_size': '1'})
+req = urllib.request.Request(
+    f'https://api.mem0.ai/v1/memories/?{params}',
+    headers={'Authorization': f'Token {api_key}'},
+    method='GET',
+)
+try:
+    with urllib.request.urlopen(req, timeout=5) as r:
+        data = json.loads(r.read())
+        if isinstance(data, dict) and 'count' in data:
+            print(data['count'])
+        elif isinstance(data, list):
+            print(len(data))
+        else:
+            print('?')
+except Exception:
+    print('?')
+" 2>/dev/null || echo "?")
+fi
+
 # Identity line is emitted before every bootstrap variant so the agent
 # uses the same user_id the hooks resolved. Without this, the agent's
 # search_memories/add_memory MCP calls may bind to a different bucket
 # than what the hooks write to.
 echo "## Mem0 Active"
 echo ""
-echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH\`"
+echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT\`"
 echo ""
 echo "Always include \`user_id\` + \`metadata.project_id\` in every \`search_memories\` filter and \`add_memory\` call:"
 echo "- user_id: \`$MEM0_RESOLVED_USER_ID\`"
