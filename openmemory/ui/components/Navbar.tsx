@@ -13,6 +13,7 @@ import { useStats } from "@/hooks/useStats";
 import { useAppsApi } from "@/hooks/useAppsApi";
 import { Settings } from "lucide-react";
 import { useConfig } from "@/hooks/useConfig";
+import { UserSelector } from "@/components/UserSelector";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -148,6 +149,7 @@ export function Navbar() {
           </Link>
         </div>
         <div className="flex items-center gap-4">
+          <UserSelector />
           <Button
             onClick={handleRefresh}
             variant="outline"
