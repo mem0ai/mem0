@@ -1,11 +1,11 @@
 .PHONY: up down clean logs seed wait-api wait-dashboard bootstrap health build run_local reset-admin-password prune-logs
 
 OUTPUT ?= text
-API_URL ?= http://localhost:8888
-DASHBOARD_URL ?= http://localhost:3000
+API_URL ?= http://localhost:50020
+DASHBOARD_URL ?= http://localhost:50010
 
 up:
-	@for port in 3000 8888; do \
+	@for port in 50010 50020; do \
 		if lsof -iTCP:$$port -sTCP:LISTEN >/dev/null 2>&1; then \
 			echo "error: port $$port is already in use."; \
 			echo "find the owning process with: lsof -iTCP:$$port -sTCP:LISTEN"; \
@@ -50,10 +50,10 @@ health:
 reset-admin-password:
 	@test -n "$(EMAIL)" || (echo "usage: make reset-admin-password EMAIL=<email> PASSWORD=<password>" && exit 2)
 	@test -n "$(PASSWORD)" || (echo "usage: make reset-admin-password EMAIL=<email> PASSWORD=<password>" && exit 2)
-	@docker compose exec -T -e EMAIL="$(EMAIL)" -e PASSWORD="$(PASSWORD)" -e PYTHONPATH=/app mem0 python scripts/reset_admin_password.py
+	@docker compose exec -T -e EMAIL="$(EMAIL)" -e PASSWORD="$(PASSWORD)" -e PYTHONPATH=/app:/app/server mem0 python scripts/reset_admin_password.py
 
 prune-logs:
-	@docker compose exec -T -e REQUEST_LOG_RETENTION_DAYS="$(REQUEST_LOG_RETENTION_DAYS)" -e PYTHONPATH=/app mem0 python scripts/prune_request_logs.py
+	@docker compose exec -T -e REQUEST_LOG_RETENTION_DAYS="$(REQUEST_LOG_RETENTION_DAYS)" -e PYTHONPATH=/app:/app/server mem0 python scripts/prune_request_logs.py
 
 build:
 	docker build -t mem0-api-server .

@@ -150,8 +150,16 @@ async def verify_auth(
 ) -> User | None:
     """Authenticate via JWT, X-API-Key, or legacy ADMIN_API_KEY. Returns User or None."""
     if credentials is not None:
+        bearer_token = credentials.credentials
+        if ADMIN_API_KEY and secrets.compare_digest(bearer_token, ADMIN_API_KEY):
+            _mark_auth_type(request, "admin_api_key")
+            return None
+        if bearer_token.startswith("m0sk_"):
+            _mark_auth_type(request, "api_key")
+            return _resolve_user_from_api_key(bearer_token, db)
+
         _mark_auth_type(request, "bearer")
-        return _resolve_user_from_jwt(credentials.credentials, db)
+        return _resolve_user_from_jwt(bearer_token, db)
 
     if x_api_key is not None:
         if ADMIN_API_KEY and secrets.compare_digest(x_api_key, ADMIN_API_KEY):

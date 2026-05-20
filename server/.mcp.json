@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "mem0-local": {
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "mem0-dev-mem0-1",
+        "python",
+        "scripts/mcp_stdio.py"
+      ]
+    }
+  }
+}

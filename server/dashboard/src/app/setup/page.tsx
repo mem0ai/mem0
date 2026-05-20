@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
 import { getErrorMessage } from "@/lib/error-message";
+import { getPublicApiUrl } from "@/lib/public-runtime-config";
 import { cn } from "@/lib/utils";
 import { api } from "@/utils/api";
 import {
@@ -98,7 +99,7 @@ export default function SetupPage() {
   const [isGeneratingInstructions, setIsGeneratingInstructions] =
     useState(false);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const apiUrl = getPublicApiUrl();
 
   useEffect(() => {
     if (step !== 1) {

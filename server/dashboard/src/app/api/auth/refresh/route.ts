@@ -6,7 +6,7 @@ import { getServerApiUrl } from "@/lib/server-api-url";
 const COOKIE_NAME = "mem0_refresh_token";
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: false, // Changed from process.env.NODE_ENV === "production" to support local HTTP
   sameSite: "lax" as const,
   path: "/",
   maxAge: 30 * 24 * 60 * 60, // 30 days

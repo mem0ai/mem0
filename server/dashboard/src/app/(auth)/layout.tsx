@@ -3,6 +3,7 @@ import React from "react";
 import { Inter, InterDisplay, Roboto, Fustat, DMMono } from "../(root)/fonts";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PublicRuntimeConfigScript } from "@/components/public-runtime-config-script";
 import { AuthProvider } from "@/lib/auth";
 
 export const metadata = {
@@ -28,6 +29,7 @@ export default function AuthLayout({
       suppressHydrationWarning
     >
       <body className="font-fustat" suppressHydrationWarning>
+        <PublicRuntimeConfigScript />
         <AuthProvider>
           <ThemeProvider
             attribute="class"

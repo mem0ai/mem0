@@ -21,6 +21,7 @@ import {
 import { UpgradeBanner } from "@/components/self-hosted/upgrade-banner";
 import { toast } from "@/components/ui/use-toast";
 import { getErrorMessage } from "@/lib/error-message";
+import { getPublicApiUrl } from "@/lib/public-runtime-config";
 import { api } from "@/utils/api";
 import { MEMORY_ENDPOINTS } from "@/utils/api-endpoints";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -33,7 +34,7 @@ export default function MemoriesPage() {
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
   const [page, setPage] = useState(0);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+  const apiUrl = getPublicApiUrl();
 
   const {
     data: memories = [],

@@ -1,0 +1,47 @@
+name: openmemory-axon
+
+services:
+  openmemory-mcp:
+    build:
+      context: api/
+      dockerfile: Dockerfile
+    image: mem0/openmemory-mcp:axon
+    container_name: openmemory-mcp
+    restart: unless-stopped
+    gpus: all
+    env_file:
+      - api/.env
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      USER: ${USER:-jmagar}
+      QDRANT_HOST: axon-qdrant
+      QDRANT_PORT: "6333"
+      EMBEDDING_DIMS: "1024"
+      EMBEDDER_PROVIDER: openai
+      EMBEDDER_MODEL: Qwen/Qwen3-Embedding-0.6B
+      EMBEDDER_BASE_URL: http://axon-tei:80/v1
+      EMBEDDER_API_KEY: none
+      RERANKER_PROVIDER: sentence_transformer
+      RERANKER_MODEL: BAAI/bge-reranker-v2-m3
+      RERANKER_DEVICE: cuda
+      RERANKER_BATCH_SIZE: "16"
+      RERANKER_TOP_K: "5"
+      RERANKER_INITIAL_TOP_K: "25"
+    ports:
+      - "127.0.0.1:18765:8765"
+    volumes:
+      - ./api:/usr/src/openmemory
+    networks:
+      - axon
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/docs')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  axon:
+    external: true
+    name: axon

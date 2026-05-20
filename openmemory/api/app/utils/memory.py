@@ -243,7 +243,8 @@ def get_default_memory_config():
         vector_store_provider = "qdrant"
         vector_store_config.update({
             "host": os.environ.get('QDRANT_HOST'),
-            "port": int(os.environ.get('QDRANT_PORT'))
+            "port": int(os.environ.get('QDRANT_PORT')),
+            "embedding_model_dims": int(os.environ.get('EMBEDDING_DIMS', '1536')),
         })
     elif os.environ.get('WEAVIATE_CLUSTER_URL') or (os.environ.get('WEAVIATE_HOST') and os.environ.get('WEAVIATE_PORT')):
         vector_store_provider = "weaviate"
@@ -359,7 +360,7 @@ def get_default_memory_config():
     )
     print(f"Auto-detected embedder provider: {embedder_provider}")
 
-    return {
+    config = {
         "vector_store": {
             "provider": vector_store_provider,
             "config": vector_store_config
@@ -374,6 +375,23 @@ def get_default_memory_config():
         },
         "version": "v1.1"
     }
+
+    reranker_provider = os.environ.get("RERANKER_PROVIDER")
+    reranker_model = os.environ.get("RERANKER_MODEL")
+    if reranker_provider and reranker_model:
+        config["reranker"] = {
+            "provider": reranker_provider,
+            "config": {
+                "model": reranker_model,
+                "device": os.environ.get("RERANKER_DEVICE") or None,
+                "batch_size": int(os.environ.get("RERANKER_BATCH_SIZE", "16")),
+                "top_k": int(os.environ.get("RERANKER_TOP_K", "5")),
+                "show_progress_bar": False,
+            },
+        }
+        print(f"Auto-detected reranker provider: {reranker_provider}")
+
+    return config
 
 
 def _parse_environment_variables(config_dict):
