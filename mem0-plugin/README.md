@@ -193,7 +193,7 @@ python mem0-plugin/scripts/setup_coding_categories.py
 python mem0-plugin/scripts/setup_coding_categories.py --apply
 ```
 
-Requires the `mem0ai` Python SDK (`pip install mem0ai`) and `MEM0_API_KEY` set. New memories will then auto-tag against `architecture_decisions`, `anti_patterns`, `task_learnings`, `tooling_setup`, `bug_fixes`, `coding_conventions`, `user_preferences`. Re-run with a different list any time; `project.update(custom_categories=[...])` always replaces.
+Requires `MEM0_API_KEY` set. No external dependencies (uses Python stdlib only). New memories will then auto-tag against `architecture_decisions`, `anti_patterns`, `task_learnings`, `tooling_setup`, `bug_fixes`, `coding_conventions`, `user_preferences`. Re-run with a different list any time — it always replaces the full set.
 
 ## MCP Tools
 
