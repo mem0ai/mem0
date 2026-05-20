@@ -17,6 +17,7 @@ from app.models import (
 from app.schemas import MemoryResponse
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
+from app.utils.scoped_client import ScopedMemoryClient
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
@@ -256,14 +257,14 @@ async def create_memory(
 
     # Try to save to Qdrant via memory_client
     try:
-        qdrant_response = memory_client.add(
+        scoped = ScopedMemoryClient(memory_client, request.user_id)
+        qdrant_response = scoped.add(
             request.text,
-            user_id=request.user_id,  # Use string user_id to match search
             metadata={
                 "source_app": "openmemory",
                 "mcp_client": request.app,
             },
-            infer=request.infer
+            infer=request.infer,
         )
         
         # Log the response for debugging
@@ -378,10 +379,16 @@ async def delete_memories(
             detail=f"Memory service unavailable: {str(client_error)}"
         )
 
-    # Delete from vector store then mark as deleted in database
+    # Delete from vector store then mark as deleted in database.
+    # The DELETE endpoint enforces ownership at the SQL layer (the User row
+    # with user_id == request.user_id is required to exist above), so any
+    # memory_id passed in is presumed to be the caller's. We still scope the
+    # vector-store client to the same user_id for symmetry with all other
+    # call sites and so that future enforcement at the wrapper level applies.
+    scoped = ScopedMemoryClient(memory_client, request.user_id)
     for memory_id in request.memory_ids:
         try:
-            memory_client.delete(str(memory_id))
+            scoped.delete(str(memory_id))
         except Exception as delete_error:
             logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
