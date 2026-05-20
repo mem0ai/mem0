@@ -25,6 +25,22 @@ if [ "$STOP_HOOK_ACTIVE" = "true" ]; then
   exit 0
 fi
 
+# Print session-end report
+REPORT=$(python3 "$SCRIPT_DIR/session_stats.py" report 2>/dev/null || echo "")
+if [ -n "$REPORT" ]; then
+  echo ""
+  echo "---"
+  echo "**mem0 $REPORT**"
+  echo "---"
+  echo ""
+fi
+
+# Append to persistent session log (guarded — on_stop.sh uses set -euo pipefail)
+if [ -n "$REPORT" ]; then
+  mkdir -p "$HOME/.mem0" 2>/dev/null || true
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | $REPORT" >> "$HOME/.mem0/session-log.md" 2>/dev/null || true
+fi
+
 cat <<'EOF'
 Before finishing, check if there are important learnings from this interaction that should be persisted using the mem0 `add_memory` tool:
 
