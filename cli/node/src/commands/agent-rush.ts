@@ -3,9 +3,17 @@
  * Project routing is implicit (server-side); zero flags needed.
  */
 
+import readline from "node:readline";
 import { colors, printError, printSuccess } from "../branding.js";
-import { loadConfig } from "../config.js";
+import { loadConfig, saveConfig } from "../config.js";
 import { CLI_VERSION } from "../version.js";
+
+const PII_WARNING = [
+	"",
+	"⚠️  AGENTRUSH memories are PUBLIC — visible to any other player.",
+	"   Do not include real names, emails, secrets, work content, or PII.",
+	"",
+].join("\n");
 
 const ERROR_HINTS: Record<string, string> = {
 	agentrush_search_first:
@@ -66,7 +74,52 @@ async function callEndpoint(
 	return json;
 }
 
+function promptLine(question: string): Promise<string> {
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	});
+	return new Promise((resolve) => {
+		rl.question(question, (answer) => {
+			rl.close();
+			resolve(answer.trim());
+		});
+	});
+}
+
+/**
+ * Ensure the human has acknowledged that AGENTRUSH memories are PUBLIC.
+ *
+ * Interactive (TTY): show the prompt; on "y" persist `agentRush.acknowledgedAt`
+ * so we never ask the same machine twice. On anything else, abort.
+ *
+ * Non-interactive (agent invocation, no TTY): print the warning to stderr
+ * for the human reading the agent's transcript and proceed — agents can't
+ * answer y/N prompts.
+ */
+async function ensureWarningAcknowledged(): Promise<void> {
+	const config = loadConfig();
+	if (config.agentRush?.acknowledgedAt) return;
+
+	if (!process.stdin.isTTY || !process.stdout.isTTY) {
+		// Agent context: surface the warning to stderr, don't block.
+		console.error(PII_WARNING);
+		return;
+	}
+
+	console.log(PII_WARNING);
+	const answer = (await promptLine("   Continue? [y/N]: ")).toLowerCase();
+	if (answer !== "y" && answer !== "yes") {
+		printError("Aborted.");
+		process.exit(1);
+	}
+
+	config.agentRush.acknowledgedAt = new Date().toISOString();
+	saveConfig(config);
+}
+
 export async function cmdAgentRushAdd(content: string): Promise<void> {
+	await ensureWarningAcknowledged();
 	const result = await callEndpoint("/v1/agent-rush/memories/", { content });
 	printSuccess(
 		`Memory submitted (event_id: ${(result as { event_id?: string }).event_id ?? "?"})`,

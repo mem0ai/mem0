@@ -6,15 +6,25 @@ Hardcoded routing; no flags needed.
 
 from __future__ import annotations
 
+import sys
+from datetime import datetime, timezone
+
 import httpx
 import typer
 from rich.console import Console
 
 from mem0_cli.branding import BRAND_COLOR, print_error, print_success
-from mem0_cli.config import load_config
+from mem0_cli.config import load_config, save_config
 
 console = Console()
 err_console = Console(stderr=True)
+
+_PII_WARNING_LINES = (
+    "",
+    "[yellow]⚠️  AGENTRUSH memories are PUBLIC — visible to any other player.[/yellow]",
+    "[yellow]   Do not include real names, emails, secrets, work content, or PII.[/yellow]",
+    "",
+)
 
 _SOURCE_HEADERS = {
     "X-Mem0-Source": "cli",
@@ -69,7 +79,39 @@ def _call(path: str, body: dict) -> dict:
     return data
 
 
+def _ensure_warning_acknowledged() -> None:
+    """Block the first interactive add on the PII warning; pass-through for agents.
+
+    Interactive (TTY): show prompt, require explicit 'y', persist
+    `agent_rush.acknowledged_at` so we never ask the same machine twice.
+
+    Non-interactive (no TTY — typical when an agent runs the CLI): surface
+    the warning to stderr for the human reading the agent transcript and
+    proceed without prompting (agents can't answer y/N).
+    """
+    config = load_config()
+    if config.agent_rush.acknowledged_at:
+        return
+
+    is_tty = sys.stdin.isatty() and sys.stdout.isatty()
+    if not is_tty:
+        for line in _PII_WARNING_LINES:
+            err_console.print(line)
+        return
+
+    for line in _PII_WARNING_LINES:
+        console.print(line)
+    answer = typer.prompt("   Continue? [y/N]", default="N", show_default=False).strip().lower()
+    if answer not in ("y", "yes"):
+        print_error(err_console, "Aborted.")
+        raise typer.Exit(1)
+
+    config.agent_rush.acknowledged_at = datetime.now(timezone.utc).isoformat()
+    save_config(config)
+
+
 def run_agent_rush_add(content: str) -> None:
+    _ensure_warning_acknowledged()
     result = _call("/v1/agent-rush/memories/", {"content": content})
     event_id = result.get("event_id", "?")
     print_success(console, f"Memory submitted (event_id: {event_id})")
