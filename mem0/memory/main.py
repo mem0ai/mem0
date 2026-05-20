@@ -727,12 +727,18 @@ class Memory(MemoryBase):
             system_prompt += AGENT_CONTEXT_SUFFIX
 
         custom_instr = prompt or self.custom_instructions
+        # Extract timestamp from metadata for historical date resolution in LLM prompts.
+        # Without this, relative dates like "last week" are resolved against the current
+        # date instead of the date the conversation actually occurred.
+        # See: https://github.com/mem0ai/mem0/issues/4963
+        observation_timestamp = metadata.get("timestamp") if metadata else None
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=observation_timestamp,
         )
 
         try:
@@ -2143,12 +2149,18 @@ class AsyncMemory(MemoryBase):
             system_prompt += AGENT_CONTEXT_SUFFIX
 
         custom_instr = prompt or self.custom_instructions
+        # Extract timestamp from metadata for historical date resolution in LLM prompts.
+        # Without this, relative dates like "last week" are resolved against the current
+        # date instead of the date the conversation actually occurred.
+        # See: https://github.com/mem0ai/mem0/issues/4963
+        observation_timestamp = metadata.get("timestamp") if metadata else None
 
         user_prompt = generate_additive_extraction_prompt(
             existing_memories=existing_memories,
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=observation_timestamp,
         )
 
         try:
