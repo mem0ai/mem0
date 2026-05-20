@@ -195,6 +195,36 @@ python mem0-plugin/scripts/setup_coding_categories.py --apply
 
 Requires the `mem0ai` Python SDK (`pip install mem0ai`) and `MEM0_API_KEY` set. New memories will then auto-tag against `architecture_decisions`, `anti_patterns`, `task_learnings`, `tooling_setup`, `bug_fixes`, `coding_conventions`, `user_preferences`. Re-run with a different list any time; `project.update(custom_categories=[...])` always replaces.
 
+## Optional: holistic import of existing Claude state
+
+If you've been using Claude Code before installing mem0, you have on-disk state (CLAUDE.md files, `~/.claude/projects/*/memory/`, `~/.claude/agent-memory/*`) that won't appear in mem0 until you backfill it. A one-shot importer ships with the plugin:
+
+```bash
+# Preview what would be imported:
+python3 mem0-plugin/scripts/import_claude_state.py --dry-run
+
+# Run the import:
+python3 mem0-plugin/scripts/import_claude_state.py
+```
+
+What it does:
+
+- Discovers every `CLAUDE.md` (user / project / nested), `@import` target, `.claude/rules/*.md`, `~/.claude/projects/*/memory/*.md`, and `~/.claude/agent-memory/*/*.md` on your machine.
+- Heading-chunks each file (H2 default, descending to H3 for oversize sections, merging tiny siblings). Code-fenced blocks are preserved.
+- POSTs each chunk to mem0 with metadata: `source_file`, `source_type`, `section_heading`, `project`, `subagent`, `content_hash`, and a `type` matching the `mem0-mcp` skill vocabulary (`convention`, `user_preference`, `task_learning`, `anti_pattern`, `decision`).
+- Writes `~/.mem0/imports/claude-state.json` to remember what's been uploaded. Re-running is idempotent: only new chunks are sent.
+
+Flags:
+
+| Flag | Meaning |
+|------|---------|
+| `--dry-run` | Print the import plan; don't upload. |
+| `--reset` | Wipe the marker before running (forces full re-import). |
+| `--no-infer` | Upload chunks raw (`infer=False`). Default is `infer=True` so mem0 extracts atomic facts. |
+| `--source <type>` | Restrict to one source type (e.g., `--source memory_md`). |
+
+The `SessionStart` hook nudges you about this importer the first time you open a session after installing. Once you run it (or once the marker file exists), the nudge disappears.
+
 ## MCP Tools
 
 Once installed, the following tools are available:

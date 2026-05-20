@@ -2,6 +2,14 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.0
+
+### Added
+
+- Holistic import: a one-shot `scripts/import_claude_state.py` script backfills existing CLAUDE.md hierarchy (+ `@imports`), `.claude/rules`, `~/.claude/projects/*/memory`, and `~/.claude/agent-memory` into mem0. Heading-based markdown chunking (~50–500 tokens per chunk), metadata tagging using the `mem0-mcp` skill vocabulary, content-hash-tracked idempotent re-runs via a marker file at `~/.mem0/imports/claude-state.json`. `infer=True` by default; `--no-infer` opt-out, `--dry-run`, `--reset`, and `--source <type>` flags supported.
+- `SessionStart` hook nudges the agent to run the importer on first session after install. The nudge stays silent once the marker file exists. Propagates to Cursor and Codex automatically (shared `on_session_start.sh` entry point).
+- Research and design context for the importer is documented in a Notion page (link in PR description).
+
 ## 0.1.3
 
 ### Fixed

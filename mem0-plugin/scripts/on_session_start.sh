@@ -84,4 +84,23 @@ is being captured to mem0 in the background as `metadata.type=compact_summary`.
 EOF
 fi
 
+# ── Holistic import nudge ────────────────────────────────────────────────
+# One-time nudge to backfill existing CLAUDE.md / MEMORY.md / agent-memory
+# into mem0. Silent after the marker file appears (i.e., after first run).
+# Only emit on startup or resume -- during compact the user is mid-conversation.
+if [ "$SOURCE" != "compact" ] && [ ! -f "$HOME/.mem0/imports/claude-state.json" ]; then
+  cat <<EOF
+
+## Holistic import available
+
+On-disk Claude state (CLAUDE.md, ~/.claude/projects/*/memory, ~/.claude/agent-memory)
+has never been imported into mem0. To preview what would be imported, run:
+
+  python3 "$SCRIPT_DIR/import_claude_state.py" --dry-run
+
+Then drop \`--dry-run\` to import. This nudge disappears after the first
+successful run. Pass \`--reset\` to re-import from scratch.
+EOF
+fi
+
 exit 0
