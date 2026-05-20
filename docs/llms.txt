@@ -453,6 +453,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LM Studio Embeddings](https://docs.mem0.ai/components/embedders/models/lmstudio) [OSS]: Use when embeddings run through LM Studio.
 - [Together Embeddings](https://docs.mem0.ai/components/embedders/models/together) [OSS]: Use when embeddings run on Together.
 - [LangChain Embeddings](https://docs.mem0.ai/components/embedders/models/langchain) [OSS]: Use when embeddings are wrapped behind a LangChain adapter.
+- [Voyage AI Embeddings](https://docs.mem0.ai/components/embedders/models/voyageai) [OSS]: Use when embeddings come from Voyage AI.
 
 ### Vector Databases [OSS]
 - [Vector Database Overview](https://docs.mem0.ai/components/vectordbs/overview) [OSS]: Use when choosing a vector store.

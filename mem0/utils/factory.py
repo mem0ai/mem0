@@ -149,6 +149,7 @@ class EmbedderFactory:
         "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
         "aws_bedrock": "mem0.embeddings.aws_bedrock.AWSBedrockEmbedding",
         "fastembed": "mem0.embeddings.fastembed.FastEmbedEmbedding",
+        "voyageai": "mem0.embeddings.voyageai.VoyageAIEmbedding",
     }
 
     @classmethod
