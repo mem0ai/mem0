@@ -1570,6 +1570,136 @@ class Memory(MemoryBase):
 
         return {"message": "Memories deleted successfully!"}
 
+    def batch_add(
+        self,
+        batch_data: List[Dict[str, Any]],
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        infer: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        Add multiple memories in a single batch operation.
+
+        Args:
+            batch_data: List of dicts, each containing 'messages' and optional per-item 'metadata'.
+            user_id/agent_id/run_id: Default session identifiers for all memories.
+            metadata: Default metadata merged with per-item metadata for all memories.
+            infer: Whether to use LLM for fact extraction (default True).
+
+        Returns:
+            List of results for each memory operation, matching the order of batch_data.
+        """
+        capture_event("mem0.batch_add", self, {"batch_size": len(batch_data), "sync_type": "sync"})
+
+        results = []
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {}
+            for item in batch_data:
+                item_metadata = deepcopy(metadata) if metadata else {}
+                if "metadata" in item and item["metadata"]:
+                    item_metadata.update(item["metadata"])
+
+                future = executor.submit(
+                    self.add,
+                    messages=item["messages"],
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    run_id=run_id,
+                    metadata=item_metadata if item_metadata else None,
+                    infer=infer,
+                )
+                futures[future] = item
+
+            for future in concurrent.futures.as_completed(futures):
+                item = futures[future]
+                try:
+                    result = future.result()
+                    results.append({"status": "success", "data": result, "input": item})
+                except Exception as e:
+                    results.append({"status": "error", "error": str(e), "input": item})
+
+        # Restore original order
+        order_map = {id(item): i for i, item in enumerate(batch_data)}
+        results.sort(key=lambda r: order_map.get(id(r.get("input")), 0))
+        return results
+
+    def batch_update(
+        self,
+        updates: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Update multiple memories in a single batch operation.
+
+        Args:
+            updates: List of dicts with 'memory_id' and 'data' keys, optional 'metadata'.
+
+        Returns:
+            List of update results matching the order of updates.
+        """
+        capture_event("mem0.batch_update", self, {"batch_size": len(updates), "sync_type": "sync"})
+
+        results = []
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {}
+            for item in updates:
+                future = executor.submit(
+                    self.update,
+                    memory_id=item["memory_id"],
+                    data=item["data"],
+                    metadata=item.get("metadata"),
+                )
+                futures[future] = item
+
+            for future in concurrent.futures.as_completed(futures):
+                item = futures[future]
+                try:
+                    result = future.result()
+                    results.append({"status": "success", "data": result, "memory_id": item["memory_id"]})
+                except Exception as e:
+                    results.append({"status": "error", "error": str(e), "memory_id": item["memory_id"]})
+
+        order_map = {item["memory_id"]: i for i, item in enumerate(updates)}
+        results.sort(key=lambda r: order_map.get(r.get("memory_id"), 0))
+        return results
+
+    def batch_delete(
+        self,
+        memory_ids: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Delete multiple memories in a single batch operation.
+
+        Args:
+            memory_ids: List of memory IDs to delete.
+
+        Returns:
+            Summary dict with 'successful', 'failed', and 'errors' keys.
+        """
+        capture_event("mem0.batch_delete", self, {"batch_size": len(memory_ids), "sync_type": "sync"})
+
+        successful = []
+        errors = []
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {executor.submit(self.delete, mem_id): mem_id for mem_id in memory_ids}
+            for future in concurrent.futures.as_completed(futures):
+                mem_id = futures[future]
+                try:
+                    future.result()
+                    successful.append(mem_id)
+                except Exception as e:
+                    errors.append({"memory_id": mem_id, "error": str(e)})
+
+        return {
+            "successful": successful,
+            "failed": [e["memory_id"] for e in errors],
+            "errors": errors,
+            "summary": f"Deleted {len(successful)}/{len(memory_ids)} memories",
+        }
+
     def history(self, memory_id):
         """
         Get the history of changes for a memory by ID.
@@ -2981,6 +3111,113 @@ class AsyncMemory(MemoryBase):
         logger.info(f"Deleted {len(memories[0])} memories")
 
         return {"message": "Memories deleted successfully!"}
+
+    async def batch_add(
+        self,
+        batch_data: List[Dict[str, Any]],
+        *,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        infer: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        Add multiple memories in a single batch operation asynchronously.
+
+        Args:
+            batch_data: List of dicts, each containing 'messages' and optional per-item 'metadata'.
+            user_id/agent_id/run_id: Default session identifiers for all memories.
+            metadata: Default metadata merged with per-item metadata for all memories.
+            infer: Whether to use LLM for fact extraction (default True).
+
+        Returns:
+            List of results for each memory operation, matching the order of batch_data.
+        """
+        capture_event("mem0.batch_add", self, {"batch_size": len(batch_data), "sync_type": "async"})
+
+        async def _process_item(item):
+            item_metadata = deepcopy(metadata) if metadata else {}
+            if "metadata" in item and item["metadata"]:
+                item_metadata.update(item["metadata"])
+            try:
+                result = await self.add(
+                    messages=item["messages"],
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    run_id=run_id,
+                    metadata=item_metadata if item_metadata else None,
+                    infer=infer,
+                )
+                return {"status": "success", "data": result, "input": item}
+            except Exception as e:
+                return {"status": "error", "error": str(e), "input": item}
+
+        tasks = [_process_item(item) for item in batch_data]
+        return await asyncio.gather(*tasks)
+
+    async def batch_update(
+        self,
+        updates: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Update multiple memories in a single batch operation asynchronously.
+
+        Args:
+            updates: List of dicts with 'memory_id' and 'data' keys, optional 'metadata'.
+
+        Returns:
+            List of update results matching the order of updates.
+        """
+        capture_event("mem0.batch_update", self, {"batch_size": len(updates), "sync_type": "async"})
+
+        async def _process_item(item):
+            try:
+                result = await self.update(
+                    memory_id=item["memory_id"],
+                    data=item["data"],
+                    metadata=item.get("metadata"),
+                )
+                return {"status": "success", "data": result, "memory_id": item["memory_id"]}
+            except Exception as e:
+                return {"status": "error", "error": str(e), "memory_id": item["memory_id"]}
+
+        tasks = [_process_item(item) for item in updates]
+        return await asyncio.gather(*tasks)
+
+    async def batch_delete(
+        self,
+        memory_ids: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Delete multiple memories in a single batch operation asynchronously.
+
+        Args:
+            memory_ids: List of memory IDs to delete.
+
+        Returns:
+            Summary dict with 'successful', 'failed', and 'errors' keys.
+        """
+        capture_event("mem0.batch_delete", self, {"batch_size": len(memory_ids), "sync_type": "async"})
+
+        async def _delete_one(mem_id):
+            try:
+                await self.delete(mem_id)
+                return ("success", mem_id)
+            except Exception as e:
+                return ("error", {"memory_id": mem_id, "error": str(e)})
+
+        results = await asyncio.gather(*[_delete_one(mid) for mid in memory_ids])
+
+        successful = [mid for status, mid in results if status == "success"]
+        errors = [err for status, err in results if status == "error"]
+
+        return {
+            "successful": successful,
+            "failed": [e["memory_id"] for e in errors],
+            "errors": errors,
+            "summary": f"Deleted {len(successful)}/{len(memory_ids)} memories",
+        }
 
     async def history(self, memory_id):
         """
