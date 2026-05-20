@@ -70,7 +70,11 @@ def _call(path: str, body: dict) -> dict:
     except Exception:
         data = {}
     if resp.status_code >= 400:
-        code = (data.get("error") or {}).get("code", "unknown") if isinstance(data, dict) else "unknown"
+        code = (
+            (data.get("error") or {}).get("code", "unknown")
+            if isinstance(data, dict)
+            else "unknown"
+        )
         print_error(err_console, f"AGENTRUSH error: {code}")
         hint = _ERROR_HINTS.get(code)
         if hint:
