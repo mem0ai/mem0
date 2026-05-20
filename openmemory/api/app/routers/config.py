@@ -48,6 +48,9 @@ class ConfigSchema(BaseModel):
 
 def get_default_configuration():
     """Get the default configuration with sensible defaults for LLM and embedder."""
+    import os
+    llm_model = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    embedder_model = os.getenv("EMBEDDER_MODEL", "text-embedding-3-small")
     return {
         "openmemory": {
             "custom_instructions": None
@@ -56,7 +59,7 @@ def get_default_configuration():
             "llm": {
                 "provider": "openai",
                 "config": {
-                    "model": "gpt-4o-mini",
+                    "model": llm_model,
                     "temperature": 0.1,
                     "max_tokens": 2000,
                     "api_key": "env:OPENAI_API_KEY"
@@ -65,7 +68,7 @@ def get_default_configuration():
             "embedder": {
                 "provider": "openai",
                 "config": {
-                    "model": "text-embedding-3-small",
+                    "model": embedder_model,
                     "api_key": "env:OPENAI_API_KEY"
                 }
             },
