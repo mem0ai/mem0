@@ -13,7 +13,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
 
-from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
+from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, _ensure_admin, require_admin, verify_auth
 from errors import (
     UpstreamError,
     install_request_id_logging,
@@ -301,7 +301,7 @@ async def log_requests(request: Request, call_next):
 
 
 @app.get("/configure", summary="Get current Mem0 configuration")
-def get_config(_auth=Depends(verify_auth)):
+def get_config(_admin=Depends(require_admin)):
     return _redact_config(get_current_config())
 
 
@@ -311,7 +311,7 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 
 
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
+def set_config(config: Dict[str, Any], _admin=Depends(require_admin)):
     """Set memory configuration."""
     _validate_bundled_providers(config)
     update_config(config)
@@ -386,19 +386,27 @@ def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
 
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
+    request: Request,
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
-    _auth=Depends(verify_auth),
+    user: User | None = Depends(verify_auth),
 ):
-    """Retrieve stored memories. Lists all memories when no identifier is provided."""
+    """Retrieve stored memories. Lists all memories when no identifier is provided.
+
+    Note: the unfiltered listing branch is admin-only — it would otherwise leak
+    every payload in the vector store across tenants once multi-user lands.
+    Filtered queries remain available to any authenticated caller."""
     try:
         if not any([user_id, run_id, agent_id]):
+            _ensure_admin(request, user)
             return _list_all_memories()
         filters = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
         return get_memory_instance().get_all(filters=filters)
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 
@@ -473,7 +481,7 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory(_auth=Depends(verify_auth)):
+def reset_memory(_admin=Depends(require_admin)):
     """Completely reset stored memories."""
     try:
         get_memory_instance().reset()

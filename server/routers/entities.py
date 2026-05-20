@@ -5,7 +5,7 @@ from typing import Any, Literal, Optional
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from auth import verify_auth
+from auth import require_admin
 from errors import upstream_error
 from schemas import MessageResponse
 from server_state import get_memory_instance
@@ -42,7 +42,7 @@ def _parse_timestamp(value: Any) -> Optional[datetime]:
 
 
 @router.get("", response_model=list[Entity])
-def list_entities(_auth=Depends(verify_auth)):
+def list_entities(_admin=Depends(require_admin)):
     buckets: dict[tuple[EntityType, str], dict[str, Any]] = defaultdict(
         lambda: {"total_memories": 0, "created_at": None, "updated_at": None}
     )
@@ -69,7 +69,7 @@ def list_entities(_auth=Depends(verify_auth)):
 
 
 @router.delete("/{entity_type}/{entity_id}", response_model=MessageResponse)
-def delete_entity(entity_type: EntityType, entity_id: str, _auth=Depends(verify_auth)):
+def delete_entity(entity_type: EntityType, entity_id: str, _admin=Depends(require_admin)):
     try:
         get_memory_instance().delete_all(**{TYPE_TO_FIELD[entity_type]: entity_id})
     except Exception:

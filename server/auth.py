@@ -184,3 +184,27 @@ async def require_auth(
                 return default_user
         raise HTTPException(status_code=401, detail="Authentication required.")
     return user
+
+
+def _ensure_admin(request: Request, user: User | None) -> None:
+    """Single source of truth for admin gating.
+
+    Allows: legacy ADMIN_API_KEY env (X-API-Key header), AUTH_DISABLED=true,
+    or a registered User with role == 'admin'. Raises 403 otherwise.
+
+    Pure function — reusable from FastAPI deps and inline route guards.
+    """
+    auth_type = getattr(request.state, "auth_type", "none")
+    if auth_type in {"admin_api_key", "disabled"}:
+        return
+    if user is not None and user.role == "admin":
+        return
+    raise HTTPException(status_code=403, detail="Admin role required.")
+
+
+async def require_admin(
+    request: Request,
+    user: User | None = Depends(verify_auth),
+) -> None:
+    """FastAPI dependency. Admin-only gate; returns nothing."""
+    _ensure_admin(request, user)
