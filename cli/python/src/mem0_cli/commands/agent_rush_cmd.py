@@ -13,7 +13,7 @@ import httpx
 import typer
 from rich.console import Console
 
-from mem0_cli.branding import BRAND_COLOR, print_error, print_success
+from mem0_cli.branding import print_error, print_success
 from mem0_cli.config import load_config, save_config
 
 console = Console()

@@ -944,7 +944,7 @@ def _agent_rush_callback(ctx: typer.Context) -> None:
 
 @agent_rush_app.command(name="add")
 def agent_rush_add(
-    content: str = typer.Argument(..., help="Memory content (50–1000 characters, no URLs)."),
+    content: str = typer.Argument(..., help="Memory content (50-1000 characters, no URLs)."),
 ) -> None:
     """Submit a memory to AGENTRUSH.
 

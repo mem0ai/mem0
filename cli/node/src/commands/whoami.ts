@@ -10,9 +10,7 @@ export async function cmdWhoami(): Promise<void> {
 	const config = loadConfig();
 	const sessionId = config.platform?.defaultUserId;
 	if (!sessionId) {
-		printError(
-			"No default_user_id found. Run `mem0 init --agent` first.",
-		);
+		printError("No default_user_id found. Run `mem0 init --agent` first.");
 		process.exit(1);
 	}
 	console.log(`Your AGENTRUSH identifier:  ${colors.brand(sessionId)}`);
