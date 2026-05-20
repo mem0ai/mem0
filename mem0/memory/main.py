@@ -1561,12 +1561,22 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
+        # delete all vector memories in batches to handle vector stores that
+        # apply a default page size (e.g. qdrant defaults to top_k=100).
+        # Without the loop, only the first page would be deleted.
+        BATCH_SIZE = 1000
+        deleted = 0
+        while True:
+            batch = self.vector_store.list(filters=filters, top_k=BATCH_SIZE)[0]
+            if not batch:
+                break
+            for memory in batch:
+                self._delete_memory(memory.id)
+            deleted += len(batch)
+            if len(batch) < BATCH_SIZE:
+                break
 
-        logger.info(f"Deleted {len(memories)} memories")
+        logger.info(f"Deleted {deleted} memories")
 
         return {"message": "Memories deleted successfully!"}
 
@@ -2970,15 +2980,24 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+        # delete all vector memories in batches to handle vector stores that
+        # apply a default page size (e.g. qdrant defaults to top_k=100).
+        BATCH_SIZE = 1000
+        deleted = 0
+        while True:
+            result = await asyncio.to_thread(
+                self.vector_store.list, filters=filters, top_k=BATCH_SIZE
+            )
+            batch = result[0]
+            if not batch:
+                break
+            delete_tasks = [self._delete_memory(memory.id) for memory in batch]
+            await asyncio.gather(*delete_tasks)
+            deleted += len(batch)
+            if len(batch) < BATCH_SIZE:
+                break
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id))
-
-        await asyncio.gather(*delete_tasks)
-
-        logger.info(f"Deleted {len(memories[0])} memories")
+        logger.info(f"Deleted {deleted} memories")
 
         return {"message": "Memories deleted successfully!"}
 
