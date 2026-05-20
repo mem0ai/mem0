@@ -12,6 +12,13 @@
         "matcher": "Write|Edit"
       }
     ],
+    "postToolUse": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_post_tool_use_cursor.sh",
+        "matcher": "mcp__mem0__",
+        "timeout": 3
+      }
+    ],
     "preCompact": [
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_pre_compact_cursor.sh"

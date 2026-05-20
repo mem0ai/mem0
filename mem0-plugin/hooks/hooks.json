@@ -23,6 +23,18 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__mem0__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_post_tool_use.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
