@@ -23,3 +23,6 @@ posthog>=3.0,<8.0
 
 # Per-IP rate limiting on auth endpoints
 slowapi>=0.1.9,<1.0
+
+# Streamable HTTP MCP endpoint for self-hosted agent integrations
+mcp[cli]>=1.3.0,<2.0

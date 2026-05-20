@@ -408,7 +408,7 @@ Editor-specific setup docs (already listed above under `## Integrations > AI Cod
 ### MCP Endpoints
 
 - Hosted MCP server: `https://mcp.mem0.ai` - requires Platform API key. See `platform/mem0-mcp`.
-- Self-hosted MCP server: ships with `openmemory/api/` (FastAPI) - runs against your own Qdrant + LLM stack.
+- Self-hosted MCP server: `server/` exposes Streamable HTTP at `/mcp/<client-name>/http/<user-id>` for the standard FastAPI/Postgres deployment; `openmemory/api/` also ships an MCP server for the OpenMemory stack.
 
 ## Community & Support
 

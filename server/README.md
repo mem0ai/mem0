@@ -89,6 +89,19 @@ Wire the command into cron or a systemd timer in production. The `created_at` co
 - Dashboard: `http://localhost:3000`
 - API: `http://localhost:8888`
 - OpenAPI docs: `http://localhost:8888/docs`
+- MCP Streamable HTTP: `http://localhost:8888/mcp/<client-name>/http/<user-id>`
+
+## MCP for agents
+
+The self-hosted server exposes the same memory backend through MCP so local agent clients can manage memories without calling REST endpoints manually. Configure your MCP client with the Streamable HTTP URL and the same API key you use for REST:
+
+```toml
+[mcp_servers.mem0_local]
+url = "http://localhost:8888/mcp/codex/http/alice"
+headers = { "X-API-Key" = "m0sk_..." }
+```
+
+The MCP tools include `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, and `delete_all_memories`. The `user_id` path segment scopes every tool call; optional `agent_id`, `run_id`, metadata, and filters can further narrow individual operations.
 
 ## Dashboard
 
