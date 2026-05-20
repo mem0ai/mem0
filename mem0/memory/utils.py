@@ -179,9 +179,21 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
 
         # Handle message content
         if isinstance(msg["content"], list):
-            # Multiple image URLs in content
-            description = get_image_description(msg, llm, vision_details)
-            returned_messages.append({"role": msg["role"], "content": description})
+            # Content is a list of parts — may contain text and/or image_url items.
+            # Iterate parts: collect descriptions for image_url items, pass text items through.
+            parts_out = []
+            for part in msg["content"]:
+                if isinstance(part, dict) and part.get("type") == "image_url":
+                    image_url = part["image_url"]["url"]
+                    try:
+                        desc = get_image_description(image_url, llm, vision_details)
+                        parts_out.append(desc)
+                    except Exception as e:
+                        raise Exception(f"Error processing image {image_url}: {e}") from e
+                elif isinstance(part, dict) and part.get("type") == "text":
+                    parts_out.append(part["text"])
+                # Ignore unknown part types silently
+            returned_messages.append({"role": msg["role"], "content": "\n".join(parts_out)})
         elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
             # Single image content
             image_url = msg["content"]["image_url"]["url"]
