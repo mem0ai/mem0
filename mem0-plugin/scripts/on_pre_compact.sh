@@ -55,7 +55,7 @@ Tool call shape:
 add_memory(
   messages=[{"role":"user","content":"<the summary above>"}],
   user_id="<the active user_id from the SessionStart bootstrap>",
-  metadata={"type":"session_state","source":"pre-compaction"},
+  metadata={"type":"session_state","source":"pre-compaction","project_id":"<the active project_id>","branch":"<the active branch>"},
   infer=False,
 )
 ```

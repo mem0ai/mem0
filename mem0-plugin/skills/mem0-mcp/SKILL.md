@@ -16,6 +16,23 @@ You have access to persistent memory via the mem0 MCP tools. Follow this protoco
 
 Decide whether persistent memory context would improve your response, then act accordingly. Don't search by default — search deliberately.
 
+## Project scoping
+
+Every memory operation MUST be scoped to the current project:
+
+- **On `add_memory`:** Always include `metadata.project_id` (the active project_id from SessionStart).
+- **On `search_memories`:** Always include `{"metadata": {"project_id": "<your_project_id>"}}` in the AND filter.
+- **Session-state memories:** Also include `metadata.branch` (the active branch from SessionStart).
+
+Full filter template:
+```python
+filters={"AND": [
+    {"user_id": "<your_user_id>"},
+    {"metadata": {"project_id": "<your_project_id>"}},
+    {"metadata": {"type": "decision"}}
+]}
+```
+
 ### Decide: search or skip?
 
 **Search WHEN** the user:
@@ -59,9 +76,9 @@ Combine `user_id` with one metadata clause per call:
 | `{"metadata": {"type": "user_preference"}}` | tooling, stack, style — always include for code work |
 | `{"metadata": {"type": "convention"}}` | established patterns in this project |
 
-Full filter (replace `<your_user_id>` with the active user_id from your runtime):
+Full filter (replace `<your_user_id>` and `<your_project_id>` with the active values from SessionStart):
 ```python
-filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"type": "decision"}}]}
+filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "decision"}}]}
 ```
 
 ### Worked example
@@ -74,16 +91,16 @@ search_memories(query="Refactor the auth module to use JWT")
 # Hits whatever shares words. Misses prior decisions and preferences.
 ```
 
-Do (parallel — substitute the active `user_id` for `<your_user_id>`):
+Do (parallel — substitute the active `user_id` and `project_id` for the placeholders):
 ```python
 search_memories(query="auth module decisions",
-                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"type": "decision"}}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "decision"}}]})
 search_memories(query="JWT",
-                filters={"AND": [{"user_id": "<your_user_id>"}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}]})
 search_memories(query="auth refactor failures",
-                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"type": "anti_pattern"}}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "anti_pattern"}}]})
 search_memories(query="auth",
-                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"type": "user_preference"}}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "user_preference"}}]})
 ```
 
 ## After completing significant work
@@ -116,7 +133,7 @@ When the user is asking about *current* state ("where were we", "what's the acti
 
 ```python
 # Last 90 days only
-{"AND": [{"user_id": "<id>"}, {"metadata": {"type": "session_state"}}, {"created_at": {"gte": "<90 days ago, YYYY-MM-DD>"}}]}
+{"AND": [{"user_id": "<id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "session_state"}}, {"created_at": {"gte": "<90 days ago, YYYY-MM-DD>"}}]}
 ```
 
 Skip the recency filter when the user is asking about durable facts ("what conventions does this project use", "have we hit this bug before") — those are timeless and recency would hide them.

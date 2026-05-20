@@ -25,18 +25,57 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
 
+# Initialize session stats tracker
+python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
+
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
+
+# Fetch project-scoped memory count (best-effort, don't block on failure, 5s timeout)
+MEM0_COUNT="?"
+if command -v python3 >/dev/null 2>&1; then
+  MEM0_COUNT=$(python3 -c "
+import json, os, urllib.request, urllib.error
+api_key = os.environ.get('MEM0_API_KEY', '')
+user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
+project_id = os.environ.get('MEM0_PROJECT_ID', '')
+body = json.dumps({
+    'query': 'project context',
+    'user_id': user_id,
+    'filters': {'AND': [{'user_id': user_id}, {'metadata': {'project_id': project_id}}]},
+    'limit': 100,
+}).encode()
+req = urllib.request.Request(
+    'https://api.mem0.ai/v2/memories/search/',
+    data=body,
+    headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
+    method='POST',
+)
+try:
+    with urllib.request.urlopen(req, timeout=5) as r:
+        results = json.loads(r.read())
+        if isinstance(results, list):
+            n = len(results)
+            print(f'{n}+' if n >= 100 else str(n))
+        else:
+            print('?')
+except Exception:
+    print('?')
+" 2>/dev/null || echo "?")
+fi
 
 # Identity line is emitted before every bootstrap variant so the agent
 # uses the same user_id the hooks resolved. Without this, the agent's
 # search_memories/add_memory MCP calls may bind to a different bucket
 # than what the hooks write to.
-echo "## Mem0 Identity"
+echo "## Mem0 Active"
 echo ""
-echo "Active user_id: \`$MEM0_RESOLVED_USER_ID\`"
+echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT\`"
 echo ""
-echo "Always include \`{\"user_id\": \"$MEM0_RESOLVED_USER_ID\"}\` (wrapped in an \`AND\` clause) in every \`search_memories\` filter and as \`user_id\` on every \`add_memory\` call. This keeps the agent's MCP calls aligned with the bucket the hooks write to."
+echo "Always include \`user_id\` + \`metadata.project_id\` in every \`search_memories\` filter and \`add_memory\` call:"
+echo "- user_id: \`$MEM0_RESOLVED_USER_ID\`"
+echo "- project_id: \`$MEM0_PROJECT_ID\`"
+echo "- branch: \`$MEM0_BRANCH\` (include in session-state / compact-summary metadata)"
 echo ""
 
 if [ "$SOURCE" = "startup" ]; then
@@ -51,6 +90,10 @@ You have access to persistent memory via the mem0 MCP tools. Before doing anythi
 
 IMPORTANT: Do NOT skip this step. Always bootstrap context first.
 EOF
+
+  # Auto-import declarative project files in background
+  MEM0_CWD="$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")" \
+    python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
 
 elif [ "$SOURCE" = "resume" ]; then
   cat <<'EOF'

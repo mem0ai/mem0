@@ -61,11 +61,11 @@ improve your answer. The agent -- not this hook -- owns this decision.
 - Filter shape: the root must be a logical operator (\`AND\` / \`OR\` / \`NOT\`)
   with an array, and metadata uses a **nested** object (not dotted keys).
   Combine \`user_id\` with one \`metadata.type\` clause per call:
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "decision"}}]}\` -- design / architecture
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "anti_pattern"}}]}\` -- debugging, error handling
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "user_preference"}}]}\` -- tooling, stack, style
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"type": "convention"}}]}\` -- established patterns
-- Or scope with just \`{"AND": [{"user_id": "$USER_ID"}]}\` when no metadata filter fits.
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"project_id": "$MEM0_PROJECT_ID"}}, {"metadata": {"type": "decision"}}]}\` -- design / architecture
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"project_id": "$MEM0_PROJECT_ID"}}, {"metadata": {"type": "anti_pattern"}}]}\` -- debugging, error handling
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"project_id": "$MEM0_PROJECT_ID"}}, {"metadata": {"type": "user_preference"}}]}\` -- tooling, stack, style
+  - \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"project_id": "$MEM0_PROJECT_ID"}}, {"metadata": {"type": "convention"}}]}\` -- established patterns
+  - Or scope with just \`{"AND": [{"user_id": "$USER_ID"}, {"metadata": {"project_id": "$MEM0_PROJECT_ID"}}]}\` when no metadata filter fits.
 - Empty results are normal -- proceed without context.
 EOF
 

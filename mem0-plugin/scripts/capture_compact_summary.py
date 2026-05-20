@@ -26,6 +26,7 @@ from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _identity import resolve_user_id
+from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-compact-summary")
 log.setLevel(logging.DEBUG)
@@ -94,7 +95,7 @@ def find_compact_summary(lines: list[str]) -> str:
     return ""
 
 
-def store_summary(api_key: str, summary: str, user_id: str, session_id: str) -> bool:
+def store_summary(api_key: str, summary: str, user_id: str, session_id: str, project_id: str = "", branch: str = "") -> bool:
     expires = (date.today() + timedelta(days=COMPACT_SUMMARY_EXPIRY_DAYS)).isoformat()
     body = {
         "messages": [{"role": "user", "content": summary}],
@@ -103,6 +104,8 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str) -> 
             "type": "compact_summary",
             "source": "session-start-compact",
             "session_id": session_id,
+            "project_id": project_id,
+            "branch": branch,
         },
         "infer": False,
         "expiration_date": expires,
@@ -149,6 +152,8 @@ def main():
 
     session_id = hook_input.get("session_id", "")
     user_id = resolve_user_id()
+    project_id = resolve_project_id()
+    branch = resolve_branch()
 
     lines = tail_lines(transcript_path, MAX_TAIL_LINES)
     if not lines:
@@ -161,7 +166,7 @@ def main():
         return
 
     log.info("Capturing compact summary (%d chars)", len(summary))
-    store_summary(api_key, summary, user_id, session_id)
+    store_summary(api_key, summary, user_id, session_id, project_id, branch)
 
 
 if __name__ == "__main__":
