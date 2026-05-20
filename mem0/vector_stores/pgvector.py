@@ -260,7 +260,13 @@ class PGVector(VectorStoreBase):
             )
 
             results = cur.fetchall()
-        return [OutputData(id=str(r[0]), score=float(r[1]), payload=r[2]) for r in results]
+        # Convert pgvector cosine distance (lower = more similar) to a
+        # similarity score (higher = more similar) so it matches the
+        # convention assumed by score_and_rank() in the hybrid retrieval
+        # pipeline. Without this, score_and_rank() sorts reverse=True on
+        # raw distance and surfaces the LEAST-similar memories first.
+        # Mirrors the TypeScript fix in PR #4944.
+        return [OutputData(id=str(r[0]), score=float(1.0 - r[1]), payload=r[2]) for r in results]
 
     def keyword_search(self, query, top_k=5, filters=None):
         """
