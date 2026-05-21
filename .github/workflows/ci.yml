@@ -49,6 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       mem0_changed: ${{ steps.filter.outputs.mem0 }}
+      embedchain_changed: ${{ steps.filter.outputs.embedchain }}
     steps:
     - uses: actions/checkout@v4
     - uses: dorny/paths-filter@v2
@@ -60,6 +61,9 @@ jobs:
             - 'tests/**'
             - '.github/workflows/ci.yml'
             - 'pyproject.toml'
+          embedchain:
+            - 'embedchain/**'
+            - '.github/workflows/ci.yml'
 
   build_mem0:
     needs: check_changes
@@ -111,3 +115,52 @@ jobs:
       - name: Run tests and generate coverage report
         if: needs.check_changes.outputs.mem0_changed == 'true'
         run: make test
+
+  build_embedchain:
+    needs: check_changes
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - name: Skip — no embedchain changes
+        if: needs.check_changes.outputs.embedchain_changed != 'true'
+        run: echo "No changes in embedchain/ — skipping"
+      - uses: actions/checkout@v4
+        if: needs.check_changes.outputs.embedchain_changed == 'true'
+      - name: Set up Python ${{ matrix.python-version }}
+        if: needs.check_changes.outputs.embedchain_changed == 'true'
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Hatch
+        if: needs.check_changes.outputs.embedchain_changed == 'true'
+        run: pip install hatch
+      - name: Load cached venv
+        if: needs.check_changes.outputs.embedchain_changed == 'true'
+        id: cached-hatch-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+      - name: Install dependencies
+        if: needs.check_changes.outputs.embedchain_changed == 'true' && steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
+        run: cd embedchain && make install_all
+      - name: Run Formatting
+        if: needs.check_changes.outputs.embedchain_changed == 'true'
+        run: |
+          mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
+          cd embedchain && hatch run format
+      - name: Lint with ruff
+        if: needs.check_changes.outputs.embedchain_changed == 'true'
+        run: cd embedchain && make lint
+      - name: Run tests and generate coverage report
+        if: needs.check_changes.outputs.embedchain_changed == 'true'
+        run: cd embedchain && make coverage
+      - name: Upload coverage reports to Codecov
+        if: needs.check_changes.outputs.embedchain_changed == 'true'
+        uses: codecov/codecov-action@v3
+        with:
+          file: coverage.xml
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
