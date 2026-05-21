@@ -15,8 +15,27 @@ class XAILLM(LLMBase):
             self.config.model = "grok-2-latest"
 
         api_key = self.config.api_key or os.getenv("XAI_API_KEY")
-        base_url = self.config.xai_base_url or os.getenv("XAI_API_BASE") or "https://api.x.ai/v1"
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        xai_base_url = getattr(self.config, 'xai_base_url', None) or os.getenv("XAI_API_BASE") or "https://api.x.ai/v1"
+        self.client = OpenAI(api_key=api_key, base_url=xai_base_url)
+
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+
+        Args:
+            response: The raw response from API.
+            tools: The list of tools provided in the request.
+
+        Returns:
+            str or dict: The parsed response.
+        """
+        if tools:
+            processed_response = {
+                "content": response.choices[0].message.content,
+                "tool_calls": response.choices[0].message.tool_calls,
+            }
+            return processed_response
+        return response.choices[0].message.content
 
     def generate_response(
         self,
@@ -48,5 +67,9 @@ class XAILLM(LLMBase):
         if response_format:
             params["response_format"] = response_format
 
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = tool_choice
+
         response = self.client.chat.completions.create(**params)
-        return response.choices[0].message.content
+        return self._parse_response(response, tools)
