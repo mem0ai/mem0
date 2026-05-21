@@ -1,0 +1,250 @@
+---
+name: mem0-dream
+description: >
+  Memory consolidation pass. Fetches all project memories, finds near-duplicates,
+  merges them, flags contradictions, prunes stale entries per retention policy.
+  Outputs a diff for user approval before applying changes.
+  TRIGGER: user runs /mem0:dream, or asks "consolidate memories", "clean up memories",
+  "merge duplicate memories", "run dream".
+---
+
+# Mem0 Dream — Memory Consolidation
+
+This skill performs a memory consolidation pass: it fetches all project memories,
+identifies near-duplicates, flags contradictions, and prunes stale entries based on
+configured retention policies. All proposed changes are shown as a diff for user
+approval before anything is modified.
+
+---
+
+## Step 1: Load Retention Policies
+
+Determine the active retention policy by running the parser script. Use the
+appropriate `PLUGIN_ROOT` variable for the current platform (`${CLAUDE_PLUGIN_ROOT}`,
+`${CODEX_PLUGIN_ROOT}`, or `${CURSOR_PLUGIN_ROOT}`):
+
+```bash
+python3 "<PLUGIN_ROOT>/scripts/parse_mem0_config.py" "<cwd>"
+```
+
+Parse the JSON output (a dict of `category → days | null`). If the script fails
+or returns `{}`, fall back to these built-in defaults:
+
+| `metadata.type` | Default retention |
+|---|---|
+| `session_state` | 90 days |
+| `compact_summary` | 90 days |
+| all others | no pruning |
+
+Store the resolved policies for use in Step 3.
+
+---
+
+## Step 2: Fetch ALL Project Memories
+
+Call `get_memories` to retrieve every memory for the active project:
+
+```python
+get_memories(
+    user_id="<active_user_id>",
+    app_id="<active_project_id>",
+    page_size=200,
+)
+```
+
+If the response indicates more pages exist, paginate until all memories are fetched.
+Collect the full list before proceeding. If zero memories are found, print:
+
+```
+No memories found for project <project_id>. Nothing to consolidate.
+```
+
+…and stop.
+
+---
+
+## Step 3: Analyze — Find Issues
+
+Work entirely in-memory; do not modify anything yet.
+
+Group memories by `metadata.type` (use `"unknown"` when the field is absent).
+For each group, identify the following:
+
+### 3a. Near-duplicate pairs (merge candidates)
+
+Two memories are near-duplicates when they express the same fact or decision but
+phrased differently (e.g., "Use PostgreSQL for auth" and "Auth DB is PostgreSQL").
+
+Heuristics:
+- Significant noun/keyword overlap in the memory text.
+- Same `metadata.type`.
+- Neither memory is pinned (`metadata.pinned != true`).
+
+For each qualifying pair, draft a merged version that is more complete and specific
+than either original.
+
+### 3b. Contradictions
+
+Two memories contradict when they assert opposing facts about the same topic
+(e.g., "Deploy to ECS" vs. "Deploy to Vercel").
+
+Identify the likely winner: the more recent memory with higher confidence wins.
+Store both IDs and their content for user review.
+
+### 3c. Prune candidates
+
+A memory is a prune candidate when **any** of the following is true:
+
+1. Its `metadata.type` has a retention policy and the memory is older than the
+   configured number of days (compare `created_at` to today).
+2. Its confidence score is below 0.3 AND it contains no information unique to
+   this project (no file paths, identifiers, or domain-specific nouns).
+
+**Always skip memories where `metadata.pinned == true`**, regardless of age or
+confidence.
+
+---
+
+## Step 4: Print Diff Report (item 15)
+
+Print a structured diff to the terminal before making any changes. Use exactly
+this format:
+
+```
+## Dream — Memory Consolidation Report
+
+### Merge proposals (<N> pairs)
+MERGE [mem0:<id1>] + [mem0:<id2>] → NEW
+  - Original 1: "<content of memory 1, truncated to 120 chars>"
+  - Original 2: "<content of memory 2, truncated to 120 chars>"
+  - Merged:     "<drafted merged content>"
+
+### Contradictions (<N> pairs)
+CONFLICT [mem0:<idA>] vs [mem0:<idB>]
+  - A: "<content>" (<created_at date>, confidence: <score>)
+  - B: "<content>" (<created_at date>, confidence: <score>)
+  Which is current? [A/B/skip]
+
+### Prune candidates (<N> memories)
+PRUNE [mem0:<id>] — <metadata.type>, <age>d old (policy: <policy_days>d)
+
+---
+Proposed: <N> merges, <N> prunes, <N> conflicts
+Apply? [Y/n]
+```
+
+If there are zero items in any category, omit that section entirely.
+
+If there are zero total proposals (no merges, no prunes, no conflicts), print:
+
+```
+Dream complete. No duplicate, contradictory, or stale memories found.
+```
+
+…and stop.
+
+---
+
+## Step 5: Wait for User Input and Apply
+
+### 5a. Contradictions
+
+For each `CONFLICT` pair in the report, wait for the user to type `A`, `B`, or
+`skip` (case-insensitive). If they enter nothing (empty), treat as `skip`.
+
+Record the winner for each pair before proceeding to the final apply confirmation.
+
+### 5b. Final confirmation
+
+After all conflict resolutions are collected, prompt:
+
+```
+Apply? [Y/n]
+```
+
+If the user types `n` or `no` (case-insensitive), print `Cancelled. No changes made.`
+and stop.
+
+If the user confirms (`Y`, `yes`, or empty / Enter), apply all changes in this order:
+
+#### Merges
+
+For each approved merge pair:
+1. `delete_memory(<id1>)`
+2. `delete_memory(<id2>)`
+3. `add_memory` with:
+   - `messages=[{"role": "user", "content": "<merged content>"}]`
+   - `user_id=<active_user_id>`
+   - `app_id=<active_project_id>` (top-level, not in metadata)
+   - `metadata={"type": "<original type>", "branch": "<active_branch>", "confidence": <higher of the two original scores>, "source": "mem0-dream"}`
+   - `infer=False`
+
+#### Contradictions (resolved)
+
+For each resolved conflict where the user chose A or B:
+- Identify the loser (the non-chosen memory).
+- `update_memory(<loser_id>, data={"metadata": {"confidence": 0.1, "superseded_by": "<winner_id>", "source": "mem0-dream"}})`
+
+Contradictions where the user chose `skip` are left untouched.
+
+#### Prunes
+
+For each prune candidate:
+- `delete_memory(<memory_id>)`
+
+---
+
+## Step 6: Print Summary
+
+After all changes are applied, print:
+
+```
+Dream complete.
+  Merged:  <N> pairs → <N> new memories
+  Pruned:  <N> memories deleted
+  Flagged: <N> contradictions resolved, <N> skipped
+```
+
+---
+
+## Scheduling (Claude Code only)
+
+### Running dream on a schedule
+
+**Note**: Scheduled dream is only available in Claude Code, which natively supports
+the `schedule` skill. Codex and Cursor do not have a scheduling primitive — users
+on those platforms should run `/mem0:dream` manually.
+
+When the user runs `/mem0:dream --schedule weekly` (or similar), register a
+recurring scheduled task using the Claude Code `schedule` skill.
+
+Use `--auto` flag to enable non-interactive mode, which skips the interactive
+contradiction resolution UI and applies only safe operations automatically:
+
+- **Merges**: applied automatically (no contradiction, both are compatible).
+- **Prunes**: applied automatically (age/confidence-based, no ambiguity).
+- **Contradictions**: skipped in `--auto` mode; they require human judgment.
+
+Example scheduling invocation:
+
+```
+/schedule weekly mem0:dream --auto
+```
+
+When running with `--auto`:
+1. Load policies and fetch memories (Steps 1–3) as normal.
+2. Apply merges and prunes silently without printing the diff or prompting.
+3. Log a compact summary to stdout (suitable for a cron log):
+   ```
+   [mem0-dream --auto] project=<id>  merged=<N>  pruned=<N>  conflicts_skipped=<N>
+   ```
+4. If contradictions were detected but skipped, store a reminder memory:
+   ```python
+   add_memory(
+       messages=[{"role": "user", "content": "mem0-dream detected <N> contradiction(s) requiring manual review. Run /mem0:dream to resolve them interactively."}],
+       user_id="<active_user_id>",
+       app_id="<active_project_id>",
+       metadata={"type": "task_learning", "source": "mem0-dream-auto", "branch": "<active_branch>"},
+       infer=False,
+   )
+   ```
