@@ -13,20 +13,20 @@ Run this wizard to set up the mem0 plugin for the current project. Complete in ~
 
 ## Step 1: Verify API key
 
-Check if `MEM0_API_KEY` is set in the current environment:
+Check if the API key is available. Claude Code may provide it via `userConfig` (stored in system keychain, exposed as `CLAUDE_PLUGIN_OPTION_MEM0_API_KEY`) or via shell environment (`MEM0_API_KEY`):
 
 ```bash
-echo "${MEM0_API_KEY:+SET}" || echo "NOT_SET"
+echo "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-NOT_SET}}"
 ```
 
-- If **NOT set**:
-  1. Ask the user: "No MEM0_API_KEY found. Do you have one, or need to create one?"
+- If **NOT_SET** (neither variable is set):
+  1. Ask the user: "No API key found. Do you have one, or need to create one?"
   2. If they need one, provide two options:
      - **Browser**: Go to https://app.mem0.ai/dashboard/api-keys and copy the key
      - **CLI**: Run `pip install mem0-cli && mem0 init --agent --json` to mint a key without email
-  3. Once they have the key, tell them to run: `export MEM0_API_KEY="m0-..."` in their terminal, then restart this Claude Code session (the env var must be set before Claude Code starts).
+  3. Once they have the key, tell them to run: `export MEM0_API_KEY="m0-..."` in their terminal, then restart this Claude Code session.
   4. **STOP here.** Do not proceed until the key is confirmed set.
-- If **SET**: Proceed to Step 2.
+- If **SET** (either variable has a value): Proceed to Step 2.
 
 ## Step 2: Show identity
 

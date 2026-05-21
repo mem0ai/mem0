@@ -25,14 +25,14 @@ if [ ${#PROMPT} -lt 20 ]; then
   exit 0
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_identity.sh
+. "$SCRIPT_DIR/_identity.sh"
+
 # No API key means the agent can't search anyway
 if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=_identity.sh
-. "$SCRIPT_DIR/_identity.sh"
 USER_ID="$MEM0_RESOLVED_USER_ID"
 
 cat <<EOF

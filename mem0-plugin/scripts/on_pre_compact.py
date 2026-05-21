@@ -23,7 +23,7 @@ import urllib.request
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _identity import resolve_user_id
+from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-capture")
@@ -217,7 +217,7 @@ def main():
         if arg.startswith("--source="):
             source = arg.split("=", 1)[1]
 
-    api_key = os.environ.get("MEM0_API_KEY", "")
+    api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping capture")
         return

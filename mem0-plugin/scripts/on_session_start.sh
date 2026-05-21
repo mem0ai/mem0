@@ -15,15 +15,15 @@ if [ -n "${MEM0_DEBUG:-}" ]; then
   mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_identity.sh
+. "$SCRIPT_DIR/_identity.sh"
+
 # Skip the bootstrap entirely if no API key is configured -- the agent
 # would otherwise be told to call mem0 MCP tools that will all fail.
 if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=_identity.sh
-. "$SCRIPT_DIR/_identity.sh"
 
 # Initialize session stats tracker
 python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true

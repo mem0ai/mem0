@@ -13,7 +13,7 @@ Usage:
   python setup_coding_categories.py            # dry-run: show current vs proposed, no changes
   python setup_coding_categories.py --apply    # actually call project.update()
 
-Requires the mem0ai Python SDK and MEM0_API_KEY to be set.
+Requires the mem0ai Python SDK and MEM0_API_KEY (or CLAUDE_PLUGIN_OPTION_MEM0_API_KEY) to be set.
 """
 
 from __future__ import annotations
@@ -22,6 +22,9 @@ import argparse
 import json
 import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _identity import resolve_api_key
 
 CODING_CATEGORIES = [
     {
@@ -87,9 +90,11 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    if not os.environ.get("MEM0_API_KEY"):
-        print("ERROR: MEM0_API_KEY is not set. Export it and try again.", file=sys.stderr)
+    api_key = resolve_api_key()
+    if not api_key:
+        print("ERROR: MEM0_API_KEY is not set. Export it or configure it via plugin userConfig.", file=sys.stderr)
         return 1
+    os.environ["MEM0_API_KEY"] = api_key
 
     try:
         from mem0 import MemoryClient

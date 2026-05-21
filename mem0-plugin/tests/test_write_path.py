@@ -1,9 +1,10 @@
-"""Tests for write-path app_id migration.
+"""Tests for write-path app_id migration and API key resolution.
 
 Verifies that all scripts writing to the Mem0 API:
 1. Pass app_id as a top-level parameter (not in metadata)
 2. Do NOT include project_id in metadata
 3. Include branch in metadata when available
+4. Use resolve_api_key() for key resolution with userConfig fallback
 """
 
 from __future__ import annotations
@@ -164,3 +165,30 @@ def test_no_metadata_project_id_anywhere():
         metadata = body.get("metadata", {})
         assert "project_id" not in metadata, f"Write function #{i} still has metadata.project_id"
         assert body.get("app_id") == "proj", f"Write function #{i} missing app_id top-level"
+
+
+def test_resolve_api_key_prefers_env_var(monkeypatch):
+    """resolve_api_key returns MEM0_API_KEY when both are set."""
+    from _identity import resolve_api_key
+
+    monkeypatch.setenv("MEM0_API_KEY", "direct-key")
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", "fallback-key")
+    assert resolve_api_key() == "direct-key"
+
+
+def test_resolve_api_key_falls_back_to_plugin_option(monkeypatch):
+    """resolve_api_key falls back to CLAUDE_PLUGIN_OPTION_MEM0_API_KEY."""
+    from _identity import resolve_api_key
+
+    monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    monkeypatch.setenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", "fallback-key")
+    assert resolve_api_key() == "fallback-key"
+
+
+def test_resolve_api_key_returns_empty_when_neither_set(monkeypatch):
+    """resolve_api_key returns empty string when no key is available."""
+    from _identity import resolve_api_key
+
+    monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", raising=False)
+    assert resolve_api_key() == ""

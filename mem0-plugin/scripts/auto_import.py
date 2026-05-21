@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _identity import resolve_user_id
+from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-auto-import")
@@ -123,7 +123,7 @@ def post_memory(api_key: str, content: str, user_id: str, filename: str, project
 
 
 def main() -> None:
-    api_key = os.environ.get("MEM0_API_KEY", "")
+    api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping auto-import")
         return
