@@ -17,6 +17,16 @@
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_post_tool_use_cursor.sh",
         "matcher": "mcp__mem0__",
         "timeout": 3
+      },
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_post_commit.sh",
+        "matcher": "Bash",
+        "timeout": 5
+      },
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_bash_output.sh",
+        "matcher": "Bash",
+        "timeout": 5
       }
     ],
     "preCompact": [

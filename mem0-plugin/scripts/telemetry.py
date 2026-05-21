@@ -140,6 +140,11 @@ def main() -> int:
             properties["source_detail"] = arg.split("=", 1)[1]
         elif arg.startswith("--tool="):
             properties["tool"] = arg.split("=", 1)[1]
+        elif arg.startswith("--files_count="):
+            try:
+                properties["files_count"] = int(arg.split("=", 1)[1])
+            except ValueError:
+                pass
 
     emit(event_type, properties)
     return 0

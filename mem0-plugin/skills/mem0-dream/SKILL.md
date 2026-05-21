@@ -235,6 +235,110 @@ In auto mode:
    )
    ```
 
-**Note**: Claude Code does not have native cron/scheduling. To run dream periodically,
-use an external scheduler (cron, launchd) calling `claude -p "/mem0:dream --auto"`,
-or run it manually at the start of each week.
+## Scheduling recurring dreams
+
+When invoked with `--schedule` (e.g., `/mem0:dream --schedule weekly`), register a
+cloud routine via Claude Code's built-in `/schedule` command so the dream runs
+automatically without any local cron or launchd setup.
+
+### Step S1: Parse schedule frequency
+
+Accept natural-language frequency after `--schedule`:
+
+| User input | Cron equivalent | Description |
+|---|---|---|
+| `weekly` or `--schedule weekly` | Every Sunday 3:00 AM local | Default weekly consolidation |
+| `daily` | Every day 3:00 AM local | For high-volume projects |
+| `biweekly` | Every other Sunday 3:00 AM local | Lower frequency option |
+| Custom (e.g., `"every Monday 9am"`) | Pass verbatim to `/schedule` | Let Claude Code resolve it |
+
+### Step S2: Create the routine
+
+Use Claude Code's `/schedule` command to create a cloud routine. The routine runs
+`/mem0:dream --auto` on the specified schedule against the current repository:
+
+```
+/schedule <frequency> /mem0:dream --auto
+```
+
+For example:
+- `/schedule weekly /mem0:dream --auto` — runs every week
+- `/schedule daily at 3am /mem0:dream --auto` — runs every day at 3 AM
+- `/schedule every Monday 9am /mem0:dream --auto` — runs every Monday at 9 AM
+
+The `/schedule` command handles all the cloud infrastructure: repository cloning,
+environment setup, and cron scheduling. The routine runs as a full Claude Code
+cloud session with access to the mem0 MCP tools.
+
+### Step S3: Confirm to user
+
+After the routine is created, print:
+
+```
+Dream scheduled: <frequency>
+Routine name: mem0-dream-<project_id>
+Next run: <next scheduled time>
+
+Manage at: https://claude.ai/code/routines
+Edit: /schedule list → /schedule update
+Cancel: /schedule list → delete the routine
+```
+
+### Managing scheduled dreams
+
+| Action | Command |
+|---|---|
+| List all routines | `/schedule list` |
+| Run dream now | `/schedule run` (select the dream routine) |
+| Change frequency | `/schedule update` (select the dream routine) |
+| Pause | Toggle off at claude.ai/code/routines |
+| Delete | Delete at claude.ai/code/routines or `/schedule update` |
+
+### Fallback for non-cloud users
+
+If `/schedule` is unavailable (API key auth, no claude.ai subscription), fall back
+to local options:
+
+1. **macOS launchd plist** — generate and install:
+   ```bash
+   cat > ~/Library/LaunchAgents/com.mem0.dream.plist << 'PLIST'
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key><string>com.mem0.dream</string>
+     <key>ProgramArguments</key>
+     <array>
+       <string>claude</string>
+       <string>-p</string>
+       <string>/mem0:dream --auto</string>
+       <string>--allowedTools</string>
+       <string>mcp__mem0__*</string>
+     </array>
+     <key>StartCalendarInterval</key>
+     <dict>
+       <key>Weekday</key><integer>0</integer>
+       <key>Hour</key><integer>3</integer>
+       <key>Minute</key><integer>0</integer>
+     </dict>
+     <key>StandardOutPath</key><string>/tmp/mem0-dream.log</string>
+     <key>StandardErrorPath</key><string>/tmp/mem0-dream.err</string>
+     <key>WorkingDirectory</key><string>PROJECT_DIR</string>
+   </dict>
+   </plist>
+   PLIST
+   launchctl load ~/Library/LaunchAgents/com.mem0.dream.plist
+   ```
+   Replace `PROJECT_DIR` with the actual project path.
+
+2. **Linux cron** — add entry:
+   ```bash
+   (crontab -l 2>/dev/null; echo "0 3 * * 0 cd PROJECT_DIR && claude -p '/mem0:dream --auto' >> /tmp/mem0-dream.log 2>&1") | crontab -
+   ```
+
+Print which method was used and how to verify:
+```
+Dream scheduled (local: launchd/cron): weekly Sundays 3am
+Verify: launchctl list | grep mem0   # macOS
+        crontab -l | grep mem0       # Linux
+```

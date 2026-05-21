@@ -65,7 +65,55 @@ Top categories: <top 3 by count>
 <2-3 sentence summary of the most important decisions, learnings, or patterns stored this week>
 ```
 
-### Step 4: Empty state
+### Step 4: Write digest to file
+
+After displaying, write the digest to `~/.mem0/weekly-digest.md` for persistence
+and external consumption (email, Slack, etc.):
+
+```bash
+mkdir -p ~/.mem0
+```
+
+Write the full digest output (same markdown shown in terminal) to `~/.mem0/weekly-digest.md`
+using the Write tool. **Overwrite** the file each time — it always contains the latest digest.
+
+Also append a one-line summary to `~/.mem0/digest-history.log` for trend tracking:
+
+```bash
+echo "<YYYY-MM-DD> | <project_id> | +<new_count> memories | top: <top_category>" >> ~/.mem0/digest-history.log
+```
+
+Print at the end:
+```
+Digest saved to ~/.mem0/weekly-digest.md
+```
+
+### Step 5: Schedule recurring digests
+
+When invoked with `--schedule` (e.g., `/mem0:digest --schedule weekly`), register
+a cloud routine via Claude Code's `/schedule` command:
+
+```
+/schedule <frequency> /mem0:digest
+```
+
+For example:
+- `/schedule weekly on Monday 9am /mem0:digest` — digest every Monday morning
+- `/schedule daily at 8am /mem0:digest` — daily digest
+
+Print:
+```
+Digest scheduled: <frequency>
+Manage at: https://claude.ai/code/routines
+```
+
+If `/schedule` is unavailable, print a cron one-liner the user can install manually:
+```bash
+# macOS/Linux — weekly Monday 9am
+(crontab -l 2>/dev/null; echo "0 9 * * 1 cd PROJECT_DIR && claude -p '/mem0:digest' >> /tmp/mem0-digest.log 2>&1") | crontab -
+```
+
+### Step 6: Empty state
 
 If no memories in the last 7 days:
 ```

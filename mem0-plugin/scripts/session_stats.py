@@ -100,7 +100,12 @@ def report() -> str:
         return ""
 
     parts = []
-    parts.append(f"Session: wrote {adds} memories, retrieved {searches}")
+    category_counts = stats.get("category_counts", {})
+    if category_counts:
+        breakdown = ", ".join(f"{c} {n}" for c, n in sorted(category_counts.items(), key=lambda x: -x[1]))
+        parts.append(f"Session: wrote {adds} memories ({breakdown}), retrieved {searches}")
+    else:
+        parts.append(f"Session: wrote {adds} memories, retrieved {searches}")
     if categories:
         parts.append(f"Categories touched: {', '.join(categories)}")
 
