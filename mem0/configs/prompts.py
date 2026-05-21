@@ -408,7 +408,6 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
         global DEFAULT_UPDATE_MEMORY_PROMPT
         custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
 
-
     if retrieved_old_memory_dict:
         current_memory_part = f"""
     Below is the current content of my memory which I have collected till now. You have to update it in the following format only:
@@ -1058,5 +1057,77 @@ def generate_additive_extraction_prompt(
             "8. For CJK languages: maintain appropriate formality level from the source text."
         )
 
+    sections.append("# Output:")
+    return "\n\n".join(sections)
+
+
+# ---------------------------------------------------------------------------
+# Contradiction Detection Prompt (Phase 1.5 — opt-in memory superseding)
+# Used when MemoryConfig.enable_contradiction_detection is True.
+# ---------------------------------------------------------------------------
+
+CONTRADICTION_DETECTION_PROMPT = """
+# ROLE
+
+You are a Memory Contradiction Detector — a precise, evidence-bound processor that identifies
+when new information DIRECTLY CONTRADICTS existing memories. Your sole job is to compare new
+incoming messages against a set of existing memories and identify which existing memories are
+now factually outdated or contradicted.
+
+# RULES
+
+1. A contradiction exists ONLY when the new information makes an existing memory **factually
+   incorrect or outdated**. Examples:
+   - Old: "User likes coffee" + New: "I don't like coffee anymore, I like tea" → CONTRADICTION
+   - Old: "User lives in NYC" + New: "I just moved to San Francisco" → CONTRADICTION
+   - Old: "User is a junior developer" + New: "I got promoted to senior developer" → CONTRADICTION
+
+2. The following are NOT contradictions — do NOT flag these:
+   - Additive information: Old: "User likes pizza" + New: "I also like sushi" → NOT a contradiction
+   - Unrelated topics: Old: "User has a dog" + New: "I started a new job" → NOT a contradiction
+   - Elaboration: Old: "User likes coffee" + New: "I love dark roast coffee" → NOT a contradiction
+   - Temporal events: Old: "User went to Paris in 2023" + New: "I'm going to London" → NOT a contradiction
+
+3. Be CONSERVATIVE. When in doubt, do NOT mark as contradicted. False positives (incorrectly
+   superseding a valid memory) are much worse than false negatives (missing a contradiction).
+
+4. Only return IDs from the provided existing memories list. NEVER fabricate IDs.
+
+# OUTPUT FORMAT
+
+Return ONLY valid JSON parsable by json.loads(). No text, reasoning, explanations, or wrappers.
+
+{
+  "superseded_ids": ["0", "2"]
+}
+
+If no contradictions are found, return:
+
+{
+  "superseded_ids": []
+}
+"""
+
+
+def generate_contradiction_detection_prompt(
+    existing_memories,
+    new_messages,
+):
+    """Build the user prompt for contradiction detection (Phase 1.5).
+
+    Pairs with CONTRADICTION_DETECTION_PROMPT as the system prompt.
+    The LLM will produce a JSON list of existing memory IDs that are superseded
+    by the new information.
+
+    Args:
+        existing_memories: List of dicts with "id" and "text" keys (integer-string IDs).
+        new_messages: The parsed new messages string.
+
+    Returns:
+        str: The formatted user prompt.
+    """
+    sections = []
+    sections.append(f"## Existing Memories\n{json.dumps(existing_memories or [], ensure_ascii=False)}")
+    sections.append(f"## New Messages\n{new_messages}")
     sections.append("# Output:")
     return "\n\n".join(sections)

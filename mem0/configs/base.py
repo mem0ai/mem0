@@ -55,6 +55,15 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    enable_contradiction_detection: bool = Field(
+        description=(
+            "If True, each add() call runs an extra LLM pass to detect existing memories "
+            "that are factually contradicted by the new information, and marks them as "
+            "superseded (soft-deleted) so they are excluded from future searches. "
+            "Defaults to False for full backward compatibility."
+        ),
+        default=False,
+    )
 
 
 class AzureConfig(BaseModel):
