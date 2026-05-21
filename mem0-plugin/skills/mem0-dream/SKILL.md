@@ -207,34 +207,18 @@ Dream complete.
 
 ---
 
-## Scheduling (Claude Code only)
+## Auto mode
 
-### Running dream on a schedule
-
-**Note**: Scheduled dream is only available in Claude Code, which natively supports
-the `schedule` skill. Codex and Cursor do not have a scheduling primitive — users
-on those platforms should run `/mem0:dream` manually.
-
-When the user runs `/mem0:dream --schedule weekly` (or similar), register a
-recurring scheduled task using the Claude Code `schedule` skill.
-
-Use `--auto` flag to enable non-interactive mode, which skips the interactive
-contradiction resolution UI and applies only safe operations automatically:
+When invoked with `--auto` (e.g., `/mem0:dream --auto`), run non-interactively:
 
 - **Merges**: applied automatically (no contradiction, both are compatible).
 - **Prunes**: applied automatically (age/confidence-based, no ambiguity).
-- **Contradictions**: skipped in `--auto` mode; they require human judgment.
+- **Contradictions**: skipped — they require human judgment.
 
-Example scheduling invocation:
-
-```
-/schedule weekly mem0:dream --auto
-```
-
-When running with `--auto`:
+In auto mode:
 1. Load policies and fetch memories (Steps 1–3) as normal.
 2. Apply merges and prunes silently without printing the diff or prompting.
-3. Log a compact summary to stdout (suitable for a cron log):
+3. Print a compact summary:
    ```
    [mem0-dream --auto] project=<id>  merged=<N>  pruned=<N>  conflicts_skipped=<N>
    ```
@@ -248,3 +232,7 @@ When running with `--auto`:
        infer=False,
    )
    ```
+
+**Note**: Claude Code does not have native cron/scheduling. To run dream periodically,
+use an external scheduler (cron, launchd) calling `claude -p "/mem0:dream --auto"`,
+or run it manually at the start of each week.

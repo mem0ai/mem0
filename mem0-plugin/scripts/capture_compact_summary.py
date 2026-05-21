@@ -115,7 +115,7 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str, pro
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        f"{API_URL}/v1/memories/",
+        f"{API_URL}/v3/memories/add/",
         data=data,
         headers={
             "Content-Type": "application/json",

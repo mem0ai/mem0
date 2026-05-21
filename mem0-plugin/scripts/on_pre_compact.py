@@ -190,7 +190,7 @@ def store_memory(api_key: str, content: str, user_id: str, source: str, session_
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        f"{API_URL}/v1/memories/",
+        f"{API_URL}/v3/memories/add/",
         data=data,
         headers={
             "Content-Type": "application/json",
