@@ -29,6 +29,7 @@ class LlmConfig(BaseModel):
             "lmstudio",
             "vllm",
             "langchain",
+            "orcarouter",
         ):
             return v
         else:
