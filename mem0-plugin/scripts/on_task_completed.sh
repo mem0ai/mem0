@@ -37,4 +37,7 @@ Only store genuinely useful learnings — skip if the task was trivial.
 Include \`app_id\` = \`"$_PROJECT"\` as a top-level parameter in every \`add_memory\` call (not in metadata).
 EOF
 
+# Telemetry (background, fire-and-forget)
+python3 "$SCRIPT_DIR/telemetry.py" task_completed 2>/dev/null &
+
 exit 0

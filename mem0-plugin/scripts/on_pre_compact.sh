@@ -21,6 +21,7 @@ INPUT=$(cat)
 # Fire REST API transcript backup in background (safety net if agent
 # can't complete the add_memory call before compaction finishes)
 echo "$INPUT" | python3 "$SCRIPT_DIR/on_pre_compact.py" --source=pre-compaction 2>/dev/null &
+python3 "$SCRIPT_DIR/telemetry.py" pre_compact 2>/dev/null &
 
 cat <<'EOF'
 ## CRITICAL: Pre-Compaction Session Summary

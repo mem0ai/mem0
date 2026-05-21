@@ -162,4 +162,7 @@ is being captured to mem0 in the background as `metadata.type=compact_summary`.
 EOF
 fi
 
+# Telemetry (background, fire-and-forget)
+python3 "$SCRIPT_DIR/telemetry.py" session_start --source="$SOURCE" --memory_count="${MEM0_COUNT:-0}" 2>/dev/null &
+
 exit 0

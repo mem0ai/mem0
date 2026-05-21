@@ -38,6 +38,12 @@ fi
 # Detect file paths in the prompt (no API needed)
 FILE_PATHS=$(echo "$PROMPT" | grep -oE '([a-zA-Z0-9_./-]+\.(py|ts|tsx|js|jsx|rs|go|rb|java|sh|yaml|yml|json|toml|md|sql|css|html))\b' 2>/dev/null | head -5 || echo "")
 
+# Telemetry (background, fire-and-forget)
+_TELEM_ARGS=""
+[ -n "$HAS_ERROR" ] && _TELEM_ARGS="$_TELEM_ARGS --error_detected"
+[ -n "$FILE_PATHS" ] && _TELEM_ARGS="$_TELEM_ARGS --file_paths_detected"
+python3 "$SCRIPT_DIR/telemetry.py" user_prompt $_TELEM_ARGS 2>/dev/null &
+
 # No API key — emit detections only, skip search rubric
 if [ -z "${MEM0_API_KEY:-}" ]; then
   if [ -n "$HAS_ERROR" ]; then
