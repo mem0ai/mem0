@@ -186,6 +186,7 @@ def store_memory(api_key: str, content: str, user_id: str, source: str, session_
         "app_id": project_id,
         "metadata": metadata,
         "expiration_date": expires,
+        "infer": False,
     }
 
     data = json.dumps(body).encode("utf-8")

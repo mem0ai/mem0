@@ -53,12 +53,15 @@ req = urllib.request.Request(
 )
 try:
     with urllib.request.urlopen(req, timeout=5) as r:
-        results = json.loads(r.read())
-        if isinstance(results, list):
-            n = len(results)
-            print(f'{n}+' if n >= 100 else str(n))
+        data = json.loads(r.read())
+        if isinstance(data, list):
+            results = data
+        elif isinstance(data, dict) and 'results' in data:
+            results = data['results']
         else:
-            print('?')
+            print('?'); raise SystemExit
+        n = len(results)
+        print(f'{n}+' if n >= 100 else str(n))
 except Exception:
     print('?')
 " 2>/dev/null || echo "?")

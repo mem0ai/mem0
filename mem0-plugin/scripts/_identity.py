@@ -31,10 +31,10 @@ def resolve_user_id() -> str:
 try:
     from _project import resolve_branch, resolve_project_id, save_project_mapping
 except ImportError:
-    def resolve_project_id() -> str:
-        return os.path.basename(os.getcwd())
+    def resolve_project_id(cwd: str | None = None) -> str:
+        return os.path.basename(cwd or os.getcwd())
 
-    def resolve_branch() -> str:
+    def resolve_branch(cwd: str | None = None) -> str:
         return "unknown"
 
     def save_project_mapping(cwd: str, project_id: str) -> None:

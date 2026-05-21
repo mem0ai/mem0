@@ -19,6 +19,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 INPUT=$(cat)
 
+# Guard against infinite loops: if this is a re-entry after a prior followup,
+# let the turn end. Cursor exposes loop_count in the input JSON.
+LOOP_COUNT=$(echo "$INPUT" | jq -r '.loop_count // 0' 2>/dev/null || echo "0")
+if [ "$LOOP_COUNT" -gt 1 ]; then
+  echo '{}'
+  exit 0
+fi
+
 # Session-end report (best-effort)
 REPORT=$(python3 "$SCRIPT_DIR/session_stats.py" report 2>/dev/null || echo "")
 REPORT_BLOCK=""
