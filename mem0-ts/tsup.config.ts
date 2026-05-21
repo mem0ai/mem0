@@ -20,6 +20,7 @@ const external = [
   "cloudflare",
   "@cloudflare/workers-types",
   "@langchain/core",
+  "@zilliz/milvus2-sdk-node",
   "compromise",
   "natural",
 ];
