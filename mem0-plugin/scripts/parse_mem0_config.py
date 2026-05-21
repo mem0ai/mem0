@@ -91,19 +91,92 @@ def parse_retention(content: str) -> dict[str, int | None]:
     return policies
 
 
+def parse_section_kv(content: str, heading: str) -> dict[str, str]:
+    """Parse a key-value section from mem0.md.
+
+    Looks for ``## <heading>`` (case-insensitive) and reads ``key: value``
+    lines until the next ``##``-level heading or end of string.
+    """
+    pattern = rf"^##\s+{re.escape(heading)}[^\n]*\n(.*?)(?=^##\s|\Z)"
+    match = re.search(pattern, content, flags=re.MULTILINE | re.DOTALL | re.IGNORECASE)
+    if not match:
+        return {}
+
+    result: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        line = re.sub(r"#.*$", "", line).strip()
+        if not line:
+            continue
+        m = re.match(r"^([^:]+):\s*(.+)$", line)
+        if m:
+            result[m.group(1).strip()] = m.group(2).strip()
+    return result
+
+
+def parse_section_list(content: str, heading: str) -> list[str]:
+    """Parse a list section from mem0.md.
+
+    Looks for ``## <heading>`` and reads ``- item`` or bare lines.
+    """
+    pattern = rf"^##\s+{re.escape(heading)}[^\n]*\n(.*?)(?=^##\s|\Z)"
+    match = re.search(pattern, content, flags=re.MULTILINE | re.DOTALL | re.IGNORECASE)
+    if not match:
+        return []
+
+    items: list[str] = []
+    for line in match.group(1).splitlines():
+        line = re.sub(r"#.*$", "", line).strip()
+        line = re.sub(r"^[-*]\s+", "", line).strip()
+        if line:
+            items.append(line)
+    return items
+
+
+def load_full_config(cwd: str | None = None) -> dict:
+    """Load all config sections from mem0.md.
+
+    Returns a dict with keys: retention, search, categories, identity.
+    Each is populated only if the corresponding ``##`` section exists.
+    """
+    if cwd is None:
+        cwd = os.getcwd()
+
+    config_path = find_mem0_config(cwd)
+    if config_path is None:
+        return {}
+
+    try:
+        with open(config_path, encoding="utf-8") as fh:
+            content = fh.read()
+    except OSError:
+        return {}
+
+    config: dict = {}
+
+    retention = parse_retention(content)
+    if retention:
+        config["retention"] = retention
+
+    search = parse_section_kv(content, "Search")
+    if search:
+        config["search"] = search
+
+    categories = parse_section_list(content, "Categories")
+    if categories:
+        config["categories"] = categories
+
+    identity = parse_section_kv(content, "Identity")
+    if identity:
+        config["identity"] = identity
+
+    return config
+
+
 def load_retention_policies(cwd: str | None = None) -> dict[str, int | None]:
     """Load retention policies from the mem0.md in *cwd*.
 
     Combines :func:`find_mem0_config` and :func:`parse_retention` into a
     single convenience function.
-
-    Args:
-        cwd: Directory to search.  Defaults to ``os.getcwd()``.
-
-    Returns:
-        Retention dict (category → days or ``None``).  Empty dict if no
-        ``mem0.md`` exists in *cwd* or it contains no ``## Retention``
-        section.
     """
     if cwd is None:
         cwd = os.getcwd()
@@ -124,12 +197,18 @@ def load_retention_policies(cwd: str | None = None) -> dict[str, int | None]:
 def main() -> int:
     """CLI entry point.
 
-    Reads cwd from ``sys.argv[1]`` (or ``os.getcwd()``), prints JSON to
-    stdout.
+    With ``--full``, prints the complete config. Without it, prints only
+    retention policies (backward-compatible).
     """
-    cwd = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-    policies = load_retention_policies(cwd)
-    print(json.dumps(policies))
+    full_mode = "--full" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    cwd = args[0] if args else os.getcwd()
+
+    if full_mode:
+        config = load_full_config(cwd)
+    else:
+        config = load_retention_policies(cwd)
+    print(json.dumps(config))
     return 0
 
 

@@ -248,3 +248,177 @@ def test_cli_main_no_file_prints_empty_json(tmp_path):
     )
     assert result.returncode == 0
     assert json.loads(result.stdout) == {}
+
+
+# ---------------------------------------------------------------------------
+# parse_section_kv — unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_parse_section_kv_basic():
+    """parse_section_kv extracts key-value pairs from a named section."""
+    from parse_mem0_config import parse_section_kv
+
+    content = """\
+## Search
+
+default_limit: 10
+boost_recency: true
+"""
+    result = parse_section_kv(content, "Search")
+    assert result == {"default_limit": "10", "boost_recency": "true"}
+
+
+def test_parse_section_kv_missing_section():
+    """parse_section_kv returns {} when section doesn't exist."""
+    from parse_mem0_config import parse_section_kv
+
+    result = parse_section_kv("## Other\nfoo: bar\n", "Search")
+    assert result == {}
+
+
+def test_parse_section_kv_stops_at_next_heading():
+    """parse_section_kv stops at the next ## heading."""
+    from parse_mem0_config import parse_section_kv
+
+    content = """\
+## Identity
+
+user_id: kartik
+project_id: mem0
+
+## Other
+
+ignored: yes
+"""
+    result = parse_section_kv(content, "Identity")
+    assert result == {"user_id": "kartik", "project_id": "mem0"}
+    assert "ignored" not in result
+
+
+# ---------------------------------------------------------------------------
+# parse_section_list — unit tests
+# ---------------------------------------------------------------------------
+
+
+def test_parse_section_list_basic():
+    """parse_section_list extracts list items from a named section."""
+    from parse_mem0_config import parse_section_list
+
+    content = """\
+## Categories
+
+- architecture_decisions
+- bug_fixes
+- coding_conventions
+"""
+    result = parse_section_list(content, "Categories")
+    assert result == ["architecture_decisions", "bug_fixes", "coding_conventions"]
+
+
+def test_parse_section_list_bare_lines():
+    """parse_section_list works with bare lines (no bullet prefix)."""
+    from parse_mem0_config import parse_section_list
+
+    content = """\
+## Categories
+
+architecture_decisions
+bug_fixes
+"""
+    result = parse_section_list(content, "Categories")
+    assert result == ["architecture_decisions", "bug_fixes"]
+
+
+def test_parse_section_list_missing_section():
+    """parse_section_list returns [] when section doesn't exist."""
+    from parse_mem0_config import parse_section_list
+
+    result = parse_section_list("## Other\n- foo\n", "Categories")
+    assert result == []
+
+
+# ---------------------------------------------------------------------------
+# load_full_config — integration tests
+# ---------------------------------------------------------------------------
+
+
+def test_load_full_config_all_sections(tmp_path):
+    """load_full_config extracts all sections from mem0.md."""
+    from parse_mem0_config import load_full_config
+
+    mem0_md = tmp_path / "mem0.md"
+    mem0_md.write_text(
+        """\
+# My Project
+
+## Retention
+
+session_state: 90d
+decision: forever
+
+## Search
+
+default_limit: 20
+boost_recency: true
+
+## Categories
+
+- architecture_decisions
+- bug_fixes
+- security_constraints
+
+## Identity
+
+user_id: kartik
+project_id: my-project
+""",
+        encoding="utf-8",
+    )
+
+    config = load_full_config(str(tmp_path))
+    assert config["retention"] == {"session_state": 90, "decision": None}
+    assert config["search"] == {"default_limit": "20", "boost_recency": "true"}
+    assert config["categories"] == ["architecture_decisions", "bug_fixes", "security_constraints"]
+    assert config["identity"] == {"user_id": "kartik", "project_id": "my-project"}
+
+
+def test_load_full_config_partial_sections(tmp_path):
+    """load_full_config only includes sections that exist."""
+    from parse_mem0_config import load_full_config
+
+    mem0_md = tmp_path / "mem0.md"
+    mem0_md.write_text("## Retention\nsession_state: 30d\n", encoding="utf-8")
+
+    config = load_full_config(str(tmp_path))
+    assert "retention" in config
+    assert "search" not in config
+    assert "categories" not in config
+    assert "identity" not in config
+
+
+def test_load_full_config_no_file(tmp_path):
+    """load_full_config returns {} when no mem0.md exists."""
+    from parse_mem0_config import load_full_config
+
+    config = load_full_config(str(tmp_path))
+    assert config == {}
+
+
+def test_cli_full_flag(tmp_path):
+    """CLI: --full prints all sections as JSON."""
+    mem0_md = tmp_path / "mem0.md"
+    mem0_md.write_text(
+        "## Retention\nsession_state: 90d\n\n## Search\nlimit: 10\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [sys.executable, os.path.join(SCRIPTS_DIR, "parse_mem0_config.py"), "--full", str(tmp_path)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert "retention" in data
+    assert "search" in data

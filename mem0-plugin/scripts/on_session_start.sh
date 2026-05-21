@@ -46,7 +46,7 @@ body = json.dumps({
     'limit': 100,
 }).encode()
 req = urllib.request.Request(
-    'https://api.mem0.ai/v2/memories/search/',
+    'https://api.mem0.ai/v3/memories/search/',
     data=body,
     headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
     method='POST',
@@ -76,6 +76,20 @@ echo "Always include \`user_id\` + \`app_id\` in every \`search_memories\` filte
 echo "- user_id: \`$MEM0_RESOLVED_USER_ID\`"
 echo "- app_id: \`$MEM0_PROJECT_ID\` (project scope — passed as top-level \`app_id\`, NOT in metadata)"
 echo ""
+
+# Load mem0.md project config if present (best-effort, non-blocking)
+MEM0_PROJECT_CONFIG=""
+MEM0_CWD_RESOLVED=$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")
+if command -v python3 >/dev/null 2>&1; then
+  MEM0_PROJECT_CONFIG=$(python3 "$SCRIPT_DIR/parse_mem0_config.py" --full "$MEM0_CWD_RESOLVED" 2>/dev/null || echo "{}")
+fi
+if [ -n "$MEM0_PROJECT_CONFIG" ] && [ "$MEM0_PROJECT_CONFIG" != "{}" ]; then
+  echo "### Project Config (mem0.md)"
+  echo "\`\`\`json"
+  echo "$MEM0_PROJECT_CONFIG"
+  echo "\`\`\`"
+  echo ""
+fi
 
 if [ "$SOURCE" = "startup" ]; then
   # First-run detection: auto-trigger onboarding for new projects
