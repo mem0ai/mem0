@@ -35,6 +35,15 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
 fi
 USER_ID="$MEM0_RESOLVED_USER_ID"
 
+# Detect stack traces and error patterns in the prompt
+HAS_ERROR=""
+if echo "$PROMPT" | grep -qiE '(Traceback|Error:|Exception:|panic:|FAILED|fatal:| at .+\.[a-z]+:[0-9]+)'; then
+  HAS_ERROR="true"
+fi
+
+# Detect file paths in the prompt
+FILE_PATHS=$(echo "$PROMPT" | grep -oE '([a-zA-Z0-9_./-]+\.(py|ts|tsx|js|jsx|rs|go|rb|java|sh|yaml|yml|json|toml|md|sql|css|html))\b' 2>/dev/null | head -5 || echo "")
+
 cat <<EOF
 ## Memory check
 
@@ -53,6 +62,29 @@ improve your answer. The agent -- not this hook -- owns this decision.
 - the user is *stating* new info -- that's a write trigger (\`add_memory\`), not a search
 - it's a pure syntax / factual question answerable from general knowledge
 - you already searched this scope earlier in the turn
+EOF
+
+if [ -n "$HAS_ERROR" ]; then
+  cat <<EOF
+
+**ERROR DETECTED in prompt.** You SHOULD search mem0 for prior occurrences:
+- \`search_memories(query="<error class or message>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "anti_pattern"}}]})\`
+- \`search_memories(query="<module or file from stack trace>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "task_learning"}}]})\`
+This surfaces past debugging context and known failure modes.
+EOF
+fi
+
+if [ -n "$FILE_PATHS" ]; then
+  cat <<EOF
+
+**FILE PATHS detected:** \`$FILE_PATHS\`
+Search mem0 for context about these files:
+- \`search_memories(query="<filename without extension>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}]})\`
+Memories tagged with \`metadata.files\` containing these paths will surface via text match.
+EOF
+fi
+
+cat <<EOF
 
 **If searching, do it well:**
 - Run **2-4 parallel** \`search_memories\` calls with different angles, not one
@@ -66,6 +98,7 @@ improve your answer. The agent -- not this hook -- owns this decision.
   - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "user_preference"}}]}\` -- tooling, stack, style
   - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "convention"}}]}\` -- established patterns
   - Or scope with just \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}]}\` when no metadata filter fits.
+- **Recency boost:** For state-related queries ("where were we", "current task", "latest"), add a \`created_at\` filter: \`{"created_at": {"gte": "<90 days ago YYYY-MM-DD>"}}\`. Skip recency for durable facts (conventions, decisions).
 - Empty results are normal -- proceed without context.
 EOF
 

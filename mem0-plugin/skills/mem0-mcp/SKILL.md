@@ -206,6 +206,22 @@ If context is about to be compacted or the session is ending, store a comprehens
 
 Include metadata: `{"type": "session_state"}`
 
+## Inline citations
+
+When your response is informed by specific memories, cite them so the user can trace provenance. Use the memory ID returned by `search_memories`.
+
+Format: `[mem0:<short_id>]` where `<short_id>` is the first 8 characters of the memory ID.
+
+Example:
+> We chose Postgres over SQLite for production [mem0:a3f8b2c1] and the auth module uses JWT tokens [mem0:7e2d9f4a].
+
+Rules:
+- Only cite when the memory **directly informed** your answer. Don't cite for general knowledge.
+- Place citations inline, at the end of the relevant sentence.
+- If multiple memories support the same point, cite all: `[mem0:abc12345][mem0:def67890]`.
+- Don't cite `session_state` or `compact_summary` memories — those are internal bookkeeping.
+- Keep it subtle. One or two citations per response is typical. Don't over-cite.
+
 ## Memory hygiene
 
 - Do NOT write to MEMORY.md or any file-based memory. Use mem0 MCP tools exclusively.
