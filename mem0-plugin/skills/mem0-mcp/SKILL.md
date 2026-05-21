@@ -75,6 +75,30 @@ Combine `user_id` + `app_id` with one metadata clause per call:
 | `{"metadata": {"type": "user_preference"}}` | tooling, stack, style — always include for code work |
 | `{"metadata": {"type": "convention"}}` | established patterns in this project |
 
+### Which categories to search by query intent
+
+When a query clearly maps to one of the platform's custom categories, fan-out to 2–3 parallel `search_memories` calls scoped to those categories so recall is precise without being noisy. Use the `metadata.type` filter as your primary discriminator; treat the category column below as the semantic lens to pick the right query nouns.
+
+| User intent / signal | Primary categories to search | Example query nouns |
+|---|---|---|
+| Design or architecture question | `architecture_decisions`, `api_contracts`, `data_model` | `"architecture decision"`, `"API schema"`, `"data model"` |
+| Something failed / debugging | `anti_patterns`, `bug_fixes`, `security_constraints` | `"bug root cause"`, `"failure pattern"`, `"security constraint"` |
+| How do we do X here? | `coding_conventions`, `team_norms`, `testing_patterns` | `"code convention"`, `"team norm"`, `"test strategy"` |
+| Which library / version to use | `dependency_decisions`, `tooling_setup`, `architecture_decisions` | `"dependency choice"`, `"library version"`, `"tooling setup"` |
+| Performance or scale concern | `performance_findings`, `architecture_decisions`, `data_model` | `"performance bottleneck"`, `"profiling result"`, `"optimisation"` |
+| Security / auth / compliance | `security_constraints`, `api_contracts`, `coding_conventions` | `"auth rule"`, `"security requirement"`, `"compliance"` |
+| Test strategy or coverage | `testing_patterns`, `coding_conventions`, `anti_patterns` | `"test framework"`, `"coverage target"`, `"fixture pattern"` |
+| Schema / DB / domain object | `data_model`, `api_contracts`, `domain_glossary` | `"schema"`, `"column"`, `"domain object"` |
+| API shape or versioning | `api_contracts`, `data_model`, `architecture_decisions` | `"endpoint"`, `"request schema"`, `"versioning"` |
+| How to deploy / release / rollback | `deployment_runbook`, `tooling_setup`, `team_norms` | `"deploy step"`, `"rollback"`, `"CI pipeline"` |
+| Team process / branching / PRs | `team_norms`, `coding_conventions`, `deployment_runbook` | `"branching strategy"`, `"PR review"`, `"working agreement"` |
+| What does this term mean? | `domain_glossary`, `data_model`, `api_contracts` | `"glossary"`, `"abbreviation"`, `"domain term"` |
+| Experiment / spike / A-B test | `experiment_results`, `performance_findings`, `anti_patterns` | `"experiment result"`, `"A/B test"`, `"spike outcome"` |
+| User's tool / language preferences | `user_preferences`, `tooling_setup`, `coding_conventions` | `"user preference"`, `"preferred tool"`, `"language choice"` |
+| Past task strategies that worked | `task_learnings`, `anti_patterns`, `coding_conventions` | `"task strategy"`, `"approach that worked"` |
+| Environment / setup question | `tooling_setup`, `deployment_runbook`, `dependency_decisions` | `"environment setup"`, `"build tool"`, `"install step"` |
+| Anything related to current state | `task_learnings`, `architecture_decisions`, `anti_patterns` | (combine with recency filter — see below) |
+
 Full filter (replace `<your_user_id>` and `<your_project_id>` with the active values from SessionStart):
 ```python
 filters={"AND": [{"user_id": "<your_user_id>"}, {"app_id": "<your_project_id>"}, {"metadata": {"type": "decision"}}]}
@@ -187,3 +211,49 @@ Include metadata: `{"type": "session_state"}`
 - Do NOT write to MEMORY.md or any file-based memory. Use mem0 MCP tools exclusively.
 - Only store genuinely useful learnings. Skip trivial interactions.
 - Use specific, searchable language in memory content.
+
+### Confidence scoring on every add_memory
+
+Every `add_memory` call MUST include a `confidence` field in its `metadata` object. This captures how certain the stored fact is, so downstream callers can filter out speculation.
+
+| `metadata.confidence` value | Meaning | When to use |
+|---|---|---|
+| `1.0` | User explicitly stated it | User said "we use Postgres", "always lint before commit", "never use floats for currency" |
+| `0.8` | Observed directly in code / config | You read it from a file, migration, or config — not inferred |
+| `0.5` | Inferred from context | You derived it from surrounding evidence but the user didn't confirm it |
+| `0.3` | Guessed / low-signal | Extrapolated from a single weak signal; treat as a tentative hypothesis |
+
+Example:
+
+```python
+add_memory(
+    messages=[{"role": "user", "content": "We always use Postgres — never SQLite in production."}],
+    user_id="<active user_id>",
+    app_id="<active project_id>",
+    metadata={"type": "architecture_decisions", "branch": "<active branch>", "confidence": 1.0},
+    infer=False,
+)
+```
+
+**Search guidance:** When recalling actionable facts (decisions, conventions, security constraints), optionally apply a confidence threshold of 0.6 or above to avoid surfacing low-confidence guesses. Only top-level metadata keys are filterable, so `confidence` filtering requires SDK-side post-filtering or a dedicated high-confidence write path — for now, include the confidence value in every write and document it in the memory content so it is searchable via text.
+
+### File path tagging on every add_memory
+
+Every `add_memory` call that is associated with specific files MUST include a `files` key in its `metadata` object. The value is an array of affected file paths relative to the project root.
+
+```python
+add_memory(
+    messages=[{"role": "user", "content": "The auth middleware lives in src/middleware/auth.ts and validates JWTs using the shared key in config/secrets.ts."}],
+    user_id="<active user_id>",
+    app_id="<active project_id>",
+    metadata={
+        "type": "architecture_decisions",
+        "branch": "<active branch>",
+        "confidence": 0.8,
+        "files": ["src/middleware/auth.ts", "config/secrets.ts"],
+    },
+    infer=False,
+)
+```
+
+**Filtering note:** The mem0 v2 filter API does not yet support `array-contains` predicates. You cannot filter by `metadata.files` at search time. To work around this, always embed the bare filenames (and important path segments) in the memory content text itself — the vector search will then surface them on a filename query. The `files` array in metadata is still written for future compatibility once array-contains filtering is available.

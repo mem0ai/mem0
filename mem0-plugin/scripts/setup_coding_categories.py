@@ -69,6 +69,66 @@ CODING_CATEGORIES = [
             "and ways of working."
         )
     },
+    {
+        "dependency_decisions": (
+            "Why specific libraries, frameworks, or package versions were chosen or replaced, "
+            "including the alternatives considered and the reasoning behind the selection."
+        )
+    },
+    {
+        "performance_findings": (
+            "Profiling results, bottlenecks identified, optimisations applied, and measurable "
+            "improvements achieved -- useful for avoiding regressions and guiding future work."
+        )
+    },
+    {
+        "security_constraints": (
+            "Security requirements, authentication and authorisation rules, data-handling "
+            "constraints, compliance obligations, and known threat mitigations in effect."
+        )
+    },
+    {
+        "testing_patterns": (
+            "Test strategies, frameworks chosen, coverage targets, fixture patterns, mocking "
+            "approaches, and how the test suite is structured for this project."
+        )
+    },
+    {
+        "data_model": (
+            "Schema definitions, database column semantics, domain object relationships, "
+            "field constraints, and how data flows between storage and application layers."
+        )
+    },
+    {
+        "api_contracts": (
+            "API endpoint shapes, request and response schemas, authentication requirements, "
+            "versioning policy, and any breaking-change commitments or deprecation timelines."
+        )
+    },
+    {
+        "deployment_runbook": (
+            "How to build, release, deploy, and roll back the project. CI/CD pipeline steps, "
+            "environment-specific configuration, and on-call runbook entries."
+        )
+    },
+    {
+        "team_norms": (
+            "Team working agreements, PR review etiquette, branching strategy, on-call "
+            "rotation, and other social or process conventions the team has agreed on."
+        )
+    },
+    {
+        "domain_glossary": (
+            "Domain-specific terms, abbreviations, and acronyms with their precise meanings "
+            "in this project -- prevents misunderstandings across code, docs, and discussion."
+        )
+    },
+    {
+        "experiment_results": (
+            "Results from A/B tests, feature-flag experiments, spikes, or proof-of-concept "
+            "work -- what was tried, what was measured, and what conclusion was reached."
+        )
+    },
 ]
 
 
