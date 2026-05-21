@@ -11,12 +11,22 @@ description: >
 
 Run this wizard to set up the mem0 plugin for the current project. Complete in ~30 seconds.
 
+## Step 0: Ensure mem0ai SDK is installed
+
+The plugin installs the `mem0ai` Python SDK automatically on session start via a venv in `${CLAUDE_PLUGIN_DATA}/venv`. If Step 4 (categories) fails with an import error, run:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh"
+```
+
+This is silent and idempotent — safe to run anytime.
+
 ## Step 1: Verify API key and MCP connection
 
-Check that the mem0 MCP tools are available by looking for `mcp__mem0__search_memories` in the deferred tools list (use ToolSearch if needed).
+Check that mem0 MCP tools are available. Use ToolSearch with query `"mem0 search_memories"` — the exact tool name varies by install method (may be `mcp__mem0__search_memories` or `mcp__plugin_mem0_mem0__search_memories`).
 
-- If **MCP tools found**: Proceed to Step 2. The API key is working.
-- If **MCP tools NOT found**: The MCP server failed to connect. Tell the user:
+- If **any mem0 search tool found**: Proceed to Step 2. The API key is working.
+- If **NOT found**: The MCP server failed to connect. Tell the user:
   1. "MCP server not connected. Make sure `MEM0_API_KEY` is exported in your shell."
   2. Show: `export MEM0_API_KEY="m0-your-key-here"` then restart Claude Code.
   3. If they need a key: https://app.mem0.ai/dashboard/api-keys or `mem0 init --agent --json`
@@ -53,13 +63,22 @@ If user says yes (or default):
 
 Ask: "Install coding categories optimized for development workflows? [Y/n]"
 
-If yes, run the setup script (uses stdlib only, no SDK required):
+If yes, run the setup script using the plugin's venv python:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT}}}/scripts/setup_coding_categories.py" --apply
+VENV_PY="${CLAUDE_PLUGIN_DATA}/venv/bin/python3"
+if [ -x "${VENV_PY}" ]; then
+  "${VENV_PY}" "${CLAUDE_PLUGIN_ROOT}/scripts/setup_coding_categories.py" --apply
+else
+  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/setup_coding_categories.py" --apply
+fi
 ```
 
-If the script reports an error, show the error message and suggest checking the API key.
+If the script fails with "mem0ai SDK not found", run the dependency installer first:
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh"
+```
+Then retry the categories script.
 
 ## Step 5: Mark project as onboarded
 

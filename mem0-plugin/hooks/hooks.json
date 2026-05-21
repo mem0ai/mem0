@@ -2,6 +2,16 @@
   "hooks": {
     "SessionStart": [
       {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "diff -q \"${CLAUDE_PLUGIN_ROOT}/requirements.txt\" \"${CLAUDE_PLUGIN_DATA}/requirements.txt\" >/dev/null 2>&1 || \"${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh\"",
+            "statusMessage": "Installing mem0 SDK...",
+            "timeout": 60
+          }
+        ]
+      },
+      {
         "matcher": "startup|resume|compact",
         "hooks": [
           {

@@ -5,15 +5,14 @@ mem0 auto-tags every memory with one or more `categories`. By default the list
 is consumer-oriented (food, hobbies, music, ...), which is meaningless for code.
 This script replaces the project's category list with a coding-focused one.
 
-The change is project-level (per the platform docs, per-request overrides are
-not supported on the managed API). Run once per project; future memories will
-be tagged using the new list automatically.
+Uses the mem0ai SDK (client.project.update). The SDK is installed into a
+persistent venv at ${CLAUDE_PLUGIN_DATA}/venv by the ensure_deps.sh hook.
 
 Usage:
-  python setup_coding_categories.py            # dry-run: show current vs proposed, no changes
+  python setup_coding_categories.py            # dry-run: show current vs proposed
   python setup_coding_categories.py --apply    # actually call project.update()
 
-Requires the mem0ai Python SDK and MEM0_API_KEY (or CLAUDE_PLUGIN_OPTION_MEM0_API_KEY) to be set.
+Requires MEM0_API_KEY (or CLAUDE_PLUGIN_OPTION_MEM0_API_KEY).
 """
 
 from __future__ import annotations
@@ -23,8 +22,18 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _identity import resolve_api_key
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _script_dir)
+from _identity import resolve_api_key  # noqa: E402
+
+_plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", os.path.join(_script_dir, ".."))
+_data_dir = os.environ.get("CLAUDE_PLUGIN_DATA", os.path.join(os.path.expanduser("~"), ".mem0", "plugin-data"))
+_venv_site = os.path.join(_data_dir, "venv", "lib")
+if os.path.isdir(_venv_site):
+    for d in sorted(os.listdir(_venv_site)):
+        sp = os.path.join(_venv_site, d, "site-packages")
+        if os.path.isdir(sp) and sp not in sys.path:
+            sys.path.insert(1, sp)
 
 CODING_CATEGORIES = [
     {
@@ -160,9 +169,9 @@ def main() -> int:
         from mem0 import MemoryClient
     except ImportError:
         print(
-            "ERROR: the mem0ai Python SDK is not installed.\n"
-            "Install with: pip install mem0ai\n"
-            "Then re-run this script.",
+            "ERROR: mem0ai SDK not found. The plugin's ensure_deps.sh hook should\n"
+            "install it automatically on session start. Try restarting Claude Code,\n"
+            "or run manually:  pip install mem0ai",
             file=sys.stderr,
         )
         return 1
