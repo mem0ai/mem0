@@ -348,3 +348,31 @@ class TestSearchParamValidation:
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
+
+
+class TestEmptySearchQueryValidation:
+    """Tests for empty and whitespace query handling in search()."""
+
+    def test_search_empty_string_returns_empty(self, memory_instance):
+        result = memory_instance.search("", filters={"user_id": "test_user"})
+        assert result == {"results": []}
+
+    def test_search_whitespace_only_returns_empty(self, memory_instance):
+        result = memory_instance.search("   ", filters={"user_id": "test_user"})
+        assert result == {"results": []}
+
+    def test_search_tab_only_returns_empty(self, memory_instance):
+        result = memory_instance.search("\t\n", filters={"user_id": "test_user"})
+        assert result == {"results": []}
+
+    def test_search_accepts_valid_query(self, memory_instance):
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="hello"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            result = memory_instance.search("hello", filters={"user_id": "test_user"})
+
+        assert "results" in result
