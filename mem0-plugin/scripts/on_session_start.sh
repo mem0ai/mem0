@@ -19,17 +19,21 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
 
-# Skip the bootstrap entirely if no API key is configured -- the agent
-# would otherwise be told to call mem0 MCP tools that will all fail.
-if [ -z "${MEM0_API_KEY:-}" ]; then
-  exit 0
-fi
-
 # Initialize session stats tracker
 python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
 
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
+
+# Skip bootstrap if no API key — still show banner but with "no key" status.
+if [ -z "${MEM0_API_KEY:-}" ]; then
+  echo "## Mem0 Inactive"
+  echo ""
+  echo "\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET\`"
+  echo ""
+  echo "Set MEM0_API_KEY to enable persistent memory. Get a key at https://app.mem0.ai/dashboard/api-keys"
+  exit 0
+fi
 
 # Fetch project-scoped memory count (best-effort, don't block on failure, 5s timeout)
 MEM0_COUNT="?"

@@ -29,20 +29,26 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
 
-# No API key means the agent can't search anyway
-if [ -z "${MEM0_API_KEY:-}" ]; then
-  exit 0
-fi
-USER_ID="$MEM0_RESOLVED_USER_ID"
-
-# Detect stack traces and error patterns in the prompt
+# Detect stack traces and error patterns in the prompt (no API needed)
 HAS_ERROR=""
 if echo "$PROMPT" | grep -qiE '(Traceback|Error:|Exception:|panic:|FAILED|fatal:| at .+\.[a-z]+:[0-9]+)'; then
   HAS_ERROR="true"
 fi
 
-# Detect file paths in the prompt
+# Detect file paths in the prompt (no API needed)
 FILE_PATHS=$(echo "$PROMPT" | grep -oE '([a-zA-Z0-9_./-]+\.(py|ts|tsx|js|jsx|rs|go|rb|java|sh|yaml|yml|json|toml|md|sql|css|html))\b' 2>/dev/null | head -5 || echo "")
+
+# No API key — emit detections only, skip search rubric
+if [ -z "${MEM0_API_KEY:-}" ]; then
+  if [ -n "$HAS_ERROR" ]; then
+    echo "**ERROR DETECTED in prompt.** Set MEM0_API_KEY to search past debugging context."
+  fi
+  if [ -n "$FILE_PATHS" ]; then
+    echo "**FILE PATHS detected:** \`$FILE_PATHS\`"
+  fi
+  exit 0
+fi
+USER_ID="$MEM0_RESOLVED_USER_ID"
 
 cat <<EOF
 ## Memory check

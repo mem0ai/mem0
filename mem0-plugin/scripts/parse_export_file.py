@@ -131,8 +131,11 @@ def main() -> None:
 
     filepath = sys.argv[1]
     try:
-        with open(filepath, encoding="utf-8", errors="replace") as f:
-            content = f.read()
+        if filepath == "-":
+            content = sys.stdin.read()
+        else:
+            with open(filepath, encoding="utf-8", errors="replace") as f:
+                content = f.read()
     except OSError as e:
         print(f"Error reading file: {e}", file=sys.stderr)
         print("[]")
