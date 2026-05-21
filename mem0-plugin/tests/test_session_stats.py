@@ -141,3 +141,65 @@ def test_cli_report_no_data(tmp_path):
         env=env,
     )
     assert result.returncode == 0
+
+
+def test_peek_returns_json_without_clearing(_isolate_stats_file):
+    """peek returns JSON stats without deleting the stats file."""
+    import session_stats
+
+    session_stats.init()
+    session_stats.record_add("decisions")
+    session_stats.record_add("decisions")
+    session_stats.record_search()
+
+    result = session_stats.peek()
+    data = json.loads(result)
+    assert data["adds"] == 2
+    assert data["searches"] == 1
+
+    assert os.path.isfile(_isolate_stats_file)
+
+
+def test_category_counts_tracked(_isolate_stats_file):
+    """category_counts tracks per-category add counts."""
+    import session_stats
+
+    session_stats.init()
+    session_stats.record_add("bug_fixes")
+    session_stats.record_add("bug_fixes")
+    session_stats.record_add("bug_fixes")
+    session_stats.record_add("decisions")
+
+    with open(_isolate_stats_file) as f:
+        data = json.load(f)
+    assert data["category_counts"]["bug_fixes"] == 3
+    assert data["category_counts"]["decisions"] == 1
+
+
+def test_category_counts_empty_category_not_tracked(_isolate_stats_file):
+    """Empty category string doesn't appear in category_counts."""
+    import session_stats
+
+    session_stats.init()
+    session_stats.record_add("")
+    session_stats.record_add()
+
+    with open(_isolate_stats_file) as f:
+        data = json.load(f)
+    assert data["category_counts"] == {}
+
+
+def test_cli_peek(tmp_path):
+    """Test CLI invocation: session_stats.py peek outputs JSON."""
+    env = {**os.environ, "USER": "test"}
+    subprocess.run(
+        [sys.executable, os.path.join(SCRIPTS_DIR, "session_stats.py"), "init"],
+        capture_output=True, text=True, env=env,
+    )
+    result = subprocess.run(
+        [sys.executable, os.path.join(SCRIPTS_DIR, "session_stats.py"), "peek"],
+        capture_output=True, text=True, env=env,
+    )
+    assert result.returncode == 0
+    data = json.loads(result.stdout)
+    assert "adds" in data

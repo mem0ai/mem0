@@ -28,7 +28,13 @@ def _load() -> dict:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             pass
-    return {"adds": 0, "searches": 0, "categories": [], "started": datetime.now().isoformat()}
+    return {
+        "adds": 0,
+        "searches": 0,
+        "categories": [],
+        "category_counts": {},
+        "started": datetime.now().isoformat(),
+    }
 
 
 def _save(stats: dict) -> None:
@@ -37,14 +43,23 @@ def _save(stats: dict) -> None:
 
 
 def init() -> None:
-    _save({"adds": 0, "searches": 0, "categories": [], "started": datetime.now().isoformat()})
+    _save({
+        "adds": 0,
+        "searches": 0,
+        "categories": [],
+        "category_counts": {},
+        "started": datetime.now().isoformat(),
+    })
 
 
 def record_add(category: str = "") -> None:
     stats = _load()
     stats["adds"] = stats.get("adds", 0) + 1
-    if category and category not in stats.get("categories", []):
-        stats.setdefault("categories", []).append(category)
+    if category:
+        if category not in stats.get("categories", []):
+            stats.setdefault("categories", []).append(category)
+        counts = stats.setdefault("category_counts", {})
+        counts[category] = counts.get(category, 0) + 1
     _save(stats)
 
 
@@ -52,6 +67,12 @@ def record_search() -> None:
     stats = _load()
     stats["searches"] = stats.get("searches", 0) + 1
     _save(stats)
+
+
+def peek() -> str:
+    """Return current stats as JSON without clearing the file."""
+    stats = _load()
+    return json.dumps(stats)
 
 
 def report() -> str:
@@ -90,6 +111,8 @@ def main() -> int:
         record_add(category)
     elif cmd == "search":
         record_search()
+    elif cmd == "peek":
+        print(peek())
     elif cmd == "report":
         result = report()
         if result:
