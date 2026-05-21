@@ -234,9 +234,10 @@ def main():
         return
 
     session_id = hook_input.get("session_id", "")
+    cwd = hook_input.get("cwd") or None
     user_id = resolve_user_id()
-    project_id = resolve_project_id()
-    branch = resolve_branch()
+    project_id = resolve_project_id(cwd)
+    branch = resolve_branch(cwd)
 
     lines = tail_lines(transcript_path, MAX_TAIL_LINES)
     if not lines:
