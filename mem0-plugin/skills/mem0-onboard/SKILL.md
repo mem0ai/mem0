@@ -77,7 +77,8 @@ If the script reports an error, show the error message and suggest checking the 
 Create a marker file so SessionStart won't re-trigger onboarding next session:
 
 ```bash
-mkdir -p ~/.mem0 && touch ~/.mem0/.onboarded_<active_project_id>
+_SAFE_PID=$(printf '%s' "<active_project_id>" | tr '/:' '--')
+mkdir -p ~/.mem0 && touch ~/.mem0/.onboarded_${_SAFE_PID}
 ```
 
 This is silent — no user-facing output needed.

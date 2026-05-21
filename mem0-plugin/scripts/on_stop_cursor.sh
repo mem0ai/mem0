@@ -14,6 +14,8 @@ if [ -n "${MEM0_DEBUG:-}" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_identity.sh
+. "$SCRIPT_DIR/_identity.sh"
 
 INPUT=$(cat)
 

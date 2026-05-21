@@ -22,6 +22,8 @@ if [ -n "${MEM0_DEBUG:-}" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_identity.sh
+. "$SCRIPT_DIR/_identity.sh"
 
 INPUT=$(cat)
 STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")

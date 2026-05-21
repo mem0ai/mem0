@@ -79,7 +79,8 @@ echo ""
 
 if [ "$SOURCE" = "startup" ]; then
   # First-run detection: auto-trigger onboarding for new projects
-  _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${MEM0_PROJECT_ID}"
+  _SAFE_PID=$(printf '%s' "$MEM0_PROJECT_ID" | tr '/:' '--')
+  _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${_SAFE_PID}"
   if [ ! -f "$_ONBOARD_MARKER" ]; then
     cat <<'EOF'
 ## Mem0 First Run — Automatic Onboarding
