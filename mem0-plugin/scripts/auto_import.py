@@ -22,7 +22,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _identity import resolve_user_id
-from _project import resolve_project_id
+from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-auto-import")
 log.setLevel(logging.DEBUG)
@@ -77,8 +77,15 @@ def save_hashes(hashes: dict[str, str]) -> None:
         log.warning("Could not save hash store: %s", e)
 
 
-def post_memory(api_key: str, content: str, user_id: str, filename: str, project_id: str) -> bool:
+def post_memory(api_key: str, content: str, user_id: str, filename: str, project_id: str, branch: str = "") -> bool:
     """POST a project profile memory to the Mem0 REST API."""
+    metadata = {
+        "type": "project_profile",
+        "file": filename,
+        "source": "auto-import",
+    }
+    if branch:
+        metadata["branch"] = branch
     body = {
         "messages": [
             {
@@ -87,12 +94,8 @@ def post_memory(api_key: str, content: str, user_id: str, filename: str, project
             }
         ],
         "user_id": user_id,
-        "metadata": {
-            "type": "project_profile",
-            "file": filename,
-            "project_id": project_id,
-            "source": "auto-import",
-        },
+        "app_id": project_id,
+        "metadata": metadata,
         "infer": False,
     }
 
@@ -128,8 +131,9 @@ def main() -> None:
     cwd = os.environ.get("MEM0_CWD", "").strip() or os.getcwd()
     user_id = resolve_user_id()
     project_id = resolve_project_id(cwd)
+    branch = resolve_branch(cwd)
 
-    log.debug("Auto-import started: cwd=%s project=%s user=%s", cwd, project_id, user_id)
+    log.debug("Auto-import started: cwd=%s project=%s user=%s branch=%s", cwd, project_id, user_id, branch)
 
     hashes = load_hashes()
     updated = False
@@ -169,7 +173,7 @@ def main() -> None:
             log.debug("Cannot read %s: %s", filename, e)
             continue
 
-        if post_memory(api_key, content, user_id, filename, project_id):
+        if post_memory(api_key, content, user_id, filename, project_id, branch):
             hashes[hash_key] = current_hash
             updated = True
         # on API failure we don't update the hash — retry next session

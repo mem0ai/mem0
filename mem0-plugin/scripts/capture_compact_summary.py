@@ -97,16 +97,18 @@ def find_compact_summary(lines: list[str]) -> str:
 
 def store_summary(api_key: str, summary: str, user_id: str, session_id: str, project_id: str = "", branch: str = "") -> bool:
     expires = (date.today() + timedelta(days=COMPACT_SUMMARY_EXPIRY_DAYS)).isoformat()
+    metadata = {
+        "type": "compact_summary",
+        "source": "session-start-compact",
+        "session_id": session_id,
+    }
+    if branch:
+        metadata["branch"] = branch
     body = {
         "messages": [{"role": "user", "content": summary}],
         "user_id": user_id,
-        "metadata": {
-            "type": "compact_summary",
-            "source": "session-start-compact",
-            "session_id": session_id,
-            "project_id": project_id,
-            "branch": branch,
-        },
+        "app_id": project_id,
+        "metadata": metadata,
         "infer": False,
         "expiration_date": expires,
     }

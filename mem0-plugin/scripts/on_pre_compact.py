@@ -171,18 +171,20 @@ def build_content(state: dict, source: str) -> str:
 def store_memory(api_key: str, content: str, user_id: str, source: str, session_id: str = "", project_id: str = "", branch: str = "") -> bool:
     """Store session state as a memory via the Mem0 REST API."""
     expires = (date.today() + timedelta(days=SESSION_STATE_EXPIRY_DAYS)).isoformat()
+    metadata = {
+        "type": "session_state",
+        "source": source,
+        "session_id": session_id,
+    }
+    if branch:
+        metadata["branch"] = branch
     body = {
         "messages": [
             {"role": "user", "content": content}
         ],
         "user_id": user_id,
-        "metadata": {
-            "type": "session_state",
-            "source": source,
-            "session_id": session_id,
-            "project_id": project_id,
-            "branch": branch,
-        },
+        "app_id": project_id,
+        "metadata": metadata,
         "expiration_date": expires,
     }
 

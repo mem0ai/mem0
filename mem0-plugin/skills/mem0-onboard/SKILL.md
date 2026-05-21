@@ -31,7 +31,7 @@ echo "${MEM0_API_KEY:+SET}" || echo "NOT_SET"
 ## Step 2: Show identity
 
 Report the active identity to the user:
-- Call `search_memories` with `query="project setup"`, `user_id=<active_user_id>`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"metadata": {"project_id": "<active_project_id>"}}]}`, `limit=1` to verify connectivity.
+- Call `search_memories` with `query="project setup"`, `user_id=<active_user_id>`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `limit=1` to verify connectivity.
 - Print: `Connected. user=<user_id>, project=<project_id>, branch=<branch>`
 - If the search fails, troubleshoot the API key.
 
@@ -51,7 +51,8 @@ If user says yes (or default):
 - Call `add_memory` with:
   - `messages=[{"role": "user", "content": "## Project Profile: <filename>\n\nProject: <project_id>\n\n<file_content>"}]`
   - `user_id=<active_user_id>`
-  - `metadata={"type": "project_profile", "file": "<filename>", "project_id": "<active_project_id>", "source": "onboard"}`
+  - `app_id=<active_project_id>`
+  - `metadata={"type": "project_profile", "file": "<filename>", "source": "onboard", "branch": "<active_branch>"}`
   - `infer=False`
 
 ## Step 4: Install coding categories
@@ -71,14 +72,23 @@ python3 "<PLUGIN_ROOT>/scripts/setup_coding_categories.py" --apply
 
 If the script reports an error, show the error message and suggest checking the API key.
 
-## Step 5: Summary
+## Step 5: Mark project as onboarded
+
+Create a marker file so SessionStart won't re-trigger onboarding next session:
+
+```bash
+mkdir -p ~/.mem0 && touch ~/.mem0/.onboarded_<active_project_id>
+```
+
+This is silent — no user-facing output needed.
+
+## Step 6: Summary
 
 Print a summary:
 ```
 Onboarding complete.
   user_id:    <user_id>
-  project_id: <project_id>
-  branch:     <branch>
+  project_id: <project_id> (app_id)
   imported:   <N> files
   categories: <installed or skipped>
 

@@ -18,17 +18,16 @@ Decide whether persistent memory context would improve your response, then act a
 
 ## Project scoping
 
-Every memory operation MUST be scoped to the current project:
+Every memory operation MUST be scoped to the current project using `app_id` (entity-scoped memory):
 
-- **On `add_memory`:** Always include `metadata.project_id` (the active project_id from SessionStart).
-- **On `search_memories`:** Always include `{"metadata": {"project_id": "<your_project_id>"}}` in the AND filter.
-- **Session-state memories:** Also include `metadata.branch` (the active branch from SessionStart).
+- **On `add_memory`:** Always pass `app_id=<active_project_id>` as a **top-level parameter** (not in metadata).
+- **On `search_memories`:** Always include `{"app_id": "<your_project_id>"}` in the AND filter.
 
 Full filter template:
 ```python
 filters={"AND": [
     {"user_id": "<your_user_id>"},
-    {"metadata": {"project_id": "<your_project_id>"}},
+    {"app_id": "<your_project_id>"},
     {"metadata": {"type": "decision"}}
 ]}
 ```
@@ -67,7 +66,7 @@ Two rules from the v2 filter spec:
 1. The root **must** be a logical operator (`AND` / `OR` / `NOT`) with an array. A bare `{"user_id": "..."}` won't work.
 2. Metadata uses a **nested** object, not a dotted key. `{"metadata": {"type": "decision"}}`, never `{"metadata.type": "decision"}`. Only top-level metadata keys are filterable.
 
-Combine `user_id` with one metadata clause per call:
+Combine `user_id` + `app_id` with one metadata clause per call:
 
 | `metadata.type` clause | Use for |
 |--------|---------|
@@ -78,7 +77,7 @@ Combine `user_id` with one metadata clause per call:
 
 Full filter (replace `<your_user_id>` and `<your_project_id>` with the active values from SessionStart):
 ```python
-filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "decision"}}]}
+filters={"AND": [{"user_id": "<your_user_id>"}, {"app_id": "<your_project_id>"}, {"metadata": {"type": "decision"}}]}
 ```
 
 ### Worked example
@@ -91,16 +90,16 @@ search_memories(query="Refactor the auth module to use JWT")
 # Hits whatever shares words. Misses prior decisions and preferences.
 ```
 
-Do (parallel — substitute the active `user_id` and `project_id` for the placeholders):
+Do (parallel — substitute the active `user_id` and `app_id` for the placeholders):
 ```python
 search_memories(query="auth module decisions",
-                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "decision"}}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"app_id": "<your_project_id>"}, {"metadata": {"type": "decision"}}]})
 search_memories(query="JWT",
-                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"app_id": "<your_project_id>"}]})
 search_memories(query="auth refactor failures",
-                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "anti_pattern"}}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"app_id": "<your_project_id>"}, {"metadata": {"type": "anti_pattern"}}]})
 search_memories(query="auth",
-                filters={"AND": [{"user_id": "<your_user_id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "user_preference"}}]})
+                filters={"AND": [{"user_id": "<your_user_id>"}, {"app_id": "<your_project_id>"}, {"metadata": {"type": "user_preference"}}]})
 ```
 
 ## After completing significant work
@@ -113,6 +112,8 @@ Extract key learnings and store them using the `add_memory` tool:
 - **User preferences observed** -> Include metadata `{"type": "user_preference"}`
 - **Environment/setup discoveries** -> Include metadata `{"type": "environmental"}`
 - **Conventions established** -> Include metadata `{"type": "convention"}`
+
+Always include `"branch": "<active_branch>"` in the metadata object alongside `type`. The active branch is shown in the SessionStart banner. This enables branch-scoped filtering later (e.g., "what did we do on feature/auth-rewrite?").
 
 > `metadata.type` (which you set explicitly) and `categories` (which the platform auto-tags after the project's custom-category list — see `scripts/setup_coding_categories.py`) are complementary. Always set `metadata.type` for explicit filtering; the platform fills in `categories` on its own. Don't try to set `categories` on `add_memory` calls — per-request overrides aren't supported on the managed API.
 
@@ -133,7 +134,7 @@ When the user is asking about *current* state ("where were we", "what's the acti
 
 ```python
 # Last 90 days only
-{"AND": [{"user_id": "<id>"}, {"metadata": {"project_id": "<your_project_id>"}}, {"metadata": {"type": "session_state"}}, {"created_at": {"gte": "<90 days ago, YYYY-MM-DD>"}}]}
+{"AND": [{"user_id": "<id>"}, {"app_id": "<your_project_id>"}, {"metadata": {"type": "session_state"}}, {"created_at": {"gte": "<90 days ago, YYYY-MM-DD>"}}]}
 ```
 
 Skip the recency filter when the user is asking about durable facts ("what conventions does this project use", "have we hit this bug before") — those are timeless and recency would hide them.
@@ -148,7 +149,8 @@ When you've done the extraction work yourself — pre-compaction summaries, deci
 add_memory(
     messages=[{"role": "user", "content": "<your structured fact>"}],
     user_id="<active user_id>",
-    metadata={"type": "decision"},
+    app_id="<active project_id>",
+    metadata={"type": "decision", "branch": "<active branch>"},
     infer=False,
 )
 ```

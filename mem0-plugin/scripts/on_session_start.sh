@@ -38,11 +38,11 @@ if command -v python3 >/dev/null 2>&1; then
 import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
-project_id = os.environ.get('MEM0_PROJECT_ID', '')
+app_id = os.environ.get('MEM0_PROJECT_ID', '')
 body = json.dumps({
     'query': 'project context',
     'user_id': user_id,
-    'filters': {'AND': [{'user_id': user_id}, {'metadata': {'project_id': project_id}}]},
+    'filters': {'AND': [{'user_id': user_id}, {'app_id': app_id}]},
     'limit': 100,
 }).encode()
 req = urllib.request.Request(
@@ -72,14 +72,30 @@ echo "## Mem0 Active"
 echo ""
 echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT\`"
 echo ""
-echo "Always include \`user_id\` + \`metadata.project_id\` in every \`search_memories\` filter and \`add_memory\` call:"
+echo "Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:"
 echo "- user_id: \`$MEM0_RESOLVED_USER_ID\`"
-echo "- project_id: \`$MEM0_PROJECT_ID\`"
-echo "- branch: \`$MEM0_BRANCH\` (include in session-state / compact-summary metadata)"
+echo "- app_id: \`$MEM0_PROJECT_ID\` (project scope — passed as top-level \`app_id\`, NOT in metadata)"
 echo ""
 
 if [ "$SOURCE" = "startup" ]; then
-  cat <<'EOF'
+  # First-run detection: auto-trigger onboarding for new projects
+  _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${MEM0_PROJECT_ID}"
+  if [ ! -f "$_ONBOARD_MARKER" ]; then
+    cat <<'EOF'
+## Mem0 First Run — Automatic Onboarding
+
+This is the first time mem0 is running for this project. You MUST run the onboarding wizard NOW before doing anything else.
+
+Execute the `/mem0:onboard` skill immediately. This will:
+1. Verify the API key
+2. Detect and import project files (CLAUDE.md, AGENTS.md, .cursorrules, etc.)
+3. Install coding categories optimized for development
+4. Show a summary of what was set up
+
+Do NOT skip this. Do NOT ask the user if they want to onboard. Just run `/mem0:onboard` now.
+EOF
+  else
+    cat <<'EOF'
 ## Mem0 Session Bootstrap
 
 You have access to persistent memory via the mem0 MCP tools. Before doing anything else:
@@ -90,6 +106,7 @@ You have access to persistent memory via the mem0 MCP tools. Before doing anythi
 
 IMPORTANT: Do NOT skip this step. Always bootstrap context first.
 EOF
+  fi
 
   # Auto-import declarative project files in background
   MEM0_CWD="$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")" \

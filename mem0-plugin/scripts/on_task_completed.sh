@@ -31,7 +31,7 @@ Extract key learnings from this completed task and store them using the mem0 \`a
 
 Memories can be as detailed as needed — include full context, reasoning, code snippets, and examples.
 Only store genuinely useful learnings — skip if the task was trivial.
-Include \`"project_id": "$MEM0_PROJECT_ID"\` in metadata for all memories.
+Include \`app_id\` = \`"$MEM0_PROJECT_ID"\` as a top-level parameter in every \`add_memory\` call (not in metadata).
 EOF
 
 exit 0

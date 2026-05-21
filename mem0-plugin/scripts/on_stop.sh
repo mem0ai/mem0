@@ -54,7 +54,7 @@ Memories can be as detailed as needed — include full context, reasoning, code 
 
 If nothing notable happened in this interaction, it's fine to skip. Only store genuinely useful learnings.
 
-Always include `"project_id"` in the metadata of any memory you store.
+Always include `app_id` (the active project_id from SessionStart) as a top-level parameter in every `add_memory` call.
 EOF
 
 # Capture transcript state in the background via Mem0 REST API
