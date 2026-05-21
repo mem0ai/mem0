@@ -276,14 +276,20 @@ add_memory(
 
 ### Access counter: track memory usage
 
-When you retrieve a memory via `search_memories` and **actually use it** in your response (i.e., it informed your answer or you cited it), increment its access counter by calling:
+When you retrieve a memory via `search_memories` and **actually use it** in your response (i.e., it informed your answer or you cited it), increment its access counter and update the last-accessed timestamp by calling:
 
 ```python
 # 1. Read current state
 mem = get_memory(memory_id=<id>)
 current_text = mem["content"]  # or mem["memory"], depending on response shape
+current_meta = mem.get("metadata", {})
 
-# 2. Update with access_count bump
+# 2. Bump access_count and set last_accessed
+import datetime
+current_meta["access_count"] = current_meta.get("access_count", 0) + 1
+current_meta["last_accessed"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+# 3. Update with preserved content
 update_memory(
     memory_id=<id>,
     data=current_text,  # preserve original text — required parameter
@@ -294,4 +300,4 @@ update_memory(
 
 **When to increment:** Only when you actually used the memory to answer. Don't bump on every search hit — that inflates counts for memories that were returned but irrelevant. Aim for 1-3 bumps per response at most.
 
-**Why:** Access counts feed into `/mem0:dream` pruning decisions. Memories that are never accessed after creation are candidates for cleanup. Frequently accessed memories are protected from pruning regardless of age.
+**Why:** `access_count` and `last_accessed` feed into `/mem0:dream` pruning decisions. Memories that are never accessed after creation are candidates for cleanup. Frequently accessed memories are protected from pruning regardless of age.
