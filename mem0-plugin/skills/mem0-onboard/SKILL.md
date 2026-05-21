@@ -11,22 +11,16 @@ description: >
 
 Run this wizard to set up the mem0 plugin for the current project. Complete in ~30 seconds.
 
-## Step 1: Verify API key
+## Step 1: Verify API key and MCP connection
 
-Check if the API key is available. Claude Code may provide it via `userConfig` (stored in system keychain, exposed as `CLAUDE_PLUGIN_OPTION_MEM0_API_KEY`) or via shell environment (`MEM0_API_KEY`):
+Check that the mem0 MCP tools are available by looking for `mcp__mem0__search_memories` in the deferred tools list (use ToolSearch if needed).
 
-```bash
-echo "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-NOT_SET}}"
-```
-
-- If **NOT_SET** (neither variable is set):
-  1. Ask the user: "No API key found. Do you have one, or need to create one?"
-  2. If they need one, provide two options:
-     - **Browser**: Go to https://app.mem0.ai/dashboard/api-keys and copy the key
-     - **CLI**: Run `pip install mem0-cli && mem0 init --agent --json` to mint a key without email
-  3. Once they have the key, tell them to run: `export MEM0_API_KEY="m0-..."` in their terminal, then restart this Claude Code session.
-  4. **STOP here.** Do not proceed until the key is confirmed set.
-- If **SET** (either variable has a value): Proceed to Step 2.
+- If **MCP tools found**: Proceed to Step 2. The API key is working.
+- If **MCP tools NOT found**: The MCP server failed to connect. Tell the user:
+  1. "MCP server not connected. Make sure `MEM0_API_KEY` is exported in your shell."
+  2. Show: `export MEM0_API_KEY="m0-your-key-here"` then restart Claude Code.
+  3. If they need a key: https://app.mem0.ai/dashboard/api-keys or `mem0 init --agent --json`
+  4. **STOP here.** Do not proceed — all other steps need MCP tools.
 
 ## Step 2: Show identity
 
@@ -59,15 +53,10 @@ If user says yes (or default):
 
 Ask: "Install coding categories optimized for development workflows? [Y/n]"
 
-If yes, run the script directly (no external dependencies required — uses stdlib only).
-
-The script lives at `scripts/setup_coding_categories.py` relative to the plugin root. Use the appropriate plugin root variable for the current platform:
-- Claude Code: `${CLAUDE_PLUGIN_ROOT}`
-- Codex: `${CODEX_PLUGIN_ROOT}`
-- Cursor: `${CURSOR_PLUGIN_ROOT}`
+If yes, run the setup script (uses stdlib only, no SDK required):
 
 ```bash
-python3 "<PLUGIN_ROOT>/scripts/setup_coding_categories.py" --apply
+python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT}}}/scripts/setup_coding_categories.py" --apply
 ```
 
 If the script reports an error, show the error message and suggest checking the API key.
