@@ -189,6 +189,49 @@ def test_category_counts_empty_category_not_tracked(_isolate_stats_file):
     assert data["category_counts"] == {}
 
 
+def test_recent_ids_tracked(_isolate_stats_file):
+    """record_add with memory_id stores ID in recent_ids."""
+    import session_stats
+
+    session_stats.init()
+    session_stats.record_add("decision", "abc-123")
+    session_stats.record_add("convention", "def-456")
+
+    with open(_isolate_stats_file) as f:
+        data = json.load(f)
+    assert len(data["recent_ids"]) == 2
+    assert data["recent_ids"][0]["id"] == "abc-123"
+    assert data["recent_ids"][1]["id"] == "def-456"
+    assert data["recent_ids"][0]["category"] == "decision"
+
+
+def test_recent_ids_capped(_isolate_stats_file):
+    """recent_ids list is capped at MAX_RECENT_IDS."""
+    import session_stats
+
+    session_stats.init()
+    for i in range(60):
+        session_stats.record_add("test", f"id-{i}")
+
+    with open(_isolate_stats_file) as f:
+        data = json.load(f)
+    assert len(data["recent_ids"]) == session_stats.MAX_RECENT_IDS
+    assert data["recent_ids"][0]["id"] == f"id-{60 - session_stats.MAX_RECENT_IDS}"
+
+
+def test_recent_ids_empty_without_memory_id(_isolate_stats_file):
+    """record_add without memory_id doesn't add to recent_ids."""
+    import session_stats
+
+    session_stats.init()
+    session_stats.record_add("decision")
+    session_stats.record_add("convention", "")
+
+    with open(_isolate_stats_file) as f:
+        data = json.load(f)
+    assert data["recent_ids"] == []
+
+
 def test_cli_peek(tmp_path):
     """Test CLI invocation: session_stats.py peek outputs JSON."""
     env = {**os.environ, "USER": "test"}

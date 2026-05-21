@@ -36,6 +36,25 @@ except ImportError:
 
 
 def get_commit_message() -> str:
+    """Read the current commit message from COMMIT_EDITMSG (pre-commit context).
+
+    Falls back to HEAD's message if COMMIT_EDITMSG doesn't exist yet
+    (e.g., when invoked outside the git hook context).
+    """
+    try:
+        git_dir = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if git_dir.returncode == 0:
+            editmsg = os.path.join(git_dir.stdout.strip(), "COMMIT_EDITMSG")
+            if os.path.isfile(editmsg):
+                with open(editmsg) as f:
+                    first_line = f.readline().strip()
+                    if first_line and not first_line.startswith("#"):
+                        return first_line
+    except Exception:
+        pass
     try:
         result = subprocess.run(
             ["git", "log", "-1", "--format=%s", "HEAD"],

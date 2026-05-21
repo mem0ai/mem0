@@ -42,17 +42,21 @@ def _save(stats: dict) -> None:
         json.dump(stats, f)
 
 
+MAX_RECENT_IDS = 50
+
+
 def init() -> None:
     _save({
         "adds": 0,
         "searches": 0,
         "categories": [],
         "category_counts": {},
+        "recent_ids": [],
         "started": datetime.now().isoformat(),
     })
 
 
-def record_add(category: str = "") -> None:
+def record_add(category: str = "", memory_id: str = "") -> None:
     stats = _load()
     stats["adds"] = stats.get("adds", 0) + 1
     if category:
@@ -60,6 +64,11 @@ def record_add(category: str = "") -> None:
             stats.setdefault("categories", []).append(category)
         counts = stats.setdefault("category_counts", {})
         counts[category] = counts.get(category, 0) + 1
+    if memory_id:
+        recent = stats.setdefault("recent_ids", [])
+        recent.append({"id": memory_id, "category": category, "ts": datetime.now().isoformat()})
+        if len(recent) > MAX_RECENT_IDS:
+            stats["recent_ids"] = recent[-MAX_RECENT_IDS:]
     _save(stats)
 
 
@@ -108,7 +117,8 @@ def main() -> int:
         init()
     elif cmd == "add":
         category = sys.argv[2] if len(sys.argv) > 2 else ""
-        record_add(category)
+        memory_id = sys.argv[3] if len(sys.argv) > 3 else ""
+        record_add(category, memory_id)
     elif cmd == "search":
         record_search()
     elif cmd == "peek":

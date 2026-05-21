@@ -59,3 +59,18 @@ Deleted <N> memories.
 ```
 
 If any deletions failed, report which ones and why.
+
+## Undo recent writes
+
+If the user says "undo last N memories" or "undo last write":
+
+1. Read session stats to get recently written memory IDs:
+   ```bash
+   SCRIPT_DIR="${CLAUDE_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}/scripts"
+   python3 "$SCRIPT_DIR/session_stats.py" peek
+   ```
+2. Parse the `recent_ids` array from the JSON output. Each entry has `id`, `category`, `ts`.
+3. Show the last N entries (default 1) and ask for confirmation.
+4. Delete confirmed entries via `delete_memory`.
+
+If `recent_ids` is empty, tell the user: "No recent memory IDs tracked this session. Use a search query instead."

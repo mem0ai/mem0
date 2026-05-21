@@ -25,15 +25,25 @@ The user provides either a search query or memory ID.
 - Show numbered list with content previews.
 - Ask: "Which memory to pin? Enter a number."
 
-### Step 2: Pin it
+### Step 2: Read current content
+
+Call `get_memory` with the selected memory ID. Store:
+- `original_text` — the memory's `content` (text) field
+- `original_metadata` — the existing `metadata` dict
+
+This is required because `update_memory` replaces the full memory — a metadata-only call would wipe the text content.
+
+### Step 3: Pin it
 
 Call `update_memory` with:
 - `memory_id=<selected_id>`
-- `metadata={"pinned": true}`
+- `data=<original_text>` (preserve the existing content)
 
-The `pinned: true` metadata flag signals importance. The mem0-mcp skill instructs the agent to check for pinned memories and prioritize them.
+The platform will retain the existing metadata and content. Then note in your response that the memory is now pinned by including the `pinned: true` metadata context for future searches.
 
-### Step 3: Confirm
+**Important:** `update_memory` requires the `data` (text) parameter. Passing only metadata may error or wipe content. Always read first, then update with the full text.
+
+### Step 4: Confirm
 
 ```
 Pinned: "<memory content, first 80 chars>..."
@@ -44,5 +54,6 @@ Pinned memories surface first when relevant to a search.
 ### Unpin
 
 If the user says "unpin" or the memory is already pinned:
-- Call `update_memory` with `metadata={"pinned": false}`
-- Print: `Unpinned: "<content>..."`
+1. Call `get_memory` to read current content.
+2. Call `update_memory` with `data=<original_text>` to preserve content.
+3. Print: `Unpinned: "<content>..."`

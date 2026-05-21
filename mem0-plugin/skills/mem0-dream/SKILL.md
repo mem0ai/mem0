@@ -183,7 +183,9 @@ For each approved merge pair:
 
 For each resolved conflict where the user chose A or B:
 - Identify the loser (the non-chosen memory).
-- `update_memory(<loser_id>, data={"metadata": {"confidence": 0.1, "superseded_by": "<winner_id>", "source": "mem0-dream"}})`
+- First call `get_memory(<loser_id>)` to read its current text content.
+- Then call `update_memory(<loser_id>, data=<original_text_content>)` to preserve the text while updating it.
+- **Important:** `update_memory` requires the `data` (text) parameter. A metadata-only call may error or wipe the content. Always read first, then update with the original text.
 
 Contradictions where the user chose `skip` are left untouched.
 

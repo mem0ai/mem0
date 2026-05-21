@@ -39,29 +39,25 @@ import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
-body = json.dumps({
-    'query': 'project context',
-    'user_id': user_id,
-    'filters': {'AND': [{'user_id': user_id}, {'app_id': app_id}]},
-    'limit': 100,
-}).encode()
+# Use GET /v3/memories/ with page_size=1 to get total count from pagination
+# without fetching all memories. The response envelope includes a count field.
+params = f'user_id={user_id}&app_id={app_id}&page_size=1'
 req = urllib.request.Request(
-    'https://api.mem0.ai/v3/memories/search/',
-    data=body,
-    headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
-    method='POST',
+    f'https://api.mem0.ai/v3/memories/?{params}',
+    headers={'Authorization': f'Token {api_key}'},
+    method='GET',
 )
 try:
     with urllib.request.urlopen(req, timeout=5) as r:
         data = json.loads(r.read())
-        if isinstance(data, list):
-            results = data
+        if isinstance(data, dict) and 'count' in data:
+            print(data['count'])
+        elif isinstance(data, list):
+            print(len(data))
         elif isinstance(data, dict) and 'results' in data:
-            results = data['results']
+            print(len(data['results']))
         else:
-            print('?'); raise SystemExit
-        n = len(results)
-        print(f'{n}+' if n >= 100 else str(n))
+            print('?')
 except Exception:
     print('?')
 " 2>/dev/null || echo "?")

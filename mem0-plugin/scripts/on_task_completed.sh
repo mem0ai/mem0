@@ -7,17 +7,20 @@
 # Input:  JSON on stdin with task_id, task_subject, task_description
 # Output: Text that becomes feedback to the model (exit 0)
 
-set -euo pipefail
+# Intentionally omit -e so the reminder always emits even if identity resolution fails.
+set -uo pipefail
 
 if [ -n "${MEM0_DEBUG:-}" ]; then
   mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "$SCRIPT_DIR/_identity.sh" || true
+. "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
 INPUT=$(cat)
 TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // "unknown task"' 2>/dev/null || echo "unknown task")
+
+_PROJECT="${MEM0_PROJECT_ID:-unknown}"
 
 cat <<EOF
 Task completed: "$TASK_SUBJECT"
@@ -31,7 +34,7 @@ Extract key learnings from this completed task and store them using the mem0 \`a
 
 Memories can be as detailed as needed — include full context, reasoning, code snippets, and examples.
 Only store genuinely useful learnings — skip if the task was trivial.
-Include \`app_id\` = \`"$MEM0_PROJECT_ID"\` as a top-level parameter in every \`add_memory\` call (not in metadata).
+Include \`app_id\` = \`"$_PROJECT"\` as a top-level parameter in every \`add_memory\` call (not in metadata).
 EOF
 
 exit 0

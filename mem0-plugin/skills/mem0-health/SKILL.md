@@ -76,3 +76,58 @@ All checks passed. mem0 is healthy.
 ```
 
 If any check fails, add a `## Troubleshooting` section with specific fix steps for each failure.
+
+## Extended mode: Memory Quality Analysis
+
+When invoked with `--deep` (e.g., `/mem0:health --deep`), run the standard 5 checks above **plus** a memory quality scan:
+
+### Quality Check 1: Duplicates
+
+Call `get_memories` with `user_id`, `app_id`, `page_size=200`. Compare all pairs within the same `metadata.type` group for high textual overlap (shared nouns/keywords > 60%). Report:
+
+```
+Potential duplicates: <N> pairs
+  [mem0:<id1>] ≈ [mem0:<id2>] — both about "<shared topic>"
+```
+
+### Quality Check 2: Stale memories
+
+Flag memories where:
+- `metadata.type` is `session_state` or `compact_summary` AND older than 90 days
+- `metadata.confidence` < 0.3 AND older than 30 days
+
+```
+Stale candidates: <N>
+  [mem0:<id>] — session_state, 142d old
+```
+
+### Quality Check 3: Contradictions
+
+Within each `metadata.type` group, flag pairs that assert opposing facts about the same topic. Use semantic judgment — look for negation patterns, conflicting tool/framework choices, or reversed decisions.
+
+```
+Possible contradictions: <N>
+  [mem0:<idA>] vs [mem0:<idB>] — conflicting on "<topic>"
+```
+
+### Quality Check 4: Orphan memories
+
+Memories with no `metadata.type` set, or with `metadata.type` not in the 17 known coding categories. These were likely written without proper tagging.
+
+```
+Untagged/orphan memories: <N>
+```
+
+### Quality summary
+
+```
+## Memory Quality
+| Metric         | Count | Action                          |
+|----------------|-------|---------------------------------|
+| Duplicates     | <N>   | Run /mem0:dream to merge        |
+| Stale          | <N>   | Run /mem0:dream to prune        |
+| Contradictions | <N>   | Run /mem0:dream to resolve      |
+| Orphans        | <N>   | Consider retagging via MCP      |
+```
+
+If all counts are 0: `Memory quality: clean. No duplicates, stale entries, or contradictions found.`

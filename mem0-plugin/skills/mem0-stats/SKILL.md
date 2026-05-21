@@ -42,7 +42,7 @@ Also run a `search_memories` call with `query="project"`, `limit=1` to measure r
 
 ### Step 3: Display
 
-Print a compact dashboard:
+Print a compact dashboard with an ASCII histogram for category distribution:
 
 ```
 ## mem0 Stats
@@ -54,15 +54,15 @@ Print a compact dashboard:
 
 ### Project Lifetime (<project_id>)
   Total memories:    <N>
+
   By category:
-    Architecture Decisions: <N>
-    Anti-Patterns:          <N>
-    Task Learnings:         <N>
-    Coding Conventions:     <N>
-    User Preferences:       <N>
-    Tooling & Setup:        <N>
-    Session State:          <N>
-    Other:                  <N>
+    decision          ████████████████ 24
+    convention        ██████████░░░░░░ 15
+    anti_pattern      ████░░░░░░░░░░░░  6
+    task_learning     ███░░░░░░░░░░░░░  5
+    user_preference   ██░░░░░░░░░░░░░░  3
+    session_state     █░░░░░░░░░░░░░░░  2
+
   Oldest memory:     <date>
   Newest memory:     <date>
 
@@ -73,4 +73,10 @@ Print a compact dashboard:
   Branch:            <branch>
 ```
 
-Skip any section with zero data. Don't show empty categories.
+**Histogram rules:**
+- Max bar width: 16 characters. Scale all bars relative to the highest count.
+- Use `█` for filled and `░` for empty. Right-align the count number.
+- Sort categories by count descending. Omit categories with 0 memories.
+- If only 1-2 categories exist, still show the histogram — it provides visual context.
+
+Skip any section with zero data.
