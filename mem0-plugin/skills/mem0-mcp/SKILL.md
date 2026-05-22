@@ -49,6 +49,21 @@ filters={"AND": [
 
 Empty results are normal. Proceed without context — they don't mean the system is broken.
 
+### Contradiction detection at search time
+
+After receiving search results, scan for contradictions before using them:
+
+1. If 2+ results address the **same topic** (same `metadata.type`, overlapping file paths or entity names) but assert **opposing facts**, surface BOTH to the user instead of silently picking one.
+2. Format:
+   ```
+   ⚠️ Conflicting memories found:
+   - [mem0:<id1>] "<content1>" (confidence: <score1>, <date1>)
+   - [mem0:<id2>] "<content2>" (confidence: <score2>, <date2>)
+   Which is current?
+   ```
+3. After the user resolves: update the loser via `update_memory` to mark it superseded, or delete it. Store the winner's fact as authoritative if not already.
+4. If the user doesn't resolve, default to the more recent memory with higher confidence, but note the ambiguity in your response.
+
 ### How to search well
 
 When you do search, run **2–4 parallel** `search_memories` calls at different angles instead of one query echoing the user's prompt.
@@ -129,6 +144,31 @@ search_memories(query="auth",
 ## After completing significant work
 
 Extract key learnings and store them using the `add_memory` tool:
+
+### REQUIRED metadata fields
+
+Every `add_memory` call MUST include these metadata fields. Do NOT omit them:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | YES | Memory category: `decision`, `task_learning`, `anti_pattern`, `convention`, `user_preference`, `environmental`, `session_state`, `compact_summary` |
+| `confidence` | float | YES | 0.0–1.0 confidence score. Default: `0.7` for inferred learnings, `0.9` for explicit user statements |
+| `files` | list[str] | YES | File paths relevant to this memory. Use `["*"]` for project-wide learnings |
+| `source` | string | YES | How the memory was captured: `user_request`, `auto_capture`, `post_commit`, `error_recovery` |
+
+**Example:**
+```json
+{
+  "metadata": {
+    "type": "decision",
+    "confidence": 0.9,
+    "files": ["src/auth/login.py", "src/auth/middleware.py"],
+    "source": "user_request"
+  }
+}
+```
+
+**If you omit `confidence` or `files`, the memory will be harder to rank and retrieve later.**
 
 - **Decisions made** -> Include metadata `{"type": "decision"}`
 - **Strategies that worked** -> Include metadata `{"type": "task_learning"}`

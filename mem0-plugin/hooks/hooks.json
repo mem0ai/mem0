@@ -54,6 +54,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -74,12 +84,7 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_post_commit.sh",
             "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_bash_output.sh",

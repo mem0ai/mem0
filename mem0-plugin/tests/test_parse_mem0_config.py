@@ -422,3 +422,18 @@ def test_cli_full_flag(tmp_path):
     data = json.loads(result.stdout)
     assert "retention" in data
     assert "search" in data
+
+
+def test_load_full_config_settings_section(tmp_path):
+    """Settings section is parsed by load_full_config."""
+    mem0_md = tmp_path / "mem0.md"
+    mem0_md.write_text("""\
+## Settings
+commit_prompts: true
+subagent_skip: Explore, Plan, code-reviewer
+""")
+    sys.path.insert(0, SCRIPTS_DIR)
+    from parse_mem0_config import load_full_config
+    config = load_full_config(str(tmp_path))
+    assert config.get("settings", {}).get("commit_prompts") == "true"
+    assert config.get("settings", {}).get("subagent_skip") == "Explore, Plan, code-reviewer"

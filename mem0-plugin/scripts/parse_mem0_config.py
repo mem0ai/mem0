@@ -199,6 +199,10 @@ def load_full_config(cwd: str | None = None) -> dict:
     if ignore:
         config["ignore"] = ignore
 
+    settings = parse_section_kv(content, "Settings")
+    if settings:
+        config["settings"] = settings
+
     return config
 
 
@@ -229,10 +233,44 @@ def main() -> int:
 
     With ``--full``, prints the complete config. Without it, prints only
     retention policies (backward-compatible).
+
+    With ``--key <dotted.path>``, prints the scalar value at that path in the
+    full config (e.g. ``--key settings.commit_prompts``).  Prints an empty
+    string when the key is absent.  Exits 1 only on unexpected errors.
     """
     full_mode = "--full" in sys.argv
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    cwd = args[0] if args else os.getcwd()
+
+    # Extract --key <value>
+    key_path: str | None = None
+    raw_args = sys.argv[1:]
+    filtered_args: list[str] = []
+    i = 0
+    while i < len(raw_args):
+        if raw_args[i] == "--key" and i + 1 < len(raw_args):
+            key_path = raw_args[i + 1]
+            i += 2
+        elif raw_args[i].startswith("--key="):
+            key_path = raw_args[i][len("--key="):]
+            i += 1
+        elif raw_args[i].startswith("--"):
+            i += 1  # skip other flags like --full
+        else:
+            filtered_args.append(raw_args[i])
+            i += 1
+
+    cwd = filtered_args[0] if filtered_args else os.getcwd()
+
+    if key_path is not None:
+        config = load_full_config(cwd)
+        # Traverse dotted path
+        value: object = config
+        for part in key_path.split("."):
+            if not isinstance(value, dict):
+                value = None
+                break
+            value = value.get(part)
+        print(value if value is not None else "")
+        return 0
 
     if full_mode:
         config = load_full_config(cwd)

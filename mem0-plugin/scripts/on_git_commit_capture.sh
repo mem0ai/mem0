@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Hook: PreToolUse (matcher: Bash)
 #
-# Detects `git commit` commands and:
-# 1. Fires on_pre_commit.py in the background to capture staged changes as memory
-# 2. Searches for relevant memories about the changed files and surfaces them
+# Detects `git commit` commands and searches for relevant memories
+# about the changed files, surfacing them as pre-commit context.
 #
 # Input:  JSON on stdin with tool_name, tool_input
 # Output: JSON with additionalContext (relevant memories for the commit)

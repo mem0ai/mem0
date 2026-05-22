@@ -235,6 +235,58 @@ In auto mode:
    )
    ```
 
+## Forget mode (targeted deletion)
+
+When invoked with `--forget` (e.g., `/mem0:dream --forget auth module decisions`
+or `/mem0:dream --forget <memory_id>`), skip consolidation and go straight to
+search-confirm-delete:
+
+### F1: Parse input
+
+The argument after `--forget` is either:
+- A search query: `/mem0:dream --forget auth module decisions`
+- A memory ID: `/mem0:dream --forget <memory_id>`
+
+If no argument after `--forget`, ask: "What should I forget? Provide a search query or memory ID."
+
+### F2: Find memories
+
+**If memory ID provided** (looks like a UUID or hex string):
+- Call `get_memory` with the ID to verify it exists.
+- Show: `Found: "<memory content first 120 chars>" (created <date>)`
+
+**If search query provided:**
+- Call `search_memories` with:
+  - `query=<user's query>`
+  - `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<project_id>"}]}`
+  - `limit=10`
+- Show numbered list:
+  ```
+  Found <N> memories matching "<query>":
+  1. <content, 120 chars> (type: <type>, created: <date>) [ID: <short_id>]
+  2. ...
+  ```
+
+### F3: Confirm
+
+Ask: "Delete which memories? Enter numbers (e.g., 1,3,5), 'all', or 'cancel'."
+For a single memory ID: "Delete this memory? [y/N]"
+
+**Never delete without confirmation.**
+
+### F4: Delete and report
+
+Call `delete_memory` for each confirmed entry. Report: `Deleted <N> memories.`
+
+### Undo recent writes
+
+If the user says "undo last N memories" or "undo last write":
+1. Run `python3 "$SCRIPT_DIR/session_stats.py" peek` to get `recent_ids`.
+2. Show last N entries, ask for confirmation.
+3. Delete confirmed entries via `delete_memory`.
+
+---
+
 ## Scheduling recurring dreams
 
 When invoked with `--schedule` (e.g., `/mem0:dream --schedule weekly`), register a

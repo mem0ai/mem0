@@ -41,6 +41,15 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
 
+# Check for failed dependency installation and warn the user
+_DATA_DIR="${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}"
+if [ -f "${_DATA_DIR}/.install-failed" ]; then
+  echo ""
+  echo "⚠️ mem0 SDK installation failed. Some features may not work."
+  echo "Run: ${CLAUDE_PLUGIN_ROOT:-$SCRIPT_DIR/..}/scripts/ensure_deps.sh"
+  echo ""
+fi
+
 # Fetch project-scoped memory count (best-effort, don't block on failure, 5s timeout)
 MEM0_COUNT="?"
 if command -v python3 >/dev/null 2>&1; then
@@ -96,10 +105,14 @@ if command -v python3 >/dev/null 2>&1; then
   MEM0_PROJECT_CONFIG=$(python3 "$SCRIPT_DIR/parse_mem0_config.py" --full "$MEM0_CWD_RESOLVED" 2>/dev/null || echo "{}")
 fi
 if [ -n "$MEM0_PROJECT_CONFIG" ] && [ "$MEM0_PROJECT_CONFIG" != "{}" ]; then
+  _CONFIG_KEYS=$(echo "$MEM0_PROJECT_CONFIG" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d))" 2>/dev/null || echo "?")
   echo "### Project Config (mem0.md)"
-  echo "\`\`\`json"
-  echo "$MEM0_PROJECT_CONFIG"
-  echo "\`\`\`"
+  echo "\`mem0.md loaded (${_CONFIG_KEYS} sections configured)\`"
+  if [ -n "${MEM0_DEBUG:-}" ]; then
+    echo "\`\`\`json"
+    echo "$MEM0_PROJECT_CONFIG"
+    echo "\`\`\`"
+  fi
   echo ""
 fi
 
@@ -108,6 +121,8 @@ if [ "$SOURCE" = "startup" ]; then
   _SAFE_PID=$(printf '%s' "$MEM0_PROJECT_ID" | tr '/:' '--')
   _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${_SAFE_PID}"
   if [ ! -f "$_ONBOARD_MARKER" ]; then
+    mkdir -p "$HOME/.mem0" 2>/dev/null || true
+    touch "$_ONBOARD_MARKER"
     cat <<'EOF'
 ## Mem0 First Run — Automatic Onboarding
 
@@ -133,6 +148,22 @@ You have access to persistent memory via the mem0 MCP tools. Before doing anythi
 
 IMPORTANT: Do NOT skip this step. Always bootstrap context first.
 EOF
+  fi
+
+  # Detect native Claude Code auto-memory for THIS project
+  _PROJ_KEY=$(printf '%s' "$MEM0_CWD_RESOLVED" | tr '/' '-')
+  _MEMORY_MD="$HOME/.claude/projects/${_PROJ_KEY}/memory/MEMORY.md"
+  if [ -f "$_MEMORY_MD" ] && [ -s "$_MEMORY_MD" ]; then
+    cat <<MEMEOF
+
+### Native auto-memory detected
+
+Found \`$_MEMORY_MD\`. The mem0 plugin handles all memory storage.
+To avoid two parallel memory systems:
+- Add \`"autoMemoryEnabled": false\` to \`~/.claude/settings.json\`
+- Or run \`/mem0:import\` to migrate existing MEMORY.md content into mem0
+
+MEMEOF
   fi
 
   # Auto-import declarative project files in background

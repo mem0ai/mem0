@@ -21,6 +21,7 @@ import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _chunking import filter_and_truncate, split_by_headers
 from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
 
@@ -198,10 +199,24 @@ def main() -> None:
             log.debug("Cannot read %s: %s", filename, e)
             continue
 
-        if post_memory(api_key, content, user_id, filename, project_id, branch):
+        is_markdown = filename.endswith(".md")
+        if is_markdown:
+            chunks = filter_and_truncate(split_by_headers(content))
+        else:
+            chunks = filter_and_truncate([content])
+
+        if not chunks:
+            chunks = [content[:10000]]
+
+        success = True
+        for i, chunk in enumerate(chunks):
+            chunk_name = f"{filename}[{i+1}/{len(chunks)}]" if len(chunks) > 1 else filename
+            if not post_memory(api_key, chunk, user_id, chunk_name, project_id, branch):
+                success = False
+
+        if success:
             hashes[hash_key] = current_hash
             updated = True
-        # on API failure we don't update the hash — retry next session
 
     if updated:
         save_hashes(hashes)
