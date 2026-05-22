@@ -17,7 +17,7 @@ SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), "..", "scripts")
 
 def test_split_by_headers_cursorrules():
     """split_by_headers correctly splits .cursorrules content on ## headers."""
-    from import_competing_tools import split_by_headers
+    from _chunking import split_by_headers
 
     content = """\
 # My Cursor Rules
@@ -57,7 +57,7 @@ Write tests for all utility functions.
 
 def test_split_by_headers_copilot():
     """split_by_headers correctly splits copilot-instructions.md on ## headers."""
-    from import_competing_tools import split_by_headers
+    from _chunking import split_by_headers
 
     content = """\
 ## Code Style
@@ -78,7 +78,7 @@ Follow clean architecture principles. Keep business logic in domain layer.
 
 def test_split_by_headers_no_headers():
     """split_by_headers returns entire content as one chunk if no headers found."""
-    from import_competing_tools import split_by_headers
+    from _chunking import split_by_headers
 
     content = "This file has no headers at all. Just plain text."
     chunks = split_by_headers(content, "## ")
@@ -88,7 +88,7 @@ def test_split_by_headers_no_headers():
 
 def test_split_cline_multiple_md_files(tmp_path):
     """cmd_cline processes multiple .md files from memory-bank/ directory."""
-    from import_competing_tools import filter_and_truncate
+    from _chunking import filter_and_truncate
 
     # Create a temporary memory-bank directory with .md files
     mb_dir = tmp_path / "memory-bank"
@@ -124,7 +124,7 @@ def test_split_cline_multiple_md_files(tmp_path):
 
 def test_split_by_hr_or_headers_continue():
     """split_by_hr_or_headers correctly splits .continue/rules.md."""
-    from import_competing_tools import split_by_hr_or_headers
+    from _chunking import split_by_hr_or_headers
 
     content = """\
 ## First Section
@@ -150,7 +150,7 @@ Third section without a header (just after HR).
 
 def test_filter_and_truncate_skips_short():
     """filter_and_truncate skips chunks shorter than MIN_CHUNK_CHARS (50)."""
-    from import_competing_tools import filter_and_truncate
+    from _chunking import filter_and_truncate
 
     chunks = [
         "Short",  # < 50 chars, should be filtered
@@ -165,7 +165,7 @@ def test_filter_and_truncate_skips_short():
 
 def test_filter_and_truncate_truncates_long():
     """filter_and_truncate truncates chunks over MAX_CHUNK_CHARS (10000)."""
-    from import_competing_tools import MAX_CHUNK_CHARS, filter_and_truncate
+    from _chunking import MAX_CHUNK_CHARS, filter_and_truncate
 
     long_chunk = "X" * (MAX_CHUNK_CHARS + 500)
     result = filter_and_truncate([long_chunk])
