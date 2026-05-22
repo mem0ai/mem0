@@ -33,7 +33,9 @@ esac
 
 # Detect stack traces and error patterns in command output
 HAS_ERROR=""
-if echo "$TOOL_RESULT" | grep -qiE '(Traceback \(most recent|Error:|Exception:|panic:|FAILED|fatal:|FAIL:| at .+\.[a-z]+:[0-9]+|error\[E[0-9]+\])'; then
+if echo "$TOOL_RESULT" | grep -qE '(Traceback \(most recent call last\)|panic: |FATAL:|error\[E[0-9]+\])'; then
+  HAS_ERROR="true"
+elif [ "$(echo "$TOOL_RESULT" | grep -cE '(Error:|Exception:)')" -ge 2 ]; then
   HAS_ERROR="true"
 fi
 

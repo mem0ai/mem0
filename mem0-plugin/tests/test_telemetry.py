@@ -57,7 +57,8 @@ def test_posthog_payload_structure(monkeypatch):
     assert payload["event"] == "plugin.session_start"
     assert "distinct_id" in payload
     assert payload["properties"]["source"] == "plugin"
-    assert payload["properties"]["plugin_version"] == "0.2.1"
+    assert isinstance(payload["properties"]["plugin_version"], str)
+    assert payload["properties"]["plugin_version"] != ""
     assert payload["properties"]["memory_count"] == 5
     assert payload["properties"]["$process_person_profile"] is False
 
@@ -66,13 +67,40 @@ def test_posthog_payload_structure(monkeypatch):
     assert "test-project" not in raw
 
 
+def test_system_props_override_caller_props(monkeypatch):
+    """H8: system properties must win over caller-supplied properties."""
+    import telemetry
+
+    monkeypatch.setenv("MEM0_RESOLVED_USER_ID", "testuser")
+    monkeypatch.setenv("MEM0_PROJECT_ID", "test-project")
+    monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", raising=False)
+
+    # Caller tries to override system-controlled properties
+    caller_props = {
+        "source": "CALLER_OVERRIDE",
+        "platform": "CALLER_OVERRIDE",
+        "plugin_version": "CALLER_OVERRIDE",
+        "memory_count": 42,
+    }
+    payload = telemetry.build_posthog_payload("plugin.test", caller_props)
+    props = payload["properties"]
+
+    # System props must win
+    assert props["source"] == "plugin"
+    assert props["platform"] == telemetry.detect_platform()
+    assert props["plugin_version"] == telemetry.PLUGIN_VERSION
+    # Caller-only props still present
+    assert props["memory_count"] == 42
+
+
 def test_distinct_id_from_api_key(monkeypatch):
     import hashlib
 
     import telemetry
 
     monkeypatch.setenv("MEM0_API_KEY", "m0-testkey123")
-    expected = hashlib.md5(b"m0-testkey123").hexdigest()
+    expected = hashlib.sha256(b"m0-testkey123").hexdigest()[:32]
     assert telemetry._distinct_id() == expected
 
 

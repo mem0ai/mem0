@@ -44,8 +44,15 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
 
+# C5: commit prompts default OFF — only prompt if explicitly enabled in mem0.md
+MEM0_CWD=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+COMMIT_PROMPTS=$(python3 "$SCRIPT_DIR/parse_mem0_config.py" --key settings.commit_prompts "$MEM0_CWD" 2>/dev/null || echo "")
+if [ "$COMMIT_PROMPTS" != "true" ]; then
+  exit 0
+fi
+
 # Extract changed files from commit
-CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | head -10 || echo "")
+CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | head -10 || echo "")
 if [ -z "$CHANGED_FILES" ]; then
   exit 0
 fi

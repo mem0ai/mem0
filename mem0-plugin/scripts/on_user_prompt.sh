@@ -31,7 +31,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Detect stack traces and error patterns in the prompt (no API needed)
 HAS_ERROR=""
-if echo "$PROMPT" | grep -qiE '(Traceback|Error:|Exception:|panic:|FAILED|fatal:| at .+\.[a-z]+:[0-9]+)'; then
+if echo "$PROMPT" | grep -qE '(Traceback|panic:)'; then
+  HAS_ERROR="true"
+elif echo "$PROMPT" | grep -qE '^\s*fatal: '; then
+  HAS_ERROR="true"
+elif [ "$(echo "$PROMPT" | grep -cE '(Error:|Exception:|FAIL:)')" -ge 2 ]; then
   HAS_ERROR="true"
 fi
 

@@ -42,12 +42,7 @@
             "type": "command",
             "command": "${CODEX_PLUGIN_ROOT}/scripts/on_post_commit.sh",
             "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": "${CODEX_PLUGIN_ROOT}/scripts/on_bash_output.sh",

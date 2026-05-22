@@ -24,9 +24,17 @@ if [ ${#RESULT_SUMMARY} -lt 50 ]; then
   exit 0
 fi
 
+# Read subagent skip list from config, default to Explore|Plan
+_SKIP_CSV=$(python3 "$SCRIPT_DIR/parse_mem0_config.py" --key settings.subagent_skip "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" 2>/dev/null || echo "")
+if [ -n "$_SKIP_CSV" ]; then
+  _SKIP_PATTERN=$(echo "$_SKIP_CSV" | tr -d ' ' | tr ',' '|')
+else
+  _SKIP_PATTERN="Explore|Plan"
+fi
+
 # Skip explorer/plan agents — read-only, rarely produce storable learnings
 case "$AGENT_TYPE" in
-  Explore|Plan)
+  $_SKIP_PATTERN)
     exit 0
     ;;
 esac

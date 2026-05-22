@@ -130,6 +130,31 @@ search_memories(query="auth",
 
 Extract key learnings and store them using the `add_memory` tool:
 
+### REQUIRED metadata fields
+
+Every `add_memory` call MUST include these metadata fields. Do NOT omit them:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | YES | Memory category: `decision`, `task_learning`, `anti_pattern`, `convention`, `user_preference`, `environmental`, `session_state`, `compact_summary` |
+| `confidence` | float | YES | 0.0–1.0 confidence score. Default: `0.7` for inferred learnings, `0.9` for explicit user statements |
+| `files` | list[str] | YES | File paths relevant to this memory. Use `["*"]` for project-wide learnings |
+| `source` | string | YES | How the memory was captured: `user_request`, `auto_capture`, `post_commit`, `error_recovery` |
+
+**Example:**
+```json
+{
+  "metadata": {
+    "type": "decision",
+    "confidence": 0.9,
+    "files": ["src/auth/login.py", "src/auth/middleware.py"],
+    "source": "user_request"
+  }
+}
+```
+
+**If you omit `confidence` or `files`, the memory will be harder to rank and retrieve later.**
+
 - **Decisions made** -> Include metadata `{"type": "decision"}`
 - **Strategies that worked** -> Include metadata `{"type": "task_learning"}`
 - **Failed approaches** -> Include metadata `{"type": "anti_pattern"}`

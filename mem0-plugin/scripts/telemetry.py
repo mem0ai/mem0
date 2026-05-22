@@ -27,7 +27,16 @@ import sys
 import urllib.error
 import urllib.request
 
-PLUGIN_VERSION = "0.2.1"
+
+def _load_plugin_version() -> str:
+    try:
+        plugin_json = os.path.join(os.path.dirname(__file__), "..", ".claude-plugin", "plugin.json")
+        with open(plugin_json) as f:
+            return json.load(f).get("version", "unknown")
+    except (OSError, json.JSONDecodeError, KeyError):
+        return "unknown"
+
+PLUGIN_VERSION = _load_plugin_version()
 
 POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/"
@@ -45,7 +54,7 @@ def _distinct_id() -> str:
     """Stable anonymous ID: MD5 of API key if available, else SHA-256 of username."""
     api_key = os.environ.get("MEM0_API_KEY") or os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY") or ""
     if api_key:
-        return hashlib.md5(api_key.encode()).hexdigest()
+        return hashlib.sha256(api_key.encode()).hexdigest()[:32]
     user_id = os.environ.get("MEM0_RESOLVED_USER_ID") or os.environ.get("USER") or "unknown"
     return _sha256(user_id)
 
@@ -75,6 +84,7 @@ def build_posthog_payload(event_name: str, properties: dict | None = None) -> di
         "distinct_id": _distinct_id(),
         "event": event_name,
         "properties": {
+            **(properties or {}),
             "source": "plugin",
             "platform": detect_platform(),
             "plugin_version": PLUGIN_VERSION,
@@ -84,7 +94,6 @@ def build_posthog_payload(event_name: str, properties: dict | None = None) -> di
             "sample_rate": SAMPLE_RATE,
             "$process_person_profile": False,
             "$lib": "posthog-python",
-            **(properties or {}),
         },
     }
 
