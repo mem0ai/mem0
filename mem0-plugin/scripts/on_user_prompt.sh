@@ -29,6 +29,20 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
 
+# Rubric dedup: only inject full rubric once per session.
+# Key on session ID (from stdin JSON) to avoid cross-session interference.
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
+RUBRIC_DIR="${MEM0_RUBRIC_DIR:-/tmp}"
+if [ -n "$SESSION_ID" ]; then
+  RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_${SESSION_ID}"
+else
+  RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_injected_${USER}"
+fi
+RUBRIC_ALREADY_SHOWN=""
+if [ -f "$RUBRIC_FLAG" ]; then
+  RUBRIC_ALREADY_SHOWN="true"
+fi
+
 # Detect stack traces and error patterns in the prompt (no API needed)
 HAS_ERROR=""
 if echo "$PROMPT" | grep -qE '(Traceback|panic:)'; then
@@ -60,7 +74,8 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
 fi
 USER_ID="$MEM0_RESOLVED_USER_ID"
 
-cat <<EOF
+if [ -z "$RUBRIC_ALREADY_SHOWN" ]; then
+  cat <<EOF
 ## Memory check
 
 Before responding, decide whether persistent memory context from mem0 would
@@ -79,6 +94,8 @@ improve your answer. The agent -- not this hook -- owns this decision.
 - it's a pure syntax / factual question answerable from general knowledge
 - you already searched this scope earlier in the turn
 EOF
+  touch "$RUBRIC_FLAG" 2>/dev/null || true
+fi
 
 if [ -n "$HAS_ERROR" ]; then
   cat <<EOF

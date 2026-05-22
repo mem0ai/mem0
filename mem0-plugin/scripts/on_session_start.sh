@@ -21,6 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Initialize session stats tracker
 python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
+rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
 
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
