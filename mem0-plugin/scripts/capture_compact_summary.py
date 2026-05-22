@@ -109,7 +109,7 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str, pro
         "user_id": user_id,
         "app_id": project_id,
         "metadata": metadata,
-        "infer": False,
+        "infer": True,
         "expiration_date": expires,
     }
 
