@@ -62,7 +62,7 @@ body = json.dumps({
     'top_k': 3,
 }).encode()
 req = urllib.request.Request(
-    'https://api.mem0.ai/v2/memories/search/',
+    'https://api.mem0.ai/v3/memories/search/',
     data=body,
     headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
     method='POST',
