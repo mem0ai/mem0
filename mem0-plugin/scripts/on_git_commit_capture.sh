@@ -28,17 +28,10 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-if [ ! -f "$SCRIPT_DIR/on_pre_commit.py" ]; then
-  exit 0
-fi
-
 API_KEY="${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-}}"
 if [ -z "$API_KEY" ]; then
   exit 0
 fi
-
-# Background: capture staged changes as memory
-git diff --cached --stat 2>/dev/null | python3 "$SCRIPT_DIR/on_pre_commit.py" &
 
 # Foreground: search for relevant memories about changed files
 CHANGED_FILES=$(git diff --cached --name-only 2>/dev/null | head -10 | tr '\n' ', ' | sed 's/,$//')

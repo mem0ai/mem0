@@ -135,7 +135,7 @@ def test_capture_compact_summary_store_uses_app_id():
     assert "project_id" not in captured.get("metadata", {})
     assert captured["metadata"]["type"] == "compact_summary"
     assert captured["metadata"]["branch"] == "main"
-    assert captured["infer"] is False
+    assert captured["infer"] is True
     assert "expiration_date" in captured
 
 

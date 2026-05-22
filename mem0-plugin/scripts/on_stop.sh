@@ -62,14 +62,6 @@ If nothing notable happened in this interaction, it's fine to skip. Only store g
 Always include `app_id` (the active project_id from SessionStart) as a top-level parameter in every `add_memory` call.
 EOF
 
-# Capture transcript state in the background via Mem0 REST API
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
-echo "$INPUT" | python3 "$SCRIPT_DIR/on_pre_compact.py" --source=session-end 2>/dev/null &
-
-# Mark session as captured so SessionEnd hook can skip duplicate capture
-if [ -n "$SESSION_ID" ]; then
-  mkdir -p "$HOME/.mem0" 2>/dev/null || true
-  touch "$HOME/.mem0/.captured_${SESSION_ID}" 2>/dev/null || true
-fi
 
 exit 0
