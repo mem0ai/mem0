@@ -22,6 +22,17 @@ def _scripts_on_path():
         sys.path.remove(abs_scripts)
 
 
+@pytest.fixture(autouse=True)
+def _clean_project_map():
+    """Remove project_map.json before each test to prevent cross-test pollution."""
+    map_path = os.path.expanduser("~/.mem0/project_map.json")
+    if os.path.isfile(map_path):
+        os.remove(map_path)
+    yield
+    if os.path.isfile(map_path):
+        os.remove(map_path)
+
+
 @pytest.fixture()
 def tmp_git_repo(tmp_path):
     """Create a temp dir with a git repo and HTTPS remote."""

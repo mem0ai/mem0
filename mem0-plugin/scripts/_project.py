@@ -3,6 +3,7 @@
 Resolution priority (project_id):
   1. MEM0_PROJECT_ID env var (explicit override)
   2. ~/.mem0/project_map.json lookup by cwd
+  2b. ~/.mem0/project_map.json lookup by remote hash (self-healing fallback)
   3. Git remote slug: strip protocol/prefix, strip .git, replace / and : with -
      e.g. git@github.com:mem0ai/mem0.git -> mem0ai-mem0
   4. Fallback: basename of cwd
@@ -10,6 +11,7 @@ Resolution priority (project_id):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -34,6 +36,19 @@ def resolve_project_id(cwd: str | None = None) -> str:
             mapped = project_map.get(cwd, "").strip()
             if mapped:
                 return mapped
+            # 2b. Remote hash fallback (self-healing when folder is moved/renamed)
+            remote_key = _remote_hash_key(cwd)
+            if remote_key:
+                mapped = project_map.get(remote_key, "").strip()
+                if mapped:
+                    # Self-heal: write the new CWD key so future lookups are fast
+                    project_map[cwd] = mapped
+                    try:
+                        with open(map_path, "w") as f:
+                            json.dump(project_map, f, indent=2)
+                    except OSError:
+                        pass
+                    return mapped
         except (OSError, json.JSONDecodeError, AttributeError):
             pass
 
@@ -76,7 +91,7 @@ def resolve_branch(cwd: str | None = None) -> str:
 
 
 def save_project_mapping(cwd: str, project_id: str) -> None:
-    """Write cwd -> project_id into ~/.mem0/project_map.json."""
+    """Write cwd -> project_id (and remote hash key -> project_id) into ~/.mem0/project_map.json."""
     mem0_dir = os.path.expanduser("~/.mem0")
     os.makedirs(mem0_dir, exist_ok=True)
     map_path = os.path.join(mem0_dir, "project_map.json")
@@ -88,8 +103,38 @@ def save_project_mapping(cwd: str, project_id: str) -> None:
         except (OSError, json.JSONDecodeError):
             project_map = {}
     project_map[cwd] = project_id
+    # Also write the remote hash key so the mapping survives folder moves/renames
+    remote_key = _remote_hash_key(cwd)
+    if remote_key:
+        project_map[remote_key] = project_id
     with open(map_path, "w") as f:
         json.dump(project_map, f, indent=2)
+
+
+def _remote_hash_key(cwd: str | None = None) -> str:
+    """Return a stable key derived from the git remote URL.
+
+    Runs ``git config --get remote.origin.url`` in *cwd* and returns a string
+    of the form ``remote:<sha256(url)[:16]>``.  Returns an empty string when
+    the directory is not a git repo or has no remote configured.
+    """
+    if cwd is None:
+        cwd = os.getcwd()
+    try:
+        result = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=cwd,
+        )
+        url = result.stdout.strip()
+        if not url:
+            return ""
+        digest = hashlib.sha256(url.encode()).hexdigest()[:16]
+        return f"remote:{digest}"
+    except (subprocess.CalledProcessError, OSError):
+        return ""
 
 
 def _remote_url_to_slug(url: str) -> str:

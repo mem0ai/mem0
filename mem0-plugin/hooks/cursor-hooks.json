@@ -10,6 +10,11 @@
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/block_memory_write_cursor.sh",
         "matcher": "Write|Edit"
+      },
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
+        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory",
+        "timeout": 3
       }
     ],
     "postToolUse": [

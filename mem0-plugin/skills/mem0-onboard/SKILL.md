@@ -82,7 +82,7 @@ Then retry the categories script.
 
 ## Step 5: Mark project as onboarded
 
-Create a marker file so SessionStart won't re-trigger onboarding next session:
+The marker file is already created by `on_session_start.sh` on first display of the onboard prompt. Touch it here for idempotency:
 
 ```bash
 _SAFE_PID=$(printf '%s' "<active_project_id>" | tr '/:' '--')
