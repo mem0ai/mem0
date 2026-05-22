@@ -51,7 +51,7 @@ def _sha256(value: str) -> str:
 
 
 def _distinct_id() -> str:
-    """Stable anonymous ID: MD5 of API key if available, else SHA-256 of username."""
+    """Stable anonymous ID: SHA-256 of API key if available, else SHA-256 of username."""
     api_key = os.environ.get("MEM0_API_KEY") or os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY") or ""
     if api_key:
         return hashlib.sha256(api_key.encode()).hexdigest()[:32]
