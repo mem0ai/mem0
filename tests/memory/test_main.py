@@ -663,3 +663,95 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+
+
+# ---------------------------------------------------------------------------
+# Tests for custom-metadata preservation in _update_memory (issue #5160)
+# ---------------------------------------------------------------------------
+
+
+def test_update_memory_preserves_custom_metadata(mocker):
+    """_update_memory must not drop custom metadata fields that were stored
+    during add() when update() is called without a new metadata argument.
+
+    Regression test for issue #5160: the whitelist-only approach kept only
+    user_id/agent_id/run_id/actor_id/role, silently discarding everything else.
+    """
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "I love tennis",
+            "user_id": "user_1",
+            "actor_id": "Alice",
+            "category": "hobbies",
+            "priority": "high",
+            "source": "chat",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    memory._update_memory(
+        "mem-id", "I love tennis and swimming",
+        {"I love tennis and swimming": [0.1, 0.2, 0.3]},
+        metadata=None,
+    )
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["category"] == "hobbies", "category was dropped"
+    assert stored["priority"] == "high", "priority was dropped"
+    assert stored["source"] == "chat", "source was dropped"
+    assert stored["user_id"] == "user_1"
+    assert stored["data"] == "I love tennis and swimming"
+
+
+def test_update_memory_caller_metadata_overrides_existing(mocker):
+    """When update() is called with new metadata, caller values override
+    existing ones but all other custom fields are still preserved."""
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "I love tennis",
+            "user_id": "user_1",
+            "category": "hobbies",
+            "priority": "low",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    memory._update_memory(
+        "mem-id", "I love tennis and swimming",
+        {"I love tennis and swimming": [0.1, 0.2, 0.3]},
+        metadata={"priority": "high", "new_field": "added"},
+    )
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["priority"] == "high", "caller-provided override not applied"
+    assert stored["new_field"] == "added", "new caller field not added"
+    assert stored["category"] == "hobbies", "existing custom field was dropped"
+    assert stored["user_id"] == "user_1"
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_preserves_custom_metadata(mocker):
+    """Async variant of test_update_memory_preserves_custom_metadata."""
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(
+        payload={
+            "data": "I love tennis",
+            "user_id": "user_1",
+            "category": "hobbies",
+            "source": "chat",
+            "created_at": "2026-01-01T00:00:00+00:00",
+        }
+    )
+
+    await memory._update_memory(
+        "mem-id", "I love tennis and swimming",
+        {"I love tennis and swimming": [0.1, 0.2, 0.3]},
+        metadata=None,
+    )
+
+    stored = memory.vector_store.update.call_args.kwargs["payload"]
+    assert stored["category"] == "hobbies", "async: category was dropped"
+    assert stored["source"] == "chat", "async: source was dropped"
+    assert stored["user_id"] == "user_1"
