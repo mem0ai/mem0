@@ -49,6 +49,21 @@ filters={"AND": [
 
 Empty results are normal. Proceed without context — they don't mean the system is broken.
 
+### Contradiction detection at search time
+
+After receiving search results, scan for contradictions before using them:
+
+1. If 2+ results address the **same topic** (same `metadata.type`, overlapping file paths or entity names) but assert **opposing facts**, surface BOTH to the user instead of silently picking one.
+2. Format:
+   ```
+   ⚠️ Conflicting memories found:
+   - [mem0:<id1>] "<content1>" (confidence: <score1>, <date1>)
+   - [mem0:<id2>] "<content2>" (confidence: <score2>, <date2>)
+   Which is current?
+   ```
+3. After the user resolves: update the loser via `update_memory` to mark it superseded, or delete it. Store the winner's fact as authoritative if not already.
+4. If the user doesn't resolve, default to the more recent memory with higher confidence, but note the ambiguity in your response.
+
 ### How to search well
 
 When you do search, run **2–4 parallel** `search_memories` calls at different angles instead of one query echoing the user's prompt.

@@ -94,3 +94,56 @@ Print a compact dashboard with an ASCII histogram for category distribution:
 - **Access count buckets:** Read `metadata.access_count` (default 0 if absent). Buckets: 0, 1–5, 6–20, 20+.
 
 Skip any section with zero data.
+
+## Weekly digest mode
+
+When invoked with `--weekly` (e.g., `/mem0:stats --weekly`), append a weekly
+activity digest after the standard stats dashboard:
+
+### W1: Fetch recent memories
+
+Call `search_memories` in parallel with time-scoped queries:
+1. `query="decisions made this week"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"created_at": {"gte": "<7 days ago YYYY-MM-DD>"}}]}`, `limit=20`
+2. `query="bugs errors fixes"`, same time filter, `limit=20`
+3. `query="patterns conventions learnings"`, same time filter, `limit=20`
+
+### W2: Analyze
+
+Merge by ID. Group into "New this week" by `categories[0]` or `metadata.type`.
+Calculate: memories added last 7 days, most active categories, most active day.
+
+### W3: Display
+
+Append after the standard stats:
+
+```
+### Weekly Digest (<start_date> to <today>)
+
+New Memories This Week: <N>
+  <category>: <count>
+    - <memory summary, 80 chars> (<date>)
+    - ...
+
+Activity Pattern
+  Most active day: <day> (<N> memories)
+  Categories touched: <list>
+
+Highlights
+  <2-3 sentence summary of most important decisions/learnings this week>
+```
+
+### W4: Write digest file
+
+Write to `~/.mem0/weekly-digest.md` (overwrite). Append one-line to
+`~/.mem0/digest-history.log`:
+```
+<YYYY-MM-DD> | <project_id> | +<new_count> memories | top: <top_category>
+```
+
+### W5: Empty state
+
+If no new memories in 7 days:
+```
+No new memories in the past week for <project_id>.
+Total project memories: <N>.
+```
