@@ -62,11 +62,18 @@ if echo "$PROMPT" | grep -qiE '(where (did )?(we|I) (leave|left) off|continue (f
   HAS_RESUME="true"
 fi
 
+# Detect explicit memory-save intent
+HAS_REMEMBER=""
+if echo "$PROMPT" | grep -qiE '(remember (this|that)|save (this|that) (fact|info|memory|note)|store (this|that)|don.t forget (this|that)|keep (this|that) in (mind|memory))'; then
+  HAS_REMEMBER="true"
+fi
+
 # Telemetry (background, fire-and-forget)
 _TELEM_ARGS=""
 [ -n "$HAS_ERROR" ] && _TELEM_ARGS="$_TELEM_ARGS --error_detected"
 [ -n "$FILE_PATHS" ] && _TELEM_ARGS="$_TELEM_ARGS --file_paths_detected"
 [ -n "$HAS_RESUME" ] && _TELEM_ARGS="$_TELEM_ARGS --resume_detected"
+[ -n "$HAS_REMEMBER" ] && _TELEM_ARGS="$_TELEM_ARGS --remember_detected"
 python3 "$SCRIPT_DIR/telemetry.py" user_prompt $_TELEM_ARGS 2>/dev/null &
 
 # No API key — emit detections only, skip search rubric
@@ -115,6 +122,20 @@ else:
     echo ""
     echo "$RESUME_RESULTS"
   fi
+fi
+
+if [ -n "$HAS_REMEMBER" ]; then
+  cat <<'REMEMBER_EOF'
+
+**REMEMBER INTENT DETECTED.** The user wants to save something to memory.
+You MUST invoke the `/mem0:remember` skill (not raw `add_memory`) because it:
+- Auto-classifies the memory type (decision, anti_pattern, convention, etc.)
+- Sets confidence=1.0 (user explicitly requested storage)
+- Uses infer=False (stores verbatim, no second extraction pass)
+- Tracks source=remember_command for analytics
+
+Do NOT call `add_memory` directly for user-initiated remembers.
+REMEMBER_EOF
 fi
 
 if [ -z "$RUBRIC_ALREADY_SHOWN" ]; then

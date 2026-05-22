@@ -46,6 +46,11 @@ if 'type' not in meta:
     meta['type'] = 'task_learning'
     changed = True
 
+# If confidence is 1.0 (user explicitly stated), ensure infer=False
+if meta.get('confidence', 0) >= 1.0 and 'infer' not in inp:
+    inp['infer'] = False
+    changed = True
+
 if changed:
     inp['metadata'] = meta
     print(json.dumps(inp))
