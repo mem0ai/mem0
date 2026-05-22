@@ -54,10 +54,18 @@ If it errors: FAIL — show the error.
 
 ### Check 5: Session stats tracker
 
+Check if the session stats file exists and is readable:
+
 ```bash
-SCRIPT_DIR="${CLAUDE_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}/scripts"
-python3 "$SCRIPT_DIR/session_stats.py" peek 2>/dev/null && echo "OK" || echo "FAIL"
+STATS_FILE="/tmp/mem0_session_stats_${USER}.json"
+if [ -f "$STATS_FILE" ] && python3 -c "import json; json.load(open('$STATS_FILE'))" 2>/dev/null; then
+  echo "OK"
+else
+  echo "FAIL"
+fi
 ```
+
+This file is created by the SessionStart hook and updated by PostToolUse hooks throughout the session. If it doesn't exist, the session hooks may not have fired yet — try sending a message first, then recheck.
 
 ### Display
 
