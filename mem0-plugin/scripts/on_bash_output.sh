@@ -58,17 +58,23 @@ if [ -n "$TRACE_FILES" ]; then
   FILE_DISPLAY=$(echo "$TRACE_FILES" | sed 's/^/  - /')
 fi
 
-USER_ID="$MEM0_RESOLVED_USER_ID"
+USER_ID="${MEM0_RESOLVED_USER_ID:-${USER:-default}}"
 
 # Extract query (first 80 chars of error line)
 ERROR_QUERY=$(echo "$ERROR_LINE" | cut -c1-80)
 
-# Pre-fetch memories: anti_pattern and bug_fix searches (requires API key)
-RESULTS=""
-if [ -n "${MEM0_API_KEY:-}" ]; then
-  RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_QUERY="$ERROR_QUERY" MEM0_SEARCH_USER="$USER_ID" \
-    MEM0_API_KEY="${MEM0_API_KEY}" MEM0_PROJECT_ID="${MEM0_PROJECT_ID:-unknown}" \
-    python3 -c "
+# Telemetry (fire regardless of API key)
+python3 "$SCRIPT_DIR/telemetry.py" bash_error --error_detected 2>/dev/null &
+
+# No API key — skip output entirely
+if [ -z "${MEM0_API_KEY:-}" ]; then
+  exit 0
+fi
+
+# Pre-fetch memories: anti_pattern and bug_fix searches
+RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_QUERY="$ERROR_QUERY" MEM0_SEARCH_USER="$USER_ID" \
+  MEM0_API_KEY="${MEM0_API_KEY}" MEM0_PROJECT_ID="${MEM0_PROJECT_ID:-unknown}" \
+  python3 -c "
 import os, sys
 sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
 from _search import search_memories, format_results_for_context
@@ -81,7 +87,6 @@ query = os.environ.get('MEM0_SEARCH_QUERY', '')
 r1 = search_memories(api_key, user_id, project_id, query, metadata_type='anti_pattern', top_k=3)
 r2 = search_memories(api_key, user_id, project_id, query, metadata_type='bug_fix', top_k=3)
 
-# Deduplicate by ID
 seen = set()
 combined = []
 for m in r1 + r2:
@@ -92,7 +97,6 @@ for m in r1 + r2:
 
 print(format_results_for_context(combined, heading='Prior error memories'), end='')
 " 2>/dev/null || echo "")
-fi
 
 # Output error header
 printf '\n## Error detected in command output\n\n'
@@ -102,7 +106,6 @@ if [ -n "$FILE_DISPLAY" ]; then
   printf '**Files in stack trace:**\n%s\n\n' "$FILE_DISPLAY"
 fi
 
-# Output search results or fallback
 if [ -n "$RESULTS" ]; then
   printf '%s\n' "$RESULTS"
 else
@@ -110,8 +113,5 @@ else
 fi
 
 printf 'If you solve this, store the fix as an `anti_pattern` or `bug_fix` memory for next time.\n'
-
-# Telemetry
-python3 "$SCRIPT_DIR/telemetry.py" bash_error --error_detected 2>/dev/null &
 
 exit 0

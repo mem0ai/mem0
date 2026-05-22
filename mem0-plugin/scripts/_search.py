@@ -7,7 +7,6 @@ All pre-fetch hooks use this instead of duplicating urllib boilerplate.
 from __future__ import annotations
 
 import json
-import urllib.error
 import urllib.request
 
 SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"

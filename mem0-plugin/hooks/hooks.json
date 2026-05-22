@@ -132,7 +132,7 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
             "statusMessage": "Checking memory relevance...",
-            "timeout": 5
+            "timeout": 12
           }
         ]
       }

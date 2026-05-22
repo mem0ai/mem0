@@ -21,9 +21,11 @@ case "$FILE_PATH" in
   *node_modules/*|*.git/*|*__pycache__/*) exit 0 ;;
 esac
 
-# Skip if no API key
-API_KEY="${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-}}"
-if [ -z "$API_KEY" ]; then
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
+
+# Skip if no API key (checked after _identity.sh resolves CLAUDE_PLUGIN_OPTION_MEM0_API_KEY)
+if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
 
@@ -36,10 +38,7 @@ fi
 echo "$FILE_PATH" >> "$RECENT_FILE" 2>/dev/null || true
 tail -10 "$RECENT_FILE" > "$RECENT_FILE.tmp" 2>/dev/null && mv "$RECENT_FILE.tmp" "$RECENT_FILE" 2>/dev/null || true
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-. "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
-
-USER_ID="${MEM0_RESOLVED_USER_ID:-$USER}"
+USER_ID="${MEM0_RESOLVED_USER_ID:-${USER:-default}}"
 PROJECT_ID="${MEM0_PROJECT_ID:-unknown}"
 BASENAME=$(basename "$FILE_PATH")
 

@@ -53,7 +53,7 @@
     "beforeSubmitPrompt": [
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_user_prompt_cursor.sh",
-        "timeout": 5
+        "timeout": 12
       }
     ]
   }
