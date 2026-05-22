@@ -91,6 +91,55 @@ def test_generate_response_with_tools(mock_openai_client):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_generate_response_with_multimodal_content(mock_openai_client):
+    """A message whose content is a list of parts (multimodal / vision) must not
+    crash. Previously the Azure provider called ``.replace`` on the last
+    message's content unconditionally, raising ``AttributeError: 'list' object
+    has no attribute 'replace'`` for image/multimodal requests."""
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What is in this image?"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+            ],
+        },
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="A description.", tool_calls=None))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    # List-typed content is forwarded unchanged (no string rewrite applied).
+    sent_messages = mock_openai_client.chat.completions.create.call_args.kwargs["messages"]
+    assert sent_messages[-1]["content"] == [
+        {"type": "text", "text": "What is in this image?"},
+        {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+    ]
+    assert response == "A description."
+
+
+def test_generate_response_rewrites_string_assistant_keyword(mock_openai_client):
+    """String content keeps the existing 'assistant' -> 'ai' rewrite behavior."""
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "Ask the assistant a question."}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Done.", tool_calls=None))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    sent_messages = mock_openai_client.chat.completions.create.call_args.kwargs["messages"]
+    assert sent_messages[-1]["content"] == "Ask the ai a question."
+
+
 def test_generate_response_with_response_format(mock_openai_client):
     config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
     llm = AzureOpenAILLM(config)
