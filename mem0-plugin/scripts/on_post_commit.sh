@@ -6,7 +6,7 @@
 # and prompts Claude to ask the user if this change should be stored as
 # a learning.
 #
-# Input:  JSON on stdin with tool_name, tool_input, tool_result
+# Input:  JSON on stdin with tool_name, tool_input, tool_output
 # Output: Context injected into Claude's next response (exit 0)
 #
 # This implements Spec #28 — interactive pre-commit memory check.
@@ -31,7 +31,7 @@ case "$COMMAND" in
 esac
 
 # Check if the command actually succeeded (look for commit hash in output)
-TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_result // ""' 2>/dev/null || echo "")
+TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_output // ""' 2>/dev/null || echo "")
 if echo "$TOOL_RESULT" | grep -qiE '(error|fatal|abort|nothing to commit|no changes)'; then
   exit 0
 fi

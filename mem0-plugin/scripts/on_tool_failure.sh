@@ -4,7 +4,7 @@
 # Fires when a mem0 MCP tool call fails. Logs the failure, bumps telemetry,
 # and injects a retry hint so Claude can recover.
 #
-# Input:  JSON on stdin with tool_name, tool_input, tool_result, is_error
+# Input:  JSON on stdin with tool_name, tool_input, tool_error
 # Output: Context injected into Claude's next response (exit 0)
 
 set -uo pipefail
@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
-TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_result // ""' 2>/dev/null || echo "")
+TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_error // ""' 2>/dev/null || echo "")
 TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}' 2>/dev/null || echo "{}")
 
 # Extract the short tool name (strip mcp__mem0__ prefix)

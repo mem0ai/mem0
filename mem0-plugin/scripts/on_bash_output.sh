@@ -9,14 +9,14 @@
 # typed message). This hook catches errors in COMMAND OUTPUT — e.g.,
 # when `npm test` or `python script.py` fails with a traceback.
 #
-# Input:  JSON on stdin with tool_name, tool_input, tool_result
+# Input:  JSON on stdin with tool_name, tool_input, tool_output
 # Output: Context injected into Claude's next response (exit 0)
 
 set -uo pipefail
 
 INPUT=$(cat)
 
-TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_result // ""' 2>/dev/null || echo "")
+TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_output // ""' 2>/dev/null || echo "")
 
 # Skip short output (< 50 chars unlikely to contain a real stack trace)
 if [ ${#TOOL_RESULT} -lt 50 ]; then
