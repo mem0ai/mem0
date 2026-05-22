@@ -88,7 +88,7 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_bash_output.sh",
-            "timeout": 5
+            "timeout": 12
           }
         ]
       }

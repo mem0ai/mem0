@@ -46,10 +46,6 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
-if [ -z "${MEM0_API_KEY:-}" ]; then
-  exit 0
-fi
-
 # Extract error class/message (first matching line)
 ERROR_LINE=$(echo "$TOOL_RESULT" | grep -iE '(Error:|Exception:|panic:|FAIL:|fatal:)' | head -1 | sed 's/^[[:space:]]*//' | cut -c1-120)
 
@@ -64,41 +60,56 @@ fi
 
 USER_ID="$MEM0_RESOLVED_USER_ID"
 
-cat <<EOF
+# Extract query (first 80 chars of error line)
+ERROR_QUERY=$(echo "$ERROR_LINE" | cut -c1-80)
 
-## Error detected in command output
+# Pre-fetch memories: anti_pattern and bug_fix searches (requires API key)
+RESULTS=""
+if [ -n "${MEM0_API_KEY:-}" ]; then
+  RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_QUERY="$ERROR_QUERY" MEM0_SEARCH_USER="$USER_ID" \
+    MEM0_API_KEY="${MEM0_API_KEY}" MEM0_PROJECT_ID="${MEM0_PROJECT_ID:-unknown}" \
+    python3 -c "
+import os, sys
+sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
+from _search import search_memories, format_results_for_context
 
-\`$COMMAND\` produced an error:
-> $ERROR_LINE
+api_key = os.environ.get('MEM0_API_KEY', '')
+user_id = os.environ.get('MEM0_SEARCH_USER', 'default')
+project_id = os.environ.get('MEM0_PROJECT_ID', 'unknown')
+query = os.environ.get('MEM0_SEARCH_QUERY', '')
 
-EOF
+r1 = search_memories(api_key, user_id, project_id, query, metadata_type='anti_pattern', top_k=3)
+r2 = search_memories(api_key, user_id, project_id, query, metadata_type='bug_fix', top_k=3)
+
+# Deduplicate by ID
+seen = set()
+combined = []
+for m in r1 + r2:
+    mid = m.get('id', '')
+    if mid not in seen:
+        seen.add(mid)
+        combined.append(m)
+
+print(format_results_for_context(combined, heading='Prior error memories'), end='')
+" 2>/dev/null || echo "")
+fi
+
+# Output error header
+printf '\n## Error detected in command output\n\n'
+printf '`%s` produced an error:\n> %s\n\n' "$COMMAND" "$ERROR_LINE"
 
 if [ -n "$FILE_DISPLAY" ]; then
-  cat <<EOF
-**Files in stack trace:**
-$FILE_DISPLAY
-
-EOF
+  printf '**Files in stack trace:**\n%s\n\n' "$FILE_DISPLAY"
 fi
 
-cat <<EOF
-Search mem0 for prior occurrences — this error may have been seen before:
-- \`search_memories(query="$(echo "$ERROR_LINE" | cut -c1-60)", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "anti_pattern"}}]})\`
-- \`search_memories(query="$(echo "$ERROR_LINE" | cut -c1-60)", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "bug_fix"}}]})\`
-EOF
-
-if [ -n "$TRACE_FILES" ]; then
-  FIRST_FILE=$(echo "$TRACE_FILES" | head -1 | sed 's/:[0-9]*//')
-  cat <<EOF
-- \`search_memories(query="$FIRST_FILE", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}]})\`
-EOF
+# Output search results or fallback
+if [ -n "$RESULTS" ]; then
+  printf '%s\n' "$RESULTS"
+else
+  printf 'No prior memories found for this error.\n\n'
 fi
 
-cat <<EOF
-
-If mem0 returns relevant context, use it to debug faster.
-If you solve this, store the fix as an \`anti_pattern\` or \`bug_fix\` memory for next time.
-EOF
+printf 'If you solve this, store the fix as an `anti_pattern` or `bug_fix` memory for next time.\n'
 
 # Telemetry
 python3 "$SCRIPT_DIR/telemetry.py" bash_error --error_detected 2>/dev/null &

@@ -31,7 +31,7 @@
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_bash_output.sh",
         "matcher": "Bash",
-        "timeout": 5
+        "timeout": 12
       }
     ],
     "preCompact": [
