@@ -55,6 +55,13 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    parallel_entity_boost: bool = Field(
+        description=(
+            "When true, compute entity-boost embed/search calls concurrently "
+            "during memory search. Defaults to false to preserve sequential behavior."
+        ),
+        default=False,
+    )
 
 
 class AzureConfig(BaseModel):

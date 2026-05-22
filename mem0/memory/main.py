@@ -6,6 +6,7 @@ import logging
 import os
 import uuid
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -1461,10 +1462,10 @@ class Memory(MemoryBase):
             return {}
 
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        memory_boosts = {}
 
-        try:
-            for _, entity_text in deduped:
+        def process_entity(entity_text):
+            entity_boosts = {}
+            try:
                 entity_embedding = self.embedding_model.embed(entity_text, "search")
                 matches = self.entity_store.search(
                     query=entity_text,
@@ -1491,7 +1492,30 @@ class Memory(MemoryBase):
                     for memory_id in linked_memory_ids:
                         if memory_id:
                             memory_key = str(memory_id)
-                            memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
+                            entity_boosts[memory_key] = max(entity_boosts.get(memory_key, 0.0), boost)
+            except Exception:
+                # Individual entity boost failed; continue.
+                return {}
+
+            return entity_boosts
+
+        def merge_boosts(target, source):
+            for memory_key, boost in source.items():
+                target[memory_key] = max(target.get(memory_key, 0.0), boost)
+
+        try:
+            memory_boosts = {}
+            if self.config.parallel_entity_boost:
+                with ThreadPoolExecutor(max_workers=min(len(deduped), 8)) as executor:
+                    futures = [
+                        executor.submit(process_entity, entity_text)
+                        for _, entity_text in deduped
+                    ]
+                    for future in as_completed(futures):
+                        merge_boosts(memory_boosts, future.result())
+            else:
+                for _, entity_text in deduped:
+                    merge_boosts(memory_boosts, process_entity(entity_text))
 
         except Exception as e:
             logger.warning(f"Entity boost computation failed: {e}")
@@ -2869,10 +2893,10 @@ class AsyncMemory(MemoryBase):
             return {}
 
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        memory_boosts = {}
 
-        try:
-            for _, entity_text in deduped:
+        async def process_entity(entity_text):
+            entity_boosts = {}
+            try:
                 entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "search")
                 matches = await asyncio.to_thread(
                     self.entity_store.search,
@@ -2899,7 +2923,28 @@ class AsyncMemory(MemoryBase):
                     for memory_id in linked_memory_ids:
                         if memory_id:
                             memory_key = str(memory_id)
-                            memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
+                            entity_boosts[memory_key] = max(entity_boosts.get(memory_key, 0.0), boost)
+            except Exception:
+                # Individual entity boost failed; continue.
+                return {}
+
+            return entity_boosts
+
+        def merge_boosts(target, source):
+            for memory_key, boost in source.items():
+                target[memory_key] = max(target.get(memory_key, 0.0), boost)
+
+        try:
+            memory_boosts = {}
+            if self.config.parallel_entity_boost:
+                per_entity_boosts = await asyncio.gather(
+                    *(process_entity(entity_text) for _, entity_text in deduped)
+                )
+                for boosts in per_entity_boosts:
+                    merge_boosts(memory_boosts, boosts)
+            else:
+                for _, entity_text in deduped:
+                    merge_boosts(memory_boosts, await process_entity(entity_text))
 
         except Exception as e:
             logger.warning(f"Entity boost computation failed: {e}")

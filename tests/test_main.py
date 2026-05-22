@@ -1,10 +1,12 @@
 import os
+import threading
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory
+from mem0.memory.main import AsyncMemory, Memory
 
 
 @pytest.fixture(autouse=True)
@@ -115,6 +117,119 @@ def test_search(memory_instance):
     memory_instance.vector_store.search.assert_called_once_with(
         query="test query", vectors=[0.1, 0.2, 0.3], top_k=80, filters={"user_id": "test_user"}
     )
+
+
+def test_parallel_entity_boost_config_defaults_to_sequential():
+    assert MemoryConfig().parallel_entity_boost is False
+    assert MemoryConfig(parallel_entity_boost=True).parallel_entity_boost is True
+
+
+@pytest.mark.asyncio
+async def test_async_parallel_entity_boost_starts_all_entity_workers():
+    memory = object.__new__(AsyncMemory)
+    memory.config = MemoryConfig(parallel_entity_boost=True)
+    memory.embedding_model = _BlockingEmbeddingModel(expected_calls=3)
+    memory._entity_store = _EntityStore()
+
+    result = await memory._compute_entity_boosts_async(
+        [
+            ("PERSON", "Alice"),
+            ("PERSON", "Bob"),
+            ("PERSON", "Casey"),
+        ],
+        {"user_id": "user-1"},
+    )
+
+    assert result == {
+        "memory-Alice": pytest.approx(0.4),
+        "memory-Bob": pytest.approx(0.4),
+        "memory-Casey": pytest.approx(0.4),
+    }
+    assert set(memory.embedding_model.started) == {"Alice", "Bob", "Casey"}
+    assert set(memory._entity_store.queries) == {"Alice", "Bob", "Casey"}
+
+
+@pytest.mark.asyncio
+async def test_async_parallel_entity_boost_matches_sequential_merging():
+    query_entities = [
+        ("PERSON", "Alice"),
+        ("PERSON", "Bob"),
+        ("PERSON", "Alice"),
+    ]
+    sequential_memory = _entity_boost_memory(parallel_entity_boost=False)
+    parallel_memory = _entity_boost_memory(parallel_entity_boost=True)
+
+    sequential = await sequential_memory._compute_entity_boosts_async(
+        query_entities,
+        {"user_id": "user-1"},
+    )
+    parallel = await parallel_memory._compute_entity_boosts_async(
+        query_entities,
+        {"user_id": "user-1"},
+    )
+
+    assert parallel == sequential
+
+
+class _BlockingEmbeddingModel:
+    def __init__(self, expected_calls):
+        self.expected_calls = expected_calls
+        self.started = []
+        self.lock = threading.Lock()
+        self.all_started = threading.Event()
+
+    def embed(self, text, memory_action):
+        assert memory_action == "search"
+        with self.lock:
+            self.started.append(text)
+            if len(self.started) == self.expected_calls:
+                self.all_started.set()
+        assert self.all_started.wait(timeout=2), "entity boost workers did not run concurrently"
+        return [float(len(text))]
+
+
+class _EntityStore:
+    def __init__(self):
+        self.queries = []
+        self.lock = threading.Lock()
+
+    def search(self, *, query, vectors, top_k, filters):
+        assert vectors == [float(len(query))]
+        assert top_k == 500
+        assert filters == {"user_id": "user-1"}
+        with self.lock:
+            self.queries.append(query)
+        return [
+            SimpleNamespace(
+                score=0.8,
+                payload={"linked_memory_ids": [f"memory-{query}"]},
+            )
+        ]
+
+
+def _entity_boost_memory(*, parallel_entity_boost):
+    memory = object.__new__(AsyncMemory)
+    memory.config = MemoryConfig(parallel_entity_boost=parallel_entity_boost)
+    memory.embedding_model = _NonBlockingEmbeddingModel()
+    memory._entity_store = _SharedEntityStore()
+    return memory
+
+
+class _NonBlockingEmbeddingModel:
+    def embed(self, text, memory_action):
+        assert memory_action == "search"
+        return [float(len(text))]
+
+
+class _SharedEntityStore:
+    def search(self, *, query, vectors, top_k, filters):
+        score = 0.9 if query == "Alice" else 0.7
+        return [
+            SimpleNamespace(
+                score=score,
+                payload={"linked_memory_ids": ["shared-memory"]},
+            )
+        ]
 
 
 def test_update(memory_instance):
