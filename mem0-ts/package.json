@@ -100,7 +100,7 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "axios": "1.13.6",
+    "axios": "^1.15.2",
     "openai": "^4.93.0",
     "uuid": "9.0.1",
     "zod": "^3.24.1"
@@ -111,7 +111,7 @@
     "@azure/search-documents": "^12.0.0",
     "@cloudflare/workers-types": "^4.20250504.0",
     "@google/genai": "^1.2.0",
-    "@langchain/core": "^1.0.0",
+    "@langchain/core": "^1.1.47",
     "@mistralai/mistralai": "^1.5.2",
     "@qdrant/js-client-rest": "1.13.0",
     "@supabase/supabase-js": "^2.49.1",
