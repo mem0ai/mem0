@@ -1250,6 +1250,27 @@ class TestAgentMode:
         assert data["data"]["deleted"] is True
         assert "duration_ms" in data
 
+    def test_whoami_agent_mode_envelope(self, tmp_path, monkeypatch):
+        from mem0_cli.commands.whoami_cmd import run_whoami
+        from mem0_cli.config import Mem0Config, save_config
+
+        fake_config_file = tmp_path / ".mem0" / "config.json"
+        monkeypatch.setattr("mem0_cli.config.CONFIG_DIR", tmp_path / ".mem0")
+        monkeypatch.setattr("mem0_cli.config.CONFIG_FILE", fake_config_file)
+
+        config = Mem0Config()
+        config.platform.default_user_id = "user_test"
+        save_config(config)
+
+        console, buf = _make_console()
+        with patch("mem0_cli.commands.whoami_cmd.console", console):
+            run_whoami()
+
+        data = json.loads(buf.getvalue())
+        assert data["status"] == "success"
+        assert data["command"] == "whoami"
+        assert data["data"] == {"default_user_id": "user_test"}
+
     # ── event list ───────────────────────────────────────────────────────────
 
     def test_event_list_agent_mode_envelope(self, mock_backend):

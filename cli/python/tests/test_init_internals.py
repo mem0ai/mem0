@@ -16,6 +16,7 @@ behavioral assertion here, mirror it on the Node side and vice versa.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock
 
 import httpx
@@ -204,3 +205,55 @@ def test_bootstrap_403_permission_surfaces_ratelimit(monkeypatch, capsys) -> Non
     combined = captured.out + captured.err
     assert "Daily Agent Mode signup limit reached" in combined
     assert "permission to perform this action" not in combined
+
+
+def test_bootstrap_agent_mode_outputs_single_json_envelope(monkeypatch, capsys, tmp_path) -> None:
+    """Agent-mode bootstrap must not print human notice text beside JSON output."""
+    from mem0_cli.commands.agent_mode_cmd import bootstrap_via_backend
+    from mem0_cli.config import Mem0Config
+    from mem0_cli.state import set_agent_mode
+
+    fake_resp = MagicMock()
+    fake_resp.status_code = 200
+    fake_resp.json = MagicMock(
+        return_value={
+            "api_key": "m0-test",
+            "default_user_id": "user_test",
+            "claim_command": "mem0 init --email <your-email>",
+            "mem0_notice": "Claim me later.",
+        }
+    )
+
+    class _Client:
+        def __init__(self, *a, **kw):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def post(self, *a, **kw):
+            return fake_resp
+
+    monkeypatch.setattr(httpx, "Client", _Client)
+    monkeypatch.setattr("mem0_cli.config.CONFIG_DIR", tmp_path / ".mem0")
+    monkeypatch.setattr("mem0_cli.config.CONFIG_FILE", tmp_path / ".mem0" / "config.json")
+
+    cfg = Mem0Config()
+    cfg.platform.base_url = "https://api.mem0.ai"
+    set_agent_mode(True)
+    try:
+        bootstrap_via_backend(cfg, agent_caller="codex")
+    finally:
+        set_agent_mode(False)
+
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    data = json.loads(captured.out)
+    assert data["status"] == "success"
+    assert data["command"] == "init"
+    assert data["data"]["agent_mode"] is True
+    assert data["data"]["default_user_id"] == "user_test"
+    assert data["mem0_notice"] == "Claim me later."
