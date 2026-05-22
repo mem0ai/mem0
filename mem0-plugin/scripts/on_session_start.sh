@@ -31,6 +31,12 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
   echo ""
   echo "\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET\`"
   echo ""
+  echo "IMPORTANT: In your FIRST response to the user, you MUST display the status banner exactly as shown below (copy-paste it as your opening line before any other output):"
+  echo ""
+  echo '```'
+  echo "Mem0 Inactive | user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET"
+  echo '```'
+  echo ""
   echo "Set MEM0_API_KEY to enable persistent memory. Get a key at https://app.mem0.ai/dashboard/api-keys"
   exit 0
 fi
@@ -43,13 +49,12 @@ import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
-# Use GET /v3/memories/ with page_size=1 to get total count from pagination
-# without fetching all memories. The response envelope includes a count field.
-params = f'user_id={user_id}&app_id={app_id}&page_size=1'
+body = json.dumps({'filters': {'user_id': user_id, 'app_id': app_id}}).encode()
 req = urllib.request.Request(
-    f'https://api.mem0.ai/v3/memories/?{params}',
-    headers={'Authorization': f'Token {api_key}'},
-    method='GET',
+    'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
+    headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
+    data=body,
+    method='POST',
 )
 try:
     with urllib.request.urlopen(req, timeout=5) as r:
@@ -58,8 +63,6 @@ try:
             print(data['count'])
         elif isinstance(data, list):
             print(len(data))
-        elif isinstance(data, dict) and 'results' in data:
-            print(len(data['results']))
         else:
             print('?')
 except Exception:
@@ -74,6 +77,12 @@ fi
 echo "## Mem0 Active"
 echo ""
 echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT\`"
+echo ""
+echo "IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):"
+echo ""
+echo '```'
+echo "Mem0 Active | user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT"
+echo '```'
 echo ""
 echo "Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:"
 echo "- user_id: \`$MEM0_RESOLVED_USER_ID\`"

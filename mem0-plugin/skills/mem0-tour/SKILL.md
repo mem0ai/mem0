@@ -66,11 +66,11 @@ For each group that has results, print:
 
 ```
 ## <display_name> (<count> memories)
-- <memory_content_truncated_to_120_chars> (score: <similarity_score_if_available>)
+- <full_memory_content> (score: <similarity_score_if_available>)
 - ...
 ```
 
-Show up to 5 memories per group. If a group has more than 5, show top 5 by recency (or similarity score if from a search call) and note `... and <N> more`.
+Show the **full memory text** for each entry — do NOT truncate. If a group has more than 10 entries, show top 10 by recency (or similarity score if from a search call) and note `... and <N> more`.
 
 For groups with zero results, skip them entirely — don't print empty groups.
 
