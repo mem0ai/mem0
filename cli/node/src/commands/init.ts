@@ -21,6 +21,8 @@ import {
 	redactKey,
 	saveConfig,
 } from "../config.js";
+import { formatJsonEnvelope } from "../output.js";
+import { isAgentMode } from "../state.js";
 
 const { brand, dim } = colors;
 
@@ -30,6 +32,65 @@ function validateEmail(email: string): void {
 	if (!EMAIL_RE.test(email)) {
 		printError(`Invalid email address: ${JSON.stringify(email)}`);
 		process.exit(1);
+	}
+}
+
+/** @internal — exported for unit tests. */
+export async function pingKey(
+	apiKey: string,
+	baseUrl: string,
+	timeoutMs = 5000,
+): Promise<boolean> {
+	// Returns false ONLY on a definitive "invalid key" signal (HTTP 401/403).
+	// Network errors, timeouts, and 5xx responses return true so we prefer
+	// reusing an existing key over silently minting a new shadow on a transient
+	// blip (which would also clobber config + plugin-sync targets).
+	try {
+		const resp = await fetch(`${baseUrl.replace(/\/+$/, "")}/v1/ping/`, {
+			headers: { Authorization: `Token ${apiKey}` },
+			signal: AbortSignal.timeout(timeoutMs),
+		});
+		return resp.status !== 401 && resp.status !== 403;
+	} catch {
+		return true; // unknown — prefer reuse
+	}
+}
+
+async function maybeIdentify(
+	key: string,
+	baseUrl: string,
+	agentCaller: string | undefined,
+): Promise<void> {
+	// Best-effort PATCH agent_caller when --agent-caller is supplied on a
+	// reused key. Silent no-op on any failure — reuse must not break.
+	if (!agentCaller) return;
+	try {
+		const resp = await fetch(
+			`${baseUrl.replace(/\/+$/, "")}/api/v1/auth/agent_mode/caller/`,
+			{
+				method: "PATCH",
+				headers: {
+					Authorization: `Token ${key}`,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ agent_caller: agentCaller }),
+				signal: AbortSignal.timeout(10_000),
+			},
+		);
+		if (resp.ok) {
+			try {
+				const body = (await resp.json()) as { agent_caller?: string };
+				if (fs.existsSync(CONFIG_FILE)) {
+					const cfg = loadConfig();
+					cfg.platform.agentCaller = body.agent_caller ?? agentCaller;
+					saveConfig(cfg);
+				}
+			} catch {
+				/* swallow — best effort */
+			}
+		}
+	} catch {
+		/* swallow — best effort */
 	}
 }
 
@@ -196,6 +257,7 @@ async function setupPlatform(config: Mem0Config): Promise<void> {
 		process.exit(1);
 	}
 	config.platform.apiKey = apiKey;
+	config.platform.createdVia = "api_key";
 }
 
 async function setupDefaults(config: Mem0Config): Promise<void> {
@@ -249,14 +311,35 @@ export async function runInit(
 		email?: string;
 		code?: string;
 		force?: boolean;
+		agent?: boolean;
+		source?: string;
+		agentCaller?: string;
 	} = {},
 ): Promise<void> {
+	const { detectAgentCaller } = await import("../agent-detect.js");
+	const { bootstrapViaBackend, claimViaOtp } = await import("./agent-mode.js");
+	const { isAgentMode } = await import("../state.js");
+	const { captureEvent } = await import("../telemetry.js");
+
+	const fireInit = (
+		mode: "agent" | "email" | "api_key" | "existing_key",
+		claimed = false,
+	) => {
+		const props: Record<string, unknown> = { command: "init", mode };
+		// Self-declared via --agent-caller; not sniffed from env vars.
+		if (opts.agentCaller) props.agent_caller = opts.agentCaller;
+		if (opts.source) props.signup_source = opts.source;
+		if (claimed) props.claimed_agent_mode = true;
+		captureEvent("cli.init", props);
+	};
+
 	const config = createDefaultConfig();
 	const savedConfig = loadConfig();
 	const baseUrl =
 		process.env.MEM0_BASE_URL ||
 		savedConfig.platform.baseUrl ||
 		DEFAULT_BASE_URL;
+	config.platform.baseUrl = baseUrl;
 
 	// Guards
 	if (opts.code && !opts.email) {
@@ -266,6 +349,84 @@ export async function runInit(
 	if (opts.email && opts.apiKey) {
 		printError("Cannot use both --api-key and --email.");
 		process.exit(1);
+	}
+
+	// ── Claim flow: --email against an existing agent-mode config ───────────
+	if (
+		opts.email &&
+		fs.existsSync(CONFIG_FILE) &&
+		savedConfig.platform.agentMode &&
+		savedConfig.platform.apiKey
+	) {
+		const email = opts.email.trim().toLowerCase();
+		validateEmail(email);
+		printInfo(`Claiming Agent Mode account to ${email}...`);
+		await claimViaOtp(savedConfig, { email, code: opts.code });
+		fireInit("email", true);
+		return;
+	}
+
+	// ── Agent Mode path runs BEFORE the existing-config guard ──────────────
+	// Rule 1/2 will REUSE a valid existing key (not overwrite), so we must
+	// short-circuit before the guard prompts the user about overwriting.
+	// Rule 3 only mints when there's no valid key to reuse — in that case
+	// overwriting is what the user wants.
+	const agentCtx =
+		opts.agent === true || isAgentMode() || detectAgentCaller() !== null;
+	if (!opts.apiKey && !opts.email && agentCtx) {
+		const emitReuseEnvelope = (source: "env" | "config") => {
+			if (isAgentMode()) {
+				formatJsonEnvelope({
+					command: "init",
+					data: {
+						api_key_saved: false,
+						api_key_source: source,
+						agent_mode: false,
+						message:
+							"Existing Mem0 API key found and reused. No Agent Mode key was created.",
+					},
+				});
+			} else {
+				printSuccess(
+					source === "env"
+						? "Existing MEM0_API_KEY is valid; reusing it. No new Agent Mode key was minted."
+						: "Existing API key in config is valid; reusing it. No new Agent Mode key was minted.",
+				);
+			}
+		};
+		// Rule 1: env MEM0_API_KEY valid → reuse, no new key.
+		const envKey = (process.env.MEM0_API_KEY || "").trim();
+		if (envKey && (await pingKey(envKey, baseUrl))) {
+			await maybeIdentify(envKey, baseUrl, opts.agentCaller);
+			emitReuseEnvelope("env");
+			fireInit("existing_key");
+			return;
+		}
+		// Rule 2: existing config api_key valid → reuse.
+		if (
+			savedConfig.platform.apiKey &&
+			(await pingKey(savedConfig.platform.apiKey, baseUrl))
+		) {
+			await maybeIdentify(
+				savedConfig.platform.apiKey,
+				baseUrl,
+				opts.agentCaller,
+			);
+			emitReuseEnvelope("config");
+			fireInit("existing_key");
+			return;
+		}
+		// Rule 3: mint a fresh shadow (no valid key to reuse).
+		// agent_caller is self-declared via --agent-caller (Proof Editor-style),
+		// not derived from env-var sniffing. detectAgentCaller() above is still
+		// used as a context trigger (does this look like an agent?) but never
+		// to fill identity.
+		await bootstrapViaBackend(config, {
+			source: opts.source ?? null,
+			agentCaller: opts.agentCaller ?? null,
+		});
+		fireInit("agent");
+		return;
 	}
 
 	// Warn if an existing config with an API key would be overwritten
@@ -324,6 +485,7 @@ export async function runInit(
 		config.platform.apiKey = apiKeyVal;
 		config.platform.baseUrl = baseUrl;
 		config.platform.userEmail = email;
+		config.platform.createdVia = "email";
 		config.defaults.userId =
 			opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 
@@ -339,13 +501,15 @@ export async function runInit(
 	}
 
 	// ── API key flow ──────────────────────────────────────────────────────────
+	// (Agent Mode branch runs earlier — see above, before the existing-config
+	// guard, so Rules 1/2 can REUSE a valid key without prompting overwrite.)
 
 	// Non-TTY: resolve defaults so partial flags work in pipelines / CI
 	if (!process.stdin.isTTY) {
 		if (!opts.apiKey) {
 			printError(
 				"Non-interactive terminal detected and --api-key is required.",
-				"Usage: mem0 init --api-key <key> [--user-id <id>]",
+				"Usage: mem0 init --api-key <key>, --email <addr>, or --agent for unattended Agent Mode bootstrap.",
 			);
 			process.exit(1);
 		}
@@ -356,6 +520,7 @@ export async function runInit(
 	// Non-interactive: both flags provided
 	if (opts.apiKey && opts.userId) {
 		config.platform.apiKey = opts.apiKey;
+		config.platform.createdVia = "api_key";
 		config.defaults.userId = opts.userId;
 		await validatePlatform(config);
 		saveConfig(config);
@@ -403,6 +568,7 @@ export async function runInit(
 			config.platform.apiKey = apiKeyVal;
 			config.platform.baseUrl = baseUrl;
 			config.platform.userEmail = email;
+			config.platform.createdVia = "email";
 			config.defaults.userId =
 				opts.userId || process.env.USER || process.env.USERNAME || "mem0-cli";
 

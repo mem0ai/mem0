@@ -7,6 +7,7 @@ import {
   buildOssLlmConfig,
   buildOssEmbedderConfig,
   buildOssVectorConfig,
+  collectionNameForDims,
   validateOssFlags,
   checkQdrantConnectivity,
   checkOllamaConnectivity,
@@ -90,9 +91,9 @@ describe("buildOssEmbedderConfig", () => {
     expect(result.dims).toBe(768);
   });
 
-  it("returns unknown dims for custom model", () => {
+  it("falls back to provider default dims for custom model", () => {
     const result = buildOssEmbedderConfig("ollama", { model: "custom-embed" });
-    expect(result.dims).toBeUndefined();
+    expect(result.dims).toBe(768);
   });
 });
 
@@ -144,6 +145,49 @@ describe("buildOssVectorConfig", () => {
     });
     expect(result.config.host).toBe("db.local");
     expect(result.config.dimension).toBe(512);
+  });
+});
+
+describe("collectionNameForDims", () => {
+  it("generates dimension-based collection name", () => {
+    expect(collectionNameForDims(1536)).toBe("mem0_1536d");
+    expect(collectionNameForDims(768)).toBe("mem0_768d");
+    expect(collectionNameForDims(384)).toBe("mem0_384d");
+  });
+});
+
+describe("buildOssVectorConfig dimension safety", () => {
+  it("sets both dimension and embeddingModelDims when dims provided", () => {
+    const result = buildOssVectorConfig("qdrant", { dims: 768 });
+    expect(result.config.dimension).toBe(768);
+    expect(result.config.embeddingModelDims).toBe(768);
+  });
+
+  it("sets collectionName based on dims", () => {
+    const result = buildOssVectorConfig("qdrant", { dims: 768 });
+    expect(result.config.collectionName).toBe("mem0_768d");
+  });
+
+  it("uses different collection names for different dims", () => {
+    const r1 = buildOssVectorConfig("qdrant", { dims: 1536 });
+    const r2 = buildOssVectorConfig("qdrant", { dims: 768 });
+    expect(r1.config.collectionName).not.toBe(r2.config.collectionName);
+  });
+
+  it("omits dimension fields when dims not provided", () => {
+    const result = buildOssVectorConfig("qdrant", {});
+    expect(result.config.dimension).toBeUndefined();
+    expect(result.config.embeddingModelDims).toBeUndefined();
+    expect(result.config.collectionName).toBeUndefined();
+  });
+
+  it("works with pgvector too", () => {
+    const result = buildOssVectorConfig("pgvector", {
+      host: "localhost", port: "5432", user: "me", password: "pw", dbname: "test", dims: 768,
+    });
+    expect(result.config.dimension).toBe(768);
+    expect(result.config.embeddingModelDims).toBe(768);
+    expect(result.config.collectionName).toBe("mem0_768d");
   });
 });
 

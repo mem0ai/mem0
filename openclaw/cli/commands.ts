@@ -43,6 +43,7 @@ import {
   readPluginAuth,
   writePluginAuth,
   writePluginConfigField,
+  enableSkillsConfig,
   OPENCLAW_CONFIG_FILE,
 } from "./config-file.ts";
 import { jsonOut, jsonErr, redactSecrets } from "./json-helpers.ts";
@@ -50,6 +51,7 @@ import {
   LLM_PROVIDERS, EMBEDDER_PROVIDERS, VECTOR_PROVIDERS,
   buildOssLlmConfig, buildOssEmbedderConfig, buildOssVectorConfig,
   validateOssFlags, checkQdrantConnectivity, checkOllamaConnectivity, checkPgConnectivity,
+  collectionNameForDims,
 } from "./oss-wizard.ts";
 
 // ============================================================================
@@ -213,10 +215,11 @@ function saveLoginConfig(
   const userId = resolveUserId(userIdFlag, existingAuth.userId);
 
   writePluginAuth({ apiKey, userId, mode: "platform", ...(userEmail && { userEmail }) });
+  enableSkillsConfig(userId);
 
   if (!silent) {
     console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
-    console.log(`  Mode: platform`);
+    console.log(`  Mode: platform (skills enabled)`);
     console.log(`  User ID: ${userId}`);
   }
 }
@@ -226,10 +229,11 @@ function saveOssConfig(userIdFlag?: string, silent?: boolean): void {
   const userId = resolveUserId(userIdFlag, existingAuth.userId);
 
   writePluginAuth({ apiKey: "", userId, mode: "open-source" });
+  enableSkillsConfig(userId);
 
   if (!silent) {
     console.log(`  Configuration saved to ${OPENCLAW_CONFIG_FILE}`);
-    console.log(`  Mode: open-source`);
+    console.log(`  Mode: open-source (skills enabled)`);
     console.log(`  User ID: ${userId}`);
   }
 }
@@ -350,6 +354,17 @@ async function runOssWizardInteractive(
   }
 
   const vecCfg = buildOssVectorConfig(vecDef.id, vecInput as any);
+
+  // Warn if switching embedder dimensions — old collection will have wrong vector size
+  const existingVecCfg = existingAuth as any;
+  const oldDims = existingVecCfg?.oss?.vectorStore?.config?.dimension as number | undefined;
+  if (oldDims && dims && oldDims !== dims) {
+    console.log(`\n  ⚠ Dimension change detected: ${oldDims} → ${dims}`);
+    console.log(`    Old collection had ${oldDims}-dim vectors. New embedder produces ${dims}-dim vectors.`);
+    console.log(`    A new collection "${collectionNameForDims(dims)}" will be created.`);
+    console.log(`    Old memories in the previous collection will NOT be accessible with the new embedder.\n`);
+  }
+
   writePluginConfigField(["oss", "vectorStore"], vecCfg);
 
   // === Step 4: User ID ===
@@ -370,6 +385,8 @@ async function runOssWizardInteractive(
   console.log(`    LLM:       ${llmDef.id} (${llmCfg.config.model})`);
   console.log(`    Embedder:  ${embDef.id} (${embCfg.config.model})`);
   console.log(`    Vector:    ${vecDef.id} (${vecDef.id === "qdrant" ? vecCfg.config.url : vecCfg.config.host})`);
+  console.log(`    Dims:      ${dims ?? "unknown"}`);
+  console.log(`    Collection:${dims ? " " + collectionNameForDims(dims) : " (default)"}`);
   console.log(`    User ID:   ${userIdValue}`);
   console.log("");
   console.log("  Run: openclaw gateway restart");
@@ -539,6 +556,15 @@ export function registerCliCommands(
                   }
                 }
 
+                // Warn on dimension change
+                const prevAuth = readPluginAuth() as any;
+                const prevDims = prevAuth?.oss?.vectorStore?.config?.dimension as number | undefined;
+                const newDims = dims;
+                let dimWarning: string | undefined;
+                if (prevDims && newDims && prevDims !== newDims) {
+                  dimWarning = `Dimension change: ${prevDims} → ${newDims}. New collection "${collectionNameForDims(newDims)}" will be used. Old memories not accessible with new embedder.`;
+                }
+
                 writePluginConfigField(["oss", "llm"], llmCfg);
                 writePluginConfigField(["oss", "embedder"], { provider: embCfg.provider, config: embCfg.config });
                 writePluginConfigField(["oss", "vectorStore"], vecCfg);
@@ -550,9 +576,10 @@ export function registerCliCommands(
                   mode: "open-source",
                   config: {
                     llm: { provider: llmCfg.provider, model: llmCfg.config.model },
-                    embedder: { provider: embCfg.provider, model: embCfg.config.model },
-                    vectorStore: { provider: vecCfg.provider, ...(vecId === "qdrant" ? { url: vecCfg.config.url } : { host: vecCfg.config.host }) },
+                    embedder: { provider: embCfg.provider, model: embCfg.config.model, dims: newDims },
+                    vectorStore: { provider: vecCfg.provider, ...(vecId === "qdrant" ? { url: vecCfg.config.url } : { host: vecCfg.config.host }), collectionName: newDims ? collectionNameForDims(newDims) : undefined },
                   },
+                  ...(dimWarning && { warning: dimWarning }),
                   userId: resolveUserId(opts.userId, existingAuth.userId),
                   message: "Open-source mode configured. Restart the gateway: openclaw gateway restart",
                 };
@@ -889,7 +916,7 @@ export function registerCliCommands(
                 runId?: string,
               ): SearchOptions => {
                 const base = buildSearchOptions(userIdOverride, lim, runId);
-                base.threshold = 0.3;
+                base.threshold = 0.1;
                 return base;
               };
 

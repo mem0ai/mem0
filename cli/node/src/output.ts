@@ -5,6 +5,7 @@
 import boxen from "boxen";
 import Table from "cli-table3";
 import { colors, sym } from "./branding.js";
+import { takeNotice } from "./state.js";
 
 const { brand, accent, success, error: errorColor, dim } = colors;
 
@@ -244,6 +245,15 @@ export function formatJsonEnvelope(opts: {
 	if (opts.count !== undefined) envelope.count = opts.count;
 	if (opts.error) envelope.error = opts.error;
 	envelope.data = opts.data;
+
+	// If the platform flagged this as an unclaimed Agent Mode account, surface
+	// the notice inside the JSON envelope so an agent consuming the output
+	// sees it without needing to inspect HTTP headers.
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const { takeNotice } = require("./state.js");
+	const notice = takeNotice();
+	if (notice) envelope.mem0_notice = notice;
+
 	console.log(JSON.stringify(envelope, null, 2));
 }
 
@@ -356,6 +366,12 @@ export function formatAgentEnvelope(opts: {
 	}
 	if (opts.count !== undefined) envelope.count = opts.count;
 	envelope.data = sanitizeAgentData(opts.command, opts.data);
+
+	// Surface the unclaimed-Agent-Mode notice (if any) in the envelope so an
+	// agent reading the JSON output sees it without inspecting HTTP headers.
+	const notice = takeNotice();
+	if (notice) envelope.mem0_notice = notice;
+
 	console.log(JSON.stringify(envelope, null, 2));
 }
 

@@ -40,6 +40,7 @@
                     "icon": "rocket",
                     "pages": [
                       "platform/overview",
+                      "platform/agent-signup",
                       "vibecoding",
                       "platform/mem0-mcp",
                       "platform/cli",
@@ -72,7 +73,8 @@
                           "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
                           "platform/features/multimodal-support",
-                          "platform/features/custom-categories"
+                          "platform/features/custom-categories",
+                          "platform/features/temporal-reasoning"
                         ]
                       },
                       {
@@ -83,7 +85,8 @@
                           "platform/advanced-memory-operations",
                           "platform/features/criteria-retrieval",
                           "platform/features/contextual-add",
-                          "platform/features/custom-instructions"
+                          "platform/features/custom-instructions",
+                          "platform/features/memory-decay"
                         ]
                       },
                       {

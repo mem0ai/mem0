@@ -48,7 +48,8 @@ MEM0_TELEMETRY_SAMPLE_RATE = _parse_sample_rate(os.environ.get("MEM0_TELEMETRY_S
 
 # Events that bypass sampling and always fire. Keep this set in sync with the
 # event names passed to capture_event() in mem0/memory/main.py.
-_LIFECYCLE_EVENTS = frozenset({"mem0.init", "mem0.reset", "mem0._create_procedural_memory"})
+# $identify is included so PostHog person-merging is never lost to sampling.
+_LIFECYCLE_EVENTS = frozenset({"mem0.init", "mem0.reset", "mem0._create_procedural_memory", "$identify"})
 
 
 def _sampling_before_send(msg):
@@ -111,6 +112,23 @@ class AnonymousTelemetry:
             self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
         except Exception as e:
             _logger.debug("Failed to capture telemetry event %r: %s", event_name, e)
+
+    def capture_identify(self, anon_id, email):
+        """Fire $identify with $anon_distinct_id so PostHog merges anon_id into email."""
+        if self.posthog is None:
+            return False
+        if not anon_id or not email or anon_id == email:
+            return False
+        try:
+            self.posthog.capture(
+                distinct_id=email,
+                event="$identify",
+                properties={"$anon_distinct_id": anon_id, "client_source": "python"},
+            )
+            return True
+        except Exception as e:
+            _logger.debug("Failed to capture $identify for %r: %s", email, e)
+            return False
 
     def close(self):
         if self.posthog is not None:

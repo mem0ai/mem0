@@ -18,8 +18,20 @@
           {
             "type": "command",
             "command": "${CODEX_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
-            "statusMessage": "Searching mem0 memories...",
+            "statusMessage": "Checking memory relevance...",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__mem0__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_post_tool_use.sh",
+            "timeout": 3
           }
         ]
       }

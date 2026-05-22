@@ -280,13 +280,29 @@ class OSSProvider implements Mem0Provider {
       config.llm = defaultLlm;
     }
 
-    if (this.ossConfig?.vectorStore)
-      config.vectorStore = { ...this.ossConfig.vectorStore };
+    if (this.ossConfig?.vectorStore) {
+      const vs = { ...this.ossConfig.vectorStore } as Record<string, unknown>;
+      const vsCfg = (vs.config ?? {}) as Record<string, unknown>;
+      // Resolve dims from embedder config if vector store doesn't have them
+      const embedderDims = (config.embedder as any)?.config?.embeddingDims;
+      if (!vsCfg.dimension && embedderDims) {
+        vsCfg.dimension = embedderDims;
+      }
+      // Sync both dimension fields — Qdrant reads dimension, PGVector reads embeddingModelDims
+      if (vsCfg.dimension && !vsCfg.embeddingModelDims) {
+        vsCfg.embeddingModelDims = vsCfg.dimension;
+      } else if (vsCfg.embeddingModelDims && !vsCfg.dimension) {
+        vsCfg.dimension = vsCfg.embeddingModelDims;
+      }
+      vs.config = vsCfg;
+      config.vectorStore = vs;
+    }
 
     if (this.ossConfig?.historyDbPath) {
-      const dbPath = this.resolvePath
-        ? this.resolvePath(this.ossConfig.historyDbPath)
-        : this.ossConfig.historyDbPath;
+      const raw = this.ossConfig.historyDbPath;
+      const isAbsolute = raw.startsWith("/") || /^[A-Za-z]:[/\\]/.test(raw);
+      const dbPath =
+        isAbsolute || !this.resolvePath ? raw : this.resolvePath(raw);
       config.historyDbPath = dbPath;
     }
 

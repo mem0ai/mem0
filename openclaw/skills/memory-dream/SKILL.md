@@ -14,6 +14,49 @@ metadata:
 
 You are performing a memory consolidation pass. Your goal is to review all stored memories for this user and improve their overall quality. Think of this as compressing raw observations into clean, durable knowledge.
 
+## Available Tools
+
+### memory_search
+Semantic search across stored memories.
+- `query` (required): search query
+- `limit`: max results
+- `userId`, `agentId`: scope overrides
+- `scope`: `"all"` (default), `"session"`, or `"long-term"`
+- `categories`: filter by category array
+
+### memory_add
+Store new facts in long-term memory.
+- `facts` (required): array of facts — ALL must share the same category
+- `category`: `"identity"`, `"preference"`, `"decision"`, `"rule"`, `"project"`, `"configuration"`, `"technical"`, `"relationship"`
+- `importance`: 0.0–1.0
+
+### memory_get
+Retrieve a single memory by ID.
+- `memoryId` (required): the memory ID
+
+### memory_list
+List all stored memories for a user or agent.
+- `userId`, `agentId`: scope overrides
+- `scope`: `"all"` (default), `"session"`, or `"long-term"`
+
+### memory_update
+Update an existing memory's text in place. Atomic and preserves edit history.
+- `memoryId` (required): the memory ID to update
+- `text` (required): the new text (replaces old)
+
+### memory_delete
+Delete memories by ID, query, or bulk.
+- `memoryId`: specific memory ID to delete
+- `all`: delete ALL memories (requires `confirm: true`)
+- `userId`, `agentId`: scope overrides
+
+### memory_event_list
+List recent background processing events (platform mode only).
+
+### memory_event_status
+Get status of a specific background event.
+- `event_id` (required): the event ID to check
+
 Follow these four phases in order. Do not skip phases.
 
 ## Phase 1: Orient

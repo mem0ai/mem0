@@ -46,6 +46,8 @@ export MEM0_API_KEY="m0-your-api-key"
 
 Get an API key at: https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=mem0-plugin-skill
 
+> **Don't have a `MEM0_API_KEY`?** Run `mem0 init --agent --json` (after `pip install mem0-cli` or `npm install -g @mem0/cli`) to mint an evaluation key without email or dashboard. The human can claim later with `mem0 init --email <your-email>`.
+
 ## Step 2: Initialize the client
 
 **Python:**

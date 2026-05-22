@@ -44,14 +44,14 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
     expect(cfg.userId.length).toBeGreaterThan(0);
   });
 
-  it("autoCapture defaults to false", () => {
+  it("autoCapture defaults to true", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.autoCapture).toBe(false);
+    expect(cfg.autoCapture).toBe(true);
   });
 
-  it("autoRecall defaults to false", () => {
+  it("autoRecall defaults to true", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.autoRecall).toBe(false);
+    expect(cfg.autoRecall).toBe(true);
   });
 
   it("topK defaults to 5", () => {
@@ -59,9 +59,9 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
     expect(cfg.topK).toBe(5);
   });
 
-  it("searchThreshold defaults to 0.5", () => {
+  it("searchThreshold defaults to 0.1", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.searchThreshold).toBe(0.5);
+    expect(cfg.searchThreshold).toBe(0.1);
   });
 
   it("customInstructions defaults to DEFAULT_CUSTOM_INSTRUCTIONS", () => {

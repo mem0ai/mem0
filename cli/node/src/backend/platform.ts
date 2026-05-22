@@ -3,7 +3,7 @@
  */
 
 import type { PlatformConfig } from "../config.js";
-import { isAgentMode } from "../state.js";
+import { captureNotice, isAgentMode } from "../state.js";
 import { CLI_VERSION } from "../version.js";
 import {
 	APIError,
@@ -90,7 +90,39 @@ export class PlatformBackend implements Backend {
 		if (resp.status === 204) {
 			return {};
 		}
-		return resp.json();
+
+		const data = await resp.json();
+
+		// Pull the unclaimed-Agent-Mode notice out of the body (or the header
+		// fallback for endpoints returning non-dict / non-dict-leading payloads)
+		// and stash for end-of-command surfacing.
+		let notice: string | null = null;
+		if (
+			data &&
+			typeof data === "object" &&
+			!Array.isArray(data) &&
+			"mem0_notice" in data
+		) {
+			notice = (data as Record<string, unknown>).mem0_notice as string;
+			// biome-ignore lint/performance/noDelete: intentional strip so downstream consumers don't see duplicate notice
+			delete (data as Record<string, unknown>).mem0_notice;
+		} else if (
+			Array.isArray(data) &&
+			data.length > 0 &&
+			typeof data[0] === "object" &&
+			data[0] !== null &&
+			"mem0_notice" in data[0]
+		) {
+			notice = (data[0] as Record<string, unknown>).mem0_notice as string;
+			// biome-ignore lint/performance/noDelete: see above.
+			delete (data[0] as Record<string, unknown>).mem0_notice;
+		}
+		if (!notice) {
+			notice = resp.headers.get("X-Mem0-Notice-Message") ?? null;
+		}
+		captureNotice(notice);
+
+		return data;
 	}
 
 	async add(

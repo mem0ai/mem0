@@ -46,6 +46,8 @@ export MEM0_API_KEY="m0-your-api-key"
 
 Get an API key at: https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0
 
+> **Don't have a `MEM0_API_KEY`?** Run `mem0 init --agent --agent-caller <your-name> --json` (after `pip install mem0-cli` or `npm install -g @mem0/cli`), substituting your agent identity (e.g. `claude-code`, `cursor`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init. The human can claim later with `mem0 init --email <your-email>`.
+
 ## Step 2: Initialize the client
 
 **Python:**

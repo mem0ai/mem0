@@ -15,6 +15,9 @@ on:
       - 'tests/**'
       - 'embedchain/**'
       - 'pyproject.toml'
+      - 'cli/**'
+      - 'docs/**'
+      - '.github/workflows/**'
 
 jobs:
   changelog_check:

@@ -87,10 +87,12 @@ def print_error(console: Console, message: str, hint: str | None = None) -> None
         }
         print(_json.dumps(envelope))
         return
+    from rich.markup import escape
+
     sym = _sym("✗", "[error]")
-    console.print(f"[{ERROR_COLOR}]{sym} Error:[/] {message}")
+    console.print(f"[{ERROR_COLOR}]{sym} Error:[/] {escape(str(message))}")
     if hint:
-        console.print(f"  [{DIM_COLOR}]{hint}[/]")
+        console.print(f"  [{DIM_COLOR}]{escape(str(hint))}[/]")
 
 
 def print_warning(console: Console, message: str) -> None:
