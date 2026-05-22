@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # PreToolUse hook for mcp__mem0__add_memory.
 # Injects default metadata fields (confidence, files, source, type) when the
-# agent omits them. Reads the tool_input JSON from stdin, patches it, and
-# writes the patched version to stdout so the tool call proceeds with complete
-# metadata.
+# agent omits them. Uses the hookSpecificOutput.updatedInput contract to
+# actually modify the tool call parameters.
 #
-# Hook contract: exit 0 = allow (stdout replaces tool_input if non-empty).
-# exit 2 = block (stdout shown as rejection reason).
+# Hook contract:
+#   exit 0 = allow. If stdout contains {"hookSpecificOutput": {"updatedInput": ...}},
+#            the updatedInput replaces the tool's input parameters.
+#   exit 2 = block (stderr shown as rejection reason).
 
 set -euo pipefail
 
@@ -51,7 +52,14 @@ if changed:
 " <<< "$TOOL_INPUT" 2>/dev/null || true)
 
 if [ -n "$PATCHED" ]; then
-  echo "$INPUT" | jq --argjson patched "$PATCHED" '.tool_input = ($patched | tostring)'
+  # Use hookSpecificOutput.updatedInput to actually modify the tool call
+  jq -n --argjson updated "$PATCHED" '{
+    "hookSpecificOutput": {
+      "hookEventName": "PreToolUse",
+      "permissionDecision": "allow",
+      "updatedInput": $updated
+    }
+  }'
 fi
 
 exit 0
