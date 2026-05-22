@@ -33,7 +33,6 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `evaluation/` | Benchmarking framework — LOCOMO evals, experiment runner, score generation |
 | `examples/` | Sample projects — demo apps, Chrome extension, multi-agent patterns |
 | `cookbooks/` | Jupyter notebooks — customer support chatbot, AutoGen integration |
-| `embedchain/` | Legacy Embedchain RAG framework (maintained separately, Poetry-based) |
 | `pr-reviews/` | Pull request review materials |
 | `scripts/` | Repo-wide utility scripts (e.g., `check-llms-txt-coverage.py` for docs/llms.txt sync) |
 
@@ -330,7 +329,7 @@ make run-openai                    # OpenAI comparison
   - Root SDK: line length **120**
   - Python CLI: line length **100** with extended rule set (UP, B, SIM, RUF)
 - **isort** with `profile = "black"` for import sorting.
-- Ruff excludes `embedchain/` and `openmemory/` from root config.
+- Ruff excludes `openmemory/` from root config.
 
 ### TypeScript Conventions
 
@@ -414,7 +413,6 @@ To add a new LLM, embedding, vector store, or reranker provider:
 | Python CLI | `cli-python-ci.yml` | Push to `cli/python/`, PRs, manual | Ruff lint + pytest + hatch build on Python 3.10, 3.11, 3.12 |
 | Node CLI | `cli-node-ci.yml` | Push to `cli/node/`, PRs, manual | Biome lint + tsc + vitest + tsup build on Node 20, 22 |
 | OpenClaw | `openclaw-checks.yml` | Push to `openclaw/`, PRs, manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
-| Embedchain | `ci.yml` (shared) | PRs on `embedchain/` | Ruff + pytest + coverage on Python 3.9–3.12 |
 
 ### CD Workflows (automated publishing)
 
@@ -576,7 +574,6 @@ N/A
 - Modify CI/CD workflows without explicit approval.
 - Add new Python dependencies to the core `dependencies` list in `pyproject.toml` without discussion — use optional dependency groups instead.
 - Commit `.env` files, API keys, or credentials.
-- Modify `embedchain/` unless specifically working on that package — it has its own build system (Poetry).
 - Skip pre-commit hooks.
 - Use npm or yarn in TypeScript packages — this repo uses pnpm exclusively.
 - Use `require()` for imports in TypeScript — use ES module `import` syntax.
