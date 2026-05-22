@@ -2,6 +2,16 @@
   "hooks": {
     "PreToolUse": [
       {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_file_read.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
         "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory",
         "hooks": [
           {
