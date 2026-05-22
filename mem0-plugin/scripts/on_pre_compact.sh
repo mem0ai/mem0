@@ -18,69 +18,47 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 INPUT=$(cat)
 
-# Fire REST API transcript backup in background (safety net if agent
-# can't complete the add_memory call before compaction finishes)
-echo "$INPUT" | python3 "$SCRIPT_DIR/on_pre_compact.py" --source=pre-compaction 2>/dev/null &
 python3 "$SCRIPT_DIR/telemetry.py" pre_compact 2>/dev/null &
 
 cat <<'EOF'
-## CRITICAL: Pre-Compaction Session Summary
+## Pre-Compaction: Extract and store durable facts
 
-Context compaction is about to happen. You are about to lose most of your conversation history. You MUST store a comprehensive session summary NOW using the mem0 `add_memory` tool.
+Context compaction is about to happen. Review the conversation and store only facts that would help a future agent with ZERO context.
 
-### Step 1: Store session summary
+### What to store
 
-Call `add_memory` with `infer=False` and a thorough summary covering ALL of the following.
+For each fact, ask: "Would a new agent — with no prior context — benefit from knowing this?" If no, skip it. Most sessions produce 0-3 facts worth storing.
 
-`infer=False` is critical here: you've already done the extraction work yourself using full context. Without it, the platform runs a second LLM pass that loses your structure and pulls fragmented facts. With it, your summary is preserved verbatim.
+Store each fact as a SEPARATE `add_memory` call. One fact per call. 15-50 words each. Third person. Include file paths when relevant.
 
-```
-## Session Summary (Pre-Compaction)
+Categories and when to use them:
+- `decision` — architectural choices, trade-offs made ("Chose PostgreSQL over MongoDB for auth because of ACID requirements")
+- `task_learning` — patterns that worked ("Running migrations before seed in this repo avoids FK violations")
+- `anti_pattern` — approaches that failed ("Don't use batch insert for users table — triggers deadlock with audit log")
+- `convention` — coding standards discovered ("This repo uses snake_case for all Python files, camelCase for TS")
+- `user_preference` — how the user likes to work ("User prefers short PRs, one feature per branch")
 
-### User's Goal
-[What the user originally asked for and their intent]
+### What NOT to store
 
-### What Was Accomplished
-[Numbered list of tasks completed, features built, bugs fixed]
+- Session summaries or "what we did today" blobs
+- Raw file lists or command histories
+- Anything already stored in a prior `add_memory` this session
+- One-time information that won't recur
+- Transient state ("currently debugging X")
 
-### Key Decisions Made
-[Architectural choices, design decisions, trade-offs discussed]
+### How to store
 
-### Files Created or Modified
-[List of important file paths with what changed in each]
-
-### Current State
-[What is in progress RIGHT NOW — the task you were in the middle of]
-[Any pending items, blockers, or next steps]
-
-### Important Context
-[User preferences observed, coding patterns, anything that would help
-the post-compaction agent continue without asking redundant questions]
-```
-
-Tool call shape:
 ```
 add_memory(
-  messages=[{"role":"user","content":"<the summary above>"}],
-  user_id="<the active user_id from the SessionStart bootstrap>",
-  app_id="<the active project_id / app_id from SessionStart>",
-  metadata={"type":"session_state","source":"pre-compaction","branch":"<active branch>"},
+  messages=[{"role":"user","content":"<one fact, 15-50 words>"}],
+  user_id="<active user_id>",
+  app_id="<active project_id>",
+  metadata={"type":"<category>","branch":"<active branch>","confidence":0.8},
   infer=False,
 )
 ```
 
-### Step 2: Store any unstored learnings
-
-If there are learnings from this session that you haven't stored yet, store them as separate memories with `infer=False` (same reasoning -- you've already extracted the fact, don't re-extract):
-- Failed approaches -> metadata `{"type": "anti_pattern"}`
-- Successful strategies -> metadata `{"type": "task_learning"}`
-- Architecture decisions -> metadata `{"type": "decision"}`
-
-### Step 3: Acknowledge
-
-After storing, briefly tell the user that session state has been saved and you're ready for compaction.
-
-Do this NOW. Do not skip any section. The quality of this summary directly determines whether you can continue the user's task after compaction.
+If nothing durable happened this session, store nothing. That is correct.
 EOF
 
 exit 0

@@ -46,6 +46,21 @@ TARGET_FILES = ["CLAUDE.md", "AGENTS.md", ".cursorrules", ".windsurfrules", "mem
 HASH_STORE = os.path.expanduser("~/.mem0/file_hashes.json")
 
 
+def _git_root(cwd: str) -> str:
+    """Return the git repo root, or empty string if not in a repo."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=cwd, capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return ""
+
+
 def sha256_file(path: str) -> str:
     """Return the hex SHA-256 digest of a file."""
     h = hashlib.sha256()
@@ -133,15 +148,25 @@ def main() -> None:
     project_id = resolve_project_id(cwd)
     branch = resolve_branch(cwd)
 
-    log.debug("Auto-import started: cwd=%s project=%s user=%s branch=%s", cwd, project_id, user_id, branch)
+    git_root = _git_root(cwd)
+    search_dirs = [cwd]
+    if git_root and os.path.realpath(git_root) != os.path.realpath(cwd):
+        search_dirs.append(git_root)
+
+    log.debug("Auto-import started: cwd=%s git_root=%s project=%s user=%s branch=%s", cwd, git_root or "(none)", project_id, user_id, branch)
 
     hashes = load_hashes()
     updated = False
 
     for filename in TARGET_FILES:
-        filepath = os.path.join(cwd, filename)
+        filepath = ""
+        for search_dir in search_dirs:
+            candidate = os.path.join(search_dir, filename)
+            if os.path.isfile(candidate):
+                filepath = candidate
+                break
 
-        if not os.path.isfile(filepath):
+        if not filepath:
             log.debug("Not found, skipping: %s", filename)
             continue
 
