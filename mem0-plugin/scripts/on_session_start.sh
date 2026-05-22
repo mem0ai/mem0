@@ -152,20 +152,13 @@ Continue where you left off.
 EOF
 
 elif [ "$SOURCE" = "compact" ]; then
-  # Capture the just-generated compact summary in the background.
-  # PreCompact fires too early to see this entry; SessionStart-compact
-  # is the first place isCompactSummary=true is in the transcript.
-  echo "$INPUT" | python3 "$SCRIPT_DIR/capture_compact_summary.py" 2>/dev/null &
-
   cat <<'EOF'
 ## Mem0 Post-Compaction Recovery
 
-Context was just compacted. The Claude Code-generated compact summary
-is being captured to mem0 in the background as `metadata.type=compact_summary`.
+Context was just compacted. Reload your context from mem0.
 
 1. Call `search_memories` to reload context, layering up to three angles:
-   - `metadata.type=session_state` -- the rich pre-compaction summary you wrote
-   - `metadata.type=compact_summary` -- the platform-generated condensed summary just now
+   - `metadata.type=session_state` -- the pre-compaction summary you wrote before compaction
    - `metadata.type=decision` / `anti_pattern` -- specific facts you stored during the session
 2. Continue working from the recovered context.
 EOF

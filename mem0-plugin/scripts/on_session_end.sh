@@ -20,25 +20,23 @@ INPUT=$(cat)
 REASON=$(echo "$INPUT" | jq -r '.reason // "other"' 2>/dev/null || echo "other")
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 
+# Print session-end report (last chance — Stop hook output may not render on /exit)
+REPORT=$(python3 "$SCRIPT_DIR/session_stats.py" report 2>/dev/null || echo "")
+if [ -n "$REPORT" ] && [ "$REPORT" != "Session: no memory operations." ]; then
+  echo ""
+  echo "---"
+  echo "mem0 $REPORT"
+  echo "---"
+
+  # Append to persistent session log
+  mkdir -p "$HOME/.mem0" 2>/dev/null || true
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | $REPORT" >> "$HOME/.mem0/session-log.md" 2>/dev/null || true
+fi
+
 # Telemetry (fire-and-forget — session dying, best-effort)
 python3 "$SCRIPT_DIR/telemetry.py" session_end --reason="$REASON" 2>/dev/null &
 
-# Check if on_stop.sh already captured this session (avoid duplicates)
-CAPTURE_MARKER="$HOME/.mem0/.captured_${SESSION_ID}"
-if [ -n "$SESSION_ID" ] && [ -f "$CAPTURE_MARKER" ]; then
-  exit 0
-fi
-
-# Last-chance transcript capture (synchronous — session is ending anyway)
-if [ -n "${MEM0_API_KEY:-}" ]; then
-  echo "$INPUT" | python3 "$SCRIPT_DIR/on_pre_compact.py" --source=session-end 2>/dev/null || true
-  # Mark as captured to prevent duplicate if Stop also ran
-  if [ -n "$SESSION_ID" ]; then
-    mkdir -p "$HOME/.mem0" 2>/dev/null || true
-    touch "$CAPTURE_MARKER" 2>/dev/null || true
-    # Clean up old markers (> 7 days)
-    find "$HOME/.mem0" -name ".captured_*" -mtime +7 -delete 2>/dev/null || true
-  fi
-fi
+# Clean up old capture markers (> 7 days)
+find "$HOME/.mem0" -name ".captured_*" -mtime +7 -delete 2>/dev/null || true
 
 exit 0

@@ -137,33 +137,21 @@ def parse_transcript(lines: list[str]) -> dict:
 
 
 def build_content(state: dict, source: str) -> str:
-    """Build structured markdown from parsed state."""
-    parts = [f"## Session State ({source})\n"]
+    """Build minimal context — only what's needed to resume work.
+
+    This is a FALLBACK safety net, not the primary capture path.
+    The agent handles rich memory storage via on_pre_compact.sh prompts.
+    This script only fires when the agent didn't store enough on its own.
+
+    Keep it short — mem0 infer=True will extract structured facts.
+    """
+    parts = []
 
     if state["user_messages"]:
-        parts.append("### What the user was working on")
-        for msg in state["user_messages"]:
-            truncated = msg[:5000] + "..." if len(msg) > 5000 else msg
-            parts.append(f"- {truncated}")
-        parts.append("")
+        parts.append(f"Working on: {state['user_messages'][-1][:300]}")
 
     if state["files_modified"]:
-        parts.append("### Files modified this session")
-        for fp in state["files_modified"]:
-            parts.append(f"- `{fp}`")
-        parts.append("")
-
-    if state["bash_commands"]:
-        parts.append("### Recent commands")
-        for cmd in state["bash_commands"]:
-            truncated = cmd[:1000] + "..." if len(cmd) > 1000 else cmd
-            parts.append(f"- `{truncated}`")
-        parts.append("")
-
-    if state["last_assistant_text"]:
-        parts.append("### Last context")
-        parts.append(state["last_assistant_text"])
-        parts.append("")
+        parts.append(f"Files touched: {', '.join(state['files_modified'][:15])}")
 
     return "\n".join(parts)
 
@@ -186,7 +174,7 @@ def store_memory(api_key: str, content: str, user_id: str, source: str, session_
         "app_id": project_id,
         "metadata": metadata,
         "expiration_date": expires,
-        "infer": False,
+        "infer": True,
     }
 
     data = json.dumps(body).encode("utf-8")
@@ -240,6 +228,18 @@ def main():
     project_id = resolve_project_id(cwd)
     branch = resolve_branch(cwd)
 
+    # Skip if agent already stored memories this session — avoid duplicate writes.
+    # This script is a fallback, not the primary capture path.
+    stats_file = f"/tmp/mem0_session_stats_{os.environ.get('USER', 'default')}.json"
+    try:
+        with open(stats_file) as f:
+            stats = json.load(f)
+        if stats.get("adds", 0) >= 2:
+            log.info("Agent stored %d memories this session — skipping fallback capture", stats["adds"])
+            return
+    except (OSError, json.JSONDecodeError):
+        pass  # no stats = agent didn't store anything, proceed with fallback
+
     lines = tail_lines(transcript_path, MAX_TAIL_LINES)
     if not lines:
         log.debug("Transcript empty or unreadable: %s", transcript_path)
@@ -251,13 +251,11 @@ def main():
         return
 
     content = build_content(state, source)
+    if not content.strip():
+        log.debug("No content to store")
+        return
 
-    log.info(
-        "Capturing session state: %d user msgs, %d files, %d commands",
-        len(state["user_messages"]),
-        len(state["files_modified"]),
-        len(state["bash_commands"]),
-    )
+    log.info("Fallback capture: %d files modified", len(state["files_modified"]))
 
     store_memory(api_key, content, user_id, source, session_id, project_id, branch)
 

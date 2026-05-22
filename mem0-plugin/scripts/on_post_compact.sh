@@ -40,9 +40,8 @@ You lost most conversation history. Recover context NOW:
 
 1. \`search_memories(query="session state current task", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$PROJECT_ID"}, {"metadata": {"type": "session_state"}}]})\`
 2. \`search_memories(query="recent decisions and learnings", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$PROJECT_ID"}, {"metadata": {"type": "decision"}}]})\`
-3. \`search_memories(query="compact summary", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$PROJECT_ID"}, {"metadata": {"type": "compact_summary"}}]})\`
 
-Run all 3 in parallel. Use results to resume work without asking user to repeat context.
+Run both in parallel. Use results to resume work without asking user to repeat context.
 EOF
 
 exit 0
