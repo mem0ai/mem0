@@ -581,6 +581,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        timestamp: Optional[int] = None,
     ):
         """
         Create a new memory.
@@ -603,6 +604,10 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            timestamp (int, optional): Unix timestamp (seconds) of when the conversation
+                occurred. When provided, this is used as the Observation Date in the
+                fact-extraction prompt, allowing the LLM to correctly resolve relative
+                time references like "yesterday" or "last week". Defaults to None.
 
 
         Returns:
@@ -656,10 +661,12 @@ class Memory(MemoryBase):
         else:
             messages = parse_vision_messages(messages)
 
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        vector_store_result = self._add_to_vector_store(
+            messages, processed_metadata, effective_filters, infer, prompt=prompt, timestamp=timestamp
+        )
         return {"results": vector_store_result}
 
-    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
+    def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None, timestamp=None):
         if not infer:
             returned_memories = []
             for message_dict in messages:
@@ -733,6 +740,7 @@ class Memory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=timestamp,
         )
 
         try:
@@ -2149,6 +2157,7 @@ class AsyncMemory(MemoryBase):
             new_messages=parsed_messages,
             last_k_messages=last_messages,
             custom_instructions=custom_instr,
+            timestamp=timestamp,
         )
 
         try:
