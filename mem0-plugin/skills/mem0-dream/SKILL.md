@@ -75,8 +75,8 @@ For each group, identify the following:
 Two memories are near-duplicates when they express the same fact or decision but
 phrased differently (e.g., "Use PostgreSQL for auth" and "Auth DB is PostgreSQL").
 
-Heuristics:
-- Significant noun/keyword overlap in the memory text.
+Heuristics — two memories are near-duplicates if **all** of these hold:
+- Similarity threshold: estimated cosine similarity > 0.9 (use noun/keyword overlap as proxy — if >60% of significant nouns overlap, treat as >0.9 similarity).
 - Same `metadata.type`.
 - Neither memory is pinned (`metadata.pinned != true`).
 

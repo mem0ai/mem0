@@ -63,6 +63,18 @@ Print a compact dashboard with an ASCII histogram for category distribution:
     user_preference   ██░░░░░░░░░░░░░░  3
     session_state     █░░░░░░░░░░░░░░░  2
 
+  By age:
+    < 7 days          ████████████████  5
+    7–30 days         ██████████░░░░░░ 12
+    30–90 days        ████░░░░░░░░░░░░ 10
+    > 90 days         ██░░░░░░░░░░░░░░  8
+
+  By access count:
+    Never accessed    ████████████████ 18
+    1–5 accesses      ████████░░░░░░░░ 10
+    6–20 accesses     ████░░░░░░░░░░░░  4
+    20+ accesses      █░░░░░░░░░░░░░░░  3
+
   Oldest memory:     <date>
   Newest memory:     <date>
 
@@ -78,5 +90,7 @@ Print a compact dashboard with an ASCII histogram for category distribution:
 - Use `█` for filled and `░` for empty. Right-align the count number.
 - Sort categories by count descending. Omit categories with 0 memories.
 - If only 1-2 categories exist, still show the histogram — it provides visual context.
+- **Age buckets:** Compute from `created_at`. Buckets: <7d, 7–30d, 30–90d, >90d.
+- **Access count buckets:** Read `metadata.access_count` (default 0 if absent). Buckets: 0, 1–5, 6–20, 20+.
 
 Skip any section with zero data.

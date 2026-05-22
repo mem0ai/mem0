@@ -90,9 +90,10 @@ if [ -n "$FILE_PATHS" ]; then
   cat <<EOF
 
 **FILE PATHS detected:** \`$FILE_PATHS\`
-Search mem0 for context about these files:
+Search mem0 for context about these files using the \`contains\` operator on \`metadata.files\`:
+- \`search_memories(query="<filename>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata.files": {"contains": "<filename>"}}]})\`
+- Also run a broader text search without the files filter as fallback:
 - \`search_memories(query="<filename without extension>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}]})\`
-Memories tagged with \`metadata.files\` containing these paths will surface via text match.
 EOF
 fi
 

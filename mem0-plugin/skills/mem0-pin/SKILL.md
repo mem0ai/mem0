@@ -38,10 +38,15 @@ This is required because `update_memory` replaces the full memory — a metadata
 Call `update_memory` with:
 - `memory_id=<selected_id>`
 - `data=<original_text>` (preserve the existing content)
+- `metadata=` merge `original_metadata` with `{"pinned": true}`
 
-The platform will retain the existing metadata and content. Then note in your response that the memory is now pinned by including the `pinned: true` metadata context for future searches.
+Example:
+```python
+updated_meta = {**original_metadata, "pinned": True}
+update_memory(memory_id=<selected_id>, data=<original_text>, metadata=updated_meta)
+```
 
-**Important:** `update_memory` requires the `data` (text) parameter. Passing only metadata may error or wipe content. Always read first, then update with the full text.
+**Important:** `update_memory` requires the `data` (text) parameter. Passing only metadata may error or wipe content. Always read first, then update with the full text and explicit metadata.
 
 ### Step 4: Confirm
 
@@ -53,7 +58,11 @@ Pinned memories surface first when relevant to a search.
 
 ### Unpin
 
-If the user says "unpin" or the memory is already pinned:
-1. Call `get_memory` to read current content.
-2. Call `update_memory` with `data=<original_text>` to preserve content.
+If the user says "unpin" or `/mem0:unpin`:
+1. Call `get_memory` to read current content and metadata.
+2. Set `metadata.pinned = false` explicitly:
+   ```python
+   updated_meta = {**original_metadata, "pinned": False}
+   update_memory(memory_id=<id>, data=<original_text>, metadata=updated_meta)
+   ```
 3. Print: `Unpinned: "<content>..."`

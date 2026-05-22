@@ -132,10 +132,33 @@ def parse_section_list(content: str, heading: str) -> list[str]:
     return items
 
 
+def parse_ignore_patterns(content: str) -> list[str]:
+    """Parse the ``## Ignore`` section of *content*.
+
+    Each non-blank line is a glob pattern (e.g., ``node_modules``, ``*.lock``).
+    Lines starting with ``#`` are comments and skipped.
+    """
+    pattern = r"^##\s+Ignore[^\n]*\n(.*?)(?=^##\s|\Z)"
+    match = re.search(pattern, content, flags=re.MULTILINE | re.DOTALL | re.IGNORECASE)
+    if not match:
+        return []
+
+    patterns: list[str] = []
+    for line in match.group(1).splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        line = re.sub(r"^[-*]\s+", "", line).strip()
+        if line:
+            patterns.append(line)
+    return patterns
+
+
 def load_full_config(cwd: str | None = None) -> dict:
     """Load all config sections from mem0.md.
 
-    Returns a dict with keys: retention, search, categories, identity.
+    Returns a dict with keys: retention, search, categories, identity,
+    ignore, project_id.
     Each is populated only if the corresponding ``##`` section exists.
     """
     if cwd is None:
@@ -164,10 +187,17 @@ def load_full_config(cwd: str | None = None) -> dict:
     categories = parse_section_list(content, "Categories")
     if categories:
         config["categories"] = categories
+        config["default_categories"] = categories
 
     identity = parse_section_kv(content, "Identity")
     if identity:
         config["identity"] = identity
+        if "project_id" in identity:
+            config["project_id"] = identity["project_id"]
+
+    ignore = parse_ignore_patterns(content)
+    if ignore:
+        config["ignore"] = ignore
 
     return config
 

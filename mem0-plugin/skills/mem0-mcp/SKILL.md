@@ -272,7 +272,23 @@ add_memory(
 )
 ```
 
-**Filtering note:** The mem0 v2 filter API does not yet support `array-contains` predicates. You cannot filter by `metadata.files` at search time. To work around this, always embed the bare filenames (and important path segments) in the memory content text itself — the vector search will then surface them on a filename query. The `files` array in metadata is still written for future compatibility once array-contains filtering is available.
+**Filtering by files:** Use the `contains` operator to filter by `metadata.files` at search time:
+
+```python
+search_memories(
+    query="auth middleware",
+    filters={
+        "AND": [
+            {"user_id": "<id>"},
+            {"app_id": "<project_id>"},
+            {"metadata.files": {"contains": "src/middleware/auth.ts"}},
+        ]
+    },
+    limit=5,
+)
+```
+
+Also embed bare filenames in the memory content text as a fallback — the vector search will surface them even if the structured filter misses.
 
 ### Access counter: track memory usage
 
@@ -289,10 +305,11 @@ import datetime
 current_meta["access_count"] = current_meta.get("access_count", 0) + 1
 current_meta["last_accessed"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-# 3. Update with preserved content
+# 3. Update with preserved content and bumped metadata
 update_memory(
     memory_id=<id>,
     data=current_text,  # preserve original text — required parameter
+    metadata=current_meta,  # pass updated access_count and last_accessed
 )
 ```
 
