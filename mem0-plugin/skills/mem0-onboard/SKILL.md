@@ -11,27 +11,31 @@ description: >
 
 Run this wizard to set up the mem0 plugin for the current project. Complete in ~30 seconds.
 
-## Step 1: Verify API key
+## Step 0: Ensure mem0ai SDK is installed
 
-Check if `MEM0_API_KEY` is set in the current environment:
+The plugin installs the `mem0ai` Python SDK automatically on session start via a venv in `${CLAUDE_PLUGIN_DATA}/venv`. If Step 4 (categories) fails with an import error, run:
 
 ```bash
-echo "${MEM0_API_KEY:+SET}" || echo "NOT_SET"
+"${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh"
 ```
 
-- If **NOT set**:
-  1. Ask the user: "No MEM0_API_KEY found. Do you have one, or need to create one?"
-  2. If they need one, provide two options:
-     - **Browser**: Go to https://app.mem0.ai/dashboard/api-keys and copy the key
-     - **CLI**: Run `pip install mem0-cli && mem0 init --agent --json` to mint a key without email
-  3. Once they have the key, tell them to run: `export MEM0_API_KEY="m0-..."` in their terminal, then restart this Claude Code session (the env var must be set before Claude Code starts).
-  4. **STOP here.** Do not proceed until the key is confirmed set.
-- If **SET**: Proceed to Step 2.
+This is silent and idempotent — safe to run anytime.
+
+## Step 1: Verify API key and MCP connection
+
+Check that mem0 MCP tools are available. Use ToolSearch with query `"mem0 search_memories"` — the exact tool name varies by install method (may be `mcp__mem0__search_memories` or `mcp__plugin_mem0_mem0__search_memories`).
+
+- If **any mem0 search tool found**: Proceed to Step 2. The API key is working.
+- If **NOT found**: The MCP server failed to connect. Tell the user:
+  1. "MCP server not connected. Make sure `MEM0_API_KEY` is exported in your shell."
+  2. Show: `export MEM0_API_KEY="m0-your-key-here"` then restart Claude Code.
+  3. If they need a key: https://app.mem0.ai/dashboard/api-keys or `mem0 init --agent --json`
+  4. **STOP here.** Do not proceed — all other steps need MCP tools.
 
 ## Step 2: Show identity
 
 Report the active identity to the user:
-- Call `search_memories` with `query="project setup"`, `user_id=<active_user_id>`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"metadata": {"project_id": "<active_project_id>"}}]}`, `limit=1` to verify connectivity.
+- Call `search_memories` with `query="project setup"`, `user_id=<active_user_id>`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `limit=1` to verify connectivity.
 - Print: `Connected. user=<user_id>, project=<project_id>, branch=<branch>`
 - If the search fails, troubleshoot the API key.
 
@@ -51,34 +55,49 @@ If user says yes (or default):
 - Call `add_memory` with:
   - `messages=[{"role": "user", "content": "## Project Profile: <filename>\n\nProject: <project_id>\n\n<file_content>"}]`
   - `user_id=<active_user_id>`
-  - `metadata={"type": "project_profile", "file": "<filename>", "project_id": "<active_project_id>", "source": "onboard"}`
+  - `app_id=<active_project_id>`
+  - `metadata={"type": "project_profile", "file": "<filename>", "source": "onboard", "branch": "<active_branch>"}`
   - `infer=False`
 
 ## Step 4: Install coding categories
 
 Ask: "Install coding categories optimized for development workflows? [Y/n]"
 
-If yes, run the script directly (no external dependencies required — uses stdlib only).
-
-The script lives at `scripts/setup_coding_categories.py` relative to the plugin root. Use the appropriate plugin root variable for the current platform:
-- Claude Code: `${CLAUDE_PLUGIN_ROOT}`
-- Codex: `${CODEX_PLUGIN_ROOT}`
-- Cursor: `${CURSOR_PLUGIN_ROOT}`
+If yes, run the setup script using the plugin's venv python:
 
 ```bash
-python3 "<PLUGIN_ROOT>/scripts/setup_coding_categories.py" --apply
+VENV_PY="${CLAUDE_PLUGIN_DATA}/venv/bin/python3"
+if [ -x "${VENV_PY}" ]; then
+  "${VENV_PY}" "${CLAUDE_PLUGIN_ROOT}/scripts/setup_coding_categories.py" --apply
+else
+  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/setup_coding_categories.py" --apply
+fi
 ```
 
-If the script reports an error, show the error message and suggest checking the API key.
+If the script fails with "mem0ai SDK not found", run the dependency installer first:
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh"
+```
+Then retry the categories script.
 
-## Step 5: Summary
+## Step 5: Mark project as onboarded
+
+Create a marker file so SessionStart won't re-trigger onboarding next session:
+
+```bash
+_SAFE_PID=$(printf '%s' "<active_project_id>" | tr '/:' '--')
+mkdir -p ~/.mem0 && touch ~/.mem0/.onboarded_${_SAFE_PID}
+```
+
+This is silent — no user-facing output needed.
+
+## Step 6: Summary
 
 Print a summary:
 ```
 Onboarding complete.
   user_id:    <user_id>
-  project_id: <project_id>
-  branch:     <branch>
+  project_id: <project_id> (app_id)
   imported:   <N> files
   categories: <installed or skipped>
 

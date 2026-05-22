@@ -15,12 +15,6 @@ if [ -n "${MEM0_DEBUG:-}" ]; then
   mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
 fi
 
-# Skip the bootstrap entirely if no API key is configured -- the agent
-# would otherwise be told to call mem0 MCP tools that will all fail.
-if [ -z "${MEM0_API_KEY:-}" ]; then
-  exit 0
-fi
-
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
@@ -31,6 +25,22 @@ python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
 
+# Skip bootstrap if no API key — still show banner but with "no key" status.
+if [ -z "${MEM0_API_KEY:-}" ]; then
+  echo "## Mem0 Inactive"
+  echo ""
+  echo "\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET\`"
+  echo ""
+  echo "IMPORTANT: In your FIRST response to the user, you MUST display the status banner exactly as shown below (copy-paste it as your opening line before any other output):"
+  echo ""
+  echo '```'
+  echo "Mem0 Inactive | user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET"
+  echo '```'
+  echo ""
+  echo "Set MEM0_API_KEY to enable persistent memory. Get a key at https://app.mem0.ai/dashboard/api-keys"
+  exit 0
+fi
+
 # Fetch project-scoped memory count (best-effort, don't block on failure, 5s timeout)
 MEM0_COUNT="?"
 if command -v python3 >/dev/null 2>&1; then
@@ -38,25 +48,21 @@ if command -v python3 >/dev/null 2>&1; then
 import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
-project_id = os.environ.get('MEM0_PROJECT_ID', '')
-body = json.dumps({
-    'query': 'project context',
-    'user_id': user_id,
-    'filters': {'AND': [{'user_id': user_id}, {'metadata': {'project_id': project_id}}]},
-    'limit': 100,
-}).encode()
+app_id = os.environ.get('MEM0_PROJECT_ID', '')
+body = json.dumps({'filters': {'user_id': user_id, 'app_id': app_id}}).encode()
 req = urllib.request.Request(
-    'https://api.mem0.ai/v2/memories/search/',
-    data=body,
+    'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
     headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
+    data=body,
     method='POST',
 )
 try:
     with urllib.request.urlopen(req, timeout=5) as r:
-        results = json.loads(r.read())
-        if isinstance(results, list):
-            n = len(results)
-            print(f'{n}+' if n >= 100 else str(n))
+        data = json.loads(r.read())
+        if isinstance(data, dict) and 'count' in data:
+            print(data['count'])
+        elif isinstance(data, list):
+            print(len(data))
         else:
             print('?')
 except Exception:
@@ -72,14 +78,51 @@ echo "## Mem0 Active"
 echo ""
 echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT\`"
 echo ""
-echo "Always include \`user_id\` + \`metadata.project_id\` in every \`search_memories\` filter and \`add_memory\` call:"
+echo "IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):"
+echo ""
+echo '```'
+echo "Mem0 Active | user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT"
+echo '```'
+echo ""
+echo "Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:"
 echo "- user_id: \`$MEM0_RESOLVED_USER_ID\`"
-echo "- project_id: \`$MEM0_PROJECT_ID\`"
-echo "- branch: \`$MEM0_BRANCH\` (include in session-state / compact-summary metadata)"
+echo "- app_id: \`$MEM0_PROJECT_ID\` (project scope — passed as top-level \`app_id\`, NOT in metadata)"
 echo ""
 
+# Load mem0.md project config if present (best-effort, non-blocking)
+MEM0_PROJECT_CONFIG=""
+MEM0_CWD_RESOLVED=$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")
+if command -v python3 >/dev/null 2>&1; then
+  MEM0_PROJECT_CONFIG=$(python3 "$SCRIPT_DIR/parse_mem0_config.py" --full "$MEM0_CWD_RESOLVED" 2>/dev/null || echo "{}")
+fi
+if [ -n "$MEM0_PROJECT_CONFIG" ] && [ "$MEM0_PROJECT_CONFIG" != "{}" ]; then
+  echo "### Project Config (mem0.md)"
+  echo "\`\`\`json"
+  echo "$MEM0_PROJECT_CONFIG"
+  echo "\`\`\`"
+  echo ""
+fi
+
 if [ "$SOURCE" = "startup" ]; then
-  cat <<'EOF'
+  # First-run detection: auto-trigger onboarding for new projects
+  _SAFE_PID=$(printf '%s' "$MEM0_PROJECT_ID" | tr '/:' '--')
+  _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${_SAFE_PID}"
+  if [ ! -f "$_ONBOARD_MARKER" ]; then
+    cat <<'EOF'
+## Mem0 First Run — Automatic Onboarding
+
+This is the first time mem0 is running for this project. You MUST run the onboarding wizard NOW before doing anything else.
+
+Execute the `/mem0:onboard` skill immediately. This will:
+1. Verify the API key
+2. Detect and import project files (CLAUDE.md, AGENTS.md, .cursorrules, etc.)
+3. Install coding categories optimized for development
+4. Show a summary of what was set up
+
+Do NOT skip this. Do NOT ask the user if they want to onboard. Just run `/mem0:onboard` now.
+EOF
+  else
+    cat <<'EOF'
 ## Mem0 Session Bootstrap
 
 You have access to persistent memory via the mem0 MCP tools. Before doing anything else:
@@ -90,6 +133,7 @@ You have access to persistent memory via the mem0 MCP tools. Before doing anythi
 
 IMPORTANT: Do NOT skip this step. Always bootstrap context first.
 EOF
+  fi
 
   # Auto-import declarative project files in background
   MEM0_CWD="$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")" \
@@ -126,5 +170,8 @@ is being captured to mem0 in the background as `metadata.type=compact_summary`.
 2. Continue working from the recovered context.
 EOF
 fi
+
+# Telemetry (background, fire-and-forget)
+python3 "$SCRIPT_DIR/telemetry.py" session_start --source="$SOURCE" --memory_count="${MEM0_COUNT:-0}" 2>/dev/null &
 
 exit 0

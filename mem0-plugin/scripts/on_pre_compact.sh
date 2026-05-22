@@ -15,6 +15,14 @@ if [ -n "${MEM0_DEBUG:-}" ]; then
   mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+INPUT=$(cat)
+
+# Fire REST API transcript backup in background (safety net if agent
+# can't complete the add_memory call before compaction finishes)
+echo "$INPUT" | python3 "$SCRIPT_DIR/on_pre_compact.py" --source=pre-compaction 2>/dev/null &
+python3 "$SCRIPT_DIR/telemetry.py" pre_compact 2>/dev/null &
+
 cat <<'EOF'
 ## CRITICAL: Pre-Compaction Session Summary
 
@@ -55,7 +63,8 @@ Tool call shape:
 add_memory(
   messages=[{"role":"user","content":"<the summary above>"}],
   user_id="<the active user_id from the SessionStart bootstrap>",
-  metadata={"type":"session_state","source":"pre-compaction","project_id":"<the active project_id>","branch":"<the active branch>"},
+  app_id="<the active project_id / app_id from SessionStart>",
+  metadata={"type":"session_state","source":"pre-compaction","branch":"<active branch>"},
   infer=False,
 )
 ```

@@ -22,6 +22,8 @@ if [ -n "${MEM0_DEBUG:-}" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_identity.sh
+. "$SCRIPT_DIR/_identity.sh"
 
 INPUT=$(cat)
 STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
@@ -30,6 +32,10 @@ if [ "$STOP_HOOK_ACTIVE" = "true" ]; then
   printf '{"continue":true}\n'
   exit 0
 fi
+
+# Telemetry: fire before report() deletes stats file
+_TELEM_CAT=$(python3 "$SCRIPT_DIR/session_stats.py" peek 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('categories',[])))" 2>/dev/null || echo "0")
+python3 "$SCRIPT_DIR/telemetry.py" stop --categories_count="$_TELEM_CAT" 2>/dev/null &
 
 # Session-end report (best-effort, must not break JSON output)
 REPORT=$(python3 "$SCRIPT_DIR/session_stats.py" report 2>/dev/null || echo "")
@@ -51,7 +57,7 @@ ${REPORT_BLOCK}Before finishing, check if there are important learnings from thi
 
 Memories can be as detailed as needed — include full context, reasoning, code snippets, file paths, and examples. Longer, searchable memories are more valuable than vague one-liners.
 
-Always include \`"project_id"\` in the metadata of any memory you store.
+Always include \`app_id\` (the active project_id from SessionStart) as a top-level parameter in every \`add_memory\` call.
 
 If nothing notable happened in this interaction, it's fine to skip. Only store genuinely useful learnings.
 EOF

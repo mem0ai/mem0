@@ -14,8 +14,22 @@ if [ -n "${MEM0_DEBUG:-}" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_identity.sh
+. "$SCRIPT_DIR/_identity.sh"
 
 INPUT=$(cat)
+
+# Guard against infinite loops: if this is a re-entry after a prior followup,
+# let the turn end. Cursor exposes loop_count in the input JSON.
+LOOP_COUNT=$(echo "$INPUT" | jq -r '.loop_count // 0' 2>/dev/null || echo "0")
+if [ "$LOOP_COUNT" -gt 1 ]; then
+  echo '{}'
+  exit 0
+fi
+
+# Telemetry: fire before report() deletes stats file
+_TELEM_CAT=$(python3 "$SCRIPT_DIR/session_stats.py" peek 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('categories',[])))" 2>/dev/null || echo "0")
+python3 "$SCRIPT_DIR/telemetry.py" stop --categories_count="$_TELEM_CAT" 2>/dev/null &
 
 # Session-end report (best-effort)
 REPORT=$(python3 "$SCRIPT_DIR/session_stats.py" report 2>/dev/null || echo "")
@@ -35,7 +49,7 @@ ${REPORT_BLOCK}Before finishing, check if there are important learnings from thi
 4. Did you learn anything about the user's preferences? -> Store with metadata \`{"type": "user_preference"}\`
 5. Were there environment/setup discoveries? -> Store with metadata \`{"type": "environmental"}\`
 
-Always include \`"project_id"\` in the metadata of any memory you store.
+Always include \`app_id\` (the active project_id from session start) as a top-level parameter in every \`add_memory\` call.
 
 If nothing notable happened, it's fine to skip. Only store genuinely useful learnings.
 EOF

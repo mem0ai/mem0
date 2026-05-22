@@ -40,7 +40,7 @@ The user provides a project name as an argument: `/mem0:switch-project <project-
    (Replace `<PROJECT_NAME>` with the user's chosen project name.)
 
 3. Verify by searching for existing memories:
-   - Call `search_memories` with `query="project"`, `filters={"AND": [{"user_id": "<id>"}, {"metadata": {"project_id": "<PROJECT_NAME>"}}]}`, `limit=1`
+   - Call `search_memories` with `query="project"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<PROJECT_NAME>"}]}`, `limit=1`
 
 4. Print:
    ```
