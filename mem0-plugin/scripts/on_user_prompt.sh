@@ -56,10 +56,17 @@ fi
 # Detect file paths in the prompt (no API needed)
 FILE_PATHS=$(echo "$PROMPT" | grep -oE '([a-zA-Z0-9_./-]+\.(py|ts|tsx|js|jsx|rs|go|rb|java|sh|yaml|yml|json|toml|md|sql|css|html))\b' 2>/dev/null | head -5 || echo "")
 
+# Detect session-resume patterns
+HAS_RESUME=""
+if echo "$PROMPT" | grep -qiE '(where (did )?(we|I) (leave|left) off|continue (from )?(where|last)|what were we (working|doing)|pick up where|resume (from |where)|what.s the (current|latest) (state|status)|catch me up|where are we)'; then
+  HAS_RESUME="true"
+fi
+
 # Telemetry (background, fire-and-forget)
 _TELEM_ARGS=""
 [ -n "$HAS_ERROR" ] && _TELEM_ARGS="$_TELEM_ARGS --error_detected"
 [ -n "$FILE_PATHS" ] && _TELEM_ARGS="$_TELEM_ARGS --file_paths_detected"
+[ -n "$HAS_RESUME" ] && _TELEM_ARGS="$_TELEM_ARGS --resume_detected"
 python3 "$SCRIPT_DIR/telemetry.py" user_prompt $_TELEM_ARGS 2>/dev/null &
 
 # No API key — emit detections only, skip search rubric
@@ -73,6 +80,42 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
 USER_ID="$MEM0_RESOLVED_USER_ID"
+
+if [ -n "$HAS_RESUME" ]; then
+  RESUME_RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" python3 -c "
+import os, sys
+sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
+from _search import search_memories, format_results_for_context
+
+api_key = os.environ.get('MEM0_API_KEY', '')
+user_id = os.environ.get('MEM0_SEARCH_USER', 'default')
+project_id = os.environ.get('MEM0_PROJECT_ID', 'unknown')
+
+state = search_memories(api_key, user_id, project_id, 'session state current task', metadata_type='session_state', top_k=3)
+decisions = search_memories(api_key, user_id, project_id, 'recent decisions and learnings', metadata_type='decision', top_k=3)
+
+all_r = state + decisions
+seen = set()
+unique = []
+for m in all_r:
+    mid = m.get('id', '')
+    if mid not in seen:
+        seen.add(mid)
+        unique.append(m)
+
+if unique:
+    print(format_results_for_context(unique, heading='Session context recovered from mem0'))
+    print()
+    print('Use these memories to resume work. Do NOT ask the user to repeat context that is already in these memories.')
+else:
+    print('No session state found in mem0. Ask the user what they want to continue.')
+" 2>/dev/null || echo "")
+
+  if [ -n "$RESUME_RESULTS" ]; then
+    echo ""
+    echo "$RESUME_RESULTS"
+  fi
+fi
 
 if [ -z "$RUBRIC_ALREADY_SHOWN" ]; then
   cat <<EOF
