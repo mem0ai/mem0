@@ -28,7 +28,13 @@ def _load() -> dict:
                 return json.load(f)
         except (json.JSONDecodeError, OSError):
             pass
-    return {"adds": 0, "searches": 0, "categories": [], "started": datetime.now().isoformat()}
+    return {
+        "adds": 0,
+        "searches": 0,
+        "categories": [],
+        "category_counts": {},
+        "started": datetime.now().isoformat(),
+    }
 
 
 def _save(stats: dict) -> None:
@@ -36,15 +42,33 @@ def _save(stats: dict) -> None:
         json.dump(stats, f)
 
 
+MAX_RECENT_IDS = 50
+
+
 def init() -> None:
-    _save({"adds": 0, "searches": 0, "categories": [], "started": datetime.now().isoformat()})
+    _save({
+        "adds": 0,
+        "searches": 0,
+        "categories": [],
+        "category_counts": {},
+        "recent_ids": [],
+        "started": datetime.now().isoformat(),
+    })
 
 
-def record_add(category: str = "") -> None:
+def record_add(category: str = "", memory_id: str = "") -> None:
     stats = _load()
     stats["adds"] = stats.get("adds", 0) + 1
-    if category and category not in stats.get("categories", []):
-        stats.setdefault("categories", []).append(category)
+    if category:
+        if category not in stats.get("categories", []):
+            stats.setdefault("categories", []).append(category)
+        counts = stats.setdefault("category_counts", {})
+        counts[category] = counts.get(category, 0) + 1
+    if memory_id:
+        recent = stats.setdefault("recent_ids", [])
+        recent.append({"id": memory_id, "category": category, "ts": datetime.now().isoformat()})
+        if len(recent) > MAX_RECENT_IDS:
+            stats["recent_ids"] = recent[-MAX_RECENT_IDS:]
     _save(stats)
 
 
@@ -52,6 +76,12 @@ def record_search() -> None:
     stats = _load()
     stats["searches"] = stats.get("searches", 0) + 1
     _save(stats)
+
+
+def peek() -> str:
+    """Return current stats as JSON without clearing the file."""
+    stats = _load()
+    return json.dumps(stats)
 
 
 def report() -> str:
@@ -70,7 +100,12 @@ def report() -> str:
         return ""
 
     parts = []
-    parts.append(f"Session: wrote {adds} memories, retrieved {searches}")
+    category_counts = stats.get("category_counts", {})
+    if category_counts:
+        breakdown = ", ".join(f"{c} {n}" for c, n in sorted(category_counts.items(), key=lambda x: -x[1]))
+        parts.append(f"Session: wrote {adds} memories ({breakdown}), retrieved {searches}")
+    else:
+        parts.append(f"Session: wrote {adds} memories, retrieved {searches}")
     if categories:
         parts.append(f"Categories touched: {', '.join(categories)}")
 
@@ -87,9 +122,12 @@ def main() -> int:
         init()
     elif cmd == "add":
         category = sys.argv[2] if len(sys.argv) > 2 else ""
-        record_add(category)
+        memory_id = sys.argv[3] if len(sys.argv) > 3 else ""
+        record_add(category, memory_id)
     elif cmd == "search":
         record_search()
+    elif cmd == "peek":
+        print(peek())
     elif cmd == "report":
         result = report()
         if result:

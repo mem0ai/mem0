@@ -10,7 +10,8 @@
 #
 # IMPORTANT: Check stop_hook_active to avoid infinite loops.
 
-set -euo pipefail
+# Intentionally omit -e so the reminder always emits even if session_stats fails.
+set -uo pipefail
 
 if [ -n "${MEM0_DEBUG:-}" ]; then
   mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
@@ -25,6 +26,10 @@ if [ "$STOP_HOOK_ACTIVE" = "true" ]; then
   exit 0
 fi
 
+# Telemetry: fire before report() deletes stats file
+_TELEM_CAT=$(python3 "$SCRIPT_DIR/session_stats.py" peek 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('categories',[])))" 2>/dev/null || echo "0")
+python3 "$SCRIPT_DIR/telemetry.py" stop --categories_count="$_TELEM_CAT" 2>/dev/null &
+
 # Print session-end report
 REPORT=$(python3 "$SCRIPT_DIR/session_stats.py" report 2>/dev/null || echo "")
 if [ -n "$REPORT" ]; then
@@ -35,7 +40,7 @@ if [ -n "$REPORT" ]; then
   echo ""
 fi
 
-# Append to persistent session log (guarded — on_stop.sh uses set -euo pipefail)
+# Append to persistent session log
 if [ -n "$REPORT" ]; then
   mkdir -p "$HOME/.mem0" 2>/dev/null || true
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | $REPORT" >> "$HOME/.mem0/session-log.md" 2>/dev/null || true
@@ -54,10 +59,17 @@ Memories can be as detailed as needed — include full context, reasoning, code 
 
 If nothing notable happened in this interaction, it's fine to skip. Only store genuinely useful learnings.
 
-Always include `"project_id"` in the metadata of any memory you store.
+Always include `app_id` (the active project_id from SessionStart) as a top-level parameter in every `add_memory` call.
 EOF
 
 # Capture transcript state in the background via Mem0 REST API
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 echo "$INPUT" | python3 "$SCRIPT_DIR/on_pre_compact.py" --source=session-end 2>/dev/null &
+
+# Mark session as captured so SessionEnd hook can skip duplicate capture
+if [ -n "$SESSION_ID" ]; then
+  mkdir -p "$HOME/.mem0" 2>/dev/null || true
+  touch "$HOME/.mem0/.captured_${SESSION_ID}" 2>/dev/null || true
+fi
 
 exit 0

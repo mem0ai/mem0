@@ -25,7 +25,7 @@ import urllib.request
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _identity import resolve_user_id
+from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-compact-summary")
@@ -97,23 +97,25 @@ def find_compact_summary(lines: list[str]) -> str:
 
 def store_summary(api_key: str, summary: str, user_id: str, session_id: str, project_id: str = "", branch: str = "") -> bool:
     expires = (date.today() + timedelta(days=COMPACT_SUMMARY_EXPIRY_DAYS)).isoformat()
+    metadata = {
+        "type": "compact_summary",
+        "source": "session-start-compact",
+        "session_id": session_id,
+    }
+    if branch:
+        metadata["branch"] = branch
     body = {
         "messages": [{"role": "user", "content": summary}],
         "user_id": user_id,
-        "metadata": {
-            "type": "compact_summary",
-            "source": "session-start-compact",
-            "session_id": session_id,
-            "project_id": project_id,
-            "branch": branch,
-        },
+        "app_id": project_id,
+        "metadata": metadata,
         "infer": False,
         "expiration_date": expires,
     }
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        f"{API_URL}/v1/memories/",
+        f"{API_URL}/v3/memories/add/",
         data=data,
         headers={
             "Content-Type": "application/json",
@@ -134,7 +136,7 @@ def store_summary(api_key: str, summary: str, user_id: str, session_id: str, pro
 
 
 def main():
-    api_key = os.environ.get("MEM0_API_KEY", "")
+    api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping capture")
         return
@@ -151,9 +153,10 @@ def main():
         return
 
     session_id = hook_input.get("session_id", "")
+    cwd = hook_input.get("cwd") or None
     user_id = resolve_user_id()
-    project_id = resolve_project_id()
-    branch = resolve_branch()
+    project_id = resolve_project_id(cwd)
+    branch = resolve_branch(cwd)
 
     lines = tail_lines(transcript_path, MAX_TAIL_LINES)
     if not lines:
