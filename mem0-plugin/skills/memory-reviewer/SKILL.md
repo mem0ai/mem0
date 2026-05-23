@@ -1,6 +1,6 @@
 ---
 name: memory-reviewer
-description: Review memory quality — find duplicates, contradictions, stale entries. TRIGGER when user asks about memory quality, runs /mem0:memory-reviewer, or after 5+ memories written in a session.
+description: Review memory quality — duplicates, contradictions, stale entries
 ---
 
 # Memory Reviewer

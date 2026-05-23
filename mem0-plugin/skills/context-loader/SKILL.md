@@ -1,6 +1,6 @@
 ---
 name: context-loader
-description: Pre-load relevant memories for current task. TRIGGER on session start, new task, or when working on specific files. Run automatically via hooks — also invocable as /mem0:context-loader.
+description: Pre-load relevant memories for current task
 ---
 
 # Context Loader
