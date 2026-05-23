@@ -22,11 +22,19 @@ Before setting up Mem0 with Cursor, ensure you have:
 
 2. Cursor installed ([cursor.com](https://cursor.com))
 
-3. Your API key exported in your shell:
+3. Your API key added to your shell profile (persists across sessions):
 
-```bash
-export MEM0_API_KEY="m0-your-api-key"
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
+source ~/.zshrc
 ```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
+source ~/.bashrc
+```
+</CodeGroup>
 
 <Warning>
   Already have `mem0` configured as an MCP server in Cursor? Remove the existing entry from your Cursor MCP settings before installing to avoid duplicate tools.

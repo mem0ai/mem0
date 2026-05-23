@@ -1,11 +1,6 @@
 ---
-name: mem0-import
-description: >
-  Import memories from a mem0 export file back into the current project.
-  Reads a YAML-frontmatter Markdown file produced by /mem0:export and
-  adds each memory block to mem0.
-  TRIGGER: user runs /mem0:import, or asks "import memories", "restore memories",
-  "load memories from file", "reimport backup".
+name: import
+description: Import memories from an export file into this project
 ---
 
 # Mem0 Import
@@ -142,10 +137,7 @@ Tools: `cursorrules`, `copilot`, `cline`, `continue`.
 ### T4: Report
 
 ```
-Import complete.
-  Cursor:  <N> memories
-  Copilot: <N> memories
-  Total:   <N> memories imported into project <project_id>
+Imported <N> memories into <project_id> (cursor: <N>, copilot: <N>)
 ```
 
 Notes: `infer=False`, tagged `metadata.source=<tool>-import`, sections <50 chars

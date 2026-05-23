@@ -1,12 +1,16 @@
-"""Resolve mem0 identity: API key and user_id.
+"""Resolve mem0 identity: API key, user_id, and settings.
 
 API key resolution (first non-empty wins):
   1. MEM0_API_KEY env var (explicit / shell profile)
-  2. CLAUDE_PLUGIN_OPTION_MEM0_API_KEY (set by Claude Code userConfig)
+  2. CLAUDE_PLUGIN_OPTION_API_KEY (set by `claude plugin configure mem0`)
+  3. CLAUDE_PLUGIN_OPTION_MEM0_API_KEY (legacy userConfig)
 
 User ID resolution:
   1. MEM0_USER_ID env var (explicit override)
   2. $USER, else "default"
+
+Settings resolution:
+  ~/.mem0/settings.json (user-editable, falls back to defaults)
 """
 
 from __future__ import annotations
@@ -18,7 +22,13 @@ def resolve_api_key() -> str:
     key = os.environ.get("MEM0_API_KEY", "").strip()
     if key:
         return key
-    return os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", "").strip()
+    key = os.environ.get("CLAUDE_PLUGIN_OPTION_API_KEY", "").strip()
+    if key:
+        return key
+    key = os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", "").strip()
+    if key:
+        return key
+    return ""
 
 
 def resolve_user_id() -> str:
@@ -26,6 +36,25 @@ def resolve_user_id() -> str:
     if explicit:
         return explicit
     return os.environ.get("USER") or "default"
+
+
+def resolve_config() -> dict:
+    """Resolve settings from ~/.mem0/settings.json (primary) with env var overrides."""
+    try:
+        from load_settings import load_settings
+        return load_settings()
+    except ImportError:
+        return {
+            "auto_save": True,
+            "auto_search": True,
+            "search_limit": 10,
+            "retention_session_days": 90,
+            "confidence_threshold": 0.3,
+            "output_style": "compact",
+            "debug": False,
+            "skip_tools": ["Read", "Glob", "Grep"],
+            "capture_tools": ["Edit", "Write", "Bash"],
+        }
 
 
 try:

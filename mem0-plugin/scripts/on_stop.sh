@@ -47,19 +47,7 @@ if [ -n "$REPORT" ]; then
 fi
 
 cat <<'EOF'
-Before finishing, check if there are important learnings from this interaction that should be persisted using the mem0 `add_memory` tool:
-
-1. Were any significant decisions made? -> Store with metadata `{"type": "decision"}`
-2. Were any new patterns or strategies discovered? -> Store with metadata `{"type": "task_learning"}`
-3. Did any approach fail? -> Store with metadata `{"type": "anti_pattern"}`
-4. Did you learn anything about the user's preferences? -> Store with metadata `{"type": "user_preference"}`
-5. Were there environment/setup discoveries? -> Store with metadata `{"type": "environmental"}`
-
-Memories can be as detailed as needed — include full context, reasoning, code snippets, file paths, and examples. Longer, searchable memories are more valuable than vague one-liners.
-
-If nothing notable happened in this interaction, it's fine to skip. Only store genuinely useful learnings.
-
-Always include `app_id` (the active project_id from SessionStart) as a top-level parameter in every `add_memory` call.
+Store 0-2 durable facts from this turn via `add_memory` — only decisions, anti-patterns, or conventions that would help a future agent. Skip if nothing new was learned.
 EOF
 
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")

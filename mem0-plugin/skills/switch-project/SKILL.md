@@ -1,10 +1,6 @@
 ---
-name: mem0-switch-project
-description: >
-  Manually override project_id for the current directory.
-  Useful for monorepos, nested git dirs, or non-git directories.
-  TRIGGER: user runs /mem0:switch-project <name>, or asks "switch mem0 project",
-  "change project scope", "override project_id".
+name: switch-project
+description: Override the auto-detected project scope
 ---
 
 # Mem0 Switch Project

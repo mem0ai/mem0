@@ -25,16 +25,7 @@ _PROJECT="${MEM0_PROJECT_ID:-unknown}"
 cat <<EOF
 Task completed: "$TASK_SUBJECT"
 
-Extract key learnings from this completed task and store them using the mem0 \`add_memory\` tool:
-
-1. What strategy worked well? -> Store with metadata \`{"type": "task_learning"}\`
-2. Were there failed approaches before finding the solution? -> Store with metadata \`{"type": "anti_pattern"}\`
-3. Were there architectural decisions? -> Store with metadata \`{"type": "decision"}\`
-4. Any new conventions or patterns established? -> Store with metadata \`{"type": "convention"}\`
-
-Memories can be as detailed as needed — include full context, reasoning, code snippets, and examples.
-Only store genuinely useful learnings — skip if the task was trivial.
-Include \`app_id\` = \`"$_PROJECT"\` as a top-level parameter in every \`add_memory\` call (not in metadata).
+Store 0-2 key learnings via \`add_memory\` with \`app_id="$_PROJECT"\`. Use types: \`decision\`, \`task_learning\`, \`anti_pattern\`, or \`convention\`. Skip if trivial.
 EOF
 
 # Telemetry (background, fire-and-forget)
