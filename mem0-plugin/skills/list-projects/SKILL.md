@@ -1,5 +1,5 @@
 ---
-name: mem0-list-projects
+name: list-projects
 description: List all projects that have stored memories
 ---
 

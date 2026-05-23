@@ -1,5 +1,5 @@
 ---
-name: mem0-peek
+name: peek
 description: Quick search memories — compact one-liner results
 ---
 

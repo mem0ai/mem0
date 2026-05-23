@@ -1,5 +1,5 @@
 ---
-name: mem0-tour
+name: tour
 description: Browse stored memories grouped by category
 ---
 

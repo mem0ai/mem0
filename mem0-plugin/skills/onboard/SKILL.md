@@ -1,5 +1,5 @@
 ---
-name: mem0-onboard
+name: onboard
 description: Set up mem0 for this project — config, categories, identity
 ---
 

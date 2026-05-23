@@ -1,5 +1,5 @@
 ---
-name: mem0-pin
+name: pin
 description: Pin a memory to protect it from consolidation
 ---
 

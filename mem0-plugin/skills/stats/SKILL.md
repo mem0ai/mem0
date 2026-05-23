@@ -1,5 +1,5 @@
 ---
-name: mem0-stats
+name: stats
 description: Show memory usage stats for this session and project
 ---
 

@@ -123,10 +123,8 @@ if [ "$SOURCE" = "startup" ]; then
   _SAFE_PID=$(printf '%s' "$MEM0_PROJECT_ID" | tr '/:' '--')
   _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${_SAFE_PID}"
   if [ ! -f "$_ONBOARD_MARKER" ]; then
-    mkdir -p "$HOME/.mem0" 2>/dev/null || true
-    touch "$_ONBOARD_MARKER"
     cat <<'EOF'
-First run for this project. Run `/mem0:onboard` now to import project files and install categories.
+IMPORTANT: This is the first run for this project. You MUST invoke the `mem0:onboard` skill now using the Skill tool BEFORE responding to the user. Do not just suggest it — actually call it. This runs the setup wizard (API check, file import, coding categories).
 EOF
   else
     cat <<'EOF'

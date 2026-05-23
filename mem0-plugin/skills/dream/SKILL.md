@@ -1,5 +1,5 @@
 ---
-name: mem0-dream
+name: dream
 description: Consolidate memories — merge duplicates, resolve contradictions, prune stale
 ---
 

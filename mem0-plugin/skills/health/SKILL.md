@@ -1,5 +1,5 @@
 ---
-name: mem0-health
+name: health
 description: Diagnose mem0 connection, API key, and memory read/write
 ---
 

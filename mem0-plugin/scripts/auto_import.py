@@ -158,6 +158,7 @@ def main() -> None:
 
     hashes = load_hashes()
     updated = False
+    seen_content_hashes: set[str] = set()
 
     for filename in TARGET_FILES:
         filepath = ""
@@ -186,6 +187,11 @@ def main() -> None:
         except OSError as e:
             log.debug("Cannot hash %s: %s", filename, e)
             continue
+
+        if current_hash in seen_content_hashes:
+            log.debug("Duplicate content, skipping: %s (same as earlier file)", filename)
+            continue
+        seen_content_hashes.add(current_hash)
 
         hash_key = f"{project_id}:{filename}"
         if hashes.get(hash_key) == current_hash:

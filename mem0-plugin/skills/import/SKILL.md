@@ -1,5 +1,5 @@
 ---
-name: mem0-import
+name: import
 description: Import memories from an export file into this project
 ---
 

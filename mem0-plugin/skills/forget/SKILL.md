@@ -1,5 +1,5 @@
 ---
-name: mem0-forget
+name: forget
 description: Delete memories by search or ID — confirms before deleting
 ---
 

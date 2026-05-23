@@ -1,5 +1,5 @@
 ---
-name: mem0-switch-project
+name: switch-project
 description: Override the auto-detected project scope
 ---
 

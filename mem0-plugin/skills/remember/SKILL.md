@@ -1,5 +1,5 @@
 ---
-name: mem0-remember
+name: remember
 description: Save a memory verbatim from your input
 ---
 
