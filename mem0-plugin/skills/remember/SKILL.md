@@ -45,6 +45,8 @@ Call `add_memory` with:
 
 Print:
 ```
-Remembered as <type>: "<first 80 chars of content>..."
+Remembered as <type>: "<content, first 80 chars>"
 Memory ID: <id>
 ```
+
+Append `...` only if content was truncated (longer than 80 chars).

@@ -68,7 +68,12 @@ Step 2: MCP OAuth login.
 After the user completes OAuth, verify MCP tools are available using ToolSearch with query `"mem0 search_memories"`. The exact tool name varies by install method (may be `mcp__mem0__search_memories` or `mcp__plugin_mem0_mem0__search_memories`).
 
 - If MCP tools found: Print `- MCP connected.` and proceed to Step 3.
-- If NOT found: Tell the user to restart Claude Code and run `/mem0:onboard` again. **STOP here.**
+- If NOT found: Troubleshoot before giving up:
+  1. Check plugin is installed: run `/plugins` and confirm `mem0` appears
+  2. Ask if the browser auth completed successfully
+  3. Look for `mcp.mem0.ai` in the MCP server list via `/mcp`
+  4. If all checks fail: "Restart Claude Code and run `/mem0:onboard` again."
+  **STOP here** — do not proceed without MCP tools.
 
 ## Step 3: Verify connectivity and show identity
 

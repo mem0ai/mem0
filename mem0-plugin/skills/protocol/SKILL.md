@@ -14,18 +14,20 @@ When a user says something in natural language, route to the right mem0 skill au
 | User says | Invoke |
 |---|---|
 | "remember this", "save this", "store this fact" | `/mem0:remember` |
-| "forget this", "delete memory about X", "remove that memory" | `/mem0:forget` |
-| "what do we know about X", "quick search", "peek at memories" | `/mem0:peek` |
-| "show my memories", "browse memories", "memory tour" | `/mem0:tour` |
+| "forget this", "delete memory about X", "remove that memory", "undo last write" | `/mem0:forget` |
+| "what do we know about X", "quick search", "peek at memories", "context for X" | `/mem0:peek` |
+| "show my memories", "browse memories", "memory tour", "list all memories" | `/mem0:tour` |
 | "clean up memories", "consolidate", "merge duplicates", "prune" | `/mem0:dream` |
 | "export memories", "backup memories", "download memories" | `/mem0:export` |
 | "import memories", "load memories from file" | `/mem0:import` |
 | "check mem0 health", "is mem0 working", "diagnose mem0" | `/mem0:health` |
-| "memory stats", "how many memories" | `/mem0:stats` |
+| "memory stats", "how many memories", "weekly digest" | `/mem0:stats` |
 | "set up mem0", "initialize mem0", "configure mem0" | `/mem0:onboard` |
 | "switch project", "change mem0 project" | `/mem0:switch-project` |
 | "list projects", "show all projects" | `/mem0:list-projects` |
 | "pin this memory", "protect this memory" | `/mem0:pin` |
+| "unpin this memory", "unprotect this memory" | `/mem0:pin` |
+| "check memory quality", "any duplicates?", "review memories" | `/mem0:memory-reviewer` |
 
 If unsure, use the MCP tools directly (search/add/delete) without invoking a skill.
 

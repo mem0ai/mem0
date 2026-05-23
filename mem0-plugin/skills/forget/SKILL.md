@@ -68,4 +68,4 @@ If the user says "undo last N memories" or "undo last write":
 3. Show the last N entries (default 1) and ask for confirmation.
 4. Delete confirmed entries via `delete_memory`.
 
-If `recent_ids` is empty, tell the user: "No recent memory IDs tracked this session. Use a search query instead."
+If `recent_ids` is empty, tell the user: "No recent memory IDs tracked this session. Try `/mem0:tour` to browse recent memories, or `/mem0:forget <search query>` to find specific ones."
