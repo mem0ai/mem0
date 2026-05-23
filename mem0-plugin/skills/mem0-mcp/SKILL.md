@@ -1,8 +1,6 @@
 ---
 name: mem0-mcp
-description: >
-  Memory protocol — when to search, how to filter, and what to store.
-  Guides all mem0 MCP tool usage (add_memory, search_memories, etc.).
+description: Memory protocol reference when to search, how to filter, what to store
 ---
 
 # Mem0 MCP Memory Protocol

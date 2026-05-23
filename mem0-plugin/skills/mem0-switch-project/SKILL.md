@@ -1,9 +1,6 @@
 ---
 name: mem0-switch-project
-description: >
-  Override the auto-detected project scope for this directory.
-  TRIGGER: user runs /mem0:switch-project <name>, or asks "switch mem0 project",
-  "change project scope", "override project_id".
+description: Override the auto-detected project scope for this directory
 ---
 
 # Mem0 Switch Project

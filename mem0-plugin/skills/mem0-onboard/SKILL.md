@@ -1,8 +1,6 @@
 ---
 name: mem0-onboard
-description: >
-  Set up mem0 for this project — detect config files, install categories, verify identity.
-  TRIGGER: user runs /mem0:onboard, or mentions "setup mem0", "configure mem0 plugin".
+description: Set up mem0 for this project import config files, install categories, verify identity
 ---
 
 # Mem0 Onboarding Wizard

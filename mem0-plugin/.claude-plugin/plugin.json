@@ -1,7 +1,7 @@
 {
   "name": "mem0",
   "version": "0.2.3",
-  "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search to Claude workflows using the Mem0 Platform MCP server.",
+  "description": "Persistent memory for Claude Code. Remembers decisions, patterns, and preferences across sessions.",
   "author": {
     "name": "Mem0",
     "email": "support@mem0.ai"

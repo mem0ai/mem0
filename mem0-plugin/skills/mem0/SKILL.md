@@ -1,10 +1,6 @@
 ---
 name: mem0
-description: >
-  Mem0 SDK reference — Python, TypeScript, and framework integrations.
-  TRIGGER when: user mentions "mem0", "MemoryClient", "memory layer",
-  "personalization", or needs to add persistent memory to AI apps.
-  Default skill for ambiguous mem0 queries.
+description: Mem0 SDK reference Python, TypeScript, and framework integrations
 license: Apache-2.0
 metadata:
   author: mem0ai

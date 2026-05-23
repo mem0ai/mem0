@@ -127,36 +127,13 @@ fi
 if [ -n "$HAS_REMEMBER" ]; then
   cat <<'REMEMBER_EOF'
 
-**REMEMBER INTENT DETECTED.** The user wants to save something to memory.
-You MUST invoke the `/mem0:remember` skill (not raw `add_memory`) because it:
-- Auto-classifies the memory type (decision, anti_pattern, convention, etc.)
-- Sets confidence=1.0 (user explicitly requested storage)
-- Uses infer=False (stores verbatim, no second extraction pass)
-- Tracks source=remember_command for analytics
-
-Do NOT call `add_memory` directly for user-initiated remembers.
+**Remember intent detected.** Use `/mem0:remember` (not raw `add_memory`) — it auto-classifies, sets confidence=1.0, and stores verbatim.
 REMEMBER_EOF
 fi
 
 if [ -z "$RUBRIC_ALREADY_SHOWN" ]; then
   cat <<EOF
-## Memory check
-
-Before responding, decide whether persistent memory context from mem0 would
-improve your answer. The agent -- not this hook -- owns this decision.
-
-**Search WHEN** the user:
-- references past work, decisions, or things "we" built
-- asks "how should we...", "best way to...", or any decision-style question
-- hits an error, bug, or asks for debugging help
-- requests work that touches their stack, tools, conventions, or preferences
-- starts a non-trivial task in a known project
-
-**Skip WHEN:**
-- the prompt is an acknowledgement or continuation
-- the user is *stating* new info -- that's a write trigger (\`add_memory\`), not a search
-- it's a pure syntax / factual question answerable from general knowledge
-- you already searched this scope earlier in the turn
+Search mem0 when the user references past work, asks decision questions, hits errors, or starts non-trivial tasks. Skip for acknowledgements, new info (store instead), or pure factual questions.
 EOF
   touch "$RUBRIC_FLAG" 2>/dev/null || true
 fi
@@ -184,20 +161,7 @@ fi
 
 cat <<EOF
 
-**If searching, do it well:**
-- Run **2-4 parallel** \`search_memories\` calls with different angles, not one
-  query that echoes the user's prompt.
-- Phrase queries as **nouns** ("auth module decisions"), not full sentences.
-- Filter shape: the root must be a logical operator (\`AND\` / \`OR\` / \`NOT\`)
-  with an array, and metadata uses a **nested** object (not dotted keys).
-  Combine \`user_id\` + \`app_id\` with one \`metadata.type\` clause per call:
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "decision"}}]}\` -- design / architecture
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "anti_pattern"}}]}\` -- debugging, error handling
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "user_preference"}}]}\` -- tooling, stack, style
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "convention"}}]}\` -- established patterns
-  - Or scope with just \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}]}\` when no metadata filter fits.
-- **Recency boost:** For state-related queries ("where were we", "current task", "latest"), add a \`created_at\` filter: \`{"created_at": {"gte": "<90 days ago YYYY-MM-DD>"}}\`. Skip recency for durable facts (conventions, decisions).
-- Empty results are normal -- proceed without context.
+**Search tips:** Use noun-phrase queries, run 2-4 parallel calls with different \`metadata.type\` filters (decision, anti_pattern, user_preference, convention). Always include \`user_id\` + \`app_id\` in filters. Empty results are normal.
 EOF
 
 exit 0

@@ -1,9 +1,6 @@
 ---
 name: mem0-pin
-description: >
-  Pin a memory as high-priority and protect it from consolidation.
-  TRIGGER: user runs /mem0:pin <query or ID>, or says "pin this memory",
-  "mark as important", "always remember this".
+description: Pin a memory to protect it from consolidation
 ---
 
 # Mem0 Pin

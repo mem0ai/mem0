@@ -1,9 +1,6 @@
 ---
 name: mem0-health
-description: >
-  Run diagnostic checks on API key, MCP connection, and memory read/write.
-  TRIGGER: user runs /mem0:health, or asks "is mem0 working", "mem0 health",
-  "check mem0 connection", "debug mem0".
+description: Diagnose and verify your mem0 connection, API key, and memory read/write
 ---
 
 # Mem0 Health Check

@@ -1,9 +1,6 @@
 ---
 name: mem0-dream
-description: >
-  Consolidate memories — merge duplicates, flag contradictions, prune stale entries.
-  TRIGGER: user runs /mem0:dream, or asks "consolidate memories", "clean up memories",
-  "merge duplicate memories", "run dream".
+description: Consolidate memories merge duplicates, resolve contradictions, prune stale entries
 ---
 
 # Mem0 Dream — Memory Consolidation

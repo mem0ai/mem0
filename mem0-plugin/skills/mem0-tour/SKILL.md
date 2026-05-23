@@ -1,9 +1,6 @@
 ---
 name: mem0-tour
-description: >
-  Browse stored memories for this project, grouped by category.
-  TRIGGER: user runs /mem0:tour, or asks "what do you know about this project",
-  "show me my memories", "what has mem0 stored".
+description: Browse stored memories for this project, grouped by category
 ---
 
 # Mem0 Project Tour

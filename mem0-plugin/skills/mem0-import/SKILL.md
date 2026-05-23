@@ -1,9 +1,6 @@
 ---
 name: mem0-import
-description: >
-  Import memories from an export file into this project.
-  TRIGGER: user runs /mem0:import, or asks "import memories", "restore memories",
-  "load memories from file", "reimport backup".
+description: Import memories from an export file or competing tools into this project
 ---
 
 # Mem0 Import

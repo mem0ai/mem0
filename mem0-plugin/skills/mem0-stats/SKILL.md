@@ -1,9 +1,6 @@
 ---
 name: mem0-stats
-description: >
-  Show memory usage stats for this session and project.
-  TRIGGER: user runs /mem0:stats, or asks "how many memories", "mem0 stats",
-  "memory usage", "show memory count".
+description: Show memory usage stats for this session and project lifetime
 ---
 
 # Mem0 Stats

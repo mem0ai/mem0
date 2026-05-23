@@ -1,9 +1,6 @@
 ---
 name: mem0-remember
-description: >
-  Quick-save a memory verbatim from your input.
-  TRIGGER: user runs /mem0:remember <text>, or says "remember this", "save this",
-  "store this fact", "don't forget that".
+description: Save a memory verbatim from your input
 ---
 
 # Mem0 Remember

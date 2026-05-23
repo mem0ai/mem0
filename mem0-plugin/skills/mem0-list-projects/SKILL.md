@@ -1,9 +1,6 @@
 ---
 name: mem0-list-projects
-description: >
-  List all projects that have stored memories.
-  TRIGGER: user runs /mem0:list-projects, or asks "what projects does mem0 know",
-  "list my mem0 projects", "show all projects".
+description: List all projects that have stored memories
 ---
 
 # Mem0 List Projects

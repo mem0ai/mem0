@@ -1,9 +1,6 @@
 ---
 name: mem0-export
-description: >
-  Export all project memories to a portable Markdown file.
-  TRIGGER: user runs /mem0:export, or asks "export memories", "backup memories",
-  "download my memories", "save memories to file".
+description: Export all project memories to a portable Markdown file
 ---
 
 # Mem0 Export
