@@ -1,15 +1,15 @@
 ---
 name: onboard
-description: Set up mem0 for this project — config, categories, identity
+description: Set up mem0 for this project — API key setup, config, categories, identity
 ---
 
 # Mem0 Onboarding Wizard
 
-Run this wizard to set up the mem0 plugin for the current project. Complete in ~30 seconds.
+Run this wizard to set up the mem0 plugin for the current project. Complete in ~60 seconds.
 
 ## Step 0: Ensure mem0ai SDK is installed
 
-The plugin installs the `mem0ai` Python SDK automatically on session start via a venv in `${CLAUDE_PLUGIN_DATA}/venv`. If Step 4 (categories) fails with an import error, run:
+The plugin installs the `mem0ai` Python SDK automatically on session start via a venv in `${CLAUDE_PLUGIN_DATA}/venv`. If Step 5 (categories) fails with an import error, run:
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh"
@@ -17,25 +17,74 @@ The plugin installs the `mem0ai` Python SDK automatically on session start via a
 
 This is silent and idempotent — safe to run anytime.
 
-## Step 1: Verify API key and MCP connection
+## Step 1: Set up API key
 
-Check that mem0 MCP tools are available. Use ToolSearch with query `"mem0 search_memories"` — the exact tool name varies by install method (may be `mcp__mem0__search_memories` or `mcp__plugin_mem0_mem0__search_memories`).
+Check if `MEM0_API_KEY` is already set by running:
 
-- If **any mem0 search tool found**: Proceed to Step 2. The API key is working.
-- If **NOT found**: The MCP server failed to connect. Tell the user:
-  1. "MCP server not connected. Make sure `MEM0_API_KEY` is exported in your shell."
-  2. Show: `export MEM0_API_KEY="m0-your-key-here"` then restart Claude Code.
-  3. If they need a key: https://app.mem0.ai/dashboard/api-keys
-  4. **STOP here.** Do not proceed — all other steps need MCP tools.
+```bash
+echo $MEM0_API_KEY
+```
 
-## Step 2: Show identity
+### If API key IS set (non-empty output)
 
-Report the active identity to the user:
-- Call `search_memories` with `query="project setup"`, `user_id=<active_user_id>`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `limit=1` to verify connectivity.
-- Print: `Connected. user=<user_id>, project=<project_id>, branch=<branch>`
-- If the search fails, troubleshoot the API key.
+Print: `- API key found.` and proceed to Step 2.
 
-## Step 3: Detect and import project files
+### If API key is NOT set (empty output)
+
+Guide the user through API key setup. Show this message and walk them through it:
+
+```
+Step 1: Setting up API key.
+
+- MEM0_API_KEY not found. Let's set it up.
+
+  1. Get your API key from https://app.mem0.ai/dashboard/api-keys
+     (or run: mem0 init --agent --json)
+
+  2. Add to shell profile:
+     echo 'export MEM0_API_KEY="m0-your-key-here"' >> ~/.zshrc
+     source ~/.zshrc
+
+  3. Verify:
+     echo $MEM0_API_KEY
+     # Should print your key
+```
+
+After the user confirms they've set the key, verify it by running `echo $MEM0_API_KEY`. If still empty, repeat the instructions. If set, proceed to Step 2.
+
+## Step 2: MCP OAuth login
+
+Now authenticate the MCP server connection. Tell the user:
+
+```
+Step 2: MCP OAuth login.
+
+  1. Type /mcp in Claude Code
+  2. A browser window will open for authentication at mcp.mem0.ai
+  3. Log in with your mem0 account
+  4. Return here after authenticating in your browser
+```
+
+After the user completes OAuth, verify MCP tools are available using ToolSearch with query `"mem0 search_memories"`. The exact tool name varies by install method (may be `mcp__mem0__search_memories` or `mcp__plugin_mem0_mem0__search_memories`).
+
+- If MCP tools found: Print `- MCP connected.` and proceed to Step 3.
+- If NOT found: Tell the user to restart Claude Code and run `/mem0:onboard` again. **STOP here.**
+
+## Step 3: Verify connectivity and show identity
+
+Call `search_memories` with `query="project setup"`, `user_id=<active_user_id>`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `limit=1` to verify connectivity.
+
+Print:
+```
+- Connected
+  user:    <user_id>
+  project: <project_id>
+  branch:  <branch>
+```
+
+If the search fails, troubleshoot the API key and MCP connection.
+
+## Step 4: Detect and import project files
 
 Check for these files in the project root:
 1. `CLAUDE.md`
@@ -55,7 +104,7 @@ If user says yes (or default):
   - `metadata={"type": "project_profile", "file": "<filename>", "source": "onboard", "branch": "<active_branch>"}`
   - `infer=False`
 
-## Step 4: Install coding categories
+## Step 5: Install coding categories
 
 Ask: "Install coding categories optimized for development workflows? [Y/n]"
 
@@ -76,9 +125,7 @@ If the script fails with "mem0ai SDK not found", run the dependency installer fi
 ```
 Then retry the categories script.
 
-## Step 5: Mark project as onboarded
-
-The marker file is already created by `on_session_start.sh` on first display of the onboard prompt. Touch it here for idempotency:
+## Step 6: Mark project as onboarded
 
 ```bash
 _SAFE_PID=$(printf '%s' "<active_project_id>" | tr '/:' '--')
@@ -87,11 +134,11 @@ mkdir -p ~/.mem0 && touch ~/.mem0/.onboarded_${_SAFE_PID}
 
 This is silent — no user-facing output needed.
 
-## Step 6: Summary
+## Step 7: Summary
 
 Print a summary:
 ```
-Onboarding complete.
+- Onboarding complete.
   user_id:    <user_id>
   project_id: <project_id> (app_id)
   imported:   <N> files

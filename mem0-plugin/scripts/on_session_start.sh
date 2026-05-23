@@ -29,20 +29,61 @@ rm -f "/tmp/mem0_recent_reads_${USER}" 2>/dev/null || true
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
 
-# Skip bootstrap if no API key — still show banner but with "no key" status.
+MEM0_AUTH_MODE="api_key"
 if [ -z "${MEM0_API_KEY:-}" ]; then
-  echo "## Mem0 Inactive"
-  echo ""
-  echo "\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET\`"
-  echo ""
-  echo "Display this status line in your first response:"
-  echo ""
-  echo '```'
-  echo "Mem0 Inactive | user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET"
-  echo '```'
-  echo ""
-  echo "Set MEM0_API_KEY to enable persistent memory. Get a key at https://app.mem0.ai/dashboard/api-keys"
-  exit 0
+  _SAFE_PID=$(printf '%s' "${MEM0_PROJECT_ID:-unknown}" | tr '/:' '--')
+  _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${_SAFE_PID}"
+
+  if [ ! -f "$_ONBOARD_MARKER" ] && [ "${SOURCE:-startup}" = "startup" ]; then
+    # State 1: First run — trigger onboarding
+    cat <<BANNER
+## Mem0 — First Run Setup
+
+\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | auth=none\`
+
+IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):
+
+\`\`\`
+Mem0 Active | user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | auth=none
+\`\`\`
+
+BANNER
+    cat <<'EOF'
+## Mem0 First Run — Automatic Onboarding
+
+This is the first time mem0 is running for this project. You MUST run the onboarding wizard NOW before doing anything else.
+
+Execute the `/mem0:onboard` skill immediately. This will:
+1. Set up API key (get from dashboard, export to .zshrc, verify)
+2. MCP OAuth login (authenticate via browser at mcp.mem0.ai)
+3. Verify connectivity and show identity
+4. Detect and import project files (CLAUDE.md, AGENTS.md, .cursorrules, etc.)
+5. Install coding categories optimized for development
+6. Show a summary of what was set up
+
+Do NOT skip this. Do NOT ask the user if they want to onboard. Just run `/mem0:onboard` now.
+EOF
+    exit 0
+  elif [ -f "$_ONBOARD_MARKER" ]; then
+    # State 2: OAuth-authed — onboarded previously without API key
+    MEM0_AUTH_MODE="oauth"
+  else
+    # State 3: Not first startup, not onboarded — inactive
+    cat <<BANNER
+## Mem0 Inactive
+
+\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | auth=none\`
+
+IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):
+
+\`\`\`
+Mem0 Inactive | user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | auth=none
+\`\`\`
+
+Set MEM0_API_KEY to enable persistent memory. Get a key at https://app.mem0.ai/dashboard/api-keys or run \`/mem0:onboard\` to set up.
+BANNER
+    exit 0
+  fi
 fi
 
 # Check for failed dependency installation and warn the user
@@ -55,8 +96,9 @@ if [ -f "${_DATA_DIR}/.install-failed" ]; then
 fi
 
 # Fetch project-scoped memory count (best-effort, don't block on failure, 5s timeout)
+# Skip REST call when OAuth-authed — no API key to authenticate with
 MEM0_COUNT="?"
-if command -v python3 >/dev/null 2>&1; then
+if [ "$MEM0_AUTH_MODE" = "api_key" ] && command -v python3 >/dev/null 2>&1; then
   MEM0_COUNT=$(python3 -c "
 import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
@@ -87,18 +129,22 @@ fi
 # uses the same user_id the hooks resolved. Without this, the agent's
 # search_memories/add_memory MCP calls may bind to a different bucket
 # than what the hooks write to.
-echo "## Mem0 Active"
-echo ""
-echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT\`"
-echo ""
-echo "Display this status line in your first response:"
-echo ""
-echo '```'
-echo "Mem0 Active | user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT"
-echo '```'
-echo ""
-echo "Use \`user_id=$MEM0_RESOLVED_USER_ID\` and \`app_id=$MEM0_PROJECT_ID\` in all mem0 MCP calls."
-echo ""
+cat <<BANNER
+## Mem0 Active
+
+\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT | auth=$MEM0_AUTH_MODE\`
+
+IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):
+
+\`\`\`
+Mem0 Active | user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT
+\`\`\`
+
+Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:
+- user_id: \`$MEM0_RESOLVED_USER_ID\`
+- app_id: \`$MEM0_PROJECT_ID\` (project scope — passed as top-level \`app_id\`, NOT in metadata)
+
+BANNER
 
 # Load mem0.md project config if present (best-effort, non-blocking)
 MEM0_PROJECT_CONFIG=""

@@ -1,5 +1,5 @@
 ---
-name: mcp
+name: protocol
 description: Memory protocol — when to search, how to filter, what to store
 ---
 
