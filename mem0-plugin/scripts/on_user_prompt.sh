@@ -134,6 +134,8 @@ fi
 if [ -z "$RUBRIC_ALREADY_SHOWN" ]; then
   cat <<EOF
 Search mem0 when the user references past work, asks decision questions, hits errors, or starts non-trivial tasks. Skip for acknowledgements, new info (store instead), or pure factual questions.
+
+**Search tips:** Use noun-phrase queries, run 2-4 parallel calls with different \`metadata.type\` filters (decision, anti_pattern, user_preference, convention). Always include \`user_id\` + \`app_id\` in filters. Empty results are normal.
 EOF
   touch "$RUBRIC_FLAG" 2>/dev/null || true
 fi
@@ -141,10 +143,7 @@ fi
 if [ -n "$HAS_ERROR" ]; then
   cat <<EOF
 
-**ERROR DETECTED in prompt.** You SHOULD search mem0 for prior occurrences:
-- \`search_memories(query="<error class or message>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "anti_pattern"}}]})\`
-- \`search_memories(query="<module or file from stack trace>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "task_learning"}}]})\`
-This surfaces past debugging context and known failure modes.
+**ERROR DETECTED in prompt.** Search mem0 for prior occurrences — use \`anti_pattern\` and \`task_learning\` type filters with the error class or filename from the stack trace.
 EOF
 fi
 
@@ -152,16 +151,7 @@ if [ -n "$FILE_PATHS" ]; then
   cat <<EOF
 
 **FILE PATHS detected:** \`$FILE_PATHS\`
-Search mem0 for context about these files using the \`contains\` operator on \`metadata.files\`:
-- \`search_memories(query="<filename>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata.files": {"contains": "<filename>"}}]})\`
-- Also run a broader text search without the files filter as fallback:
-- \`search_memories(query="<filename without extension>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}]})\`
 EOF
 fi
-
-cat <<EOF
-
-**Search tips:** Use noun-phrase queries, run 2-4 parallel calls with different \`metadata.type\` filters (decision, anti_pattern, user_preference, convention). Always include \`user_id\` + \`app_id\` in filters. Empty results are normal.
-EOF
 
 exit 0

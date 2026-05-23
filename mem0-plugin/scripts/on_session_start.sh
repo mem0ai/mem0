@@ -130,7 +130,7 @@ First run for this project. Run `/mem0:onboard` now to import project files and 
 EOF
   else
     cat <<'EOF'
-Search mem0 for relevant project context before responding to the user's first message.
+Search mem0 for recent decisions and task learnings before responding to the user's first message. Run 2 parallel searches: one for `decision` type, one for `task_learning` type.
 EOF
   fi
 
@@ -156,12 +156,12 @@ MEMEOF
 
 elif [ "$SOURCE" = "resume" ]; then
   cat <<'EOF'
-Session resumed. Search mem0 for current task context before continuing.
+Session resumed. Search mem0 for `session_state` and `decision` memories to pick up where you left off. Run 2 parallel searches.
 EOF
 
 elif [ "$SOURCE" = "compact" ]; then
   cat <<'EOF'
-Context compacted. Search mem0 for `session_state` and `decision` memories to recover context.
+Context compacted. Search mem0 for `session_state` and `decision` memories to recover context. Run 2 parallel searches.
 EOF
 fi
 

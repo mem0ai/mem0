@@ -47,7 +47,7 @@ if [ -n "$REPORT" ]; then
 fi
 
 cat <<'EOF'
-If any notable decisions, patterns, anti-patterns, or preferences emerged, store them via `add_memory` with the appropriate `type`. Skip if nothing worth persisting.
+Store 0-2 durable facts from this turn via `add_memory` — only decisions, anti-patterns, or conventions that would help a future agent. Skip if nothing new was learned.
 EOF
 
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")

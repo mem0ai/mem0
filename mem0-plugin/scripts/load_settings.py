@@ -1,7 +1,6 @@
 """Load plugin settings from ~/.mem0/settings.json.
 
 Settings file is user-editable. Missing file or keys fall back to defaults.
-CLI config (~/.mem0/config.json) is also checked for API key as a fallback.
 """
 
 from __future__ import annotations
@@ -10,7 +9,6 @@ import json
 from pathlib import Path
 
 SETTINGS_PATH = Path.home() / ".mem0" / "settings.json"
-CLI_CONFIG_PATH = Path.home() / ".mem0" / "config.json"
 
 DEFAULTS = {
     "auto_save": True,
@@ -35,18 +33,6 @@ def load_settings() -> dict:
         except (json.JSONDecodeError, OSError):
             pass
     return settings
-
-
-def load_api_key_from_cli_config() -> str:
-    if not CLI_CONFIG_PATH.exists():
-        return ""
-    try:
-        with open(CLI_CONFIG_PATH) as f:
-            data = json.load(f)
-        platform = data.get("platform", {})
-        return platform.get("api_key", "") or platform.get("apiKey", "")
-    except (json.JSONDecodeError, OSError):
-        return ""
 
 
 def create_default_settings() -> None:

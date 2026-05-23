@@ -190,5 +190,6 @@ def test_resolve_api_key_returns_empty_when_neither_set(monkeypatch):
     from _identity import resolve_api_key
 
     monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", raising=False)
     assert resolve_api_key() == ""

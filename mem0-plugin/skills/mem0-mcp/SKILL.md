@@ -93,9 +93,9 @@ When you do search, run **2–4 parallel** `search_memories` calls at different 
 
 **Metadata filters** match the same `type` values written under "After completing significant work" below.
 
-Two rules from the v2 filter spec:
+Filter rules:
 
-1. The root **must** be a logical operator (`AND` / `OR` / `NOT`) with an array. A bare `{"user_id": "..."}` won't work.
+1. Prefer `AND` / `OR` / `NOT` operators at the root. A bare `{"user_id": "..."}` works as shorthand but cannot combine multiple fields.
 2. Metadata uses a **nested** object, not a dotted key. `{"metadata": {"type": "decision"}}`, never `{"metadata.type": "decision"}`. Only top-level metadata keys are filterable.
 
 Combine `user_id` + `app_id` with one metadata clause per call:

@@ -25,7 +25,7 @@ Check that mem0 MCP tools are available. Use ToolSearch with query `"mem0 search
 - If **NOT found**: The MCP server failed to connect. Tell the user:
   1. "MCP server not connected. Make sure `MEM0_API_KEY` is exported in your shell."
   2. Show: `export MEM0_API_KEY="m0-your-key-here"` then restart Claude Code.
-  3. If they need a key: https://app.mem0.ai/dashboard/api-keys or `mem0 init --agent --json`
+  3. If they need a key: https://app.mem0.ai/dashboard/api-keys
   4. **STOP here.** Do not proceed — all other steps need MCP tools.
 
 ## Step 2: Show identity

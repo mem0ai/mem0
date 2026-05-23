@@ -46,14 +46,13 @@ def _run_hook(prompt: str, env_overrides: dict | None = None, session_id: str = 
 def test_first_prompt_gets_full_rubric():
     """First substantial prompt of session gets full memory check rubric."""
     output = _run_hook("How should we refactor the auth module?")
-    assert "Memory check" in output
-    assert "Search WHEN" in output
-    assert "Skip WHEN" in output
+    assert "Search mem0" in output
+    assert "Search tips" in output
+    assert "metadata.type" in output
 
 
-def test_second_prompt_gets_minimal_output():
-    """Second prompt of session skips full rubric."""
+def test_second_prompt_gets_no_rubric():
+    """Second prompt of session emits nothing — rubric and tips only on first prompt."""
     _run_hook("How should we refactor the auth module?")
     output = _run_hook("What about the database layer?")
-    assert "Search WHEN" not in output
-    assert "Skip WHEN" not in output
+    assert output.strip() == ""

@@ -4,7 +4,6 @@ API key resolution (first non-empty wins):
   1. MEM0_API_KEY env var (explicit / shell profile)
   2. CLAUDE_PLUGIN_OPTION_API_KEY (set by `claude plugin configure mem0`)
   3. CLAUDE_PLUGIN_OPTION_MEM0_API_KEY (legacy userConfig)
-  4. ~/.mem0/config.json platform.api_key (from mem0 CLI)
 
 User ID resolution:
   1. MEM0_USER_ID env var (explicit override)
@@ -29,11 +28,7 @@ def resolve_api_key() -> str:
     key = os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", "").strip()
     if key:
         return key
-    try:
-        from load_settings import load_api_key_from_cli_config
-        return load_api_key_from_cli_config()
-    except ImportError:
-        return ""
+    return ""
 
 
 def resolve_user_id() -> str:

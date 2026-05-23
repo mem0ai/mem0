@@ -4,13 +4,12 @@
 #   1. MEM0_API_KEY env var (explicit / shell profile)
 #   2. CLAUDE_PLUGIN_OPTION_API_KEY (set by `claude plugin configure mem0`)
 #   3. CLAUDE_PLUGIN_OPTION_MEM0_API_KEY (legacy userConfig)
-#   4. ~/.mem0/config.json platform.api_key (from mem0 CLI)
 #
 # Settings: ~/.mem0/settings.json (user-editable, falls back to defaults)
 
 _SCRIPT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd )"
 
-# Resolve API key: env var > userConfig > CLI config
+# Resolve API key: env var > userConfig
 if [ -z "${MEM0_API_KEY:-}" ] && [ -n "${CLAUDE_PLUGIN_OPTION_API_KEY:-}" ]; then
   MEM0_API_KEY="$CLAUDE_PLUGIN_OPTION_API_KEY"
   export MEM0_API_KEY
@@ -18,13 +17,6 @@ fi
 if [ -z "${MEM0_API_KEY:-}" ] && [ -n "${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-}" ]; then
   MEM0_API_KEY="$CLAUDE_PLUGIN_OPTION_MEM0_API_KEY"
   export MEM0_API_KEY
-fi
-if [ -z "${MEM0_API_KEY:-}" ] && command -v python3 >/dev/null 2>&1; then
-  _CLI_KEY=$(PYTHONPATH="$_SCRIPT_DIR" python3 -c "from load_settings import load_api_key_from_cli_config; print(load_api_key_from_cli_config())" 2>/dev/null || echo "")
-  if [ -n "$_CLI_KEY" ]; then
-    MEM0_API_KEY="$_CLI_KEY"
-    export MEM0_API_KEY
-  fi
 fi
 
 _mem0_resolve_identity() {

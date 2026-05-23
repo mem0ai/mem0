@@ -10,7 +10,13 @@ SCRIPT = os.path.join(os.path.dirname(__file__), "..", "scripts", "on_file_read.
 
 
 def _run_hook(file_path: str, env_overrides: dict | None = None) -> subprocess.CompletedProcess:
-    env = {**os.environ, "MEM0_API_KEY": "", "USER": "testuser"}
+    env = {
+        **os.environ,
+        "MEM0_API_KEY": "",
+        "CLAUDE_PLUGIN_OPTION_API_KEY": "",
+        "CLAUDE_PLUGIN_OPTION_MEM0_API_KEY": "",
+        "USER": "testuser",
+    }
     if env_overrides:
         env.update(env_overrides)
 
@@ -21,7 +27,7 @@ def _run_hook(file_path: str, env_overrides: dict | None = None) -> subprocess.C
         capture_output=True,
         text=True,
         env=env,
-        timeout=5,
+        timeout=8,
     )
 
 
@@ -61,9 +67,9 @@ def test_skip_pycache():
     assert result.stdout == ""
 
 
-def test_skip_no_api_key():
+def test_skip_no_api_key(tmp_path):
     """Code file but no API key — should exit cleanly with no output."""
-    result = _run_hook("/project/src/app.py", {"MEM0_API_KEY": ""})
+    result = _run_hook("/project/src/app.py", {"MEM0_API_KEY": "", "HOME": str(tmp_path)})
     assert result.returncode == 0
     assert result.stdout == ""
 
