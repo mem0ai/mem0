@@ -22,6 +22,7 @@ from mem0.configs.prompts import (
 )
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
+from mem0.memory.clustering import cluster_memories, resolve_cluster_kwargs
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
@@ -1131,6 +1132,10 @@ class Memory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        expand_clusters: bool = False,
+        cluster_threshold: Optional[float] = None,
+        cluster_top_k_multiplier: Optional[int] = None,
+        cluster_max_size: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -1139,6 +1144,8 @@ class Memory(MemoryBase):
         Args:
             query (str): Query to search for.
             top_k (int, optional): Maximum number of results to return. Defaults to 20.
+                When `expand_clusters=True`, this is the maximum number of
+                *clusters*; cluster siblings are returned in addition.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
@@ -1161,10 +1168,32 @@ class Memory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            expand_clusters (bool, optional): Opt-in. When True, related
+                memories returned for the query are grouped into clusters
+                and the full cluster (primary + siblings, including older
+                facts that share an entity/attribute with the primary) is
+                surfaced. Useful for resolving time-sensitive attributes
+                (current employer, address, status, ...) at read time
+                without modifying any stored memory.
+                See `mem0/memory/clustering.py`. Defaults to False.
+            cluster_threshold (float, optional): Cosine similarity required
+                for a candidate to join a cluster's anchor. Only used
+                when `expand_clusters=True`. Default 0.85.
+            cluster_top_k_multiplier (int, optional): How much wider to
+                fetch from the vector store before clustering (final pool
+                size = top_k * multiplier). Only used when
+                `expand_clusters=True`. Default 3.
+            cluster_max_size (int, optional): Cap on cluster size. Older
+                siblings beyond this limit are not surfaced for this query
+                (they remain stored). Only used when
+                `expand_clusters=True`. Default 5.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
+                  When `expand_clusters=True`, each result dict also includes:
+                  `cluster_id` (str), `cluster_size` (int), and
+                  `cluster_role` ("primary" | "sibling").
 
         Raises:
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
@@ -1175,6 +1204,14 @@ class Memory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+
+        # Validate cluster params up-front (only when expand_clusters=True).
+        cluster_kwargs = resolve_cluster_kwargs(
+            expand_clusters=expand_clusters,
+            cluster_threshold=cluster_threshold,
+            cluster_top_k_multiplier=cluster_top_k_multiplier,
+            cluster_max_size=cluster_max_size,
+        )
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -1197,6 +1234,10 @@ class Memory(MemoryBase):
             )
 
         limit = top_k
+        # When expanding clusters, over-fetch from the vector store so we
+        # have a pool wide enough to surface siblings.
+        if expand_clusters:
+            limit = top_k * cluster_kwargs["top_k_multiplier"]
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if self._has_advanced_operators(effective_filters):
@@ -1221,6 +1262,7 @@ class Memory(MemoryBase):
                 "sync_type": "sync",
                 "threshold": threshold,
                 "advanced_filters": bool(filters and self._has_advanced_operators(filters)),
+                "expand_clusters": expand_clusters,
             },
         )
 
@@ -1233,6 +1275,16 @@ class Memory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
+
+        # Apply cluster expansion last so it sees the final ranking.
+        if expand_clusters and original_memories:
+            original_memories = cluster_memories(
+                original_memories,
+                embed_batch=lambda texts: self.embedding_model.embed_batch(texts, "search"),
+                top_k=top_k,
+                threshold=cluster_kwargs["threshold"],
+                max_cluster_size=cluster_kwargs["max_cluster_size"],
+            )
 
         return {"results": original_memories}
 
@@ -2546,6 +2598,10 @@ class AsyncMemory(MemoryBase):
         filters: Optional[Dict[str, Any]] = None,
         threshold: float = 0.1,
         rerank: bool = False,
+        expand_clusters: bool = False,
+        cluster_threshold: Optional[float] = None,
+        cluster_top_k_multiplier: Optional[int] = None,
+        cluster_max_size: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -2554,6 +2610,8 @@ class AsyncMemory(MemoryBase):
         Args:
             query (str): Query to search for.
             top_k (int, optional): Maximum number of results to return. Defaults to 20.
+                When `expand_clusters=True`, this is the maximum number of
+                *clusters*; cluster siblings are returned in addition.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
@@ -2576,10 +2634,25 @@ class AsyncMemory(MemoryBase):
                 - {"NOT": [filter1]} - logical NOT
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
+            expand_clusters (bool, optional): Opt-in. When True, related
+                memories returned for the query are grouped into clusters
+                and the full cluster (primary + siblings) is surfaced.
+                See the sync `Memory.search` docstring for full semantics.
+                Defaults to False.
+            cluster_threshold (float, optional): Cosine similarity required
+                for a candidate to join a cluster's anchor. Default 0.85.
+            cluster_top_k_multiplier (int, optional): Vector-store
+                over-fetch multiplier (final pool = top_k * multiplier).
+                Default 3.
+            cluster_max_size (int, optional): Cap on cluster size.
+                Default 5.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
+                  When `expand_clusters=True`, each result dict also includes:
+                  `cluster_id` (str), `cluster_size` (int), and
+                  `cluster_role` ("primary" | "sibling").
 
         Raises:
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
@@ -2590,6 +2663,14 @@ class AsyncMemory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+
+        # Validate cluster params up-front (only when expand_clusters=True).
+        cluster_kwargs = resolve_cluster_kwargs(
+            expand_clusters=expand_clusters,
+            cluster_threshold=cluster_threshold,
+            cluster_top_k_multiplier=cluster_top_k_multiplier,
+            cluster_max_size=cluster_max_size,
+        )
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -2614,6 +2695,9 @@ class AsyncMemory(MemoryBase):
             )
 
         limit = top_k
+        # Over-fetch when expanding clusters.
+        if expand_clusters:
+            limit = top_k * cluster_kwargs["top_k_multiplier"]
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if self._has_advanced_operators(effective_filters):
@@ -2638,6 +2722,7 @@ class AsyncMemory(MemoryBase):
                 "sync_type": "async",
                 "threshold": threshold,
                 "advanced_filters": bool(filters and self._has_advanced_operators(filters)),
+                "expand_clusters": expand_clusters,
             },
         )
 
@@ -2653,6 +2738,21 @@ class AsyncMemory(MemoryBase):
                 original_memories = reranked_memories
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
+
+        # Apply cluster expansion last. The embedding model's `embed_batch`
+        # is synchronous; run it in a thread to avoid blocking the loop.
+        if expand_clusters and original_memories:
+            def _embed_batch(texts):
+                return self.embedding_model.embed_batch(texts, "search")
+
+            original_memories = await asyncio.to_thread(
+                cluster_memories,
+                original_memories,
+                embed_batch=_embed_batch,
+                top_k=top_k,
+                threshold=cluster_kwargs["threshold"],
+                max_cluster_size=cluster_kwargs["max_cluster_size"],
+            )
 
         return {"results": original_memories}
 
