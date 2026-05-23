@@ -66,17 +66,15 @@ This file is created by the SessionStart hook and updated by PostToolUse hooks t
 ### Display
 
 ```
-## mem0 Health Check
+## mem0 health
 
-| Check              | Status | Detail                        |
-|--------------------|--------|-------------------------------|
-| API Key            | PASS   | m0-dVe...                     |
-| Identity           | PASS   | user=kartik, project=mem0     |
-| MCP Connectivity   | PASS   | 142ms round-trip              |
-| Memory Write/Read  | PASS   | write + delete OK             |
-| Session Tracker    | PASS   | stats file active             |
+PASS  API Key          m0-dVe...
+PASS  Identity         user=kartik, project=mem0, branch=main
+PASS  MCP Connection   142ms
+PASS  Write/Read       write + delete OK
+PASS  Session Tracker  stats file active
 
-All checks passed. mem0 is healthy.
+All checks passed.
 ```
 
 If any check fails, add a `## Troubleshooting` section with specific fix steps for each failure.
@@ -135,14 +133,11 @@ Untagged/orphan memories: <N>
 
 ```
 ## Memory Quality
-| Metric         | Count | Action                          |
-|----------------|-------|---------------------------------|
-| Duplicates     | <N>   | Run /mem0:dream to merge        |
-| Stale          | <N>   | Run /mem0:dream to prune        |
-| Contradictions | <N>   | Run /mem0:dream to resolve      |
-| Orphans        | <N>   | Consider retagging via MCP      |
+
+Duplicates: <N> · Stale: <N> · Contradictions: <N> · Orphans: <N>
 ```
 
-If all counts are 0: `Memory quality: clean. No duplicates, stale entries, or contradictions found.`
+If all counts are 0: `Memory quality: clean.`
+If any non-zero: append `Run /mem0:dream to fix.`
 
 To fix issues found by `--deep`, run `/mem0:dream` for automated consolidation (merges, prunes, conflict resolution).

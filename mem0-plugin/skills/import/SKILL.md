@@ -137,10 +137,7 @@ Tools: `cursorrules`, `copilot`, `cline`, `continue`.
 ### T4: Report
 
 ```
-Import complete.
-  Cursor:  <N> memories
-  Copilot: <N> memories
-  Total:   <N> memories imported into project <project_id>
+Imported <N> memories into <project_id> (cursor: <N>, copilot: <N>)
 ```
 
 Notes: `infer=False`, tagged `metadata.source=<tool>-import`, sections <50 chars

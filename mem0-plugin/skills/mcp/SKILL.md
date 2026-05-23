@@ -73,7 +73,7 @@ After receiving search results, scan for contradictions before using them:
 1. If 2+ results address the **same topic** (same `metadata.type`, overlapping file paths or entity names) but assert **opposing facts**, surface BOTH to the user instead of silently picking one.
 2. Format:
    ```
-   ⚠️ Conflicting memories found:
+   Conflicting memories:
    - [mem0:<id1>] "<content1>" (confidence: <score1>, <date1>)
    - [mem0:<id2>] "<content2>" (confidence: <score2>, <date2>)
    Which is current?

@@ -18,18 +18,14 @@ When invoked with `--all-projects` (e.g., `/mem0:tour --all-projects` or
 3. Group results by `app_id` first, then by category within each project.
 4. Display:
    ```
-   ## Cross-Project Tour for <user_id>
-
-   ### <app_id_1> (<N> memories)
-   #### Architecture Decisions
-   - <memory content>
+   ## <app_id_1> (<N> memories) ← current
+   **Architecture Decisions** — <memory content>
    ...
 
-   ### <app_id_2> (<N> memories)
+   ## <app_id_2> (<N> memories)
    ...
 
-   ---
-   Total: <N> memories across <M> projects
+   <N> memories across <M> projects
    ```
 5. Mark the current project with `← (current)` in the heading.
 
@@ -122,9 +118,7 @@ For groups with zero results, skip them entirely — don't print empty groups.
 ### Step 5: Print totals
 
 ```
----
-Total: <N> unique memories across <M> categories for project <project_id>
-Branch: <active_branch>
+<N> memories across <M> categories — project: <project_id>, branch: <active_branch>
 ```
 
 ### Step 6: Empty state

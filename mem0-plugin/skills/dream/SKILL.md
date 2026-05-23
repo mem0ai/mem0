@@ -105,26 +105,18 @@ Print a structured diff to the terminal before making any changes. Use exactly
 this format:
 
 ```
-## Dream — Memory Consolidation Report
+## dream — consolidation report
 
-### Merge proposals (<N> pairs)
-MERGE [mem0:<id1>] + [mem0:<id2>] → NEW
-  - Original 1: "<content of memory 1, truncated to 120 chars>"
-  - Original 2: "<content of memory 2, truncated to 120 chars>"
-  - Merged:     "<drafted merged content>"
+Merges (<N>):
+  [mem0:<id1>] + [mem0:<id2>] → "<merged content, 100 chars>"
 
-### Contradictions (<N> pairs)
-CONFLICT [mem0:<idA>] vs [mem0:<idB>]
-  - A: "<content>" (<created_at date>, confidence: <score>)
-  - B: "<content>" (<created_at date>, confidence: <score>)
-  Which is current? [A/B/skip]
+Conflicts (<N>):
+  [mem0:<idA>] vs [mem0:<idB>] — "<topic>" [A/B/skip]
 
-### Prune candidates (<N> memories)
-PRUNE [mem0:<id>] — <metadata.type>, <age>d old (policy: <policy_days>d)
+Prune (<N>):
+  [mem0:<id>] — <type>, <age>d old
 
----
-Proposed: <N> merges, <N> prunes, <N> conflicts
-Apply? [Y/n]
+Proposed: <N> merges, <N> prunes, <N> conflicts. Apply? [Y/n]
 ```
 
 If there are zero items in any category, omit that section entirely.
@@ -195,10 +187,7 @@ For each prune candidate:
 After all changes are applied, print:
 
 ```
-Dream complete.
-  Merged:  <N> pairs → <N> new memories
-  Pruned:  <N> memories deleted
-  Flagged: <N> contradictions resolved, <N> skipped
+Dream complete — merged: <N>, pruned: <N>, conflicts resolved: <N>, skipped: <N>
 ```
 
 ---

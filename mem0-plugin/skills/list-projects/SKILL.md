@@ -36,31 +36,19 @@ For each project, count:
 ### Step 3: Display
 
 ```
-## mem0 Projects for <user_id>
+## mem0 projects
 
-| Project | Memories | Last Active | Top Categories |
-|---------|----------|-------------|---------------|
-| <app_id_1> | <count> | <date> | decision, convention, anti_pattern |
-| <app_id_2> | <count> | <date> | task_learning, environmental |
-| ... | | | |
+  <app_id_1>  <count> memories  (last: <date>) ← current
+  <app_id_2>  <count> memories  (last: <date>)
 
-Active project: <current_project_id> ← (current)
-Total: <N> projects, <M> total memories
+<N> projects, <M> total memories
 ```
 
-Mark the current project with `← (current)`.
+Mark current project with `← current`. Sort by memory count descending.
 
 ### Step 4: Empty state
 
 If zero memories found:
 ```
-No projects found for user <user_id>.
-Run /mem0:onboard in a project directory to get started.
-```
-
-### Step 5: Suggest next actions
-
-```
-Switch project: /mem0:switch-project <name>
-Browse memories: /mem0:tour
+No projects found. Run /mem0:onboard to get started.
 ```

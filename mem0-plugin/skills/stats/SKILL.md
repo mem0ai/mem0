@@ -38,58 +38,36 @@ Also run a `search_memories` call with `query="project"`, `limit=1` to measure r
 
 ### Step 3: Display
 
-Print a compact dashboard with an ASCII histogram for category distribution:
+Print a minimal dashboard. No ASCII bar charts — use a clean table layout:
 
 ```
-## mem0 Stats
+## mem0 stats
 
-### This Session
-  Memories written:  <N>
-  Searches run:      <N>
-  Categories touched: <list>
+**Session** — 3 written, 5 searches, categories: decision, convention
 
-### Project Lifetime (<project_id>)
-  Total memories:    <N>
+**Project: my-project** — 55 memories, API: 84ms
 
-  By category:
-    decision          ████████████████ 24
-    convention        ██████████░░░░░░ 15
-    anti_pattern      ████░░░░░░░░░░░░  6
-    task_learning     ███░░░░░░░░░░░░░  5
-    user_preference   ██░░░░░░░░░░░░░░  3
-    session_state     █░░░░░░░░░░░░░░░  2
+| Category             | Count |
+|----------------------|-------|
+| decision             |    24 |
+| convention           |    15 |
+| anti_pattern         |     6 |
+| task_learning        |     5 |
+| user_preference      |     3 |
+| session_state        |     2 |
 
-  By age:
-    < 7 days          ████████████████  5
-    7–30 days         ██████████░░░░░░ 12
-    30–90 days        ████░░░░░░░░░░░░ 10
-    > 90 days         ██░░░░░░░░░░░░░░  8
+**Age** — oldest: 2026-02-15, newest: 2026-05-23
+  < 7 days: 5 · 7–30d: 12 · 30–90d: 10 · > 90d: 8
 
-  By access count:
-    Never accessed    ████████████████ 18
-    1–5 accesses      ████████░░░░░░░░ 10
-    6–20 accesses     ████░░░░░░░░░░░░  4
-    20+ accesses      █░░░░░░░░░░░░░░░  3
-
-  Oldest memory:     <date>
-  Newest memory:     <date>
-
-### Health
-  API latency:       <N>ms
-  User:              <user_id>
-  Project:           <project_id>
-  Branch:            <branch>
+**Identity** — user: kartik · project: my-project · branch: main
 ```
 
-**Histogram rules:**
-- Max bar width: 16 characters. Scale all bars relative to the highest count.
-- Use `█` for filled and `░` for empty. Right-align the count number.
-- Sort categories by count descending. Omit categories with 0 memories.
-- If only 1-2 categories exist, still show the histogram — it provides visual context.
-- **Age buckets:** Compute from `created_at`. Buckets: <7d, 7–30d, 30–90d, >90d.
-- **Access count buckets:** Read `metadata.access_count` (default 0 if absent). Buckets: 0, 1–5, 6–20, 20+.
-
-Skip any section with zero data.
+**Display rules:**
+- Category table: sort by count descending, omit categories with 0 memories
+- Age: single line with dot-separated buckets, computed from `created_at`
+- Session line: skip if no session data available
+- If only 1-2 total memories, skip the category table — just show the count
+- Keep everything compact — no decorative borders or filler
 
 ## Weekly digest mode
 
@@ -113,19 +91,18 @@ Calculate: memories added last 7 days, most active categories, most active day.
 Append after the standard stats:
 
 ```
-### Weekly Digest (<start_date> to <today>)
+### This week (May 16 – May 23)
 
-New Memories This Week: <N>
-  <category>: <count>
-    - <memory summary, 80 chars> (<date>)
-    - ...
++12 memories — most active: Wednesday (5)
 
-Activity Pattern
-  Most active day: <day> (<N> memories)
-  Categories touched: <list>
+| Category      | New |
+|---------------|-----|
+| decision      |   5 |
+| task_learning |   4 |
+| bug_fix       |   3 |
 
-Highlights
-  <2-3 sentence summary of most important decisions/learnings this week>
+**Highlights**
+- <2-3 sentence summary of most important decisions/learnings this week>
 ```
 
 ### W4: Write digest file
@@ -140,6 +117,5 @@ Write to `~/.mem0/weekly-digest.md` (overwrite). Append one-line to
 
 If no new memories in 7 days:
 ```
-No new memories in the past week for <project_id>.
-Total project memories: <N>.
+No new memories in the past week. Total: <N> memories in <project_id>.
 ```
