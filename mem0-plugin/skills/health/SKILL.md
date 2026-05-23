@@ -1,10 +1,6 @@
 ---
-name: mem0-health
-description: >
-  Diagnostic health check for the mem0 plugin. Verifies API key, MCP server
-  connectivity, identity resolution, and memory read/write capability.
-  TRIGGER: user runs /mem0:health, or asks "is mem0 working", "mem0 health",
-  "check mem0 connection", "debug mem0".
+name: health
+description: Diagnose mem0 connection, API key, and memory read/write
 ---
 
 # Mem0 Health Check
@@ -70,26 +66,22 @@ This file is created by the SessionStart hook and updated by PostToolUse hooks t
 ### Display
 
 ```
-## mem0 Health Check
+## mem0 health
 
-| Check              | Status | Detail                        |
-|--------------------|--------|-------------------------------|
-| API Key            | PASS   | m0-dVe...                     |
-| Identity           | PASS   | user=kartik, project=mem0     |
-| MCP Connectivity   | PASS   | 142ms round-trip              |
-| Memory Write/Read  | PASS   | write + delete OK             |
-| Session Tracker    | PASS   | stats file active             |
+PASS  API Key          m0-dVe...
+PASS  Identity         user=kartik, project=mem0, branch=main
+PASS  MCP Connection   142ms
+PASS  Write/Read       write + delete OK
+PASS  Session Tracker  stats file active
 
-All checks passed. mem0 is healthy.
+All checks passed.
 ```
 
 If any check fails, add a `## Troubleshooting` section with specific fix steps for each failure.
 
 ## Extended mode: Memory Quality Analysis
 
-When invoked with `--deep` (e.g., `/mem0:health --deep`) or `--fix` (e.g., `/mem0:health --fix`), run the standard 5 checks above **plus** a memory quality scan.
-
-`--fix` implies `--deep` and automatically applies safe fixes after showing the analysis (see bottom of this section).
+When invoked with `--deep` (e.g., `/mem0:health --deep`), run the standard 5 checks above **plus** a memory quality scan.
 
 ### Quality Check 1: Duplicates
 
@@ -141,31 +133,11 @@ Untagged/orphan memories: <N>
 
 ```
 ## Memory Quality
-| Metric         | Count | Action                          |
-|----------------|-------|---------------------------------|
-| Duplicates     | <N>   | Run /mem0:dream to merge        |
-| Stale          | <N>   | Run /mem0:dream to prune        |
-| Contradictions | <N>   | Run /mem0:dream to resolve      |
-| Orphans        | <N>   | Consider retagging via MCP      |
+
+Duplicates: <N> · Stale: <N> · Contradictions: <N> · Orphans: <N>
 ```
 
-If all counts are 0: `Memory quality: clean. No duplicates, stale entries, or contradictions found.`
+If all counts are 0: `Memory quality: clean.`
+If any non-zero: append `Run /mem0:dream to fix.`
 
-### Auto-fix mode (`--fix`)
-
-When `--fix` is passed, apply these safe fixes automatically after displaying the quality summary:
-
-1. **Orphans:** For each untagged memory, infer a `metadata.type` from content and call `update_memory` to set it. If inference is uncertain, skip.
-2. **Stale `session_state`/`compact_summary` > 90d:** Delete them via `delete_memory`. These are ephemeral by design.
-3. **Duplicates:** Do NOT auto-merge — print "Run `/mem0:dream` to merge duplicates" instead.
-4. **Contradictions:** Do NOT auto-resolve — print "Run `/mem0:dream` to resolve contradictions" instead.
-5. **Low-confidence < 0.3 AND > 30d old:** Delete them via `delete_memory`.
-
-Print a summary of actions taken:
-
-```
-## Auto-fix Results
-  Deleted: <N> stale, <N> low-confidence
-  Retagged: <N> orphans
-  Skipped: <N> duplicates (use /mem0:dream), <N> contradictions (use /mem0:dream)
-```
+To fix issues found by `--deep`, run `/mem0:dream` for automated consolidation (merges, prunes, conflict resolution).

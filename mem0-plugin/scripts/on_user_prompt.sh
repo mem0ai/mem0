@@ -29,6 +29,20 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
 
+# Rubric dedup: only inject full rubric once per session.
+# Key on session ID (from stdin JSON) to avoid cross-session interference.
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
+RUBRIC_DIR="${MEM0_RUBRIC_DIR:-/tmp}"
+if [ -n "$SESSION_ID" ]; then
+  RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_${SESSION_ID}"
+else
+  RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_injected_${USER}"
+fi
+RUBRIC_ALREADY_SHOWN=""
+if [ -f "$RUBRIC_FLAG" ]; then
+  RUBRIC_ALREADY_SHOWN="true"
+fi
+
 # Detect stack traces and error patterns in the prompt (no API needed)
 HAS_ERROR=""
 if echo "$PROMPT" | grep -qE '(Traceback|panic:)'; then
@@ -42,10 +56,24 @@ fi
 # Detect file paths in the prompt (no API needed)
 FILE_PATHS=$(echo "$PROMPT" | grep -oE '([a-zA-Z0-9_./-]+\.(py|ts|tsx|js|jsx|rs|go|rb|java|sh|yaml|yml|json|toml|md|sql|css|html))\b' 2>/dev/null | head -5 || echo "")
 
+# Detect session-resume patterns
+HAS_RESUME=""
+if echo "$PROMPT" | grep -qiE '(where (did )?(we|I) (leave|left) off|continue (from )?(where|last)|what were we (working|doing)|pick up where|resume (from |where)|what.s the (current|latest) (state|status)|catch me up|where are we)'; then
+  HAS_RESUME="true"
+fi
+
+# Detect explicit memory-save intent
+HAS_REMEMBER=""
+if echo "$PROMPT" | grep -qiE '(remember (this|that)|save (this|that) (fact|info|memory|note)|store (this|that)|don.t forget (this|that)|keep (this|that) in (mind|memory))'; then
+  HAS_REMEMBER="true"
+fi
+
 # Telemetry (background, fire-and-forget)
 _TELEM_ARGS=""
 [ -n "$HAS_ERROR" ] && _TELEM_ARGS="$_TELEM_ARGS --error_detected"
 [ -n "$FILE_PATHS" ] && _TELEM_ARGS="$_TELEM_ARGS --file_paths_detected"
+[ -n "$HAS_RESUME" ] && _TELEM_ARGS="$_TELEM_ARGS --resume_detected"
+[ -n "$HAS_REMEMBER" ] && _TELEM_ARGS="$_TELEM_ARGS --remember_detected"
 python3 "$SCRIPT_DIR/telemetry.py" user_prompt $_TELEM_ARGS 2>/dev/null &
 
 # No API key — emit detections only, skip search rubric
@@ -60,33 +88,62 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
 fi
 USER_ID="$MEM0_RESOLVED_USER_ID"
 
-cat <<EOF
-## Memory check
+if [ -n "$HAS_RESUME" ]; then
+  RESUME_RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" python3 -c "
+import os, sys
+sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
+from _search import search_memories, format_results_for_context
 
-Before responding, decide whether persistent memory context from mem0 would
-improve your answer. The agent -- not this hook -- owns this decision.
+api_key = os.environ.get('MEM0_API_KEY', '')
+user_id = os.environ.get('MEM0_SEARCH_USER', 'default')
+project_id = os.environ.get('MEM0_PROJECT_ID', 'unknown')
 
-**Search WHEN** the user:
-- references past work, decisions, or things "we" built
-- asks "how should we...", "best way to...", or any decision-style question
-- hits an error, bug, or asks for debugging help
-- requests work that touches their stack, tools, conventions, or preferences
-- starts a non-trivial task in a known project
+state = search_memories(api_key, user_id, project_id, 'session state current task', metadata_type='session_state', top_k=3)
+decisions = search_memories(api_key, user_id, project_id, 'recent decisions and learnings', metadata_type='decision', top_k=3)
 
-**Skip WHEN:**
-- the prompt is an acknowledgement or continuation
-- the user is *stating* new info -- that's a write trigger (\`add_memory\`), not a search
-- it's a pure syntax / factual question answerable from general knowledge
-- you already searched this scope earlier in the turn
+all_r = state + decisions
+seen = set()
+unique = []
+for m in all_r:
+    mid = m.get('id', '')
+    if mid not in seen:
+        seen.add(mid)
+        unique.append(m)
+
+if unique:
+    print(format_results_for_context(unique, heading='Session context recovered from mem0'))
+    print()
+    print('Use these memories to resume work. Do NOT ask the user to repeat context that is already in these memories.')
+else:
+    print('No session state found in mem0. Ask the user what they want to continue.')
+" 2>/dev/null || echo "")
+
+  if [ -n "$RESUME_RESULTS" ]; then
+    echo ""
+    echo "$RESUME_RESULTS"
+  fi
+fi
+
+if [ -n "$HAS_REMEMBER" ]; then
+  cat <<'REMEMBER_EOF'
+
+**Remember intent detected.** Use `/mem0:remember` (not raw `add_memory`) — it auto-classifies, sets confidence=1.0, and stores verbatim.
+REMEMBER_EOF
+fi
+
+if [ -z "$RUBRIC_ALREADY_SHOWN" ]; then
+  cat <<EOF
+Search mem0 when the user references past work, asks decision questions, hits errors, or starts non-trivial tasks. Skip for acknowledgements, new info (store instead), or pure factual questions.
+
+**Search tips:** Use noun-phrase queries, run 2-4 parallel calls with different \`metadata.type\` filters (decision, anti_pattern, user_preference, convention). Always include \`user_id\` + \`app_id\` in filters. Empty results are normal.
 EOF
+  touch "$RUBRIC_FLAG" 2>/dev/null || true
+fi
 
 if [ -n "$HAS_ERROR" ]; then
   cat <<EOF
 
-**ERROR DETECTED in prompt.** You SHOULD search mem0 for prior occurrences:
-- \`search_memories(query="<error class or message>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "anti_pattern"}}]})\`
-- \`search_memories(query="<module or file from stack trace>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "task_learning"}}]})\`
-This surfaces past debugging context and known failure modes.
+**ERROR DETECTED in prompt.** Search mem0 for prior occurrences — use \`anti_pattern\` and \`task_learning\` type filters with the error class or filename from the stack trace.
 EOF
 fi
 
@@ -94,29 +151,7 @@ if [ -n "$FILE_PATHS" ]; then
   cat <<EOF
 
 **FILE PATHS detected:** \`$FILE_PATHS\`
-Search mem0 for context about these files using the \`contains\` operator on \`metadata.files\`:
-- \`search_memories(query="<filename>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata.files": {"contains": "<filename>"}}]})\`
-- Also run a broader text search without the files filter as fallback:
-- \`search_memories(query="<filename without extension>", filters={"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}]})\`
 EOF
 fi
-
-cat <<EOF
-
-**If searching, do it well:**
-- Run **2-4 parallel** \`search_memories\` calls with different angles, not one
-  query that echoes the user's prompt.
-- Phrase queries as **nouns** ("auth module decisions"), not full sentences.
-- Filter shape: the root must be a logical operator (\`AND\` / \`OR\` / \`NOT\`)
-  with an array, and metadata uses a **nested** object (not dotted keys).
-  Combine \`user_id\` + \`app_id\` with one \`metadata.type\` clause per call:
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "decision"}}]}\` -- design / architecture
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "anti_pattern"}}]}\` -- debugging, error handling
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "user_preference"}}]}\` -- tooling, stack, style
-  - \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}, {"metadata": {"type": "convention"}}]}\` -- established patterns
-  - Or scope with just \`{"AND": [{"user_id": "$USER_ID"}, {"app_id": "$MEM0_PROJECT_ID"}]}\` when no metadata filter fits.
-- **Recency boost:** For state-related queries ("where were we", "current task", "latest"), add a \`created_at\` filter: \`{"created_at": {"gte": "<90 days ago YYYY-MM-DD>"}}\`. Skip recency for durable facts (conventions, decisions).
-- Empty results are normal -- proceed without context.
-EOF
 
 exit 0

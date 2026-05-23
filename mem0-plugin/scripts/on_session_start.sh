@@ -19,26 +19,71 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
 
-# Initialize session stats tracker
+# Initialize session stats tracker and settings file
 python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
+PYTHONPATH="$SCRIPT_DIR" python3 "$SCRIPT_DIR/load_settings.py" init 2>/dev/null || true
+rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
+rm -f /tmp/mem0_rubric_* 2>/dev/null || true
+rm -f "/tmp/mem0_recent_reads_${USER}" 2>/dev/null || true
 
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
 
-# Skip bootstrap if no API key — still show banner but with "no key" status.
+MEM0_AUTH_MODE="api_key"
 if [ -z "${MEM0_API_KEY:-}" ]; then
-  echo "## Mem0 Inactive"
-  echo ""
-  echo "\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET\`"
-  echo ""
-  echo "IMPORTANT: In your FIRST response to the user, you MUST display the status banner exactly as shown below (copy-paste it as your opening line before any other output):"
-  echo ""
-  echo '```'
-  echo "Mem0 Inactive | user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | api_key=NOT_SET"
-  echo '```'
-  echo ""
-  echo "Set MEM0_API_KEY to enable persistent memory. Get a key at https://app.mem0.ai/dashboard/api-keys"
-  exit 0
+  _SAFE_PID=$(printf '%s' "${MEM0_PROJECT_ID:-unknown}" | tr '/:' '--')
+  _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${_SAFE_PID}"
+
+  if [ ! -f "$_ONBOARD_MARKER" ] && [ "${SOURCE:-startup}" = "startup" ]; then
+    # State 1: First run — trigger onboarding
+    cat <<BANNER
+## Mem0 — First Run Setup
+
+\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | auth=none\`
+
+IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):
+
+\`\`\`
+Mem0 Active | user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | auth=none
+\`\`\`
+
+BANNER
+    cat <<'EOF'
+## Mem0 First Run — Automatic Onboarding
+
+This is the first time mem0 is running for this project. You MUST run the onboarding wizard NOW before doing anything else.
+
+Execute the `/mem0:onboard` skill immediately. This will:
+1. Set up API key (get from dashboard, export to .zshrc, verify)
+2. MCP OAuth login (authenticate via browser at mcp.mem0.ai)
+3. Verify connectivity and show identity
+4. Detect and import project files (CLAUDE.md, AGENTS.md, .cursorrules, etc.)
+5. Install coding categories optimized for development
+6. Show a summary of what was set up
+
+Do NOT skip this. Do NOT ask the user if they want to onboard. Just run `/mem0:onboard` now.
+EOF
+    exit 0
+  elif [ -f "$_ONBOARD_MARKER" ]; then
+    # State 2: OAuth-authed — onboarded previously without API key
+    MEM0_AUTH_MODE="oauth"
+  else
+    # State 3: Not first startup, not onboarded — inactive
+    cat <<BANNER
+## Mem0 Inactive
+
+\`user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | auth=none\`
+
+IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):
+
+\`\`\`
+Mem0 Inactive | user=${MEM0_RESOLVED_USER_ID:-$USER} | project=${MEM0_PROJECT_ID:-unknown} | branch=${MEM0_BRANCH:-unknown} | auth=none
+\`\`\`
+
+Set MEM0_API_KEY to enable persistent memory. Get a key at https://app.mem0.ai/dashboard/api-keys or run \`/mem0:onboard\` to set up.
+BANNER
+    exit 0
+  fi
 fi
 
 # Check for failed dependency installation and warn the user
@@ -51,8 +96,9 @@ if [ -f "${_DATA_DIR}/.install-failed" ]; then
 fi
 
 # Fetch project-scoped memory count (best-effort, don't block on failure, 5s timeout)
+# Skip REST call when OAuth-authed — no API key to authenticate with
 MEM0_COUNT="?"
-if command -v python3 >/dev/null 2>&1; then
+if [ "$MEM0_AUTH_MODE" = "api_key" ] && command -v python3 >/dev/null 2>&1; then
   MEM0_COUNT=$(python3 -c "
 import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
@@ -83,20 +129,22 @@ fi
 # uses the same user_id the hooks resolved. Without this, the agent's
 # search_memories/add_memory MCP calls may bind to a different bucket
 # than what the hooks write to.
-echo "## Mem0 Active"
-echo ""
-echo "\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT\`"
-echo ""
-echo "IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):"
-echo ""
-echo '```'
-echo "Mem0 Active | user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT"
-echo '```'
-echo ""
-echo "Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:"
-echo "- user_id: \`$MEM0_RESOLVED_USER_ID\`"
-echo "- app_id: \`$MEM0_PROJECT_ID\` (project scope — passed as top-level \`app_id\`, NOT in metadata)"
-echo ""
+cat <<BANNER
+## Mem0 Active
+
+\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT | auth=$MEM0_AUTH_MODE\`
+
+IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):
+
+\`\`\`
+Mem0 Active | user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT
+\`\`\`
+
+Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:
+- user_id: \`$MEM0_RESOLVED_USER_ID\`
+- app_id: \`$MEM0_PROJECT_ID\` (project scope — passed as top-level \`app_id\`, NOT in metadata)
+
+BANNER
 
 # Load mem0.md project config if present (best-effort, non-blocking)
 MEM0_PROJECT_CONFIG=""
@@ -121,32 +169,12 @@ if [ "$SOURCE" = "startup" ]; then
   _SAFE_PID=$(printf '%s' "$MEM0_PROJECT_ID" | tr '/:' '--')
   _ONBOARD_MARKER="$HOME/.mem0/.onboarded_${_SAFE_PID}"
   if [ ! -f "$_ONBOARD_MARKER" ]; then
-    mkdir -p "$HOME/.mem0" 2>/dev/null || true
-    touch "$_ONBOARD_MARKER"
     cat <<'EOF'
-## Mem0 First Run — Automatic Onboarding
-
-This is the first time mem0 is running for this project. You MUST run the onboarding wizard NOW before doing anything else.
-
-Execute the `/mem0:onboard` skill immediately. This will:
-1. Verify the API key
-2. Detect and import project files (CLAUDE.md, AGENTS.md, .cursorrules, etc.)
-3. Install coding categories optimized for development
-4. Show a summary of what was set up
-
-Do NOT skip this. Do NOT ask the user if they want to onboard. Just run `/mem0:onboard` now.
+IMPORTANT: This is the first run for this project. You MUST invoke the `mem0:onboard` skill now using the Skill tool BEFORE responding to the user. Do not just suggest it — actually call it. This runs the setup wizard (API check, file import, coding categories).
 EOF
   else
     cat <<'EOF'
-## Mem0 Session Bootstrap
-
-You have access to persistent memory via the mem0 MCP tools. Before doing anything else:
-
-1. Call `search_memories` with a query related to the current project or user request to load relevant context.
-2. Review the returned memories to understand what has been learned in prior sessions.
-3. If appropriate, call `get_memories` to browse all stored memories for this user.
-
-IMPORTANT: Do NOT skip this step. Always bootstrap context first.
+Search mem0 for recent decisions and task learnings before responding to the user's first message. Run 2 parallel searches: one for `decision` type, one for `task_learning` type.
 EOF
   fi
 
@@ -172,26 +200,12 @@ MEMEOF
 
 elif [ "$SOURCE" = "resume" ]; then
   cat <<'EOF'
-## Mem0 Session Resumed
-
-This is a resumed session. Your prior context is already loaded. Before continuing:
-
-1. Call `search_memories` with a query related to the current task to refresh relevant memories.
-2. If significant time has passed, search for recent project-wide updates.
-
-Continue where you left off.
+Session resumed. Search mem0 for `session_state` and `decision` memories to pick up where you left off. Run 2 parallel searches.
 EOF
 
 elif [ "$SOURCE" = "compact" ]; then
   cat <<'EOF'
-## Mem0 Post-Compaction Recovery
-
-Context was just compacted. Reload your context from mem0.
-
-1. Call `search_memories` to reload context, layering up to three angles:
-   - `metadata.type=session_state` -- the pre-compaction summary you wrote before compaction
-   - `metadata.type=decision` / `anti_pattern` -- specific facts you stored during the session
-2. Continue working from the recovered context.
+Context compacted. Search mem0 for `session_state` and `decision` memories to recover context. Run 2 parallel searches.
 EOF
 fi
 

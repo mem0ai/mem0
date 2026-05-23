@@ -20,8 +20,9 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
 TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_error // ""' 2>/dev/null || echo "")
 TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}' 2>/dev/null || echo "{}")
 
-# Extract the short tool name (strip mcp__mem0__ prefix)
-SHORT_NAME="${TOOL_NAME#mcp__mem0__}"
+# Extract the short tool name (strip any mcp prefix variant)
+SHORT_NAME="${TOOL_NAME##*__}"
+[ "$SHORT_NAME" = "$TOOL_NAME" ] && SHORT_NAME="${TOOL_NAME#mcp__mem0__}"
 
 # Log failure to persistent file for debugging
 mkdir -p "$HOME/.mem0" 2>/dev/null || true

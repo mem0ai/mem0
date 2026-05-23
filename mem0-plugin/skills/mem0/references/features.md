@@ -69,7 +69,7 @@ If you were using `enable_graph=True` in v2:
 - Remove `graph_store` from OSS configuration
 - Entity relationships are now consumed through retrieval ranking, not exposed as a separate `relations` array
 
-See the [v2 to v3 migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.
+See the [v2 to v3 migration guide](https://docs.mem0.ai/migration/platform-v2-to-v3) for details.
 
 ---
 

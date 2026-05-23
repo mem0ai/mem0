@@ -1,9 +1,6 @@
 ---
-name: mem0-remember
-description: >
-  Quick-add a memory from the user's input. No extraction pass — stores verbatim.
-  TRIGGER: user runs /mem0:remember <text>, or says "remember this", "save this",
-  "store this fact", "don't forget that".
+name: remember
+description: Save a memory verbatim from your input
 ---
 
 # Mem0 Remember
@@ -48,6 +45,8 @@ Call `add_memory` with:
 
 Print:
 ```
-Remembered as <type>: "<first 80 chars of content>..."
+Remembered as <type>: "<content, first 80 chars>"
 Memory ID: <id>
 ```
+
+Append `...` only if content was truncated (longer than 80 chars).

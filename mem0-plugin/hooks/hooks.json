@@ -56,6 +56,16 @@
         ]
       },
       {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_file_read.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
         "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory",
         "hooks": [
           {
@@ -88,7 +98,7 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_bash_output.sh",
-            "timeout": 5
+            "timeout": 12
           }
         ]
       }
@@ -122,7 +132,7 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
             "statusMessage": "Checking memory relevance...",
-            "timeout": 5
+            "timeout": 12
           }
         ]
       }

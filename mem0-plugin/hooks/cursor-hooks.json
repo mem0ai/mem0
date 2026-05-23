@@ -12,6 +12,11 @@
         "matcher": "Write|Edit"
       },
       {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_file_read.sh",
+        "matcher": "Read",
+        "timeout": 8
+      },
+      {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
         "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory",
         "timeout": 3
@@ -31,7 +36,7 @@
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_bash_output.sh",
         "matcher": "Bash",
-        "timeout": 5
+        "timeout": 12
       }
     ],
     "preCompact": [
@@ -48,7 +53,7 @@
     "beforeSubmitPrompt": [
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_user_prompt_cursor.sh",
-        "timeout": 5
+        "timeout": 12
       }
     ]
   }
