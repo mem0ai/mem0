@@ -1,12 +1,9 @@
 ---
 name: mem0-pin
 description: >
-  Pin important memories so they surface prominently and are protected from
-  consolidation. New pins use immutable: true (SDK v2.1.33+) to prevent
-  deduplication from modifying or removing the memory. Existing memories get
-  metadata.pinned: true as a search-time filter; full consolidation protection
-  requires delete + re-add. TRIGGER: user runs /mem0:pin <query or ID>, or
-  says "pin this memory", "mark as important", "always remember this".
+  Pin a memory as high-priority and protect it from consolidation.
+  TRIGGER: user runs /mem0:pin <query or ID>, or says "pin this memory",
+  "mark as important", "always remember this".
 ---
 
 # Mem0 Pin

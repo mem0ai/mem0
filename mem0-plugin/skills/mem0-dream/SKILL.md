@@ -1,9 +1,7 @@
 ---
 name: mem0-dream
 description: >
-  Memory consolidation pass. Fetches all project memories, finds near-duplicates,
-  merges them, flags contradictions, prunes stale entries per retention policy.
-  Outputs a diff for user approval before applying changes.
+  Consolidate memories — merge duplicates, flag contradictions, prune stale entries.
   TRIGGER: user runs /mem0:dream, or asks "consolidate memories", "clean up memories",
   "merge duplicate memories", "run dream".
 ---

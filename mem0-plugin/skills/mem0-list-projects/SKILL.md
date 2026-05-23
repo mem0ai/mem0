@@ -1,11 +1,9 @@
 ---
 name: mem0-list-projects
 description: >
-  List all project scopes (app_ids) that have stored memories for the current
-  user. Essential for /mem0:switch-project discoverability and cross-project
-  workflows.
+  List all projects that have stored memories.
   TRIGGER: user runs /mem0:list-projects, or asks "what projects does mem0 know",
-  "list my mem0 projects", "show all projects", "which app_ids exist".
+  "list my mem0 projects", "show all projects".
 ---
 
 # Mem0 List Projects

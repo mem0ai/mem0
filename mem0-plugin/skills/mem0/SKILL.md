@@ -1,17 +1,10 @@
 ---
 name: mem0
 description: >
-  Mem0 Platform SDK for adding persistent memory to AI applications.
+  Mem0 SDK reference — Python, TypeScript, and framework integrations.
   TRIGGER when: user mentions "mem0", "MemoryClient", "memory layer",
-  "remember user preferences", "persistent context", "personalization",
-  or needs to add long-term memory to chatbots, agents, or AI apps.
-  Covers Python SDK (mem0ai), TypeScript SDK (mem0ai), and framework integrations
-  (LangChain, CrewAI, OpenAI Agents SDK, Pipecat, LlamaIndex, AutoGen, LangGraph).
-  Also covers the open-source self-hosted Memory class.
-  This is the DEFAULT mem0 skill for ambiguous queries.
-  DO NOT TRIGGER when: user asks about CLI commands, terminal usage, or shell
-  scripts (use mem0-cli), or Vercel AI SDK / @mem0/vercel-ai-provider / createMem0
-  (use mem0-vercel-ai-sdk).
+  "personalization", or needs to add persistent memory to AI apps.
+  Default skill for ambiguous mem0 queries.
 license: Apache-2.0
 metadata:
   author: mem0ai

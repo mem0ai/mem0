@@ -1,9 +1,7 @@
 ---
 name: mem0-import
 description: >
-  Import memories from a mem0 export file back into the current project.
-  Reads a YAML-frontmatter Markdown file produced by /mem0:export and
-  adds each memory block to mem0.
+  Import memories from an export file into this project.
   TRIGGER: user runs /mem0:import, or asks "import memories", "restore memories",
   "load memories from file", "reimport backup".
 ---

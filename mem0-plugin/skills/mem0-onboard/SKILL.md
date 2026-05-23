@@ -1,9 +1,7 @@
 ---
 name: mem0-onboard
 description: >
-  Post-install onboarding wizard for the mem0 plugin.
-  Detects CLAUDE.md, AGENTS.md, .cursorrules, .windsurfrules, mem0.md
-  and offers to import them. Installs coding categories. Shows active identity.
+  Set up mem0 for this project — detect config files, install categories, verify identity.
   TRIGGER: user runs /mem0:onboard, or mentions "setup mem0", "configure mem0 plugin".
 ---
 

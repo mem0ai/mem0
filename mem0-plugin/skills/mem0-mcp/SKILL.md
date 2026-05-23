@@ -1,11 +1,8 @@
 ---
 name: mem0-mcp
 description: >
-  Mem0 memory protocol for agents using the mem0 MCP tools (Claude Code, Cursor,
-  Codex, and any other MCP-aware runtime). Decide deliberately when memory context
-  would help, run targeted searches with metadata filters when it would, and store
-  key learnings as work completes. Use the mem0 MCP tools (add_memory,
-  search_memories, get_memories, etc.) for all memory operations.
+  Memory protocol — when to search, how to filter, and what to store.
+  Guides all mem0 MCP tool usage (add_memory, search_memories, etc.).
 ---
 
 # Mem0 MCP Memory Protocol

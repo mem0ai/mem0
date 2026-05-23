@@ -1,8 +1,7 @@
 ---
 name: mem0-stats
 description: >
-  Show memory statistics for the current session and project lifetime.
-  Combines local session counters with API-fetched totals.
+  Show memory usage stats for this session and project.
   TRIGGER: user runs /mem0:stats, or asks "how many memories", "mem0 stats",
   "memory usage", "show memory count".
 ---

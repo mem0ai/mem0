@@ -1,8 +1,7 @@
 ---
 name: mem0-tour
 description: >
-  Show what mem0 knows about the current project. Dumps top memories
-  grouped by category. Power-user-friendly proof of value.
+  Browse stored memories for this project, grouped by category.
   TRIGGER: user runs /mem0:tour, or asks "what do you know about this project",
   "show me my memories", "what has mem0 stored".
 ---

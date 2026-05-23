@@ -1,8 +1,7 @@
 ---
 name: mem0-health
 description: >
-  Diagnostic health check for the mem0 plugin. Verifies API key, MCP server
-  connectivity, identity resolution, and memory read/write capability.
+  Run diagnostic checks on API key, MCP connection, and memory read/write.
   TRIGGER: user runs /mem0:health, or asks "is mem0 working", "mem0 health",
   "check mem0 connection", "debug mem0".
 ---

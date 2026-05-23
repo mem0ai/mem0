@@ -1,8 +1,7 @@
 ---
 name: mem0-export
 description: >
-  Export all memories for the current project to a local Markdown file.
-  Each memory is written as a YAML-frontmatter block that can be re-imported later.
+  Export all project memories to a portable Markdown file.
   TRIGGER: user runs /mem0:export, or asks "export memories", "backup memories",
   "download my memories", "save memories to file".
 ---
