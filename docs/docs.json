@@ -366,6 +366,7 @@
                     "pages": [
                       "cookbooks/integrations/agents-sdk-tool",
                       "cookbooks/integrations/openai-tool-calls",
+                      "cookbooks/integrations/ejentum-harness",
                       "cookbooks/integrations/mastra-agent",
                       "cookbooks/integrations/healthcare-google-adk",
                       "cookbooks/integrations/aws-bedrock",

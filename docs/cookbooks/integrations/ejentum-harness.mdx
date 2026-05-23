@@ -1,0 +1,180 @@
+---
+title: Decide what to remember with Ejentum harness
+description: "Use the Ejentum cognitive harness as a perception-sharpening layer around mem0: filter what gets stored, and score what gets recalled."
+---
+
+[Ejentum](https://ejentum.com) is a cognitive harness API that returns task-matched reasoning scaffolds for one of four modes: `reasoning`, `code`, `anti-deception`, `memory`. The `memory` mode is the relevant one here. Its scaffolds describe **how to attend to a candidate signal** (what to detect, what to suppress, what to verify) rather than storing or retrieving data itself. That makes it a natural complement to mem0, which handles the storage and recall side.
+
+This cookbook covers two patterns:
+
+1. **Pre-storage filter.** Before calling `mem0.add(...)`, retrieve a perception scaffold and use it to score whether the candidate signal deserves long-term storage.
+2. **Post-recall scoring.** After `mem0.search(...)` returns candidates, retrieve a different scaffold to assess which results actually match the user's current intent before passing them to your downstream LLM.
+
+Both patterns are written in plain Python so they compose with whatever orchestration you already have.
+
+## Setup
+
+You need a mem0 instance and an Ejentum API key. Get one at [ejentum.com/dashboard](https://ejentum.com/dashboard); free and paid tiers are available.
+
+```bash
+pip install mem0ai requests openai
+export OPENAI_API_KEY=sk-...
+export EJENTUM_API_KEY=ek_...
+```
+
+A tiny helper that calls the Ejentum REST gateway:
+
+```python harness.py
+import os
+import requests
+
+EJENTUM_URL = "https://ejentum-main-ab125c3.zuplo.app/logicv1/"
+
+def harness(query: str, mode: str = "memory", timeout: int = 10) -> str:
+    """Return the scaffold string for the given query and mode."""
+    api_key = os.environ["EJENTUM_API_KEY"]
+    r = requests.post(
+        EJENTUM_URL,
+        json={"query": query, "mode": mode},
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=timeout,
+    )
+    r.raise_for_status()
+    payload = r.json()
+    if isinstance(payload, list) and payload:
+        return payload[0].get(mode, "")
+    return ""
+```
+
+The scaffold is a structured block of text. You hand it to your downstream LLM as part of the system prompt for the decision step. You do not store the scaffold in mem0; it is per-call guidance, not a memory.
+
+## Pattern 1: Pre-storage filter
+
+Storing every utterance bloats memory and degrades recall quality. Use the memory harness to ask a focused question first: "Given this candidate, what should I attend to before deciding whether it deserves storage?"
+
+```python pre_storage_filter.py
+from openai import OpenAI
+from mem0 import Memory
+from harness import harness
+
+client = OpenAI()
+memory = Memory()
+
+def should_remember(candidate: str, user_id: str) -> tuple[bool, str]:
+    """Ask the memory harness whether this candidate is worth storing."""
+    scaffold = harness(
+        f"I am about to decide whether to commit this user statement to "
+        f"long-term memory. Sharpen: signal vs noise, specific vs generic, "
+        f"future-recall value. Statement: {candidate!r}",
+        mode="memory",
+    )
+
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Apply the perception scaffold below, then answer "
+                    "STORE or SKIP on the first line and a one-sentence "
+                    "reason on the second line.\n\n"
+                    f"[PERCEPTION SCAFFOLD]\n{scaffold}\n[END]"
+                ),
+            },
+            {"role": "user", "content": candidate},
+        ],
+        temperature=0,
+    )
+
+    text = completion.choices[0].message.content.strip()
+    verdict, _, reason = text.partition("\n")
+    return verdict.strip().upper() == "STORE", reason.strip()
+
+candidates = [
+    "I prefer Python over TypeScript for new backend services.",
+    "Today is Friday.",
+    "My team uses GitHub Actions for CI, and the deployment cadence is twice a week.",
+]
+
+for c in candidates:
+    keep, why = should_remember(c, user_id="alice")
+    if keep:
+        memory.add(c, user_id="alice")
+        print(f"STORED  {c!r}  // {why}")
+    else:
+        print(f"SKIPPED {c!r}  // {why}")
+```
+
+The scaffold tells the LLM where to look (signal versus noise, future-recall value), and the LLM does the actual classification. You keep mem0 lean by storing only candidates that pass the gate.
+
+## Pattern 2: Post-recall scoring
+
+`mem0.search` returns the top-k by similarity, but similarity is not the same as relevance for the user's current task. The memory harness can sharpen that judgement.
+
+```python post_recall_scoring.py
+from openai import OpenAI
+from mem0 import Memory
+from harness import harness
+
+client = OpenAI()
+memory = Memory()
+
+def rerank_with_harness(question: str, hits: list[dict]) -> list[dict]:
+    """Filter mem0 hits down to those that actually fit the question."""
+    if not hits:
+        return hits
+
+    scaffold = harness(
+        f"I am scoring memory hits for relevance to a current question. "
+        f"Sharpen: actual fit vs lexical match, recency-bias risk, "
+        f"whether each hit shifts the answer. Question: {question!r}",
+        mode="memory",
+    )
+
+    enumerated = "\n".join(
+        f"[{i}] {hit['memory']}" for i, hit in enumerate(hits)
+    )
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Apply the perception scaffold below, then list the "
+                    "indices of memories that materially help answer the "
+                    "question. Output a comma-separated list of indices "
+                    "and nothing else.\n\n"
+                    f"[PERCEPTION SCAFFOLD]\n{scaffold}\n[END]"
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Question: {question}\n\nMemories:\n{enumerated}",
+            },
+        ],
+        temperature=0,
+    )
+
+    chosen = {
+        int(s.strip())
+        for s in completion.choices[0].message.content.split(",")
+        if s.strip().isdigit()
+    }
+    return [hit for i, hit in enumerate(hits) if i in chosen]
+
+hits = memory.search(query="What stack does my team use?", user_id="alice")
+relevant = rerank_with_harness("What stack does my team use?", hits)
+
+for r in relevant:
+    print(r["memory"])
+```
+
+The reranker keeps only hits the harness flags as materially useful. Downstream prompts stay short and focused.
+
+## Notes on cost and latency
+
+Each harness call is one HTTP request, typically returning in a few hundred milliseconds. If you run the gate on every utterance, batch by session rather than by message, or sample (for example, only run the gate when mem0 storage is approaching a quota you care about). The post-recall scoring is cheap to run on every retrieval since the request is small and the LLM step is short.
+
+## Where the scaffold comes from
+
+The harness retrieves scaffolds from a library of 679 cognitive operations engineered in natural language, organised into four modes. Each call returns a task-matched scaffold rather than a fixed template; the same mode with a different query returns a different scaffold. For the underlying paper and benchmarks, see [ejentum.com/docs](https://ejentum.com/docs).
