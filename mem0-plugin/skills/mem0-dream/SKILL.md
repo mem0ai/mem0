@@ -1,6 +1,6 @@
 ---
 name: mem0-dream
-description: Consolidate memories merge duplicates, resolve contradictions, prune stale entries
+description: Consolidate memories — merge duplicates, resolve contradictions, prune stale
 ---
 
 # Mem0 Dream — Memory Consolidation
@@ -41,8 +41,7 @@ Call `get_memories` to retrieve every memory for the active project:
 
 ```python
 get_memories(
-    user_id="<active_user_id>",
-    app_id="<active_project_id>",
+    filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]},
     page_size=200,
 )
 ```
@@ -179,8 +178,8 @@ For each approved merge pair:
 For each resolved conflict where the user chose A or B:
 - Identify the loser (the non-chosen memory).
 - First call `get_memory(<loser_id>)` to read its current text content.
-- Then call `update_memory(<loser_id>, data=<original_text_content>)` to preserve the text while updating it.
-- **Important:** `update_memory` requires the `data` (text) parameter. A metadata-only call may error or wipe the content. Always read first, then update with the original text.
+- Then call `update_memory(<loser_id>, text=<original_text_content>)` to preserve the text while updating it.
+- **Important:** `update_memory` requires the `text` parameter. A metadata-only call may error or wipe the content. Always read first, then update with the original text.
 
 Contradictions where the user chose `skip` are left untouched.
 
@@ -230,162 +229,7 @@ In auto mode:
    )
    ```
 
-## Forget mode (targeted deletion)
+## See also
 
-When invoked with `--forget` (e.g., `/mem0:dream --forget auth module decisions`
-or `/mem0:dream --forget <memory_id>`), skip consolidation and go straight to
-search-confirm-delete:
-
-### F1: Parse input
-
-The argument after `--forget` is either:
-- A search query: `/mem0:dream --forget auth module decisions`
-- A memory ID: `/mem0:dream --forget <memory_id>`
-
-If no argument after `--forget`, ask: "What should I forget? Provide a search query or memory ID."
-
-### F2: Find memories
-
-**If memory ID provided** (looks like a UUID or hex string):
-- Call `get_memory` with the ID to verify it exists.
-- Show: `Found: "<memory content first 120 chars>" (created <date>)`
-
-**If search query provided:**
-- Call `search_memories` with:
-  - `query=<user's query>`
-  - `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<project_id>"}]}`
-  - `limit=10`
-- Show numbered list:
-  ```
-  Found <N> memories matching "<query>":
-  1. <content, 120 chars> (type: <type>, created: <date>) [ID: <short_id>]
-  2. ...
-  ```
-
-### F3: Confirm
-
-Ask: "Delete which memories? Enter numbers (e.g., 1,3,5), 'all', or 'cancel'."
-For a single memory ID: "Delete this memory? [y/N]"
-
-**Never delete without confirmation.**
-
-### F4: Delete and report
-
-Call `delete_memory` for each confirmed entry. Report: `Deleted <N> memories.`
-
-### Undo recent writes
-
-If the user says "undo last N memories" or "undo last write":
-1. Run `python3 "$SCRIPT_DIR/session_stats.py" peek` to get `recent_ids`.
-2. Show last N entries, ask for confirmation.
-3. Delete confirmed entries via `delete_memory`.
-
----
-
-## Scheduling recurring dreams
-
-When invoked with `--schedule` (e.g., `/mem0:dream --schedule weekly`), register a
-cloud routine via Claude Code's built-in `/schedule` command so the dream runs
-automatically without any local cron or launchd setup.
-
-### Step S1: Parse schedule frequency
-
-Accept natural-language frequency after `--schedule`:
-
-| User input | Cron equivalent | Description |
-|---|---|---|
-| `weekly` or `--schedule weekly` | Every Sunday 3:00 AM local | Default weekly consolidation |
-| `daily` | Every day 3:00 AM local | For high-volume projects |
-| `biweekly` | Every other Sunday 3:00 AM local | Lower frequency option |
-| Custom (e.g., `"every Monday 9am"`) | Pass verbatim to `/schedule` | Let Claude Code resolve it |
-
-### Step S2: Create the routine
-
-Use Claude Code's `/schedule` command to create a cloud routine. The routine runs
-`/mem0:dream --auto` on the specified schedule against the current repository:
-
-```
-/schedule <frequency> /mem0:dream --auto
-```
-
-For example:
-- `/schedule weekly /mem0:dream --auto` — runs every week
-- `/schedule daily at 3am /mem0:dream --auto` — runs every day at 3 AM
-- `/schedule every Monday 9am /mem0:dream --auto` — runs every Monday at 9 AM
-
-The `/schedule` command handles all the cloud infrastructure: repository cloning,
-environment setup, and cron scheduling. The routine runs as a full Claude Code
-cloud session with access to the mem0 MCP tools.
-
-### Step S3: Confirm to user
-
-After the routine is created, print:
-
-```
-Dream scheduled: <frequency>
-Routine name: mem0-dream-<project_id>
-Next run: <next scheduled time>
-
-Manage at: https://claude.ai/code/routines
-Edit: /schedule list → /schedule update
-Cancel: /schedule list → delete the routine
-```
-
-### Managing scheduled dreams
-
-| Action | Command |
-|---|---|
-| List all routines | `/schedule list` |
-| Run dream now | `/schedule run` (select the dream routine) |
-| Change frequency | `/schedule update` (select the dream routine) |
-| Pause | Toggle off at claude.ai/code/routines |
-| Delete | Delete at claude.ai/code/routines or `/schedule update` |
-
-### Fallback for non-cloud users
-
-If `/schedule` is unavailable (API key auth, no claude.ai subscription), fall back
-to local options:
-
-1. **macOS launchd plist** — generate and install:
-   ```bash
-   cat > ~/Library/LaunchAgents/com.mem0.dream.plist << 'PLIST'
-   <?xml version="1.0" encoding="UTF-8"?>
-   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-   <plist version="1.0">
-   <dict>
-     <key>Label</key><string>com.mem0.dream</string>
-     <key>ProgramArguments</key>
-     <array>
-       <string>claude</string>
-       <string>-p</string>
-       <string>/mem0:dream --auto</string>
-       <string>--allowedTools</string>
-       <string>mcp__mem0__*</string>
-     </array>
-     <key>StartCalendarInterval</key>
-     <dict>
-       <key>Weekday</key><integer>0</integer>
-       <key>Hour</key><integer>3</integer>
-       <key>Minute</key><integer>0</integer>
-     </dict>
-     <key>StandardOutPath</key><string>/tmp/mem0-dream.log</string>
-     <key>StandardErrorPath</key><string>/tmp/mem0-dream.err</string>
-     <key>WorkingDirectory</key><string>PROJECT_DIR</string>
-   </dict>
-   </plist>
-   PLIST
-   launchctl load ~/Library/LaunchAgents/com.mem0.dream.plist
-   ```
-   Replace `PROJECT_DIR` with the actual project path.
-
-2. **Linux cron** — add entry:
-   ```bash
-   (crontab -l 2>/dev/null; echo "0 3 * * 0 cd PROJECT_DIR && claude -p '/mem0:dream --auto' >> /tmp/mem0-dream.log 2>&1") | crontab -
-   ```
-
-Print which method was used and how to verify:
-```
-Dream scheduled (local: launchd/cron): weekly Sundays 3am
-Verify: launchctl list | grep mem0   # macOS
-        crontab -l | grep mem0       # Linux
-```
+- `/mem0:forget` — targeted deletion of specific memories (search + confirm + delete)
+- `/mem0:health --deep` — quick quality scan without applying changes

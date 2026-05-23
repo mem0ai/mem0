@@ -1,6 +1,6 @@
 ---
 name: mem0-tour
-description: Browse stored memories for this project, grouped by category
+description: Browse stored memories grouped by category
 ---
 
 # Mem0 Project Tour

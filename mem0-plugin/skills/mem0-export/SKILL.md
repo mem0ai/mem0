@@ -1,6 +1,6 @@
 ---
 name: mem0-export
-description: Export all project memories to a portable Markdown file
+description: Export project memories to a portable Markdown file
 ---
 
 # Mem0 Export

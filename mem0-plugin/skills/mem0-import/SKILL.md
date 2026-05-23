@@ -1,6 +1,6 @@
 ---
 name: mem0-import
-description: Import memories from an export file or competing tools into this project
+description: Import memories from an export file into this project
 ---
 
 # Mem0 Import

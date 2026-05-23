@@ -15,7 +15,7 @@ There is no dedicated "list projects" API endpoint. Discover projects by fetchin
 the user's memories and extracting distinct `app_id` values.
 
 Call `get_memories` with:
-- `user_id=<active_user_id>`
+- `filters={"user_id": "<active_user_id>"}`
 - `page_size=200`
 
 Do NOT pass `app_id` — we want memories across ALL projects.
@@ -62,5 +62,5 @@ Run /mem0:onboard in a project directory to get started.
 
 ```
 Switch project: /mem0:switch-project <name>
-Search across all: /mem0:tour --all-projects
+Browse memories: /mem0:tour
 ```

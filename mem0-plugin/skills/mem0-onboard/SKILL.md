@@ -1,6 +1,6 @@
 ---
 name: mem0-onboard
-description: Set up mem0 for this project import config files, install categories, verify identity
+description: Set up mem0 for this project — config, categories, identity
 ---
 
 # Mem0 Onboarding Wizard

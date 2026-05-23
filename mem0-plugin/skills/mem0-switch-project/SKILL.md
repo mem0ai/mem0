@@ -1,6 +1,6 @@
 ---
 name: mem0-switch-project
-description: Override the auto-detected project scope for this directory
+description: Override the auto-detected project scope
 ---
 
 # Mem0 Switch Project

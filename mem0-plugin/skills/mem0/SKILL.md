@@ -1,6 +1,6 @@
 ---
 name: mem0
-description: Mem0 SDK reference Python, TypeScript, and framework integrations
+description: Mem0 SDK reference — Python, TypeScript, and integrations
 license: Apache-2.0
 metadata:
   author: mem0ai

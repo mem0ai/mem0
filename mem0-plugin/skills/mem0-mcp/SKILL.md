@@ -1,11 +1,33 @@
 ---
 name: mem0-mcp
-description: Memory protocol reference when to search, how to filter, what to store
+description: Memory protocol — when to search, how to filter, what to store
 ---
 
 # Mem0 MCP Memory Protocol
 
 You have access to persistent memory via the mem0 MCP tools. Follow this protocol to maintain context across sessions.
+
+## Natural language → skill routing
+
+When a user says something in natural language, route to the right mem0 skill automatically:
+
+| User says | Invoke |
+|---|---|
+| "remember this", "save this", "store this fact" | `/mem0:remember` |
+| "forget this", "delete memory about X", "remove that memory" | `/mem0:forget` |
+| "what do we know about X", "quick search", "peek at memories" | `/mem0:peek` |
+| "show my memories", "browse memories", "memory tour" | `/mem0:tour` |
+| "clean up memories", "consolidate", "merge duplicates", "prune" | `/mem0:dream` |
+| "export memories", "backup memories", "download memories" | `/mem0:export` |
+| "import memories", "load memories from file" | `/mem0:import` |
+| "check mem0 health", "is mem0 working", "diagnose mem0" | `/mem0:health` |
+| "memory stats", "how many memories" | `/mem0:stats` |
+| "set up mem0", "initialize mem0", "configure mem0" | `/mem0:onboard` |
+| "switch project", "change mem0 project" | `/mem0:switch-project` |
+| "list projects", "show all projects" | `/mem0:list-projects` |
+| "pin this memory", "protect this memory" | `/mem0:pin` |
+
+If unsure, use the MCP tools directly (search/add/delete) without invoking a skill.
 
 ## On every new task
 
@@ -319,7 +341,7 @@ search_memories(
             {"metadata.files": {"contains": "src/middleware/auth.ts"}},
         ]
     },
-    limit=5,
+    top_k=5,
 )
 ```
 
@@ -343,12 +365,12 @@ current_meta["last_accessed"] = datetime.datetime.now(datetime.timezone.utc).iso
 # 3. Update with preserved content and bumped metadata
 update_memory(
     memory_id=<id>,
-    data=current_text,  # preserve original text — required parameter
+    text=current_text,  # preserve original text — required parameter
     metadata=current_meta,  # pass updated access_count and last_accessed
 )
 ```
 
-**Important:** `update_memory` requires the `data` (text) parameter. Always `get_memory` first to read the current content, then pass it back unchanged. A metadata-only update may error or wipe the content.
+**Important:** `update_memory` requires the `text` parameter. Always `get_memory` first to read the current content, then pass it back unchanged. A metadata-only update may error or wipe the content.
 
 **When to increment:** Only when you actually used the memory to answer. Don't bump on every search hit — that inflates counts for memories that were returned but irrelevant. Aim for 1-3 bumps per response at most.
 

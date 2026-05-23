@@ -1,6 +1,6 @@
 ---
 name: mem0-stats
-description: Show memory usage stats for this session and project lifetime
+description: Show memory usage stats for this session and project
 ---
 
 # Mem0 Stats

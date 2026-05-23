@@ -9,5 +9,14 @@
   "homepage": "https://mem0.ai",
   "repository": "https://github.com/mem0ai/mem0",
   "license": "Apache-2.0",
-  "keywords": ["memory", "personalization", "mcp", "semantic-search"]
+  "keywords": ["memory", "personalization", "mcp", "semantic-search"],
+  "userConfig": {
+    "api_key": {
+      "type": "string",
+      "title": "Mem0 API Key",
+      "description": "Your Mem0 Platform API key. Get one at https://app.mem0.ai/dashboard/api-keys. Alternative: export MEM0_API_KEY in your shell profile.",
+      "sensitive": true,
+      "required": true
+    }
+  }
 }

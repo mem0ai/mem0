@@ -19,8 +19,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
 
-# Initialize session stats tracker
+# Initialize session stats tracker and settings file
 python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
+PYTHONPATH="$SCRIPT_DIR" python3 "$SCRIPT_DIR/load_settings.py" init 2>/dev/null || true
 rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
 rm -f /tmp/mem0_rubric_* 2>/dev/null || true
 rm -f "/tmp/mem0_recent_reads_${USER}" 2>/dev/null || true

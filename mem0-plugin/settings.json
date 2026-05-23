@@ -1,0 +1,6 @@
+{
+  "subagentStatusLine": {
+    "memory-reviewer": "Auditing memory quality",
+    "context-loader": "Loading relevant memories"
+  }
+}

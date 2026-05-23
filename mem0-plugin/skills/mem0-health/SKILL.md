@@ -1,6 +1,6 @@
 ---
 name: mem0-health
-description: Diagnose and verify your mem0 connection, API key, and memory read/write
+description: Diagnose mem0 connection, API key, and memory read/write
 ---
 
 # Mem0 Health Check
@@ -83,9 +83,7 @@ If any check fails, add a `## Troubleshooting` section with specific fix steps f
 
 ## Extended mode: Memory Quality Analysis
 
-When invoked with `--deep` (e.g., `/mem0:health --deep`) or `--fix` (e.g., `/mem0:health --fix`), run the standard 5 checks above **plus** a memory quality scan.
-
-`--fix` implies `--deep` and automatically applies safe fixes after showing the analysis (see bottom of this section).
+When invoked with `--deep` (e.g., `/mem0:health --deep`), run the standard 5 checks above **plus** a memory quality scan.
 
 ### Quality Check 1: Duplicates
 
@@ -147,21 +145,4 @@ Untagged/orphan memories: <N>
 
 If all counts are 0: `Memory quality: clean. No duplicates, stale entries, or contradictions found.`
 
-### Auto-fix mode (`--fix`)
-
-When `--fix` is passed, apply these safe fixes automatically after displaying the quality summary:
-
-1. **Orphans:** For each untagged memory, infer a `metadata.type` from content and call `update_memory` to set it. If inference is uncertain, skip.
-2. **Stale `session_state`/`compact_summary` > 90d:** Delete them via `delete_memory`. These are ephemeral by design.
-3. **Duplicates:** Do NOT auto-merge — print "Run `/mem0:dream` to merge duplicates" instead.
-4. **Contradictions:** Do NOT auto-resolve — print "Run `/mem0:dream` to resolve contradictions" instead.
-5. **Low-confidence < 0.3 AND > 30d old:** Delete them via `delete_memory`.
-
-Print a summary of actions taken:
-
-```
-## Auto-fix Results
-  Deleted: <N> stale, <N> low-confidence
-  Retagged: <N> orphans
-  Skipped: <N> duplicates (use /mem0:dream), <N> contradictions (use /mem0:dream)
-```
+To fix issues found by `--deep`, run `/mem0:dream` for automated consolidation (merges, prunes, conflict resolution).
