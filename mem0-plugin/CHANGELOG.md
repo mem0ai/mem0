@@ -21,6 +21,10 @@ All notable changes to the Mem0 plugin will be documented in this file.
 - **Rerank on tour/peek:** `/mem0:tour` and `/mem0:peek` search calls now pass `rerank=true` for better result ordering (+150–200ms latency, significantly improved precision).
 - **`/mem0:stats` session query via `run_id`:** Queries memories by `run_id` filter for API-backed session counts. Cross-checks against local stats file. Shows truncated session ID in output.
 
+### Removed
+
+- **`/mem0:protocol` skill:** Routing table fully superseded by individual skill descriptions (auto-trigger). Operational guidelines (search patterns, metadata rules) covered by `enforce_metadata_defaults.sh` hook and individual skill bodies.
+
 ### Changed
 
 - **All 17 skill descriptions:** Rewritten per Claude skill best practices — each now includes what the skill does AND when to trigger it, with specific keywords for auto-discovery. Average length 200–270 chars (under 1024 max). Third person, action verbs.
@@ -55,7 +59,7 @@ All notable changes to the Mem0 plugin will be documented in this file.
 - **Compact prompts:** `on_task_completed.sh` and `on_stop.sh` replaced multi-step checklists with single-line directives (0–2 durable facts max).
 - **`/mem0:dream`:** Removed `--forget` (now standalone `forget` skill) and `--schedule` flags.
 - **`/mem0:health`:** Removed `--fix` auto-fix mode; output condensed to `PASS/FAIL CheckName Detail` one-liners.
-- **`/mem0:protocol` (was `mem0-mcp`):** Added 14-entry natural-language-to-skill routing table.
+- **`/mem0:protocol` (was `mem0-mcp`):** Added 14-entry natural-language-to-skill routing table. _(Removed in 0.2.4 — superseded by skill descriptions.)_
 - **CLI config fallback removed:** `_identity.sh`/`_identity.py` no longer read `~/.mem0/config.json`; API key resolution is env-var-only.
 - **`auto_import.py`:** Added content-hash deduplication to skip files with identical content within a single import run.
 - **All skill descriptions:** Shortened to concise one-liners.

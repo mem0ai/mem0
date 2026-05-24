@@ -9,7 +9,7 @@ Pre-fetches relevant memories to prime context before working on a task.
 
 ## When to use
 
-- Session start (invoke manually or let protocol skill route here)
+- Session start (invoke manually or auto-triggered by skill description matching)
 - User starts work on a specific feature or file set
 - Complex multi-step task begins
 - User says "what do we know about X" or "context for X"

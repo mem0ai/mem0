@@ -190,7 +190,6 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 | `/mem0:list-projects` | List all projects with stored memories |
 | `/mem0:switch-project` | Override auto-detected project scope |
 | `/mem0:memory-reviewer` | Audit memory quality — duplicates, contradictions, stale |
-| `/mem0:protocol` | Reference guide for memory filters and metadata |
 | `/mem0:context-loader` | Pre-load relevant memories for current task |
 
 ## What's included
@@ -200,12 +199,10 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 | MCP Server | Yes | Yes | Yes | Yes | Yes |
 | Lifecycle Hooks | Yes | Yes | No | Opt-in | No |
 | Mem0 SDK Skill | Yes | Yes | No | Yes | No |
-| Memory Protocol Skill | No | No | No | Yes | No |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
 - **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code and Cursor wire hooks up natively when the plugin is installed (session start, context compaction, task completion, session end). Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`) that writes entries into `~/.codex/hooks.json` for `SessionStart`, `UserPromptSubmit`, and `Stop`.
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
-- **Memory Protocol Skill** — Codex-specific skill that instructs the agent to retrieve relevant memories at task start, store learnings on completion, and capture session state before context loss. Complements the lifecycle hooks on Codex.
 
 ## Updating the plugin
 
