@@ -147,13 +147,51 @@ Add the following to your `.cursor/mcp.json`:
 
 Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
 
+## Post-Installation: Run `/mem0:onboard`
+
+After installing, start a new session and run:
+
+```
+/mem0:onboard
+```
+
+This runs the setup wizard which:
+1. Verifies your API key and MCP connection
+2. Detects and imports project files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`)
+3. Installs coding-optimized memory categories
+4. Shows your identity (user ID, project scope, branch)
+
+The onboarding is idempotent — safe to re-run anytime. It auto-triggers on first session in a new project.
+
 ## Verify it works
 
-After installing, confirm the MCP server is connected:
+After onboarding, confirm everything is connected:
 
-1. Start a new session (or restart your current one)
-2. Ask: *"List my mem0 entities"* or *"Search my memories for hello"*
-3. If the `mem0` tools appear and respond, you're all set
+1. Run `/mem0:health` to check connectivity
+2. Run `/mem0:stats` to see memory counts
+3. Try `/mem0:remember "we use TypeScript"` then `/mem0:tour` to see it stored
+
+## Available Skills
+
+The plugin includes 17 skills accessible via `/mem0:` commands:
+
+| Command | Description |
+|---------|-------------|
+| `/mem0:remember` | Store a memory verbatim — decisions, preferences, conventions |
+| `/mem0:tour` | Browse all memories grouped by category |
+| `/mem0:peek` | Quick search with compact one-liner results |
+| `/mem0:stats` | Session and project memory statistics |
+| `/mem0:dream` | Consolidate memories — merge duplicates, resolve contradictions |
+| `/mem0:pin` | Protect critical memories from pruning |
+| `/mem0:forget` | Delete memories by search or ID |
+| `/mem0:health` | Diagnose connectivity, API key, and read/write |
+| `/mem0:export` | Export memories to portable Markdown |
+| `/mem0:import` | Import memories from export file or MEMORY.md |
+| `/mem0:list-projects` | List all projects with stored memories |
+| `/mem0:switch-project` | Override auto-detected project scope |
+| `/mem0:memory-reviewer` | Audit memory quality — duplicates, contradictions, stale |
+| `/mem0:protocol` | Reference guide for memory filters and metadata |
+| `/mem0:context-loader` | Pre-load relevant memories for current task |
 
 ## What's included
 
