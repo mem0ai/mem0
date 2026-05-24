@@ -2,6 +2,29 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.4
+
+### Fixed
+
+- **PostToolUse matcher mismatch (`hooks.json:81`):** Changed from `mcp__mem0__` to `mcp__mem0__|mcp__plugin_mem0_mem0__`. Root cause of session stats recording nothing — 146 consecutive "no memory operations" entries. Unblocks `/mem0:stats` session line, stop-hook report, and `session_stats.py` tracking.
+- **File-read hook noise (`on_file_read.sh`):** Replaced bare-filename semantic search with `metadata.files` filter + score threshold (≥ 0.4). Falls back to basename search if metadata filter returns nothing. Eliminates irrelevant context injection on every Read.
+- **`/mem0:pin` uses v3-removed `immutable=True`:** Removed Step 3a entirely. Standardized on `metadata.pinned: true` (which `dream/SKILL.md` already respects during pruning). Fixed unconditional `...` appended to short pin confirmations.
+- **`/mem0:list-projects` undercounts (implicit null scoping):** Dual-query approach — runs both null-scoped and app-scoped `get_memories` calls, merges by ID. Handles legacy `metadata.project_id` and `metadata.project` fields.
+- **`/mem0:peek` free-text search on memory IDs:** Detects bare hex IDs (`^[a-f0-9]{8}$`) and `[mem0:<hex>]` citation refs, routes to `get_memory` direct lookup instead of semantic search.
+- **Dead `PostToolUseFailure` hook block:** Removed entirely — this hook event does not exist in Claude Code.
+
+### Added
+
+- **Session ID capture (`on_session_start.sh`):** Extracts `session_id` from Claude Code stdin JSON, persists to `/tmp/mem0_session_id_$USER`. Falls back to timestamp-based ID. Enables `run_id`-based session scoping.
+- **`run_id` injection (`enforce_metadata_defaults.sh`):** Reads session ID from temp file, injects as `run_id` into every `add_memory` call. Tags all memories with session identity for entity-scoped filtering.
+- **`min_score`, `metadata_filters`, `rerank`, `threshold` params (`_search.py`):** `search_memories()` now accepts `min_score: float` to filter low-relevance results, `metadata_filters: dict` for field-level filtering, `rerank: bool` for managed reranker, and `threshold: float` (default 0.3, up from platform default 0.1) for server-side relevance gating. Existing callers unaffected (new params have defaults).
+- **Rerank on tour/peek:** `/mem0:tour` and `/mem0:peek` search calls now pass `rerank=true` for better result ordering (+150–200ms latency, significantly improved precision).
+- **`/mem0:stats` session query via `run_id`:** Queries memories by `run_id` filter for API-backed session counts. Cross-checks against local stats file. Shows truncated session ID in output.
+
+### Changed
+
+- **All 17 skill descriptions:** Rewritten per Claude skill best practices — each now includes what the skill does AND when to trigger it, with specific keywords for auto-discovery. Average length 200–270 chars (under 1024 max). Third person, action verbs.
+
 ## 0.2.3
 
 ### Added

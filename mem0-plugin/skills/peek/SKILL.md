@@ -1,6 +1,6 @@
 ---
 name: peek
-description: Quick search memories — compact one-liner results
+description: Searches memories and displays compact one-liner results, or looks up a specific memory by ID. Use for quick memory lookups, checking if a decision was recorded, resolving [mem0:id] citations, or browsing memories without full category detail.
 ---
 
 # Mem0 Peek
@@ -15,12 +15,22 @@ The user provides a search query: `/mem0:peek auth middleware`
 
 If no query provided, ask: "What should I search for?"
 
+**Memory ID detection:** If the query matches any of these patterns, treat it as a
+direct memory ID lookup instead of a search:
+- Bare hex: `^[a-f0-9]{8}$` (short ID) or `^[a-f0-9]{8}-[a-f0-9-]+$` (full UUID)
+- Citation ref: `[mem0:<hex>]` — extract the hex portion
+
+When an ID is detected:
+1. Call `get_memory(<id>)` directly (if short ID, try as prefix of full UUID)
+2. If found, skip to Step 3 and display the single result
+3. If not found, fall through to search using the ID as query text
+
 ### Step 2: Search
 
 Run 2 parallel `search_memories` calls:
 
-1. Broad: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`
-2. Targeted: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `top_k=5`
+1. Broad: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
+2. Targeted: `query=<user's query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `top_k=5`, `rerank=true`
 
 ### Step 3: Display
 

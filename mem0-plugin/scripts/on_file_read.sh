@@ -42,8 +42,13 @@ USER_ID="${MEM0_RESOLVED_USER_ID:-${USER:-default}}"
 PROJECT_ID="${MEM0_PROJECT_ID:-unknown}"
 BASENAME=$(basename "$FILE_PATH")
 
-# SECURITY: pass data via env vars, never interpolate into python3 -c
-CONTEXT=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" MEM0_SEARCH_PROJECT="$PROJECT_ID" MEM0_SEARCH_QUERY="$BASENAME" python3 -c "
+CWD="${MEM0_CWD:-$(pwd)}"
+REL_PATH="${FILE_PATH#$CWD/}"
+if [ "$REL_PATH" = "$FILE_PATH" ]; then
+  REL_PATH="$BASENAME"
+fi
+
+CONTEXT=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" MEM0_SEARCH_PROJECT="$PROJECT_ID" MEM0_SEARCH_QUERY="$BASENAME" MEM0_SEARCH_RELPATH="$REL_PATH" python3 -c "
 import os, sys
 sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
 from _search import search_memories, format_results_for_context
@@ -52,8 +57,18 @@ api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_SEARCH_USER', 'default')
 project_id = os.environ.get('MEM0_SEARCH_PROJECT', 'unknown')
 filename = os.environ.get('MEM0_SEARCH_QUERY', '')
+relpath = os.environ.get('MEM0_SEARCH_RELPATH', '')
 
-results = search_memories(api_key, user_id, project_id, filename, top_k=3)
+results = search_memories(
+    api_key, user_id, project_id, filename,
+    metadata_filters={'files': {'contains': relpath}} if relpath else None,
+    top_k=3, min_score=0.4,
+)
+if not results and relpath:
+    results = search_memories(
+        api_key, user_id, project_id, filename,
+        top_k=3, min_score=0.4,
+    )
 if results:
     print(format_results_for_context(results, heading=f'mem0 context for {filename}'))
 " 2>/dev/null || true)

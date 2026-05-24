@@ -1,6 +1,6 @@
 ---
 name: protocol
-description: Memory protocol — when to search, how to filter, what to store
+description: Reference guide for the mem0 memory protocol covering when to search, how to construct filters, what metadata to attach, and what content is worth storing. Use when unsure how to structure a memory call, which filters to apply, or what memory types and categories exist.
 ---
 
 # Mem0 MCP Memory Protocol

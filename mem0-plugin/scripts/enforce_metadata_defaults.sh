@@ -22,7 +22,7 @@ esac
 TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // "{}"' 2>/dev/null)
 
 PATCHED=$(python3 -c "
-import json, sys
+import json, os, sys
 
 raw = sys.stdin.read()
 try:
@@ -50,6 +50,18 @@ if 'type' not in meta:
 if meta.get('confidence', 0) >= 1.0 and 'infer' not in inp:
     inp['infer'] = False
     changed = True
+
+if 'run_id' not in inp:
+    session_file = f"/tmp/mem0_session_id_{os.environ.get('USER', 'default')}"
+    if os.path.isfile(session_file):
+        try:
+            with open(session_file) as f:
+                sid = f.read().strip()
+            if sid:
+                inp['run_id'] = sid
+                changed = True
+        except OSError:
+            pass
 
 if changed:
     inp['metadata'] = meta

@@ -1,6 +1,6 @@
 ---
 name: memory-reviewer
-description: Review memory quality — duplicates, contradictions, stale entries
+description: Reviews stored memory quality by detecting duplicates, contradictions, and stale entries with actionable recommendations. Use when search results seem conflicting, before running dream consolidation, or for periodic memory hygiene audits.
 ---
 
 # Memory Reviewer

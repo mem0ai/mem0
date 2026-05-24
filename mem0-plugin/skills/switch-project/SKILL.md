@@ -1,6 +1,6 @@
 ---
 name: switch-project
-description: Override the auto-detected project scope
+description: Overrides the auto-detected project scope to read and write memories under a different project ID. Use when working across multiple projects, accessing memories from another repo, or when auto-detection resolves to the wrong project.
 ---
 
 # Mem0 Switch Project

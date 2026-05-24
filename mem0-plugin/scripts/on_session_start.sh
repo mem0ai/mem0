@@ -28,6 +28,12 @@ rm -f "/tmp/mem0_recent_reads_${USER}" 2>/dev/null || true
 
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
+MEM0_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
+if [ -z "$MEM0_SESSION_ID" ]; then
+  MEM0_SESSION_ID="ses_$(date +%s)_$$"
+fi
+printf '%s' "$MEM0_SESSION_ID" > "/tmp/mem0_session_id_${USER}"
+export MEM0_SESSION_ID
 
 MEM0_AUTH_MODE="api_key"
 if [ -z "${MEM0_API_KEY:-}" ]; then

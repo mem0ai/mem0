@@ -1,6 +1,6 @@
 ---
 name: remember
-description: Save a memory verbatim from your input
+description: Stores a memory verbatim from user input with appropriate type classification and metadata. Use when the user says remember this, save this, store this, note that, or explicitly asks to record a decision, preference, convention, or learning.
 ---
 
 # Mem0 Remember

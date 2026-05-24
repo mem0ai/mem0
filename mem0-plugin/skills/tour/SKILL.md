@@ -1,6 +1,6 @@
 ---
 name: tour
-description: Browse stored memories grouped by category
+description: Browses all stored memories grouped by category with full content display. Use when reviewing all project memories, exploring stored knowledge, onboarding to a project, or getting an overview of captured decisions, conventions, and learnings.
 ---
 
 # Mem0 Project Tour
@@ -37,8 +37,8 @@ When `/mem0:tour` receives a search query argument (e.g., `/mem0:tour auth middl
 WITHOUT `--all-projects`, run in **peek mode** — compact one-liner results:
 
 1. Run 2 parallel `search_memories` calls:
-   - Broad: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`
-   - Targeted: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `limit=5`
+   - Broad: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`, `rerank=true`
+   - Targeted: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `limit=5`, `rerank=true`
 2. Deduplicate by ID, display compact results:
    ```
    ## mem0 search: "<query>" (<N> results)
@@ -71,9 +71,9 @@ Pass `page_size=100` (or the maximum allowed) to get a full picture.
 
 In parallel, run these `search_memories` calls to get relevance-ranked results for key topics:
 
-- `query="architecture decisions design choices"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`
-- `query="bugs errors failures anti-patterns"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`
-- `query="project setup tooling conventions preferences"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`
+- `query="architecture decisions design choices"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`, `rerank=true`
+- `query="bugs errors failures anti-patterns"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`, `rerank=true`
+- `query="project setup tooling conventions preferences"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`, `rerank=true`
 
 **Do NOT filter by `metadata.type` in these calls.** The platform auto-assigns `categories` — filtering on `metadata.type` misses memories that were auto-categorized but don't have an explicit `metadata.type`.
 

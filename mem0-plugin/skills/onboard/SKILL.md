@@ -1,6 +1,6 @@
 ---
 name: onboard
-description: Set up mem0 for this project — API key setup, config, categories, identity
+description: Sets up mem0 for a new project including API key configuration, MCP authentication, project file import, and coding categories. Use on first run in a new project, when API key needs updating, or to re-run initial setup after configuration changes.
 ---
 
 # Mem0 Onboarding Wizard
