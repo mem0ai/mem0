@@ -28,9 +28,13 @@ if [ -n "$REPORT" ] && [ "$REPORT" != "Session: no memory operations." ]; then
   echo "mem0 $REPORT"
   echo "---"
 
-  # Append to persistent session log
   mkdir -p "$HOME/.mem0" 2>/dev/null || true
-  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | $REPORT" >> "$HOME/.mem0/session-log.md" 2>/dev/null || true
+  _LOG_FILE="$HOME/.mem0/session-log.md"
+  echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | $REPORT" >> "$_LOG_FILE" 2>/dev/null || true
+  _LINE_COUNT=$(wc -l < "$_LOG_FILE" 2>/dev/null || echo 0)
+  if [ "$_LINE_COUNT" -gt 500 ]; then
+    tail -500 "$_LOG_FILE" > "${_LOG_FILE}.tmp" 2>/dev/null && mv "${_LOG_FILE}.tmp" "$_LOG_FILE" 2>/dev/null || true
+  fi
 fi
 
 # Telemetry (fire-and-forget — session dying, best-effort)

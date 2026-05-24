@@ -101,10 +101,9 @@ def already_imported(api_key: str, user_id: str, project_id: str, filename: str)
                 {"user_id": user_id},
                 {"app_id": project_id},
                 {"metadata": {"source": "auto-import"}},
-                {"metadata": {"file": {"contains": filename}}},
             ]
         },
-        "top_k": 1,
+        "top_k": 3,
         "threshold": 0.0,
     }).encode()
     req = urllib.request.Request(
@@ -117,7 +116,11 @@ def already_imported(api_key: str, user_id: str, project_id: str, filename: str)
         with urllib.request.urlopen(req, timeout=5) as r:
             data = json.loads(r.read())
             results = data if isinstance(data, list) else data.get("results", [])
-            return len(results) > 0
+            for result in results:
+                meta = result.get("metadata", {}) if isinstance(result, dict) else {}
+                if filename in meta.get("file", ""):
+                    return True
+            return False
     except Exception:
         return False
 
