@@ -19,15 +19,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
 . "$SCRIPT_DIR/_identity.sh"
 
-# Initialize session stats tracker and settings file
-python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
+INPUT=$(cat)
+SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
+
+if [ "$SOURCE" = "startup" ]; then
+  python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
+  rm -f /tmp/mem0_recent_reads_${USER}_* 2>/dev/null || true
+fi
 PYTHONPATH="$SCRIPT_DIR" python3 "$SCRIPT_DIR/load_settings.py" init 2>/dev/null || true
 rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
 rm -f /tmp/mem0_rubric_* 2>/dev/null || true
-rm -f /tmp/mem0_recent_reads_${USER}_* 2>/dev/null || true
-
-INPUT=$(cat)
-SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
 MEM0_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 if [ -z "$MEM0_SESSION_ID" ]; then
   MEM0_SESSION_ID="ses_$(date +%s)_$$"
