@@ -83,13 +83,13 @@ def test_report_empty_session(_isolate_stats_file):
     assert result == ""
 
 
-def test_report_cleans_up_file(_isolate_stats_file):
+def test_report_preserves_file(_isolate_stats_file):
     import session_stats
 
     session_stats.init()
     session_stats.record_add()
     session_stats.report()
-    assert not os.path.isfile(_isolate_stats_file)
+    assert os.path.isfile(_isolate_stats_file)
 
 
 def test_record_add_no_category(_isolate_stats_file):

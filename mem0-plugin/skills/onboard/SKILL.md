@@ -1,6 +1,6 @@
 ---
 name: onboard
-description: Set up mem0 for this project — API key setup, config, categories, identity
+description: Sets up mem0 for a new project including API key configuration, MCP authentication, project file import, and coding categories. Use on first run in a new project, when API key needs updating, or to re-run initial setup after configuration changes.
 ---
 
 # Mem0 Onboarding Wizard
@@ -108,6 +108,7 @@ If user says yes (or default):
   - `app_id=<active_project_id>`
   - `metadata={"type": "project_profile", "file": "<filename>", "source": "onboard", "branch": "<active_branch>"}`
   - `infer=False`
+- The response contains `event_id` (writes are async). Do not block on each — continue importing. The summary reflects files submitted, not confirmed processed.
 
 ## Step 5: Install coding categories
 
@@ -130,16 +131,7 @@ If the script fails with "mem0ai SDK not found", run the dependency installer fi
 ```
 Then retry the categories script.
 
-## Step 6: Mark project as onboarded
-
-```bash
-_SAFE_PID=$(printf '%s' "<active_project_id>" | tr '/:' '--')
-mkdir -p ~/.mem0 && touch ~/.mem0/.onboarded_${_SAFE_PID}
-```
-
-This is silent — no user-facing output needed.
-
-## Step 7: Summary
+## Step 6: Summary
 
 Print a summary:
 ```

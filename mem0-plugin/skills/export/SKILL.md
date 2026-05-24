@@ -1,6 +1,6 @@
 ---
 name: export
-description: Export project memories to a portable Markdown file
+description: Exports all project memories to a portable Markdown file for backup or migration. Use when backing up memories, migrating to another project, sharing memory state with teammates, or archiving before cleanup.
 ---
 
 # Mem0 Export

@@ -1,6 +1,6 @@
 ---
 name: pin
-description: Pin a memory to protect it from consolidation
+description: Pins or unpins a memory to protect it from pruning during dream consolidation. Use when a memory is critical and must never be removed, such as architecture decisions, security constraints, or immutable team conventions.
 ---
 
 # Mem0 Pin
@@ -29,21 +29,6 @@ Call `get_memory` with the selected memory ID. Store:
 
 ### Step 3: Pin it
 
-#### 3a: Pinning a new memory (full protection)
-
-Use `add_memory` with `immutable: true`:
-
-```python
-add_memory(
-    messages=[{"role": "user", "content": "<text to pin>"}],
-    user_id=<user_id>,
-    immutable=True,
-    metadata={"pinned": True},
-)
-```
-
-#### 3b: Pinning an existing memory
-
 Call `update_memory` with:
 - `memory_id=<selected_id>`
 - `text=<original_text>` (preserve existing content)
@@ -56,12 +41,18 @@ update_memory(memory_id=<selected_id>, text=<original_text>, metadata=updated_me
 
 **Important:** `update_memory` requires the `text` parameter. Passing only metadata may error or wipe content.
 
+**For new memories** (user wants to pin text that isn't stored yet):
+1. Call `add_memory` with the text + `metadata={"pinned": true, "type": "decision", "confidence": 1.0}`
+2. The response contains `event_id`. Call `get_event_status(event_id=<event_id>)` once to retrieve the memory ID, then confirm.
+
 ### Step 4: Confirm
 
 ```
-Pinned: "<memory content, first 80 chars>..."
+Pinned: "<memory content, first 80 chars>"
 Memory ID: <id>
 ```
+
+Append `...` only if content exceeds 80 characters.
 
 ### Unpin
 

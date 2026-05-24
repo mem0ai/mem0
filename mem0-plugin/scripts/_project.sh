@@ -53,6 +53,12 @@ _mem0_resolve_project_id() {
     _mem0_slug="${_mem0_slug//:/-}"
     if [ -n "$_mem0_slug" ]; then
       printf '%s' "$_mem0_slug"
+      _MEM0_PERSIST_CWD="$PWD" _MEM0_PERSIST_SLUG="$_mem0_slug" python3 -c "
+import os, sys
+sys.path.insert(0, '$(dirname "${BASH_SOURCE[0]:-$0}")')
+from _project import save_project_mapping
+save_project_mapping(os.environ['_MEM0_PERSIST_CWD'], os.environ['_MEM0_PERSIST_SLUG'])
+" 2>/dev/null || true
       return
     fi
   fi

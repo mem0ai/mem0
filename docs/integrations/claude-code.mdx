@@ -99,6 +99,39 @@ Add to your Claude Code MCP config (`.mcp.json`):
   Start a new session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
 </Info>
 
+## Post-Installation: Run `/mem0:onboard`
+
+After installing the plugin, start a new Claude Code session and run:
+
+```
+/mem0:onboard
+```
+
+This runs the setup wizard which:
+1. Verifies your API key and MCP connection
+2. Detects and imports project files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`)
+3. Installs coding-optimized memory categories
+4. Shows your identity (user ID, project scope, branch)
+
+The onboarding is idempotent — safe to re-run anytime. It auto-triggers on first session in a new project, but you can always invoke it manually.
+
+## Available Skills
+
+The plugin includes 17 skills accessible via `/mem0:` commands:
+
+| Command | Description |
+|---------|-------------|
+| `/mem0:remember` | Store a memory verbatim — decisions, preferences, conventions |
+| `/mem0:tour` | Browse all memories grouped by category |
+| `/mem0:peek` | Quick search with compact one-liner results |
+| `/mem0:stats` | Session and project memory statistics |
+| `/mem0:dream` | Consolidate memories — merge duplicates, resolve contradictions |
+| `/mem0:pin` | Protect critical memories from pruning |
+| `/mem0:forget` | Delete memories by search or ID |
+| `/mem0:health` | Diagnose connectivity, API key, and read/write |
+| `/mem0:export` | Export memories to portable Markdown |
+| `/mem0:import` | Import memories from export file or MEMORY.md |
+
 ## What's Included
 
 | Component | Plugin Install | MCP Only |

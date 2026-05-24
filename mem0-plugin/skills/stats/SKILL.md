@@ -1,6 +1,6 @@
 ---
 name: stats
-description: Show memory usage stats for this session and project
+description: Displays memory usage statistics for the current session and project including counts by category, age distribution, and API latency. Use when checking how many memories exist, reviewing session activity, or auditing memory distribution across categories.
 ---
 
 # Mem0 Stats
@@ -22,8 +22,9 @@ The `peek` command returns JSON without clearing the stats file (unlike `report`
 
 If the script returns empty or errors, note "No session data available" and continue.
 
-### Step 2: Fetch lifetime stats from API
+### Step 2: Fetch lifetime and session stats from API
 
+**Lifetime stats:**
 Call `get_memories` with:
 - `user_id=<active_user_id>`
 - `app_id=<active_project_id>`
@@ -34,7 +35,17 @@ Count the returned memories. Group them by:
 2. `metadata.type` (agent-assigned) — secondary if no categories
 3. `created_at` date — for age analysis
 
-Also run a `search_memories` call with `query="project"`, `limit=1` to measure round-trip latency (time the call).
+**Session stats (API-backed):**
+Read the session ID file at `/tmp/mem0_session_id_$USER`. If it exists and contains
+a non-empty value, also call `get_memories` with:
+- `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"run_id": "<session_id>"}]}`
+- `page_size=100`
+
+This returns only memories written in the current session. Use this count to
+cross-check the local stats file. If the API count is higher, use the API count
+(the local tracker may have missed operations).
+
+Also run a `search_memories` call with `query="project"`, `top_k=1` to measure round-trip latency (time the call).
 
 ### Step 3: Display
 
@@ -43,7 +54,7 @@ Print a minimal dashboard. No ASCII bar charts — use a clean table layout:
 ```
 ## mem0 stats
 
-**Session** — 3 written, 5 searches, categories: decision, convention
+**Session** (<session_id, first 12 chars>) — 3 written, 5 searches, categories: decision, convention
 
 **Project: my-project** — 55 memories, API: 84ms
 

@@ -19,7 +19,11 @@ def search_memories(
     project_id: str,
     query: str,
     metadata_type: str | None = None,
+    metadata_filters: dict | None = None,
     top_k: int = 3,
+    min_score: float = 0.0,
+    rerank: bool = False,
+    threshold: float = 0.3,
 ) -> list[dict]:
     if not api_key:
         return []
@@ -27,8 +31,14 @@ def search_memories(
     filters: dict = {"AND": [{"user_id": user_id}, {"app_id": project_id}]}
     if metadata_type:
         filters["AND"].append({"metadata": {"type": metadata_type}})
+    if metadata_filters:
+        for key, value in metadata_filters.items():
+            filters["AND"].append({"metadata": {key: value}})
 
-    body = json.dumps({"query": query, "filters": filters, "top_k": top_k}).encode()
+    payload: dict = {"query": query, "filters": filters, "top_k": top_k, "threshold": threshold}
+    if rerank:
+        payload["rerank"] = True
+    body = json.dumps(payload).encode()
     req = urllib.request.Request(
         SEARCH_URL,
         data=body,
@@ -38,9 +48,10 @@ def search_memories(
     try:
         with urllib.request.urlopen(req, timeout=SEARCH_TIMEOUT) as r:
             data = json.loads(r.read())
-            if isinstance(data, list):
-                return data
-            return data.get("results", [])
+            results = data if isinstance(data, list) else data.get("results", [])
+            if min_score > 0:
+                results = [m for m in results if m.get("score", 0) >= min_score]
+            return results
     except Exception:
         return []
 

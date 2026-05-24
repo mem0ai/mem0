@@ -147,13 +147,50 @@ Add the following to your `.cursor/mcp.json`:
 
 Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
 
+## Post-Installation: Run `/mem0:onboard`
+
+After installing, start a new session and run:
+
+```
+/mem0:onboard
+```
+
+This runs the setup wizard which:
+1. Verifies your API key and MCP connection
+2. Detects and imports project files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`)
+3. Installs coding-optimized memory categories
+4. Shows your identity (user ID, project scope, branch)
+
+The onboarding is idempotent — safe to re-run anytime. On first session in a new project (0 memories), Claude is prompted to run it automatically.
+
 ## Verify it works
 
-After installing, confirm the MCP server is connected:
+After onboarding, confirm everything is connected:
 
-1. Start a new session (or restart your current one)
-2. Ask: *"List my mem0 entities"* or *"Search my memories for hello"*
-3. If the `mem0` tools appear and respond, you're all set
+1. Run `/mem0:health` to check connectivity
+2. Run `/mem0:stats` to see memory counts
+3. Try `/mem0:remember "we use TypeScript"` then `/mem0:tour` to see it stored
+
+## Available Skills
+
+The plugin includes 17 skills accessible via `/mem0:` commands:
+
+| Command | Description |
+|---------|-------------|
+| `/mem0:remember` | Store a memory verbatim — decisions, preferences, conventions |
+| `/mem0:tour` | Browse all memories grouped by category |
+| `/mem0:peek` | Quick search with compact one-liner results |
+| `/mem0:stats` | Session and project memory statistics |
+| `/mem0:dream` | Consolidate memories — merge duplicates, resolve contradictions |
+| `/mem0:pin` | Protect critical memories from pruning |
+| `/mem0:forget` | Delete memories by search or ID |
+| `/mem0:health` | Diagnose connectivity, API key, and read/write |
+| `/mem0:export` | Export memories to portable Markdown |
+| `/mem0:import` | Import memories from export file or MEMORY.md |
+| `/mem0:list-projects` | List all projects with stored memories |
+| `/mem0:switch-project` | Override auto-detected project scope |
+| `/mem0:memory-reviewer` | Audit memory quality — duplicates, contradictions, stale |
+| `/mem0:context-loader` | Pre-load relevant memories for current task |
 
 ## What's included
 
@@ -162,12 +199,10 @@ After installing, confirm the MCP server is connected:
 | MCP Server | Yes | Yes | Yes | Yes | Yes |
 | Lifecycle Hooks | Yes | Yes | No | Opt-in | No |
 | Mem0 SDK Skill | Yes | Yes | No | Yes | No |
-| Memory Protocol Skill | No | No | No | Yes | No |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
 - **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code and Cursor wire hooks up natively when the plugin is installed (session start, context compaction, task completion, session end). Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`) that writes entries into `~/.codex/hooks.json` for `SessionStart`, `UserPromptSubmit`, and `Stop`.
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
-- **Memory Protocol Skill** — Codex-specific skill that instructs the agent to retrieve relevant memories at task start, store learnings on completion, and capture session state before context loss. Complements the lifecycle hooks on Codex.
 
 ## Updating the plugin
 

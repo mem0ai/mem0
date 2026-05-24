@@ -1,6 +1,6 @@
 ---
 name: dream
-description: Consolidate memories — merge duplicates, resolve contradictions, prune stale
+description: Consolidates stored memories by merging duplicates, resolving contradictions, and pruning stale entries. Use when memory count is high, search results feel noisy or repetitive, or periodic cleanup is needed to maintain memory quality.
 ---
 
 # Mem0 Dream — Memory Consolidation
