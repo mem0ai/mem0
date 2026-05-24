@@ -43,7 +43,7 @@ update_memory(memory_id=<selected_id>, text=<original_text>, metadata=updated_me
 
 **For new memories** (user wants to pin text that isn't stored yet):
 1. Call `add_memory` with the text + `metadata={"pinned": true, "type": "decision", "confidence": 1.0}`
-2. Confirm with the memory ID from the result
+2. The response contains `event_id`. Call `get_event_status(event_id=<event_id>)` once to retrieve the memory ID, then confirm.
 
 ### Step 4: Confirm
 

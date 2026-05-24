@@ -103,7 +103,7 @@ Map category names to display names:
 
 ### Step 4: Display results
 
-For each group that has results, print:
+Sort groups by descending memory count. For each group that has results, print:
 
 ```
 ## <display_name> (<count> memories)

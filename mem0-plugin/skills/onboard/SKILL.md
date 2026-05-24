@@ -108,6 +108,7 @@ If user says yes (or default):
   - `app_id=<active_project_id>`
   - `metadata={"type": "project_profile", "file": "<filename>", "source": "onboard", "branch": "<active_branch>"}`
   - `infer=False`
+- The response contains `event_id` (writes are async). Do not block on each — continue importing. The summary reflects files submitted, not confirmed processed.
 
 ## Step 5: Install coding categories
 

@@ -43,10 +43,15 @@ Call `add_memory` with:
 
 ### Step 4: Confirm
 
-Print:
+The `add_memory` response returns `event_id` (not `memory_id`) because writes are async.
+Call `get_event_status(event_id=<event_id>)` once.
+
+- If status is `SUCCEEDED`: print the memory ID from the result.
+- If status is `PENDING` or `processing`: print with the event ID as fallback.
+
 ```
 Remembered as <type>: "<content, first 80 chars>"
-Memory ID: <id>
+Memory ID: <id from event status>
 ```
 
 Append `...` only if content was truncated (longer than 80 chars).

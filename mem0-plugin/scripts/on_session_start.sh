@@ -24,7 +24,7 @@ python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
 PYTHONPATH="$SCRIPT_DIR" python3 "$SCRIPT_DIR/load_settings.py" init 2>/dev/null || true
 rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
 rm -f /tmp/mem0_rubric_* 2>/dev/null || true
-rm -f "/tmp/mem0_recent_reads_${USER}" 2>/dev/null || true
+rm -f /tmp/mem0_recent_reads_${USER}_* 2>/dev/null || true
 
 INPUT=$(cat)
 SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "startup")
@@ -138,12 +138,12 @@ fi
 cat <<BANNER
 ## Mem0 Active
 
-\`user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT | auth=$MEM0_AUTH_MODE\`
+\`user=$MEM0_RESOLVED_USER_ID${_MEM0_IDENTITY_ANNOTATION} | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT | auth=$MEM0_AUTH_MODE\`
 
 IMPORTANT: In your FIRST response to the user, you MUST display the identity banner exactly as shown below (copy-paste it as your opening line before any other output):
 
 \`\`\`
-Mem0 Active | user=$MEM0_RESOLVED_USER_ID | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT
+Mem0 Active | user=$MEM0_RESOLVED_USER_ID${_MEM0_IDENTITY_ANNOTATION} | project=$MEM0_PROJECT_ID | branch=$MEM0_BRANCH | memories=$MEM0_COUNT | auth=$MEM0_AUTH_MODE
 \`\`\`
 
 Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:

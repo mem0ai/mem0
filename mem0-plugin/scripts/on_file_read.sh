@@ -31,7 +31,7 @@ fi
 
 # Skip repeated reads: track last 10 files in a temp file.
 # Use full FILE_PATH (not basename) to avoid false dedup.
-RECENT_FILE="/tmp/mem0_recent_reads_${USER}"
+RECENT_FILE="/tmp/mem0_recent_reads_${USER}_${MEM0_PROJECT_ID:-unknown}"
 if [ -f "$RECENT_FILE" ] && grep -qxF "$FILE_PATH" "$RECENT_FILE" 2>/dev/null; then
   exit 0
 fi

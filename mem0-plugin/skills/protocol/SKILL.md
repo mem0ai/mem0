@@ -200,17 +200,6 @@ Always include `"branch": "<active_branch>"` in the metadata object alongside `t
 
 > `metadata.type` (which you set explicitly) and `categories` (which the platform auto-tags after the project's custom-category list — see `scripts/setup_coding_categories.py`) are complementary. Always set `metadata.type` for explicit filtering; the platform fills in `categories` on its own. Don't try to set `categories` on `add_memory` calls — per-request overrides aren't supported on the managed API.
 
-### Expiration: high-churn vs durable
-
-Some memory types are state snapshots that go stale fast; others are durable facts that should outlive the session that created them. Mark the difference with `expiration_date` on writes.
-
-| Type | Expiration | Why |
-|---|---|---|
-| `session_state`, `compact_summary` | `expiration_date` ≈ today + 90 days | Describe a single moment of project state. Useless after a quarter; clutter the recall surface. |
-| `decision`, `anti_pattern`, `convention`, `user_preference`, `task_learning`, `environmental` | omit `expiration_date` | Durable facts. A decision made last year is still a decision; same for a convention or a user preference. |
-
-`add_memory` accepts `expiration_date` as a string (`"YYYY-MM-DD"`). The two server-side hooks (`on_pre_compact.py`, `capture_compact_summary.py`) already set this for the types they write. When you write directly via the MCP tool, follow the same rule.
-
 ### Recency filter on recall
 
 When the user is asking about *current* state ("where were we", "what's the active task", "the latest decision on X"), filter recall to recent memories so stale snapshots don't surface:
