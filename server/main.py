@@ -13,6 +13,8 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, select
 
+load_dotenv()
+
 from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
 from errors import (
     UpstreamError,
@@ -32,8 +34,6 @@ from routers import entities as entities_router
 from routers import requests as requests_router
 from schemas import MessageResponse
 from server_state import get_current_config, get_memory_instance, initialize_state, set_session_factory, update_config
-
-load_dotenv()
 
 install_request_id_logging()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - [%(request_id)s] %(message)s")
