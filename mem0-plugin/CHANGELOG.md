@@ -28,6 +28,7 @@ All notable changes to the Mem0 plugin will be documented in this file.
 ### Changed
 
 - **All 17 skill descriptions:** Rewritten per Claude skill best practices — each now includes what the skill does AND when to trigger it, with specific keywords for auto-discovery. Average length 200–270 chars (under 1024 max). Third person, action verbs.
+- **Onboarding auto-trigger (`on_session_start.sh`):** Replaced 3-state marker-file logic with memory-count detection. New project (0 memories) → prompts Claude to invoke `/mem0:onboard`. No marker files, no OAuth state. Simplified no-API-key path to single inactive banner.
 
 ## 0.2.3
 

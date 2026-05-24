@@ -161,7 +161,7 @@ This runs the setup wizard which:
 3. Installs coding-optimized memory categories
 4. Shows your identity (user ID, project scope, branch)
 
-The onboarding is idempotent — safe to re-run anytime. It auto-triggers on first session in a new project.
+The onboarding is idempotent — safe to re-run anytime. On first session in a new project (0 memories), Claude is prompted to run it automatically.
 
 ## Verify it works
 

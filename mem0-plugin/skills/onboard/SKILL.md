@@ -131,16 +131,7 @@ If the script fails with "mem0ai SDK not found", run the dependency installer fi
 ```
 Then retry the categories script.
 
-## Step 6: Mark project as onboarded
-
-```bash
-_SAFE_PID=$(printf '%s' "<active_project_id>" | tr '/:' '--')
-mkdir -p ~/.mem0 && touch ~/.mem0/.onboarded_${_SAFE_PID}
-```
-
-This is silent — no user-facing output needed.
-
-## Step 7: Summary
+## Step 6: Summary
 
 Print a summary:
 ```
