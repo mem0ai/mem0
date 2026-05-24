@@ -68,8 +68,7 @@ if changed:
     print(json.dumps(inp))
 " <<< "$TOOL_INPUT" 2>/dev/null || true)
 
-if [ -n "$PATCHED" ]; then
-  # Use hookSpecificOutput.updatedInput to actually modify the tool call
+if [ -n "$PATCHED" ] && echo "$PATCHED" | jq empty 2>/dev/null; then
   jq -n --argjson updated "$PATCHED" '{
     "hookSpecificOutput": {
       "hookEventName": "PreToolUse",
