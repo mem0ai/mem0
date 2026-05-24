@@ -131,7 +131,7 @@ Auth is on by default. Protected endpoints require either a JWT (from the dashbo
 | Mode | How to send it | When to use it |
 |---|---|---|
 | Bearer JWT | `Authorization: Bearer <access_token>` | Dashboard sessions; tokens come from `POST /auth/login` and refresh via `POST /auth/refresh` |
-| Per-user API key | `X-API-Key: m0sk_...` | Programmatic access scoped to a single dashboard user |
+| Per-user API key | `X-API-Key: m0sk_...` | Programmatic access tied to the single admin user today. Per-user scoping arrives with the upcoming multi-user invite flow |
 | Legacy `ADMIN_API_KEY` | `X-API-Key: <env value>` | Back-compat for deployments that set the `ADMIN_API_KEY` env var |
 | `AUTH_DISABLED=true` | — | Local development only; bypasses auth entirely |
 
@@ -182,7 +182,7 @@ curl -X POST http://localhost:8888/memories \
   }'
 ```
 
-Per-user keys inherit the creating user's scope. List or revoke them via `GET /api-keys` and `DELETE /api-keys/{id}`.
+List or revoke per-user keys via `GET /api-keys` and `DELETE /api-keys/{id}`. The dashboard user issued the key remains its owner; admin-only routes such as `/configure`, `/reset`, `/entities`, and `/requests` require the issuing user to have the admin role.
 
 ### Legacy `ADMIN_API_KEY`
 
@@ -246,8 +246,8 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/configure` | Set memory configuration. Rejects unbundled providers with a 400 |
-| `GET` | `/configure` | Get the current memory configuration |
+| `POST` | `/configure` | **Admin only.** Set memory configuration. Rejects unbundled providers with a 400 |
+| `GET` | `/configure` | **Admin only.** Get the current memory configuration |
 | `GET` | `/configure/providers` | List the LLM and embedder providers bundled in the container |
 | `POST` | `/memories` | Create memories |
 | `GET` | `/memories` | Get all memories (filter by `user_id`, `agent_id`, or `run_id`) |
@@ -257,14 +257,14 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 | `DELETE` | `/memories` | Delete all memories for an identifier |
 | `GET` | `/memories/{memory_id}/history` | Get memory history |
 | `POST` | `/search` | Search memories |
-| `POST` | `/reset` | Reset all memories |
+| `POST` | `/reset` | **Admin only.** Reset all memories |
 
 ### Authentication
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/auth/setup-status` | Returns `{needsSetup: bool}`. Open, no auth required |
-| `POST` | `/auth/register` | Register the first admin. Registration closes after the first admin is created; additional accounts are provisioned by the existing admin. |
+| `POST` | `/auth/register` | Register the first admin. Registration closes after the first admin is created; additional accounts will be provisioned by the existing admin (multi-user invite flow coming soon). |
 | `POST` | `/auth/login` | Exchange email and password for access and refresh JWTs |
 | `POST` | `/auth/refresh` | Exchange a refresh token for a new access token |
 | `GET` | `/auth/me` | Get the current authenticated user (JWT required) |
@@ -285,14 +285,14 @@ All `/api-keys` endpoints require a JWT.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/requests?limit=N` | Recent API call log (JWT or admin key) |
+| `GET` | `/requests?limit=N` | **Admin only.** Recent API call log |
 
 ### Entities
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/entities` | Distinct `user_id` / `agent_id` / `run_id` values with memory counts |
-| `DELETE` | `/entities/{entity_type}/{entity_id}` | Cascade-delete all memories for an entity; `entity_type` is `user`, `agent`, or `run` |
+| `GET` | `/entities` | **Admin only.** Distinct `user_id` / `agent_id` / `run_id` values with memory counts |
+| `DELETE` | `/entities/{entity_type}/{entity_id}` | **Admin only.** Cascade-delete all memories for an entity; `entity_type` is `user`, `agent`, or `run` |
 
 The `/auth/*`, `/api-keys`, `/requests`, and `/entities` routes are new to the self-hosted server and primarily back the dashboard, but you can call them directly from your own tooling.
 
