@@ -21,52 +21,54 @@ esac
 
 TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // "{}"' 2>/dev/null)
 
-PATCHED=$(python3 -c "
+_PATCH_OUT="/tmp/mem0_enforce_$$"
+_MEM0_TOOL_INPUT="$TOOL_INPUT" python3 <<'PYEOF' > "$_PATCH_OUT" 2>/dev/null || true
 import json, os, sys
 
-raw = sys.stdin.read()
+raw = os.environ.get("_MEM0_TOOL_INPUT", "{}")
 try:
     inp = json.loads(raw)
 except Exception:
     sys.exit(0)
 
-meta = inp.get('metadata') or {}
+meta = inp.get("metadata") or {}
 changed = False
 
-if 'confidence' not in meta:
-    meta['confidence'] = 0.7
+if "confidence" not in meta:
+    meta["confidence"] = 0.7
     changed = True
-if 'files' not in meta:
-    meta['files'] = ['*']
+if "files" not in meta:
+    meta["files"] = ["*"]
     changed = True
-if 'source' not in meta:
-    meta['source'] = 'auto_capture'
+if "source" not in meta:
+    meta["source"] = "auto_capture"
     changed = True
-if 'type' not in meta:
-    meta['type'] = 'task_learning'
-    changed = True
-
-# If confidence is 1.0 (user explicitly stated), ensure infer=False
-if meta.get('confidence', 0) >= 1.0 and 'infer' not in inp:
-    inp['infer'] = False
+if "type" not in meta:
+    meta["type"] = "task_learning"
     changed = True
 
-if 'run_id' not in inp:
-    session_file = f"/tmp/mem0_session_id_{os.environ.get('USER', 'default')}"
+if meta.get("confidence", 0) >= 1.0 and "infer" not in inp:
+    inp["infer"] = False
+    changed = True
+
+if "run_id" not in inp:
+    session_file = "/tmp/mem0_session_id_" + os.environ.get("USER", "default")
     if os.path.isfile(session_file):
         try:
             with open(session_file) as f:
                 sid = f.read().strip()
             if sid:
-                inp['run_id'] = sid
+                inp["run_id"] = sid
                 changed = True
         except OSError:
             pass
 
 if changed:
-    inp['metadata'] = meta
+    inp["metadata"] = meta
     print(json.dumps(inp))
-" <<< "$TOOL_INPUT" 2>/dev/null || true)
+PYEOF
+PATCHED=$(cat "$_PATCH_OUT" 2>/dev/null)
+rm -f "$_PATCH_OUT"
 
 if [ -n "$PATCHED" ] && echo "$PATCHED" | jq empty 2>/dev/null; then
   jq -n --argjson updated "$PATCHED" '{
