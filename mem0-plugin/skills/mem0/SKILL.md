@@ -1,6 +1,6 @@
 ---
 name: mem0
-description: Mem0 SDK reference — Python, TypeScript, and integrations
+description: Mem0 SDK reference covering Python and TypeScript APIs, memory client methods, configuration, and framework integrations. Use when writing code that calls mem0 APIs, configuring memory providers, or integrating mem0 into an application.
 license: Apache-2.0
 metadata:
   author: mem0ai

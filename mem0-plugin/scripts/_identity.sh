@@ -30,6 +30,12 @@ _mem0_resolve_identity() {
 MEM0_RESOLVED_USER_ID="$(_mem0_resolve_identity)"
 export MEM0_RESOLVED_USER_ID
 
+_MEM0_IDENTITY_ANNOTATION=""
+if [ -n "${MEM0_USER_ID:-}" ] && [ "$MEM0_USER_ID" != "${USER:-default}" ]; then
+  _MEM0_IDENTITY_ANNOTATION=" (override; default: ${USER:-default})"
+fi
+export _MEM0_IDENTITY_ANNOTATION
+
 # Load settings from ~/.mem0/settings.json
 if command -v python3 >/dev/null 2>&1; then
   _SETTINGS_JSON=$(PYTHONPATH="$_SCRIPT_DIR" python3 -c "from load_settings import load_settings; import json; print(json.dumps(load_settings()))" 2>/dev/null || echo "{}")

@@ -1,6 +1,6 @@
 ---
 name: list-projects
-description: List all projects that have stored memories
+description: Lists all projects with stored memories for the current user, showing memory counts and last activity dates. Use when checking which projects have memories, comparing memory distribution across repos, or finding a specific project scope.
 ---
 
 # Mem0 List Projects
@@ -12,23 +12,29 @@ Show all known project scopes for the current user.
 ### Step 1: Fetch memories to discover app_ids
 
 There is no dedicated "list projects" API endpoint. Discover projects by fetching
-the user's memories and extracting distinct `app_id` values.
+the user's memories across all scopes.
 
-Call `get_memories` with:
-- `filters={"user_id": "<active_user_id>"}`
-- `page_size=200`
+**Important:** A filter with only `user_id` triggers implicit null scoping — it
+excludes memories that have a non-null `app_id`. Run two queries and merge:
 
-Do NOT pass `app_id` — we want memories across ALL projects.
+1. **Null-scoped:** `get_memories` with `filters={"AND": [{"user_id": "<active_user_id>"}]}`, `page_size=200`
+   — catches memories without `app_id`
+2. **App-scoped:** `get_memories` with `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": {"exists": true}}]}`, `page_size=200`
+   — catches memories with any `app_id`
 
-If the response indicates more pages, paginate until all are fetched (up to 1000
-memories max to avoid excessive API calls).
+Run both calls in parallel. Merge results, deduplicate by memory `id`.
+
+If either response indicates more pages, paginate (up to 1000 total).
 
 ### Step 2: Extract distinct projects
 
-For each memory, read the `app_id` field (may also appear as `metadata.app_id`
-on older memories). Collect distinct values.
+For each memory, determine project by:
+1. Top-level `app_id` field (preferred)
+2. `metadata.project_id` (legacy memories)
+3. `metadata.project` (oldest format)
+4. `"(unscoped)"` if none found
 
-For each project, count:
+Group by resolved project name. For each project, count:
 - Total memories
 - Most recent `created_at` date
 - Top 3 `metadata.type` values by frequency

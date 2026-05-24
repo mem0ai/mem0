@@ -1,6 +1,6 @@
 ---
 name: forget
-description: Delete memories by search or ID — confirms before deleting
+description: Deletes memories by search query or memory ID with confirmation before removal. Use when removing outdated decisions, incorrect memories, sensitive data, or cleaning up after experiments. Also handles undo of recent additions.
 ---
 
 # Mem0 Forget

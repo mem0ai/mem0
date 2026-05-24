@@ -23,7 +23,7 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _chunking import filter_and_truncate, split_by_headers
 from _identity import resolve_api_key, resolve_user_id
-from _project import resolve_branch, resolve_project_id
+from _project import resolve_branch, resolve_project_id, save_project_mapping
 
 log = logging.getLogger("mem0-auto-import")
 log.setLevel(logging.DEBUG)
@@ -93,6 +93,38 @@ def save_hashes(hashes: dict[str, str]) -> None:
         log.warning("Could not save hash store: %s", e)
 
 
+def already_imported(api_key: str, user_id: str, project_id: str, filename: str) -> bool:
+    body = json.dumps({
+        "query": filename,
+        "filters": {
+            "AND": [
+                {"user_id": user_id},
+                {"app_id": project_id},
+                {"metadata": {"source": "auto-import"}},
+            ]
+        },
+        "top_k": 3,
+        "threshold": 0.0,
+    }).encode()
+    req = urllib.request.Request(
+        f"{API_URL}/v3/memories/search/",
+        data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Token {api_key}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read())
+            results = data if isinstance(data, list) else data.get("results", [])
+            for result in results:
+                meta = result.get("metadata", {}) if isinstance(result, dict) else {}
+                if filename in meta.get("file", ""):
+                    return True
+            return False
+    except Exception:
+        return False
+
+
 def post_memory(api_key: str, content: str, user_id: str, filename: str, project_id: str, branch: str = "") -> bool:
     """POST a project profile memory to the Mem0 REST API."""
     metadata = {
@@ -149,6 +181,8 @@ def main() -> None:
     project_id = resolve_project_id(cwd)
     branch = resolve_branch(cwd)
 
+    save_project_mapping(cwd, project_id)
+
     git_root = _git_root(cwd)
     search_dirs = [cwd]
     if git_root and os.path.realpath(git_root) != os.path.realpath(cwd):
@@ -171,6 +205,8 @@ def main() -> None:
         if not filepath:
             log.debug("Not found, skipping: %s", filename)
             continue
+
+        filepath = os.path.realpath(filepath)
 
         try:
             file_size = os.path.getsize(filepath)
@@ -196,6 +232,12 @@ def main() -> None:
         hash_key = f"{project_id}:{filename}"
         if hashes.get(hash_key) == current_hash:
             log.debug("Unchanged, skipping: %s", filename)
+            continue
+
+        if already_imported(api_key, user_id, project_id, filename):
+            log.debug("Already in mem0, updating hash store: %s", filename)
+            hashes[hash_key] = current_hash
+            updated = True
             continue
 
         try:

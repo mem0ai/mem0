@@ -1,6 +1,6 @@
 ---
 name: context-loader
-description: Pre-load relevant memories for current task
+description: Searches and injects relevant memories into context before starting work on a task. Use when beginning a new task, switching context, or when project history, past decisions, or coding conventions need to be loaded.
 ---
 
 # Context Loader
@@ -9,7 +9,7 @@ Pre-fetches relevant memories to prime context before working on a task.
 
 ## When to use
 
-- Session start (auto-triggered by `on_session_start.sh` for onboarded projects)
+- Session start (invoke manually or auto-triggered by skill description matching)
 - User starts work on a specific feature or file set
 - Complex multi-step task begins
 - User says "what do we know about X" or "context for X"

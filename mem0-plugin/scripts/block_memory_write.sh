@@ -26,7 +26,7 @@ if [ -z "$FILE_PATH" ]; then
 fi
 
 case "$FILE_PATH" in
-  */MEMORY.md|*/.claude/memory/*)
+  */.claude/*/MEMORY.md|*/.claude/memory/*)
     echo "BLOCKED: Do not write to $FILE_PATH. Use the mem0 MCP \`add_memory\` tool instead to persist memories. This project uses mem0 for all memory storage." >&2
     exit 2
     ;;

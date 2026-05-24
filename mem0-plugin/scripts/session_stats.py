@@ -90,12 +90,6 @@ def report() -> str:
     searches = stats.get("searches", 0)
     categories = stats.get("categories", [])
 
-    # Clean up temp file after reading
-    try:
-        os.unlink(STATS_FILE)
-    except OSError:
-        pass
-
     if adds == 0 and searches == 0:
         return ""
 
