@@ -42,8 +42,18 @@ export class OllamaEmbedder implements Embedder {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const response = await Promise.all(texts.map((text) => this.embed(text)));
-    return response;
+    await this.ensureModelExists();
+    const inputs = texts.map((t) => (typeof t === "string" ? t : JSON.stringify(t)));
+    const response = await this.ollama.embed({
+      model: this.model,
+      input: inputs,
+    });
+    if (!response.embeddings || response.embeddings.length === 0) {
+      throw new Error(
+        `Ollama embedBatch() returned no embeddings for model '${this.model}'`,
+      );
+    }
+    return response.embeddings;
   }
 
   private static normalizeModelName(name: string): string {
