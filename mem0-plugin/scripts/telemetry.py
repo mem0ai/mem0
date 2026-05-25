@@ -58,12 +58,12 @@ def _distinct_id() -> str:
 
 
 def detect_platform() -> str:
-    if os.environ.get("CLAUDE_PLUGIN_ROOT") or os.environ.get("CLAUDECODE"):
+    if os.environ.get("PLUGIN_ROOT"):
+        return "codex"
+    if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_PLUGIN_ROOT"):
         return "claude-code"
     if os.environ.get("CURSOR_PLUGIN_ROOT"):
         return "cursor"
-    if os.environ.get("CODEX_PLUGIN_ROOT"):
-        return "codex"
     if os.environ.get("WINDSURF_PLUGIN_ROOT"):
         return "windsurf"
     return "plugin"

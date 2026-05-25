@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_file_read.sh",
+            "command": "${PLUGIN_ROOT}/scripts/on_file_read.sh",
             "timeout": 8
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
+            "command": "${PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
             "timeout": 3
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_session_start.sh",
+            "command": "${PLUGIN_ROOT}/scripts/on_session_start.sh",
             "statusMessage": "Loading mem0 context..."
           }
         ]
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
+            "command": "${PLUGIN_ROOT}/scripts/on_user_prompt.sh",
             "statusMessage": "Checking memory relevance...",
             "timeout": 12
           }
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_post_tool_use.sh",
+            "command": "${PLUGIN_ROOT}/scripts/on_post_tool_use.sh",
             "timeout": 3
           }
         ]
@@ -62,12 +62,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_post_commit.sh",
+            "command": "${PLUGIN_ROOT}/scripts/on_post_commit.sh",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_bash_output.sh",
+            "command": "${PLUGIN_ROOT}/scripts/on_bash_output.sh",
             "timeout": 12
           }
         ]
@@ -78,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CODEX_PLUGIN_ROOT}/scripts/on_stop_codex.sh",
+            "command": "${PLUGIN_ROOT}/scripts/on_stop_codex.sh",
             "timeout": 10
           }
         ]
