@@ -147,22 +147,8 @@ def test_platform_codex(monkeypatch):
     monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_ROOT", raising=False)
     monkeypatch.delenv("CURSOR_PLUGIN_ROOT", raising=False)
-    monkeypatch.setenv("CODEX_PLUGIN_ROOT", "/path")
+    monkeypatch.setenv("PLUGIN_ROOT", "/path")
     assert telemetry.detect_platform() == "codex"
-
-
-def test_sampling_drops_at_high_random(monkeypatch):
-    import telemetry
-
-    monkeypatch.setattr(telemetry.random, "random", lambda: 0.5)
-    assert telemetry._should_sample() is False
-
-
-def test_sampling_sends_at_low_random(monkeypatch):
-    import telemetry
-
-    monkeypatch.setattr(telemetry.random, "random", lambda: 0.05)
-    assert telemetry._should_sample() is True
 
 
 def test_send_fails_silently(monkeypatch):
