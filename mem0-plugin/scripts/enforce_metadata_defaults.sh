@@ -155,16 +155,18 @@ if handler == "add_memory":
         changed = True
 
     if "run_id" not in inp:
-        session_file = "/tmp/mem0_session_id_" + os.environ.get("USER", "default")
-        if os.path.isfile(session_file):
-            try:
-                with open(session_file) as f:
-                    sid = f.read().strip()
-                if sid:
-                    inp["run_id"] = sid
-                    changed = True
-            except OSError:
-                pass
+        sid = os.environ.get("MEM0_SESSION_ID", "")
+        if not sid:
+            session_file = "/tmp/mem0_session_id_" + os.environ.get("USER", "default")
+            if os.path.isfile(session_file):
+                try:
+                    with open(session_file) as f:
+                        sid = f.read().strip()
+                except OSError:
+                    pass
+        if sid:
+            inp["run_id"] = sid
+            changed = True
 
     if changed:
         inp["metadata"] = meta
@@ -188,7 +190,7 @@ if [ -n "$PATCHED" ] && echo "$PATCHED" | jq empty 2>/dev/null; then
       "permissionDecision": "allow",
       "updatedInput": $updated
     }
-  }'
+  }' 2>/dev/null || true
 fi
 
 exit 0

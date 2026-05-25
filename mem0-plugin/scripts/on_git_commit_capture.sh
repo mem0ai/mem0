@@ -41,12 +41,12 @@ fi
 USER_ID="${MEM0_RESOLVED_USER_ID:-$USER}"
 PROJECT_ID="${MEM0_PROJECT_ID:-unknown}"
 
-CONTEXT=$(python3 -c "
+CONTEXT=$(_MEM0_UID="$USER_ID" _MEM0_AID="$PROJECT_ID" _MEM0_FILES="$CHANGED_FILES" python3 -c "
 import json, urllib.request, os
 api_key = os.environ.get('MEM0_API_KEY', os.environ.get('CLAUDE_PLUGIN_OPTION_MEM0_API_KEY', ''))
-user_id = '$USER_ID'
-app_id = '$PROJECT_ID'
-files = '$CHANGED_FILES'
+user_id = os.environ.get('_MEM0_UID', '')
+app_id = os.environ.get('_MEM0_AID', '')
+files = os.environ.get('_MEM0_FILES', '')
 first_file = files.split(',')[0].strip()
 body = json.dumps({
     'query': f'changes to {files}',

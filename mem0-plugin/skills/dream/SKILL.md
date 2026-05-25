@@ -10,23 +10,7 @@ identifies near-duplicates, flags contradictions, and prunes stale entries based
 configured retention policies. All proposed changes are shown as a diff for user
 approval before anything is modified.
 
----
-
-## Checklist
-
-Copy this checklist and track progress:
-
-```
-Dream Progress:
-- [ ] Step 1: Load retention policies
-- [ ] Step 2: Fetch all project memories
-- [ ] Step 3: Analyze — find duplicates, contradictions, prune candidates
-- [ ] Step 4: Print diff report for user review
-- [ ] Step 5: Wait for user input and apply changes
-- [ ] Step 6: Print summary
-```
-
----
+**IMPORTANT: Execute steps strictly in order (1 → 2 → 3 → 4 → 5 → 6). Each step depends on the previous one. Do NOT run steps in parallel or skip ahead.**
 
 ## Step 1: Load Retention Policies
 
@@ -175,7 +159,7 @@ For each approved merge pair:
 1. `delete_memory(<id1>)`
 2. `delete_memory(<id2>)`
 3. `add_memory` with:
-   - `messages=[{"role": "user", "content": "<merged content>"}]`
+   - `text="<merged content>"`
    - `user_id=<active_user_id>`
    - `app_id=<active_project_id>` (top-level, not in metadata)
    - `metadata={"type": "<original type>", "branch": "<active_branch>", "confidence": <higher of the two original scores>, "source": "mem0-dream"}`
@@ -213,6 +197,14 @@ When invoked with `--auto` (e.g., `/mem0:dream --auto`), run non-interactively:
 - **Prunes**: applied automatically (age/confidence-based, no ambiguity).
 - **Contradictions**: skipped — they require human judgment.
 
+### Concurrency guard
+
+Before doing any work, check for a lock file at `/tmp/mem0_dream_auto.lock`:
+- If the lock file exists and is less than 10 minutes old, print `[mem0-dream --auto] Another run in progress — skipping.` and stop.
+- Otherwise, create the lock file (write the current timestamp). Delete it when done (in all exit paths).
+
+### Execution
+
 In auto mode:
 1. Load policies and fetch memories (Steps 1–3) as normal.
 2. Apply merges and prunes silently without printing the diff or prompting.
@@ -220,10 +212,13 @@ In auto mode:
    ```
    [mem0-dream --auto] project=<id>  merged=<N>  pruned=<N>  conflicts_skipped=<N>
    ```
-4. If contradictions were detected but skipped, store a reminder memory:
+4. If contradictions were detected but skipped, check if a `mem0-dream-auto` reminder already exists before storing one:
+   - Search for existing reminders: `search_memories(query="mem0-dream contradictions manual review", filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"metadata": {"source": "mem0-dream-auto"}}]}, top_k=1)`
+   - If a result exists with similarity > 0.9, skip storing the reminder (one already exists).
+   - If no match, store the reminder:
    ```python
    add_memory(
-       messages=[{"role": "user", "content": "mem0-dream detected <N> contradiction(s) requiring manual review. Run /mem0:dream to resolve them interactively."}],
+       text="mem0-dream detected <N> contradiction(s) requiring manual review. Run /mem0:dream to resolve them interactively.",
        user_id="<active_user_id>",
        app_id="<active_project_id>",
        metadata={"type": "task_learning", "source": "mem0-dream-auto", "branch": "<active_branch>"},

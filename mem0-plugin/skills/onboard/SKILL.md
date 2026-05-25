@@ -7,22 +7,7 @@ description: Sets up mem0 for a new project including API key configuration, MCP
 
 Run this wizard to set up the mem0 plugin for the current project. Complete in ~60 seconds.
 
-## Checklist
-
-Copy this checklist and track progress:
-
-```
-Onboarding Progress:
-- [ ] Step 0: Ensure mem0ai SDK is installed
-- [ ] Step 1: Set up API key
-- [ ] Step 2: MCP OAuth login
-- [ ] Step 3: Verify connectivity and show identity
-- [ ] Step 4: Detect and import project files
-- [ ] Step 5: Install coding categories
-- [ ] Step 6: Print summary
-```
-
----
+**IMPORTANT: Execute steps strictly in order (0 → 1 → 2 → 3 → 4 → 5 → 6). Each step depends on the previous one. Do NOT run steps in parallel or skip ahead. Complete one step fully before starting the next.**
 
 ## Step 0: Ensure mem0ai SDK is installed
 
@@ -70,9 +55,13 @@ Step 1: Setting up API key.
 
 After the user confirms they've set the key, verify it by running `[ -n "$MEM0_API_KEY" ] && echo "SET" || echo "NOT_SET"`. If NOT_SET, repeat the instructions. If SET, proceed to Step 2.
 
-## Step 2: MCP OAuth login
+## Step 2: MCP server connection
 
-Now authenticate the MCP server connection. Tell the user:
+First, check if MCP tools are already available using ToolSearch with query `"mem0 search_memories"`. The exact tool name varies by install method (may be `mcp__mem0__search_memories` or `mcp__plugin_mem0_mem0__search_memories`).
+
+**If MCP tools ARE found:** Print `- MCP already connected.` and proceed to Step 3.
+
+**If MCP tools are NOT found:** Guide the user through OAuth:
 
 ```
 Step 2: MCP OAuth login.
@@ -83,7 +72,7 @@ Step 2: MCP OAuth login.
   4. Return here after authenticating in your browser
 ```
 
-After the user completes OAuth, verify MCP tools are available using ToolSearch with query `"mem0 search_memories"`. The exact tool name varies by install method (may be `mcp__mem0__search_memories` or `mcp__plugin_mem0_mem0__search_memories`).
+After the user completes OAuth, verify MCP tools again using ToolSearch.
 
 - If MCP tools found: Print `- MCP connected.` and proceed to Step 3.
 - If NOT found: Troubleshoot before giving up:
@@ -107,28 +96,53 @@ Print:
 
 If the search fails, troubleshoot the API key and MCP connection.
 
-## Step 4: Detect and import project files
+## Step 4: Import project files
 
-Check for these files in the project root:
-1. `CLAUDE.md`
-2. `AGENTS.md`
-3. `.cursorrules`
-4. `.windsurfrules`
-5. `mem0.md`
+Project files (CLAUDE.md, AGENTS.md, etc.) are automatically imported into mem0 when a session starts. This step verifies import status and triggers a re-import if needed.
 
-For each file found, ask the user: "Found `<filename>` (<size> bytes). Import into mem0? [Y/n]"
+### 4a: Detect project files
 
-If user says yes (or default):
-- Read the file content
-- Call `add_memory` with:
-  - `text="## Project Profile: <filename>\n\nProject: <project_id>\n\n<file_content>"`
-  - `user_id=<active_user_id>`
-  - `app_id=<active_project_id>`
-  - `metadata={"type": "project_profile", "file": "<filename>", "source": "onboard", "branch": "<active_branch>"}`
-  - `infer=False`
-- The response contains `event_id` (writes are async). Do not block on each — continue importing. The summary reflects files submitted, not confirmed processed.
+```bash
+for f in CLAUDE.md AGENTS.md .cursorrules .windsurfrules mem0.md; do
+  [ -f "$f" ] && echo "FOUND: $f ($(wc -c < "$f") bytes)"
+done || true
+```
+
+If no files found, print `- No project files found. Skipping import.` and proceed to Step 5.
+
+### 4b: Check and import
+
+Run auto_import in foreground to check status and import if needed:
+
+```bash
+MEM0_DEBUG=1 MEM0_CWD="$PWD" python3 "${CLAUDE_PLUGIN_ROOT}/scripts/auto_import.py"
+```
+
+### 4c: Report to user
+
+Parse the auto_import output and print a user-friendly summary:
+
+- If output contains `Imported` lines:
+  ```
+  - Importing project files into mem0... done.
+    <N> file(s) imported (<M> chunks). These are stored verbatim for future context.
+  ```
+- If output contains only `skipping` lines:
+  ```
+  - Project files already in mem0 (imported during session start). Verified server-side.
+  ```
+- If output contains `re-importing`:
+  ```
+  - Project files were missing from mem0. Re-imported successfully.
+  ```
+- If output contains errors or no files were processed:
+  ```
+  - Project file import failed. Check API key and retry with: /mem0:onboard
+  ```
 
 ## Step 5: Install coding categories
+
+The setup script is idempotent — it compares existing categories against the proposed set and skips the API call if they already match (tolerates order differences and extra API fields). Safe to re-run.
 
 Ask: "Install coding categories optimized for development workflows? [Y/n]"
 
@@ -143,6 +157,11 @@ else
 fi
 ```
 
+Parse the output:
+- `"Categories already match -- skipping update."` → Print: `- Coding categories already installed. Skipped.`
+- `"Done."` → Print: `- Coding categories installed (<N> categories).`
+- Error → Print the error and suggest re-running `/mem0:onboard`.
+
 If the script fails with "mem0ai SDK not found", run the dependency installer first:
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh"
@@ -156,8 +175,8 @@ Print a summary:
 - Onboarding complete.
   user_id:    <user_id>
   project_id: <project_id> (app_id)
-  imported:   <N> files
-  categories: <installed or skipped>
+  files:      <N> found, <M> imported
+  categories: <N installed | already installed | skipped by user>
 
 Memory is now active for this project. Start working — mem0 will
 automatically search relevant context and capture learnings.

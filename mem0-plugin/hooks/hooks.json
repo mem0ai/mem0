@@ -37,7 +37,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
@@ -66,7 +66,7 @@
         ]
       },
       {
-        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
+        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__get_memory|mcp__plugin_mem0_mem0__get_memory|mcp__mem0__update_memory|mcp__plugin_mem0_mem0__update_memory|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
         "hooks": [
           {
             "type": "command",
@@ -78,7 +78,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__mem0__|mcp__plugin_mem0_mem0__",
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
         "hooks": [
           {
             "type": "command",
@@ -120,7 +120,7 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_stop.sh",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       }
