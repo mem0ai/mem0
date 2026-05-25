@@ -17,6 +17,7 @@ Exit:   0 always
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -33,6 +34,31 @@ from _identity import resolve_api_key, resolve_user_id
 from _project import resolve_branch, resolve_project_id
 
 API_URL = "https://api.mem0.ai"
+HASH_STORE = os.path.expanduser("~/.mem0/import_hashes.json")
+
+
+def _load_hashes() -> dict[str, str]:
+    if not os.path.isfile(HASH_STORE):
+        return {}
+    try:
+        with open(HASH_STORE) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_hashes(hashes: dict[str, str]) -> None:
+    os.makedirs(os.path.dirname(HASH_STORE), exist_ok=True)
+    try:
+        with open(HASH_STORE, "w") as f:
+            json.dump(hashes, f, indent=2)
+    except OSError:
+        pass
+
+
+def _content_hash(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
 
 # ---------------------------------------------------------------------------
 # API helpers
@@ -73,12 +99,30 @@ def post_memory(api_key: str, content: str, user_id: str, project_id: str, branc
         return False
 
 
-def import_chunks(chunks: list[str], api_key: str, user_id: str, project_id: str, branch: str, source: str) -> int:
-    """Import a list of content chunks; return number of successful imports."""
+def import_chunks(chunks: list[str], api_key: str, user_id: str, project_id: str, branch: str, source: str, hash_key: str = "") -> int:
+    """Import a list of content chunks; return number of successful imports.
+
+    Skips import if content hash matches a previous run for the same hash_key."""
+    if hash_key:
+        combined = "\n".join(chunks)
+        current_hash = _content_hash(combined)
+        hashes = _load_hashes()
+        if hashes.get(hash_key) == current_hash:
+            print(f"Already imported (unchanged) -- skipping: {hash_key}")
+            return 0
+    else:
+        current_hash = ""
+        hashes = {}
+
     success = 0
     for chunk in chunks:
         if post_memory(api_key, chunk, user_id, project_id, branch, source):
             success += 1
+
+    if success > 0 and hash_key and current_hash:
+        hashes[hash_key] = current_hash
+        _save_hashes(hashes)
+
     return success
 
 
@@ -123,7 +167,7 @@ def cmd_cursorrules(args: list[str]) -> None:
         raw_chunks = [content.strip()] if content.strip() else []
 
     chunks = filter_and_truncate(raw_chunks)
-    n = import_chunks(chunks, api_key, user_id, project_id, branch, source)
+    n = import_chunks(chunks, api_key, user_id, project_id, branch, source, hash_key=f"{project_id}:{source}:{path}")
     print(f"Imported {n} memories from {source} ({path})")
 
 
@@ -152,7 +196,7 @@ def cmd_copilot(args: list[str]) -> None:
         raw_chunks = [content.strip()] if content.strip() else []
 
     chunks = filter_and_truncate(raw_chunks)
-    n = import_chunks(chunks, api_key, user_id, project_id, branch, source)
+    n = import_chunks(chunks, api_key, user_id, project_id, branch, source, hash_key=f"{project_id}:{source}:{path}")
     print(f"Imported {n} memories from {source} ({path})")
 
 
@@ -188,7 +232,7 @@ def cmd_cline(args: list[str]) -> None:
         if not content:
             continue
         chunks = filter_and_truncate([content])
-        n = import_chunks(chunks, api_key, user_id, project_id, branch, source)
+        n = import_chunks(chunks, api_key, user_id, project_id, branch, source, hash_key=f"{project_id}:{source}:{filepath}")
         total += n
 
     print(f"Imported {total} memories from {source} ({dir_path})")
@@ -219,7 +263,7 @@ def cmd_continue(args: list[str]) -> None:
         raw_chunks = [content.strip()] if content.strip() else []
 
     chunks = filter_and_truncate(raw_chunks)
-    n = import_chunks(chunks, api_key, user_id, project_id, branch, source)
+    n = import_chunks(chunks, api_key, user_id, project_id, branch, source, hash_key=f"{project_id}:{source}:{path}")
     print(f"Imported {n} memories from {source} ({path})")
 
 

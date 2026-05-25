@@ -9,14 +9,14 @@
 # typed message). This hook catches errors in COMMAND OUTPUT — e.g.,
 # when `npm test` or `python script.py` fails with a traceback.
 #
-# Input:  JSON on stdin with tool_name, tool_input, tool_output
+# Input:  JSON on stdin with tool_name, tool_input, tool_response
 # Output: Context injected into Claude's next response (exit 0)
 
 set -uo pipefail
 
 INPUT=$(cat)
 
-TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_output // ""' 2>/dev/null || echo "")
+TOOL_RESULT=$(echo "$INPUT" | jq -r '.tool_response // ""' 2>/dev/null || echo "")
 
 # Skip short output (< 50 chars unlikely to contain a real stack trace)
 if [ ${#TOOL_RESULT} -lt 50 ]; then
@@ -98,20 +98,25 @@ for m in r1 + r2:
 print(format_results_for_context(combined, heading='Prior error memories'), end='')
 " 2>/dev/null || echo "")
 
-# Output error header
-printf '\n## Error detected in command output\n\n'
-printf '`%s` produced an error:\n> %s\n\n' "$COMMAND" "$ERROR_LINE"
+# Build context string for JSON output
+CTX="Error detected in command output\n\n"
+CTX="${CTX}\`${COMMAND}\` produced an error:\n> ${ERROR_LINE}\n"
 
 if [ -n "$FILE_DISPLAY" ]; then
-  printf '**Files in stack trace:**\n%s\n\n' "$FILE_DISPLAY"
+  CTX="${CTX}\nFiles in stack trace:\n${FILE_DISPLAY}\n"
 fi
 
 if [ -n "$RESULTS" ]; then
-  printf '%s\n' "$RESULTS"
-else
-  printf 'No prior memories found for this error.\n\n'
+  CTX="${CTX}\n${RESULTS}\n"
 fi
 
-printf 'If you solve this, store the fix as an `anti_pattern` or `bug_fix` memory for next time.\n'
+CTX="${CTX}\nResolved errors are stored as anti_pattern or bug_fix memories for future reference."
+
+jq -cn --arg ctx "$CTX" '{
+  hookSpecificOutput: {
+    hookEventName: "PostToolUse",
+    additionalContext: $ctx
+  }
+}' 2>/dev/null || true
 
 exit 0

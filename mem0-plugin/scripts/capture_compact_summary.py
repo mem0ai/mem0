@@ -168,8 +168,25 @@ def main():
         log.debug("No isCompactSummary entry found")
         return
 
+    if len(summary.strip()) < 100:
+        log.debug("Compact summary too short (%d chars) — skipping", len(summary.strip()))
+        return
+
+    marker_dir = os.path.expanduser("~/.mem0")
+    marker_file = os.path.join(marker_dir, f"compact_captured_{session_id}")
+    if session_id and os.path.isfile(marker_file):
+        log.info("Compact summary already captured for session %s — skipping", session_id)
+        return
+
     log.info("Capturing compact summary (%d chars)", len(summary))
-    store_summary(api_key, summary, user_id, session_id, project_id, branch)
+    if store_summary(api_key, summary, user_id, session_id, project_id, branch):
+        if session_id:
+            try:
+                os.makedirs(marker_dir, exist_ok=True)
+                with open(marker_file, "w") as f:
+                    f.write("")
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":

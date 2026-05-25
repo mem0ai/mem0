@@ -2,6 +2,50 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.5
+
+### Fixed
+
+- **PostToolUse field name: `tool_output` → `tool_response`:** All three PostToolUse scripts (`on_bash_output.sh`, `on_post_commit.sh`, `on_post_tool_use.sh`) were reading `.tool_output` from stdin JSON — a field that never existed in the Claude Code hooks spec. The correct field is `.tool_response` (confirmed via official docs at code.claude.com/docs/en/hooks). This was silently `null` on every invocation, meaning bash error detection and post-commit checks never actually fired.
+- **Stop hook invalid `hookSpecificOutput`:** `on_stop.sh` returned `hookSpecificOutput` with `hookEventName: "Stop"` — but `Stop` is not a valid `hookEventName` discriminant. Claude Code rejected the JSON with "Hook JSON output validation failed". Replaced with spec-compliant `{ decision: "block", reason: "..." }`.
+- **SessionStart banner invisible:** Switched from JSON `hookSpecificOutput.additionalContext` (discrete/hidden system reminder) back to raw text `cat <<BANNER` (shown directly in transcript). Per official docs, raw stdout from SessionStart hooks is visible context; `additionalContext` is not.
+- **`Write|Edit` matcher missing `MultiEdit`:** `block_memory_write.sh` could be bypassed via `MultiEdit` tool. Matcher now `Write|Edit|MultiEdit`.
+- **PreToolUse MCP matcher coverage gap:** `enforce_metadata_defaults.sh` not triggered for `get_memory` or `update_memory`. Added 4 tool name variants.
+- **`capture_compact_summary.py` never called:** `on_session_start.sh` compact branch never spawned it. Post-compaction summaries were not stored. Added background spawn.
+- **Unguarded variables under `set -u` in `on_session_start.sh`:** Bare `${MEM0_RESOLVED_USER_ID}` etc. without `:-` fallbacks. Script died silently if `_identity.sh` failed to source. All references now use `${VAR:-default}`.
+- **`enforce_metadata_defaults.sh` silent failure on jq error:** Final `jq -n --argjson` had no error guard under `set -euo pipefail`. Added `|| true`.
+- **Single-quote injection in `on_git_commit_capture.sh`:** Shell variables interpolated via `'$VAR'` inside `python3 -c`. Filenames with `'` broke Python syntax. Replaced with `os.environ.get()`.
+- **Identity injection on `add_memory` (`enforce_metadata_defaults.sh`):** Hook now sources `_identity.sh` and injects `user_id` and `app_id` as top-level params when the agent omits them. Prevents orphaned memories with null scoping that were invisible to filtered queries. Root cause of onboarding writes landing with `user_id=null, app_id=null`.
+- **Identity injection on `search_memories` and `get_memories`:** Hook now intercepts these tools and injects `user_id`/`app_id` into `filters.AND[]` when missing. Handles three filter states: no filters (creates from scratch), flat filters (converts to AND format), existing AND array (appends missing clauses). Prevents MCP server from auto-injecting wrong identity.
+- **Identity injection on `delete_all_memories`:** Hook injects top-level `user_id`/`app_id` to prevent accidental cross-scope deletion.
+- **`/mem0:export` incorrect `get_memories` call:** Was passing `user_id`/`app_id` as top-level params; MCP tool only accepts them inside `filters`. Changed to `filters={"AND": [{"user_id": "..."}, {"app_id": "..."}]}`.
+- **`/mem0:stats` same `get_memories` issue:** Fixed both lifetime and session stat queries to use `filters` instead of top-level identity params.
+- **`/mem0:pin` passes `metadata` to `update_memory`:** MCP `update_memory` tool only accepts `memory_id`, `text`, `source` — no `metadata` param. Pin/unpin now uses `[PINNED]` text prefix marker instead. Also added explicit `user_id`/`app_id` to `add_memory` for new pinned memories.
+- **`/mem0:health --deep` ambiguous `get_memories` call:** Clarified identity goes in `filters`, not as top-level params.
+- **`/mem0:memory-reviewer` same ambiguity:** Explicit `filters={"AND": [...]}` for `get_memories`.
+- **`/mem0:dream` stale artifact:** Removed `(item 15)` from Step 4 heading.
+- **`/mem0:dream` contradiction resolution no-op:** `update_memory` on loser with its own text did nothing. Changed to `delete_memory(memory_id=<loser_id>)` to actually remove the losing memory.
+- **`/mem0:health` Check 3 `search_memories` top-level `user_id`:** Removed top-level `user_id` param; identity only in `filters.AND[]`. Changed `limit` to `top_k`.
+- **`/mem0:health` Check 4 `add_memory` missing `infer=False`:** Health probe wasted LLM tokens on extraction. Added `infer=False`. Also fixed: was expecting `memory_id` in response but v3 returns `event_id`. Now uses `get_event_status` to get memory ID for cleanup.
+- **`/mem0:tour` `get_memories` top-level identity:** Both standard and cross-project modes passed `user_id`/`app_id` as top-level params. Moved to `filters.AND[]`.
+- **`/mem0:onboard` `search_memories` top-level `user_id`:** Removed extra top-level `user_id` param from connectivity check.
+- **`/mem0:context-loader` incomplete filter table:** Filter examples showed only `metadata.type` without `user_id`/`app_id`. Now shows full `AND` filter structure.
+- **7 skills used `limit` instead of `top_k` for `search_memories`:** MCP tool param is `top_k`, not `limit`. Fixed in: health, onboard, tour (3 places), switch-project, stats (weekly mode + latency probe).
+- **`/mem0:stats` latency probe missing `filters`:** `search_memories` call had no identity filters. Added `user_id`/`app_id` in `filters.AND[]`.
+
+### Added
+
+- **`stop_hook_check.py`:** Pure-stdlib transcript analyzer for the Stop hook. Reads last 500 lines of transcript JSONL, parses tool calls, file modifications, and git commands. Returns `{"should_block": bool, "context": "..."}`. Trivial sessions (< 3 tool calls, no file edits) skip capture entirely.
+- **Checklist for `/mem0:dream`:** 6-step progress tracker per Claude skill best practices for complex multi-step workflows.
+- **Checklist for `/mem0:onboard`:** 7-step progress tracker for onboarding wizard.
+- **Expanded hook matcher (all 3 configs):** `enforce_metadata_defaults.sh` now triggers on `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, and `delete_all_memories` (12 tool name variants covering both MCP naming conventions).
+
+### Changed
+
+- **Stop hook uses MCP-driven capture:** When meaningful work detected and no memories stored, returns `decision: "block"` asking Claude to call `add_memory` via MCP. One-shot flag prevents infinite loops. REST API capture runs in background as fallback.
+- **SessionStart banner uses raw text stdout:** Replaced JSON `additionalContext` with `cat <<BANNER` for reliable display per official hooks spec.
+- **`enforce_metadata_defaults.sh` rewritten:** Handler-based dispatch for 4 tool types. `add_memory` gets top-level identity + metadata defaults. `search_memories`/`get_memories` get filter identity injection. `delete_all_memories` gets top-level identity. Never overrides explicitly-passed identity.
+
 ## 0.2.4
 
 ### Fixed

@@ -63,7 +63,7 @@ Determine the active identity:
 
 For each record in the parsed JSON array, call `add_memory` with:
 
-- `messages=[{"role": "user", "content": "<record.content>"}]`
+- `text="<record.content>"`
 - `user_id=<active_user_id>`
 - `app_id=<active_project_id>`
 - `metadata={`
@@ -156,7 +156,7 @@ detects native auto-memory and the user chooses to import:
 2. Split by non-empty lines. Each line becomes one memory.
 3. Skip lines shorter than 20 characters or lines that are just headers (`#`).
 4. For each line, call `add_memory` with:
-   - `messages=[{"role": "user", "content": "<line>"}]`
+   - `text="<line>"`
    - `user_id=<active_user_id>`
    - `app_id=<active_project_id>`
    - `metadata={"type": "task_learning", "source": "memory-md-import", "confidence": 0.8}`

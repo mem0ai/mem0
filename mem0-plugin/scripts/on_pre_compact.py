@@ -147,11 +147,13 @@ def build_content(state: dict, source: str) -> str:
     """
     parts = []
 
-    if state["user_messages"]:
-        parts.append(f"Working on: {state['user_messages'][-1][:300]}")
-
     if state["files_modified"]:
         parts.append(f"Files touched: {', '.join(state['files_modified'][:15])}")
+
+    if state["bash_commands"]:
+        git_cmds = [c for c in state["bash_commands"] if "git " in c]
+        if git_cmds:
+            parts.append(f"Git operations: {len(git_cmds)}")
 
     return "\n".join(parts)
 
@@ -200,15 +202,51 @@ def store_memory(api_key: str, content: str, user_id: str, source: str, session_
         return False
 
 
+def format_status(state: dict, source: str, stored: bool, skipped_reason: str = "") -> str:
+    """Build a clean, readable status line for terminal display."""
+    files_count = len(state.get("files_modified", []))
+    git_cmds = [c for c in state.get("bash_commands", []) if "git " in c]
+    user_msgs = len(state.get("user_messages", []))
+
+    parts = []
+    if files_count:
+        parts.append(f"{files_count} file{'s' if files_count != 1 else ''} touched")
+    if git_cmds:
+        parts.append(f"{len(git_cmds)} git op{'s' if len(git_cmds) != 1 else ''}")
+    if user_msgs:
+        parts.append(f"{user_msgs} exchange{'s' if user_msgs != 1 else ''}")
+
+    activity = ", ".join(parts) if parts else "minimal activity"
+
+    if source == "pre-compaction":
+        icon = "✨"  # ✨
+        label = "Pre-compaction snapshot"
+    else:
+        icon = "\U0001f4be"  # 💾
+        label = "Session-end snapshot"
+
+    if skipped_reason:
+        return f"{icon} Mem0 {label} — {activity} — {skipped_reason}"
+    elif stored:
+        return f"{icon} Mem0 {label} — {activity} — saved to mem0"
+    else:
+        return f"{icon} Mem0 {label} — {activity} — nothing to capture"
+
+
 def main():
     source = "pre-compaction"
+    show_status = False
     for arg in sys.argv[1:]:
         if arg.startswith("--source="):
             source = arg.split("=", 1)[1]
+        elif arg == "--status":
+            show_status = True
 
     api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping capture")
+        if show_status:
+            print("✨ Mem0 — no API key, skipping capture")
         return
 
     try:
@@ -228,36 +266,44 @@ def main():
     project_id = resolve_project_id(cwd)
     branch = resolve_branch(cwd)
 
-    # Skip if agent already stored memories this session — avoid duplicate writes.
-    # This script is a fallback, not the primary capture path.
-    stats_file = f"/tmp/mem0_session_stats_{os.environ.get('USER', 'default')}.json"
-    try:
-        with open(stats_file) as f:
-            stats = json.load(f)
-        if stats.get("adds", 0) >= 2:
-            log.info("Agent stored %d memories this session — skipping fallback capture", stats["adds"])
-            return
-    except (OSError, json.JSONDecodeError):
-        pass  # no stats = agent didn't store anything, proceed with fallback
-
     lines = tail_lines(transcript_path, MAX_TAIL_LINES)
     if not lines:
         log.debug("Transcript empty or unreadable: %s", transcript_path)
         return
 
     state = parse_transcript(lines)
-    if not state["user_messages"] and not state["files_modified"]:
-        log.debug("No meaningful session state to capture")
+
+    # Skip if agent already stored memories this session — avoid duplicate writes.
+    stats_file = f"/tmp/mem0_session_stats_{os.environ.get('USER', 'default')}.json"
+    try:
+        with open(stats_file) as f:
+            stats = json.load(f)
+        if stats.get("adds", 0) >= 1:
+            log.info("Agent stored %d memories this session — skipping fallback", stats["adds"])
+            if show_status:
+                print(format_status(state, source, False, f"agent already stored {stats['adds']} memor{'ies' if stats['adds'] != 1 else 'y'}"))
+            return
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    if not state["files_modified"]:
+        log.debug("No files modified — skipping fallback capture")
+        if show_status:
+            print(format_status(state, source, False))
         return
 
     content = build_content(state, source)
     if not content.strip():
         log.debug("No content to store")
+        if show_status:
+            print(format_status(state, source, False))
         return
 
     log.info("Fallback capture: %d files modified", len(state["files_modified"]))
+    stored = store_memory(api_key, content, user_id, source, session_id, project_id, branch)
 
-    store_memory(api_key, content, user_id, source, session_id, project_id, branch)
+    if show_status:
+        print(format_status(state, source, stored))
 
 
 if __name__ == "__main__":
