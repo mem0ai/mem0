@@ -94,7 +94,7 @@ After the user completes OAuth, verify MCP tools are available using ToolSearch 
 
 ## Step 3: Verify connectivity and show identity
 
-Call `search_memories` with `query="project setup"`, `user_id=<active_user_id>`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `limit=1` to verify connectivity.
+Call `search_memories` with `query="project setup"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1` to verify connectivity.
 
 Print:
 ```

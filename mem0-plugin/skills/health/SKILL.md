@@ -42,8 +42,9 @@ PASS if all three are non-empty. WARN if any falls back to defaults.
 ### Check 3: MCP server connectivity
 
 Call `search_memories` with:
-- `query="health check"`, `user_id=<id>`, `limit=1`
-- `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<project_id>"}]}`
+- `query="health check"`
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
+- `top_k=1`
 
 - If returns successfully (even empty): PASS
 - If errors: FAIL — show the error message
@@ -51,12 +52,17 @@ Call `search_memories` with:
 ### Check 4: Memory write capability
 
 Call `add_memory` with:
-- `messages=[{"role": "user", "content": "Health check probe — safe to delete."}]`
-- `user_id=<id>`, `app_id=<project_id>`
+- `text="Health check probe — safe to delete."`
+- `user_id=<active_user_id>`
+- `app_id=<active_project_id>`
 - `metadata={"type": "health_check", "probe": true}`
+- `infer=False`
 
-If it returns a memory ID: PASS — then immediately call `delete_memory` with that ID to clean up.
-If it errors: FAIL — show the error.
+The response returns `event_id` (v3 writes are async). Call `get_event_status(event_id=<event_id>)` to check processing.
+
+- If status is `SUCCEEDED`: PASS — extract the memory ID from the event result, then call `delete_memory` with that ID to clean up.
+- If status is `PENDING` after 5 seconds: PASS (write accepted, processing delayed)
+- If errors: FAIL — show the error.
 
 ### Check 5: Session stats tracker
 

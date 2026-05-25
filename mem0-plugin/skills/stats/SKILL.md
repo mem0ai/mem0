@@ -44,7 +44,7 @@ This returns only memories written in the current session. Use this count to
 cross-check the local stats file. If the API count is higher, use the API count
 (the local tracker may have missed operations).
 
-Also run a `search_memories` call with `query="project"`, `top_k=1` to measure round-trip latency (time the call).
+Also run a `search_memories` call with `query="project"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1` to measure round-trip latency (time the call).
 
 ### Step 3: Display
 
@@ -87,9 +87,9 @@ activity digest after the standard stats dashboard:
 ### W1: Fetch recent memories
 
 Call `search_memories` in parallel with time-scoped queries:
-1. `query="decisions made this week"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"created_at": {"gte": "<7 days ago YYYY-MM-DD>"}}]}`, `limit=20`
-2. `query="bugs errors fixes"`, same time filter, `limit=20`
-3. `query="patterns conventions learnings"`, same time filter, `limit=20`
+1. `query="decisions made this week"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"created_at": {"gte": "<7 days ago YYYY-MM-DD>"}}]}`, `top_k=20`
+2. `query="bugs errors fixes"`, same time filter, `top_k=20`
+3. `query="patterns conventions learnings"`, same time filter, `top_k=20`
 
 ### W2: Analyze
 

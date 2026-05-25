@@ -184,10 +184,7 @@ For each approved merge pair:
 #### Contradictions (resolved)
 
 For each resolved conflict where the user chose A or B:
-- Identify the loser (the non-chosen memory).
-- First call `get_memory(<loser_id>)` to read its current text content.
-- Then call `update_memory(<loser_id>, text=<original_text_content>)` to preserve the text while updating it.
-- **Important:** `update_memory` requires the `text` parameter. A metadata-only call may error or wipe the content. Always read first, then update with the original text.
+- Delete the loser (the non-chosen memory): `delete_memory(memory_id=<loser_id>)`
 
 Contradictions where the user chose `skip` are left untouched.
 

@@ -15,6 +15,14 @@ All notable changes to the Mem0 plugin will be documented in this file.
 - **`/mem0:health --deep` ambiguous `get_memories` call:** Clarified identity goes in `filters`, not as top-level params.
 - **`/mem0:memory-reviewer` same ambiguity:** Explicit `filters={"AND": [...]}` for `get_memories`.
 - **`/mem0:dream` stale artifact:** Removed `(item 15)` from Step 4 heading.
+- **`/mem0:dream` contradiction resolution no-op:** `update_memory` on loser with its own text did nothing. Changed to `delete_memory(memory_id=<loser_id>)` to actually remove the losing memory.
+- **`/mem0:health` Check 3 `search_memories` top-level `user_id`:** Removed top-level `user_id` param; identity only in `filters.AND[]`. Changed `limit` to `top_k`.
+- **`/mem0:health` Check 4 `add_memory` missing `infer=False`:** Health probe wasted LLM tokens on extraction. Added `infer=False`. Also fixed: was expecting `memory_id` in response but v3 returns `event_id`. Now uses `get_event_status` to get memory ID for cleanup.
+- **`/mem0:tour` `get_memories` top-level identity:** Both standard and cross-project modes passed `user_id`/`app_id` as top-level params. Moved to `filters.AND[]`.
+- **`/mem0:onboard` `search_memories` top-level `user_id`:** Removed extra top-level `user_id` param from connectivity check.
+- **`/mem0:context-loader` incomplete filter table:** Filter examples showed only `metadata.type` without `user_id`/`app_id`. Now shows full `AND` filter structure.
+- **7 skills used `limit` instead of `top_k` for `search_memories`:** MCP tool param is `top_k`, not `limit`. Fixed in: health, onboard, tour (3 places), switch-project, stats (weekly mode + latency probe).
+- **`/mem0:stats` latency probe missing `filters`:** `search_memories` call had no identity filters. Added `user_id`/`app_id` in `filters.AND[]`.
 
 ### Added
 
