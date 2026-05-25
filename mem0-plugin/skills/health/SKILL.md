@@ -14,11 +14,12 @@ Run ALL checks, then display a single summary. Do not stop on the first failure.
 ### Check 1: API key
 
 ```bash
-echo "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-NOT_SET}}"
+_KEY="${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-}}"
+[ -n "$_KEY" ] && echo "${_KEY:0:6}..." || echo "NOT_SET"
 ```
 
 - If `NOT_SET`: FAIL — "No API key configured"
-- If set: PASS — show first 6 chars + `...` (never print the full key)
+- If set: PASS — the command already prints only the first 6 chars
 
 ### Check 2: Identity resolution
 

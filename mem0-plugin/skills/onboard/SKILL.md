@@ -39,10 +39,12 @@ This is silent and idempotent — safe to run anytime.
 Check if `MEM0_API_KEY` is already set by running:
 
 ```bash
-echo $MEM0_API_KEY
+[ -n "$MEM0_API_KEY" ] && echo "SET" || echo "NOT_SET"
 ```
 
-### If API key IS set (non-empty output)
+IMPORTANT: Never run `echo $MEM0_API_KEY` — that prints the secret in plaintext to the conversation log.
+
+### If API key IS set (output is "SET")
 
 Print: `- API key found.` and proceed to Step 2.
 
@@ -63,11 +65,10 @@ Step 1: Setting up API key.
      source ~/.zshrc
 
   3. Verify:
-     echo $MEM0_API_KEY
-     # Should print your key
+     [ -n "$MEM0_API_KEY" ] && echo "SET" || echo "NOT_SET"
 ```
 
-After the user confirms they've set the key, verify it by running `echo $MEM0_API_KEY`. If still empty, repeat the instructions. If set, proceed to Step 2.
+After the user confirms they've set the key, verify it by running `[ -n "$MEM0_API_KEY" ] && echo "SET" || echo "NOT_SET"`. If NOT_SET, repeat the instructions. If SET, proceed to Step 2.
 
 ## Step 2: MCP OAuth login
 
