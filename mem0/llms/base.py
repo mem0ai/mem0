@@ -52,7 +52,7 @@ class LLMBase(ABC):
         """
         reasoning_models = {
             "o1", "o1-preview", "o3-mini", "o3",
-            "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
+            "gpt-5", "gpt-5-mini", "gpt-5-nano",
         }
 
         model_lower = model.lower()
@@ -64,7 +64,7 @@ class LLMBase(ABC):
 
         # Match o1/o3 family with prefixes (o1-2024-12-17, o3-2025-04-16)
         # but NOT gpt-5.x variants (gpt-5.4-mini supports temperature)
-        if any(base_model.startswith(prefix) for prefix in ["o1-", "o1.", "o3-", "o3."]):
+        if any(base_model.startswith(prefix) for prefix in ["o1-", "o1.", "o3-", "o3.", "gpt-5-mini-", "gpt-5-nano-"]):
             return True
 
         return False
