@@ -158,7 +158,10 @@ class RedisDB(VectorStoreBase):
         return [
             MemoryResult(
                 id=result["memory_id"],
-                score=float(result["vector_distance"]),
+                # RediSearch returns cosine distance (lower = more similar), but
+                # downstream scoring treats score as a similarity (higher = more
+                # similar). Convert to match the weaviate store's convention. See #4999.
+                score=1 - float(result["vector_distance"]),
                 payload={
                     "hash": result["hash"],
                     "data": result["memory"],

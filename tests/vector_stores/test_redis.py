@@ -71,3 +71,27 @@ def test_update_with_vector_includes_embedding():
     )
     expected_bytes = np.array(vector, dtype=np.float32).tobytes()
     assert data_dict["embedding"] == expected_bytes
+
+
+def test_search_converts_cosine_distance_to_similarity():
+    """Regression for #4999: RediSearch returns cosine ``vector_distance``
+    (lower = more similar), but downstream scoring treats ``score`` as a
+    similarity (higher = more similar; dedup at ``>= 0.95`` and a minimum-score
+    threshold). search() must convert distance to similarity, matching the
+    existing weaviate convention (``score = 1 - distance``).
+    """
+    db, mock_index = _make_redis_db()
+    ts = str(int(datetime.now(tz=pytz.timezone("UTC")).timestamp()))
+    mock_index.query.return_value = [
+        {"memory_id": "id_near", "vector_distance": "0.1", "hash": "h1",
+         "memory": "near", "created_at": ts, "metadata": "{}"},
+        {"memory_id": "id_far", "vector_distance": "0.4", "hash": "h2",
+         "memory": "far", "created_at": ts, "metadata": "{}"},
+    ]
+
+    results = db.search(query="q", vectors=[0.0, 0.0, 0.0, 0.0], top_k=2, filters={"user_id": "u1"})
+
+    # The nearer result (smaller distance) must yield the HIGHER similarity score.
+    assert abs(results[0].score - 0.9) < 1e-9, f"expected ~0.9, got {results[0].score}"
+    assert abs(results[1].score - 0.6) < 1e-9, f"expected ~0.6, got {results[1].score}"
+    assert results[0].score > results[1].score
