@@ -14,26 +14,38 @@ Run ALL checks, then display a single summary. Do not stop on the first failure.
 ### Check 1: API key
 
 ```bash
-echo "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-NOT_SET}}"
+_KEY="${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-}}"
+[ -n "$_KEY" ] && echo "${_KEY:0:6}..." || echo "NOT_SET"
 ```
 
 - If `NOT_SET`: FAIL — "No API key configured"
-- If set: PASS — show first 6 chars + `...` (never print the full key)
+- If set: PASS — the command already prints only the first 6 chars
 
 ### Check 2: Identity resolution
 
-Read the active identity from the SessionStart banner or resolve manually:
-- `user_id`: from `MEM0_RESOLVED_USER_ID` or `$USER`
-- `project_id`: from `MEM0_PROJECT_ID` or current directory name
-- `branch`: from `MEM0_BRANCH` or `git rev-parse --abbrev-ref HEAD`
+Resolve identity using the plugin's own resolver scripts to match what hooks use:
+
+```bash
+SCRIPT_DIR="${CLAUDE_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}/scripts"
+source "$SCRIPT_DIR/_identity.sh" 2>/dev/null
+echo "user_id=${MEM0_RESOLVED_USER_ID:-}"
+echo "project_id=${MEM0_PROJECT_ID:-}"
+echo "branch=${MEM0_BRANCH:-}"
+```
+
+If `CLAUDE_PLUGIN_ROOT` is not available, fall back to:
+- `user_id`: from `MEM0_USER_ID` or `$USER`
+- `project_id`: from `MEM0_PROJECT_ID` or check `~/.mem0/project_map.json` for `$PWD`
+- `branch`: from `git branch --show-current`
 
 PASS if all three are non-empty. WARN if any falls back to defaults.
 
 ### Check 3: MCP server connectivity
 
 Call `search_memories` with:
-- `query="health check"`, `user_id=<id>`, `limit=1`
-- `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<project_id>"}]}`
+- `query="health check"`
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
+- `top_k=1`
 
 - If returns successfully (even empty): PASS
 - If errors: FAIL — show the error message
@@ -41,12 +53,17 @@ Call `search_memories` with:
 ### Check 4: Memory write capability
 
 Call `add_memory` with:
-- `messages=[{"role": "user", "content": "Health check probe — safe to delete."}]`
-- `user_id=<id>`, `app_id=<project_id>`
+- `text="Health check probe — safe to delete."`
+- `user_id=<active_user_id>`
+- `app_id=<active_project_id>`
 - `metadata={"type": "health_check", "probe": true}`
+- `infer=False`
 
-If it returns a memory ID: PASS — then immediately call `delete_memory` with that ID to clean up.
-If it errors: FAIL — show the error.
+The response returns `event_id` (v3 writes are async). Call `get_event_status(event_id=<event_id>)` to check processing.
+
+- If status is `SUCCEEDED`: PASS — extract the memory ID from the event result, then call `delete_memory` with that ID to clean up.
+- If status is `PENDING` after 5 seconds: PASS (write accepted, processing delayed)
+- If errors: FAIL — show the error.
 
 ### Check 5: Session stats tracker
 
@@ -85,7 +102,7 @@ When invoked with `--deep` (e.g., `/mem0:health --deep`), run the standard 5 che
 
 ### Quality Check 1: Duplicates
 
-Call `get_memories` with `user_id`, `app_id`, `page_size=200`. Compare all pairs within the same `metadata.type` group for high textual overlap (shared nouns/keywords > 60%). Report:
+Call `get_memories` with `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=200`. Compare all pairs within the same `metadata.type` group for high textual overlap (shared nouns/keywords > 60%). Report:
 
 ```
 Potential duplicates: <N> pairs

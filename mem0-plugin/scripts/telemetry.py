@@ -22,7 +22,6 @@ import hashlib
 import json
 import os
 import platform
-import random
 import sys
 import urllib.error
 import urllib.request
@@ -42,8 +41,7 @@ POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/"
 REQUEST_TIMEOUT = 2
 
-# All events sampled at 10% to keep PostHog costs predictable.
-SAMPLE_RATE = 0.1
+SAMPLE_RATE = 1.0
 
 
 def _sha256(value: str) -> str:
@@ -60,21 +58,19 @@ def _distinct_id() -> str:
 
 
 def detect_platform() -> str:
+    if os.environ.get("PLUGIN_ROOT"):
+        return "codex"
     if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_PLUGIN_ROOT"):
         return "claude-code"
     if os.environ.get("CURSOR_PLUGIN_ROOT"):
         return "cursor"
-    if os.environ.get("CODEX_PLUGIN_ROOT"):
-        return "codex"
-    return "unknown"
+    if os.environ.get("WINDSURF_PLUGIN_ROOT"):
+        return "windsurf"
+    return "plugin"
 
 
 def is_enabled() -> bool:
     return os.environ.get("MEM0_TELEMETRY", "true").lower() not in ("false", "0", "no", "off")
-
-
-def _should_sample() -> bool:
-    return random.random() < SAMPLE_RATE
 
 
 def build_posthog_payload(event_name: str, properties: dict | None = None) -> dict:
@@ -115,10 +111,7 @@ def send(payload: dict) -> None:
 def emit(event_type: str, properties: dict | None = None) -> None:
     if not is_enabled():
         return
-    event_name = f"plugin.{event_type}"
-    if not _should_sample():
-        return
-    send(build_posthog_payload(event_name, properties))
+    send(build_posthog_payload(f"plugin.{event_type}", properties))
 
 
 def main() -> int:

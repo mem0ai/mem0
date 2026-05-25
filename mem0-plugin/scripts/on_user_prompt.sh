@@ -27,7 +27,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=_identity.sh
-. "$SCRIPT_DIR/_identity.sh"
+. "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
 # Rubric dedup: only inject full rubric once per session.
 # Key on session ID (from stdin JSON) to avoid cross-session interference.
@@ -78,15 +78,26 @@ python3 "$SCRIPT_DIR/telemetry.py" user_prompt $_TELEM_ARGS 2>/dev/null &
 
 # No API key — emit detections only, skip search rubric
 if [ -z "${MEM0_API_KEY:-}" ]; then
+  _PROMPT_CTX=""
   if [ -n "$HAS_ERROR" ]; then
-    echo "**ERROR DETECTED in prompt.** Set MEM0_API_KEY to search past debugging context."
+    _PROMPT_CTX="Error detected in prompt. Set MEM0_API_KEY to search past debugging context."
   fi
   if [ -n "$FILE_PATHS" ]; then
-    echo "**FILE PATHS detected:** \`$FILE_PATHS\`"
+    _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}File paths detected: ${FILE_PATHS}"
+  fi
+  if [ -n "$_PROMPT_CTX" ]; then
+    jq -cn --arg ctx "$_PROMPT_CTX" '{
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: $ctx
+      }
+    }'
   fi
   exit 0
 fi
 USER_ID="$MEM0_RESOLVED_USER_ID"
+
+_PROMPT_CTX=""
 
 if [ -n "$HAS_RESUME" ]; then
   RESUME_RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" python3 -c "
@@ -113,45 +124,40 @@ for m in all_r:
 if unique:
     print(format_results_for_context(unique, heading='Session context recovered from mem0'))
     print()
-    print('Use these memories to resume work. Do NOT ask the user to repeat context that is already in these memories.')
+    print('These memories provide context for resuming work.')
 else:
-    print('No session state found in mem0. Ask the user what they want to continue.')
+    print('No session state found in mem0.')
 " 2>/dev/null || echo "")
 
   if [ -n "$RESUME_RESULTS" ]; then
-    echo ""
-    echo "$RESUME_RESULTS"
+    _PROMPT_CTX="${RESUME_RESULTS}"
   fi
 fi
 
 if [ -n "$HAS_REMEMBER" ]; then
-  cat <<'REMEMBER_EOF'
-
-**Remember intent detected.** Use `/mem0:remember` (not raw `add_memory`) — it auto-classifies, sets confidence=1.0, and stores verbatim.
-REMEMBER_EOF
+  _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}Remember intent detected. The /mem0:remember skill auto-classifies, sets confidence=1.0, and stores verbatim."
 fi
 
 if [ -z "$RUBRIC_ALREADY_SHOWN" ]; then
-  cat <<EOF
-Search mem0 when the user references past work, asks decision questions, hits errors, or starts non-trivial tasks. Skip for acknowledgements, new info (store instead), or pure factual questions.
-
-**Search tips:** Use noun-phrase queries, run 2-4 parallel calls with different \`metadata.type\` filters (decision, anti_pattern, user_preference, convention). Always include \`user_id\` + \`app_id\` in filters. Empty results are normal.
-EOF
+  _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id."
   touch "$RUBRIC_FLAG" 2>/dev/null || true
 fi
 
 if [ -n "$HAS_ERROR" ]; then
-  cat <<EOF
-
-**ERROR DETECTED in prompt.** Search mem0 for prior occurrences — use \`anti_pattern\` and \`task_learning\` type filters with the error class or filename from the stack trace.
-EOF
+  _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}Error detected in prompt. Prior occurrences are available in mem0 via anti_pattern and task_learning type filters."
 fi
 
 if [ -n "$FILE_PATHS" ]; then
-  cat <<EOF
+  _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}File paths detected: ${FILE_PATHS}"
+fi
 
-**FILE PATHS detected:** \`$FILE_PATHS\`
-EOF
+if [ -n "$_PROMPT_CTX" ]; then
+  jq -cn --arg ctx "$_PROMPT_CTX" '{
+    hookSpecificOutput: {
+      hookEventName: "UserPromptSubmit",
+      additionalContext: $ctx
+    }
+  }'
 fi
 
 exit 0

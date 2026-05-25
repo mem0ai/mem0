@@ -29,20 +29,21 @@ Call `get_memory` with the selected memory ID. Store:
 
 ### Step 3: Pin it
 
-Call `update_memory` with:
-- `memory_id=<selected_id>`
-- `text=<original_text>` (preserve existing content)
-- `metadata=` merge `original_metadata` with `{"pinned": true}`
+The MCP `update_memory` tool only accepts `memory_id`, `text`, and `source` — it
+does not accept a `metadata` parameter. To pin, append a pin marker to the text:
 
 ```python
-updated_meta = {**original_metadata, "pinned": True}
-update_memory(memory_id=<selected_id>, text=<original_text>, metadata=updated_meta)
+pinned_text = "[PINNED] " + original_text if not original_text.startswith("[PINNED]") else original_text
+update_memory(memory_id=<selected_id>, text=pinned_text)
 ```
 
-**Important:** `update_memory` requires the `text` parameter. Passing only metadata may error or wipe content.
-
 **For new memories** (user wants to pin text that isn't stored yet):
-1. Call `add_memory` with the text + `metadata={"pinned": true, "type": "decision", "confidence": 1.0}`
+1. Call `add_memory` with:
+   - `text="[PINNED] <the user's text>"`
+   - `user_id=<active_user_id>`
+   - `app_id=<active_project_id>`
+   - `metadata={"pinned": true, "type": "decision", "confidence": 1.0}`
+   - `infer=False`
 2. The response contains `event_id`. Call `get_event_status(event_id=<event_id>)` once to retrieve the memory ID, then confirm.
 
 ### Step 4: Confirm
@@ -57,10 +58,10 @@ Append `...` only if content exceeds 80 characters.
 ### Unpin
 
 If the user says "unpin":
-1. Call `get_memory` to read current content and metadata.
-2. Set `metadata.pinned = false`:
+1. Call `get_memory` to read current content.
+2. Remove the pin marker from the text:
    ```python
-   updated_meta = {**original_metadata, "pinned": False}
-   update_memory(memory_id=<id>, text=<original_text>, metadata=updated_meta)
+   unpinned_text = original_text.removeprefix("[PINNED] ")
+   update_memory(memory_id=<id>, text=unpinned_text)
    ```
 3. Print: `Unpinned: "<content>..."`

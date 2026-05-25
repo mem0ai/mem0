@@ -150,6 +150,22 @@ def _print_categories(label: str, cats):
     print()
 
 
+def _categories_match(current: list | None, proposed: list) -> bool:
+    """Compare categories by key sets, tolerating order differences and extra API fields."""
+    if not current:
+        return False
+    current_keys = {k for d in current if isinstance(d, dict) for k in d}
+    proposed_keys = {k for d in proposed if isinstance(d, dict) for k in d}
+    if current_keys != proposed_keys:
+        return False
+    current_map = {k: v for d in current if isinstance(d, dict) for k, v in d.items()}
+    proposed_map = {k: v for d in proposed if isinstance(d, dict) for k, v in d.items()}
+    return all(
+        current_map.get(k, "").strip() == v.strip()
+        for k, v in proposed_map.items()
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument(
@@ -199,6 +215,10 @@ def main() -> int:
 
     if not args.apply:
         print("Dry-run only -- no changes made. Re-run with --apply to write.")
+        return 0
+
+    if _categories_match(current_cats, CODING_CATEGORIES):
+        print("Categories already match -- skipping update.")
         return 0
 
     print("Applying coding categories...")

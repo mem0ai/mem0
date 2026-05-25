@@ -5,7 +5,7 @@
 #   mcp__mem0__add_memory     → record an add
 #   mcp__mem0__search_memories → record a search
 #
-# Input:  JSON on stdin with tool_name, tool_input, tool_output
+# Input:  JSON on stdin with tool_name, tool_input, tool_response
 # Output: none (exit 0, non-blocking)
 
 set -uo pipefail

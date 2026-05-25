@@ -12,9 +12,9 @@ Show the user what mem0 has stored for the current project.
 When invoked with `--all-projects` (e.g., `/mem0:tour --all-projects` or
 `/mem0:tour --all-projects auth middleware`), search across ALL projects:
 
-1. Call `get_memories` with `user_id=<active_user_id>`, `page_size=200` — **no `app_id` filter**.
+1. Call `get_memories` with `filters={"AND": [{"user_id": "<active_user_id>"}]}`, `page_size=200` — **no `app_id` filter**.
 2. If a search query was also provided, run `search_memories` with `query=<query>`,
-   `filters={"AND": [{"user_id": "<id>"}]}`, `limit=20` — again no `app_id`.
+   `filters={"AND": [{"user_id": "<active_user_id>"}]}`, `top_k=20` — again no `app_id`.
 3. Group results by `app_id` first, then by category within each project.
 4. Display:
    ```
@@ -37,8 +37,8 @@ When `/mem0:tour` receives a search query argument (e.g., `/mem0:tour auth middl
 WITHOUT `--all-projects`, run in **peek mode** — compact one-liner results:
 
 1. Run 2 parallel `search_memories` calls:
-   - Broad: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`, `rerank=true`
-   - Targeted: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `limit=5`, `rerank=true`
+   - Broad: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
+   - Targeted: `query=<query>`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"metadata": {"type": "decision"}}]}`, `top_k=5`, `rerank=true`
 2. Deduplicate by ID, display compact results:
    ```
    ## mem0 search: "<query>" (<N> results)
@@ -57,23 +57,18 @@ If no query argument and no `--all-projects` flag, use the full tour flow below.
 ### Step 1: Fetch ALL memories for this project
 
 Call `get_memories` with:
-- `user_id=<active_user_id>`
-- `app_id=<active_project_id>`
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
+- `page_size=100`
 
 This returns every memory scoped to the project — no semantic filtering, no missed results.
-
-If `get_memories` doesn't support `app_id` as a direct parameter, use:
-- `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`
-
-Pass `page_size=100` (or the maximum allowed) to get a full picture.
 
 ### Step 2: Run supplementary semantic searches
 
 In parallel, run these `search_memories` calls to get relevance-ranked results for key topics:
 
-- `query="architecture decisions design choices"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`, `rerank=true`
-- `query="bugs errors failures anti-patterns"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`, `rerank=true`
-- `query="project setup tooling conventions preferences"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `limit=10`, `rerank=true`
+- `query="architecture decisions design choices"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
+- `query="bugs errors failures anti-patterns"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
+- `query="project setup tooling conventions preferences"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}]}`, `top_k=10`, `rerank=true`
 
 **Do NOT filter by `metadata.type` in these calls.** The platform auto-assigns `categories` — filtering on `metadata.type` misses memories that were auto-categorized but don't have an explicit `metadata.type`.
 

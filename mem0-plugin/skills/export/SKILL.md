@@ -18,8 +18,7 @@ Determine the active identity:
 ### Step 2: Fetch all memories
 
 Call `get_memories` with:
-- `user_id=<active_user_id>`
-- `app_id=<active_project_id>`
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
 - `page_size=200`
 
 If the response is paginated (i.e. the result contains a `next` cursor or the count equals `page_size`), continue fetching pages until all memories are retrieved.

@@ -1,6 +1,6 @@
 {
   "name": "mem0",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Mem0 memory layer for AI applications. Add persistent memory, personalization, and semantic search to Codex workflows using the Mem0 Platform MCP server.",
   "author": {
     "name": "Mem0",

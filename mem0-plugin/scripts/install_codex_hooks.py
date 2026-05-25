@@ -4,7 +4,7 @@
 Codex discovers hooks only at ~/.codex/hooks.json or <repo>/.codex/hooks.json,
 and has no plugin-host mechanism for auto-wiring hooks from an installed
 plugin. This installer reads the template at hooks/codex-hooks.json, rewrites
-the ${CODEX_PLUGIN_ROOT} placeholder to the absolute install path of this
+the ${PLUGIN_ROOT} placeholder to the absolute install path of this
 plugin, then merges the entries into ~/.codex/hooks.json.
 
 Re-running is idempotent: existing Mem0 entries (identified by the plugin
@@ -44,7 +44,7 @@ OWNER_MARKER = "mem0-plugin"
 
 def load_template() -> dict:
     raw = TEMPLATE_FILE.read_text()
-    raw = raw.replace("${CODEX_PLUGIN_ROOT}", str(PLUGIN_ROOT))
+    raw = raw.replace("${PLUGIN_ROOT}", str(PLUGIN_ROOT))
     return json.loads(raw)
 
 

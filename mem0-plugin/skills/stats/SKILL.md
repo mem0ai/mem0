@@ -26,8 +26,7 @@ If the script returns empty or errors, note "No session data available" and cont
 
 **Lifetime stats:**
 Call `get_memories` with:
-- `user_id=<active_user_id>`
-- `app_id=<active_project_id>`
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
 - `page_size=100`
 
 Count the returned memories. Group them by:
@@ -38,14 +37,14 @@ Count the returned memories. Group them by:
 **Session stats (API-backed):**
 Read the session ID file at `/tmp/mem0_session_id_$USER`. If it exists and contains
 a non-empty value, also call `get_memories` with:
-- `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"run_id": "<session_id>"}]}`
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"run_id": "<session_id>"}]}`
 - `page_size=100`
 
 This returns only memories written in the current session. Use this count to
 cross-check the local stats file. If the API count is higher, use the API count
 (the local tracker may have missed operations).
 
-Also run a `search_memories` call with `query="project"`, `top_k=1` to measure round-trip latency (time the call).
+Also run a `search_memories` MCP tool call with `query="project"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1` to measure round-trip latency. Note the time before and after the MCP call — do NOT attempt raw HTTP calls to the API.
 
 ### Step 3: Display
 
@@ -88,9 +87,9 @@ activity digest after the standard stats dashboard:
 ### W1: Fetch recent memories
 
 Call `search_memories` in parallel with time-scoped queries:
-1. `query="decisions made this week"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"created_at": {"gte": "<7 days ago YYYY-MM-DD>"}}]}`, `limit=20`
-2. `query="bugs errors fixes"`, same time filter, `limit=20`
-3. `query="patterns conventions learnings"`, same time filter, `limit=20`
+1. `query="decisions made this week"`, `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"created_at": {"gte": "<7 days ago YYYY-MM-DD>"}}]}`, `top_k=20`
+2. `query="bugs errors fixes"`, same time filter, `top_k=20`
+3. `query="patterns conventions learnings"`, same time filter, `top_k=20`
 
 ### W2: Analyze
 
