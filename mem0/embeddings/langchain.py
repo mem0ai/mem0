@@ -33,3 +33,7 @@ class LangchainEmbedding(EmbeddingBase):
         """
 
         return self.langchain_model.embed_query(text)
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts using LangChain's embed_documents interface."""
+        return self.langchain_model.embed_documents(texts)
