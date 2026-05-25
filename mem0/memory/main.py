@@ -41,6 +41,12 @@ from mem0.utils.factory import (
 )
 from mem0.utils.lemmatization import lemmatize_for_bm25
 from mem0.utils.scoring import (
+
+
+class EmbeddingError(Exception):
+    """Raised when embedding a memory text fails, causing silent data loss."""
+    pass
+
     ENTITY_BOOST_WEIGHT,
     get_bm25_params,
     normalize_bm25,
@@ -775,11 +781,18 @@ class Memory(MemoryBase):
         except Exception:
             # Fallback: embed individually
             embed_map = {}
+            failed_texts = []
             for text in mem_texts:
                 try:
                     embed_map[text] = self.embedding_model.embed(text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text: {e}")
+                    failed_texts.append(text)
+            if failed_texts:
+                raise EmbeddingError(
+                    f"Failed to embed {len(failed_texts)} memory text(s), "
+                    f"dropped memories: {failed_texts}"
+                )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         # Build set of existing hashes for dedup
@@ -2190,11 +2203,18 @@ class AsyncMemory(MemoryBase):
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
         except Exception:
             embed_map = {}
+            failed_texts_async = []
             for text in mem_texts:
                 try:
                     embed_map[text] = await asyncio.to_thread(self.embedding_model.embed, text, "add")
                 except Exception as e:
                     logger.warning(f"Failed to embed memory text (async): {e}")
+                    failed_texts_async.append(text)
+            if failed_texts_async:
+                raise EmbeddingError(
+                    f"Failed to embed {len(failed_texts_async)} memory text(s) (async), "
+                    f"dropped memories: {failed_texts_async}"
+                )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         existing_hashes = set()
