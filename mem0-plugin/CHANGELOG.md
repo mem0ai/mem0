@@ -2,6 +2,30 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.5
+
+### Fixed
+
+- **Identity injection on `add_memory` (`enforce_metadata_defaults.sh`):** Hook now sources `_identity.sh` and injects `user_id` and `app_id` as top-level params when the agent omits them. Prevents orphaned memories with null scoping that were invisible to filtered queries. Root cause of onboarding writes landing with `user_id=null, app_id=null`.
+- **Identity injection on `search_memories` and `get_memories`:** Hook now intercepts these tools and injects `user_id`/`app_id` into `filters.AND[]` when missing. Handles three filter states: no filters (creates from scratch), flat filters (converts to AND format), existing AND array (appends missing clauses). Prevents MCP server from auto-injecting wrong identity.
+- **Identity injection on `delete_all_memories`:** Hook injects top-level `user_id`/`app_id` to prevent accidental cross-scope deletion.
+- **`/mem0:export` incorrect `get_memories` call:** Was passing `user_id`/`app_id` as top-level params; MCP tool only accepts them inside `filters`. Changed to `filters={"AND": [{"user_id": "..."}, {"app_id": "..."}]}`.
+- **`/mem0:stats` same `get_memories` issue:** Fixed both lifetime and session stat queries to use `filters` instead of top-level identity params.
+- **`/mem0:pin` passes `metadata` to `update_memory`:** MCP `update_memory` tool only accepts `memory_id`, `text`, `source` — no `metadata` param. Pin/unpin now uses `[PINNED]` text prefix marker instead. Also added explicit `user_id`/`app_id` to `add_memory` for new pinned memories.
+- **`/mem0:health --deep` ambiguous `get_memories` call:** Clarified identity goes in `filters`, not as top-level params.
+- **`/mem0:memory-reviewer` same ambiguity:** Explicit `filters={"AND": [...]}` for `get_memories`.
+- **`/mem0:dream` stale artifact:** Removed `(item 15)` from Step 4 heading.
+
+### Added
+
+- **Checklist for `/mem0:dream`:** 6-step progress tracker per Claude skill best practices for complex multi-step workflows.
+- **Checklist for `/mem0:onboard`:** 7-step progress tracker for onboarding wizard.
+- **Expanded hook matcher (all 3 configs):** `enforce_metadata_defaults.sh` now triggers on `add_memory`, `search_memories`, `get_memories`, and `delete_all_memories` (8 tool name variants covering both MCP naming conventions).
+
+### Changed
+
+- **`enforce_metadata_defaults.sh` rewritten:** Handler-based dispatch for 4 tool types. `add_memory` gets top-level identity + metadata defaults. `search_memories`/`get_memories` get filter identity injection. `delete_all_memories` gets top-level identity. Never overrides explicitly-passed identity.
+
 ## 0.2.4
 
 ### Fixed

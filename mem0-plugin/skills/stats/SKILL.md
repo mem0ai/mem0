@@ -26,8 +26,7 @@ If the script returns empty or errors, note "No session data available" and cont
 
 **Lifetime stats:**
 Call `get_memories` with:
-- `user_id=<active_user_id>`
-- `app_id=<active_project_id>`
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
 - `page_size=100`
 
 Count the returned memories. Group them by:
@@ -38,7 +37,7 @@ Count the returned memories. Group them by:
 **Session stats (API-backed):**
 Read the session ID file at `/tmp/mem0_session_id_$USER`. If it exists and contains
 a non-empty value, also call `get_memories` with:
-- `filters={"AND": [{"user_id": "<id>"}, {"app_id": "<pid>"}, {"run_id": "<session_id>"}]}`
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"run_id": "<session_id>"}]}`
 - `page_size=100`
 
 This returns only memories written in the current session. Use this count to

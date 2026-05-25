@@ -16,7 +16,7 @@ Audits memory quality for the active project. Finds duplicates, contradictions, 
 
 ## Steps
 
-1. **Fetch all memories** for active project via `get_memories` with `user_id` and `app_id`. Paginate if needed — cap at 200 memories.
+1. **Fetch all memories** for active project via `get_memories` with `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=200`. Paginate if needed — cap at 200 memories.
 
 2. **Group by `metadata.type`**. Common types: `decision`, `convention`, `anti_pattern`, `task_learning`, `project_profile`, `user_preference`, `session_state`.
 

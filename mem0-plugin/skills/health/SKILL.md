@@ -85,7 +85,7 @@ When invoked with `--deep` (e.g., `/mem0:health --deep`), run the standard 5 che
 
 ### Quality Check 1: Duplicates
 
-Call `get_memories` with `user_id`, `app_id`, `page_size=200`. Compare all pairs within the same `metadata.type` group for high textual overlap (shared nouns/keywords > 60%). Report:
+Call `get_memories` with `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=200`. Compare all pairs within the same `metadata.type` group for high textual overlap (shared nouns/keywords > 60%). Report:
 
 ```
 Potential duplicates: <N> pairs

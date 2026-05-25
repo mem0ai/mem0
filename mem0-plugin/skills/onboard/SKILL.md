@@ -7,6 +7,23 @@ description: Sets up mem0 for a new project including API key configuration, MCP
 
 Run this wizard to set up the mem0 plugin for the current project. Complete in ~60 seconds.
 
+## Checklist
+
+Copy this checklist and track progress:
+
+```
+Onboarding Progress:
+- [ ] Step 0: Ensure mem0ai SDK is installed
+- [ ] Step 1: Set up API key
+- [ ] Step 2: MCP OAuth login
+- [ ] Step 3: Verify connectivity and show identity
+- [ ] Step 4: Detect and import project files
+- [ ] Step 5: Install coding categories
+- [ ] Step 6: Print summary
+```
+
+---
+
 ## Step 0: Ensure mem0ai SDK is installed
 
 The plugin installs the `mem0ai` Python SDK automatically on session start via a venv in `${CLAUDE_PLUGIN_DATA}/venv`. If Step 5 (categories) fails with an import error, run:

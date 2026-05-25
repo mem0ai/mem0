@@ -12,6 +12,22 @@ approval before anything is modified.
 
 ---
 
+## Checklist
+
+Copy this checklist and track progress:
+
+```
+Dream Progress:
+- [ ] Step 1: Load retention policies
+- [ ] Step 2: Fetch all project memories
+- [ ] Step 3: Analyze — find duplicates, contradictions, prune candidates
+- [ ] Step 4: Print diff report for user review
+- [ ] Step 5: Wait for user input and apply changes
+- [ ] Step 6: Print summary
+```
+
+---
+
 ## Step 1: Load Retention Policies
 
 Determine the active retention policy by running the parser script. Use the
@@ -99,7 +115,7 @@ confidence.
 
 ---
 
-## Step 4: Print Diff Report (item 15)
+## Step 4: Print Diff Report
 
 Print a structured diff to the terminal before making any changes. Use exactly
 this format:
