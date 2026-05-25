@@ -22,10 +22,20 @@ echo "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-NOT_SET}}"
 
 ### Check 2: Identity resolution
 
-Read the active identity from the SessionStart banner or resolve manually:
-- `user_id`: from `MEM0_RESOLVED_USER_ID` or `$USER`
-- `project_id`: from `MEM0_PROJECT_ID` or current directory name
-- `branch`: from `MEM0_BRANCH` or `git rev-parse --abbrev-ref HEAD`
+Resolve identity using the plugin's own resolver scripts to match what hooks use:
+
+```bash
+SCRIPT_DIR="${CLAUDE_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-}}}/scripts"
+source "$SCRIPT_DIR/_identity.sh" 2>/dev/null
+echo "user_id=${MEM0_RESOLVED_USER_ID:-}"
+echo "project_id=${MEM0_PROJECT_ID:-}"
+echo "branch=${MEM0_BRANCH:-}"
+```
+
+If `CLAUDE_PLUGIN_ROOT` is not available, fall back to:
+- `user_id`: from `MEM0_USER_ID` or `$USER`
+- `project_id`: from `MEM0_PROJECT_ID` or check `~/.mem0/project_map.json` for `$PWD`
+- `branch`: from `git branch --show-current`
 
 PASS if all three are non-empty. WARN if any falls back to defaults.
 
