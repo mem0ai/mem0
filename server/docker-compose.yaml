@@ -36,10 +36,11 @@ services:
       networks:
         - mem0_network
       environment:
-        - POSTGRES_USER=postgres
-        - POSTGRES_PASSWORD=postgres
+        - POSTGRES_USER=litellm
+        - POSTGRES_PASSWORD=mem0secret
+        - POSTGRES_DB=mem0_app
       healthcheck:
-        test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
+        test: ["CMD", "pg_isready", "-q", "-d", "mem0_app", "-U", "litellm"]
         interval: 5s
         timeout: 5s
         retries: 5

@@ -98,12 +98,12 @@ elif not ADMIN_API_KEY:
 
 telemetry.log_status()
 
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
+POSTGRES_HOST = os.environ.get("POSTGRES_HOST") or "postgres"
+POSTGRES_PORT = os.environ.get("POSTGRES_PORT") or "5432"
+POSTGRES_DB = os.environ.get("POSTGRES_DB") or "mem0_app"
+POSTGRES_USER = os.environ.get("POSTGRES_USER") or "litellm"
+POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD") or "mem0secret"
+POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME") or "memories"
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")

@@ -5,11 +5,11 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
 def _build_database_url() -> str:
-    host = os.environ.get("POSTGRES_HOST", "postgres")
-    port = os.environ.get("POSTGRES_PORT", "5432")
-    user = os.environ.get("POSTGRES_USER", "postgres")
-    password = os.environ.get("POSTGRES_PASSWORD", "postgres")
-    db = os.environ.get("APP_DB_NAME", "mem0_app")
+    host = os.environ.get("POSTGRES_HOST") or "postgres"
+    port = os.environ.get("POSTGRES_PORT") or "5432"
+    user = os.environ.get("POSTGRES_USER") or "litellm"
+    password = os.environ.get("POSTGRES_PASSWORD") or "mem0secret"
+    db = os.environ.get("APP_DB_NAME") or "mem0_app"
     return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
 
 
