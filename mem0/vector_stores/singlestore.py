@@ -96,9 +96,7 @@ class SingleStore(VectorStoreBase):
 
         fulltext_index_sql = ""
         if self.use_fulltext_index:
-            fulltext_index_sql = (
-                ",\n            FULLTEXT INDEX ft_idx (text_lemmatized) USING VERSION 2"
-            )
+            fulltext_index_sql = ",\n            FULLTEXT INDEX ft_idx (text_lemmatized)"
 
         cur.execute(f"""
             CREATE TABLE IF NOT EXISTS `{self.collection_name}` (
