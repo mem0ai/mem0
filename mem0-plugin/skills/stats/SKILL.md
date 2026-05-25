@@ -44,7 +44,7 @@ This returns only memories written in the current session. Use this count to
 cross-check the local stats file. If the API count is higher, use the API count
 (the local tracker may have missed operations).
 
-Also run a `search_memories` call with `query="project"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1` to measure round-trip latency (time the call).
+Also run a `search_memories` MCP tool call with `query="project"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1` to measure round-trip latency. Note the time before and after the MCP call — do NOT attempt raw HTTP calls to the API.
 
 ### Step 3: Display
 

@@ -120,7 +120,7 @@ For each file found, ask the user: "Found `<filename>` (<size> bytes). Import in
 If user says yes (or default):
 - Read the file content
 - Call `add_memory` with:
-  - `messages=[{"role": "user", "content": "## Project Profile: <filename>\n\nProject: <project_id>\n\n<file_content>"}]`
+  - `text="## Project Profile: <filename>\n\nProject: <project_id>\n\n<file_content>"`
   - `user_id=<active_user_id>`
   - `app_id=<active_project_id>`
   - `metadata={"type": "project_profile", "file": "<filename>", "source": "onboard", "branch": "<active_branch>"}`

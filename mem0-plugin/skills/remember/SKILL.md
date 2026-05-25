@@ -32,7 +32,7 @@ Based on the content, pick the best `metadata.type`:
 ### Step 3: Store
 
 Call `add_memory` with:
-- `messages=[{"role": "user", "content": "<the user's text>"}]`
+- `text="<the user's text>"`
 - `user_id=<active_user_id>`
 - `app_id=<active_project_id>`
 - `metadata={"type": "<classified_type>", "branch": "<active_branch>", "confidence": 1.0, "source": "remember_command"}`
