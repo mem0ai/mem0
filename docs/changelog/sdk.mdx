@@ -7,6 +7,14 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-05-26" description="v2.0.3">
+
+**Bug Fixes:**
+- **Vector Stores:** PGVector adapter now supports rich filter operators (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `icontains`, wildcard `*`, `$or`, `$not`) in `search()`, `keyword_search()`, and `list()`. Previously only exact-equality filters worked — operator dicts were silently stringified and returned zero results ([#5263](https://github.com/mem0ai/mem0/pull/5263))
+- **Server:** Fixed `/search` endpoint returning 502 when `user_id`, `agent_id`, or `run_id` are sent as top-level request fields. The server now maps these into the `filters` dict before calling `Memory.search()`, matching the v3 API contract. Top-level entity ID fields are marked as deprecated in the OpenAPI schema and emit a warning log — clients should migrate to `filters={"user_id": "..."}` ([#5263](https://github.com/mem0ai/mem0/pull/5263))
+
+</Update>
+
 <Update label="2026-05-08" description="v2.0.2">
 
 **Bug Fixes:**
@@ -924,6 +932,13 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+<Update label="2026-05-26" description="v3.0.4">
+
+**Bug Fixes:**
+- **Vector Stores:** PGVector adapter now supports rich filter operators (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `contains`, `icontains`, wildcard `*`, `$or`, `$not`) in `search()`, `keywordSearch()`, and `list()`. Previously only exact-equality filters worked — operator objects were passed as raw values and returned incorrect results ([#5263](https://github.com/mem0ai/mem0/pull/5263))
+
+</Update>
+
 <Update label="2026-05-08" description="v3.0.3">
 
 **Bug Fixes:**
