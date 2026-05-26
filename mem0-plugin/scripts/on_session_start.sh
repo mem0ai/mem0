@@ -155,7 +155,7 @@ if [ "$SOURCE" = "startup" ]; then
     echo "Native MEMORY.md detected at ${_MEMORY_MD}. Add autoMemoryEnabled:false to settings.json or run /mem0:import."
   fi
 
-  MEM0_CWD="$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")" \
+  MEM0_CWD="$MEM0_CWD_RESOLVED" \
     python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
 
 elif [ "$SOURCE" = "resume" ]; then

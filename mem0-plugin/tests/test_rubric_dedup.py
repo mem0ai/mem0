@@ -46,8 +46,7 @@ def _run_hook(prompt: str, env_overrides: dict | None = None, session_id: str = 
 def test_first_prompt_gets_full_rubric():
     """First substantial prompt of session gets full memory check rubric."""
     output = _run_hook("How should we refactor the auth module?")
-    assert "Search mem0" in output
-    assert "Search tips" in output
+    assert "Mem0 searches apply" in output
     assert "metadata.type" in output
 
 

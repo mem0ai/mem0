@@ -38,7 +38,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__mem0__",
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
         "hooks": [
           {
             "type": "command",

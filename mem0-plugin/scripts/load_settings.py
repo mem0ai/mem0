@@ -16,10 +16,7 @@ DEFAULTS = {
     "search_limit": 10,
     "retention_session_days": 90,
     "confidence_threshold": 0.3,
-    "output_style": "compact",
     "debug": False,
-    "skip_tools": ["Read", "Glob", "Grep"],
-    "capture_tools": ["Edit", "Write", "Bash"],
 }
 
 
