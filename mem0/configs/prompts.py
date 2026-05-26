@@ -510,7 +510,6 @@ Memories currently in the system relevant to this conversation. Formatted as:
 
 Use these ONLY for deduplication and linking — do NOT extract new memories from Existing Memories. Your extractions must come exclusively from New Messages. If new information in New Messages is semantically equivalent to an Existing Memory with no meaningful new context, skip it.
 
-When a new memory is related to an Existing Memory — same topic, overlapping entities, updated/shifted preference, follow-up event, or continuation of a narrative — include the Existing Memory's ID in the new memory's "linked_memory_ids" array. Your ADD output IDs remain sequential ("0", "1", ...) but linked_memory_ids uses the UUIDs from this list.
 
 
 IMPORTANT: An existing memory about an entity (e.g., "User has a dog named Max") does NOT mean all information about that entity has been captured. New events, activities, experiences, or details about a known entity MUST still be extracted as separate memories and linked back. Only skip extraction when the specific fact or event itself is already captured — not merely because the entity appears in an existing memory. "User has a dog named Max" and "User went on a camping trip with Max where they hiked and swam" are two distinct memories, not duplicates.
@@ -691,14 +690,12 @@ Misinterpreting the user's words is worse than not extracting at all.
 
 ## Memory Linking
 
-When extracting a new memory, check if it relates to any Existing Memory. Add related Existing Memory IDs to "linked_memory_ids". Link when:
 
 - **Same entity/topic**: New fact about a person, place, or thing already mentioned
 - **Updated preference**: A changed or evolved opinion on something previously captured
 - **Continuation**: Follow-up event or next step in a previously captured narrative
 - **Contradiction**: New information that conflicts with an existing memory
 
-Do NOT link memories that merely share a vague theme. Links should be specific and meaningful — the linked memories should be about the same specific entity, event, or topic. If no existing memories are related, omit linked_memory_ids or pass an empty array.
 
 
 # EXAMPLES
@@ -851,8 +848,6 @@ Observation Date: 2025-03-15
 
 Output:
 {"memory": [
-  {"id": "0", "text": "User's dog Poppy had a vet checkup around March 14, 2025, is healthy but needs to lose weight", "linked_memory_ids": ["a1b2c3d4-5678-9abc-def0-111111111111"]},
-  {"id": "1", "text": "User is switching teams at Shopify to the payments platform in April 2025", "linked_memory_ids": ["b2c3d4e5-6789-abcd-ef01-222222222222"]}
 ]}
 
 Both new memories link to related existing memories — the vet checkup links to the existing Poppy memory, and the team switch links to the existing Shopify memory. This enables the system to build a graph of related memories.
@@ -896,7 +891,6 @@ Observation Date: 2023-08-11
 
 Output:
 {"memory": [
-  {"id": "0", "text": "John and his dog Max went on a camping trip in the summer of 2023 where they hiked, swam, and found it a peaceful experience", "linked_memory_ids": ["a1b2c3d4-0000-0000-0000-111111111111"]},
   {"id": "1", "text": "Maria got a new cat named Bailey around early August 2023 and describes her as a joy"},
   {"id": "2", "text": "John has a daughter named Sara and the family took a trip for her birthday in fall 2022"}
 ]}
@@ -923,7 +917,6 @@ Return ONLY valid JSON parsable by json.loads(). No text, reasoning, explanation
 
 {
   "memory": [
-    {"id": "0", "text": "First extracted memory", "attributed_to": "user", "linked_memory_ids": ["uuid-of-related-existing-memory"]},
     {"id": "1", "text": "Second extracted memory", "attributed_to": "assistant"}
   ]
 }
@@ -933,7 +926,6 @@ Return ONLY valid JSON parsable by json.loads(). No text, reasoning, explanation
 - **id** (string, required): Sequential integers as strings starting at "0".
 - **text** (string, required): A contextually rich, self-contained factual statement (15-80 words).
 - **attributed_to** (string, required): Who this memory is about. Use "user" for facts stated by or about the user (preferences, plans, personal facts). Use "assistant" for information provided by the assistant (recommendations, confirmations, plans created, information researched).
-- **linked_memory_ids** (array of strings, optional): IDs of Existing Memories that this new memory relates to. Use the exact IDs from the Existing Memories list. Omit or pass [] if no existing memories are related.
 
 ## Rules
 
@@ -1028,7 +1020,6 @@ def generate_additive_extraction_prompt(
     """Build the user prompt for additive (ADD-only) extraction with linking.
 
     Pairs with ADDITIVE_EXTRACTION_PROMPT system prompt.
-    The LLM will produce only ADD operations, with optional linked_memory_ids.
     """
     current_date, observation_date = _resolve_dates(current_date, timestamp)
 
