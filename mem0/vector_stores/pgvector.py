@@ -31,6 +31,83 @@ from mem0.vector_stores.base import VectorStoreBase
 
 logger = logging.getLogger(__name__)
 
+OPERATOR_SQL_MAP = {
+    "eq": ("payload->>%s = %s", False),
+    "ne": ("payload->>%s != %s", False),
+    "gt": ("(payload->>%s)::numeric > %s", True),
+    "gte": ("(payload->>%s)::numeric >= %s", True),
+    "lt": ("(payload->>%s)::numeric < %s", True),
+    "lte": ("(payload->>%s)::numeric <= %s", True),
+    "in": ("payload->>%s = ANY(%s)", False),
+    "nin": ("NOT (payload->>%s = ANY(%s))", False),
+    "contains": ("payload->>%s LIKE %s", False),
+    "icontains": ("payload->>%s ILIKE %s", False),
+}
+
+
+def _build_filter_conditions(filters):
+    """Translate a processed filter dict into SQL WHERE fragments and parameter list."""
+    conditions = []
+    params = []
+
+    if not filters:
+        return conditions, params
+
+    for key, value in filters.items():
+        if key == "$or":
+            or_groups = []
+            for or_filter in value:
+                sub_conds, sub_params = _build_filter_conditions(or_filter)
+                if sub_conds:
+                    or_groups.append("(" + " AND ".join(sub_conds) + ")")
+                    params.extend(sub_params)
+            if or_groups:
+                conditions.append("(" + " OR ".join(or_groups) + ")")
+            continue
+
+        if key == "$not":
+            not_groups = []
+            for not_filter in value:
+                sub_conds, sub_params = _build_filter_conditions(not_filter)
+                if sub_conds:
+                    not_groups.append("(" + " AND ".join(sub_conds) + ")")
+                    params.extend(sub_params)
+            if not_groups:
+                conditions.append("NOT (" + " OR ".join(not_groups) + ")")
+            continue
+
+        if value == "*":
+            conditions.append("payload ? %s")
+            params.append(key)
+            continue
+
+        if isinstance(value, dict):
+            for op, op_value in value.items():
+                if op not in OPERATOR_SQL_MAP:
+                    raise ValueError(f"Unsupported filter operator: {op}")
+                template, is_numeric = OPERATOR_SQL_MAP[op]
+                if op in ("in", "nin"):
+                    str_list = [str(v) for v in op_value]
+                    conditions.append(template)
+                    params.extend([key, str_list])
+                elif op in ("contains", "icontains"):
+                    conditions.append(template)
+                    params.extend([key, f"%{op_value}%"])
+                else:
+                    conditions.append(template)
+                    if is_numeric:
+                        params.extend([key, float(op_value)])
+                    else:
+                        params.extend([key, str(op_value)])
+        elif isinstance(value, list):
+            conditions.append("payload->>%s = ANY(%s)")
+            params.extend([key, [str(v) for v in value]])
+        else:
+            conditions.append("payload->>%s = %s")
+            params.extend([key, str(value)])
+
+    return conditions, params
+
 
 class OutputData(BaseModel):
     id: Optional[str]
@@ -237,14 +314,7 @@ class PGVector(VectorStoreBase):
         Returns:
             list: Search results.
         """
-        filter_conditions = []
-        filter_params = []
-
-        if filters:
-            for k, v in filters.items():
-                filter_conditions.append("payload->>%s = %s")
-                filter_params.extend([k, str(v)])
-
+        filter_conditions, filter_params = _build_filter_conditions(filters)
         filter_clause = sql.SQL("WHERE " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         with self._get_cursor() as cur:
@@ -274,14 +344,7 @@ class PGVector(VectorStoreBase):
         Returns:
             List[OutputData]: Search results ranked by text relevance.
         """
-        filter_conditions = []
-        filter_params = []
-
-        if filters:
-            for k, v in filters.items():
-                filter_conditions.append("payload->>%s = %s")
-                filter_params.extend([k, str(v)])
-
+        filter_conditions, filter_params = _build_filter_conditions(filters)
         filter_clause = sql.SQL("AND " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         try:
@@ -423,14 +486,7 @@ class PGVector(VectorStoreBase):
         Returns:
             List[OutputData]: List of vectors.
         """
-        filter_conditions = []
-        filter_params = []
-
-        if filters:
-            for k, v in filters.items():
-                filter_conditions.append("payload->>%s = %s")
-                filter_params.extend([k, str(v)])
-
+        filter_conditions, filter_params = _build_filter_conditions(filters)
         filter_clause = sql.SQL("WHERE " + " AND ".join(filter_conditions)) if filter_conditions else sql.SQL("")
 
         with self._get_cursor() as cur:
