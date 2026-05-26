@@ -33,6 +33,15 @@ setup_config()
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
 
 
+def _validate_and_trim_search_query(query: str) -> str:
+    if not isinstance(query, str):
+        raise ValueError("Invalid query: must be a non-empty string.")
+    trimmed = query.strip()
+    if not trimmed:
+        raise ValueError("Invalid query: cannot be empty or whitespace-only.")
+    return trimmed
+
+
 def _maybe_alias_anon_to_email(user_email):
     """Fire $identify per prior anon ID so PostHog merges them into email.
 
@@ -306,6 +315,7 @@ class MemoryClient:
 
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
+        query = _validate_and_trim_search_query(query)
         payload = {"query": query, **params}
 
         response = self.client.post("/v3/memories/search/", json=payload)
@@ -1214,6 +1224,7 @@ class AsyncMemoryClient:
 
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
+        query = _validate_and_trim_search_query(query)
         payload = {"query": query, **params}
 
         response = await self.async_client.post("/v3/memories/search/", json=payload)

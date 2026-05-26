@@ -168,6 +168,21 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
             )
 
 
+def _validate_and_trim_search_query(query: str) -> str:
+    """
+    Validates and normalizes a search query before embedding/vector search.
+
+    Raises:
+        ValueError: If query is not a string or is empty/whitespace-only.
+    """
+    if not isinstance(query, str):
+        raise ValueError("Invalid query: must be a non-empty string.")
+    trimmed = query.strip()
+    if not trimmed:
+        raise ValueError("Invalid query: cannot be empty or whitespace-only.")
+    return trimmed
+
+
 def _is_sensitive_field(field_name: str) -> bool:
     """Check if a field should be redacted for telemetry safety.
 
@@ -1175,6 +1190,7 @@ class Memory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        query = _validate_and_trim_search_query(query)
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -2590,6 +2606,7 @@ class AsyncMemory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        query = _validate_and_trim_search_query(query)
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
