@@ -25,9 +25,9 @@ If the script returns empty or errors, note "No session data available" and cont
 ### Step 2: Fetch lifetime and session stats from API
 
 **Lifetime stats:**
-Call `get_memories` with `run_id: "*"` wildcard to fetch all memories across partitions:
+Call `get_memories` to fetch all memories for this project:
 
-`filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"run_id": "*"}]}`, `page_size=100`
+`filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=100`
 
 Group by:
 1. `categories[0]` (platform-assigned) — primary grouping

@@ -178,18 +178,6 @@ if handler == "add_memory":
 
 elif handler in ("search_memories", "get_memories"):
     changed = inject_filter_identity(inp, resolved_uid, resolved_aid)
-    # Re-read filters from inp (inject_filter_identity may have replaced the dict)
-    filters = inp.get("filters") or {}
-    and_clauses = filters.get("AND")
-    if and_clauses is None:
-        and_clauses = []
-        filters["AND"] = and_clauses
-        inp["filters"] = filters
-    if isinstance(and_clauses, list):
-        has_run_id = any("run_id" in c for c in and_clauses if isinstance(c, dict))
-        if not has_run_id:
-            and_clauses.append({"run_id": "*"})
-            changed = True
 
 elif handler == "delete_all":
     changed = inject_top_level_identity(inp, resolved_uid, resolved_aid)

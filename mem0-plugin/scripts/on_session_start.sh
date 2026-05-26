@@ -93,19 +93,8 @@ def get_count(filters):
 
 try:
     base = [{'user_id': user_id}, {'app_id': app_id}]
-    # run_id: "*" wildcard returns all memories across both partitions
-    total = get_count({'AND': base + [{'run_id': '*'}]})
-    auto = get_count({'AND': base + [{'metadata': {'source': 'auto-import'}}, {'run_id': '*'}]})
-
-    custom = total - auto
-    if custom < 0:
-        custom = 0
-    if auto > 0 and custom == 0:
-        print(f'{total} (all auto-imported)')
-    elif auto > 0:
-        print(f'{custom} (+{auto} auto-imported)')
-    else:
-        print(total)
+    total = get_count({'AND': base})
+    print(total)
 except Exception:
     print('?')
 " 2>/dev/null || echo "?")

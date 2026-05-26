@@ -196,7 +196,7 @@ def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: 
     for mid in ids_to_delete:
         try:
             del_req = urllib.request.Request(
-                f"{API_URL}/v3/memories/{mid}/",
+                f"{API_URL}/v1/memories/{mid}/",
                 headers={"Authorization": f"Token {api_key}"},
                 method="DELETE",
             )

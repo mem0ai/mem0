@@ -56,9 +56,9 @@ If no query argument and no `--all-projects` flag, use the full tour flow below.
 
 ### Step 1: Fetch ALL memories for this project
 
-Call `get_memories` with `run_id: "*"` wildcard to fetch all memories across partitions in a single call:
+Call `get_memories` to fetch all memories for this project:
 
-`filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"run_id": "*"}]}`, `page_size=100`
+`filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=100`
 
 ### Step 2: Run supplementary semantic searches
 

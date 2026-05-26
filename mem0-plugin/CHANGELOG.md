@@ -6,11 +6,13 @@ All notable changes to the Mem0 plugin will be documented in this file.
 
 ### Fixed
 
-- **Memory count showing only auto-imports:** Banner, `/stats`, and `/tour` were querying only the null-`run_id` partition of the v3 API. Memories added with `run_id` (all memories from v0.2.4's session-scoping feature) were invisible. Root cause: `enforce_metadata_defaults.sh` injected `run_id` on `add_memory`, but no read path included a `run_id` filter. All search/get paths now use a single `{"run_id": "*"}` wildcard filter that returns memories across both partitions.
+- **Memory count zero / stats and tour showing 0 memories:** The `run_id: "*"` wildcard filter — added in the initial v0.2.6 fix — returns 0 on both the v3 list endpoint (`/v3/memories/`) and search endpoint (`/v3/memories/search/`) when memories were written without a `run_id` (which is all memories since v0.2.6 stopped setting `run_id` on `add_memory`). Removed `run_id: "*"` from: `on_session_start.sh` count queries, `enforce_metadata_defaults.sh` hook injection (was injecting into every `search_memories` and `get_memories` call), `_search.py` search payload, `/mem0:stats` and `/mem0:tour` skill instructions. All read paths now use simple `user_id` + `app_id` filters without `run_id`, matching how v0.2.3 worked.
 - **`add_memory` no longer sets `run_id`:** Session tracking moved from top-level `run_id` (which creates a separate API partition) to `metadata.session_id`. New memories land in the default partition and are visible to all queries.
-- **`enforce_metadata_defaults.sh` now injects `run_id: "*"` on search/get:** `search_memories` and `get_memories` MCP calls automatically get `{"run_id": "*"}` appended to their `filters.AND[]`, ensuring all memories are found regardless of partition.
-- **`_search.py` dual-call eliminated:** Replaced two-call-plus-merge pattern (null-run_id + wildcard) with single wildcard call. Same results, half the latency.
-- **Banner count accurate:** `on_session_start.sh` count query uses single wildcard call. Shows `N (+M auto-imported)` breakdown.
+- **`enforce_metadata_defaults.sh` no longer injects `run_id`:** The hook was appending `{"run_id": "*"}` to every `search_memories` and `get_memories` filter, which broke both endpoints. Removed entirely — identity injection (`user_id`/`app_id`) still works.
+- **`_search.py` simplified:** Removed `run_id: "*"` from search payload. Uses plain `user_id` + `app_id` filters.
+- **`auto_import.py` delete endpoint 404:** Stale chunk deletion used `DELETE /v3/memories/{id}/` which returns 404 (v3 is ADD-only). Changed to `DELETE /v1/memories/{id}/`.
+- **Banner count accurate:** `on_session_start.sh` count query uses `user_id` + `app_id` filters without `run_id`. Shows total count only (removed noisy auto-import breakdown).
+- **`quickstart.md` wrong add endpoint:** cURL example used `POST /v1/memories/` (v1 add is removed). Fixed to `POST /v3/memories/add/`.
 - **Desktop app: API key not found:** Claude Code Desktop does not inherit shell environment variables — only `PATH` is read from shell profiles. Users who set `export MEM0_API_KEY=m0-...` in `~/.zshrc` or `~/.bashrc` got "Setup Required" on Desktop while CLI worked fine. Added grep-based shell profile extraction as a 4th fallback in both `_identity.sh` (bash) and `_identity.py` (Python). Scans `~/.zshrc`, `~/.bashrc`, `~/.zprofile`, `~/.bash_profile`, `~/.profile` for `MEM0_API_KEY=` assignments. Skips variable references (`$OTHER_VAR`), commented-out lines, and strips quotes/inline comments.
 - **Desktop app: zero memories added over multi-day usage:** Agent never proactively called `add_memory` — only `search_memories` and `get_all`. Root cause: session banner instruction was passive ("before finishing a session, store learnings") and easily ignored. No mechanism existed to re-prompt the agent mid-session. Fixed with a periodic nudge in `on_user_prompt.sh`: every 5th substantial message, the hook checks `session_stats` for add count; if fewer than 2 memories stored, injects a directive into Claude's context via `additionalContext` telling it to store learnings immediately. Counter resets on session start.
 - **Setup Required banner missing Desktop instructions:** Updated no-API-key banner with Desktop-specific setup paths: `claude plugin configure mem0`, Desktop app environment editor (Settings > Environment), and CLI `export` as fallback.
@@ -25,8 +27,8 @@ All notable changes to the Mem0 plugin will be documented in this file.
 
 ### Changed
 
-- **`/mem0:stats` lifetime query:** Single `get_memories` call with `run_id: "*"` wildcard instead of two calls merged by ID.
-- **`/mem0:tour` full fetch:** Single `get_memories` call with `run_id: "*"` wildcard instead of two calls merged by ID.
+- **`/mem0:stats` lifetime query:** Single `get_memories` call with `user_id` + `app_id` filters (no `run_id`).
+- **`/mem0:tour` full fetch:** Single `get_memories` call with `user_id` + `app_id` filters (no `run_id`).
 - **API key resolution order (4 fallbacks):** `MEM0_API_KEY` env var > `CLAUDE_PLUGIN_OPTION_API_KEY` (plugin configure) > `CLAUDE_PLUGIN_OPTION_MEM0_API_KEY` (legacy userConfig) > shell profile extraction. Applies to both `_identity.sh` and `_identity.py`.
 - **Session start banner:** Proactive memory instruction changed from passive "before finishing a session" to active "proactively store learnings incrementally as work progresses. Do NOT wait until the session ends."
 - **Message counter on session start:** `on_session_start.sh` now resets `/tmp/mem0_msg_count_*` files to ensure nudge counter starts fresh each session.

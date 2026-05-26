@@ -53,8 +53,7 @@ def search_memories(
         base_payload["rerank"] = True
 
     try:
-        # run_id: "*" wildcard returns all memories regardless of run_id partition
-        payload = {**base_payload, "filters": {"AND": list(base_clauses) + [{"run_id": "*"}]}}
+        payload = {**base_payload, "filters": {"AND": list(base_clauses)}}
         results = _do_search(api_key, payload)[:top_k]
 
         if min_score > 0:
