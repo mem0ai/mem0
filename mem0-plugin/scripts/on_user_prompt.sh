@@ -30,14 +30,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
 # Rubric dedup: only inject full rubric once per session.
-# Key on session ID (from stdin JSON) to avoid cross-session interference.
+# Key on session ID to avoid cross-session interference.
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
-RUBRIC_DIR="${MEM0_RUBRIC_DIR:-/tmp}"
-if [ -n "$SESSION_ID" ]; then
-  RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_${SESSION_ID}"
-else
-  RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_injected_${USER}"
+if [ -z "$SESSION_ID" ]; then
+  _SID_FILE="/tmp/mem0_session_id_${USER:-default}"
+  [ -f "$_SID_FILE" ] && SESSION_ID=$(cat "$_SID_FILE" 2>/dev/null) || true
 fi
+if [ -z "$SESSION_ID" ]; then
+  SESSION_ID="default_${USER:-unknown}"
+fi
+RUBRIC_DIR="${MEM0_RUBRIC_DIR:-/tmp}"
+RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_${SESSION_ID}"
 RUBRIC_ALREADY_SHOWN=""
 if [ -f "$RUBRIC_FLAG" ]; then
   RUBRIC_ALREADY_SHOWN="true"

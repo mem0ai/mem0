@@ -12,11 +12,6 @@
         "matcher": "Write|Edit"
       },
       {
-        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_file_read.sh",
-        "matcher": "Read",
-        "timeout": 8
-      },
-      {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
         "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
         "timeout": 3
@@ -29,11 +24,6 @@
         "timeout": 3
       },
       {
-        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_post_commit.sh",
-        "matcher": "Bash",
-        "timeout": 5
-      },
-      {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_bash_output.sh",
         "matcher": "Bash",
         "timeout": 12
@@ -42,12 +32,6 @@
     "preCompact": [
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_pre_compact_cursor.sh"
-      }
-    ],
-    "stop": [
-      {
-        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_stop_cursor.sh",
-        "timeout": 10
       }
     ],
     "beforeSubmitPrompt": [

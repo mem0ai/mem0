@@ -15,7 +15,7 @@
 #            the updatedInput replaces the tool's input parameters.
 #   exit 2 = block (stderr shown as rejection reason).
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
@@ -154,7 +154,11 @@ if handler == "add_memory":
         inp["infer"] = False
         changed = True
 
-    if "run_id" not in inp:
+    # Track session in metadata instead of run_id.
+    # run_id creates a separate entity partition in the v3 API,
+    # making memories invisible to search/get_memories calls
+    # that don't include a run_id filter.
+    if "session_id" not in meta:
         sid = os.environ.get("MEM0_SESSION_ID", "")
         if not sid:
             session_file = "/tmp/mem0_session_id_" + os.environ.get("USER", "default")
@@ -165,7 +169,7 @@ if handler == "add_memory":
                 except OSError:
                     pass
         if sid:
-            inp["run_id"] = sid
+            meta["session_id"] = sid
             changed = True
 
     if changed:
@@ -173,6 +177,18 @@ if handler == "add_memory":
 
 elif handler in ("search_memories", "get_memories"):
     changed = inject_filter_identity(inp, resolved_uid, resolved_aid)
+    # Re-read filters from inp (inject_filter_identity may have replaced the dict)
+    filters = inp.get("filters") or {}
+    and_clauses = filters.get("AND")
+    if and_clauses is None:
+        and_clauses = []
+        filters["AND"] = and_clauses
+        inp["filters"] = filters
+    if isinstance(and_clauses, list):
+        has_run_id = any("run_id" in c for c in and_clauses if isinstance(c, dict))
+        if not has_run_id:
+            and_clauses.append({"run_id": "*"})
+            changed = True
 
 elif handler == "delete_all":
     changed = inject_top_level_identity(inp, resolved_uid, resolved_aid)

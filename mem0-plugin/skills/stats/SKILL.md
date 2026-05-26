@@ -25,11 +25,11 @@ If the script returns empty or errors, note "No session data available" and cont
 ### Step 2: Fetch lifetime and session stats from API
 
 **Lifetime stats:**
-Call `get_memories` with:
-- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
-- `page_size=100`
+Call `get_memories` with `run_id: "*"` wildcard to fetch all memories across partitions:
 
-Count the returned memories. Group them by:
+`filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"run_id": "*"}]}`, `page_size=100`
+
+Group by:
 1. `categories[0]` (platform-assigned) — primary grouping
 2. `metadata.type` (agent-assigned) — secondary if no categories
 3. `created_at` date — for age analysis
@@ -40,9 +40,12 @@ a non-empty value, also call `get_memories` with:
 - `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"run_id": "<session_id>"}]}`
 - `page_size=100`
 
-This returns only memories written in the current session. Use this count to
-cross-check the local stats file. If the API count is higher, use the API count
-(the local tracker may have missed operations).
+Additionally check for session memories stored without run_id (via metadata):
+- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"metadata": {"session_id": "<session_id>"}}]}`
+- `page_size=100`
+
+Merge both session result sets by ID. This count represents memories written in the
+current session. Cross-check with the local stats file — use the higher count.
 
 Also run a `search_memories` MCP tool call with `query="project"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1` to measure round-trip latency. Note the time before and after the MCP call — do NOT attempt raw HTTP calls to the API.
 

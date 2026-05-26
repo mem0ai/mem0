@@ -2,6 +2,27 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.6
+
+### Fixed
+
+- **Memory count showing only auto-imports:** Banner, `/stats`, and `/tour` were querying only the null-`run_id` partition of the v3 API. Memories added with `run_id` (all memories from v0.2.4's session-scoping feature) were invisible. Root cause: `enforce_metadata_defaults.sh` injected `run_id` on `add_memory`, but no read path included a `run_id` filter. All search/get paths now use a single `{"run_id": "*"}` wildcard filter that returns memories across both partitions.
+- **`add_memory` no longer sets `run_id`:** Session tracking moved from top-level `run_id` (which creates a separate API partition) to `metadata.session_id`. New memories land in the default partition and are visible to all queries.
+- **`enforce_metadata_defaults.sh` now injects `run_id: "*"` on search/get:** `search_memories` and `get_memories` MCP calls automatically get `{"run_id": "*"}` appended to their `filters.AND[]`, ensuring all memories are found regardless of partition.
+- **`_search.py` dual-call eliminated:** Replaced two-call-plus-merge pattern (null-run_id + wildcard) with single wildcard call. Same results, half the latency.
+- **Banner count accurate:** `on_session_start.sh` count query uses single wildcard call. Shows `N (+M auto-imported)` breakdown.
+
+### Removed
+
+- **Stop hook (all 3 editors):** Removed from `hooks.json`, `cursor-hooks.json`, `codex-hooks.json`. Deleted `on_stop.sh`, `on_stop_cursor.sh`, `on_stop_codex.sh`, `stop_hook_check.py`. The Stop hook could not reliably feed context back to Claude (command-type hooks' `reason` field is user-facing only, not injected into Claude's context). Auto-capture handled by PreCompact hook instead.
+- **SessionEnd hook:** Removed from `hooks.json`. Deleted `on_session_end.sh`. Redundant with PreCompact auto-capture.
+- **5 redundant hook scripts:** `on_git_commit_capture.sh` (fired on every Bash command containing "git"), `on_post_commit.sh` (fired on every Bash command), `on_task_completed.sh`, `on_post_compact.sh`, `on_subagent_stop.sh`. These were already removed from Claude's `hooks.json` in v0.2.5 but script files remained on disk. Also removed `on_post_commit.sh` references from `cursor-hooks.json` and `codex-hooks.json`.
+
+### Changed
+
+- **`/mem0:stats` lifetime query:** Single `get_memories` call with `run_id: "*"` wildcard instead of two calls merged by ID.
+- **`/mem0:tour` full fetch:** Single `get_memories` call with `run_id: "*"` wildcard instead of two calls merged by ID.
+
 ## 0.2.5
 
 ### Fixed

@@ -25,12 +25,15 @@ fi
 printf '%s' "$MEM0_SESSION_ID" > "/tmp/mem0_session_id_${USER}"
 export MEM0_SESSION_ID
 
-# Persist session ID and identity to Claude's env so Bash tool calls and other hooks see them
+# Persist identity to Claude's env so Bash tool calls, MCP config, and other hooks see them
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export MEM0_SESSION_ID=\"$MEM0_SESSION_ID\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_RESOLVED_USER_ID=\"${MEM0_RESOLVED_USER_ID:-$USER}\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_PROJECT_ID=\"${MEM0_PROJECT_ID:-unknown}\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_BRANCH=\"${MEM0_BRANCH:-unknown}\"" >> "$CLAUDE_ENV_FILE"
+  if [ -n "${MEM0_API_KEY:-}" ]; then
+    echo "export MEM0_API_KEY=\"$MEM0_API_KEY\"" >> "$CLAUDE_ENV_FILE"
+  fi
 fi
 
 if [ -z "${MEM0_API_KEY:-}" ]; then
@@ -48,7 +51,7 @@ IMPORTANT: In your FIRST response, display this exact status line as your openin
 Mem0 — Setup Required | user=${_UID} | project=${_PID} | branch=${_BR} | auth=none
 \`\`\`
 
-MEM0_API_KEY is not set. Invoke the \`mem0:onboard\` skill immediately using the Skill tool to set up the API key and configure mem0 for this project.
+MEM0_API_KEY is not set. Set it via \`claude plugin configure mem0\` (recommended for Desktop app) or \`export MEM0_API_KEY=...\` in shell profile. Then invoke the \`mem0:onboard\` skill to complete setup.
 BANNER
   exit 0
 fi
@@ -66,22 +69,37 @@ import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
-body = json.dumps({'filters': {'user_id': user_id, 'app_id': app_id}}).encode()
-req = urllib.request.Request(
-    'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
-    headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
-    data=body,
-    method='POST',
-)
-try:
+
+def get_count(filters):
+    body = json.dumps({'filters': filters}).encode()
+    req = urllib.request.Request(
+        'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
+        headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
+        data=body, method='POST',
+    )
     with urllib.request.urlopen(req, timeout=5) as r:
         data = json.loads(r.read())
         if isinstance(data, dict) and 'count' in data:
-            print(data['count'])
-        elif isinstance(data, list):
-            print(len(data))
-        else:
-            print('?')
+            return data['count']
+        if isinstance(data, list):
+            return len(data)
+    return 0
+
+try:
+    base = [{'user_id': user_id}, {'app_id': app_id}]
+    # run_id: "*" wildcard returns all memories across both partitions
+    total = get_count({'AND': base + [{'run_id': '*'}]})
+    auto = get_count({'AND': base + [{'metadata': {'source': 'auto-import'}}, {'run_id': '*'}]})
+
+    custom = total - auto
+    if custom < 0:
+        custom = 0
+    if auto > 0 and custom == 0:
+        print(f'{total} (all auto-imported)')
+    elif auto > 0:
+        print(f'{custom} (+{auto} auto-imported)')
+    else:
+        print(total)
 except Exception:
     print('?')
 " 2>/dev/null || echo "?")
@@ -106,6 +124,8 @@ Mem0 Active | user=${_UID}${_ANN} | project=${_PID} | branch=${_BR} | memories=$
 Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:
 - user_id: \`${_UID}\`
 - app_id: \`${_PID}\` (project scope — passed as top-level \`app_id\`, NOT in metadata)
+
+Before finishing a session with meaningful work (file edits, bug fixes, decisions), store 1–3 learnings via \`add_memory\`. Focus on: decisions made, bugs fixed, patterns discovered, or task outcomes.
 
 BANNER
 
