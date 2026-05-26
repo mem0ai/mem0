@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "diff -q \"${CLAUDE_PLUGIN_ROOT}/requirements.txt\" \"${CLAUDE_PLUGIN_DATA}/requirements.txt\" >/dev/null 2>&1 || \"${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh\"",
+            "command": "diff -q \"${CLAUDE_PLUGIN_ROOT}/requirements.txt\" \"${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}/requirements.txt\" >/dev/null 2>&1 || \"${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh\"",
             "statusMessage": "Installing mem0 SDK...",
             "timeout": 60
           }
@@ -46,27 +46,7 @@
         ]
       },
       {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_git_commit_capture.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_file_read.sh",
-            "timeout": 8
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__get_memory|mcp__plugin_mem0_mem0__get_memory|mcp__mem0__update_memory|mcp__plugin_mem0_mem0__update_memory|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
+        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
         "hooks": [
           {
             "type": "command",
@@ -92,13 +72,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_post_commit.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_bash_output.sh",
-            "timeout": 12
+            "timeout": 5
           }
         ]
       }
@@ -114,17 +89,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_stop.sh",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -132,52 +96,7 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
             "statusMessage": "Checking memory relevance...",
-            "timeout": 12
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_task_completed.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "matcher": "manual|auto",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_post_compact.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_session_end.sh",
-            "timeout": 15
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_subagent_stop.sh",
-            "timeout": 5
+            "timeout": 8
           }
         ]
       }

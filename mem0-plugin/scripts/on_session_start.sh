@@ -18,6 +18,7 @@ fi
 PYTHONPATH="$SCRIPT_DIR" python3 "$SCRIPT_DIR/load_settings.py" init 2>/dev/null || true
 rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
 rm -f /tmp/mem0_rubric_* 2>/dev/null || true
+rm -f "/tmp/mem0_msg_count_${USER:-default}" 2>/dev/null || true
 MEM0_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 if [ -z "$MEM0_SESSION_ID" ]; then
   MEM0_SESSION_ID="ses_$(date +%s)_$$"
@@ -25,12 +26,15 @@ fi
 printf '%s' "$MEM0_SESSION_ID" > "/tmp/mem0_session_id_${USER}"
 export MEM0_SESSION_ID
 
-# Persist session ID and identity to Claude's env so Bash tool calls and other hooks see them
+# Persist identity to Claude's env so Bash tool calls, MCP config, and other hooks see them
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export MEM0_SESSION_ID=\"$MEM0_SESSION_ID\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_RESOLVED_USER_ID=\"${MEM0_RESOLVED_USER_ID:-$USER}\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_PROJECT_ID=\"${MEM0_PROJECT_ID:-unknown}\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_BRANCH=\"${MEM0_BRANCH:-unknown}\"" >> "$CLAUDE_ENV_FILE"
+  if [ -n "${MEM0_API_KEY:-}" ]; then
+    echo "export MEM0_API_KEY=\"$MEM0_API_KEY\"" >> "$CLAUDE_ENV_FILE"
+  fi
 fi
 
 if [ -z "${MEM0_API_KEY:-}" ]; then
@@ -48,7 +52,12 @@ IMPORTANT: In your FIRST response, display this exact status line as your openin
 Mem0 — Setup Required | user=${_UID} | project=${_PID} | branch=${_BR} | auth=none
 \`\`\`
 
-MEM0_API_KEY is not set. Invoke the \`mem0:onboard\` skill immediately using the Skill tool to set up the API key and configure mem0 for this project.
+MEM0_API_KEY is not set. To configure:
+- **Desktop app**: Run \`claude plugin configure mem0\` in the built-in terminal, or add \`MEM0_API_KEY\` in the Desktop app's environment editor (Settings → Environment)
+- **CLI**: Add \`export MEM0_API_KEY=m0-...\` to your shell profile (~/.zshrc or ~/.bashrc)
+- Get a key at https://app.mem0.ai/dashboard/api-keys
+
+Then invoke the \`mem0:onboard\` skill to complete setup.
 BANNER
   exit 0
 fi
@@ -66,22 +75,26 @@ import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
-body = json.dumps({'filters': {'user_id': user_id, 'app_id': app_id}}).encode()
-req = urllib.request.Request(
-    'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
-    headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
-    data=body,
-    method='POST',
-)
-try:
+
+def get_count(filters):
+    body = json.dumps({'filters': filters}).encode()
+    req = urllib.request.Request(
+        'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
+        headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
+        data=body, method='POST',
+    )
     with urllib.request.urlopen(req, timeout=5) as r:
         data = json.loads(r.read())
         if isinstance(data, dict) and 'count' in data:
-            print(data['count'])
-        elif isinstance(data, list):
-            print(len(data))
-        else:
-            print('?')
+            return data['count']
+        if isinstance(data, list):
+            return len(data)
+    return 0
+
+try:
+    base = [{'user_id': user_id}, {'app_id': app_id}]
+    total = get_count({'AND': base})
+    print(total)
 except Exception:
     print('?')
 " 2>/dev/null || echo "?")
@@ -106,6 +119,8 @@ Mem0 Active | user=${_UID}${_ANN} | project=${_PID} | branch=${_BR} | memories=$
 Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:
 - user_id: \`${_UID}\`
 - app_id: \`${_PID}\` (project scope — passed as top-level \`app_id\`, NOT in metadata)
+
+After completing any task, decision, or meaningful exchange, proactively store learnings via \`add_memory\`. Do NOT wait until the session ends — store memories incrementally as work progresses. Focus on: decisions made, bugs fixed, patterns discovered, user preferences, or task outcomes. Aim for 1–3 memories per substantial interaction.
 
 BANNER
 
@@ -135,7 +150,7 @@ if [ "$SOURCE" = "startup" ]; then
     echo "Native MEMORY.md detected at ${_MEMORY_MD}. Add autoMemoryEnabled:false to settings.json or run /mem0:import."
   fi
 
-  MEM0_CWD="$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null || echo ".")" \
+  MEM0_CWD="$MEM0_CWD_RESOLVED" \
     python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
 
 elif [ "$SOURCE" = "resume" ]; then

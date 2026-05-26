@@ -30,17 +30,34 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
 # Rubric dedup: only inject full rubric once per session.
-# Key on session ID (from stdin JSON) to avoid cross-session interference.
+# Key on session ID to avoid cross-session interference.
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
-RUBRIC_DIR="${MEM0_RUBRIC_DIR:-/tmp}"
-if [ -n "$SESSION_ID" ]; then
-  RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_${SESSION_ID}"
-else
-  RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_injected_${USER}"
+if [ -z "$SESSION_ID" ]; then
+  _SID_FILE="/tmp/mem0_session_id_${USER:-default}"
+  [ -f "$_SID_FILE" ] && SESSION_ID=$(cat "$_SID_FILE" 2>/dev/null) || true
 fi
+if [ -z "$SESSION_ID" ]; then
+  SESSION_ID="default_${USER:-unknown}"
+fi
+RUBRIC_DIR="${MEM0_RUBRIC_DIR:-/tmp}"
+RUBRIC_FLAG="$RUBRIC_DIR/mem0_rubric_${SESSION_ID}"
 RUBRIC_ALREADY_SHOWN=""
 if [ -f "$RUBRIC_FLAG" ]; then
   RUBRIC_ALREADY_SHOWN="true"
+fi
+
+# Track message count for periodic memory-save nudges.
+# Every 5th substantial message, remind the agent to store learnings.
+MSG_COUNT_FILE="/tmp/mem0_msg_count_${USER:-default}"
+MSG_COUNT=0
+if [ -f "$MSG_COUNT_FILE" ]; then
+  MSG_COUNT=$(cat "$MSG_COUNT_FILE" 2>/dev/null || echo "0")
+fi
+MSG_COUNT=$((MSG_COUNT + 1))
+printf '%s' "$MSG_COUNT" > "$MSG_COUNT_FILE" 2>/dev/null || true
+NEEDS_SAVE_NUDGE=""
+if [ $((MSG_COUNT % 5)) -eq 0 ] && [ "$MSG_COUNT" -gt 0 ]; then
+  NEEDS_SAVE_NUDGE="true"
 fi
 
 # Detect stack traces and error patterns in the prompt (no API needed)
@@ -149,6 +166,27 @@ fi
 
 if [ -n "$FILE_PATHS" ]; then
   _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}File paths detected: ${FILE_PATHS}"
+fi
+
+# Auto-capture: directly call mem0 API in background every 3rd message.
+# At MSG_COUNT=3 the 3rd response isn't in the transcript yet (hook fires
+# before Claude responds), so we capture 4 exchanges instead of 3. The
+# overlapping window ensures the next batch (MSG_COUNT=6) picks up the
+# exchange that was incomplete in the previous batch.
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")
+if [ $((MSG_COUNT % 3)) -eq 0 ] && [ "$MSG_COUNT" -gt 0 ] && [ -n "$TRANSCRIPT_PATH" ]; then
+  python3 "$SCRIPT_DIR/auto_capture.py" "$TRANSCRIPT_PATH" 2>/dev/null &
+fi
+
+# Prompt-based nudge as fallback when auto-capture hasn't run yet.
+_ADDS=0
+_STATS_FILE="/tmp/mem0_session_stats_${USER:-default}.json"
+if [ -f "$_STATS_FILE" ]; then
+  _ADDS=$(python3 -c "import json; print(json.load(open('$_STATS_FILE')).get('adds',0))" 2>/dev/null || echo "0")
+fi
+
+if [ "$MSG_COUNT" -ge 3 ] && [ "$_ADDS" -lt "$((MSG_COUNT / 3))" ]; then
+  _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}After responding, store any new decisions, learnings, or preferences from this exchange via add_memory. Keep it to 1 sentence per memory."
 fi
 
 if [ -n "$_PROMPT_CTX" ]; then

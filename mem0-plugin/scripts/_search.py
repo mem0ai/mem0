@@ -13,6 +13,19 @@ SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
 SEARCH_TIMEOUT = 5
 
 
+def _do_search(api_key: str, payload: dict) -> list[dict]:
+    body = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        SEARCH_URL,
+        data=body,
+        headers={"Authorization": f"Token {api_key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=SEARCH_TIMEOUT) as r:
+        data = json.loads(r.read())
+        return data if isinstance(data, list) else data.get("results", [])
+
+
 def search_memories(
     api_key: str,
     user_id: str,
@@ -28,30 +41,24 @@ def search_memories(
     if not api_key:
         return []
 
-    filters: dict = {"AND": [{"user_id": user_id}, {"app_id": project_id}]}
+    base_clauses: list[dict] = [{"user_id": user_id}, {"app_id": project_id}]
     if metadata_type:
-        filters["AND"].append({"metadata": {"type": metadata_type}})
+        base_clauses.append({"metadata": {"type": metadata_type}})
     if metadata_filters:
         for key, value in metadata_filters.items():
-            filters["AND"].append({"metadata": {key: value}})
+            base_clauses.append({"metadata": {key: value}})
 
-    payload: dict = {"query": query, "filters": filters, "top_k": top_k, "threshold": threshold}
+    base_payload: dict = {"query": query, "top_k": top_k, "threshold": threshold}
     if rerank:
-        payload["rerank"] = True
-    body = json.dumps(payload).encode()
-    req = urllib.request.Request(
-        SEARCH_URL,
-        data=body,
-        headers={"Authorization": f"Token {api_key}", "Content-Type": "application/json"},
-        method="POST",
-    )
+        base_payload["rerank"] = True
+
     try:
-        with urllib.request.urlopen(req, timeout=SEARCH_TIMEOUT) as r:
-            data = json.loads(r.read())
-            results = data if isinstance(data, list) else data.get("results", [])
-            if min_score > 0:
-                results = [m for m in results if m.get("score", 0) >= min_score]
-            return results
+        payload = {**base_payload, "filters": {"AND": list(base_clauses)}}
+        results = _do_search(api_key, payload)[:top_k]
+
+        if min_score > 0:
+            results = [m for m in results if m.get("score", 0) >= min_score]
+        return results
     except Exception:
         return []
 

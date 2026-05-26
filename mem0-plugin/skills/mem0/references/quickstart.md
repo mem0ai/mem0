@@ -74,7 +74,7 @@ console.log(results);
 export MEM0_API_KEY="m0-your-api-key"
 
 # Add memory
-curl -X POST https://api.mem0.ai/v1/memories/ \
+curl -X POST https://api.mem0.ai/v3/memories/add/ \
   -H "Authorization: Token $MEM0_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{

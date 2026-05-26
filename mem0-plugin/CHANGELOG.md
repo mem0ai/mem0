@@ -2,6 +2,41 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.6
+
+### Fixed
+
+- **Memory count zero / stats and tour showing 0 memories:** The `run_id: "*"` wildcard filter — added in the initial v0.2.6 fix — returns 0 on both the v3 list endpoint (`/v3/memories/`) and search endpoint (`/v3/memories/search/`) when memories were written without a `run_id` (which is all memories since v0.2.6 stopped setting `run_id` on `add_memory`). Removed `run_id: "*"` from: `on_session_start.sh` count queries, `enforce_metadata_defaults.sh` hook injection (was injecting into every `search_memories` and `get_memories` call), `_search.py` search payload, `/mem0:stats` and `/mem0:tour` skill instructions. All read paths now use simple `user_id` + `app_id` filters without `run_id`, matching how v0.2.3 worked.
+- **`add_memory` no longer sets `run_id`:** Session tracking moved from top-level `run_id` (which creates a separate API partition) to `metadata.session_id`. New memories land in the default partition and are visible to all queries.
+- **`enforce_metadata_defaults.sh` no longer injects `run_id`:** The hook was appending `{"run_id": "*"}` to every `search_memories` and `get_memories` filter, which broke both endpoints. Removed entirely — identity injection (`user_id`/`app_id`) still works.
+- **`_search.py` simplified:** Removed `run_id: "*"` from search payload. Uses plain `user_id` + `app_id` filters.
+- **`auto_import.py` delete endpoint 404:** Stale chunk deletion used `DELETE /v3/memories/{id}/` which returns 404 (v3 is ADD-only). Changed to `DELETE /v1/memories/{id}/`.
+- **Banner count accurate:** `on_session_start.sh` count query uses `user_id` + `app_id` filters without `run_id`. Shows total count only (removed noisy auto-import breakdown).
+- **`quickstart.md` wrong add endpoint:** cURL example used `POST /v1/memories/` (v1 add is removed). Fixed to `POST /v3/memories/add/`.
+- **Session stats always 0:** PostToolUse hooks never fire for plugin MCP tools (confirmed via debug logs — only SessionStart, UserPromptSubmit, PreToolUse, and Stop fire). Moved session stats tracking (`session_stats.py add/search`) into `enforce_metadata_defaults.sh` (PreToolUse), which does fire on every MCP tool call.
+- **Periodic nudge never firing:** Message count file used session UUID in filename (`/tmp/mem0_msg_count_${SESSION_ID}`) which was cleared on session start. Changed to `$USER`-keyed filename, matching the session stats file convention.
+- **`/mem0:stats` session query returning 0:** Stats skill attempted API queries with `run_id` and `metadata.session_id` filters that return empty results. Session stats now come exclusively from the local stats file (which is accurate now that PreToolUse tracks adds).
+- **Auto-capture stops working mid-session:** After the initial rubric injection (first message), subsequent messages got zero context from the UserPromptSubmit hook. The banner instruction to "proactively store learnings" fades as conversation grows and Claude forgets. Two-pronged fix: (1) **Direct API auto-capture hook** (`auto_capture.py`): every 3rd message, `on_user_prompt.sh` spawns a background Python script that reads the last 3 exchanges from the transcript JSONL and sends them directly to `POST /v3/memories/add/` with `infer=True`. No reliance on Claude calling `add_memory`. (2) **Proportional prompt nudge** as fallback: starting from 3rd message, if Claude has stored fewer than 1 memory per 3 messages, a brief "store learnings via add_memory" directive is injected.
+- **Desktop app: API key not found:** Claude Code Desktop does not inherit shell environment variables — only `PATH` is read from shell profiles. Users who set `export MEM0_API_KEY=m0-...` in `~/.zshrc` or `~/.bashrc` got "Setup Required" on Desktop while CLI worked fine. Added grep-based shell profile extraction as a 4th fallback in both `_identity.sh` (bash) and `_identity.py` (Python). Scans `~/.zshrc`, `~/.bashrc`, `~/.zprofile`, `~/.bash_profile`, `~/.profile` for `MEM0_API_KEY=` assignments. Skips variable references (`$OTHER_VAR`), commented-out lines, and strips quotes/inline comments.
+- **Desktop app: zero memories added over multi-day usage:** Agent never proactively called `add_memory` — only `search_memories` and `get_all`. Root cause: session banner instruction was passive ("before finishing a session, store learnings") and easily ignored. No mechanism existed to re-prompt the agent mid-session. Fixed with a periodic nudge in `on_user_prompt.sh`: every 5th substantial message, the hook checks `session_stats` for add count; if fewer than 2 memories stored, injects a directive into Claude's context via `additionalContext` telling it to store learnings immediately. Counter resets on session start.
+- **Setup Required banner missing Desktop instructions:** Updated no-API-key banner with Desktop-specific setup paths: `claude plugin configure mem0`, Desktop app environment editor (Settings > Environment), and CLI `export` as fallback.
+
+### Removed
+
+- **Stop hook (all 3 editors):** Removed from `hooks.json`, `cursor-hooks.json`, `codex-hooks.json`. Deleted `on_stop.sh`, `on_stop_cursor.sh`, `on_stop_codex.sh`, `stop_hook_check.py`. The Stop hook could not reliably feed context back to Claude (command-type hooks' `reason` field is user-facing only, not injected into Claude's context). Auto-capture handled by PreCompact hook instead.
+- **SessionEnd hook:** Removed from `hooks.json`. Deleted `on_session_end.sh`. Redundant with PreCompact auto-capture.
+- **5 redundant hook scripts:** `on_git_commit_capture.sh` (fired on every Bash command containing "git"), `on_post_commit.sh` (fired on every Bash command), `on_task_completed.sh`, `on_post_compact.sh`, `on_subagent_stop.sh`. These were already removed from Claude's `hooks.json` in v0.2.5 but script files remained on disk. Also removed `on_post_commit.sh` references from `cursor-hooks.json` and `codex-hooks.json`.
+- **Dead settings:** Removed `output_style`, `skip_tools`, `capture_tools` from `load_settings.py` defaults. The `output-styles/` directory and `on_tool_failure.sh` script were already deleted.
+- **`test_on_file_read.py`:** Removed test file for deleted `on_file_read.sh` hook.
+
+### Changed
+
+- **`/mem0:stats` lifetime query:** Single `get_memories` call with `user_id` + `app_id` filters (no `run_id`).
+- **`/mem0:tour` full fetch:** Single `get_memories` call with `user_id` + `app_id` filters (no `run_id`).
+- **API key resolution order (4 fallbacks):** `MEM0_API_KEY` env var > `CLAUDE_PLUGIN_OPTION_API_KEY` (plugin configure) > `CLAUDE_PLUGIN_OPTION_MEM0_API_KEY` (legacy userConfig) > shell profile extraction. Applies to both `_identity.sh` and `_identity.py`.
+- **Session start banner:** Proactive memory instruction changed from passive "before finishing a session" to active "proactively store learnings incrementally as work progresses. Do NOT wait until the session ends."
+- **Message counter on session start:** `on_session_start.sh` now resets `/tmp/mem0_msg_count_*` files to ensure nudge counter starts fresh each session.
+
 ## 0.2.5
 
 ### Fixed

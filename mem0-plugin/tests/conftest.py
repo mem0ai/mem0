@@ -23,8 +23,9 @@ def _scripts_on_path():
 
 
 @pytest.fixture(autouse=True)
-def _clean_project_map():
-    """Remove project_map.json before each test to prevent cross-test pollution."""
+def _clean_project_map(monkeypatch):
+    """Remove project_map.json and clear MEM0_PROJECT_ID before each test."""
+    monkeypatch.delenv("MEM0_PROJECT_ID", raising=False)
     map_path = os.path.expanduser("~/.mem0/project_map.json")
     if os.path.isfile(map_path):
         os.remove(map_path)

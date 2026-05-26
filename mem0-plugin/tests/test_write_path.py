@@ -192,4 +192,16 @@ def test_resolve_api_key_returns_empty_when_neither_set(monkeypatch):
     monkeypatch.delenv("MEM0_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", raising=False)
+    monkeypatch.setattr("_identity._extract_key_from_shell_profiles", lambda: "")
     assert resolve_api_key() == ""
+
+
+def test_resolve_api_key_falls_back_to_shell_profile(monkeypatch):
+    """resolve_api_key extracts key from shell profile when env vars are empty."""
+    from _identity import resolve_api_key
+
+    monkeypatch.delenv("MEM0_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_API_KEY", raising=False)
+    monkeypatch.delenv("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", raising=False)
+    monkeypatch.setattr("_identity._extract_key_from_shell_profiles", lambda: "m0-from-profile")
+    assert resolve_api_key() == "m0-from-profile"

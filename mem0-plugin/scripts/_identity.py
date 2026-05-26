@@ -4,6 +4,9 @@ API key resolution (first non-empty wins):
   1. MEM0_API_KEY env var (explicit / shell profile)
   2. CLAUDE_PLUGIN_OPTION_API_KEY (set by `claude plugin configure mem0`)
   3. CLAUDE_PLUGIN_OPTION_MEM0_API_KEY (legacy userConfig)
+  4. Extract from shell profile files (~/.zshrc, ~/.bashrc, etc.)
+     Desktop app doesn't inherit shell env — this covers users who
+     set MEM0_API_KEY in their profile but use the Desktop app.
 
 User ID resolution:
   1. MEM0_USER_ID env var (explicit override)
@@ -16,6 +19,37 @@ Settings resolution:
 from __future__ import annotations
 
 import os
+import re
+from pathlib import Path
+
+
+def _extract_key_from_shell_profiles() -> str:
+    """Extract MEM0_API_KEY from shell profile files.
+
+    The Desktop app only reads PATH from shell profiles — env vars like
+    MEM0_API_KEY are not inherited. This handles the common
+    ``export MEM0_API_KEY=...`` pattern without sourcing the full profile.
+    """
+    profiles = [".zshrc", ".bashrc", ".zprofile", ".bash_profile", ".profile"]
+    pattern = re.compile(r'^\s*(?:export\s+)?MEM0_API_KEY=(.+)$')
+
+    for name in profiles:
+        path = Path.home() / name
+        if not path.is_file():
+            continue
+        try:
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                m = pattern.match(line)
+                if not m:
+                    continue
+                value = m.group(1).strip()
+                value = re.sub(r'#.*$', '', value).strip()
+                value = value.strip("\"'")
+                if value and not value.startswith("$"):
+                    return value
+        except OSError:
+            continue
+    return ""
 
 
 def resolve_api_key() -> str:
@@ -26,6 +60,9 @@ def resolve_api_key() -> str:
     if key:
         return key
     key = os.environ.get("CLAUDE_PLUGIN_OPTION_MEM0_API_KEY", "").strip()
+    if key:
+        return key
+    key = _extract_key_from_shell_profiles()
     if key:
         return key
     return ""
@@ -50,10 +87,7 @@ def resolve_config() -> dict:
             "search_limit": 10,
             "retention_session_days": 90,
             "confidence_threshold": 0.3,
-            "output_style": "compact",
             "debug": False,
-            "skip_tools": ["Read", "Glob", "Grep"],
-            "capture_tools": ["Edit", "Write", "Bash"],
         }
 
 

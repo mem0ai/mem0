@@ -15,7 +15,7 @@
 #            the updatedInput replaces the tool's input parameters.
 #   exit 2 = block (stderr shown as rejection reason).
 
-set -euo pipefail
+set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
@@ -41,6 +41,7 @@ esac
 TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // "{}"' 2>/dev/null)
 
 _PATCH_OUT="/tmp/mem0_enforce_$$"
+trap 'rm -f "$_PATCH_OUT"' EXIT
 _MEM0_TOOL_INPUT="$TOOL_INPUT" \
 _MEM0_USER_ID="${MEM0_RESOLVED_USER_ID:-}" \
 _MEM0_APP_ID="${MEM0_PROJECT_ID:-}" \
@@ -154,7 +155,11 @@ if handler == "add_memory":
         inp["infer"] = False
         changed = True
 
-    if "run_id" not in inp:
+    # Track session in metadata instead of run_id.
+    # run_id creates a separate entity partition in the v3 API,
+    # making memories invisible to search/get_memories calls
+    # that don't include a run_id filter.
+    if "session_id" not in meta:
         sid = os.environ.get("MEM0_SESSION_ID", "")
         if not sid:
             session_file = "/tmp/mem0_session_id_" + os.environ.get("USER", "default")
@@ -165,7 +170,7 @@ if handler == "add_memory":
                 except OSError:
                     pass
         if sid:
-            inp["run_id"] = sid
+            meta["session_id"] = sid
             changed = True
 
     if changed:
@@ -192,5 +197,16 @@ if [ -n "$PATCHED" ] && echo "$PATCHED" | jq empty 2>/dev/null; then
     }
   }' 2>/dev/null || true
 fi
+
+# Track session stats here because PostToolUse hooks don't fire for plugin MCP tools.
+case "$HANDLER" in
+  add_memory)
+    _CAT=$(echo "$TOOL_INPUT" | jq -r '.metadata.type // .metadata.category // ""' 2>/dev/null || echo "")
+    python3 "$SCRIPT_DIR/session_stats.py" add "$_CAT" 2>/dev/null &
+    ;;
+  search_memories|get_memories)
+    python3 "$SCRIPT_DIR/session_stats.py" search 2>/dev/null &
+    ;;
+esac
 
 exit 0
