@@ -444,8 +444,11 @@ class TestPGVector(unittest.TestCase):
         
         # Verify search query was executed
         search_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "SELECT id, vector <=" in str(call)]
+                       if "SELECT id, 1 - (vector <=" in str(call)]
         self.assertTrue(len(search_calls) > 0)
+        executed_sql = str(search_calls[-1])
+        self.assertIn("AS score", executed_sql)
+        self.assertIn("ORDER BY score DESC", executed_sql)
         
         # Verify results
         self.assertEqual(len(results), 2)
@@ -493,8 +496,11 @@ class TestPGVector(unittest.TestCase):
         
         # Verify search query was executed
         search_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "SELECT id, vector <=" in str(call)]
+                       if "SELECT id, 1 - (vector <=" in str(call)]
         self.assertTrue(len(search_calls) > 0)
+        executed_sql = str(search_calls[-1])
+        self.assertIn("AS score", executed_sql)
+        self.assertIn("ORDER BY score DESC", executed_sql)
         
         # Verify results
         self.assertEqual(len(results), 2)
@@ -1139,7 +1145,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify search query was executed with filters
         search_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+                       if "SELECT id, 1 - (vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
         # Verify results
@@ -1189,7 +1195,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify search query was executed with filters
         search_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+                       if "SELECT id, 1 - (vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
         # Verify results
@@ -1239,7 +1245,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify search query was executed with single filter
         search_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+                       if "SELECT id, 1 - (vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
         # Verify results
@@ -1287,7 +1293,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify search query was executed with single filter
         search_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "SELECT id, vector <=" in str(call) and "WHERE" in str(call)]
+                       if "SELECT id, 1 - (vector <=" in str(call) and "WHERE" in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
         # Verify results
@@ -1335,7 +1341,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify search query was executed without WHERE clause
         search_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "SELECT id, vector <=" in str(call) and "WHERE" not in str(call)]
+                       if "SELECT id, 1 - (vector <=" in str(call) and "WHERE" not in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
         # Verify results
@@ -1384,7 +1390,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify search query was executed without WHERE clause
         search_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "SELECT id, vector <=" in str(call) and "WHERE" not in str(call)]
+                       if "SELECT id, 1 - (vector <=" in str(call) and "WHERE" not in str(call)]
         self.assertTrue(len(search_calls) > 0)
         
         # Verify results
