@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import sys
 from pathlib import Path
 
@@ -125,6 +126,19 @@ def main() -> int:
         write_config(config)
         print(f"Removed Mem0 hooks from {HOOKS_FILE}")
         return 0
+
+    # Codex lifecycle hooks register .sh paths directly in ~/.codex/hooks.json.
+    # On native Windows .sh has no default handler, so Codex spawning a hook
+    # triggers "Open With" dialogs (one OpenWith.exe per event). See #5243.
+    if platform.system() == "Windows":
+        print(
+            "Codex lifecycle hooks register .sh scripts directly, which Windows\n"
+            "cannot execute without a bash interpreter on PATH. Re-run this\n"
+            "installer from WSL or Git Bash, or use Mem0 via MCP / Direct tools\n"
+            "without lifecycle hooks. See https://github.com/mem0ai/mem0/issues/5243.",
+            file=sys.stderr,
+        )
+        return 2
 
     if not TEMPLATE_FILE.exists():
         print(f"error: template not found at {TEMPLATE_FILE}", file=sys.stderr)
