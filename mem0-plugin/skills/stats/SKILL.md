@@ -34,18 +34,12 @@ Group by:
 2. `metadata.type` (agent-assigned) — secondary if no categories
 3. `created_at` date — for age analysis
 
-**Session stats (API-backed):**
-Read the session ID file at `/tmp/mem0_session_id_$USER`. If it exists and contains
-a non-empty value, also call `get_memories` with:
-- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"run_id": "<session_id>"}]}`
-- `page_size=100`
+**Session stats (local only):**
+Session stats come from the local stats file read in Step 1. Do NOT query the API with
+`run_id` or `metadata.session_id` filters — these return unreliable results because
+memories are stored without `run_id` and metadata filters on `session_id` are inconsistent.
 
-Additionally check for session memories stored without run_id (via metadata):
-- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"metadata": {"session_id": "<session_id>"}}]}`
-- `page_size=100`
-
-Merge both session result sets by ID. This count represents memories written in the
-current session. Cross-check with the local stats file — use the higher count.
+The local stats file tracks adds and searches for the current session accurately.
 
 Also run a `search_memories` MCP tool call with `query="project"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1` to measure round-trip latency. Note the time before and after the MCP call — do NOT attempt raw HTTP calls to the API.
 

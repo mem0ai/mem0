@@ -48,7 +48,7 @@ fi
 
 # Track message count for periodic memory-save nudges.
 # Every 5th substantial message, remind the agent to store learnings.
-MSG_COUNT_FILE="/tmp/mem0_msg_count_${SESSION_ID}"
+MSG_COUNT_FILE="/tmp/mem0_msg_count_${USER:-default}"
 MSG_COUNT=0
 if [ -f "$MSG_COUNT_FILE" ]; then
   MSG_COUNT=$(cat "$MSG_COUNT_FILE" 2>/dev/null || echo "0")

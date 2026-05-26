@@ -198,4 +198,15 @@ if [ -n "$PATCHED" ] && echo "$PATCHED" | jq empty 2>/dev/null; then
   }' 2>/dev/null || true
 fi
 
+# Track session stats here because PostToolUse hooks don't fire for plugin MCP tools.
+case "$HANDLER" in
+  add_memory)
+    _CAT=$(echo "$TOOL_INPUT" | jq -r '.metadata.type // .metadata.category // ""' 2>/dev/null || echo "")
+    python3 "$SCRIPT_DIR/session_stats.py" add "$_CAT" 2>/dev/null &
+    ;;
+  search_memories|get_memories)
+    python3 "$SCRIPT_DIR/session_stats.py" search 2>/dev/null &
+    ;;
+esac
+
 exit 0

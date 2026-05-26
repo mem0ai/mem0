@@ -18,7 +18,7 @@ fi
 PYTHONPATH="$SCRIPT_DIR" python3 "$SCRIPT_DIR/load_settings.py" init 2>/dev/null || true
 rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
 rm -f /tmp/mem0_rubric_* 2>/dev/null || true
-rm -f /tmp/mem0_msg_count_* 2>/dev/null || true
+rm -f "/tmp/mem0_msg_count_${USER:-default}" 2>/dev/null || true
 MEM0_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 if [ -z "$MEM0_SESSION_ID" ]; then
   MEM0_SESSION_ID="ses_$(date +%s)_$$"
