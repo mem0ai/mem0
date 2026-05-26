@@ -168,16 +168,25 @@ if [ -n "$FILE_PATHS" ]; then
   _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}File paths detected: ${FILE_PATHS}"
 fi
 
-# Periodic memory-save nudge: check session stats and prompt if no memories stored yet
-if [ -n "$NEEDS_SAVE_NUDGE" ]; then
-  _ADDS=0
-  _STATS_FILE="/tmp/mem0_session_stats_${USER:-default}.json"
-  if [ -f "$_STATS_FILE" ]; then
-    _ADDS=$(python3 -c "import json; print(json.load(open('$_STATS_FILE')).get('adds',0))" 2>/dev/null || echo "0")
-  fi
-  if [ "$_ADDS" -lt 2 ]; then
-    _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}Mem0 reminder: ${MSG_COUNT} exchanges in this session but only ${_ADDS} memories stored. Store 1-2 learnings now via add_memory — decisions made, patterns discovered, bugs fixed, or user preferences. Do not skip this."
-  fi
+# Auto-capture: directly call mem0 API in background every 3rd message.
+# At MSG_COUNT=3 the 3rd response isn't in the transcript yet (hook fires
+# before Claude responds), so we capture 4 exchanges instead of 3. The
+# overlapping window ensures the next batch (MSG_COUNT=6) picks up the
+# exchange that was incomplete in the previous batch.
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")
+if [ $((MSG_COUNT % 3)) -eq 0 ] && [ "$MSG_COUNT" -gt 0 ] && [ -n "$TRANSCRIPT_PATH" ]; then
+  python3 "$SCRIPT_DIR/auto_capture.py" "$TRANSCRIPT_PATH" 2>/dev/null &
+fi
+
+# Prompt-based nudge as fallback when auto-capture hasn't run yet.
+_ADDS=0
+_STATS_FILE="/tmp/mem0_session_stats_${USER:-default}.json"
+if [ -f "$_STATS_FILE" ]; then
+  _ADDS=$(python3 -c "import json; print(json.load(open('$_STATS_FILE')).get('adds',0))" 2>/dev/null || echo "0")
+fi
+
+if [ "$MSG_COUNT" -ge 3 ] && [ "$_ADDS" -lt "$((MSG_COUNT / 3))" ]; then
+  _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}After responding, store any new decisions, learnings, or preferences from this exchange via add_memory. Keep it to 1 sentence per memory."
 fi
 
 if [ -n "$_PROMPT_CTX" ]; then
