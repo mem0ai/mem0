@@ -4,16 +4,10 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
-from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
-from pydantic import BaseModel, Field
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from sqlalchemy import func, select
-
+import telemetry
 from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
+from db import SessionLocal
+from dotenv import load_dotenv
 from errors import (
     UpstreamError,
     install_request_id_logging,
@@ -22,16 +16,27 @@ from errors import (
     upstream_error,
     upstream_error_handler,
 )
-from rate_limit import limiter
-from db import SessionLocal
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from models import RequestLog, User
-import telemetry
-from routers import auth as auth_router
+from pydantic import BaseModel, Field
+from rate_limit import limiter
 from routers import api_keys as api_keys_router
+from routers import auth as auth_router
 from routers import entities as entities_router
 from routers import requests as requests_router
 from schemas import MessageResponse
-from server_state import get_current_config, get_memory_instance, initialize_state, set_session_factory, update_config
+from server_state import (
+    get_current_config,
+    get_memory_instance,
+    initialize_state,
+    set_session_factory,
+    update_config,
+)
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy import func, select
 
 load_dotenv()
 
@@ -416,8 +421,17 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
 def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
-        params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
-        return get_memory_instance().search(query=search_req.query, **params)
+        filters = search_req.filters or {}
+        for entity_key in ("user_id", "agent_id", "run_id"):
+            entity_val = getattr(search_req, entity_key, None)
+            if entity_val is not None:
+                filters[entity_key] = entity_val
+        params = {}
+        if search_req.top_k is not None:
+            params["top_k"] = search_req.top_k
+        if search_req.threshold is not None:
+            params["threshold"] = search_req.threshold
+        return get_memory_instance().search(query=search_req.query, filters=filters, **params)
     except Exception:
         raise upstream_error()
 

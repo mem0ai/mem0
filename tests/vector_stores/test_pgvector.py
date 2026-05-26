@@ -4,7 +4,7 @@ import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
-from mem0.vector_stores.pgvector import PGVector
+from mem0.vector_stores.pgvector import PGVector, _build_filter_conditions
 
 
 class TestPGVector(unittest.TestCase):
@@ -2233,3 +2233,158 @@ class TestPGVector(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test."""
         pass
+
+
+class TestBuildFilterConditions(unittest.TestCase):
+    """Tests for the _build_filter_conditions helper that translates filter dicts to SQL."""
+
+    def test_none_filters(self):
+        conditions, params = _build_filter_conditions(None)
+        self.assertEqual(conditions, [])
+        self.assertEqual(params, [])
+
+    def test_empty_filters(self):
+        conditions, params = _build_filter_conditions({})
+        self.assertEqual(conditions, [])
+        self.assertEqual(params, [])
+
+    def test_simple_equality(self):
+        conditions, params = _build_filter_conditions({"user_id": "alice"})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertEqual(params, ["user_id", "alice"])
+
+    def test_multiple_equalities(self):
+        conditions, params = _build_filter_conditions({"user_id": "alice", "agent_id": "bot1"})
+        self.assertEqual(len(conditions), 2)
+        self.assertEqual(params, ["user_id", "alice", "agent_id", "bot1"])
+
+    def test_eq_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"eq": "active"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertEqual(params, ["status", "active"])
+
+    def test_ne_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"ne": "deleted"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s != %s", conditions[0])
+        self.assertEqual(params, ["status", "deleted"])
+
+    def test_gt_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"gt": 100}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric > %s", conditions[0])
+        self.assertEqual(params, ["price", 100.0])
+
+    def test_gte_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"gte": 100}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
+        self.assertEqual(params, ["price", 100.0])
+
+    def test_lt_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"lt": 50}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric < %s", conditions[0])
+        self.assertEqual(params, ["price", 50.0])
+
+    def test_lte_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"lte": 50}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric <= %s", conditions[0])
+        self.assertEqual(params, ["price", 50.0])
+
+    def test_range_combination(self):
+        conditions, params = _build_filter_conditions({"score": {"gte": 1, "lte": 10}})
+        self.assertEqual(len(conditions), 2)
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
+        self.assertIn("(payload->>%s)::numeric <= %s", conditions[1])
+        self.assertEqual(params, ["score", 1.0, "score", 10.0])
+
+    def test_in_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"in": ["active", "pending"]}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
+        self.assertEqual(params, ["status", ["active", "pending"]])
+
+    def test_nin_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"nin": ["deleted", "archived"]}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("NOT (payload->>%s = ANY(%s))", conditions[0])
+        self.assertEqual(params, ["status", ["deleted", "archived"]])
+
+    def test_contains_operator(self):
+        conditions, params = _build_filter_conditions({"name": {"contains": "alice"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s LIKE %s", conditions[0])
+        self.assertEqual(params, ["name", "%alice%"])
+
+    def test_icontains_operator(self):
+        conditions, params = _build_filter_conditions({"name": {"icontains": "Alice"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s ILIKE %s", conditions[0])
+        self.assertEqual(params, ["name", "%Alice%"])
+
+    def test_wildcard(self):
+        conditions, params = _build_filter_conditions({"metadata_key": "*"})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload ? %s", conditions[0])
+        self.assertEqual(params, ["metadata_key"])
+
+    def test_list_shorthand(self):
+        conditions, params = _build_filter_conditions({"tags": ["a", "b", "c"]})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
+        self.assertEqual(params, ["tags", ["a", "b", "c"]])
+
+    def test_or_operator(self):
+        conditions, params = _build_filter_conditions({
+            "$or": [
+                {"user_id": "alice"},
+                {"user_id": "bob"},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertIn(" OR ", conditions[0])
+        self.assertTrue(conditions[0].startswith("("))
+        self.assertEqual(params, ["user_id", "alice", "user_id", "bob"])
+
+    def test_not_operator(self):
+        conditions, params = _build_filter_conditions({
+            "$not": [
+                {"status": "deleted"},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertTrue(conditions[0].startswith("NOT"))
+        self.assertEqual(params, ["status", "deleted"])
+
+    def test_or_with_operators(self):
+        conditions, params = _build_filter_conditions({
+            "$or": [
+                {"price": {"gt": 100}},
+                {"price": {"lt": 10}},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertIn(" OR ", conditions[0])
+        self.assertEqual(params, ["price", 100.0, "price", 10.0])
+
+    def test_mixed_simple_and_operator_filters(self):
+        conditions, params = _build_filter_conditions({
+            "user_id": "alice",
+            "score": {"gte": 5},
+        })
+        self.assertEqual(len(conditions), 2)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[1])
+
+    def test_unsupported_operator_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            _build_filter_conditions({"x": {"badop": 1}})
+        self.assertIn("Unsupported filter operator", str(ctx.exception))
+
+    def test_in_with_numeric_values(self):
+        conditions, params = _build_filter_conditions({"priority": {"in": [1, 2, 3]}})
+        self.assertEqual(params, ["priority", ["1", "2", "3"]])
