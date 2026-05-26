@@ -120,15 +120,25 @@ describe("buildFilterConditions", () => {
   test("contains operator", () => {
     const result = buildFilterConditions({ name: { contains: "alice" } }, 1);
     expect(result.conditions).toHaveLength(1);
-    expect(result.conditions[0]).toContain("LIKE $1");
+    expect(result.conditions[0]).toContain("LIKE $1 ESCAPE");
     expect(result.values).toEqual(["%alice%"]);
   });
 
   test("icontains operator", () => {
     const result = buildFilterConditions({ name: { icontains: "Alice" } }, 1);
     expect(result.conditions).toHaveLength(1);
-    expect(result.conditions[0]).toContain("ILIKE $1");
+    expect(result.conditions[0]).toContain("ILIKE $1 ESCAPE");
     expect(result.values).toEqual(["%Alice%"]);
+  });
+
+  test("contains escapes LIKE wildcards", () => {
+    const result = buildFilterConditions({ name: { contains: "50%_off" } }, 1);
+    expect(result.values).toEqual(["%50\\%\\_off%"]);
+  });
+
+  test("icontains escapes LIKE wildcards", () => {
+    const result = buildFilterConditions({ promo: { icontains: "a%b_c" } }, 1);
+    expect(result.values).toEqual(["%a\\%b\\_c%"]);
   });
 
   test("wildcard value", () => {
@@ -215,5 +225,20 @@ describe("buildFilterConditions", () => {
     expect(result.conditions[1]).toContain("$4");
     expect(result.conditions[2]).toContain("$5");
     expect(result.paramIndex).toBe(6);
+  });
+
+  test("boolean true uses JSON casing", () => {
+    const result = buildFilterConditions({ is_active: true }, 1);
+    expect(result.values).toEqual(["true"]);
+  });
+
+  test("boolean false uses JSON casing", () => {
+    const result = buildFilterConditions({ is_active: false }, 1);
+    expect(result.values).toEqual(["false"]);
+  });
+
+  test("numeric scalar becomes string", () => {
+    const result = buildFilterConditions({ priority: 42 }, 1);
+    expect(result.values).toEqual(["42"]);
   });
 });

@@ -2317,14 +2317,22 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_contains_operator(self):
         conditions, params = _build_filter_conditions({"name": {"contains": "alice"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s LIKE %s", conditions[0])
+        self.assertIn("LIKE %s ESCAPE", conditions[0])
         self.assertEqual(params, ["name", "%alice%"])
 
     def test_icontains_operator(self):
         conditions, params = _build_filter_conditions({"name": {"icontains": "Alice"}})
         self.assertEqual(len(conditions), 1)
-        self.assertIn("payload->>%s ILIKE %s", conditions[0])
+        self.assertIn("ILIKE %s ESCAPE", conditions[0])
         self.assertEqual(params, ["name", "%Alice%"])
+
+    def test_contains_escapes_wildcards(self):
+        conditions, params = _build_filter_conditions({"name": {"contains": "50%_off"}})
+        self.assertEqual(params, ["name", "%50\\%\\_off%"])
+
+    def test_icontains_escapes_wildcards(self):
+        conditions, params = _build_filter_conditions({"promo": {"icontains": "a%b_c"}})
+        self.assertEqual(params, ["promo", "%a\\%b\\_c%"])
 
     def test_wildcard(self):
         conditions, params = _build_filter_conditions({"metadata_key": "*"})
@@ -2388,3 +2396,15 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_in_with_numeric_values(self):
         conditions, params = _build_filter_conditions({"priority": {"in": [1, 2, 3]}})
         self.assertEqual(params, ["priority", ["1", "2", "3"]])
+
+    def test_boolean_true_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"is_active": True})
+        self.assertEqual(params, ["is_active", "true"])
+
+    def test_boolean_false_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"is_active": False})
+        self.assertEqual(params, ["is_active", "false"])
+
+    def test_numeric_scalar_becomes_string(self):
+        conditions, params = _build_filter_conditions({"priority": 42})
+        self.assertEqual(params, ["priority", "42"])
