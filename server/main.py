@@ -193,9 +193,9 @@ class MemoryUpdate(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query.")
-    user_id: Optional[str] = None
-    run_id: Optional[str] = None
-    agent_id: Optional[str] = None
+    user_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
+    run_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
+    agent_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
     filters: Optional[Dict[str, Any]] = None
     top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
@@ -422,10 +422,18 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
         filters = search_req.filters or {}
+        deprecated_keys = []
         for entity_key in ("user_id", "agent_id", "run_id"):
             entity_val = getattr(search_req, entity_key, None)
             if entity_val is not None:
                 filters[entity_key] = entity_val
+                deprecated_keys.append(entity_key)
+        if deprecated_keys:
+            logging.warning(
+                "Top-level %s in /search is deprecated. Use filters={%s} instead.",
+                ", ".join(deprecated_keys),
+                ", ".join(f'"{k}": "..."' for k in deprecated_keys),
+            )
         params = {}
         if search_req.top_k is not None:
             params["top_k"] = search_req.top_k
