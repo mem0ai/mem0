@@ -46,7 +46,7 @@ export async function cmdAdd(
 		file?: string;
 		metadata?: string;
 		immutable: boolean;
-		noInfer: boolean;
+		infer?: boolean;
 		expires?: string;
 		categories?: string;
 		output: string;
@@ -136,7 +136,7 @@ export async function cmdAdd(
 				runId: opts.runId,
 				metadata: meta,
 				immutable: opts.immutable,
-				infer: !opts.noInfer,
+				infer: opts.infer !== false,
 				expires: opts.expires,
 				categories: cats,
 			});
