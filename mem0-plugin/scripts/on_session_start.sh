@@ -18,6 +18,7 @@ fi
 PYTHONPATH="$SCRIPT_DIR" python3 "$SCRIPT_DIR/load_settings.py" init 2>/dev/null || true
 rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
 rm -f /tmp/mem0_rubric_* 2>/dev/null || true
+rm -f /tmp/mem0_msg_count_* 2>/dev/null || true
 MEM0_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 if [ -z "$MEM0_SESSION_ID" ]; then
   MEM0_SESSION_ID="ses_$(date +%s)_$$"
@@ -51,7 +52,12 @@ IMPORTANT: In your FIRST response, display this exact status line as your openin
 Mem0 — Setup Required | user=${_UID} | project=${_PID} | branch=${_BR} | auth=none
 \`\`\`
 
-MEM0_API_KEY is not set. Set it via \`claude plugin configure mem0\` (recommended for Desktop app) or \`export MEM0_API_KEY=...\` in shell profile. Then invoke the \`mem0:onboard\` skill to complete setup.
+MEM0_API_KEY is not set. To configure:
+- **Desktop app**: Run \`claude plugin configure mem0\` in the built-in terminal, or add \`MEM0_API_KEY\` in the Desktop app's environment editor (Settings → Environment)
+- **CLI**: Add \`export MEM0_API_KEY=m0-...\` to your shell profile (~/.zshrc or ~/.bashrc)
+- Get a key at https://app.mem0.ai/dashboard/api-keys
+
+Then invoke the \`mem0:onboard\` skill to complete setup.
 BANNER
   exit 0
 fi
@@ -125,7 +131,7 @@ Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and 
 - user_id: \`${_UID}\`
 - app_id: \`${_PID}\` (project scope — passed as top-level \`app_id\`, NOT in metadata)
 
-Before finishing a session with meaningful work (file edits, bug fixes, decisions), store 1–3 learnings via \`add_memory\`. Focus on: decisions made, bugs fixed, patterns discovered, or task outcomes.
+After completing any task, decision, or meaningful exchange, proactively store learnings via \`add_memory\`. Do NOT wait until the session ends — store memories incrementally as work progresses. Focus on: decisions made, bugs fixed, patterns discovered, user preferences, or task outcomes. Aim for 1–3 memories per substantial interaction.
 
 BANNER
 

@@ -4,12 +4,15 @@
 #   1. MEM0_API_KEY env var (explicit / shell profile)
 #   2. CLAUDE_PLUGIN_OPTION_API_KEY (set by `claude plugin configure mem0`)
 #   3. CLAUDE_PLUGIN_OPTION_MEM0_API_KEY (legacy userConfig)
+#   4. Extract from shell profile files (~/.zshrc, ~/.bashrc, etc.)
+#      Desktop app doesn't inherit shell env — this fallback covers users
+#      who set MEM0_API_KEY in their profile but use the Desktop app.
 #
 # Settings: ~/.mem0/settings.json (user-editable, falls back to defaults)
 
 _SCRIPT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd )"
 
-# Resolve API key: env var > userConfig
+# Resolve API key: env var > userConfig > shell profile extraction
 if [ -z "${MEM0_API_KEY:-}" ] && [ -n "${CLAUDE_PLUGIN_OPTION_API_KEY:-}" ]; then
   MEM0_API_KEY="$CLAUDE_PLUGIN_OPTION_API_KEY"
   export MEM0_API_KEY
@@ -17,6 +20,29 @@ fi
 if [ -z "${MEM0_API_KEY:-}" ] && [ -n "${CLAUDE_PLUGIN_OPTION_MEM0_API_KEY:-}" ]; then
   MEM0_API_KEY="$CLAUDE_PLUGIN_OPTION_MEM0_API_KEY"
   export MEM0_API_KEY
+fi
+# Fallback: extract MEM0_API_KEY from shell profile files.
+# The Desktop app only reads PATH from shell profiles — env vars like
+# MEM0_API_KEY are not inherited. This grep-based extraction handles
+# the common `export MEM0_API_KEY=...` pattern without sourcing the
+# full profile (which could have side effects).
+if [ -z "${MEM0_API_KEY:-}" ]; then
+  for _profile in "$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.zprofile" "$HOME/.bash_profile" "$HOME/.profile"; do
+    if [ -f "$_profile" ]; then
+      _extracted=$(grep -E '^\s*(export\s+)?MEM0_API_KEY=' "$_profile" 2>/dev/null \
+        | tail -1 \
+        | sed 's/^[^=]*=//' \
+        | sed "s/^[\"']//;s/[\"']$//" \
+        | sed 's/#.*//' \
+        | tr -d '[:space:]')
+      # Only use literal values — skip variable references like ${OTHER_VAR}
+      if [ -n "$_extracted" ] && [ "${_extracted#\$}" = "$_extracted" ]; then
+        MEM0_API_KEY="$_extracted"
+        export MEM0_API_KEY
+        break
+      fi
+    fi
+  done
 fi
 
 _mem0_resolve_identity() {

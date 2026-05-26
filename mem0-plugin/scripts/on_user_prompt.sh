@@ -46,6 +46,20 @@ if [ -f "$RUBRIC_FLAG" ]; then
   RUBRIC_ALREADY_SHOWN="true"
 fi
 
+# Track message count for periodic memory-save nudges.
+# Every 5th substantial message, remind the agent to store learnings.
+MSG_COUNT_FILE="/tmp/mem0_msg_count_${SESSION_ID}"
+MSG_COUNT=0
+if [ -f "$MSG_COUNT_FILE" ]; then
+  MSG_COUNT=$(cat "$MSG_COUNT_FILE" 2>/dev/null || echo "0")
+fi
+MSG_COUNT=$((MSG_COUNT + 1))
+printf '%s' "$MSG_COUNT" > "$MSG_COUNT_FILE" 2>/dev/null || true
+NEEDS_SAVE_NUDGE=""
+if [ $((MSG_COUNT % 5)) -eq 0 ] && [ "$MSG_COUNT" -gt 0 ]; then
+  NEEDS_SAVE_NUDGE="true"
+fi
+
 # Detect stack traces and error patterns in the prompt (no API needed)
 HAS_ERROR=""
 if echo "$PROMPT" | grep -qE '(Traceback|panic:)'; then
@@ -152,6 +166,18 @@ fi
 
 if [ -n "$FILE_PATHS" ]; then
   _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}File paths detected: ${FILE_PATHS}"
+fi
+
+# Periodic memory-save nudge: check session stats and prompt if no memories stored yet
+if [ -n "$NEEDS_SAVE_NUDGE" ]; then
+  _ADDS=0
+  _STATS_FILE="/tmp/mem0_session_stats_${USER:-default}.json"
+  if [ -f "$_STATS_FILE" ]; then
+    _ADDS=$(python3 -c "import json; print(json.load(open('$_STATS_FILE')).get('adds',0))" 2>/dev/null || echo "0")
+  fi
+  if [ "$_ADDS" -lt 2 ]; then
+    _PROMPT_CTX="${_PROMPT_CTX:+${_PROMPT_CTX}\n}Mem0 reminder: ${MSG_COUNT} exchanges in this session but only ${_ADDS} memories stored. Store 1-2 learnings now via add_memory — decisions made, patterns discovered, bugs fixed, or user preferences. Do not skip this."
+  fi
 fi
 
 if [ -n "$_PROMPT_CTX" ]; then
