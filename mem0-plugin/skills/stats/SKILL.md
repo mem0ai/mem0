@@ -25,24 +25,23 @@ If the script returns empty or errors, note "No session data available" and cont
 ### Step 2: Fetch lifetime and session stats from API
 
 **Lifetime stats:**
-Call `get_memories` with:
-- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`
-- `page_size=100`
+Call `get_memories` to fetch all memories for this project:
 
-Count the returned memories. Group them by:
+`filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `page_size=100`
+
+Group by:
 1. `categories[0]` (platform-assigned) — primary grouping
 2. `metadata.type` (agent-assigned) — secondary if no categories
 3. `created_at` date — for age analysis
 
-**Session stats (API-backed):**
-Read the session ID file at `/tmp/mem0_session_id_$USER`. If it exists and contains
-a non-empty value, also call `get_memories` with:
-- `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}, {"run_id": "<session_id>"}]}`
-- `page_size=100`
+**Category normalization:** Merge `auto_capture` and `uncategorized` into a single `uncategorized` row. These are memories where the platform didn't assign a meaningful content category. Do NOT show `auto_capture` as its own row in the table.
 
-This returns only memories written in the current session. Use this count to
-cross-check the local stats file. If the API count is higher, use the API count
-(the local tracker may have missed operations).
+**Session stats (local only):**
+Session stats come from the local stats file read in Step 1. Do NOT query the API with
+`run_id` or `metadata.session_id` filters — these return unreliable results because
+memories are stored without `run_id` and metadata filters on `session_id` are inconsistent.
+
+The local stats file tracks adds and searches for the current session accurately.
 
 Also run a `search_memories` MCP tool call with `query="project"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1` to measure round-trip latency. Note the time before and after the MCP call — do NOT attempt raw HTTP calls to the API.
 

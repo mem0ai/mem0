@@ -21,10 +21,10 @@ This is silent and idempotent — safe to run anytime.
 
 ## Step 1: Set up API key
 
-Check if `MEM0_API_KEY` is already set by running:
+Check if the API key is available from any source:
 
 ```bash
-[ -n "$MEM0_API_KEY" ] && echo "SET" || echo "NOT_SET"
+[ -n "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_API_KEY:-}}" ] && echo "SET" || echo "NOT_SET"
 ```
 
 IMPORTANT: Never run `echo $MEM0_API_KEY` — that prints the secret in plaintext to the conversation log.
@@ -33,27 +33,32 @@ IMPORTANT: Never run `echo $MEM0_API_KEY` — that prints the secret in plaintex
 
 Print: `- API key found.` and proceed to Step 2.
 
-### If API key is NOT set (empty output)
+### If API key is NOT set (output is "NOT_SET")
 
-Guide the user through API key setup. Show this message and walk them through it:
+Guide the user through API key setup. Show this message:
 
 ```
 Step 1: Setting up API key.
 
-- MEM0_API_KEY not found. Let's set it up.
+- API key not found. Let's set it up.
 
   1. Get your API key from https://app.mem0.ai/dashboard/api-keys
-     (or run: mem0 init --agent --json)
 
-  2. Add to shell profile:
-     echo 'export MEM0_API_KEY="m0-your-key-here"' >> ~/.zshrc
-     source ~/.zshrc
+  2. Choose ONE method:
+
+     Option A — Plugin config (works on Desktop + CLI):
+       Type:  ! claude plugin configure mem0
+       Paste your API key when prompted.
+
+     Option B — Shell profile (CLI only):
+       echo 'export MEM0_API_KEY="m0-your-key-here"' >> ~/.zshrc
+       source ~/.zshrc
 
   3. Verify:
-     [ -n "$MEM0_API_KEY" ] && echo "SET" || echo "NOT_SET"
+     [ -n "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_API_KEY:-}}" ] && echo "SET" || echo "NOT_SET"
 ```
 
-After the user confirms they've set the key, verify it by running `[ -n "$MEM0_API_KEY" ] && echo "SET" || echo "NOT_SET"`. If NOT_SET, repeat the instructions. If SET, proceed to Step 2.
+After the user confirms, re-run the verify command. If NOT_SET, repeat. If SET, proceed to Step 2.
 
 ## Step 2: MCP server connection
 

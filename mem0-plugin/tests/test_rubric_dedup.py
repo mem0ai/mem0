@@ -13,9 +13,12 @@ SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), "..", "scripts")
 
 @pytest.fixture(autouse=True)
 def _clean_rubric_flag(tmp_path, monkeypatch):
-    """Use a temp dir for the rubric flag file."""
+    """Use a temp dir for the rubric flag file and clean msg counter."""
     monkeypatch.setenv("MEM0_RUBRIC_DIR", str(tmp_path))
+    msg_count_file = "/tmp/mem0_msg_count_testuser"
     yield
+    if os.path.exists(msg_count_file):
+        os.unlink(msg_count_file)
 
 
 def _run_hook(prompt: str, env_overrides: dict | None = None, session_id: str = "test-sess-001") -> str:
@@ -46,8 +49,7 @@ def _run_hook(prompt: str, env_overrides: dict | None = None, session_id: str = 
 def test_first_prompt_gets_full_rubric():
     """First substantial prompt of session gets full memory check rubric."""
     output = _run_hook("How should we refactor the auth module?")
-    assert "Search mem0" in output
-    assert "Search tips" in output
+    assert "Mem0 searches apply" in output
     assert "metadata.type" in output
 
 

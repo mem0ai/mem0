@@ -23,7 +23,7 @@ if [ ${#TOOL_RESULT} -lt 50 ]; then
   exit 0
 fi
 
-# Skip if this is a git commit (handled by on_post_commit.sh)
+# Skip git operations — not useful for error detection
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")
 case "$COMMAND" in
   *"git commit"*|*"git merge"*|*"git rebase"*)

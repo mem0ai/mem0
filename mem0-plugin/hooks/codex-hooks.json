@@ -2,16 +2,6 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_file_read.sh",
-            "timeout": 8
-          }
-        ]
-      },
-      {
         "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
         "hooks": [
           {
@@ -24,7 +14,7 @@
     ],
     "SessionStart": [
       {
-        "matcher": "startup|resume",
+        "matcher": "startup|resume|compact",
         "hooks": [
           {
             "type": "command",
@@ -48,7 +38,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__mem0__",
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
         "hooks": [
           {
             "type": "command",
@@ -62,24 +52,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_post_commit.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "${PLUGIN_ROOT}/scripts/on_bash_output.sh",
             "timeout": 12
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${PLUGIN_ROOT}/scripts/on_stop_codex.sh",
-            "timeout": 10
           }
         ]
       }

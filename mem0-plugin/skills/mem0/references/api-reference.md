@@ -14,8 +14,8 @@ All endpoints require: `Authorization: Token <MEM0_API_KEY>`
 | Get Single Memory | `GET` | `/v1/memories/{memory_id}/` |
 | Update Memory | `PUT` | `/v1/memories/{memory_id}/` |
 | Delete Memory | `DELETE` | `/v1/memories/{memory_id}/` |
-
-Note: v1/v2 endpoints still work (backward compatible).
+| Delete All Memories | `DELETE` | `/v1/memories/?user_id=X&app_id=Y` |
+| Get Event Status | `GET` | `/v1/event/{event_id}/` |
 
 ## Memory Object Structure
 

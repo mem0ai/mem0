@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "hooks": {
     "sessionStart": [
       {
@@ -9,12 +10,7 @@
     "preToolUse": [
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/block_memory_write_cursor.sh",
-        "matcher": "Write|Edit"
-      },
-      {
-        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_file_read.sh",
-        "matcher": "Read",
-        "timeout": 8
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
@@ -25,13 +21,8 @@
     "postToolUse": [
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_post_tool_use_cursor.sh",
-        "matcher": "mcp__mem0__",
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
         "timeout": 3
-      },
-      {
-        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_post_commit.sh",
-        "matcher": "Bash",
-        "timeout": 5
       },
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_bash_output.sh",
@@ -42,12 +33,6 @@
     "preCompact": [
       {
         "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_pre_compact_cursor.sh"
-      }
-    ],
-    "stop": [
-      {
-        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_stop_cursor.sh",
-        "timeout": 10
       }
     ],
     "beforeSubmitPrompt": [
