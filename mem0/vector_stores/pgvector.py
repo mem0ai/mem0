@@ -91,8 +91,9 @@ def _build_filter_conditions(filters):
                     conditions.append(template)
                     params.extend([key, str_list])
                 elif op in ("contains", "icontains"):
-                    conditions.append(template)
-                    params.extend([key, f"%{op_value}%"])
+                    escaped = str(op_value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                    conditions.append(template + " ESCAPE '\\'")
+                    params.extend([key, f"%{escaped}%"])
                 else:
                     conditions.append(template)
                     if is_numeric:
@@ -104,7 +105,10 @@ def _build_filter_conditions(filters):
             params.extend([key, [str(v) for v in value]])
         else:
             conditions.append("payload->>%s = %s")
-            params.extend([key, str(value)])
+            if isinstance(value, bool):
+                params.extend([key, json.dumps(value)])
+            else:
+                params.extend([key, str(value)])
 
     return conditions, params
 

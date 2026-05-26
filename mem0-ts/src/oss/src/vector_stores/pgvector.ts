@@ -47,8 +47,14 @@ const OPERATOR_SQL_MAP: Record<string, { template: string; numeric: boolean }> =
       template: "NOT (payload->>'%KEY%' = ANY($%IDX%::text[]))",
       numeric: false,
     },
-    contains: { template: "payload->>'%KEY%' LIKE $%IDX%", numeric: false },
-    icontains: { template: "payload->>'%KEY%' ILIKE $%IDX%", numeric: false },
+    contains: {
+      template: "payload->>'%KEY%' LIKE $%IDX% ESCAPE '\\'",
+      numeric: false,
+    },
+    icontains: {
+      template: "payload->>'%KEY%' ILIKE $%IDX% ESCAPE '\\'",
+      numeric: false,
+    },
   };
 
 export function buildFilterConditions(
@@ -119,7 +125,11 @@ export function buildFilterConditions(
         if (op === "in" || op === "nin") {
           values.push((opValue as any[]).map(String));
         } else if (op === "contains" || op === "icontains") {
-          values.push(`%${opValue}%`);
+          const escaped = String(opValue)
+            .replace(/\\/g, "\\\\")
+            .replace(/%/g, "\\%")
+            .replace(/_/g, "\\_");
+          values.push(`%${escaped}%`);
         } else if (mapping.numeric) {
           values.push(Number(opValue));
         } else {
@@ -133,7 +143,11 @@ export function buildFilterConditions(
       paramIndex++;
     } else {
       conditions.push(`payload->>'${safeKey}' = $${paramIndex}`);
-      values.push(value);
+      if (typeof value === "boolean") {
+        values.push(JSON.stringify(value));
+      } else {
+        values.push(String(value));
+      }
       paramIndex++;
     }
   }
