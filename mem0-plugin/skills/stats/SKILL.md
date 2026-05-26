@@ -34,6 +34,8 @@ Group by:
 2. `metadata.type` (agent-assigned) — secondary if no categories
 3. `created_at` date — for age analysis
 
+**Category normalization:** Merge `auto_capture` and `uncategorized` into a single `uncategorized` row. These are memories where the platform didn't assign a meaningful content category. Do NOT show `auto_capture` as its own row in the table.
+
 **Session stats (local only):**
 Session stats come from the local stats file read in Step 1. Do NOT query the API with
 `run_id` or `metadata.session_id` filters — these return unreliable results because
