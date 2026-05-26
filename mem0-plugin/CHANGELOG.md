@@ -11,17 +11,25 @@ All notable changes to the Mem0 plugin will be documented in this file.
 - **`enforce_metadata_defaults.sh` now injects `run_id: "*"` on search/get:** `search_memories` and `get_memories` MCP calls automatically get `{"run_id": "*"}` appended to their `filters.AND[]`, ensuring all memories are found regardless of partition.
 - **`_search.py` dual-call eliminated:** Replaced two-call-plus-merge pattern (null-run_id + wildcard) with single wildcard call. Same results, half the latency.
 - **Banner count accurate:** `on_session_start.sh` count query uses single wildcard call. Shows `N (+M auto-imported)` breakdown.
+- **Desktop app: API key not found:** Claude Code Desktop does not inherit shell environment variables — only `PATH` is read from shell profiles. Users who set `export MEM0_API_KEY=m0-...` in `~/.zshrc` or `~/.bashrc` got "Setup Required" on Desktop while CLI worked fine. Added grep-based shell profile extraction as a 4th fallback in both `_identity.sh` (bash) and `_identity.py` (Python). Scans `~/.zshrc`, `~/.bashrc`, `~/.zprofile`, `~/.bash_profile`, `~/.profile` for `MEM0_API_KEY=` assignments. Skips variable references (`$OTHER_VAR`), commented-out lines, and strips quotes/inline comments.
+- **Desktop app: zero memories added over multi-day usage:** Agent never proactively called `add_memory` — only `search_memories` and `get_all`. Root cause: session banner instruction was passive ("before finishing a session, store learnings") and easily ignored. No mechanism existed to re-prompt the agent mid-session. Fixed with a periodic nudge in `on_user_prompt.sh`: every 5th substantial message, the hook checks `session_stats` for add count; if fewer than 2 memories stored, injects a directive into Claude's context via `additionalContext` telling it to store learnings immediately. Counter resets on session start.
+- **Setup Required banner missing Desktop instructions:** Updated no-API-key banner with Desktop-specific setup paths: `claude plugin configure mem0`, Desktop app environment editor (Settings > Environment), and CLI `export` as fallback.
 
 ### Removed
 
 - **Stop hook (all 3 editors):** Removed from `hooks.json`, `cursor-hooks.json`, `codex-hooks.json`. Deleted `on_stop.sh`, `on_stop_cursor.sh`, `on_stop_codex.sh`, `stop_hook_check.py`. The Stop hook could not reliably feed context back to Claude (command-type hooks' `reason` field is user-facing only, not injected into Claude's context). Auto-capture handled by PreCompact hook instead.
 - **SessionEnd hook:** Removed from `hooks.json`. Deleted `on_session_end.sh`. Redundant with PreCompact auto-capture.
 - **5 redundant hook scripts:** `on_git_commit_capture.sh` (fired on every Bash command containing "git"), `on_post_commit.sh` (fired on every Bash command), `on_task_completed.sh`, `on_post_compact.sh`, `on_subagent_stop.sh`. These were already removed from Claude's `hooks.json` in v0.2.5 but script files remained on disk. Also removed `on_post_commit.sh` references from `cursor-hooks.json` and `codex-hooks.json`.
+- **Dead settings:** Removed `output_style`, `skip_tools`, `capture_tools` from `load_settings.py` defaults. The `output-styles/` directory and `on_tool_failure.sh` script were already deleted.
+- **`test_on_file_read.py`:** Removed test file for deleted `on_file_read.sh` hook.
 
 ### Changed
 
 - **`/mem0:stats` lifetime query:** Single `get_memories` call with `run_id: "*"` wildcard instead of two calls merged by ID.
 - **`/mem0:tour` full fetch:** Single `get_memories` call with `run_id: "*"` wildcard instead of two calls merged by ID.
+- **API key resolution order (4 fallbacks):** `MEM0_API_KEY` env var > `CLAUDE_PLUGIN_OPTION_API_KEY` (plugin configure) > `CLAUDE_PLUGIN_OPTION_MEM0_API_KEY` (legacy userConfig) > shell profile extraction. Applies to both `_identity.sh` and `_identity.py`.
+- **Session start banner:** Proactive memory instruction changed from passive "before finishing a session" to active "proactively store learnings incrementally as work progresses. Do NOT wait until the session ends."
+- **Message counter on session start:** `on_session_start.sh` now resets `/tmp/mem0_msg_count_*` files to ensure nudge counter starts fresh each session.
 
 ## 0.2.5
 
