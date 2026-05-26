@@ -15,8 +15,8 @@ importers:
         specifier: 0.34.47
         version: 0.34.47
       mem0ai:
-        specifier: 3.0.2
-        version: 3.0.2(@anthropic-ai/sdk@0.40.1)(@azure/identity@4.13.0)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260313.1)(@google/genai@1.45.0)(@langchain/core@0.3.80(openai@4.104.0(ws@8.19.0)(zod@3.25.76)))(@mistralai/mistralai@1.15.1)(@qdrant/js-client-rest@1.13.0(typescript@5.9.3))(@supabase/supabase-js@2.99.1)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.8.0)(cloudflare@4.5.0)(compromise@14.15.0)(groq-sdk@0.3.0)(natural@8.1.1)(ollama@0.5.18)(pg@8.20.0)(redis@5.12.1)(ws@8.19.0)
+        specifier: 3.0.3
+        version: 3.0.3(@anthropic-ai/sdk@0.40.1)(@azure/identity@4.13.0)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260313.1)(@google/genai@1.45.0)(@langchain/core@0.3.80(openai@4.104.0(ws@8.19.0)(zod@3.25.76)))(@mistralai/mistralai@1.15.1)(@qdrant/js-client-rest@1.13.0(typescript@5.9.3))(@supabase/supabase-js@2.99.1)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.8.0)(cloudflare@4.5.0)(compromise@14.15.0)(groq-sdk@0.3.0)(natural@8.1.1)(ollama@0.5.18)(pg@8.20.0)(redis@5.12.1)(ws@8.19.0)
     devDependencies:
       '@types/node':
         specifier: ^22.15.0
@@ -1508,8 +1508,8 @@ packages:
   md5@2.3.0:
     resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
 
-  mem0ai@3.0.2:
-    resolution: {integrity: sha512-smB9q27jrJu2D5WZje65+zMVptdS/WsqALxd2kjiZhEpThd/qkS8T3bumatcTu6Zb+LsT28FRpeWjXGTJjyQXQ==}
+  mem0ai@3.0.3:
+    resolution: {integrity: sha512-nKwGYNh8DipG9Sw0ik/huFLpKtVtwadSy+T6GjAxkkrHp6hO3tlbR75EWH/bCGDG/HO06nYDsDP5fPSnj3bp5g==}
     engines: {node: '>=18'}
     peerDependencies:
       '@anthropic-ai/sdk': ^0.40.1
@@ -2119,6 +2119,7 @@ packages:
 
   uuid@10.0.0:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   uuid@13.0.0:
@@ -2127,10 +2128,12 @@ packages:
 
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   vite@8.0.0:
@@ -3690,7 +3693,7 @@ snapshots:
       crypt: 0.0.2
       is-buffer: 1.1.6
 
-  mem0ai@3.0.2(@anthropic-ai/sdk@0.40.1)(@azure/identity@4.13.0)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260313.1)(@google/genai@1.45.0)(@langchain/core@0.3.80(openai@4.104.0(ws@8.19.0)(zod@3.25.76)))(@mistralai/mistralai@1.15.1)(@qdrant/js-client-rest@1.13.0(typescript@5.9.3))(@supabase/supabase-js@2.99.1)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.8.0)(cloudflare@4.5.0)(compromise@14.15.0)(groq-sdk@0.3.0)(natural@8.1.1)(ollama@0.5.18)(pg@8.20.0)(redis@5.12.1)(ws@8.19.0):
+  mem0ai@3.0.3(@anthropic-ai/sdk@0.40.1)(@azure/identity@4.13.0)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260313.1)(@google/genai@1.45.0)(@langchain/core@0.3.80(openai@4.104.0(ws@8.19.0)(zod@3.25.76)))(@mistralai/mistralai@1.15.1)(@qdrant/js-client-rest@1.13.0(typescript@5.9.3))(@supabase/supabase-js@2.99.1)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.8.0)(cloudflare@4.5.0)(compromise@14.15.0)(groq-sdk@0.3.0)(natural@8.1.1)(ollama@0.5.18)(pg@8.20.0)(redis@5.12.1)(ws@8.19.0):
     dependencies:
       '@anthropic-ai/sdk': 0.40.1
       '@azure/identity': 4.13.0
