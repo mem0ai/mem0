@@ -128,9 +128,7 @@ export function buildFilterConditions(
         paramIndex++;
       }
     } else if (Array.isArray(value)) {
-      conditions.push(
-        `payload->>'${safeKey}' = ANY($${paramIndex}::text[])`,
-      );
+      conditions.push(`payload->>'${safeKey}' = ANY($${paramIndex}::text[])`);
       values.push(value.map(String));
       paramIndex++;
     } else {
@@ -318,10 +316,11 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
     try {
-      const { conditions, values, paramIndex: _ } = buildFilterConditions(
-        filters,
-        3,
-      );
+      const {
+        conditions,
+        values,
+        paramIndex: _,
+      } = buildFilterConditions(filters, 3);
       const filterValues: any[] = [query, topK, ...values];
 
       const filterClause =
@@ -355,16 +354,15 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
     const queryVector = `[${query.join(",")}]`;
-    const { conditions, values, paramIndex: _ } = buildFilterConditions(
-      filters,
-      3,
-    );
+    const {
+      conditions,
+      values,
+      paramIndex: _,
+    } = buildFilterConditions(filters, 3);
     const filterValues: any[] = [queryVector, topK, ...values];
 
     const filterClause =
-      conditions.length > 0
-        ? "WHERE " + conditions.join(" AND ")
-        : "";
+      conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
     const searchQuery = `
       SELECT id, vector <=> $1::vector AS distance, payload
@@ -443,9 +441,7 @@ export class PGVector implements VectorStore {
     } = buildFilterConditions(filters, 1);
 
     const filterClause =
-      conditions.length > 0
-        ? "WHERE " + conditions.join(" AND ")
-        : "";
+      conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
     const listQuery = `
       SELECT id, payload

@@ -7,7 +7,12 @@ jest.mock("pg", () => {
     query: jest.fn().mockResolvedValue({ rows: [] }),
   }));
   const escapeIdentifier = (str: string) => `"${str.replace(/"/g, '""')}"`;
-  return { __esModule: true, default: { Client, escapeIdentifier }, Client, escapeIdentifier };
+  return {
+    __esModule: true,
+    default: { Client, escapeIdentifier },
+    Client,
+    escapeIdentifier,
+  };
 });
 
 import { buildFilterConditions } from "../src/vector_stores/pgvector";
@@ -35,7 +40,10 @@ describe("buildFilterConditions", () => {
   });
 
   test("multiple equalities", () => {
-    const result = buildFilterConditions({ user_id: "alice", agent_id: "bot1" }, 1);
+    const result = buildFilterConditions(
+      { user_id: "alice", agent_id: "bot1" },
+      1,
+    );
     expect(result.conditions).toHaveLength(2);
     expect(result.values).toEqual(["alice", "bot1"]);
     expect(result.paramIndex).toBe(3);
@@ -89,14 +97,20 @@ describe("buildFilterConditions", () => {
   });
 
   test("in operator", () => {
-    const result = buildFilterConditions({ status: { in: ["active", "pending"] } }, 1);
+    const result = buildFilterConditions(
+      { status: { in: ["active", "pending"] } },
+      1,
+    );
     expect(result.conditions).toHaveLength(1);
     expect(result.conditions[0]).toContain("= ANY($1::text[])");
     expect(result.values).toEqual([["active", "pending"]]);
   });
 
   test("nin operator", () => {
-    const result = buildFilterConditions({ status: { nin: ["deleted", "archived"] } }, 1);
+    const result = buildFilterConditions(
+      { status: { nin: ["deleted", "archived"] } },
+      1,
+    );
     expect(result.conditions).toHaveLength(1);
     expect(result.conditions[0]).toContain("NOT");
     expect(result.conditions[0]).toContain("= ANY($1::text[])");
@@ -132,9 +146,12 @@ describe("buildFilterConditions", () => {
   });
 
   test("$or operator", () => {
-    const result = buildFilterConditions({
-      $or: [{ user_id: "alice" }, { user_id: "bob" }],
-    }, 1);
+    const result = buildFilterConditions(
+      {
+        $or: [{ user_id: "alice" }, { user_id: "bob" }],
+      },
+      1,
+    );
     expect(result.conditions).toHaveLength(1);
     expect(result.conditions[0]).toContain(" OR ");
     expect(result.conditions[0]).toMatch(/^\(/);
@@ -142,28 +159,37 @@ describe("buildFilterConditions", () => {
   });
 
   test("$not operator", () => {
-    const result = buildFilterConditions({
-      $not: [{ status: "deleted" }],
-    }, 1);
+    const result = buildFilterConditions(
+      {
+        $not: [{ status: "deleted" }],
+      },
+      1,
+    );
     expect(result.conditions).toHaveLength(1);
     expect(result.conditions[0]).toMatch(/^NOT/);
     expect(result.values).toEqual(["deleted"]);
   });
 
   test("$or with operators", () => {
-    const result = buildFilterConditions({
-      $or: [{ price: { gt: 100 } }, { price: { lt: 10 } }],
-    }, 1);
+    const result = buildFilterConditions(
+      {
+        $or: [{ price: { gt: 100 } }, { price: { lt: 10 } }],
+      },
+      1,
+    );
     expect(result.conditions).toHaveLength(1);
     expect(result.conditions[0]).toContain(" OR ");
     expect(result.values).toEqual([100, 10]);
   });
 
   test("mixed simple and operator filters", () => {
-    const result = buildFilterConditions({
-      user_id: "alice",
-      score: { gte: 5 },
-    }, 1);
+    const result = buildFilterConditions(
+      {
+        user_id: "alice",
+        score: { gte: 5 },
+      },
+      1,
+    );
     expect(result.conditions).toHaveLength(2);
     expect(result.values[0]).toBe("alice");
     expect(result.values[1]).toBe(5);
