@@ -3,7 +3,7 @@ import { MemoryClient } from "mem0ai";
 import { userInfo } from "os";
 import { basename, resolve, dirname } from "path";
 import { randomBytes } from "crypto";
-import { fileURLToPath } from "url";
+import { existsSync, readdirSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -104,12 +104,51 @@ function extractUserText(input: any, output: any): string {
   return "";
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const skillsDir = resolve(__dirname, "..", "opencode-skills");
+function installSkills(projectDir: string): void {
+  const pluginDir = dirname(dirname(import.meta.filename));
+  const srcSkills = resolve(pluginDir, "opencode-skills");
+  if (!existsSync(srcSkills)) return;
 
-export const Mem0Plugin: Plugin = async (ctx) => {
+  const destSkills = resolve(projectDir, ".opencode", "skills");
+  const destCommands = resolve(projectDir, ".opencode", "commands");
+  try {
+    const skills = readdirSync(srcSkills, { withFileTypes: true });
+    for (const entry of skills) {
+      if (!entry.isDirectory()) continue;
+      const dest = resolve(destSkills, `mem0-${entry.name}`);
+      if (existsSync(dest)) continue;
+      cpSync(resolve(srcSkills, entry.name), dest, { recursive: true });
+    }
+
+    for (const entry of skills) {
+      if (!entry.isDirectory()) continue;
+      const cmdFile = resolve(destCommands, `mem0-${entry.name}.md`);
+      if (existsSync(cmdFile)) continue;
+      const skillMd = resolve(srcSkills, entry.name, "SKILL.md");
+      if (!existsSync(skillMd)) continue;
+      let desc = "Mem0 " + entry.name + " skill";
+      try {
+        const content = readFileSync(skillMd, "utf8");
+        const m = content.match(/^description:\s*(.+)$/m);
+        if (m) desc = m[1].trim();
+      } catch {}
+      const cmdContent = `---\ndescription: ${desc}\n---\nLoad and follow the skill at .opencode/skills/mem0-${entry.name}/SKILL.md\n\nUse the mem0 MCP tools (search_memories, get_memories, add_memory, delete_memory, update_memory, list_entities, delete_entities, get_event_status) to execute the skill instructions.\n\nIdentity context (from environment):\n- user_id: Use MEM0_USER_ID env var, or fall back to $USER\n- app_id: Use MEM0_APP_ID env var\n- session_id: Use MEM0_SESSION_ID env var\n- branch: Use MEM0_BRANCH env var\n`;
+      try {
+        mkdirSync(destCommands, { recursive: true });
+        writeFileSync(cmdFile, cmdContent, "utf8");
+      } catch {}
+    }
+  } catch {}
+}
+
+const Mem0Plugin: Plugin = async (ctx) => {
   const { $, client } = ctx;
+
+  try {
+    const projectDir = (ctx as any).directory ?? process.cwd();
+    installSkills(projectDir);
+  } catch {}
+
   const apiKey = process.env.MEM0_API_KEY;
 
   if (!apiKey) {
@@ -140,14 +179,6 @@ export const Mem0Plugin: Plugin = async (ctx) => {
   const systemContext: string[] = [];
 
   return {
-    config: async (config: any) => {
-      config.skills = config.skills || {};
-      config.skills.paths = config.skills.paths || [];
-      if (!config.skills.paths.includes(skillsDir)) {
-        config.skills.paths.push(skillsDir);
-      }
-    },
-
     "chat.message": async (input: any, output: any) => {
       const userText = extractUserText(input, output);
       if (!userText || userText.length < 10) return;
@@ -172,9 +203,6 @@ export const Mem0Plugin: Plugin = async (ctx) => {
             (all as any)?.results?.length ??
             0;
 
-          systemContext.push(
-            `Mem0 Active | user=${userId} | project=${appId} | branch=${branch} | memories=${memoryCount}`,
-          );
           systemContext.push(
             `Always include user_id="${userId}" and app_id="${appId}" in every search_memories filter and add_memory call.`,
           );
