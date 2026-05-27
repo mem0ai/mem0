@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "plugin": ["@mem0ai/opencode-plugin"],
   "mcp": {
     "mem0": {
       "type": "remote",
