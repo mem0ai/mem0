@@ -2,6 +2,20 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.1.0 — OpenCode & Antigravity
+
+### Added
+
+- **OpenCode plugin variant** (`.opencode-plugin/`): TypeScript shim bridging OpenCode's JS event system to shared shell scripts via Bun's `$` API. Supports all 5 hook types: session start, user prompt, pre-tool-use, post-tool-use, and compaction. MCP config with `{env:MEM0_API_KEY}` interpolation. All 16 skills and 30+ scripts reused via symlinks.
+- **Antigravity plugin variant** (`.antigravity-plugin/`): JSON-config plugin for Google Antigravity (`agy` CLI). Manifest, MCP config with `${MEM0_API_KEY}` interpolation, and hooks file with `${extensionPath}` path resolution. All 16 skills and 30+ scripts reused via symlinks. Validated on `agy 1.0.2`.
+
+## 0.2.7
+
+### Fixed
+
+- **First-install auth failure (closes #4876):** Removed `authorizationUrl` from `.mcp.json`. When both a static `Authorization` header and `authorizationUrl` were present, Claude Code preferred the OAuth flow, which failed on reconnect — leaving new users stuck with only `authenticate`/`complete_authentication` stub tools. Authentication now uses the `MEM0_API_KEY` header exclusively; no browser OAuth flow is triggered.
+- **Onboarding skill removed OAuth step:** `/mem0:onboard` Step 2 no longer guides users through a browser-based OAuth login. The MCP server authenticates via the API key set in Step 1.
+
 ## 0.2.6
 
 ### Fixed

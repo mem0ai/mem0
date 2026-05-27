@@ -1,0 +1,258 @@
+---
+title: Antigravity
+description: "Add persistent memory to Google Antigravity with the Mem0 plugin — MCP server, lifecycle hooks, and 16 slash commands."
+---
+
+Add persistent memory to [**Google Antigravity**](https://antigravity.google) (`agy` CLI and Desktop IDE) with the Mem0 plugin. Antigravity forgets everything between sessions — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
+
+## Overview
+
+1. **MCP Server** — Connect to Mem0's remote MCP server for memory tools (add, search, update, delete)
+2. **Lifecycle Hooks** — Automatic memory capture at session start, prompt submission, tool execution, and context compaction
+3. **16 Slash Commands** — `/mem0:remember`, `/mem0:tour`, `/mem0:stats`, `/mem0:health`, and more
+4. **Zero local dependencies** — Cloud-hosted MCP server, no local setup required
+
+## Prerequisites
+
+Before setting up Mem0 with Antigravity, ensure you have:
+
+1. A Mem0 Platform account and API key:
+   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-antigravity" rel="nofollow">Sign up at app.mem0.ai</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-antigravity" rel="nofollow">Get your API key</a> (starts with `m0-`)
+
+2. Google Antigravity CLI (`agy`) installed
+
+3. Your API key added to your shell profile (persists across sessions):
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
+source ~/.bashrc
+```
+</CodeGroup>
+
+Confirm it's set:
+
+```bash
+echo $MEM0_API_KEY
+# Should print: m0-your-api-key
+```
+
+## Installation
+
+### Option A — Plugin Install via CLI (Recommended)
+
+Clone the Mem0 repo and install the plugin using the `agy` CLI. This gives you the full experience: MCP server, lifecycle hooks, and all 16 skills.
+
+```bash
+git clone https://github.com/mem0ai/mem0
+agy plugin install ./mem0/mem0-plugin/.antigravity-plugin
+```
+
+Verify the installation:
+
+```bash
+agy plugin validate ~/.gemini/config/plugins/mem0
+# Expected output:
+#   [ok]
+#   ✔ skills      : 16 processed
+#   ✔ mcpServers  : 1 processed
+#   ✔ hooks       : 1 processed
+```
+
+The MCP config reads `MEM0_API_KEY` from your environment automatically — no manual key editing needed.
+
+### Option B — Manual Plugin Install
+
+Copy the plugin directory into Antigravity's global plugins location:
+
+```bash
+cp -r mem0/mem0-plugin/.antigravity-plugin ~/.gemini/config/plugins/mem0
+```
+
+<Info>
+  When cloning on Windows, enable symlink support first: `git config --global core.symlinks true`. The `skills/` and `scripts/` directories are symlinks that must resolve correctly. Alternatively, use WSL.
+</Info>
+
+### Option C — MCP Only
+
+If you only need the memory tools without lifecycle hooks or skills, add the MCP server to your Antigravity configuration manually.
+
+Create or edit `~/.gemini/config/plugins/mem0/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mem0": {
+      "serverUrl": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token ${MEM0_API_KEY}"
+      }
+    }
+  }
+}
+```
+
+You'll also need a minimal `plugin.json` in the same directory:
+
+```json
+{
+  "name": "mem0"
+}
+```
+
+This gives you the 9 MCP memory tools but not the lifecycle hooks or skills.
+
+<Info icon="check">
+  Start a new Antigravity session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
+</Info>
+
+## What's Included
+
+| Component | Full Plugin (A/B) | MCP Only (C) |
+|-----------|:-----------------:|:------------:|
+| MCP Server (9 memory tools) | Yes | Yes |
+| Lifecycle Hooks | Yes | No |
+| 16 Slash Command Skills | Yes | No |
+
+## Available MCP Tools
+
+Once installed, the following tools are available in every Antigravity session:
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Lifecycle Hooks
+
+When installed via Option A or B, the plugin registers hooks that fire at key lifecycle points. All hooks use the same battle-tested shell scripts shared across Claude Code, Cursor, Codex, and OpenCode — the Antigravity variant just bridges environment variables using `${extensionPath}` (Antigravity's plugin-root token).
+
+### Session Start
+On every new session, the plugin:
+1. Runs `ensure_deps.sh` to verify Python dependencies
+2. Runs `on_session_start.sh` to load prior memories as bootstrap context and display the Mem0 status banner
+
+### User Prompt
+Before processing each user message, the plugin searches Mem0 for memories relevant to the current prompt and injects them into context. Short prompts (under 20 characters) are skipped to minimize latency.
+
+### Pre-Tool Use
+Intercepts tool calls to:
+- **Block writes to MEMORY.md** — redirects the agent to use `add_memory` instead (matches `Write|Edit|MultiEdit` tools)
+- **Enforce metadata defaults** — injects `user_id`, `app_id`, and metadata on mem0 MCP tool calls so identity is always set correctly
+
+### Post-Tool Use
+After mem0 tool calls, tracks session statistics. After Bash commands, scans output for stack traces and error patterns, then pre-fetches relevant error memories to help the agent debug.
+
+## Available Skills
+
+The plugin includes 16 skills accessible via `/mem0:` commands:
+
+| Command | Description |
+|---------|-------------|
+| `/mem0:remember` | Store a memory verbatim — decisions, preferences, conventions |
+| `/mem0:tour` | Browse all memories grouped by category |
+| `/mem0:peek` | Quick search with compact one-liner results |
+| `/mem0:stats` | Session and project memory statistics |
+| `/mem0:dream` | Consolidate memories — merge duplicates, resolve contradictions |
+| `/mem0:pin` | Protect critical memories from pruning |
+| `/mem0:forget` | Delete memories by search or ID |
+| `/mem0:health` | Diagnose connectivity, API key, and read/write |
+| `/mem0:export` | Export memories to portable Markdown |
+| `/mem0:import` | Import memories from export file or MEMORY.md |
+
+## How the Plugin Works
+
+Antigravity uses a JSON-based plugin model. Plugins are directories containing a `plugin.json` manifest plus optional components (`mcp_config.json`, `hooks/hooks.json`, `skills/`, `rules/`). The `agy plugin install` command copies the plugin tree into `~/.gemini/config/plugins/<name>/`.
+
+The Mem0 plugin reuses the same shell scripts as the Claude Code, Cursor, Codex, and OpenCode variants. Hook commands set `CLAUDE_PLUGIN_ROOT=${extensionPath}` so the scripts resolve paths correctly:
+
+```
+Antigravity Event → hooks.json → Shell Script (shared) → Mem0 API
+```
+
+All 16 skill directories and 30+ script files are symlinked from the shared `mem0-plugin/` source — keeping the plugin DRY and maintainable.
+
+## Plugin Directory Structure
+
+After installation, the plugin lives at `~/.gemini/config/plugins/mem0/`:
+
+```
+~/.gemini/config/plugins/mem0/
+├── plugin.json          # Plugin manifest
+├── mcp_config.json      # MCP server configuration
+├── hooks/
+│   └── hooks.json       # Lifecycle hook definitions
+├── scripts/             # 30+ shell and Python scripts
+└── skills/              # 16 skill directories with SKILL.md files
+```
+
+## Example Workflow
+
+```text
+# Session 1: Working on a feature
+You: Let's refactor the auth module to use JWT tokens instead of sessions.
+
+# Antigravity searches memories, finds nothing relevant, proceeds with the work.
+# After completing the task, Mem0 stores:
+#   - Decision: "Migrated auth from sessions to JWT tokens"
+#   - Files modified: auth/middleware.ts, auth/token.ts
+#   - User preference: "Prefers TypeScript, uses ESLint"
+
+# Session 2 (days later): Related work
+You: Add refresh token rotation to the auth system.
+
+# Antigravity searches memories, retrieves the JWT migration context.
+# Knows the file structure, decisions made, and user preferences.
+# Continues seamlessly without re-explaining the codebase.
+```
+
+## Managing the Plugin
+
+```bash
+# Validate plugin installation
+agy plugin validate ~/.gemini/config/plugins/mem0
+
+# List installed plugins
+agy plugin list
+
+# Uninstall the plugin
+agy plugin uninstall mem0
+```
+
+To update the plugin, pull the latest Mem0 repo and re-install:
+
+```bash
+cd mem0 && git pull
+agy plugin install ./mem0-plugin/.antigravity-plugin
+```
+
+## Troubleshooting
+
+- **"Connection failed"** — Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
+- **No tools appearing** — Restart your Antigravity session after plugin installation
+- **`agy plugin validate` fails** — Ensure the plugin directory contains `plugin.json`, `mcp_config.json`, `hooks/hooks.json`, `skills/`, and `scripts/`. If you cloned on Windows, symlinks may not have resolved — re-clone with `git config --global core.symlinks true`
+- **Skills not loading** — Run `ls ~/.gemini/config/plugins/mem0/skills/` to verify SKILL.md files are present. If empty, the symlinks didn't resolve during install
+- **Hooks not firing** — Check `~/.gemini/config/plugins/mem0/hooks/hooks.json` exists and contains the Mem0 hook entries
+- **MCP 401 Unauthorized** — Your API key isn't being read. Verify `echo $MEM0_API_KEY` prints your key. If `${MEM0_API_KEY}` interpolation doesn't work in your `agy` version, edit `~/.gemini/config/plugins/mem0/mcp_config.json` and replace `${MEM0_API_KEY}` with your literal key
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="OpenCode Integration" icon="code" href="/integrations/opencode">
+    Add Mem0 memory to OpenCode workflows
+  </Card>
+</CardGroup>

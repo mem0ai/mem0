@@ -1,0 +1,15 @@
+{
+  "name": "@mem0ai/opencode-plugin",
+  "version": "0.1.0",
+  "description": "Mem0 persistent memory plugin for OpenCode",
+  "main": "opencode-mem0.ts",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "mem0-plugin/.opencode-plugin"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*"
+  }
+}

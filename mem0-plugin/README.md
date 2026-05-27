@@ -1,6 +1,6 @@
-# Mem0 Plugin for Claude Code, Claude Cowork, Cursor & Codex
+# Mem0 Plugin for Claude Code, Claude Cowork, Cursor, Codex, OpenCode & Antigravity
 
-Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, and **Codex**.
+Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, **Codex**, **OpenCode**, and **Antigravity**.
 
 ## Quick path for agents
 
@@ -146,6 +146,56 @@ Add the following to your `.cursor/mcp.json`:
 **Option C — Cursor Marketplace** (full plugin with hooks and skills):
 
 Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
+
+### OpenCode
+
+**Option A — Symlink the plugin directory (recommended for repo clones):**
+
+```bash
+git clone https://github.com/mem0ai/mem0
+ln -s "$(pwd)/mem0/mem0-plugin/.opencode-plugin" ~/.config/opencode/plugins/mem0
+```
+
+**Option B — Copy to project plugins:**
+
+```bash
+mkdir -p .opencode/plugins/mem0
+cp mem0-plugin/.opencode-plugin/opencode-mem0.ts .opencode/plugins/mem0/
+cp -r mem0-plugin/scripts .opencode/plugins/mem0/
+cp -r mem0-plugin/skills .opencode/plugins/mem0/
+```
+
+Then add the MCP server to your `opencode.json` (project or global):
+
+```json
+{
+  "mcp": {
+    "mem0": {
+      "type": "remote",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token {env:MEM0_API_KEY}"
+      },
+      "oauth": false
+    }
+  }
+}
+```
+
+See `mem0-plugin/.opencode-plugin/README.md` for full details.
+
+### Antigravity (Google)
+
+Install via the `agy` CLI:
+
+```bash
+git clone https://github.com/mem0ai/mem0
+agy plugin install ./mem0/mem0-plugin/.antigravity-plugin
+```
+
+The MCP config and lifecycle hooks both read `MEM0_API_KEY` from the environment automatically.
+
+See `mem0-plugin/.antigravity-plugin/README.md` for full details.
 
 ## Post-Installation: Run `/mem0:onboard`
 
