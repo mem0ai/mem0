@@ -4,6 +4,9 @@
   "type": "module",
   "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
   "main": "opencode-mem0.ts",
+  "bin": {
+    "mem0-opencode": "./cli.ts"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "opencode",
@@ -21,7 +24,9 @@
   },
   "files": [
     "opencode-mem0.ts",
+    "cli.ts",
     "opencode.json",
+    "LICENSE",
     "skills/**"
   ],
   "scripts": {

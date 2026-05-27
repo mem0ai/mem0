@@ -24,50 +24,13 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 
 ## Installation
 
-### Option A — Full Plugin (Recommended)
-
-One command:
-
 ```bash
 npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
 ```
 
-That's it. This installs the MCP server, lifecycle hooks, and all 16 `/mem0:` skills. The MCP config reads `MEM0_API_KEY` from your environment automatically.
+Restart Antigravity. The plugin auto-registers the MCP server, lifecycle hooks, scripts, and all `/mem0:` skills. It reads `MEM0_API_KEY` from your environment automatically — no extra config needed.
 
-### Option B — MCP Only
 
-If you only need the memory tools without hooks or skills:
-
-```bash
-mkdir -p ~/.gemini/config/plugins/mem0
-```
-
-Create `~/.gemini/config/plugins/mem0/plugin.json`:
-
-```json
-{
-  "name": "mem0"
-}
-```
-
-Create `~/.gemini/config/plugins/mem0/mcp_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "mem0": {
-      "serverUrl": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token ${MEM0_API_KEY}"
-      }
-    }
-  }
-}
-```
-
-<Info icon="check">
-  Start a new Antigravity session and ask: *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
-</Info>
 
 ## What's Included
 

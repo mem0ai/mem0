@@ -8,28 +8,19 @@ Persistent memory for [OpenCode](https://opencode.ai). Your agent remembers deci
 bunx @mem0ai/opencode-plugin@latest install
 ```
 
-Or via OpenCode's built-in CLI:
+Or using OpenCode's built-in CLI:
 
 ```bash
 opencode plugin @mem0ai/opencode-plugin
 ```
 
-Then add the MCP server to your `opencode.json` (project or global at `~/.config/opencode/opencode.json`):
+**Or let your agent do it** — paste this into OpenCode:
 
-```json
-{
-  "mcp": {
-    "mem0": {
-      "type": "remote",
-      "url": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token {env:MEM0_API_KEY}"
-      },
-      "oauth": false
-    }
-  }
-}
 ```
+Install @mem0ai/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/mem0-plugin/.opencode-plugin/README.md
+```
+
+All commands auto-add the plugin and MCP server to your `~/.config/opencode/opencode.json`. No manual config needed.
 
 Get your API key (free): [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys)
 
