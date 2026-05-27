@@ -12,7 +12,7 @@ import {
 import { join, dirname } from "path";
 import { homedir } from "os";
 
-const PLUGIN_NAME = "@mem0ai/opencode-plugin";
+const PLUGIN_NAME = "@mem0/opencode-plugin";
 const MCP_CONFIG = {
   mem0: {
     type: "remote",

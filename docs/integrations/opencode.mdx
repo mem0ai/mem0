@@ -27,7 +27,7 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 ### Option A — Plugin Install (Recommended)
 
 ```bash
-opencode plugin @mem0ai/opencode-plugin
+opencode plugin @mem0/opencode-plugin
 ```
 
 
@@ -35,7 +35,7 @@ Or using this command which does the same thing:
 
 
 ```bash
-bunx @mem0ai/opencode-plugin@latest install
+bunx @mem0/opencode-plugin@latest install
 ```
 
 
@@ -43,7 +43,7 @@ bunx @mem0ai/opencode-plugin@latest install
 **Or let your agent do it** — paste this into OpenCode:
 
 ```
-Install @mem0ai/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/mem0-plugin/.opencode-plugin/README.md
+Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/mem0-plugin/.opencode-plugin/README.md
 ```
 
 All commands auto-add the plugin and MCP server to your `~/.config/opencode/opencode.json`. Restart OpenCode — you get the MCP server, lifecycle hooks, and all `/mem0:` slash commands.
@@ -110,7 +110,7 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 
 - **No tools appearing** — Restart OpenCode after installing
 - **"Connection failed"** — Verify your key is set: `echo $MEM0_API_KEY`
-- **Plugin not loading** — Run `opencode plugin @mem0ai/opencode-plugin` again, then restart
+- **Plugin not loading** — Run `opencode plugin @mem0/opencode-plugin` again, then restart
 - **Hooks not firing** — Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
 
 <CardGroup cols={2}>
