@@ -158,10 +158,10 @@ Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the co
 ### OpenCode
 
 ```bash
-bunx @mem0ai/opencode-plugin@latest install
+bunx @mem0/opencode-plugin@latest install
 ```
 
-Or via OpenCode's built-in CLI: `opencode plugin @mem0ai/opencode-plugin`
+Or via OpenCode's built-in CLI: `opencode plugin @mem0/opencode-plugin`
 
 Then add the MCP server to your `opencode.json` (project or global at `~/.config/opencode/opencode.json`):
 
