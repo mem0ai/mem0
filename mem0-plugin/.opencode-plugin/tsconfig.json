@@ -15,6 +15,6 @@
     "noEmit": false,
     "emitDeclarationOnly": true
   },
-  "include": ["opencode-mem0.ts"],
-  "exclude": ["node_modules", "dist", "cli.ts", "skills"]
+  "include": ["**/*"],
+  "exclude": ["node_modules", "dist"]
 }
