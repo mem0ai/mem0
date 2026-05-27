@@ -1,23 +1,23 @@
-# @mem0ai/opencode-plugin
+# @mem0/opencode-plugin
 
 Persistent memory for [OpenCode](https://opencode.ai). Your agent remembers decisions, preferences, and learnings across sessions automatically.
 
 ## Install
 
 ```bash
-bunx @mem0ai/opencode-plugin@latest install
+bunx @mem0/opencode-plugin@latest install
 ```
 
 Or using OpenCode's built-in CLI:
 
 ```bash
-opencode plugin @mem0ai/opencode-plugin
+opencode plugin @mem0/opencode-plugin
 ```
 
 **Or let your agent do it** — paste this into OpenCode:
 
 ```
-Install @mem0ai/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/mem0-plugin/.opencode-plugin/README.md
+Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/mem0-plugin/.opencode-plugin/README.md
 ```
 
 All commands auto-add the plugin and MCP server to your `~/.config/opencode/opencode.json`. No manual config needed.
@@ -77,7 +77,7 @@ If the `mem0` tools respond, you're all set.
 |---------|-----|
 | No tools appearing | Restart OpenCode after installing |
 | 401 Unauthorized | `echo $MEM0_API_KEY` must print your `m0-` key |
-| Plugin not loading | Run `opencode plugin @mem0ai/opencode-plugin` again |
+| Plugin not loading | Run `opencode plugin @mem0/opencode-plugin` again |
 
 ## License
 
