@@ -21,7 +21,9 @@ Humans setting up Mem0 by hand should continue with Step 1 below.
 1. Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=mem0-plugin-readme) if you haven't already
 2. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=mem0-plugin-readme)
 3. Click **Create API Key** and copy the key (starts with `m0-`)
-4. Add it to your shell profile:
+4. Set the key using **one** of these methods:
+
+   **CLI** — add to your shell profile:
 
    ```bash
    # For zsh (default on macOS)
@@ -32,6 +34,12 @@ Humans setting up Mem0 by hand should continue with Step 1 below.
    echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
    source ~/.bashrc
    ```
+
+   **Desktop app** — use the local environment editor:
+
+   Click the environment dropdown next to the prompt box → hover over **Local** → click the **gear icon** → add `MEM0_API_KEY` with your key. Values are stored encrypted on your machine.
+
+   > **Note:** The Desktop app does not inherit custom environment variables from shell profiles — it only reads `PATH`. You must use the local environment editor for Desktop.
 
 5. Confirm it's set:
 

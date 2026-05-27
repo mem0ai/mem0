@@ -46,13 +46,18 @@ Step 1: Setting up API key.
 
   2. Choose ONE method:
 
-     Option A — Plugin config (works on Desktop + CLI):
-       Type:  ! claude plugin configure mem0
-       Paste your API key when prompted.
-
-     Option B — Shell profile (CLI only):
+     Option A — CLI (shell profile):
        echo 'export MEM0_API_KEY="m0-your-key-here"' >> ~/.zshrc
        source ~/.zshrc
+
+     Option B — Desktop app (local environment editor):
+       Click the environment dropdown next to the prompt box,
+       hover over "Local", click the gear icon, and add:
+         MEM0_API_KEY = m0-your-key-here
+       (Stored encrypted on your machine, applies to all local sessions)
+
+     Note: The Desktop app does NOT inherit custom env vars from
+     shell profiles — it only reads PATH. Use Option B for Desktop.
 
   3. Verify:
      [ -n "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_API_KEY:-}}" ] && echo "SET" || echo "NOT_SET"

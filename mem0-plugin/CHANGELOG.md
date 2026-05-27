@@ -15,6 +15,7 @@ All notable changes to the Mem0 plugin will be documented in this file.
 
 - **First-install auth failure (closes #4876):** Removed `authorizationUrl` from `.mcp.json`. When both a static `Authorization` header and `authorizationUrl` were present, Claude Code preferred the OAuth flow, which failed on reconnect — leaving new users stuck with only `authenticate`/`complete_authentication` stub tools. Authentication now uses the `MEM0_API_KEY` header exclusively; no browser OAuth flow is triggered.
 - **Onboarding skill removed OAuth step:** `/mem0:onboard` Step 2 no longer guides users through a browser-based OAuth login. The MCP server authenticates via the API key set in Step 1.
+- **Removed `claude plugin configure mem0` references:** This CLI command does not exist. The `userConfig` mechanism works through the plugin enable UI prompt — Claude Code prompts for the API key when the plugin is first enabled and stores it securely in the system keychain. Updated session start banner, onboarding skill, identity script comments, and manual testing guide.
 
 ## 0.2.6
 

@@ -14,7 +14,7 @@
     "api_key": {
       "type": "string",
       "title": "Mem0 API Key",
-      "description": "Your Mem0 Platform API key. Get one at https://app.mem0.ai/dashboard/api-keys. Alternative: export MEM0_API_KEY in your shell profile.",
+      "description": "Your Mem0 Platform API key (starts with m0-). Get one at https://app.mem0.ai/dashboard/api-keys",
       "sensitive": true,
       "required": true
     }

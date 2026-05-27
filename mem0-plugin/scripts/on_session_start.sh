@@ -53,7 +53,8 @@ Mem0 — Setup Required | user=${_UID} | project=${_PID} | branch=${_BR} | auth=
 \`\`\`
 
 MEM0_API_KEY is not set. To configure:
-- **Desktop app**: Run \`claude plugin configure mem0\` in the built-in terminal, or add \`MEM0_API_KEY\` in the Desktop app's environment editor (Settings → Environment)
+- **Reinstall the plugin**: Uninstall and reinstall — Claude Code will prompt for your API key during setup (stored securely in keychain)
+- **Desktop app**: Click the environment dropdown next to the prompt box → hover over **Local** → click the **gear icon** → add \`MEM0_API_KEY=m0-...\`
 - **CLI**: Add \`export MEM0_API_KEY=m0-...\` to your shell profile (~/.zshrc or ~/.bashrc)
 - Get a key at https://app.mem0.ai/dashboard/api-keys
 
