@@ -99,12 +99,12 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 
 | OpenCode Event | Hook | What happens |
 |----------------|------|-------------|
-| `session.created` | **Session start** | Searches prior memories, displays `Mem0 Active` status banner |
-| `tui.prompt.append` | **User prompt** | Searches for relevant memories before each message is processed |
+| `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
 | `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, injects `user_id`/`app_id` on mem0 tool calls |
 | `tool.execute.after` | **Post-tool** | Tracks stats, scans Bash errors and pre-fetches related error memories |
-| `experimental.session.compacting` | **Compaction** | Injects memory context into the compaction summary so nothing is lost |
-| `shell.env` | **Shell env** | Exports `MEM0_USER_ID` and `MEM0_APP_ID` to all shell executions |
+| `experimental.chat.system.transform` | **System transform** | Injects memory context (session memories, search results, error lookups) into the system prompt |
+| `experimental.session.compacting` | **Compaction** | Stores session state memory, then injects prior memories into compaction context so nothing is lost |
+| `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to all shell executions |
 
 ## Troubleshooting
 

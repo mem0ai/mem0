@@ -44,12 +44,12 @@ Pure TypeScript — no Python, no shell scripts. Uses the [mem0ai](https://www.n
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| **Session start** | `session.created` | Loads prior memories and displays `Mem0 Active` banner |
-| **User prompt** | `tui.prompt.append` | Searches relevant memories before each message |
+| **Chat message** | `chat.message` | Loads prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
 | **Pre-tool** | `tool.execute.before` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tools |
 | **Post-tool** | `tool.execute.after` | Tracks stats, scans bash errors for related memories |
-| **Compaction** | `experimental.session.compacting` | Injects memory context so nothing is lost |
-| **Shell env** | `shell.env` | Exports `MEM0_USER_ID` and `MEM0_APP_ID` to shell |
+| **System transform** | `experimental.chat.system.transform` | Injects memory context (session memories, search results, error lookups) into system prompt |
+| **Compaction** | `experimental.session.compacting` | Stores session state memory, then injects prior memories into compaction context so nothing is lost |
+| **Shell env** | `shell.env` | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to shell |
 
 ## MCP Tools
 
