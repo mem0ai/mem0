@@ -40,10 +40,11 @@ export interface GetAllMemoryOptions {
 export interface DeleteAllMemoryOptions extends EntityOptions {}
 
 export interface DeleteMemoryOptions {
-  // When true, also delete the older memories this one superseded
-  // (the v3 linked_memory_ids chain), transitively. The delete-side
-  // counterpart of latestOnly — stops a superseded memory from resurfacing
-  // after the current one is deleted. Serialized as `delete_linked`.
+  /**
+   * When `true`, also delete the older memories this one superseded (the v3
+   * linked chain), transitively — the delete-side counterpart of `latestOnly`.
+   * Off by default. Serialized as `delete_linked`.
+   */
   deleteLinked?: boolean;
 }
 
