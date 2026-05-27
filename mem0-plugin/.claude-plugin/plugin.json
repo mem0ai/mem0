@@ -1,6 +1,6 @@
 {
   "name": "mem0",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Persistent memory for Claude Code. Remembers decisions, patterns, and preferences across sessions.",
   "author": {
     "name": "Mem0",
@@ -14,7 +14,7 @@
     "api_key": {
       "type": "string",
       "title": "Mem0 API Key",
-      "description": "Your Mem0 Platform API key. Get one at https://app.mem0.ai/dashboard/api-keys. Alternative: export MEM0_API_KEY in your shell profile.",
+      "description": "Your Mem0 Platform API key (starts with m0-). Get one at https://app.mem0.ai/dashboard/api-keys",
       "sensitive": true,
       "required": true
     }

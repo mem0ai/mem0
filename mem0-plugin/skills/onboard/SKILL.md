@@ -46,13 +46,18 @@ Step 1: Setting up API key.
 
   2. Choose ONE method:
 
-     Option A — Plugin config (works on Desktop + CLI):
-       Type:  ! claude plugin configure mem0
-       Paste your API key when prompted.
-
-     Option B — Shell profile (CLI only):
+     Option A — CLI (shell profile):
        echo 'export MEM0_API_KEY="m0-your-key-here"' >> ~/.zshrc
        source ~/.zshrc
+
+     Option B — Desktop app (local environment editor):
+       Click the environment dropdown next to the prompt box,
+       hover over "Local", click the gear icon, and add:
+         MEM0_API_KEY = m0-your-key-here
+       (Stored encrypted on your machine, applies to all local sessions)
+
+     Note: The Desktop app does NOT inherit custom env vars from
+     shell profiles — it only reads PATH. Use Option B for Desktop.
 
   3. Verify:
      [ -n "${MEM0_API_KEY:-${CLAUDE_PLUGIN_OPTION_API_KEY:-}}" ] && echo "SET" || echo "NOT_SET"
@@ -66,26 +71,17 @@ First, check if MCP tools are already available using ToolSearch with query `"me
 
 **If MCP tools ARE found:** Print `- MCP already connected.` and proceed to Step 3.
 
-**If MCP tools are NOT found:** Guide the user through OAuth:
+**If MCP tools are NOT found:**
 
-```
-Step 2: MCP OAuth login.
+The MCP server authenticates using the `MEM0_API_KEY` set in Step 1. No OAuth or browser login is needed.
 
-  1. Type /mcp in Claude Code
-  2. A browser window will open for authentication at mcp.mem0.ai
-  3. Log in with your mem0 account
-  4. Return here after authenticating in your browser
-```
+1. Verify the API key is set (re-run the Step 1 check)
+2. Check the plugin is installed: run `/plugins` and confirm `mem0` appears
+3. Check the MCP server is listed: run `/mcp` and look for `mcp.mem0.ai`
+4. If the server shows an error, ask the user to restart Claude Code and run `/mem0:onboard` again
+5. If all checks pass but tools are still missing: "Restart Claude Code and run `/mem0:onboard` again."
 
-After the user completes OAuth, verify MCP tools again using ToolSearch.
-
-- If MCP tools found: Print `- MCP connected.` and proceed to Step 3.
-- If NOT found: Troubleshoot before giving up:
-  1. Check plugin is installed: run `/plugins` and confirm `mem0` appears
-  2. Ask if the browser auth completed successfully
-  3. Look for `mcp.mem0.ai` in the MCP server list via `/mcp`
-  4. If all checks fail: "Restart Claude Code and run `/mem0:onboard` again."
-  **STOP here** — do not proceed without MCP tools.
+**STOP here** — do not proceed without MCP tools.
 
 ## Step 3: Verify connectivity and show identity
 

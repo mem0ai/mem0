@@ -1,6 +1,6 @@
-# Mem0 Plugin for Claude Code, Claude Cowork, Cursor & Codex
+# Mem0 Plugin for Claude Code, Claude Cowork, Cursor, Codex, OpenCode & Antigravity
 
-Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, and **Codex**.
+Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, **Codex**, **OpenCode**, and **Antigravity**.
 
 ## Quick path for agents
 
@@ -21,7 +21,9 @@ Humans setting up Mem0 by hand should continue with Step 1 below.
 1. Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=mem0-plugin-readme) if you haven't already
 2. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=mem0-plugin-readme)
 3. Click **Create API Key** and copy the key (starts with `m0-`)
-4. Add it to your shell profile:
+4. Set the key using **one** of these methods:
+
+   **CLI** — add to your shell profile:
 
    ```bash
    # For zsh (default on macOS)
@@ -32,6 +34,12 @@ Humans setting up Mem0 by hand should continue with Step 1 below.
    echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
    source ~/.bashrc
    ```
+
+   **Desktop app** — use the local environment editor:
+
+   Click the environment dropdown next to the prompt box → hover over **Local** → click the **gear icon** → add `MEM0_API_KEY` with your key. Values are stored encrypted on your machine.
+
+   > **Note:** The Desktop app does not inherit custom environment variables from shell profiles — it only reads `PATH`. You must use the local environment editor for Desktop.
 
 5. Confirm it's set:
 
@@ -147,6 +155,69 @@ Add the following to your `.cursor/mcp.json`:
 
 Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
 
+### OpenCode
+
+```bash
+bunx @mem0ai/opencode-plugin@latest install
+```
+
+Or via OpenCode's built-in CLI: `opencode plugin @mem0ai/opencode-plugin`
+
+Then add the MCP server to your `opencode.json` (project or global at `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "mem0": {
+      "type": "remote",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token {env:MEM0_API_KEY}"
+      },
+      "oauth": false
+    }
+  }
+}
+```
+
+Restart OpenCode. The plugin installs hooks and skills automatically. Drop the `plugin` install if you only want MCP.
+
+See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for full details.
+
+### Antigravity (Google)
+
+**Option A — degit** (recommended, one command):
+
+```bash
+npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0
+```
+
+**Option B — agy CLI** (if you have the repo cloned locally):
+
+```bash
+agy plugin install /path/to/mem0/mem0-plugin/.antigravity
+```
+
+Both install the MCP server, lifecycle hooks, all 16 skills, and shared scripts.
+
+**Option C — MCP only** (no hooks or skills) — create `~/.gemini/config/plugins/mem0/plugin.json`:
+
+```json
+{
+  "name": "mem0",
+  "mcpServers": {
+    "mem0": {
+      "serverUrl": "https://mcp.mem0.ai/mcp/",
+      "headers": { "Authorization": "Token ${MEM0_API_KEY}" }
+    }
+  }
+}
+```
+
+All options read `MEM0_API_KEY` from your environment automatically.
+
+See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity) for full details.
+
 ## Post-Installation: Run `/mem0:onboard`
 
 After installing, start a new session and run:
@@ -194,23 +265,25 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) |
-|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|
-| MCP Server | Yes | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No | Opt-in | No |
-| Mem0 SDK Skill | Yes | Yes | No | Yes | No |
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity (A/B) | Antigravity (C) |
+|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|:---------------:|:--------------:|:------------------:|:-----------------:|
+| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | Yes | No | Opt-in | No | Yes | No | Yes | No |
+| Mem0 SDK Skill | Yes | Yes | No | Yes | No | Yes | No | Yes | No |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code and Cursor wire hooks up natively when the plugin is installed (session start, context compaction, task completion, session end). Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`) that writes entries into `~/.codex/hooks.json` for `SessionStart`, `UserPromptSubmit`, and `Stop`.
+- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, Cursor, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
 
 ## Updating the plugin
 
-When the plugin updates (new version pulled from the marketplace, or a fresh local install), the MCP server connection in your existing Claude Code / Cursor / Codex session is left holding a stale handle and stops responding. **Restart your client to reconnect:**
+When the plugin updates (new version pulled from the marketplace, or a fresh local install), the MCP server connection in your existing session is left holding a stale handle and stops responding. **Restart your client to reconnect:**
 
 - **Claude Code:** run `/restart` in the prompt, or close and reopen the CLI.
 - **Cursor:** quit and relaunch.
 - **Codex:** restart the editor session.
+- **OpenCode:** restart the session.
+- **Antigravity:** restart the session, or re-run `agy plugin install /path/to/mem0/mem0-plugin/.antigravity`.
 
 Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read from your environment on the new session. The plugin's MCP config uses `${MEM0_API_KEY}` interpolation at session start, not at install time, so as long as the env var is set persistently (in your shell profile or `~/.claude/settings.json` `env` block), reconnection is automatic on restart.
 

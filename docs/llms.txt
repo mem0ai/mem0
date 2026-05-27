@@ -268,6 +268,8 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Both]: Use when wiring memory into Claude Code.
 - [Cursor](https://docs.mem0.ai/integrations/cursor) [Both]: Use when wiring memory into Cursor.
 - [Codex](https://docs.mem0.ai/integrations/codex) [Both]: Use when wiring memory into Codex / other editor assistants.
+- [OpenCode](https://docs.mem0.ai/integrations/opencode) [Both]: Use when wiring memory into OpenCode.
+- [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Both]: Use when wiring memory into Google Antigravity.
 
 ### Voice & Real-time
 - [LiveKit](https://docs.mem0.ai/integrations/livekit) [Both]: Use when building real-time voice/video with memory.
@@ -396,13 +398,15 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 Source: https://github.com/mem0ai/mem0/tree/main/mem0-plugin
 
-The `mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, and Codex. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
+The `mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, Codex, OpenCode, and Antigravity. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 
 - `integrations/claude-code` [Both]
 - `integrations/cursor` [Both]
 - `integrations/codex` [Both]
+- `integrations/opencode` [Both]
+- `integrations/antigravity` [Both]
 - `integrations/openclaw` [Both]
 
 ### MCP Endpoints
