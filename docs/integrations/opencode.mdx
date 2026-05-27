@@ -1,57 +1,39 @@
 ---
 title: OpenCode
-description: "Add persistent memory to OpenCode with the Mem0 plugin — MCP server, lifecycle hooks via TypeScript shim, and 16 slash commands."
+description: "Add persistent memory to OpenCode with the Mem0 plugin — MCP server, lifecycle hooks, and slash commands."
 ---
 
-Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. OpenCode forgets everything between sessions — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP, automatically capturing learnings at key lifecycle points, and retrieving relevant context before every response.
-
-## Overview
-
-1. **MCP Server** — Connect to Mem0's remote MCP server for memory tools (add, search, update, delete)
-2. **TypeScript Plugin Shim** — Bridges OpenCode's JS event system to Mem0's lifecycle hooks for automatic memory capture
-3. **16 Slash Commands** — `/mem0:remember`, `/mem0:tour`, `/mem0:stats`, `/mem0:health`, and more
-4. **Zero local dependencies** — Cloud-hosted MCP server, no local setup required
+Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. Your agent forgets everything between sessions — Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
 
 ## Prerequisites
 
-Before setting up Mem0 with OpenCode, ensure you have:
+1. A Mem0 API key (starts with `m0-`):
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-opencode" rel="nofollow">Get your API key</a> (free sign-up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-opencode" rel="nofollow">app.mem0.ai</a>)
 
-1. A Mem0 Platform account and API key:
-   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-opencode" rel="nofollow">Sign up at app.mem0.ai</a>
-   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-opencode" rel="nofollow">Get your API key</a> (starts with `m0-`)
-
-2. OpenCode installed ([opencode.ai](https://opencode.ai))
-
-3. Your API key added to your shell profile (persists across sessions):
+2. Add it to your shell profile so it persists across sessions:
 
 <CodeGroup>
 ```bash zsh
-echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
-source ~/.zshrc
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc && source ~/.zshrc
 ```
 
 ```bash bash
-echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
-source ~/.bashrc
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 ```
 </CodeGroup>
 
-Confirm it's set:
-
-```bash
-echo $MEM0_API_KEY
-# Should print: m0-your-api-key
-```
-
 ## Installation
 
-### Option A — Symlink Plugin Directory (Recommended)
-
-Clone the Mem0 repo and symlink the plugin into OpenCode's global plugins directory. This gives you the full experience: MCP server, lifecycle hooks, and all 16 skills.
+### Option A — Plugin Install (Recommended)
 
 ```bash
-git clone https://github.com/mem0ai/mem0
-ln -s "$(pwd)/mem0/mem0-plugin/.opencode-plugin" ~/.config/opencode/plugins/mem0
+bunx @mem0ai/opencode-plugin@latest install
+```
+
+Or using OpenCode's built-in CLI:
+
+```bash
+opencode plugin @mem0ai/opencode-plugin
 ```
 
 Then add the MCP server to your `opencode.json` (project-level or global at `~/.config/opencode/opencode.json`):
@@ -71,55 +53,25 @@ Then add the MCP server to your `opencode.json` (project-level or global at `~/.
 }
 ```
 
-### Option B — Copy to Project Plugins
+Restart OpenCode. You get the MCP server, lifecycle hooks, and all 16 `/mem0:` slash commands.
 
-Copy the plugin files directly into your project's `.opencode/plugins/` directory:
+### Option B — MCP Only
 
-```bash
-mkdir -p .opencode/plugins/mem0
-cp mem0-plugin/.opencode-plugin/opencode-mem0.ts .opencode/plugins/mem0/
-cp -r mem0-plugin/scripts .opencode/plugins/mem0/
-cp -r mem0-plugin/skills .opencode/plugins/mem0/
-```
-
-Then add the same MCP config to your project's `opencode.json` as shown in Option A.
-
-### Option C — MCP Only
-
-If you only need the memory tools without lifecycle hooks or skills, just add the MCP config to your `opencode.json`:
-
-```json
-{
-  "mcp": {
-    "mem0": {
-      "type": "remote",
-      "url": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token {env:MEM0_API_KEY}"
-      },
-      "oauth": false
-    }
-  }
-}
-```
-
-This gives you the 9 MCP memory tools but not the lifecycle hooks or skills.
+If you only need the memory tools without hooks or skills, just add the `mcp` block above to your `opencode.json` (skip the plugin install).
 
 <Info icon="check">
-  Start a new OpenCode session and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
+  Start a new OpenCode session and ask: *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
 </Info>
 
 ## What's Included
 
-| Component | Full Plugin (A/B) | MCP Only (C) |
-|-----------|:-----------------:|:------------:|
+| Component | Plugin (A) | MCP Only (B) |
+|-----------|:----------:|:------------:|
 | MCP Server (9 memory tools) | Yes | Yes |
-| Lifecycle Hooks (TS shim) | Yes | No |
-| 16 Slash Command Skills | Yes | No |
+| Lifecycle Hooks | Yes | No |
+| 16 Slash Commands | Yes | No |
 
 ## Available MCP Tools
-
-Once installed, the following tools are available in every OpenCode session:
 
 | Tool | Description |
 |------|-------------|
@@ -135,86 +87,29 @@ Once installed, the following tools are available in every OpenCode session:
 
 ## Lifecycle Hooks
 
-When installed via Option A or B, the TypeScript plugin shim (`opencode-mem0.ts`) hooks into OpenCode's event system to automatically manage memory:
+The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SDK directly — pure TypeScript, no Python, no shell scripts.
 
-### Session Start (`session.created`)
-On every new session, the plugin runs `ensure_deps.sh` then `on_session_start.sh` — loading prior memories as bootstrap context and displaying the Mem0 status banner.
-
-### User Prompt (`tui.prompt.append`)
-Before processing each user message, the plugin searches Mem0 for memories relevant to the current prompt and injects them into context. Short prompts (under 20 characters) are skipped to minimize latency.
-
-### Pre-Tool Use (`tool.execute.before`)
-Intercepts tool calls to:
-- **Block writes to MEMORY.md** — redirects the agent to use `add_memory` instead
-- **Enforce metadata defaults** — injects `user_id`, `app_id`, and metadata on mem0 MCP tool calls
-
-### Post-Tool Use (`tool.execute.after`)
-After mem0 tool calls, tracks session statistics. After Bash commands, scans output for stack traces and pre-fetches relevant error memories.
-
-### Compaction (`session.compacted`)
-Before context compaction, captures a session summary so nothing is lost when the context window is trimmed.
-
-## Available Skills
-
-The plugin includes 16 skills accessible via `/mem0:` commands:
-
-| Command | Description |
-|---------|-------------|
-| `/mem0:remember` | Store a memory verbatim — decisions, preferences, conventions |
-| `/mem0:tour` | Browse all memories grouped by category |
-| `/mem0:peek` | Quick search with compact one-liner results |
-| `/mem0:stats` | Session and project memory statistics |
-| `/mem0:dream` | Consolidate memories — merge duplicates, resolve contradictions |
-| `/mem0:pin` | Protect critical memories from pruning |
-| `/mem0:forget` | Delete memories by search or ID |
-| `/mem0:health` | Diagnose connectivity, API key, and read/write |
-| `/mem0:export` | Export memories to portable Markdown |
-| `/mem0:import` | Import memories from export file or MEMORY.md |
-
-## How the Plugin Works
-
-OpenCode plugins are TypeScript files that export a `Plugin` function. The Mem0 plugin (`opencode-mem0.ts`) bridges OpenCode's JS event system to the same battle-tested shell scripts used by the Claude Code, Cursor, Codex, and Antigravity variants:
-
-```
-OpenCode Event → TS Shim → Shell Script (shared) → Mem0 API
-```
-
-The shim sets `CLAUDE_PLUGIN_ROOT` and `OPENCODE_PLUGIN_ROOT` environment variables so the shared scripts resolve paths correctly. All shell calls are wrapped in try/catch — hook failures never crash the editor.
-
-## Example Workflow
-
-```text
-# Session 1: Working on a feature
-You: Let's refactor the auth module to use JWT tokens instead of sessions.
-
-# OpenCode searches memories, finds nothing relevant, proceeds with the work.
-# After completing the task, Mem0 stores:
-#   - Decision: "Migrated auth from sessions to JWT tokens"
-#   - Files modified: auth/middleware.ts, auth/token.ts
-#   - User preference: "Prefers TypeScript, uses ESLint"
-
-# Session 2 (days later): Related work
-You: Add refresh token rotation to the auth system.
-
-# OpenCode searches memories, retrieves the JWT migration context.
-# Knows the file structure, decisions made, and user preferences.
-# Continues seamlessly without re-explaining the codebase.
-```
+| OpenCode Event | Hook | What happens |
+|----------------|------|-------------|
+| `session.created` | **Session start** | Searches prior memories, displays `Mem0 Active` status banner |
+| `tui.prompt.append` | **User prompt** | Searches for relevant memories before each message is processed |
+| `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, injects `user_id`/`app_id` on mem0 tool calls |
+| `tool.execute.after` | **Post-tool** | Tracks stats, scans Bash errors and pre-fetches related error memories |
+| `experimental.session.compacting` | **Compaction** | Injects memory context into the compaction summary so nothing is lost |
+| `shell.env` | **Shell env** | Exports `MEM0_USER_ID` and `MEM0_APP_ID` to all shell executions |
 
 ## Troubleshooting
 
-- **"Connection failed"** — Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
-- **No tools appearing** — Restart your OpenCode session after adding the MCP config
-- **Plugin not loading** — Ensure the `opencode-mem0.ts` file is in a valid plugins directory (`~/.config/opencode/plugins/mem0/` or `.opencode/plugins/mem0/`) and that `scripts/` is accessible alongside it
-- **Skills not found** — Verify the `skills/` directory exists next to the plugin file with `SKILL.md` files inside
-- **Hooks not firing** — Check that `scripts/` directory is accessible and `bash` is available. Run `ls ~/.config/opencode/plugins/mem0/scripts/on_session_start.sh` to verify
-- **Windows: broken symlinks** — Run `git config --global core.symlinks true` and re-clone, or use WSL
+- **No tools appearing** — Restart OpenCode after installing
+- **"Connection failed"** — Verify your key is set: `echo $MEM0_API_KEY`
+- **Plugin not loading** — Run `opencode plugin @mem0ai/opencode-plugin` again, then restart
+- **Hooks not firing** — Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
     Detailed MCP configuration for all clients
   </Card>
   <Card title="Antigravity Integration" icon="google" href="/integrations/antigravity">
-    Add Mem0 memory to Google Antigravity workflows
+    Add Mem0 memory to Google Antigravity
   </Card>
 </CardGroup>

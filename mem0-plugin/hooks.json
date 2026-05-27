@@ -7,13 +7,13 @@
           {
             "name": "mem0-ensure-deps",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/ensure_deps.sh 2>/dev/null || true",
+            "command": "CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/ensure_deps.sh 2>/dev/null || true",
             "timeout": 60
           },
           {
             "name": "mem0-session-start",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_session_start.sh 2>/dev/null || true"
+            "command": "CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_session_start.sh 2>/dev/null || true"
           }
         ]
       }
@@ -24,7 +24,7 @@
           {
             "name": "mem0-user-prompt",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_user_prompt.sh 2>/dev/null || true",
+            "command": "CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_user_prompt.sh 2>/dev/null || true",
             "timeout": 8
           }
         ]
@@ -37,7 +37,7 @@
           {
             "name": "mem0-block-memory-write",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/block_memory_write.sh"
+            "command": "CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/block_memory_write.sh"
           }
         ]
       },
@@ -47,7 +47,7 @@
           {
             "name": "mem0-enforce-metadata",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/enforce_metadata_defaults.sh",
+            "command": "CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/enforce_metadata_defaults.sh",
             "timeout": 3
           }
         ]
@@ -60,7 +60,7 @@
           {
             "name": "mem0-post-tool",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_post_tool_use.sh",
+            "command": "CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_post_tool_use.sh",
             "timeout": 3
           }
         ]
@@ -71,8 +71,19 @@
           {
             "name": "mem0-bash-output",
             "type": "command",
-            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_bash_output.sh",
+            "command": "CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_bash_output.sh",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "name": "mem0-pre-compact",
+            "type": "command",
+            "command": "CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_pre_compact.sh 2>/dev/null || true"
           }
         ]
       }

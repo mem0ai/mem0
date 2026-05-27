@@ -1,0 +1,6 @@
+{
+  "name": "mem0",
+  "version": "0.1.0",
+  "description": "Persistent semantic memory for Antigravity agents. Cross-session recall via the Mem0 Platform MCP server.",
+  "contextFileName": "GEMINI.md"
+}

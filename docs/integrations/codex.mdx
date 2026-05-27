@@ -5,13 +5,6 @@ description: "Add persistent memory to OpenAI Codex with the Mem0 plugin — MCP
 
 Add persistent memory to [**OpenAI Codex**](https://openai.com/index/codex/) with the Mem0 plugin. Codex forgets everything between tasks — this plugin fixes that by connecting to Mem0's cloud memory layer via MCP and using a skill-based memory protocol to automatically retrieve context and store learnings.
 
-## Overview
-
-1. **MCP Server** — Connect to Mem0's remote MCP server for memory tools (add, search, update, delete)
-2. **Memory Protocol Skill** — Instructs the agent to retrieve memories at task start, store learnings on completion, and capture session state before context loss
-3. **Plugin Marketplace** — Install via Codex's repo-level or personal plugin marketplace
-4. **Zero local dependencies** — Cloud-hosted MCP server, no local setup required
-
 ## Prerequisites
 
 Before setting up Mem0 with Codex, ensure you have:
@@ -56,10 +49,10 @@ Make sure `MEM0_API_KEY` is exported in the shell you launch Codex from, then re
 
 ### Option B — Sideload the Plugin (Advanced)
 
-For the full plugin experience — MCP server **plus** the Mem0 SDK skill, memory protocol skill, and opt-in lifecycle hooks — sideload the plugin from a local clone. The Mem0 repo already ships a marketplace manifest at [`.agents/plugins/marketplace.json`](https://github.com/mem0ai/mem0/blob/main/.agents/plugins/marketplace.json), so there's no JSON to author by hand. This follows the Codex [build-plugins](https://developers.openai.com/codex/plugins/build) local-testing workflow.
+For the full plugin experience — MCP server plus the Mem0 SDK skill, memory protocol skill, and opt-in lifecycle hooks — sideload the plugin from a local clone.
 
 <Info>
-  Don't combine Option B with Option A. The plugin manifest declares its MCP server via [`.codex-mcp.json`](https://github.com/mem0ai/mem0/blob/main/mem0-plugin/.codex-mcp.json), so Codex auto-registers the `mem0` MCP server when the plugin loads. Adding the same `[mcp_servers.mem0]` block to `~/.codex/config.toml` will create a duplicate registration.
+  Do not combine Option B with Option A. The plugin manifest auto-registers the `mem0` MCP server, so having both will create a duplicate registration.
 </Info>
 
 **Step 1.** Clone the Mem0 repository anywhere on disk:
@@ -74,15 +67,11 @@ git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
 codex plugin marketplace add ~/codex-plugins/mem0-source
 ```
 
-This points Codex at the repo's `.agents/plugins/marketplace.json`. The bundled file uses `path: "./mem0-plugin"`, which Codex resolves relative to the clone root.
-
-<Info>
-  **Why we recommend this over hand-authoring `~/.agents/plugins/marketplace.json`:** Codex requires `source.path` in any marketplace manifest to be **relative** (starting with `./`) and **inside the marketplace root**. The repo's bundled manifest already satisfies this — the marketplace root is the clone directory, and `mem0-plugin/` lives inside it. With a personal `~/.agents/plugins/marketplace.json`, the root is `~/` and the clone has to live under `~/` too. The CLI form sidesteps that constraint.
-</Info>
+This points Codex at the repo's `.agents/plugins/marketplace.json`. The bundled file uses `path: "./mem0-plugin"`, resolved relative to the clone root.
 
 **Step 3.** Restart Codex, run `/plugins`, browse the `Mem0 Plugins` marketplace, and install **Mem0**.
 
-**Step 4 (optional) — enable lifecycle hooks.** Codex doesn't auto-wire hooks from plugin manifests; it only reads them from `~/.codex/hooks.json` (or `<repo>/.codex/hooks.json`). Run the bundled installer once to merge the Mem0 entries into your global hooks file:
+**Step 4 (optional) — enable lifecycle hooks.** Run the bundled installer to merge Mem0 hook entries into `~/.codex/hooks.json`:
 
 ```bash
 python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py
@@ -95,30 +84,30 @@ Then enable the hooks feature flag in `~/.codex/config.toml`:
 codex_hooks = true
 ```
 
-Restart Codex. The installer registers three hooks pointing at scripts inside your clone:
+Restart Codex. The installer registers hooks pointing at scripts inside your clone:
 
-| Event | Behavior |
-|-------|----------|
-| `SessionStart` | Loads prior memories as bootstrap context |
-| `UserPromptSubmit` | Injects relevant memories before each prompt |
-| `Stop` | Reminds the agent to persist learnings at turn end |
+| Hook | Event | What it does |
+|------|-------|-------------|
+| **Session start** | `SessionStart` | Loads prior memories and displays status banner |
+| **User prompt** | `UserPromptSubmit` | Searches relevant memories before each message |
+| **Pre-tool (2 handlers)** | `PreToolUse` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tool calls |
+| **Post-tool (2 handlers)** | `PostToolUse` | Tracks stats, scans bash errors for related memories |
+| **Pre-compact** | `PreCompact` | Stores a session summary before context compaction |
 
-Re-running the installer is idempotent. To remove the hooks: `python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py --uninstall`.
+Re-running the installer is idempotent. To remove: `python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py --uninstall`.
 
 <Warning>
-  The hooks file stores absolute paths into your clone (e.g. `~/codex-plugins/mem0-source/mem0-plugin/scripts/...`). If you move or delete the clone, the hooks will break silently — re-run the installer from the new location, or run `--uninstall` first.
+  The hooks file stores absolute paths into your clone. If you move the clone directory, re-run the installer from the new location.
 </Warning>
 
 ### Managing the Plugin
-
-Codex provides CLI commands for managing marketplaces after install:
 
 ```bash
 codex plugin marketplace upgrade               # pull latest plugin versions
 codex plugin marketplace remove mem0-plugins   # unregister the marketplace
 ```
 
-To pull updates to the plugin source itself, `git pull` inside your clone (`~/codex-plugins/mem0-source`) and then run `codex plugin marketplace upgrade` to refresh Codex's plugin cache. Plugins are cached at `~/.codex/plugins/cache/<marketplace>/<plugin>/<version>/`.
+To update, `git pull` inside your clone and run `codex plugin marketplace upgrade`.
 
 <Info icon="check">
   After either option, start a new Codex task and ask: *"List my mem0 entities"* or *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
@@ -151,47 +140,7 @@ Once installed, the following tools are available in every Codex session:
 
 ## Memory Protocol Skill
 
-When the plugin is sideloaded, the memory protocol skill instructs the agent to:
-
-### On Every New Task
-1. Call `search_memories` with a query related to the current task to load relevant context
-2. Review returned memories to understand what was learned in prior sessions
-3. Optionally call `get_memories` to browse all stored memories
-
-### After Completing Significant Work
-Store key learnings using `add_memory` with structured metadata:
-
-| What to store | Metadata type |
-|--------------|---------------|
-| Architectural decisions | `{"type": "decision"}` |
-| Strategies that worked | `{"type": "task_learning"}` |
-| Failed approaches | `{"type": "anti_pattern"}` |
-| User preferences observed | `{"type": "user_preference"}` |
-| Environment discoveries | `{"type": "environmental"}` |
-| Conventions established | `{"type": "convention"}` |
-
-### Before Losing Context
-Store a comprehensive session summary including goals, accomplishments, decisions, files modified, and current state with metadata `{"type": "session_state"}`.
-
-## Plugin Manifest
-
-The Codex plugin manifest (`.codex-plugin/plugin.json`) follows the Codex plugin specification:
-
-```json
-{
-  "name": "mem0",
-  "version": "0.2.5",
-  "description": "Mem0 memory layer for AI applications.",
-  "skills": "./skills/",
-  "mcpServers": "./.codex-mcp.json",
-  "interface": {
-    "displayName": "Mem0",
-    "shortDescription": "Persistent memory layer for AI coding workflows",
-    "category": "Productivity",
-    "capabilities": ["Read", "Write"]
-  }
-}
-```
+When the plugin is sideloaded, the memory protocol skill instructs the agent to search memories at task start, store key learnings (decisions, anti-patterns, conventions, preferences) after significant work, and capture a session summary before losing context.
 
 ## Example Workflow
 
@@ -214,14 +163,10 @@ You: Add WebSocket support for real-time notification delivery.
 
 ## Troubleshooting
 
-- **"Connection failed"** — Verify `MEM0_API_KEY` is set in your shell: `echo $MEM0_API_KEY`
-- **No tools appearing** — Restart your Codex session after plugin installation
-- **Duplicate `mem0` MCP server / "tool collision" errors** — You combined Option A (Direct MCP) with Option B (sideload). The sideloaded plugin auto-registers `mem0` from `.codex-mcp.json`, so remove the `[mcp_servers.mem0]` block from `~/.codex/config.toml`.
-- **`plugin/read failed in TUI`** — Codex can't find the plugin directory the marketplace points at. If you used `codex plugin marketplace add <path>`, confirm the path is your clone root and that `<clone>/.agents/plugins/marketplace.json` exists. If you hand-authored `~/.agents/plugins/marketplace.json`, `source.path` must be relative (start with `./`), inside the marketplace root (`~/` for personal installs), and end in `mem0-plugin` — e.g. `"./codex-plugins/mem0-source/mem0-plugin"`.
-- **Plugin not found in `/plugins`** — Run `codex plugin marketplace add ~/path/to/clone` again, or confirm the marketplace was registered with `codex plugin marketplace remove mem0-plugins` then re-add.
-- **Skills not loading** — Verify the `skills` field in `plugin.json` points to a valid directory containing `SKILL.md` files.
-- **Hooks not firing** — Confirm `codex_hooks = true` is in `~/.codex/config.toml` under `[features]`, and that `~/.codex/hooks.json` contains the Mem0 entries (re-run the installer if not). Restart Codex after enabling the flag.
-- **Hooks broke after moving the clone** — The installer bakes absolute paths into `~/.codex/hooks.json` pointing at scripts inside your clone. If you moved or renamed the clone directory, run `python3 <new-clone>/mem0-plugin/scripts/install_codex_hooks.py` from the new location — the installer is idempotent and replaces the old entries.
+- **"Connection failed"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`
+- **No tools appearing** — Restart your Codex session after installation
+- **Duplicate `mem0` MCP / "tool collision" errors** — You combined Option A with Option B. Remove the `[mcp_servers.mem0]` block from `~/.codex/config.toml`; the sideloaded plugin registers it automatically
+- **Hooks not firing** — Confirm `codex_hooks = true` is in `~/.codex/config.toml` under `[features]` and that `~/.codex/hooks.json` contains the Mem0 entries. Re-run the installer if not, then restart Codex
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

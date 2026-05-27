@@ -157,23 +157,13 @@ Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the co
 
 ### OpenCode
 
-**Option A — Symlink the plugin directory (recommended for repo clones):**
-
 ```bash
-git clone https://github.com/mem0ai/mem0
-ln -s "$(pwd)/mem0/mem0-plugin/.opencode-plugin" ~/.config/opencode/plugins/mem0
+bunx @mem0ai/opencode-plugin@latest install
 ```
 
-**Option B — Copy to project plugins:**
+Or via OpenCode's built-in CLI: `opencode plugin @mem0ai/opencode-plugin`
 
-```bash
-mkdir -p .opencode/plugins/mem0
-cp mem0-plugin/.opencode-plugin/opencode-mem0.ts .opencode/plugins/mem0/
-cp -r mem0-plugin/scripts .opencode/plugins/mem0/
-cp -r mem0-plugin/skills .opencode/plugins/mem0/
-```
-
-Then add the MCP server to your `opencode.json` (project or global):
+Then add the MCP server to your `opencode.json` (project or global at `~/.config/opencode/opencode.json`):
 
 ```json
 {
@@ -190,20 +180,37 @@ Then add the MCP server to your `opencode.json` (project or global):
 }
 ```
 
-See `mem0-plugin/.opencode-plugin/README.md` for full details.
+Restart OpenCode. The plugin installs hooks and skills automatically. Drop the `plugin` install if you only want MCP.
+
+See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for full details.
 
 ### Antigravity (Google)
 
-Install via the `agy` CLI:
+**Full plugin** (recommended — one command):
 
 ```bash
-git clone https://github.com/mem0ai/mem0
-agy plugin install ./mem0/mem0-plugin/.antigravity-plugin
+npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
 ```
 
-The MCP config and lifecycle hooks both read `MEM0_API_KEY` from the environment automatically.
+This installs the MCP server, lifecycle hooks, all 16 skills, and shared scripts.
 
-See `mem0-plugin/.antigravity-plugin/README.md` for full details.
+**MCP only** — create `~/.gemini/config/plugins/mem0/plugin.json`:
+
+```json
+{
+  "name": "mem0",
+  "mcpServers": {
+    "mem0": {
+      "serverUrl": "https://mcp.mem0.ai/mcp/",
+      "headers": { "Authorization": "Token ${MEM0_API_KEY}" }
+    }
+  }
+}
+```
+
+Both options read `MEM0_API_KEY` from your environment automatically.
+
+See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity) for full details.
 
 ## Post-Installation: Run `/mem0:onboard`
 
@@ -252,23 +259,25 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) |
-|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|
-| MCP Server | Yes | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No | Opt-in | No |
-| Mem0 SDK Skill | Yes | Yes | No | Yes | No |
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity (Full) | Antigravity (MCP) |
+|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|:---------------:|:--------------:|:------------------:|:-----------------:|
+| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | Yes | No | Opt-in | No | Yes | No | Yes | No |
+| Mem0 SDK Skill | Yes | Yes | No | Yes | No | Yes | No | Yes | No |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code and Cursor wire hooks up natively when the plugin is installed (session start, context compaction, task completion, session end). Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`) that writes entries into `~/.codex/hooks.json` for `SessionStart`, `UserPromptSubmit`, and `Stop`.
+- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, Cursor, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
 
 ## Updating the plugin
 
-When the plugin updates (new version pulled from the marketplace, or a fresh local install), the MCP server connection in your existing Claude Code / Cursor / Codex session is left holding a stale handle and stops responding. **Restart your client to reconnect:**
+When the plugin updates (new version pulled from the marketplace, or a fresh local install), the MCP server connection in your existing session is left holding a stale handle and stops responding. **Restart your client to reconnect:**
 
 - **Claude Code:** run `/restart` in the prompt, or close and reopen the CLI.
 - **Cursor:** quit and relaunch.
 - **Codex:** restart the editor session.
+- **OpenCode:** restart the session.
+- **Antigravity:** restart the session, or re-run `agy plugin install`.
 
 Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read from your environment on the new session. The plugin's MCP config uses `${MEM0_API_KEY}` interpolation at session start, not at install time, so as long as the env var is set persistently (in your shell profile or `~/.claude/settings.json` `env` block), reconnection is automatic on restart.
 

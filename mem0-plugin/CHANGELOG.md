@@ -6,8 +6,13 @@ All notable changes to the Mem0 plugin will be documented in this file.
 
 ### Added
 
-- **OpenCode plugin variant** (`.opencode-plugin/`): TypeScript shim bridging OpenCode's JS event system to shared shell scripts via Bun's `$` API. Supports all 5 hook types: session start, user prompt, pre-tool-use, post-tool-use, and compaction. MCP config with `{env:MEM0_API_KEY}` interpolation. All 16 skills and 30+ scripts reused via symlinks.
-- **Antigravity plugin variant** (`.antigravity-plugin/`): JSON-config plugin for Google Antigravity (`agy` CLI). Manifest, MCP config with `${MEM0_API_KEY}` interpolation, and hooks file with `${extensionPath}` path resolution. All 16 skills and 30+ scripts reused via symlinks. Validated on `agy 1.0.2`.
+- **OpenCode plugin** (`@mem0ai/opencode-plugin` on npm): Pure TypeScript plugin using the `mem0ai` TS SDK — no Python, no shell scripts. Full feature parity with Claude Code: session start with source detection (startup/resume/compact), auto-onboard for new projects, MEMORY.md detection, message-level rubric dedup, error/file/resume/remember pattern detection, auto-capture every 3rd message, periodic save nudges, full metadata defaults injection (confidence, source, type, session_id, files, branch), filter identity injection for search/get, type-filtered error pre-fetch (anti_pattern + bug_fix), and pre-compaction memory capture. Hooks into all 6 OpenCode events. Includes 16 skills via bundled `skills/` directory.
+- **Antigravity plugin** (`plugin.json` + `mcp_config.json` + `hooks.json` at repo root): JSON-config plugin for Google Antigravity (`agy` CLI). Files live at the `mem0-plugin/` root matching Antigravity's expected plugin directory layout — `npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0` copies a ready-to-use plugin with no assembly required. Uses `contextFileName: "GEMINI.md"` per Antigravity convention. All hooks match Claude Code's full set (including `PreCompact`). Shares `scripts/` and `skills/` with the other editor plugins.
+- **Codex hooks parity:** Added missing `PreToolUse` Write/Edit/MultiEdit block and `PreCompact` hook to Codex hooks config, bringing it to full parity with Claude Code.
+
+### Removed
+
+- **Duplicate config files:** Removed `.antigravity-mcp.json` (duplicate of root `mcp_config.json`), `hooks/antigravity-hooks.json` (duplicate of root `hooks.json`), `.opencode-mcp.json` (duplicate of `opencode.json` MCP block).
 
 ## 0.2.7
 
