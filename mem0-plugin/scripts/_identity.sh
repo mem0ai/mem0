@@ -2,7 +2,7 @@
 #
 # API key resolution (first non-empty wins):
 #   1. MEM0_API_KEY env var (explicit / shell profile)
-#   2. CLAUDE_PLUGIN_OPTION_API_KEY (set by `claude plugin configure mem0`)
+#   2. CLAUDE_PLUGIN_OPTION_API_KEY (injected by Claude Code userConfig)
 #   3. CLAUDE_PLUGIN_OPTION_MEM0_API_KEY (legacy userConfig)
 #   4. Extract from shell profile files (~/.zshrc, ~/.bashrc, etc.)
 #      Desktop app doesn't inherit shell env — this fallback covers users

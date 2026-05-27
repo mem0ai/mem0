@@ -5,8 +5,7 @@
       "url": "https://mcp.mem0.ai/mcp/",
       "headers": {
         "Authorization": "Token ${MEM0_API_KEY}"
-      },
-      "authorizationUrl": "https://mcp.mem0.ai/authorize"
+      }
     }
   }
 }
