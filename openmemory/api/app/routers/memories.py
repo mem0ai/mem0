@@ -15,6 +15,7 @@ from app.models import (
     User,
 )
 from app.schemas import MemoryResponse
+from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -223,17 +224,7 @@ async def create_memory(
     request: CreateMemoryRequest,
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.user_id == request.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    # Get or create app
-    app_obj = db.query(App).filter(App.name == request.app,
-                                   App.owner_id == user.id).first()
-    if not app_obj:
-        app_obj = App(name=request.app, owner_id=user.id)
-        db.add(app_obj)
-        db.commit()
-        db.refresh(app_obj)
+    user, app_obj = get_user_and_app(db, user_id=request.user_id, app_id=request.app)
 
     # Check if app is active
     if not app_obj.is_active:
@@ -318,7 +309,19 @@ async def create_memory(
                 # Return the first memory (for API compatibility)
                 # but all memories are now saved to the database
                 return created_memories[0]
+
+            raise HTTPException(
+                status_code=422,
+                detail="Memory extraction produced no persisted memories"
+            )
+
+        raise HTTPException(
+            status_code=502,
+            detail="Memory backend returned an unexpected response format"
+        )
     except Exception as qdrant_error:
+        if isinstance(qdrant_error, HTTPException):
+            raise qdrant_error
         logging.warning(f"Qdrant operation failed: {qdrant_error}.")
         # Return a json response with the error
         return {
