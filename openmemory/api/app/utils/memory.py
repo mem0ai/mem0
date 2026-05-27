@@ -227,9 +227,14 @@ def _create_embedder_config(provider, model, api_key, base_url, ollama_base_url,
 def get_default_memory_config():
     """Get default memory client configuration with sensible defaults."""
     # Detect vector store based on environment variables
+    # Default to the common compose service name used by the self-hosted
+    # OpenMemory stack. The previous hardcoded default (`mem0_store`) causes
+    # memory client init to fail with `Name or service not known` in the
+    # standard qdrant-based docker-compose deployment unless users patch the
+    # container manually.
     vector_store_config = {
         "collection_name": "openmemory",
-        "host": "mem0_store",
+        "host": os.environ.get('QDRANT_HOST', 'qdrant'),
     }
     
     # Check for different vector store configurations based on environment variables

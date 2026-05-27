@@ -12,10 +12,14 @@ if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set in environment")
 
 # SQLAlchemy engine & session
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Needed for SQLite
-)
+# `check_same_thread` is only valid for SQLite. Passing it through to
+# PostgreSQL / psycopg2 raises:
+#   invalid dsn: invalid connection option "check_same_thread"
+engine_kwargs = {}
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Base class for models
