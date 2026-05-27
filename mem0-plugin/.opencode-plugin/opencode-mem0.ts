@@ -3,7 +3,7 @@ import { MemoryClient } from "mem0ai";
 import { userInfo } from "os";
 import { basename, resolve, dirname } from "path";
 import { randomBytes } from "crypto";
-import { existsSync, readdirSync, cpSync } from "fs";
+import { fileURLToPath } from "url";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -104,51 +104,12 @@ function extractUserText(input: any, output: any): string {
   return "";
 }
 
-function installSkills(projectDir: string): void {
-  const pluginDir = dirname(dirname(import.meta.filename));
-  const srcSkills = resolve(pluginDir, "opencode-skills");
-  if (!existsSync(srcSkills)) return;
-
-  const destSkills = resolve(projectDir, ".opencode", "skills");
-  const destCommands = resolve(projectDir, ".opencode", "commands");
-  try {
-    const skills = readdirSync(srcSkills, { withFileTypes: true });
-    for (const entry of skills) {
-      if (!entry.isDirectory()) continue;
-      const dest = resolve(destSkills, entry.name);
-      if (existsSync(dest)) continue;
-      cpSync(resolve(srcSkills, entry.name), dest, { recursive: true });
-    }
-
-    for (const entry of skills) {
-      if (!entry.isDirectory()) continue;
-      const cmdFile = resolve(destCommands, `mem0-${entry.name}.md`);
-      if (existsSync(cmdFile)) continue;
-      const skillMd = resolve(srcSkills, entry.name, "SKILL.md");
-      if (!existsSync(skillMd)) continue;
-      let desc = "Mem0 " + entry.name + " skill";
-      try {
-        const content = require("fs").readFileSync(skillMd, "utf8");
-        const m = content.match(/^description:\s*(.+)$/m);
-        if (m) desc = m[1].trim();
-      } catch {}
-      const cmdContent = `---\ndescription: ${desc}\n---\nLoad and follow the skill at .opencode/skills/${entry.name}/SKILL.md\n\nUse the mem0 MCP tools (search_memories, get_memories, add_memory, delete_memory, update_memory, list_entities, delete_entities, get_event_status) to execute the skill instructions.\n\nIdentity context (from environment):\n- user_id: Use MEM0_USER_ID env var, or fall back to $USER\n- app_id: Use MEM0_APP_ID env var\n- session_id: Use MEM0_SESSION_ID env var\n- branch: Use MEM0_BRANCH env var\n`;
-      try {
-        require("fs").mkdirSync(destCommands, { recursive: true });
-        require("fs").writeFileSync(cmdFile, cmdContent, "utf8");
-      } catch {}
-    }
-  } catch {}
-}
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const skillsDir = resolve(__dirname, "..", "opencode-skills");
 
 export const Mem0Plugin: Plugin = async (ctx) => {
   const { $, client } = ctx;
-
-  try {
-    const projectDir = (ctx as any).directory ?? (ctx as any).worktree ?? process.cwd();
-    installSkills(projectDir);
-  } catch {}
-
   const apiKey = process.env.MEM0_API_KEY;
 
   if (!apiKey) {
@@ -179,6 +140,14 @@ export const Mem0Plugin: Plugin = async (ctx) => {
   const systemContext: string[] = [];
 
   return {
+    config: async (config: any) => {
+      config.skills = config.skills || {};
+      config.skills.paths = config.skills.paths || [];
+      if (!config.skills.paths.includes(skillsDir)) {
+        config.skills.paths.push(skillsDir);
+      }
+    },
+
     "chat.message": async (input: any, output: any) => {
       const userText = extractUserText(input, output);
       if (!userText || userText.length < 10) return;
@@ -350,14 +319,23 @@ export const Mem0Plugin: Plugin = async (ctx) => {
       }
     },
 
-    "experimental.chat.system.transform": async (
+    "experimental.chat.messages.transform": async (
       _input: any,
-      output: { system: string[] },
+      output: { messages: { info: any; parts: any[] }[] },
     ) => {
-      if (systemContext.length > 0 && output?.system) {
-        const block = `## Mem0 Memory Context\n\n${systemContext.join("\n\n")}`;
-        output.system.push(block);
-      }
+      if (systemContext.length === 0 || !output?.messages?.length) return;
+
+      const firstUser = output.messages.find(
+        (m) => m.info.role === "user",
+      );
+      if (!firstUser || !firstUser.parts.length) return;
+
+      const marker = "## Mem0 Memory Context";
+      if (firstUser.parts.some((p: any) => p.type === "text" && p.text?.includes(marker))) return;
+
+      const block = `${marker}\n\n${systemContext.join("\n\n")}`;
+      const ref = firstUser.parts[0];
+      firstUser.parts.unshift({ ...ref, type: "text", text: block });
     },
 
     "tool.execute.before": async (input: any, output: any) => {

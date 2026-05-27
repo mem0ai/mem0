@@ -52,7 +52,7 @@
       "chat.message",
       "tool.execute.before",
       "tool.execute.after",
-      "experimental.chat.system.transform",
+      "experimental.chat.messages.transform",
       "experimental.session.compacting",
       "shell.env"
     ]
