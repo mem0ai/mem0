@@ -169,6 +169,7 @@ class VectorStoreFactory:
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
         "pgvector": "mem0.vector_stores.pgvector.PGVector",
+        "gaussdb": "mem0.vector_stores.gaussdb.GaussDB",
         "milvus": "mem0.vector_stores.milvus.MilvusDB",
         "upstash_vector": "mem0.vector_stores.upstash_vector.UpstashVector",
         "azure_ai_search": "mem0.vector_stores.azure_ai_search.AzureAISearch",
@@ -197,7 +198,7 @@ class VectorStoreFactory:
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
             if not isinstance(config, dict):
-                config = config.model_dump()
+                config = config.model_dump(by_alias=True)
             vector_store_instance = load_class(class_type)
             return vector_store_instance(**config)
         else:
@@ -209,7 +210,6 @@ class VectorStoreFactory:
         return instance
 
 
-
 class RerankerFactory:
     """
     Factory for creating reranker instances with appropriate configurations.
@@ -219,7 +219,10 @@ class RerankerFactory:
     # Provider mappings with their config classes
     provider_to_class = {
         "cohere": ("mem0.reranker.cohere_reranker.CohereReranker", CohereRerankerConfig),
-        "sentence_transformer": ("mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker", SentenceTransformerRerankerConfig),
+        "sentence_transformer": (
+            "mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker",
+            SentenceTransformerRerankerConfig,
+        ),
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
         "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
