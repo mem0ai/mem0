@@ -7,6 +7,13 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-05-27" description="v2.0.4">
+
+**New Features:**
+- **Client:** `delete()` and async `delete()` accept `delete_linked` (default `False`). When `True`, deleting a memory also removes the older memories it superseded (the v3 `linked_memory_ids` chain), transitively — the delete-side counterpart of `latest_only`, so a superseded memory does not resurface after the current one is deleted ([#5270](https://github.com/mem0ai/mem0/pull/5270))
+
+</Update>
+
 <Update label="2026-05-26" description="v2.0.3">
 
 **Bug Fixes:**
@@ -932,6 +939,13 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+<Update label="2026-05-27" description="v3.0.5">
+
+**New Features:**
+- **Client:** `delete()` accepts an options object with `deleteLinked` (serialized as `delete_linked`, default `false`). When `true`, deleting a memory also removes the older memories it superseded (the v3 linked chain), transitively — the delete-side counterpart of `latestOnly`, so a superseded memory does not resurface after the current one is deleted ([#5270](https://github.com/mem0ai/mem0/pull/5270))
+
+</Update>
+
 <Update label="2026-05-26" description="v3.0.4">
 
 **Bug Fixes:**
