@@ -6,16 +6,25 @@ All notable changes to the Mem0 plugin will be documented in this file.
 
 ### Added
 
-- **OpenCode plugin** (`@mem0ai/opencode-plugin` on npm): Pure TypeScript plugin using the `mem0ai` TS SDK — no Python, no shell scripts. Full feature parity with Claude Code: session start with source detection (startup/resume/compact), auto-onboard for new projects, MEMORY.md detection, message-level rubric dedup, error/file/resume/remember pattern detection, auto-capture every 3rd message, periodic save nudges, full metadata defaults injection (confidence, source, type, session_id, files, branch), filter identity injection for search/get, type-filtered error pre-fetch (anti_pattern + bug_fix), and pre-compaction memory capture. Hooks into all 6 OpenCode events. Includes 16 skills via bundled `skills/` directory.
-- **Antigravity plugin** (`.antigravity/`): Restructured to follow the same shared-infrastructure pattern as Claude Code, Cursor, and Codex. Self-contained plugin directory with `plugin.json`, `mcp_config.json`, `hooks/hooks.json` (own file), `scripts/` (symlink → `../scripts/`), and `skills/` (symlink → `../skills/`). Installable via `agy plugin install .antigravity` or `npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0`. Uses `contextFileName: "AGENTS.md"` per Antigravity convention. All hooks match Claude Code's full set (except `PreCompact`). Shares `scripts/` and `skills/` with the other editor plugins via symlinks. Each hook command sets both `ANTIGRAVITY_PLUGIN_ROOT` and `CLAUDE_PLUGIN_ROOT` to `${extensionPath}` for script compatibility.
+- **OpenCode plugin** (`@mem0ai/opencode-plugin` on npm): Pure TypeScript plugin using the `mem0ai` TS SDK — no Python, no shell scripts. Hooks into all 6 OpenCode events (`chat.message`, `tool.execute.before`, `tool.execute.after`, `experimental.chat.system.transform`, `experimental.session.compacting`, `shell.env`). Features: session start memory loading, per-prompt semantic search, error pattern detection with memory lookup, resume/remember intent detection, auto-capture every 3rd message, periodic save nudges, full metadata defaults injection (confidence, source, type, session_id, files, branch), identity injection for search/get/delete filters, type-filtered error pre-fetch (anti_pattern + bug_fix), pre-compaction memory capture, MEMORY.md write blocking, and secret redaction.
+- **16 OpenCode-native skills** bundled in `opencode-skills/`: `context-loader`, `dream`, `export`, `forget`, `health`, `import`, `list-projects`, `mem0` (SDK reference), `memory-reviewer`, `onboard`, `peek`, `pin`, `remember`, `stats`, `switch-project`, `tour`. All skills are pure MCP-tool-based — no Python scripts, no shell scripts, no Claude Code dependencies.
+- **Auto-install skills and commands (`installSkills()`):** On plugin load, copies all 16 skills to `.opencode/skills/` and creates command wrapper files in `.opencode/commands/` so they appear in the OpenCode `/` palette. No manual setup needed.
+- **`extractUserText()` handler:** Robust text extraction from OpenCode response shapes — handles `parts[]` array, `content[]` array, `message.content`, and plain string responses.
+- **Identity resolution:** `getUserId()` uses `os.userInfo().username` (matching Claude Code's `${USER}` convention) with `MEM0_USER_ID` env override. `getProjectId()` uses git remote with `MEM0_APP_ID` env override.
+- **Context injection via `experimental.chat.system.transform`:** All memory context (session start memories, per-prompt search results, error-related memories, compaction context) injected as system context.
+- **CLI installer (`cli.ts`):** `bunx @mem0ai/opencode-plugin install` auto-configures plugin and MCP server in `~/.config/opencode/opencode.json`.
+- **Antigravity plugin** (`.antigravity/`): Restructured to follow the same shared-infrastructure pattern as Claude Code, Cursor, and Codex. Self-contained plugin directory with `plugin.json`, `mcp_config.json`, `hooks/hooks.json` (own file), `scripts/` (symlink → `../scripts/`), and `skills/` (symlink → `../skills/`). Installable via `agy plugin install .antigravity` or `npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0`. Uses `contextFileName: "AGENTS.md"` per Antigravity convention.
 - **Codex hooks parity:** Added missing `PreToolUse` Write/Edit/MultiEdit block and `PreCompact` hook to Codex hooks config, bringing it to full parity with Claude Code.
 
 ### Changed
 
-- **Antigravity plugin directory:** Renamed `.antigravity-plugin/` → `.antigravity/` to match the naming convention of `.claude-plugin/`, `.cursor-plugin/`, `.codex-plugin/`. Plugin is now self-contained (includes `mcp_config.json`, `hooks/hooks.json`, `scripts/` and `skills/` via symlinks) so `agy plugin install` and `npx degit` both work.
-- **Antigravity hooks:** Removed `hooks/antigravity-hooks.json` and the symlink. Hooks now live directly in `.antigravity/hooks/hooks.json` as a standalone file — no indirection.
-- **Antigravity MCP config:** Available both at root-level `.antigravity-mcp.json` (matching `.mcp.json`, `.cursor-mcp.json`, `.codex-mcp.json`) and inside `.antigravity/mcp_config.json` for `agy plugin validate/install`.
+- **Antigravity plugin directory:** Renamed `.antigravity-plugin/` → `.antigravity/` to match the naming convention of `.claude-plugin/`, `.cursor-plugin/`, `.codex-plugin/`. Plugin is now self-contained so `agy plugin install` and `npx degit` both work.
+- **Antigravity hooks:** Hooks now live directly in `.antigravity/hooks/hooks.json` as a standalone file — no indirection.
 - **Antigravity install command:** Updated from `npx degit mem0ai/mem0/mem0-plugin` to `npx degit mem0ai/mem0/mem0-plugin/.antigravity`. Added `agy plugin install` as alternative for local clones.
+
+### Removed
+
+- **Stale root-level files:** Deleted `mem0-plugin/hooks.json`, `mem0-plugin/mcp_config.json`, `mem0-plugin/plugin.json` — leftover artifacts from before plugin restructuring into per-editor subdirectories. Nothing referenced them; install commands point to `.antigravity/`.
 
 ## 0.2.7
 
