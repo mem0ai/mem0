@@ -3,7 +3,14 @@
   "version": "0.1.0",
   "type": "module",
   "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
-  "main": "opencode-mem0.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "bin": {
     "mem0-opencode": "./cli.ts"
   },
@@ -23,22 +30,39 @@
     "directory": "mem0-plugin/.opencode-plugin"
   },
   "files": [
-    "opencode-mem0.ts",
+    "dist",
     "cli.ts",
     "opencode.json",
-    "tsconfig.json",
     "LICENSE",
-    "skills/**"
+    "opencode-skills/**"
   ],
   "scripts": {
-    "prepack": "rm -f skills && cp -r ../skills ./skills",
-    "postpack": "rm -rf skills && ln -s ../skills skills"
+    "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] && tsc --emitDeclarationOnly --outDir dist --declaration",
+    "dev": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
+    "type-check": "tsc --noEmit",
+    "prepack": "bun run build",
+    "postpack": ""
+  },
+  "opencode": {
+    "type": "plugin",
+    "hooks": [
+      "chat.message",
+      "tool.execute.before",
+      "tool.execute.after",
+      "experimental.chat.system.transform",
+      "experimental.session.compacting",
+      "shell.env"
+    ]
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.15.11",
+    "@opencode-ai/plugin": "^1.0.162",
     "mem0ai": "^3.0.4"
   },
   "devDependencies": {
-    "typescript": "^6.0.3"
+    "bun-types": "latest",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
   }
 }

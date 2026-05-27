@@ -1,16 +1,12 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { MemoryClient } from "mem0ai";
 import { userInfo } from "os";
-import { basename } from "path";
-import { existsSync } from "fs";
+import { basename, resolve, dirname } from "path";
 import { randomBytes } from "crypto";
+import { existsSync, readdirSync, cpSync } from "fs";
 
-async function getUserId($: any): Promise<string> {
-  try {
-    const r = await $`git config user.email`.quiet();
-    const email = r.stdout.toString().trim();
-    if (email) return email.split("@")[0];
-  } catch {}
+async function getUserId(): Promise<string> {
+  if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
   try {
     return userInfo().username;
   } catch {}
@@ -18,6 +14,7 @@ async function getUserId($: any): Promise<string> {
 }
 
 async function getProjectId($: any): Promise<string> {
+  if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
   try {
     const r = await $`git remote get-url origin`.quiet();
     const remote = r.stdout.toString().trim();
@@ -47,189 +44,226 @@ function generateSessionId(): string {
   return `ses_${ts}_${rnd}`;
 }
 
-function detectMemoryMd(userId: string): string {
-  const cwd = process.cwd();
-  const cwdKey = cwd.replace(/\//g, "-").replace(/^-/, "");
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  const candidates = [
-    `${home}/.claude/projects/${cwdKey}/memory/MEMORY.md`,
-    `${home}/.claude/memory/MEMORY.md`,
-    `${cwd}/MEMORY.md`,
-  ];
-  for (const p of candidates) {
-    try {
-      if (existsSync(p)) return p;
-    } catch {}
+const SECRET_PATTERNS = [
+  /sk-[A-Za-z0-9]{20,}/g,
+  /m0-[A-Za-z0-9]{20,}/g,
+  /AKIA[0-9A-Z]{16}/g,
+  /xox[baprs]-[A-Za-z0-9-]{20,}/g,
+  /ghp_[A-Za-z0-9]{36,}/g,
+  /gho_[A-Za-z0-9]{36,}/g,
+];
+
+function redact(text: string): string {
+  let out = text;
+  for (const re of SECRET_PATTERNS) {
+    out = out.replace(re, "[REDACTED]");
   }
-  return "";
+  return out;
 }
+
+const NUDGE_RE =
+  /\b(remember\s+(this|that)|memorize|save\s+this|note\s+(this|that)|don'?t\s+forget|always\s+remember|never\s+forget|keep\s+(this|that)\s+in\s+(mind|memory)|store\s+(this|that))\b/i;
 
 const RESUME_RE =
   /where\s+(did\s+)?(we|I)\s+(leave|left)\s+off|continue\s+(from\s+)?(where|last)|what\s+were\s+we\s+(working|doing)|pick\s+up\s+where|resume\s+(from\s+|where\s+)|what.s\s+the\s+(current|latest)\s+(state|status)|catch\s+me\s+up|where\s+are\s+we/i;
 
-const REMEMBER_RE =
-  /remember\s+(this|that)|save\s+(this|that)\s+(fact|info|memory|note)|store\s+(this|that)|don.t\s+forget\s+(this|that)|keep\s+(this|that)\s+in\s+(mind|memory)/i;
-
-const ERROR_STRONG_RE = /Traceback \(most recent call last\)|panic: |FATAL:|error\[E\d+\]/;
+const ERROR_STRONG_RE =
+  /Traceback \(most recent call last\)|panic: |FATAL:|error\[E\d+\]/;
 const ERROR_MULTI_RE = /(Error:|Exception:)/g;
 
-const FILE_PATH_RE =
-  /[a-zA-Z0-9_./-]+\.(py|ts|tsx|js|jsx|rs|go|rb|java|sh|json|md)\b/g;
+const MEM0_MCP_RE = /mem0.*(?:add_memory|search_memories|get_memor|delete_memor|update_memory|delete_entities|list_entities)/i;
+const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit", "write", "edit", "multiEdit"]);
 
-const MEM0_MCP_RE = /^mcp__(?:mem0|plugin_mem0_mem0)__/;
-const WRITE_TOOLS = new Set(["Write", "Edit", "MultiEdit"]);
-const MEM0_TOOL_NAMES = new Set([
-  "mcp__mem0__add_memory",
-  "mcp__plugin_mem0_mem0__add_memory",
-  "mcp__mem0__search_memories",
-  "mcp__plugin_mem0_mem0__search_memories",
-  "mcp__mem0__get_memories",
-  "mcp__plugin_mem0_mem0__get_memories",
-  "mcp__mem0__delete_all_memories",
-  "mcp__plugin_mem0_mem0__delete_all_memories",
-]);
+function isMem0Tool(name: string): boolean {
+  return MEM0_MCP_RE.test(name);
+}
+
+function isMem0AddMemory(name: string): boolean {
+  return /mem0.*add_memory/i.test(name);
+}
+
+function isMem0SearchOrGet(name: string): boolean {
+  return /mem0.*(search_memories|get_memories)/i.test(name);
+}
+
+function isMem0DeleteAll(name: string): boolean {
+  return /mem0.*delete_all_memories/i.test(name);
+}
+
+function extractUserText(input: any, output: any): string {
+  const parts: any[] = output?.parts;
+  if (Array.isArray(parts)) {
+    return parts
+      .filter((p: any) => p.type === "text" && !p.synthetic)
+      .map((p: any) => p.text ?? "")
+      .join("\n");
+  }
+  const msg = output?.message ?? input?.message;
+  if (typeof msg?.content === "string") return msg.content;
+  if (typeof msg?.text === "string") return msg.text;
+  return "";
+}
+
+function installSkills(projectDir: string): void {
+  const pluginDir = dirname(dirname(import.meta.filename));
+  const srcSkills = resolve(pluginDir, "opencode-skills");
+  if (!existsSync(srcSkills)) return;
+
+  const destSkills = resolve(projectDir, ".opencode", "skills");
+  const destCommands = resolve(projectDir, ".opencode", "commands");
+  try {
+    const skills = readdirSync(srcSkills, { withFileTypes: true });
+    for (const entry of skills) {
+      if (!entry.isDirectory()) continue;
+      const dest = resolve(destSkills, entry.name);
+      if (existsSync(dest)) continue;
+      cpSync(resolve(srcSkills, entry.name), dest, { recursive: true });
+    }
+
+    for (const entry of skills) {
+      if (!entry.isDirectory()) continue;
+      const cmdFile = resolve(destCommands, `mem0-${entry.name}.md`);
+      if (existsSync(cmdFile)) continue;
+      const skillMd = resolve(srcSkills, entry.name, "SKILL.md");
+      if (!existsSync(skillMd)) continue;
+      let desc = "Mem0 " + entry.name + " skill";
+      try {
+        const content = require("fs").readFileSync(skillMd, "utf8");
+        const m = content.match(/^description:\s*(.+)$/m);
+        if (m) desc = m[1].trim();
+      } catch {}
+      const cmdContent = `---\ndescription: ${desc}\n---\nLoad and follow the skill at .opencode/skills/${entry.name}/SKILL.md\n\nUse the mem0 MCP tools (search_memories, get_memories, add_memory, delete_memory, update_memory, list_entities, delete_entities, get_event_status) to execute the skill instructions.\n\nIdentity context (from environment):\n- user_id: Use MEM0_USER_ID env var, or fall back to $USER\n- app_id: Use MEM0_APP_ID env var\n- session_id: Use MEM0_SESSION_ID env var\n- branch: Use MEM0_BRANCH env var\n`;
+      try {
+        require("fs").mkdirSync(destCommands, { recursive: true });
+        require("fs").writeFileSync(cmdFile, cmdContent, "utf8");
+      } catch {}
+    }
+  } catch {}
+}
 
 export const Mem0Plugin: Plugin = async (ctx) => {
   const { $, client } = ctx;
+
+  try {
+    const projectDir = (ctx as any).directory ?? (ctx as any).worktree ?? process.cwd();
+    installSkills(projectDir);
+  } catch {}
+
   const apiKey = process.env.MEM0_API_KEY;
 
   if (!apiKey) {
-    await client.app.log({
-      body: {
-        service: "mem0",
-        level: "warn",
-        message:
-          "MEM0_API_KEY not set. Get one at https://app.mem0.ai/dashboard/api-keys",
-      },
-    });
+    try {
+      await client.app.log({
+        body: {
+          service: "mem0",
+          level: "warn",
+          message:
+            "MEM0_API_KEY not set. Get one at https://app.mem0.ai/dashboard/api-keys",
+        },
+      });
+    } catch {}
     return {};
   }
 
   const mem0 = new MemoryClient({ apiKey });
-  const userId = await getUserId($);
+  const userId = await getUserId();
   const appId = await getProjectId($);
   const branch = await getBranch($);
   const stats = { adds: 0, searches: 0, messages: 0 };
-
   const sessionId = generateSessionId();
-  let rubricShown = false;
+
+  let initialized = false;
+  let memoryCount = 0;
   let msgCount = 0;
 
-  async function handleSessionCreated() {
-    try {
-      stats.adds = 0;
-      stats.searches = 0;
-      stats.messages = 0;
-      rubricShown = false;
-      msgCount = 0;
+  const systemContext: string[] = [];
 
-      const all = await mem0.getAll({
-        filters: { user_id: userId, app_id: appId },
-        page: 1,
-        pageSize: 1,
-      });
-      const count =
-        (all as any)?.total_memories ??
-        (all as any)?.count ??
-        (all as any)?.results?.length ??
-        0;
+  return {
+    "chat.message": async (input: any, output: any) => {
+      const userText = extractUserText(input, output);
+      if (!userText || userText.length < 10) return;
 
-      await client.app.log({
-        body: {
-          service: "mem0",
-          level: "info",
-          message: `Mem0 Active | user=${userId} | project=${appId} | branch=${branch} | memories=${count}`,
-        },
-      });
+      const safeText = redact(userText);
+      msgCount++;
+      stats.messages++;
 
-      if (count === 0) {
-        await client.app.log({
-          body: {
-            service: "mem0",
-            level: "info",
-            message:
-              "New project with 0 memories. Run /mem0:onboard to import project files and install coding categories.",
-          },
-        });
-      }
+      if (!initialized) {
+        initialized = true;
 
-      const memMdPath = detectMemoryMd(userId);
-      if (memMdPath) {
-        await client.app.log({
-          body: {
-            service: "mem0",
-            level: "warn",
-            message: `Native MEMORY.md detected at ${memMdPath}. Consider running /mem0:import to migrate to mem0.`,
-          },
-        });
-      }
-
-      if (count > 0) {
-        await client.app.log({
-          body: {
-            service: "mem0",
-            level: "info",
-            message:
-              "Search mem0 for recent decisions and task learnings before responding. Run 2 parallel searches: one for decision type, one for task_learning type.",
-          },
-        });
         try {
-          const res = await mem0.search(
-            "recent session state decisions and learnings",
-            { filters: { AND: [{ user_id: userId }, { app_id: appId }] }, topK: 5 },
+          const all = await mem0.getAll({
+            filters: {
+              AND: [{ user_id: userId }, { app_id: appId }],
+            },
+            page: 1,
+            pageSize: 1,
+          });
+          memoryCount =
+            (all as any)?.count ??
+            (all as any)?.results?.length ??
+            0;
+
+          systemContext.push(
+            `Mem0 Active | user=${userId} | project=${appId} | branch=${branch} | memories=${memoryCount}`,
           );
-          const memories = extractMemories(res);
-          if (memories.length > 0) {
-            const lines = memories.map((m) => `- ${m.memory}`).join("\n");
+          systemContext.push(
+            `Always include user_id="${userId}" and app_id="${appId}" in every search_memories filter and add_memory call.`,
+          );
+
+          if (memoryCount === 0) {
+            systemContext.push(
+              "New project with 0 memories. Suggest running /mem0:onboard to import project files and install coding categories.",
+            );
+          }
+
+          if (memoryCount > 0) {
+            systemContext.push(
+              "Search mem0 for recent decisions and task learnings before responding. Run 2 parallel searches: one for decision type, one for task_learning type.",
+            );
+            try {
+              const res = await mem0.search(
+                "recent session state decisions and learnings",
+                {
+                  filters: {
+                    AND: [{ user_id: userId }, { app_id: appId }],
+                  },
+                  topK: 5,
+                },
+              );
+              stats.searches++;
+              const memories = extractMemories(res);
+              if (memories.length > 0) {
+                const memLines = memories
+                  .map((m) => `- ${m.memory}`)
+                  .join("\n");
+                systemContext.push(`Prior context from mem0:\n${memLines}`);
+              }
+            } catch {}
+          }
+
+          systemContext.push(
+            "Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id.",
+          );
+        } catch (err: any) {
+          try {
             await client.app.log({
               body: {
                 service: "mem0",
-                level: "info",
-                message: `Prior context:\n${lines}`,
+                level: "error",
+                message: `Session init error: ${err?.message}`,
               },
             });
-          }
-        } catch {}
-      }
-    } catch (err: any) {
-      await client.app.log({
-        body: {
-          service: "mem0",
-          level: "error",
-          message: `Session start error: ${err?.message}`,
-        },
-      });
-    }
-  }
-
-  async function handlePromptAppend(text: string) {
-    const prompt = text ?? "";
-    if (prompt.length < 20) return;
-
-    msgCount++;
-    stats.messages++;
-
-    try {
-      const hasError =
-        ERROR_STRONG_RE.test(prompt) ||
-        (prompt.match(ERROR_MULTI_RE) ?? []).length >= 2;
-
-      const filePaths = [...new Set(prompt.match(FILE_PATH_RE) ?? [])].slice(0, 5);
-      const hasResume = RESUME_RE.test(prompt);
-      const hasRemember = REMEMBER_RE.test(prompt);
-
-      if (!rubricShown) {
-        rubricShown = true;
-        await client.app.log({
-          body: {
-            service: "mem0",
-            level: "info",
-            message:
-              "Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id.",
-          },
-        });
+          } catch {}
+        }
       }
 
+      if (NUDGE_RE.test(safeText)) {
+        systemContext.push(
+          "[MEMORY TRIGGER] User asked to remember something. Call add_memory with the user's statement, confidence=1.0, infer=false.",
+        );
+      }
+
+      const hasResume = RESUME_RE.test(safeText);
       if (hasResume) {
         try {
           const [stateRes, decisionsRes] = await Promise.all([
@@ -266,75 +300,25 @@ export const Mem0Plugin: Plugin = async (ctx) => {
             return true;
           });
           if (unique.length > 0) {
-            const lines = unique.map((m) => `- ${m.memory}`).join("\n");
-            await client.app.log({
-              body: {
-                service: "mem0",
-                level: "info",
-                message: `Session context recovered from mem0:\n${lines}\n\nThese memories provide context for resuming work.`,
-              },
-            });
-          } else {
-            await client.app.log({
-              body: {
-                service: "mem0",
-                level: "info",
-                message: "No session state found in mem0.",
-              },
-            });
+            const memLines = unique.map((m) => `- ${m.memory}`).join("\n");
+            systemContext.push(
+              `Session resume context:\n${memLines}\n\nThese memories provide context for resuming work.`,
+            );
           }
         } catch {}
       }
 
-      if (hasRemember) {
-        await client.app.log({
-          body: {
-            service: "mem0",
-            level: "info",
-            message:
-              "Remember intent detected. The /mem0:remember skill auto-classifies, sets confidence=1.0, and stores verbatim.",
-          },
-        });
-      }
-
-      if (hasError) {
-        await client.app.log({
-          body: {
-            service: "mem0",
-            level: "info",
-            message:
-              "Error detected in prompt. Prior occurrences are available in mem0 via anti_pattern and task_learning type filters.",
-          },
-        });
-      }
-
-      if (filePaths.length > 0) {
-        await client.app.log({
-          body: {
-            service: "mem0",
-            level: "info",
-            message: `File paths detected: ${filePaths.join(", ")}`,
-          },
-        });
-      }
-
-      if (!hasResume) {
+      if (!hasResume && memoryCount > 0) {
         try {
-          const res = await mem0.search(prompt, {
+          const res = await mem0.search(safeText, {
             filters: { AND: [{ user_id: userId }, { app_id: appId }] },
             topK: 5,
           });
           stats.searches++;
           const memories = extractMemories(res);
           if (memories.length > 0) {
-            const lines = memories.map((m) => `- ${m.memory}`).join("\n");
-            await client.app.log({
-              body: {
-                service: "mem0",
-                level: "info",
-                message: `Relevant memories:\n${lines}`,
-              },
-            });
+            const memLines = memories.map((m) => `- ${m.memory}`).join("\n");
+            systemContext.push(`Relevant memories:\n${memLines}`);
           }
         } catch {}
       }
@@ -342,45 +326,37 @@ export const Mem0Plugin: Plugin = async (ctx) => {
       if (msgCount % 3 === 0) {
         Promise.resolve().then(async () => {
           try {
-            await mem0.add(
-              [{ role: "user", content: prompt }],
-              {
-                user_id: userId,
-                app_id: appId,
-                metadata: {
-                  type: "auto_capture",
-                  source: "opencode",
-                  confidence: 0.7,
-                  session_id: sessionId,
-                  branch,
-                },
-                infer: true,
-              } as any,
-            );
+            await mem0.add([{ role: "user", content: safeText }], {
+              user_id: userId,
+              app_id: appId,
+              metadata: {
+                type: "auto_capture",
+                source: "opencode",
+                confidence: 0.7,
+                session_id: sessionId,
+                branch,
+              },
+              infer: true,
+            } as any);
             stats.adds++;
           } catch {}
         });
       }
 
       if (msgCount % 5 === 0 && stats.adds < Math.floor(msgCount / 3)) {
-        await client.app.log({
-          body: {
-            service: "mem0",
-            level: "info",
-            message:
-              "After responding, store any new decisions, learnings, or preferences from this exchange via add_memory. Keep it to 1 sentence per memory.",
-          },
-        });
+        systemContext.push(
+          "After responding, store any new decisions, learnings, or preferences from this exchange via add_memory. Keep it to 1 sentence per memory.",
+        );
       }
-    } catch {}
-  }
+    },
 
-  return {
-    event: async ({ event }: { event: any }) => {
-      if (event.type === "session.created") {
-        await handleSessionCreated();
-      } else if (event.type === "tui.prompt.append") {
-        await handlePromptAppend(event.properties?.text ?? "");
+    "experimental.chat.system.transform": async (
+      _input: any,
+      output: { system: string[] },
+    ) => {
+      if (systemContext.length > 0 && output?.system) {
+        const block = `## Mem0 Memory Context\n\n${systemContext.join("\n\n")}`;
+        output.system.push(block);
       }
     },
 
@@ -398,26 +374,12 @@ export const Mem0Plugin: Plugin = async (ctx) => {
         }
       }
 
-      if (MEM0_TOOL_NAMES.has(toolName) && output?.args) {
+      if (isMem0Tool(toolName) && output?.args) {
         if (!output.args.user_id) output.args.user_id = userId;
         if (!output.args.app_id) output.args.app_id = appId;
 
-        const isAddMemory =
-          toolName === "mcp__mem0__add_memory" ||
-          toolName === "mcp__plugin_mem0_mem0__add_memory";
-        const isSearchOrGet =
-          toolName === "mcp__mem0__search_memories" ||
-          toolName === "mcp__plugin_mem0_mem0__search_memories" ||
-          toolName === "mcp__mem0__get_memories" ||
-          toolName === "mcp__plugin_mem0_mem0__get_memories";
-        const isDeleteAll =
-          toolName === "mcp__mem0__delete_all_memories" ||
-          toolName === "mcp__plugin_mem0_mem0__delete_all_memories";
-
-        if (isAddMemory) {
-          if (!output.args.metadata) {
-            output.args.metadata = {};
-          }
+        if (isMem0AddMemory(toolName)) {
+          if (!output.args.metadata) output.args.metadata = {};
           const meta = output.args.metadata;
           if (meta.confidence === undefined) meta.confidence = 0.7;
           if (!meta.source) meta.source = "opencode";
@@ -425,13 +387,12 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           if (!meta.session_id) meta.session_id = sessionId;
           if (!meta.files) meta.files = ["*"];
           if (!meta.branch) meta.branch = branch;
-
           if (meta.confidence >= 1.0 && output.args.infer === undefined) {
             output.args.infer = false;
           }
         }
 
-        if (isSearchOrGet) {
+        if (isMem0SearchOrGet(toolName)) {
           const existingFilters = output.args.filters;
           if (existingFilters === undefined || existingFilters === null) {
             output.args.filters = {
@@ -463,37 +424,29 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           }
         }
 
-        if (isDeleteAll) {
+        if (isMem0DeleteAll(toolName)) {
           if (!output.args.user_id) output.args.user_id = userId;
           if (!output.args.app_id) output.args.app_id = appId;
         }
 
-        if (!isAddMemory && !output.args.metadata) {
+        if (!isMem0AddMemory(toolName) && !output.args.metadata) {
           output.args.metadata = { source: "opencode", branch };
         }
       }
     },
 
-    "tool.execute.after": async (input: any, output: any) => {
+    "tool.execute.after": async (input: any, _output: any) => {
       const toolName: string = input?.tool ?? "";
-      const toolOutput: string = output?.output ?? "";
+      const toolOutput: string = input?.output ?? _output?.output ?? "";
 
       if (MEM0_MCP_RE.test(toolName)) {
         if (toolName.includes("add_memory")) stats.adds++;
         if (toolName.includes("search")) stats.searches++;
       }
 
-      if (
-        toolName === "bash" &&
-        /(?:Error|Exception|Traceback|FATAL)/i.test(toolOutput)
-      ) {
+      if (toolName === "bash" && toolOutput.length >= 50) {
         const command: string = input?.args?.command ?? "";
-        if (
-          toolOutput.length < 50 ||
-          /git\s+(commit|merge|rebase)/.test(command)
-        ) {
-          return;
-        }
+        if (/git\s+(commit|merge|rebase)/.test(command)) return;
 
         const hasStrongError = ERROR_STRONG_RE.test(toolOutput);
         const multiErrors = (toolOutput.match(ERROR_MULTI_RE) ?? []).length;
@@ -503,7 +456,7 @@ export const Mem0Plugin: Plugin = async (ctx) => {
           const errorLine =
             toolOutput
               .split("\n")
-              .find((l) =>
+              .find((l: string) =>
                 /Error:|Exception:|panic:|FAIL:|fatal:/i.test(l),
               )
               ?.replace(/^\s+/, "")
@@ -542,6 +495,7 @@ export const Mem0Plugin: Plugin = async (ctx) => {
               topK: 3,
             }),
           ]);
+          stats.searches += 2;
 
           const allResults = [
             ...extractMemories(antiPatternRes),
@@ -554,54 +508,41 @@ export const Mem0Plugin: Plugin = async (ctx) => {
             return true;
           });
 
-          let contextMsg = `Error detected in command output\n\n\`${command.slice(0, 100)}\` produced an error:\n> ${errorLine}`;
-
+          let ctx = `Error detected: \`${command.slice(0, 100)}\` produced:\n> ${errorLine}`;
           if (traceFiles.length > 0) {
-            contextMsg += `\n\nFiles in stack trace:\n${traceFiles.map((f) => `  - ${f}`).join("\n")}`;
+            ctx += `\nFiles in stack trace: ${traceFiles.join(", ")}`;
           }
-
           if (unique.length > 0) {
             const lines = unique.map((m) => `- ${m.memory}`).join("\n");
-            contextMsg += `\n\nPrior error memories:\n${lines}`;
+            ctx += `\nPrior error memories:\n${lines}`;
           }
-
-          contextMsg +=
-            "\n\nResolved errors are stored as anti_pattern or bug_fix memories for future reference.";
-
-          await client.app.log({
-            body: {
-              service: "mem0",
-              level: "info",
-              message: contextMsg,
-            },
-          });
+          ctx +=
+            "\nStore resolved errors as anti_pattern or bug_fix memories for future reference.";
+          systemContext.push(ctx);
         } catch {}
       }
     },
 
     "experimental.session.compacting": async (
-      input: { sessionID: string },
+      input: { sessionID?: string },
       output: { context: string[]; prompt?: string },
     ) => {
       try {
-        const compactingSessionId = input?.sessionID ?? sessionId;
-        const summaryContent = `Session compacting. Project: ${appId}. Branch: ${branch}. Session: ${compactingSessionId}. Stats: ${stats.adds} memories stored, ${stats.searches} searches, ${stats.messages} messages.`;
+        const compactSessionId = input?.sessionID ?? sessionId;
+        const summaryContent = `Session compacting. Project: ${appId}. Branch: ${branch}. Session: ${compactSessionId}. Stats: ${stats.adds} memories stored, ${stats.searches} searches, ${stats.messages} messages.`;
         Promise.resolve().then(async () => {
           try {
-            await mem0.add(
-              [{ role: "user", content: summaryContent }],
-              {
-                user_id: userId,
-                app_id: appId,
-                metadata: {
-                  type: "session_state",
-                  source: "pre-compaction",
-                  session_id: compactingSessionId,
-                  branch,
-                },
-                infer: true,
-              } as any,
-            );
+            await mem0.add([{ role: "user", content: summaryContent }], {
+              user_id: userId,
+              app_id: appId,
+              metadata: {
+                type: "session_state",
+                source: "pre-compaction",
+                session_id: compactSessionId,
+                branch,
+              },
+              infer: true,
+            } as any);
           } catch {}
         });
 
@@ -620,7 +561,7 @@ export const Mem0Plugin: Plugin = async (ctx) => {
     },
 
     "shell.env": async (
-      _input: { cwd: string; sessionID?: string; callID?: string },
+      _input: { cwd: string; sessionID?: string },
       output: { env: Record<string, string> },
     ) => {
       if (output?.env) {

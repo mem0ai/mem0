@@ -1,13 +1,20 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "preserve",
+    "target": "ESNext",
+    "module": "ESNext",
     "moduleResolution": "bundler",
-    "strict": true,
-    "noEmit": true,
     "declaration": true,
+    "declarationDir": "dist",
+    "outDir": "dist",
+    "rootDir": ".",
+    "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "lib": ["ESNext"],
+    "types": ["bun-types"],
+    "noEmit": false,
+    "emitDeclarationOnly": true
   },
-  "include": ["*.ts"]
+  "include": ["opencode-mem0.ts"],
+  "exclude": ["node_modules", "dist", "cli.ts", "skills"]
 }
