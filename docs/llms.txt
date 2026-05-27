@@ -464,6 +464,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Qdrant](https://docs.mem0.ai/components/vectordbs/dbs/qdrant) [OSS]: Use as the default self-hosted vector store (best-tested).
 - [Chroma](https://docs.mem0.ai/components/vectordbs/dbs/chroma) [OSS]: Use when the user wants a lightweight embedded store.
 - [PGVector](https://docs.mem0.ai/components/vectordbs/dbs/pgvector) [OSS]: Use when Postgres is already in the stack.
+- [GaussDB](https://docs.mem0.ai/components/vectordbs/dbs/gaussdb) [OSS]: Use when GaussDB is the backing store.
 - [Milvus](https://docs.mem0.ai/components/vectordbs/dbs/milvus) [OSS]: Use for large-scale Milvus deployments.
 - [Pinecone](https://docs.mem0.ai/components/vectordbs/dbs/pinecone) [OSS]: Use when the user is on Pinecone managed.
 - [MongoDB](https://docs.mem0.ai/components/vectordbs/dbs/mongodb) [OSS]: Use when Mongo Atlas Vector Search is the backing store.

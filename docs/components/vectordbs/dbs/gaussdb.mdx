@@ -1,0 +1,331 @@
+﻿---
+title: "GaussDB"
+description: "Use GaussDB as a Mem0 vector store with native FLOATVECTOR support, scoped metadata filtering, and optional BM25 keyword search."
+---
+
+GaussDB can be used as a Mem0 vector store provider for both centralized and distributed deployments.
+
+Current provider highlights:
+
+- native `FLOATVECTOR` storage
+- `gsdiskann` and `gsivfflat` vector indexes
+- scoped read isolation using `user_id`, `agent_id`, and `run_id`
+- typed exact metadata filtering
+- controlled typed range support for inferred JSON `number` fields and standard datetime strings
+- BM25 `keyword_search` in centralized deployments
+- optional custom `schema_name` support with `public` as the default
+
+## Driver
+
+Use a GaussDB-compatible `psycopg2` driver for your target GaussDB environment.
+
+The provider imports the driver through the `psycopg2` API and uses `ThreadedConnectionPool` internally.
+
+In many environments, standard `psycopg2` or `psycopg2-binary` works with GaussDB. If your current build is not compatible with the target GaussDB deployment, use a GaussDB-compatible `psycopg2` package as described in the GaussDB documentation.
+
+## Minimal usage
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+os.environ["GAUSSDB_DSN"] = "postgresql://gaussdb_user:gaussdb_password@127.0.0.1:19995/postgres"
+
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "collection_name": "mem0_prod",
+            "embedding_model_dims": 1536,
+            "deployment_mode": "centralized",
+        },
+    },
+}
+
+memory = Memory.from_config(config)
+memory.add("I prefer window seats on morning flights.", user_id="alice")
+results = memory.search("flight seat preference", filters={"user_id": "alice"})
+```
+
+You can also provide the full connection string directly in config:
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "connection_string": "postgresql://gaussdb_user:gaussdb_password@127.0.0.1:19995/postgres",
+            "collection_name": "mem0_prod",
+            "embedding_model_dims": 1536,
+            "deployment_mode": "centralized",
+        },
+    },
+}
+```
+
+## Main configuration fields
+
+| Parameter | Description | Default |
+| --- | --- | --- |
+| `connection_string` | Full GaussDB DSN | `None` |
+| `host` / `port` / `database` / `user` / `password` | Individual connection fields when no DSN is provided | `None` / `postgres` |
+| `collection_name` | Main collection table name | `mem0` |
+| `embedding_model_dims` | Embedding vector dimension | `1536` |
+| `deployment_mode` | `centralized` or `distributed` | `centralized` |
+| `vector_index_type` | `gsdiskann` or `gsivfflat` | `gsdiskann` |
+| `vector_metric` | `cosine` or `l2` | `cosine` |
+| `schema_name` | Optional advanced schema name | `public` |
+| `minconn` / `maxconn` | Connection pool bounds | `1` / `5` |
+| `insert_batch_size` | Maximum rows per `MERGE INTO` batch during provider inserts | `2000` |
+| `vector_index_maintenance_work_mem` | Optional transaction-local memory target used only while creating vector indexes, for example `"256MB"` or `"2GB"` | `None` |
+| `auto_create` | Create collection automatically on init | `True` |
+| `sslmode` / `sslrootcert` | Optional SSL settings | `None` |
+
+## Environment variables
+
+GaussDB connection settings can be supplied either explicitly in the config object or through environment variables.
+
+The precedence order is:
+
+1. explicit config values
+2. environment variables
+3. provider defaults
+
+This is useful for production deployments where connection strings, passwords, and SSL paths are injected through container, CI/CD, or secret-management systems instead of being committed in application code.
+
+| Config field | Environment variables, in priority order |
+| --- | --- |
+| `connection_string` | `GAUSSDB_CONNECTION_STRING`, `GAUSSDB_DSN`, `GAUSSDB_URL` |
+| `host` | `GAUSSDB_HOST` |
+| `port` | `GAUSSDB_PORT` |
+| `database` | `GAUSSDB_DATABASE`, `GAUSSDB_DBNAME` |
+| `user` | `GAUSSDB_USER` |
+| `password` | `GAUSSDB_PASSWORD` |
+| `sslmode` | `GAUSSDB_SSLMODE` |
+| `sslrootcert` | `GAUSSDB_SSLROOTCERT` |
+| `schema_name` | `GAUSSDB_SCHEMA_NAME`, `GAUSSDB_SCHEMA` |
+
+For example, production code can keep only non-secret operational settings in config:
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "collection_name": "mem0_prod",
+            "embedding_model_dims": 1536,
+            "deployment_mode": "centralized",
+        },
+    },
+}
+```
+
+Then inject the connection details through the environment:
+
+```bash
+export GAUSSDB_CONNECTION_STRING="postgresql://gaussdb_user:gaussdb_password@127.0.0.1:19995/postgres"
+export GAUSSDB_SCHEMA_NAME="public"
+```
+
+If both `connection_string` and individual fields such as `host`, `port`, `user`, or `password` are supplied, `connection_string` is used as the connection source. Individual fields are used only when no connection string is provided.
+
+For GaussDB vector operators, note that the `<+>` and `<->` SQL operators return raw distances internally. The provider converts them to similarity scores before returning results to the caller. See the **Score semantics** section below for the exact mapping.
+
+Do not assume pgvector operator meanings here.
+
+## Environment prerequisites
+
+GaussDB support is designed around explicit deployment prerequisites rather than runtime capability probing.
+
+Before using the provider, make sure:
+
+- `enable_vectordb` is enabled
+- the database encoding is `UTF8`
+- the database runs in the O-compatible family
+  - centralized: A-compatible
+  - distributed: ORA-compatible
+- the application account has table, index, and read/write privileges
+- centralized mode is used when you need dimensions above `1024` or BM25 `keyword_search`
+
+For BM25 `keyword_search`, treat the UTF8 requirement as part of the supported capability boundary, not just a generic recommendation. GaussDB documents BM25 tokenization support for UTF-8 encoded Chinese and English text, so centralized keyword search should be positioned as a UTF8 Chinese/English feature rather than a general multilingual text-search promise.
+
+For vector index creation, the provider adjusts `maintenance_work_mem` only for the index-build transaction:
+
+- if `vector_index_maintenance_work_mem` is set, that value becomes the transaction-local target
+- if it is not set, the provider uses an internal default strategy
+  - regular vector index builds: `256MB`
+  - high-dimensional `gsdiskann` (`>1024` dims): `2GB`
+- if the database session already reports a higher `maintenance_work_mem`, the provider does not lower it
+
+Recommended user-facing formats are memory strings such as:
+
+- `"256MB"`
+- `"512MB"`
+- `"1GB"`
+- `"2GB"`
+
+If index creation still fails because `maintenance_work_mem` is too small, the operation fails loudly. Increase the configured value or the database-side setting and retry the index build.
+
+## Scoped filtering
+
+GaussDB keeps the same split used by other Mem0 vector-store adapters:
+
+- `search`, `list`, and `keyword_search` accept whatever filters the caller provides
+- scope isolation is typically enforced by the higher-level `Memory` APIs, which already require `user_id`, `agent_id`, or `run_id` on their scoped read paths
+- direct provider calls without scope are allowed when you intentionally want unscoped access
+
+For direct provider writes, treat `payload` as the source of truth for scope values:
+
+- `insert()` uses upsert semantics for an existing `id`
+- `update(payload=...)` replaces the stored payload for that row
+- the provider stores `user_id`, `agent_id`, and `run_id` both in `payload` and in redundant `TEXT` scope columns for filtering/indexing
+- if the new payload omits `user_id`, `agent_id`, or `run_id`, both the JSONB payload and the redundant scope columns are cleared for those fields as part of that full-replace behavior
+
+This is intentionally different from the higher-level `Memory.update()` path. `Memory.update()` fetches the existing memory first and preserves session identifiers such as `user_id`, `agent_id`, and `run_id` unless the caller explicitly overrides them before delegating to the provider.
+
+In short:
+
+- direct `GaussDB` provider writes: full replace
+- higher-level `Memory.update()`: preserve session/scope identifiers by default
+
+## Bulk insert behavior
+
+GaussDB provider inserts keep `MERGE INTO` upsert semantics, but large batches are split into smaller `MERGE` statements inside the same transaction.
+
+That means:
+
+- a single `insert()` call is still all-or-nothing
+- successful chunks are not committed early
+- `insert_batch_size` controls how many rows each `MERGE` carries
+
+The default `insert_batch_size=2000` is chosen to reduce oversized single-statement `MERGE` pressure during large imports while preserving direct-provider upsert semantics.
+
+For the higher-level `Memory` APIs, use simple scope identifiers:
+
+```python
+{"user_id": "u1"}
+{"agent_id": "agent-1"}
+{"run_id": "run-1"}
+```
+
+Examples that are valid SQL/filter shapes but are not positive scope constraints by themselves:
+
+```python
+{"user_id": {"ne": "u1"}}
+{"$not": [{"user_id": "u1"}]}
+{"$or": [{"user_id": "u1"}, {"category": "public"}]}
+{"user_id": "*"}
+```
+
+## Typed filters and range behavior
+
+Supported typed exact operators:
+
+- `eq`
+- `ne`
+- `in`
+- `nin`
+
+For non-scope payload fields, exact filters compare the selected JSONB key value directly. This preserves strict equality for scalar, array, and object payload values instead of treating arrays or objects as partial JSON containment matches.
+
+Typed range behavior:
+
+- JSON numbers are inferred automatically for range filters
+- standard ISO-style datetime strings that GaussDB can cast safely are inferred automatically for range filters, including date-only values such as `2024-01-01`, local timestamps such as `2024-01-01T00:00:00`, RFC3339 timestamps such as `2024-01-01T00:00:00Z`, and timezone offsets such as `2024-01-01T00:00:00+08:00`, `2024-01-01T00:00:00+0800`, or `2024-01-01T00:00:00+08`
+- unsupported range values raise `ValueError` instead of being silently treated as a different filter shape
+- malformed rows in inferred datetime ranges are ignored rather than failing the whole query
+
+Example:
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "connection_string": "postgresql://gaussdb_user:gaussdb_password@127.0.0.1:19995/postgres",
+            "collection_name": "mem0_prod",
+            "embedding_model_dims": 1536,
+        },
+    },
+}
+```
+
+In practice this means range filters can work directly for fields such as:
+
+- `price`
+- `priority`
+- `range_km`
+- `expires_at` (when stored in a standard ISO-style timestamp form)
+
+If a range filter uses a value shape that cannot be inferred as JSON `number` or standard datetime, the provider raises `ValueError`. For example, `{"age": {"gt": "abc"}}`, `{"age": {"gt": true}}`, and mixed number/string ranges are rejected.
+
+For timezone-sensitive application data, prefer RFC3339 timestamps with an explicit `Z` or offset, such as `2024-01-01T00:00:00Z` or `2024-01-01T00:00:00+08:00`. Date-only or timezone-less strings are accepted for compatibility, but GaussDB casts them according to the database session timezone.
+
+Payloads and JSONB exact filter values must be valid JSON for GaussDB `JSONB`. Non-finite floating-point values such as `NaN`, `Infinity`, and `-Infinity` are rejected on the client side before SQL execution.
+
+## Wildcard and null
+
+The provider follows Mem0's shared metadata filter DSL for wildcard and null values:
+
+- wildcard `*`
+- `null`
+
+Examples:
+
+```python
+{"category": "*"}
+{"optional": None}
+```
+
+For direct provider calls, supported operators on the same field are combined with `AND`. That means merged filters such as `{"price": {"gte": 5, "lte": 100, "ne": 50}}` are executed as one same-field conjunction instead of degrading to an exact object match.
+
+Unsupported field-level operators raise `ValueError`, matching the stricter behavior of providers such as PGVector and Qdrant. For example, `{"price": {"between": [5, 7]}}` is rejected because `between` is not part of Mem0's shared metadata filter DSL.
+
+JSON object equality is supported through the explicit `eq` operator. For example, use `{"profile": {"eq": {"tier": "gold"}}}` to match an object payload value exactly. A bare object such as `{"profile": {"tier": "gold"}}` is treated as an operator map and is rejected because `tier` is not a supported Mem0 filter operator.
+
+Invalid operands for supported operators also raise `ValueError`. In particular, `in` and `nin` require a list or tuple, `contains` and `icontains` require a string, and `eq` or `ne` on scope fields (`user_id`, `agent_id`, `run_id`) require scalar values. Use `in` or `nin` for multiple scope values.
+
+## Score semantics
+
+GaussDB returns a **similarity score** (higher is more relevant) from `search()`, aligned with Qdrant, Milvus, and Weaviate semantics.
+
+That means:
+
+- `cosine`: `score = max(0, min(1, 1 - distance))` — cosine distance converted to Mem0's `[0, 1]` similarity contract, with orthogonal or opposite vectors reported as `0`
+- `l2`: `score = 1 / (1 + distance)` — L2 distance compressed to `(0, 1]` monotonically, so higher values are more similar
+- the downstream `score_and_rank()` threshold filter (default `0.1`) and the entity dedup threshold (`>= 0.95`) use these similarity scores correctly
+- the underlying `ORDER BY distance ASC` in the SQL is unchanged — the distance-to-similarity conversion happens on the Python side, so query plans and vector indexes behave exactly as before
+
+For GaussDB vector operators, note that:
+
+- `<+>` is the GaussDB cosine-distance operator (raw value ∈ `[0, 2]`, 0 = identical)
+- `<->` is the L2-distance operator (raw value ∈ `[0, +∞)`, 0 = identical)
+
+Do not assume pgvector operator meanings here.
+
+This conversion is documented in the upstream issue [mem0ai/mem0#4453](https://github.com/mem0ai/mem0/issues/4453), which tracks a systemic contract inconsistency across distance-based providers. GaussDB chose to proactively align with the Qdrant/Milvus/Weaviate side of the contract rather than wait for an upstream consensus.
+
+For `keyword_search()`, BM25 scores are returned directly (higher = more relevant) — no conversion is needed.
+
+## Keyword search
+
+- centralized mode: BM25 `keyword_search` supported
+- distributed mode: BM25 is not part of the current capability promise, so `keyword_search()` returns `None`
+
+`keyword_search()` depends on the BM25 index path, not just plain text storage. If the BM25 index is missing or the database cannot use that BM25 index path, the `###` query fails instead of falling back to a sequential scan.
+
+The provider keeps two lightweight safeguards for BM25 execution:
+
+- it sets `enable_seqscan = off` for the BM25 query transaction
+- it emits an `indexscan(...)` hint using the provider's default BM25 index name
+
+That hint strategy is intentionally lightweight. If a DBA manually rebuilds the BM25 index under a different name, the built-in hint may no longer match even though the provider still keeps `enable_seqscan = off` as a secondary safeguard.
+
+GaussDB's documented BM25 tokenization boundary is limited to UTF-8 encoded Chinese and English text. In practice, that means `keyword_search()` should be treated as a centralized UTF8 Chinese/English capability.
+
+## Commercial posture
+
+Centralized mode is the primary commercial deployment target.
+
+Distributed mode is supported for core vector-store behavior, but should be presented with a narrower capability statement than centralized mode, especially around keyword search.
