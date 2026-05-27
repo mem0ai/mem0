@@ -147,3 +147,41 @@ class TestFilterOperatorPassthrough:
         call_args = mock_memory_client.client.post.call_args
         payload = call_args.kwargs.get("json", call_args.args[1] if len(call_args.args) > 1 else {})
         assert payload["filters"] == complex_filter
+
+
+class TestDeleteLinked:
+    """delete() should forward the opt-in delete_linked flag as a query param."""
+
+    def _setup_delete(self, client):
+        client.client.delete.return_value = MagicMock(
+            json=lambda: {"message": "Memory deleted successfully!"},
+            raise_for_status=lambda: None,
+        )
+
+    def test_delete_default_omits_delete_linked(self, mock_memory_client):
+        """Default delete sends no delete_linked param — byte-identical to before."""
+        self._setup_delete(mock_memory_client)
+
+        mock_memory_client.delete("mem_123")
+
+        call_args = mock_memory_client.client.delete.call_args
+        assert call_args.args[0] == "/v1/memories/mem_123/"
+        assert "delete_linked" not in call_args.kwargs.get("params", {})
+
+    def test_delete_linked_true_sets_param(self, mock_memory_client):
+        """delete_linked=True forwards delete_linked into the request params."""
+        self._setup_delete(mock_memory_client)
+
+        mock_memory_client.delete("mem_123", delete_linked=True)
+
+        call_args = mock_memory_client.client.delete.call_args
+        assert call_args.kwargs.get("params", {}).get("delete_linked") is True
+
+    def test_delete_linked_false_omits_param(self, mock_memory_client):
+        """delete_linked=False is stripped, so the default path is untouched."""
+        self._setup_delete(mock_memory_client)
+
+        mock_memory_client.delete("mem_123", delete_linked=False)
+
+        call_args = mock_memory_client.client.delete.call_args
+        assert "delete_linked" not in call_args.kwargs.get("params", {})
