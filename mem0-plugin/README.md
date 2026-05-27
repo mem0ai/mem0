@@ -186,15 +186,21 @@ See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for 
 
 ### Antigravity (Google)
 
-**Full plugin** (recommended — one command):
+**Option A — degit** (recommended, one command):
 
 ```bash
-npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
+npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0
 ```
 
-This installs the MCP server, lifecycle hooks, all 16 skills, and shared scripts.
+**Option B — agy CLI** (if you have the repo cloned locally):
 
-**MCP only** — create `~/.gemini/config/plugins/mem0/plugin.json`:
+```bash
+agy plugin install /path/to/mem0/mem0-plugin/.antigravity
+```
+
+Both install the MCP server, lifecycle hooks, all 16 skills, and shared scripts.
+
+**Option C — MCP only** (no hooks or skills) — create `~/.gemini/config/plugins/mem0/plugin.json`:
 
 ```json
 {
@@ -208,7 +214,7 @@ This installs the MCP server, lifecycle hooks, all 16 skills, and shared scripts
 }
 ```
 
-Both options read `MEM0_API_KEY` from your environment automatically.
+All options read `MEM0_API_KEY` from your environment automatically.
 
 See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity) for full details.
 
@@ -259,7 +265,7 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity (Full) | Antigravity (MCP) |
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity (A/B) | Antigravity (C) |
 |-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|:---------------:|:--------------:|:------------------:|:-----------------:|
 | MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 | Lifecycle Hooks | Yes | Yes | No | Opt-in | No | Yes | No | Yes | No |
@@ -277,7 +283,7 @@ When the plugin updates (new version pulled from the marketplace, or a fresh loc
 - **Cursor:** quit and relaunch.
 - **Codex:** restart the editor session.
 - **OpenCode:** restart the session.
-- **Antigravity:** restart the session, or re-run `agy plugin install`.
+- **Antigravity:** restart the session, or re-run `agy plugin install /path/to/mem0/mem0-plugin/.antigravity`.
 
 Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read from your environment on the new session. The plugin's MCP config uses `${MEM0_API_KEY}` interpolation at session start, not at install time, so as long as the env var is set persistently (in your shell profile or `~/.claude/settings.json` `env` block), reconnection is automatic on restart.
 

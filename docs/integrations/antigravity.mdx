@@ -24,17 +24,41 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 
 ## Installation
 
+**Option A — degit** (one command, no clone needed):
+
 ```bash
-npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
+npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0
 ```
 
-Restart Antigravity. The plugin auto-registers the MCP server, lifecycle hooks, scripts, and all `/mem0:` skills. It reads `MEM0_API_KEY` from your environment automatically — no extra config needed.
+**Option B — agy CLI** (if you have the repo cloned):
+
+```bash
+agy plugin install /path/to/mem0/mem0-plugin/.antigravity
+```
+
+**Option C — MCP only** (no hooks or skills):
+
+Create `~/.gemini/config/plugins/mem0/plugin.json`:
+
+```json
+{
+  "name": "mem0",
+  "mcpServers": {
+    "mem0": {
+      "serverUrl": "https://mcp.mem0.ai/mcp/",
+      "headers": { "Authorization": "Token ${MEM0_API_KEY}" }
+    }
+  }
+}
+```
+
+Restart Antigravity. The full plugin auto-registers the MCP server, lifecycle hooks, scripts, and all `/mem0:` skills. It reads `MEM0_API_KEY` from your environment automatically — no extra config needed.
 
 
 
 ## What's Included
 
-| Component | Full Plugin (A) | MCP Only (B) |
+| Component | Full Plugin (A/B) | MCP Only (C) |
 |-----------|:-----------------:|:------------:|
 | MCP Server (9 memory tools) | Yes | Yes |
 | Lifecycle Hooks | Yes | No |

@@ -26,6 +26,7 @@
     "opencode-mem0.ts",
     "cli.ts",
     "opencode.json",
+    "tsconfig.json",
     "LICENSE",
     "skills/**"
   ],
@@ -33,21 +34,11 @@
     "prepack": "rm -f skills && cp -r ../skills ./skills",
     "postpack": "rm -rf skills && ln -s ../skills skills"
   },
-  "opencode": {
-    "type": "plugin",
-    "hooks": [
-      "session.created",
-      "tui.prompt.append",
-      "tool.execute.before",
-      "tool.execute.after",
-      "experimental.session.compacting",
-      "shell.env"
-    ]
-  },
   "dependencies": {
+    "@opencode-ai/plugin": "^1.15.11",
     "mem0ai": "^3.0.4"
   },
-  "peerDependencies": {
-    "@opencode-ai/plugin": "*"
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }
