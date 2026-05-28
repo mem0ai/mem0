@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import telemetry
 from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, require_admin, verify_auth
@@ -172,7 +172,18 @@ app.include_router(requests_router.router)
 
 class Message(BaseModel):
     role: str = Field(..., description="Role of the message (user or assistant).")
-    content: str = Field(..., description="Message content.")
+    # Content accepts either a string (plain text) or structured multimodal
+    # content (single image dict, or list of parts), matching the format
+    # accepted by the underlying Memory.add() and parse_vision_messages().
+    # See: mem0/memory/utils.py:parse_vision_messages.
+    content: Union[str, Dict[str, Any], List[Dict[str, Any]]] = Field(
+        ...,
+        description=(
+            "Message content. Either a plain string, a single multimodal part "
+            "(e.g. {'type': 'image_url', 'image_url': {'url': '...'}}), or a "
+            "list of such parts."
+        ),
+    )
 
 
 class MemoryCreate(BaseModel):
