@@ -26,7 +26,7 @@
     "ai": "^4.1.46",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "js-cookie": "^3.0.5",
+    "js-cookie": "^3.0.6",
     "lucide-react": "^0.477.0",
     "next": "15.5.18",
     "react": "^19.0.0",

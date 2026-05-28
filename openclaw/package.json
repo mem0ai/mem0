@@ -54,15 +54,20 @@
     }
   },
   "devDependencies": {
+    "@qdrant/js-client-rest": "^1.18.0",
     "@types/node": "^22.15.0",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.7",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
-    "vitest": "^4.0.18"
+    "vite": "^8.0.5",
+    "vitest": "^4.1.7"
   },
   "pnpm": {
     "overrides": {
-      "protobufjs@<7.5.5": "^7.5.5"
+      "protobufjs@<7.5.5": "^7.5.5",
+      "vite@>=8.0.0 <=8.0.4": "^8.0.5",
+      "langsmith@<0.6.0": "^0.6.0",
+      "picomatch@<2.3.2": "^2.3.2"
     }
   }
 }
