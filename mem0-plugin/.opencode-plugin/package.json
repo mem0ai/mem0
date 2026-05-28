@@ -14,6 +14,9 @@
   "bin": {
     "mem0-opencode": "./cli.ts"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "Apache-2.0",
   "keywords": [
     "opencode",
@@ -34,7 +37,7 @@
     "cli.ts",
     "opencode.json",
     "LICENSE",
-    "opencode-skills/**"
+    "opencode-skills"
   ],
   "scripts": {
     "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] && tsc --emitDeclarationOnly --outDir dist --declaration",
@@ -49,7 +52,7 @@
       "chat.message",
       "tool.execute.before",
       "tool.execute.after",
-      "experimental.chat.system.transform",
+      "experimental.chat.messages.transform",
       "experimental.session.compacting",
       "shell.env"
     ]
