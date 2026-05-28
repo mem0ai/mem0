@@ -1173,6 +1173,11 @@ class Memory(MemoryBase):
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
+        # Validate query
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("Query must be a non-empty string. Provide a valid search query.")
+        query = query.strip()
+
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
 
@@ -2587,6 +2592,11 @@ class AsyncMemory(MemoryBase):
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
+
+        # Validate query
+        if not isinstance(query, str) or not query.strip():
+            raise ValueError("Query must be a non-empty string. Provide a valid search query.")
+        query = query.strip()
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)

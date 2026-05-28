@@ -842,6 +842,30 @@ def test_search_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vector
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
+def test_search_rejects_empty_query(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """search() should reject empty or whitespace-only queries (#5220)."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    config = MemoryConfig()
+    memory = Memory(config)
+
+    with pytest.raises(ValueError, match=r"non-empty string"):
+        memory.search("", filters={"user_id": "u1"})
+
+    with pytest.raises(ValueError, match=r"non-empty string"):
+        memory.search("   ", filters={"user_id": "u1"})
+
+    with pytest.raises(ValueError, match=r"non-empty string"):
+        memory.search("\t\n", filters={"user_id": "u1"})
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
 def test_get_all_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """get_all() should reject user_id as top-level kwarg."""
     mock_embedder_factory.return_value = MagicMock()
