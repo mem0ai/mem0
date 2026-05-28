@@ -61,5 +61,14 @@
     "typescript": "^5.8.3",
     "vite": "^8.0.5",
     "vitest": "^4.1.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "protobufjs@<7.5.5": "^7.5.5",
+      "vite": "^8.0.5",
+      "langsmith@<0.6.0": "^0.6.0",
+      "picomatch@<2.3.2": "^2.3.2",
+      "@qdrant/js-client-rest": "^1.18.0"
+    }
   }
 }
