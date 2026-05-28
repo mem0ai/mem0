@@ -413,6 +413,7 @@ To add a new LLM, embedding, vector store, or reranker provider:
 | Python CLI | `cli-python-ci.yml` | Push to `cli/python/`, PRs, manual | Ruff lint + pytest + hatch build on Python 3.10, 3.11, 3.12 |
 | Node CLI | `cli-node-ci.yml` | Push to `cli/node/`, PRs, manual | Biome lint + tsc + vitest + tsup build on Node 20, 22 |
 | OpenClaw | `openclaw-checks.yml` | Push to `openclaw/`, PRs, manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
+| OpenCode Plugin | `opencode-plugin-checks.yml` | Push to `mem0-plugin/.opencode-plugin/`, PRs, manual | Bun: tsc type-check + build + dist artifact check |
 
 ### CD Workflows (automated publishing)
 
@@ -424,6 +425,7 @@ To add a new LLM, embedding, vector store, or reranker provider:
 | Node CLI | `cli-node-cd.yml` | `cli-node-v*` | npm (`@mem0/cli`) |
 | Vercel AI SDK | `vercel-ai-cd.yml` | `vercel-ai-v*` | npm (`@mem0/vercel-ai-provider`) |
 | OpenClaw | `openclaw-cd.yml` | `openclaw-v*` | npm (`@mem0/openclaw-mem0`) |
+| OpenCode Plugin | `opencode-plugin-cd.yml` | `opencode-v*` | npm (`@mem0/opencode-plugin`) |
 
 - All publishing uses **OIDC trusted publishing** — no tokens or secrets required.
 - First publish of a new npm package must be done manually; OIDC works for subsequent versions.
