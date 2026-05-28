@@ -189,15 +189,11 @@ See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for 
 **Option A — degit** (recommended):
 
 ```bash
-# 1. Install the plugin (MCP server, hooks, scripts)
+# Install the plugin (MCP server, hooks, scripts)
 npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
-
-# 2. Link skills into Gemini CLI's discovery path
-mkdir -p ~/.gemini/skills
-ln -sf ~/.gemini/config/plugins/mem0/skills/* ~/.gemini/skills/
 ```
 
-Step 1 installs the MCP server, lifecycle hooks, and shared scripts. Step 2 links the 16 skills into `~/.gemini/skills/` where Gemini CLI discovers them.
+This installs the MCP server, lifecycle hooks, and shared scripts.
 
 See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity) for full details.
 
