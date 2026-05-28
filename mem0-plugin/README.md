@@ -199,22 +199,6 @@ ln -sf ~/.gemini/config/plugins/mem0/skills/* ~/.gemini/skills/
 
 Step 1 installs the MCP server, lifecycle hooks, and shared scripts. Step 2 links the 16 skills into `~/.gemini/skills/` where Gemini CLI discovers them.
 
-**Option C — MCP only** (no hooks or skills) — create `~/.gemini/config/plugins/mem0/plugin.json`:
-
-```json
-{
-  "name": "mem0",
-  "mcpServers": {
-    "mem0": {
-      "serverUrl": "https://mcp.mem0.ai/mcp/",
-      "headers": { "Authorization": "Token ${MEM0_API_KEY}" }
-    }
-  }
-}
-```
-
-All options read `MEM0_API_KEY` from your environment automatically.
-
 See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity) for full details.
 
 ## Post-Installation: Run `/mem0:onboard`

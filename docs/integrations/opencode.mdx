@@ -48,36 +48,13 @@ Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem
 
 All commands auto-add the plugin and MCP server to your `~/.config/opencode/opencode.json`. Restart OpenCode — you get the MCP server, lifecycle hooks, and all `/mem0:` slash commands.
 
-### Option B — MCP Only
-
-If you only need the memory tools without hooks or skills, add this to your `opencode.json` (project-level or global at `~/.config/opencode/opencode.json`):
-
-```json
-{
-  "mcp": {
-    "mem0": {
-      "type": "remote",
-      "url": "https://mcp.mem0.ai/mcp/",
-      "headers": {
-        "Authorization": "Token {env:MEM0_API_KEY}"
-      },
-      "oauth": false
-    }
-  }
-}
-```
-
-<Info icon="check">
-  Start a new OpenCode session and ask: *"Search my memories for hello"*. If the `mem0` tools appear and respond, you're all set.
-</Info>
-
 ## What's Included
 
-| Component | Plugin (A) | MCP Only (B) |
-|-----------|:----------:|:------------:|
-| MCP Server (9 memory tools) | Yes | Yes |
-| Lifecycle Hooks | Yes | No |
-| 16 Slash Commands | Yes | No |
+| Component | Included |
+|-----------|:--------:|
+| MCP Server (9 memory tools) | Yes |
+| Lifecycle Hooks | Yes |
+| 16 Slash Commands | Yes |
 
 ## Available MCP Tools
 
