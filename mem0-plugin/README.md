@@ -186,19 +186,26 @@ See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for 
 
 ### Antigravity (Google)
 
-**Option A — degit** (recommended, one command):
+**Option A — degit** (recommended):
 
 ```bash
-npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0
+# 1. Install the plugin (MCP server, hooks, scripts)
+npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
+
+# 2. Link skills into Gemini CLI's discovery path
+mkdir -p ~/.gemini/skills
+ln -sf ~/.gemini/config/plugins/mem0/skills/* ~/.gemini/skills/
 ```
 
 **Option B — agy CLI** (if you have the repo cloned locally):
 
 ```bash
-agy plugin install /path/to/mem0/mem0-plugin/.antigravity
+agy plugin install /path/to/mem0/mem0-plugin
+mkdir -p ~/.gemini/skills
+ln -sf ~/.gemini/config/plugins/mem0/skills/* ~/.gemini/skills/
 ```
 
-Both install the MCP server, lifecycle hooks, all 16 skills, and shared scripts.
+Step 1 installs the MCP server, lifecycle hooks, and shared scripts. Step 2 links the 16 skills into `~/.gemini/skills/` where Gemini CLI discovers them.
 
 **Option C — MCP only** (no hooks or skills) — create `~/.gemini/config/plugins/mem0/plugin.json`:
 
@@ -283,7 +290,7 @@ When the plugin updates (new version pulled from the marketplace, or a fresh loc
 - **Cursor:** quit and relaunch.
 - **Codex:** restart the editor session.
 - **OpenCode:** restart the session.
-- **Antigravity:** restart the session, or re-run `agy plugin install /path/to/mem0/mem0-plugin/.antigravity`.
+- **Antigravity:** restart the session, or re-run `agy plugin install /path/to/mem0/mem0-plugin`.
 
 Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read from your environment on the new session. The plugin's MCP config uses `${MEM0_API_KEY}` interpolation at session start, not at install time, so as long as the env var is set persistently (in your shell profile or `~/.claude/settings.json` `env` block), reconnection is automatic on restart.
 

@@ -24,17 +24,26 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 
 ## Installation
 
-**Option A — degit** (one command, no clone needed):
+**Option A — degit** (recommended):
 
 ```bash
-npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0
+# 1. Install the plugin (MCP server, hooks, scripts)
+npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
+
+# 2. Link skills into Gemini CLI's discovery path
+mkdir -p ~/.gemini/skills
+ln -sf ~/.gemini/config/plugins/mem0/skills/* ~/.gemini/skills/
 ```
 
 **Option B — agy CLI** (if you have the repo cloned):
 
 ```bash
-agy plugin install /path/to/mem0/mem0-plugin/.antigravity
+agy plugin install /path/to/mem0/mem0-plugin
+mkdir -p ~/.gemini/skills
+ln -sf ~/.gemini/config/plugins/mem0/skills/* ~/.gemini/skills/
 ```
+
+Step 1 installs the MCP server, lifecycle hooks, and shared scripts. Step 2 links the 16 skills into `~/.gemini/skills/` where Gemini CLI discovers them.
 
 **Option C — MCP only** (no hooks or skills):
 
