@@ -7,15 +7,32 @@ each loading their own copy from disk.
 """
 
 import logging
+import os
 import threading
 
 logger = logging.getLogger(__name__)
+
+# 语言代码 → spaCy 模型名映射
+SPACY_MODEL_MAP: dict[str, str] = {
+    "en": "en_core_web_sm",
+    "zh": "zh_core_web_sm",
+}
 
 _nlp_full = None
 _nlp_lemma = None
 _load_failed_full = False
 _load_failed_lemma = False
 _lock = threading.Lock()
+
+
+def _get_model_name() -> str:
+    """从环境变量获取 spaCy 模型名。
+
+    支持语言代码（查 SPACY_MODEL_MAP）或完整模型名。
+    默认返回 en_core_web_sm。
+    """
+    val = os.environ.get("MEM0_SPACY_MODEL", "en_core_web_sm")
+    return SPACY_MODEL_MAP.get(val, val)
 
 
 def _ensure_model_available():
