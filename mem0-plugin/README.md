@@ -186,35 +186,18 @@ See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for 
 
 ### Antigravity (Google)
 
-**Option A — degit** (recommended, one command):
+**Option A — degit** (recommended):
 
 ```bash
-npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0
+# 1. Install the plugin (MCP server, hooks, scripts)
+npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
+
+# 2. Link skills into Gemini CLI's discovery path
+mkdir -p ~/.gemini/skills
+ln -sf ~/.gemini/config/plugins/mem0/skills/* ~/.gemini/skills/
 ```
 
-**Option B — agy CLI** (if you have the repo cloned locally):
-
-```bash
-agy plugin install /path/to/mem0/mem0-plugin/.antigravity
-```
-
-Both install the MCP server, lifecycle hooks, all 16 skills, and shared scripts.
-
-**Option C — MCP only** (no hooks or skills) — create `~/.gemini/config/plugins/mem0/plugin.json`:
-
-```json
-{
-  "name": "mem0",
-  "mcpServers": {
-    "mem0": {
-      "serverUrl": "https://mcp.mem0.ai/mcp/",
-      "headers": { "Authorization": "Token ${MEM0_API_KEY}" }
-    }
-  }
-}
-```
-
-All options read `MEM0_API_KEY` from your environment automatically.
+Step 1 installs the MCP server, lifecycle hooks, and shared scripts. Step 2 links the 16 skills into `~/.gemini/skills/` where Gemini CLI discovers them.
 
 See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity) for full details.
 
@@ -265,11 +248,11 @@ The plugin includes 17 skills accessible via `/mem0:` commands:
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity (A/B) | Antigravity (C) |
-|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|:---------------:|:--------------:|:------------------:|:-----------------:|
-| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No | Opt-in | No | Yes | No | Yes | No |
-| Mem0 SDK Skill | Yes | Yes | No | Yes | No | Yes | No | Yes | No |
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |
+|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|:---------------:|:--------------:|:-----------:|
+| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | Yes | No | Opt-in | No | Yes | No | Yes |
+| Mem0 SDK Skill | Yes | Yes | No | Yes | No | Yes | No | Yes |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
 - **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, Cursor, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
@@ -283,7 +266,7 @@ When the plugin updates (new version pulled from the marketplace, or a fresh loc
 - **Cursor:** quit and relaunch.
 - **Codex:** restart the editor session.
 - **OpenCode:** restart the session.
-- **Antigravity:** restart the session, or re-run `agy plugin install /path/to/mem0/mem0-plugin/.antigravity`.
+- **Antigravity:** restart the session.
 
 Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read from your environment on the new session. The plugin's MCP config uses `${MEM0_API_KEY}` interpolation at session start, not at install time, so as long as the env var is set persistently (in your shell profile or `~/.claude/settings.json` `env` block), reconnection is automatic on restart.
 
