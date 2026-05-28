@@ -1,0 +1,81 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "mem0-ensure-deps",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/ensure_deps.sh 2>/dev/null || true",
+            "timeout": 60
+          },
+          {
+            "name": "mem0-session-start",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_session_start.sh 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "name": "mem0-user-prompt",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_user_prompt.sh 2>/dev/null || true",
+            "timeout": 8
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "name": "mem0-block-memory-write",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/block_memory_write.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
+        "hooks": [
+          {
+            "name": "mem0-enforce-metadata",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/enforce_metadata_defaults.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
+        "hooks": [
+          {
+            "name": "mem0-post-tool",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_post_tool_use.sh",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "name": "mem0-bash-output",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_bash_output.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

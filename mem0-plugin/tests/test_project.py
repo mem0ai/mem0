@@ -105,3 +105,67 @@ def test_resolve_project_id_priority_order(tmp_git_repo, monkeypatch):
     # Env var overrides everything
     monkeypatch.setenv("MEM0_PROJECT_ID", "from-env")
     assert resolve_project_id(str(tmp_git_repo)) == "from-env"
+
+
+def test_remote_hash_key_format(tmp_git_repo):
+    """_remote_hash_key() returns 'remote:<16-char-hex>' for a repo with a remote."""
+    import re
+
+    from _project import _remote_hash_key
+
+    key = _remote_hash_key(str(tmp_git_repo))
+    assert re.fullmatch(r"remote:[0-9a-f]{16}", key), (
+        f"Expected 'remote:<16-char-hex>', got {key!r}"
+    )
+
+
+def test_remote_hash_key_no_git(tmp_no_git):
+    """_remote_hash_key() returns empty string when not in a git repo."""
+    from _project import _remote_hash_key
+
+    key = _remote_hash_key(str(tmp_no_git))
+    assert key == ""
+
+
+def test_save_project_mapping_writes_remote_key(tmp_git_repo):
+    """save_project_mapping() writes both the CWD key and the remote hash key."""
+    import re
+
+    from _project import save_project_mapping
+
+    save_project_mapping(str(tmp_git_repo), "my-project")
+    map_path = os.path.expanduser("~/.mem0/project_map.json")
+    with open(map_path) as f:
+        data = json.load(f)
+
+    assert data[str(tmp_git_repo)] == "my-project"
+    remote_keys = [k for k in data if re.fullmatch(r"remote:[0-9a-f]{16}", k)]
+    assert remote_keys, "Expected at least one remote:<hash> key in project_map.json"
+    assert data[remote_keys[0]] == "my-project"
+
+
+def test_resolve_project_id_remote_hash_fallback(tmp_git_repo, tmp_path):
+    """Moving the project folder: remote hash key is used as fallback."""
+    from _project import resolve_project_id, save_project_mapping
+
+    # Save mapping for original location
+    save_project_mapping(str(tmp_git_repo), "stable-project")
+
+    # Simulate folder move: resolve using a different CWD path that shares the same remote.
+    # We use a second tmp_git_repo with the same remote URL to mimic a renamed directory.
+    import subprocess as _sp
+    new_repo = tmp_path / "moved_repo"
+    new_repo.mkdir()
+    _sp.run(["git", "init"], cwd=new_repo, capture_output=True, check=True)
+    _sp.run(
+        ["git", "remote", "add", "origin", "https://github.com/mem0ai/mem0.git"],
+        cwd=new_repo,
+        capture_output=True,
+        check=True,
+    )
+
+    # The new CWD is NOT in project_map, but remote hash should match
+    pid = resolve_project_id(str(new_repo))
+    assert pid == "stable-project", (
+        f"Expected 'stable-project' via remote hash fallback, got {pid!r}"
+    )

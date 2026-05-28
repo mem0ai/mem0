@@ -1,17 +1,6 @@
 ---
 name: mem0
-description: >
-  Mem0 Platform SDK for adding persistent memory to AI applications.
-  TRIGGER when: user mentions "mem0", "MemoryClient", "memory layer",
-  "remember user preferences", "persistent context", "personalization",
-  or needs to add long-term memory to chatbots, agents, or AI apps.
-  Covers Python SDK (mem0ai), TypeScript SDK (mem0ai), and framework integrations
-  (LangChain, CrewAI, OpenAI Agents SDK, Pipecat, LlamaIndex, AutoGen, LangGraph).
-  Also covers the open-source self-hosted Memory class.
-  This is the DEFAULT mem0 skill for ambiguous queries.
-  DO NOT TRIGGER when: user asks about CLI commands, terminal usage, or shell
-  scripts (use mem0-cli), or Vercel AI SDK / @mem0/vercel-ai-provider / createMem0
-  (use mem0-vercel-ai-sdk).
+description: Mem0 SDK reference covering Python and TypeScript APIs, memory client methods, configuration, and framework integrations. Use when writing code that calls mem0 APIs, configuring memory providers, or integrating mem0 into an application.
 license: Apache-2.0
 metadata:
   author: mem0ai
@@ -25,7 +14,6 @@ compatibility: Requires Python 3.10+ or Node.js 18+, pip install mem0ai or npm i
 
 > **Skill Graph:** This skill is part of the Mem0 skill graph:
 > - **mem0** (this skill) -- Platform Client SDK + OSS (Python + TypeScript)
-> - **[mem0-cli](https://github.com/mem0ai/mem0/tree/main/skills/mem0-cli)** -- Command-line interface
 > - **[mem0-vercel-ai-sdk](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk)** -- Vercel AI SDK provider
 
 Mem0 is a managed memory layer for AI applications. It stores, retrieves, and manages user memories via API — no infrastructure to deploy. For self-hosted usage, see the OSS section in the client references below.
@@ -46,7 +34,7 @@ export MEM0_API_KEY="m0-your-api-key"
 
 Get an API key at: https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=mem0-plugin-skill
 
-> **Don't have a `MEM0_API_KEY`?** Run `mem0 init --agent --json` (after `pip install mem0-cli` or `npm install -g @mem0/cli`) to mint an evaluation key without email or dashboard. The human can claim later with `mem0 init --email <your-email>`.
+> **Don't have a `MEM0_API_KEY`?** Sign up at https://app.mem0.ai and create one from the dashboard. Keys start with `m0-`.
 
 ## Step 2: Initialize the client
 
@@ -134,20 +122,27 @@ def chat(user_input: str, user_id: str) -> str:
 
 ## Common edge cases
 
-- **Search returns empty:** Memories process asynchronously. Wait 2-3s after `add()` before searching. Also verify `user_id` matches exactly (case-sensitive) and use `filters={"user_id": "..."}` syntax.
-- **AND filter with user_id + agent_id returns empty:** Entities are stored separately. Use `OR` instead, or query separately.
-- **Duplicate memories:** Don't mix `infer=True` (default) and `infer=False` for the same data. Stick to one mode.
-- **Wrong import:** Always use `from mem0 import MemoryClient` (or `AsyncMemoryClient` for async). Do not use `from mem0 import Memory`.
-- **v3 defaults:** `top_k=20`, `threshold=0.1`, `rerank=False`. Adjust as needed for your use case.
+- **Search returns empty:** v3 processes `add()` asynchronously — returns an event ID immediately. Wait 2-3s before searching. Also verify `user_id` matches exactly (case-sensitive) and use `filters={"user_id": "..."}` syntax.
+- **AND filter with user_id + agent_id returns empty:** Entities are stored separately. `{"AND": [{"user_id": "alice"}, {"agent_id": "bot"}]}` returns nothing. Use `OR` instead, or query each separately.
+- **Duplicate memories:** Don't mix `infer=True` (default) and `infer=False` for the same data. `infer=True` extracts facts via LLM with dedup. `infer=False` stores raw — same text can be stored twice.
+- **Implicit null scoping:** `filters={"user_id": "alice"}` only returns memories where `agent_id`, `app_id`, `run_id` are ALL null. Wrap in `{"OR": [...]}` to include memories with non-null scoping fields.
+- **Platform vs OSS imports:** Platform: `from mem0 import MemoryClient`. OSS: `from mem0 import Memory`. Don't mix them — `MemoryClient` talks to `api.mem0.ai`, `Memory` runs locally.
+- **v3 defaults:** `top_k=20`, `threshold=0.1`, `rerank=False`. Adjust as needed.
 
-## v2 Compatibility
+## v3 API (Current)
 
-If you're using SDK v2.x, note these differences:
-- **Entity IDs:** Pass `user_id` as top-level kwarg to `search()` instead of inside `filters`
-- **Defaults:** `top_k=100`, no threshold, `rerank=True`
-- **Graph memory:** Available via `enable_graph=True`
+Mem0 v3 uses single-pass extraction, entity linking, and multi-signal retrieval.
 
-See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for details.
+**Key v3 changes from v2:**
+- **Endpoints:** `POST /v3/memories/add/`, `POST /v3/memories/search/`, `POST /v3/memories/` (paginated list)
+- **Extraction:** Single ADD-only pass — no more UPDATE/DELETE operations during extraction. Memories accumulate rather than consolidate.
+- **Entity linking:** Replaces graph memory. Auto-extracted during `add()`, no config needed. Remove `enable_graph` and `graph_store` from any old config.
+- **Defaults:** `top_k=20`, `threshold=0.1`, `rerank=False`
+- **Removed params:** `org_id`, `project_id`, `enable_graph` — all removed from SDK
+- **TypeScript:** Exclusively camelCase (`userId`, `agentId`, `appId`, `topK`)
+- **Add response:** Async — returns event ID immediately, poll via `GET /v1/event/{event_id}/`
+
+See the [migration guide](https://docs.mem0.ai/migration/platform-v2-to-v3) for details.
 
 ## Live documentation search
 
@@ -189,5 +184,4 @@ Load these on demand for deeper detail:
 
 | Skill | When to use | Link |
 |-------|-------------|------|
-| mem0-cli | Terminal commands, scripting, CI/CD, agent tool loops | [GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-cli) |
 | mem0-vercel-ai-sdk | Vercel AI SDK provider with automatic memory | [GitHub](https://github.com/mem0ai/mem0/tree/main/skills/mem0-vercel-ai-sdk) |

@@ -1,0 +1,50 @@
+---
+name: switch-project
+description: Overrides the auto-detected project scope to read and write memories under a different project ID. Use when working across multiple projects, accessing memories from another repo, or when auto-detection resolves to the wrong project.
+---
+
+# Mem0 Switch Project
+
+Override the automatic project_id detection for the current directory.
+
+## Usage
+
+The user provides a project name as an argument: `/mem0:switch-project <project-name>`
+
+## Execution
+
+1. If no project name was given, ask: "What project_id should this directory use?"
+
+2. Write the mapping to `~/.mem0/project_map.json` using the Bash tool:
+
+   ```bash
+   python3 -c "
+   import json, os
+   map_file = os.path.expanduser('~/.mem0/project_map.json')
+   mapping = {}
+   if os.path.isfile(map_file):
+       with open(map_file) as f:
+           mapping = json.load(f)
+   mapping[os.getcwd()] = '<PROJECT_NAME>'
+   os.makedirs(os.path.dirname(map_file), exist_ok=True)
+   with open(map_file, 'w') as f:
+       json.dump(mapping, f, indent=2)
+   print(f'Mapped {os.getcwd()} -> <PROJECT_NAME>')
+   "
+   ```
+
+   (Replace `<PROJECT_NAME>` with the user's chosen project name.)
+
+3. Verify by searching for existing memories:
+   - Call `search_memories` with `query="project"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<PROJECT_NAME>"}]}`, `top_k=1`
+
+4. Print:
+   ```
+   Switched to project <PROJECT_NAME>.
+   <N> memories found for this project.
+   Note: This override persists across sessions for this directory.
+   ```
+
+## Output formatting
+
+IMPORTANT: Do NOT use markdown in your output. OpenCode TUI renders text verbatim — markdown like **bold**, ## headers, and | table | syntax appears as raw characters. Use plain text with indentation for structure. Use dashes for lists. Use spaces to align columns instead of markdown tables.

@@ -21,8 +21,9 @@ import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _identity import resolve_user_id
-from _project import resolve_project_id
+from _chunking import filter_and_truncate, split_by_headers
+from _identity import resolve_api_key, resolve_user_id
+from _project import resolve_branch, resolve_project_id, save_project_mapping
 
 log = logging.getLogger("mem0-auto-import")
 log.setLevel(logging.DEBUG)
@@ -44,6 +45,49 @@ API_URL = "https://api.mem0.ai"
 MAX_FILE_SIZE = 100_000  # skip files over 100 KB
 TARGET_FILES = ["CLAUDE.md", "AGENTS.md", ".cursorrules", ".windsurfrules", "mem0.md"]
 HASH_STORE = os.path.expanduser("~/.mem0/file_hashes.json")
+LOCK_FILE = os.path.expanduser("~/.mem0/auto_import.lock")
+
+
+def _acquire_lock() -> bool:
+    """Try to acquire a file lock. Returns False if another instance is running."""
+    try:
+        os.makedirs(os.path.dirname(LOCK_FILE), exist_ok=True)
+        fd = os.open(LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return True
+    except FileExistsError:
+        try:
+            mtime = os.path.getmtime(LOCK_FILE)
+            import time
+            if time.time() - mtime > 120:
+                os.unlink(LOCK_FILE)
+                return _acquire_lock()
+        except OSError:
+            pass
+        return False
+
+
+def _release_lock() -> None:
+    try:
+        os.unlink(LOCK_FILE)
+    except OSError:
+        pass
+
+
+def _git_root(cwd: str) -> str:
+    """Return the git repo root, or empty string if not in a repo."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=cwd, capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return ""
 
 
 def sha256_file(path: str) -> str:
@@ -77,8 +121,104 @@ def save_hashes(hashes: dict[str, str]) -> None:
         log.warning("Could not save hash store: %s", e)
 
 
-def post_memory(api_key: str, content: str, user_id: str, filename: str, project_id: str) -> bool:
+def already_imported(api_key: str, user_id: str, project_id: str, filename: str) -> bool:
+    body = json.dumps({
+        "query": filename,
+        "filters": {
+            "AND": [
+                {"user_id": user_id},
+                {"app_id": project_id},
+                {"metadata": {"source": "auto-import"}},
+            ]
+        },
+        "top_k": 10,
+        "threshold": 0.0,
+    }).encode()
+    req = urllib.request.Request(
+        f"{API_URL}/v3/memories/search/",
+        data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Token {api_key}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read())
+            results = data if isinstance(data, list) else data.get("results", [])
+            for result in results:
+                meta = result.get("metadata", {}) if isinstance(result, dict) else {}
+                file_field = meta.get("file", "")
+                if file_field == filename or file_field.startswith(f"{filename}["):
+                    return True
+            return False
+    except Exception:
+        return False
+
+
+def _delete_stale_chunks(api_key: str, user_id: str, project_id: str, filename: str) -> int:
+    """Find and delete existing chunks for a file before re-import. Returns count deleted."""
+    body = json.dumps({
+        "query": filename,
+        "filters": {
+            "AND": [
+                {"user_id": user_id},
+                {"app_id": project_id},
+                {"metadata": {"source": "auto-import"}},
+            ]
+        },
+        "top_k": 20,
+        "threshold": 0.0,
+    }).encode()
+    req = urllib.request.Request(
+        f"{API_URL}/v3/memories/search/",
+        data=body,
+        headers={"Content-Type": "application/json", "Authorization": f"Token {api_key}"},
+        method="POST",
+    )
+    ids_to_delete = []
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read())
+            results = data if isinstance(data, list) else data.get("results", [])
+            for result in results:
+                if not isinstance(result, dict):
+                    continue
+                meta = result.get("metadata", {})
+                file_field = meta.get("file", "")
+                if file_field == filename or file_field.startswith(f"{filename}["):
+                    mid = result.get("id")
+                    if mid:
+                        ids_to_delete.append(mid)
+    except Exception as e:
+        log.warning("Failed to search for stale chunks of %s: %s", filename, e)
+        return 0
+
+    deleted = 0
+    for mid in ids_to_delete:
+        try:
+            del_req = urllib.request.Request(
+                f"{API_URL}/v1/memories/{mid}/",
+                headers={"Authorization": f"Token {api_key}"},
+                method="DELETE",
+            )
+            with urllib.request.urlopen(del_req, timeout=10):
+                deleted += 1
+        except Exception as e:
+            log.warning("Failed to delete stale chunk %s: %s", mid, e)
+
+    if deleted:
+        log.info("Deleted %d stale chunk(s) for %s before re-import", deleted, filename)
+    return deleted
+
+
+def post_memory(api_key: str, content: str, user_id: str, filename: str, project_id: str, branch: str = "") -> bool:
     """POST a project profile memory to the Mem0 REST API."""
+    metadata = {
+        "type": "project_profile",
+        "file": filename,
+        "source": "auto-import",
+    }
+    if branch:
+        metadata["branch"] = branch
     body = {
         "messages": [
             {
@@ -87,18 +227,14 @@ def post_memory(api_key: str, content: str, user_id: str, filename: str, project
             }
         ],
         "user_id": user_id,
-        "metadata": {
-            "type": "project_profile",
-            "file": filename,
-            "project_id": project_id,
-            "source": "auto-import",
-        },
+        "app_id": project_id,
+        "metadata": metadata,
         "infer": False,
     }
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        f"{API_URL}/v1/memories/",
+        f"{API_URL}/v3/memories/add/",
         data=data,
         headers={
             "Content-Type": "application/json",
@@ -120,7 +256,7 @@ def post_memory(api_key: str, content: str, user_id: str, filename: str, project
 
 
 def main() -> None:
-    api_key = os.environ.get("MEM0_API_KEY", "")
+    api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping auto-import")
         return
@@ -128,18 +264,34 @@ def main() -> None:
     cwd = os.environ.get("MEM0_CWD", "").strip() or os.getcwd()
     user_id = resolve_user_id()
     project_id = resolve_project_id(cwd)
+    branch = resolve_branch(cwd)
 
-    log.debug("Auto-import started: cwd=%s project=%s user=%s", cwd, project_id, user_id)
+    save_project_mapping(cwd, project_id)
+
+    git_root = _git_root(cwd)
+    search_dirs = [cwd]
+    if git_root and os.path.realpath(git_root) != os.path.realpath(cwd):
+        search_dirs.append(git_root)
+
+    log.debug("Auto-import started: cwd=%s git_root=%s project=%s user=%s branch=%s", cwd, git_root or "(none)", project_id, user_id, branch)
 
     hashes = load_hashes()
     updated = False
+    seen_content_hashes: set[str] = set()
 
     for filename in TARGET_FILES:
-        filepath = os.path.join(cwd, filename)
+        filepath = ""
+        for search_dir in search_dirs:
+            candidate = os.path.join(search_dir, filename)
+            if os.path.isfile(candidate):
+                filepath = candidate
+                break
 
-        if not os.path.isfile(filepath):
+        if not filepath:
             log.debug("Not found, skipping: %s", filename)
             continue
+
+        filepath = os.path.realpath(filepath)
 
         try:
             file_size = os.path.getsize(filepath)
@@ -157,9 +309,22 @@ def main() -> None:
             log.debug("Cannot hash %s: %s", filename, e)
             continue
 
-        hash_key = f"{project_id}:{filename}"
+        if current_hash in seen_content_hashes:
+            log.debug("Duplicate content, skipping: %s (same as earlier file)", filename)
+            continue
+        seen_content_hashes.add(current_hash)
+
+        hash_key = f"{project_id}:{branch}:{filename}" if branch else f"{project_id}:{filename}"
         if hashes.get(hash_key) == current_hash:
-            log.debug("Unchanged, skipping: %s", filename)
+            if already_imported(api_key, user_id, project_id, filename):
+                log.debug("Unchanged and still in mem0, skipping: %s", filename)
+                continue
+            log.info("Hash matches but memories missing server-side, re-importing: %s", filename)
+
+        elif already_imported(api_key, user_id, project_id, filename):
+            log.debug("Already in mem0, updating hash store: %s", filename)
+            hashes[hash_key] = current_hash
+            updated = True
             continue
 
         try:
@@ -169,10 +334,26 @@ def main() -> None:
             log.debug("Cannot read %s: %s", filename, e)
             continue
 
-        if post_memory(api_key, content, user_id, filename, project_id):
+        _delete_stale_chunks(api_key, user_id, project_id, filename)
+
+        is_markdown = filename.endswith(".md")
+        if is_markdown:
+            chunks = filter_and_truncate(split_by_headers(content))
+        else:
+            chunks = filter_and_truncate([content])
+
+        if not chunks:
+            chunks = [content[:10000]]
+
+        success = True
+        for i, chunk in enumerate(chunks):
+            chunk_name = f"{filename}[{i+1}/{len(chunks)}]" if len(chunks) > 1 else filename
+            if not post_memory(api_key, chunk, user_id, chunk_name, project_id, branch):
+                success = False
+
+        if success:
             hashes[hash_key] = current_hash
             updated = True
-        # on API failure we don't update the hash — retry next session
 
     if updated:
         save_hashes(hashes)
@@ -181,8 +362,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if not _acquire_lock():
+        log.debug("Another auto_import instance is running — skipping")
+        sys.exit(0)
     try:
         main()
     except Exception as e:
         log.error("Unexpected error: %s", e)
+    finally:
+        _release_lock()
     sys.exit(0)

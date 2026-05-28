@@ -360,11 +360,16 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete(self, memory_id: str) -> Dict[str, Any]:
+    def delete(self, memory_id: str, delete_linked: bool = False) -> Dict[str, Any]:
         """Delete a specific memory by ID.
 
         Args:
             memory_id: The ID of the memory to delete.
+            delete_linked: When True, also delete the older memories this one
+                superseded (the v3 ``linked_memory_ids`` chain), transitively.
+                This is the delete-side counterpart of ``latest_only`` — it
+                stops a superseded memory from resurfacing after you delete the
+                current one. Defaults to False (only the given memory is deleted).
 
         Returns:
             A dictionary containing the API response.
@@ -377,10 +382,12 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        params = self._prepare_params()
+        params = self._prepare_params({"delete_linked": delete_linked or None})
         response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
-        capture_client_event("client.delete", self, {"memory_id": memory_id, "sync_type": "sync"})
+        capture_client_event(
+            "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "sync"}
+        )
         return response.json()
 
     @api_error_handler
@@ -1268,11 +1275,16 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete(self, memory_id: str) -> Dict[str, Any]:
+    async def delete(self, memory_id: str, delete_linked: bool = False) -> Dict[str, Any]:
         """Delete a specific memory by ID.
 
         Args:
             memory_id: The ID of the memory to delete.
+            delete_linked: When True, also delete the older memories this one
+                superseded (the v3 ``linked_memory_ids`` chain), transitively.
+                This is the delete-side counterpart of ``latest_only`` — it
+                stops a superseded memory from resurfacing after you delete the
+                current one. Defaults to False (only the given memory is deleted).
 
         Returns:
             A dictionary containing the API response.
@@ -1285,10 +1297,12 @@ class AsyncMemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        params = self._prepare_params()
+        params = self._prepare_params({"delete_linked": delete_linked or None})
         response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
-        capture_client_event("client.delete", self, {"memory_id": memory_id, "sync_type": "async"})
+        capture_client_event(
+            "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "async"}
+        )
         return response.json()
 
     @api_error_handler

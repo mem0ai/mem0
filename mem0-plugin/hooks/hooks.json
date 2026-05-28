@@ -1,6 +1,29 @@
 {
   "hooks": {
+    "Setup": [
+      {
+        "matcher": "init|maintenance",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh",
+            "statusMessage": "Installing mem0 SDK...",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
     "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "diff -q \"${CLAUDE_PLUGIN_ROOT}/requirements.txt\" \"${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}/requirements.txt\" >/dev/null 2>&1 || \"${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh\"",
+            "statusMessage": "Installing mem0 SDK...",
+            "timeout": 60
+          }
+        ]
+      },
       {
         "matcher": "startup|resume|compact",
         "hooks": [
@@ -14,23 +37,43 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/block_memory_write.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
+            "timeout": 3
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "mcp__mem0__",
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
         "hooks": [
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_post_tool_use.sh",
             "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_bash_output.sh",
+            "timeout": 5
           }
         ]
       }
@@ -46,17 +89,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_stop.sh",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -64,18 +96,7 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_user_prompt.sh",
             "statusMessage": "Checking memory relevance...",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/on_task_completed.sh",
-            "timeout": 10
+            "timeout": 8
           }
         ]
       }
