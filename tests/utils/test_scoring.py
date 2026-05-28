@@ -126,6 +126,41 @@ class TestScoreAndRank:
         scored = score_and_rank(results, bm25, entity, threshold=0.1, top_k=10)
         assert scored[0]["score"] <= 1.0
 
+    # ------------------------------------------------------------------
+    # Regression tests for https://github.com/mem0ai/mem0/issues/5071
+    # ------------------------------------------------------------------
+
+    def test_none_score_does_not_raise_typeerror(self):
+        """score=None must be treated as 0.0, not raise TypeError.
+
+        LangChain's similarity_search_by_vector returns Document objects without
+        scores; _parse_output sets score=None.  dict.get("score", 0.0) returns
+        None when the key exists with a None value, so the old code raised
+        TypeError: '<' not supported between NoneType and float.
+        """
+        results = [{"id": "a", "score": None, "payload": {"data": "mem a"}}]
+        # Must not raise — None score is treated as 0.0 (below any positive threshold)
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        assert scored == []
+
+    def test_none_score_below_zero_threshold_is_included(self):
+        """score=None treated as 0.0 passes a threshold of 0.0."""
+        results = [{"id": "a", "score": None, "payload": {"data": "mem a"}}]
+        scored = score_and_rank(results, {}, {}, threshold=0.0, top_k=10)
+        assert len(scored) == 1
+        assert scored[0]["id"] == "a"
+
+    def test_mixed_none_and_float_scores(self):
+        """Ensure results with None scores are filtered while valid ones pass."""
+        results = [
+            {"id": "no-score", "score": None, "payload": {}},
+            {"id": "has-score", "score": 0.8, "payload": {}},
+        ]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        ids = [r["id"] for r in scored]
+        assert "has-score" in ids
+        assert "no-score" not in ids
+
 
 class TestEntityBoostWeight:
     def test_weight_value(self):
