@@ -1,7 +1,7 @@
 # syntax=docker.io/docker/dockerfile:1
 
 # Base stage for common setup
-FROM node:18-alpine AS base
+FROM node:22-alpine AS base
 
 # Install dependencies for pnpm
 RUN apk add --no-cache libc6-compat curl && \
