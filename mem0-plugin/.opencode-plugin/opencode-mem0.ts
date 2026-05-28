@@ -1,3 +1,5 @@
+// Mem0 memory plugin for OpenCode: captures and recalls memories across sessions
+// (add / search / manage) via the Mem0 platform, wired through OpenCode plugin hooks.
 import type { Plugin } from "@opencode-ai/plugin";
 import { MemoryClient } from "mem0ai";
 import { userInfo } from "os";
