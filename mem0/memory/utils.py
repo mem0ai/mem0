@@ -70,6 +70,52 @@ def parse_messages(messages):
     return response
 
 
+# Safe character budget for the existing-memory retrieval embedding step.
+# OpenAI's text-embedding-* models cap input at 8192 tokens, and other
+# providers have similar limits. English averages ~4 chars/token but
+# code, numbers, and non-English text can drop that to ~3 chars/token.
+# 24000 chars stays under 8192 tokens even in the ~3-chars/token worst
+# case (24000 / 3 = 8000 tokens < 8192) while still preserving the gist
+# of the conversation for retrieval.
+DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET = 24000
+
+
+def cap_text_for_embedding(text, max_chars=DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET):
+    """Cap a long retrieval-embedding input by keeping the tail.
+
+    During Memory.add(), the full parsed conversation is embedded once to
+    search for existing related memories. On long multi-turn conversations
+    this input can exceed the embedding provider's token limit (e.g. 8192
+    tokens for OpenAI text-embedding-* models) and crash the entire add()
+    call with HTTP 400, before any memory is extracted or stored.
+
+    To avoid that hard failure while preserving recency-biased recall, we
+    truncate from the front when the input exceeds the safe character
+    budget. The tail (most recent content) is the most relevant signal
+    for retrieving existing memories about what the user just said.
+
+    Args:
+        text: The text to potentially truncate.
+        max_chars: Soft character budget. Defaults to a conservative value
+            chosen to stay well under common 8192-token embedding limits.
+
+    Returns:
+        The original text if under budget; otherwise the trailing slice.
+    """
+    if not isinstance(text, str):
+        return text
+    if len(text) <= max_chars:
+        return text
+    logger.warning(
+        "Embedding input length (%d chars) exceeds retrieval budget (%d chars); "
+        "truncating from the front to avoid embedding-provider token-limit errors. "
+        "Set a smaller-message conversation or pre-summarize for best recall.",
+        len(text),
+        max_chars,
+    )
+    return text[-max_chars:]
+
+
 def format_entities(entities):
     if not entities:
         return ""
