@@ -98,7 +98,14 @@ def score_and_rank(
         if mem_id is None:
             continue
 
-        semantic_score = result.get("score", 0.0)
+        # Use explicit None check: dict.get(key, default) only substitutes the
+        # default when the key is *absent*, not when the value is None.
+        # LangChain's similarity_search_by_vector returns Document objects without
+        # scores, so _parse_output sets score=None — causing a TypeError here when
+        # None is compared with the float threshold.
+        # See https://github.com/mem0ai/mem0/issues/5071
+        raw_score = result.get("score")
+        semantic_score = raw_score if raw_score is not None else 0.0
         if semantic_score < threshold:
             continue
 
