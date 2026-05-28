@@ -75,6 +75,18 @@ class TestSpacyModelCache:
         # lemma 模型禁用了 NER 和 parser，是不同的管道配置
         assert nlp_full is not nlp_lemma
 
+    def test_full_and_lemma_cache_independent(self):
+        from mem0.utils.spacy_models import get_nlp_full, get_nlp_lemma
+
+        nlp_full = get_nlp_full()
+        nlp_lemma = get_nlp_lemma()
+        # 不同的管道配置，应该是不同的对象
+        assert nlp_full is not nlp_lemma
+        # Full 应该有 ner/parser 管道
+        assert nlp_full.has_pipe("ner")
+        # Lemma 应该没有 ner/parser 管道
+        assert not nlp_lemma.has_pipe("ner")
+
 
 class TestSpacyModelFailure:
     """无效模型降级测试（不需要 spaCy 模型）。"""
@@ -86,4 +98,12 @@ class TestSpacyModelFailure:
 
         result = get_nlp_full()
         # 模型加载失败时应返回 None，不抛异常
+        assert result is None
+
+    def test_invalid_model_returns_none_for_lemma(self, monkeypatch):
+        monkeypatch.setenv("MEM0_SPACY_MODEL", "nonexistent_model_xyz")
+
+        from mem0.utils.spacy_models import get_nlp_lemma
+
+        result = get_nlp_lemma()
         assert result is None
