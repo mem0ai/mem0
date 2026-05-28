@@ -150,3 +150,57 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestCapTextForEmbedding:
+    """Regression coverage for issue #5148 — protect existing-memory retrieval
+    from embedding-provider token-limit crashes on long conversations.
+
+    The helper truncates from the front (keeps the tail) so the most-recent
+    content drives retrieval, matching the intent of the retrieval step in
+    Memory._add_to_vector_store Phase 1.
+    """
+
+    def test_short_text_passes_through(self):
+        from mem0.memory.utils import cap_text_for_embedding
+
+        text = "hello world"
+        assert cap_text_for_embedding(text) == text
+
+    def test_long_text_is_truncated_to_budget(self):
+        from mem0.memory.utils import cap_text_for_embedding
+
+        max_chars = 100
+        long_text = "x" * (max_chars * 3)
+        out = cap_text_for_embedding(long_text, max_chars=max_chars)
+        assert len(out) == max_chars
+
+    def test_long_text_keeps_the_tail(self):
+        """Recency matters most for retrieval — the most recent content
+        (which the user just said) should be preserved when truncating."""
+        from mem0.memory.utils import cap_text_for_embedding
+
+        head = "OLD" * 100
+        tail = "RECENT-CONTENT-MARKER"
+        long_text = head + tail
+        out = cap_text_for_embedding(long_text, max_chars=len(tail) + 5)
+        # The recent marker must survive truncation
+        assert tail in out
+        # And the old content must be gone (or at least mostly gone)
+        assert out.endswith(tail)
+
+    def test_default_budget_under_8192_token_limit(self):
+        """The default budget must stay safely under common 8192-token
+        embedding limits even with worst-case ~3 chars/token packing."""
+        from mem0.memory.utils import DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET
+
+        # Worst-case token estimate (3 chars/token); must stay under 8192.
+        worst_case_tokens = DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET / 3
+        assert worst_case_tokens < 8192
+
+    def test_non_string_input_returned_unchanged(self):
+        """Defensive: callers may accidentally pass non-string input."""
+        from mem0.memory.utils import cap_text_for_embedding
+
+        assert cap_text_for_embedding(None) is None
+        assert cap_text_for_embedding(12345) == 12345
