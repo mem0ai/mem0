@@ -121,7 +121,6 @@ echo "Loves hiking on weekends" | mem0 add --user-id alice
 | `-f, --file` | Read messages from a JSON file |
 | `-m, --metadata` | Custom metadata as JSON |
 | `--categories` | Categories (JSON array or comma-separated) |
-| `--graph / --no-graph` | Enable or disable graph memory extraction |
 | `-o, --output` | Output format: `text`, `json`, `quiet` |
 
 ### `mem0 search`
@@ -141,7 +140,6 @@ mem0 search "preferred tools" --user-id alice --output json --top-k 5
 | `--rerank` | Enable reranking |
 | `--keyword` | Use keyword search instead of semantic |
 | `--filter` | Advanced filter expression (JSON) |
-| `--graph / --no-graph` | Enable or disable graph in search |
 | `-o, --output` | Output format: `text`, `json`, `table` |
 
 ### `mem0 list`
@@ -436,7 +434,6 @@ For non-interactive environments (CI, agent runtimes), set credentials via `mem0
 | `MEM0_AGENT_ID` | Default agent ID |
 | `MEM0_APP_ID` | Default app ID |
 | `MEM0_RUN_ID` | Default run ID |
-| `MEM0_ENABLE_GRAPH` | Enable graph memory (`true` / `false`) |
 
 Environment variables take precedence over values in the config file, which take precedence over defaults.
 
