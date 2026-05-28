@@ -149,9 +149,9 @@ See the [migration guide](https://docs.mem0.ai/migration/platform-v2-to-v3) for 
 For the latest docs beyond what's in the references, use the doc search tool:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --query "topic"
-python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --page "/platform/features/graph-memory"
-python ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.py --index
+bun ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.ts --query "topic"
+bun ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.ts --page "/platform/features/graph-memory"
+bun ${CLAUDE_SKILL_DIR}/scripts/mem0_doc_search.ts --index
 ```
 
 No API key needed — searches docs.mem0.ai directly.
