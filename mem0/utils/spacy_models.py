@@ -62,18 +62,18 @@ def get_nlp_full():
     model_name = _get_model_name()
     global _nlp_full_cache, _load_failed
 
-    if model_name in _load_failed:
-        return None
     cached = _nlp_full_cache.get(model_name)
     if cached is not None:
         return cached
+    if model_name in _load_failed:
+        return None
 
     with _lock:
-        if model_name in _load_failed:
-            return None
         cached = _nlp_full_cache.get(model_name)
         if cached is not None:
             return cached
+        if model_name in _load_failed:
+            return None
 
         try:
             _ensure_model_available(model_name)
@@ -94,18 +94,18 @@ def get_nlp_lemma():
     model_name = _get_model_name()
     global _nlp_lemma_cache, _load_failed
 
-    if model_name in _load_failed:
-        return None
     cached = _nlp_lemma_cache.get(model_name)
     if cached is not None:
         return cached
+    if model_name in _load_failed:
+        return None
 
     with _lock:
-        if model_name in _load_failed:
-            return None
         cached = _nlp_lemma_cache.get(model_name)
         if cached is not None:
             return cached
+        if model_name in _load_failed:
+            return None
 
         try:
             _ensure_model_available(model_name)
