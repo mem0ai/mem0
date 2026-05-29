@@ -2,6 +2,20 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.8 — Automatic coding categories
+
+### Added
+
+- **Background coding-category setup (`scripts/auto_setup_categories.py`):** The coding-focused category taxonomy (17 categories tuned for development work) is now installed automatically in the background on session start — the same way `auto_import.py` imports `CLAUDE.md`/`AGENTS.md`. Users are no longer asked to configure it during onboarding. Mirrors the auto-import design: resolves the API key, holds a lock file (`~/.mem0/categories_setup.lock`), reuses the proven `setup_coding_categories.py` taxonomy + `project.update` path via the plugin venv, logs to stderr only, and always exits 0 so it can never block a session.
+- **Per-account state gating (`~/.mem0/categories_setup.json`):** Keyed by a hash of the API key → a hash of the taxonomy. Categories are scoped to the mem0 project tied to the API key (not the local repo), so setup runs once per account and skips all network calls thereafter — re-applying only if the taxonomy itself changes.
+- **`tests/test_auto_setup_categories.py`:** Covers fingerprint determinism/sensitivity, state-file load/save/gating, and idempotent apply via an injected fake client (no SDK, no network).
+
+### Changed
+
+- **`on_session_start.sh`:** Spawns `auto_setup_categories.py` in the background on `startup` (alongside `auto_import.py`), preferring the venv python so the SDK is available. Covers Claude Code, Cursor, and Codex, which all route SessionStart through this script.
+- **`/mem0:onboard` Step 5 is no longer interactive:** Removed the `Install coding categories? [Y/n]` prompt. Categories now configure automatically in the background; the onboarding step only verifies status and applies them if the background run hasn't finished yet — mirroring how Step 4 (project-file import) already works.
+- **Session-start "new project" hint** now notes that coding categories install automatically in the background.
+
 ## 0.1.0 — OpenCode & Antigravity
 
 ### Added

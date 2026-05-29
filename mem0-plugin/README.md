@@ -268,19 +268,21 @@ Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read
 
 If reconnection still fails after a restart, check that `MEM0_API_KEY` is reachable in the new shell (`echo $MEM0_API_KEY`) and confirm you're using a key that starts with `m0-` (from https://app.mem0.ai/dashboard/api-keys, not a legacy token).
 
-## Optional: tune categories for coding workflows
+## Coding-tuned categories (automatic)
 
-mem0 auto-tags every memory with one or more `categories` from a project-level list. The default list is consumer-oriented (`food`, `hobbies`, `music` …) — useful for chat assistants, less so for code. A one-shot script in this plugin replaces it with a coding-focused taxonomy:
+mem0 auto-tags every memory with one or more `categories` from a project-level list. The default list is consumer-oriented (`food`, `hobbies`, `music` …) — useful for chat assistants, less so for code. **The plugin installs a coding-focused taxonomy automatically in the background on session start** — no prompt, no manual step. New memories then auto-tag against 17 development-oriented categories: `architecture_decisions`, `anti_patterns`, `task_learnings`, `tooling_setup`, `bug_fixes`, `coding_conventions`, `user_preferences`, `dependency_decisions`, `performance_findings`, `security_constraints`, `testing_patterns`, `data_model`, `api_contracts`, `deployment_runbook`, `team_norms`, `domain_glossary`, `experiment_results`.
+
+The background setup is idempotent and runs once per account (cached in `~/.mem0/categories_setup.json`); it re-applies only if the taxonomy itself changes. To preview the taxonomy or force a refresh manually:
 
 ```bash
-# Dry-run first -- prints current vs proposed, no changes:
+# Dry-run -- prints current vs proposed, no changes:
 python mem0-plugin/scripts/setup_coding_categories.py
 
-# Actually write:
+# Write explicitly:
 python mem0-plugin/scripts/setup_coding_categories.py --apply
 ```
 
-Requires the `mem0ai` Python SDK (`pip install mem0ai`) and `MEM0_API_KEY` set. New memories will then auto-tag against `architecture_decisions`, `anti_patterns`, `task_learnings`, `tooling_setup`, `bug_fixes`, `coding_conventions`, `user_preferences`. Re-run with a different list any time; `project.update(custom_categories=[...])` always replaces.
+Requires the `mem0ai` Python SDK (`pip install mem0ai`) and `MEM0_API_KEY` set. `project.update(custom_categories=[...])` always replaces the full list.
 
 ## MCP Tools
 
