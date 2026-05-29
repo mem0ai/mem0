@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Dict, List, Optional
 
@@ -5,6 +6,7 @@ from openai import OpenAI
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.base import LLMBase
+from mem0.memory.utils import extract_json
 
 
 class XAILLM(LLMBase):
@@ -15,8 +17,41 @@ class XAILLM(LLMBase):
             self.config.model = "grok-2-latest"
 
         api_key = self.config.api_key or os.getenv("XAI_API_KEY")
-        base_url = self.config.xai_base_url or os.getenv("XAI_API_BASE") or "https://api.x.ai/v1"
+        # The factory wires xai with a plain BaseLlmConfig, which has no
+        # `xai_base_url` attribute. Use getattr so construction works with or
+        # without it instead of raising AttributeError on every call.
+        base_url = getattr(self.config, "xai_base_url", None) or os.getenv("XAI_API_BASE") or "https://api.x.ai/v1"
         self.client = OpenAI(api_key=api_key, base_url=base_url)
+
+    def _parse_response(self, response, tools):
+        """
+        Process the response based on whether tools are used or not.
+
+        Args:
+            response: The raw response from API.
+            tools: The list of tools provided in the request.
+
+        Returns:
+            str or dict: The processed response.
+        """
+        if tools:
+            processed_response = {
+                "content": response.choices[0].message.content,
+                "tool_calls": [],
+            }
+
+            if response.choices[0].message.tool_calls:
+                for tool_call in response.choices[0].message.tool_calls:
+                    processed_response["tool_calls"].append(
+                        {
+                            "name": tool_call.function.name,
+                            "arguments": json.loads(extract_json(tool_call.function.arguments)),
+                        }
+                    )
+
+            return processed_response
+        else:
+            return response.choices[0].message.content
 
     def generate_response(
         self,
@@ -35,7 +70,8 @@ class XAILLM(LLMBase):
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
 
         Returns:
-            str: The generated response.
+            str or dict: The generated response. A dict with ``content`` and
+            ``tool_calls`` when ``tools`` are supplied, otherwise the message string.
         """
         params = {
             "model": self.config.model,
@@ -47,6 +83,9 @@ class XAILLM(LLMBase):
 
         if response_format:
             params["response_format"] = response_format
+        if tools:
+            params["tools"] = tools
+            params["tool_choice"] = tool_choice
 
         response = self.client.chat.completions.create(**params)
-        return response.choices[0].message.content
+        return self._parse_response(response, tools)
