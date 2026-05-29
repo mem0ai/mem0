@@ -2067,7 +2067,7 @@ class TestPGVector(unittest.TestCase):
         self.mock_cursor.fetchall.return_value = []  # No existing collections
         
         connection_string = "postgresql://user:pass@localhost:5432/db"
-        
+
         pgvector = PGVector(
             dbname="test_db",  # Will be overridden by connection_string
             collection_name="test_collection",
@@ -2083,9 +2083,10 @@ class TestPGVector(unittest.TestCase):
             sslmode="require",
             connection_string=connection_string
         )
-        
-        # Verify ConnectionPool was called with the connection string including sslmode
-        expected_conn_string = f"{connection_string} sslmode=require"
+
+        # A URI connection string must carry sslmode in the query string, not as a
+        # space-separated keyword (which libpq would fold into the dbname).
+        expected_conn_string = f"{connection_string}?sslmode=require"
         mock_connection_pool.assert_called_with(
             conninfo=expected_conn_string,
             min_size=1,
@@ -2094,6 +2095,131 @@ class TestPGVector(unittest.TestCase):
         )
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_init_individual_params_with_sslmode_uses_query_string_psycopg3(self, mock_connection_pool):
+        """Individual params + sslmode must build a valid URI (?sslmode=...)."""
+        mock_connection_pool.return_value = self.mock_pool_psycopg
+        self.mock_cursor.fetchall.return_value = []
+
+        PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            sslmode="require",
+        )
+
+        mock_connection_pool.assert_called_once_with(
+            conninfo="postgresql://test_user:test_pass@localhost:5432/test_db?sslmode=require",
+            min_size=1,
+            max_size=4,
+            open=True,
+        )
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_uri_connection_string_with_existing_query_param_appends_with_ampersand(self, mock_connection_pool):
+        """A URI that already has a query param appends sslmode with '&'."""
+        mock_connection_pool.return_value = self.mock_pool_psycopg
+        self.mock_cursor.fetchall.return_value = []
+
+        connection_string = "postgresql://user:pass@localhost:5432/db?connect_timeout=10"
+
+        PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            sslmode="require",
+            connection_string=connection_string,
+        )
+
+        mock_connection_pool.assert_called_with(
+            conninfo=f"{connection_string}&sslmode=require",
+            min_size=1,
+            max_size=4,
+            open=True,
+        )
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_keyword_value_dsn_with_sslmode_uses_space_separator(self, mock_connection_pool):
+        """A keyword/value DSN appends sslmode space-separated, not as a query string."""
+        mock_connection_pool.return_value = self.mock_pool_psycopg
+        self.mock_cursor.fetchall.return_value = []
+
+        connection_string = "host=localhost port=5432 dbname=db user=u password=p"
+
+        PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            sslmode="require",
+            connection_string=connection_string,
+        )
+
+        mock_connection_pool.assert_called_with(
+            conninfo=f"{connection_string} sslmode=require",
+            min_size=1,
+            max_size=4,
+            open=True,
+        )
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_existing_sslmode_in_connection_string_is_replaced(self, mock_connection_pool):
+        """An existing sslmode value is replaced without corrupting other params."""
+        mock_connection_pool.return_value = self.mock_pool_psycopg
+        self.mock_cursor.fetchall.return_value = []
+
+        connection_string = "postgresql://user:pass@localhost:5432/db?sslmode=disable&connect_timeout=10"
+
+        PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            sslmode="require",
+            connection_string=connection_string,
+        )
+
+        mock_connection_pool.assert_called_with(
+            conninfo="postgresql://user:pass@localhost:5432/db?sslmode=require&connect_timeout=10",
+            min_size=1,
+            max_size=4,
+            open=True,
+        )
 
     # Enhanced Test for Index Creation with DiskANN
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)

@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from contextlib import contextmanager
 from typing import Any, List, Optional
 
@@ -113,6 +114,25 @@ def _build_filter_conditions(filters):
     return conditions, params
 
 
+def _append_sslmode(connection_string: str, sslmode: str) -> str:
+    """Add or replace sslmode in a libpq connection string, respecting its format.
+
+    URI strings (``postgresql://...``) carry parameters in a query string
+    (``?sslmode=...`` / ``&sslmode=...``), while keyword/value DSN strings use
+    space-separated ``sslmode=...``. Mixing the two (e.g. appending a
+    space-separated keyword onto a URI) makes libpq fold it into the dbname and
+    silently drops the SSL setting.
+    """
+    if "sslmode=" in connection_string:
+        return re.sub(r"sslmode=[^ &]*", f"sslmode={sslmode}", connection_string)
+
+    if connection_string.startswith(("postgresql://", "postgres://")):
+        separator = "&" if "?" in connection_string else "?"
+        return f"{connection_string}{separator}sslmode={sslmode}"
+
+    return f"{connection_string} sslmode={sslmode}"
+
+
 class OutputData(BaseModel):
     id: Optional[str]
     score: Optional[float]
@@ -168,18 +188,11 @@ class PGVector(VectorStoreBase):
             self.connection_pool = connection_pool
         elif connection_string:
             if sslmode:
-                # Append sslmode to connection string if provided
-                if 'sslmode=' in connection_string:
-                    # Replace existing sslmode
-                    import re
-                    connection_string = re.sub(r'sslmode=[^ ]*', f'sslmode={sslmode}', connection_string)
-                else:
-                    # Add sslmode to connection string
-                    connection_string = f"{connection_string} sslmode={sslmode}"
+                connection_string = _append_sslmode(connection_string, sslmode)
         else:
             connection_string = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
             if sslmode:
-                connection_string = f"{connection_string} sslmode={sslmode}"
+                connection_string = _append_sslmode(connection_string, sslmode)
         
         if self.connection_pool is None:
             if PSYCOPG_VERSION == 3:
