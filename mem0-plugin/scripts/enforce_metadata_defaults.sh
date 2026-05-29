@@ -45,6 +45,7 @@ trap 'rm -f "$_PATCH_OUT"' EXIT
 _MEM0_TOOL_INPUT="$TOOL_INPUT" \
 _MEM0_USER_ID="${MEM0_RESOLVED_USER_ID:-}" \
 _MEM0_APP_ID="${MEM0_PROJECT_ID:-}" \
+_MEM0_GLOBAL_SEARCH="${MEM0_GLOBAL_SEARCH:-false}" \
 _MEM0_HANDLER="$HANDLER" \
 python3 <<'PYEOF' > "$_PATCH_OUT" 2>/dev/null || true
 import json, os, sys
@@ -58,6 +59,7 @@ except Exception:
 handler = os.environ.get("_MEM0_HANDLER", "")
 resolved_uid = os.environ.get("_MEM0_USER_ID", "")
 resolved_aid = os.environ.get("_MEM0_APP_ID", "")
+global_search = os.environ.get("_MEM0_GLOBAL_SEARCH", "false") == "true"
 changed = False
 
 
@@ -177,7 +179,11 @@ if handler == "add_memory":
         inp["metadata"] = meta
 
 elif handler in ("search_memories", "get_memories"):
-    changed = inject_filter_identity(inp, resolved_uid, resolved_aid)
+    if global_search:
+        inp["filters"] = {"OR": [{"user_id": "*"}]}
+        changed = True
+    else:
+        changed = inject_filter_identity(inp, resolved_uid, resolved_aid)
 
 elif handler == "delete_all":
     changed = inject_top_level_identity(inp, resolved_uid, resolved_aid)
