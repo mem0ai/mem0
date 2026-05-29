@@ -9,8 +9,8 @@ class PGVectorConfig(BaseModel):
     embedding_model_dims: Optional[int] = Field(1536, description="Dimensions of the embedding model")
     user: Optional[str] = Field(None, description="Database user")
     password: Optional[str] = Field(None, description="Database password")
-    host: Optional[str] = Field(None, description="Database host. Default is localhost")
-    port: Optional[int] = Field(None, description="Database port. Default is 1536")
+    host: Optional[str] = Field(None, description="Database host")
+    port: Optional[int] = Field(None, description="Database port (PostgreSQL default is 5432)")
     diskann: Optional[bool] = Field(False, description="Use diskann for approximate nearest neighbors search")
     hnsw: Optional[bool] = Field(True, description="Use hnsw for faster search")
     minconn: Optional[int] = Field(1, description="Minimum number of connections in the pool")
@@ -33,9 +33,9 @@ class PGVectorConfig(BaseModel):
         # Otherwise, validate individual connection parameters
         user, password = values.get("user"), values.get("password")
         host, port = values.get("host"), values.get("port")
-        if not user and not password:
+        if not user or not password:
             raise ValueError("Both 'user' and 'password' must be provided when not using connection_string.")
-        if not host and not port:
+        if not host or not port:
             raise ValueError("Both 'host' and 'port' must be provided when not using connection_string.")
         return values
 

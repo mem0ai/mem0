@@ -4,6 +4,7 @@ import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
+from mem0.configs.vector_stores.pgvector import PGVectorConfig
 from mem0.vector_stores.pgvector import PGVector, _build_filter_conditions
 
 
@@ -2534,3 +2535,49 @@ class TestBuildFilterConditions(unittest.TestCase):
     def test_numeric_scalar_becomes_string(self):
         conditions, params = _build_filter_conditions({"priority": 42})
         self.assertEqual(params, ["priority", "42"])
+
+
+class TestPGVectorConfigValidation(unittest.TestCase):
+    """Validation of PGVectorConfig connection-parameter requirements."""
+
+    def _full_params(self, **overrides):
+        params = {
+            "user": "u",
+            "password": "p",
+            "host": "localhost",
+            "port": 5432,
+        }
+        params.update(overrides)
+        return params
+
+    def test_full_individual_params_are_valid(self):
+        config = PGVectorConfig(**self._full_params())
+        self.assertEqual(config.host, "localhost")
+        self.assertEqual(config.port, 5432)
+
+    def test_missing_password_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            PGVectorConfig(**self._full_params(password=None))
+        self.assertIn("'user' and 'password'", str(ctx.exception))
+
+    def test_missing_user_raises(self):
+        with self.assertRaises(ValueError):
+            PGVectorConfig(**self._full_params(user=None))
+
+    def test_missing_port_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            PGVectorConfig(**self._full_params(port=None))
+        self.assertIn("'host' and 'port'", str(ctx.exception))
+
+    def test_missing_host_raises(self):
+        with self.assertRaises(ValueError):
+            PGVectorConfig(**self._full_params(host=None))
+
+    def test_connection_string_skips_individual_param_validation(self):
+        config = PGVectorConfig(connection_string="postgresql://u:p@localhost:5432/db")
+        self.assertEqual(config.connection_string, "postgresql://u:p@localhost:5432/db")
+
+    def test_connection_pool_skips_individual_param_validation(self):
+        sentinel = object()
+        config = PGVectorConfig(connection_pool=sentinel)
+        self.assertIs(config.connection_pool, sentinel)
