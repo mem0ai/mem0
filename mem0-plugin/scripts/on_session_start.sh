@@ -76,6 +76,7 @@ import json, os, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
+global_search = os.environ.get('MEM0_GLOBAL_SEARCH', 'false') == 'true'
 
 def get_count(filters):
     body = json.dumps({'filters': filters}).encode()
@@ -93,8 +94,11 @@ def get_count(filters):
     return 0
 
 try:
-    base = [{'user_id': user_id}, {'app_id': app_id}]
-    total = get_count({'AND': base})
+    if global_search:
+        filters = {'OR': [{'user_id': '*'}]}
+    else:
+        filters = {'AND': [{'user_id': user_id}, {'app_id': app_id}]}
+    total = get_count(filters)
     print(total)
 except Exception:
     print('?')
@@ -105,21 +109,30 @@ _UID="${MEM0_RESOLVED_USER_ID:-${USER:-default}}"
 _ANN="${_MEM0_IDENTITY_ANNOTATION:-}"
 _PID="${MEM0_PROJECT_ID:-unknown}"
 _BR="${MEM0_BRANCH:-unknown}"
+_GS="${MEM0_GLOBAL_SEARCH:-false}"
+
+if [ "$_GS" = "true" ]; then
+  _SCOPE_LABEL="scope=global"
+  _SCOPE_INSTR="Global search is ON — searches return all memories across all users and projects. Writes still use user_id: \`${_UID}\`, app_id: \`${_PID}\`."
+else
+  _SCOPE_LABEL="project=${_PID}"
+  _SCOPE_INSTR="Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:
+- user_id: \`${_UID}\`
+- app_id: \`${_PID}\` (project scope — passed as top-level \`app_id\`, NOT in metadata)"
+fi
 
 cat <<BANNER
 ## Mem0 Active
 
-\`user=${_UID}${_ANN} | project=${_PID} | branch=${_BR} | memories=${MEM0_COUNT}\`
+\`user=${_UID}${_ANN} | ${_SCOPE_LABEL} | branch=${_BR} | memories=${MEM0_COUNT}\`
 
 IMPORTANT: In your FIRST response, display this exact status line as your opening line:
 
 \`\`\`
-Mem0 Active | user=${_UID}${_ANN} | project=${_PID} | branch=${_BR} | memories=${MEM0_COUNT}
+Mem0 Active | user=${_UID}${_ANN} | ${_SCOPE_LABEL} | branch=${_BR} | memories=${MEM0_COUNT}
 \`\`\`
 
-Always include \`user_id\` + \`app_id\` in every \`search_memories\` filter and \`add_memory\` call:
-- user_id: \`${_UID}\`
-- app_id: \`${_PID}\` (project scope — passed as top-level \`app_id\`, NOT in metadata)
+${_SCOPE_INSTR}
 
 After completing any task, decision, or meaningful exchange, proactively store learnings via \`add_memory\`. Do NOT wait until the session ends — store memories incrementally as work progresses. Focus on: decisions made, bugs fixed, patterns discovered, user preferences, or task outcomes. Aim for 1–3 memories per substantial interaction.
 
@@ -140,7 +153,7 @@ fi
 
 if [ "$SOURCE" = "startup" ]; then
   if [ "$MEM0_COUNT" = "0" ]; then
-    echo "New project with 0 memories. Invoke the mem0:onboard skill to import project files and install coding categories."
+    echo "New project with 0 memories. Invoke the mem0:onboard skill to import project files. Coding categories install automatically in the background."
   else
     echo "Search mem0 for recent decisions and task learnings before responding. Run 2 parallel searches: one for decision type, one for task_learning type."
   fi
@@ -153,6 +166,15 @@ if [ "$SOURCE" = "startup" ]; then
 
   MEM0_CWD="$MEM0_CWD_RESOLVED" \
     python3 "$SCRIPT_DIR/auto_import.py" 2>/dev/null &
+
+  # Configure the coding-category taxonomy in the background (idempotent, never blocks).
+  # Prefer the venv python since this path needs the mem0ai SDK.
+  _VENV_PY="${CLAUDE_PLUGIN_DATA:-$HOME/.mem0/plugin-data}/venv/bin/python3"
+  if [ -x "$_VENV_PY" ]; then
+    MEM0_CWD="$MEM0_CWD_RESOLVED" "$_VENV_PY" "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
+  else
+    MEM0_CWD="$MEM0_CWD_RESOLVED" python3 "$SCRIPT_DIR/auto_setup_categories.py" 2>/dev/null &
+  fi
 
 elif [ "$SOURCE" = "resume" ]; then
   echo "Session resumed. Search mem0 for session_state and decision memories to pick up where you left off. Run 2 parallel searches."

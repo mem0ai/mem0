@@ -70,6 +70,7 @@ if command -v python3 >/dev/null 2>&1; then
   MEM0_SEARCH_LIMIT=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('search_limit',10))" 2>/dev/null || echo "10")
   MEM0_RETENTION_SESSION_DAYS=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('retention_session_days',90))" 2>/dev/null || echo "90")
   MEM0_CONFIDENCE_THRESHOLD=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('confidence_threshold',0.3))" 2>/dev/null || echo "0.3")
+  MEM0_GLOBAL_SEARCH=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('global_search',False)).lower())" 2>/dev/null || echo "false")
   MEM0_DEBUG=$(echo "$_SETTINGS_JSON" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('debug',False)).lower())" 2>/dev/null || echo "false")
 else
   MEM0_AUTO_SAVE="true"
@@ -77,9 +78,10 @@ else
   MEM0_SEARCH_LIMIT="10"
   MEM0_RETENTION_SESSION_DAYS="90"
   MEM0_CONFIDENCE_THRESHOLD="0.3"
+  MEM0_GLOBAL_SEARCH="false"
   MEM0_DEBUG="false"
 fi
-export MEM0_AUTO_SAVE MEM0_AUTO_SEARCH MEM0_SEARCH_LIMIT MEM0_RETENTION_SESSION_DAYS MEM0_CONFIDENCE_THRESHOLD MEM0_DEBUG
+export MEM0_AUTO_SAVE MEM0_AUTO_SEARCH MEM0_SEARCH_LIMIT MEM0_RETENTION_SESSION_DAYS MEM0_CONFIDENCE_THRESHOLD MEM0_GLOBAL_SEARCH MEM0_DEBUG
 
 # Also resolve project context
 . "$_SCRIPT_DIR/_project.sh"

@@ -141,29 +141,27 @@ Parse the auto_import output and print a user-friendly summary:
   - Project file import failed. Check API key and retry with: /mem0:onboard
   ```
 
-## Step 5: Install coding categories
+## Step 5: Coding categories (automatic)
 
-The setup script is idempotent — it compares existing categories against the proposed set and skips the API call if they already match (tolerates order differences and extra API fields). Safe to re-run.
+Coding categories optimized for development workflows are installed **automatically in the background on session start** — the same way project files are imported (Step 4). The user is no longer asked. This step only verifies they are in place and applies them if the background run hasn't finished yet.
 
-Ask: "Install coding categories optimized for development workflows? [Y/n]"
+The installer is idempotent and self-caching: it compares existing categories against the proposed set, skips the API call when they already match, and skips all network calls entirely once applied for this account (re-applying only if the taxonomy changes). Safe to run anytime.
 
-If yes, run the setup script using the plugin's venv python:
+Run it in the foreground to verify, using the plugin's venv python:
 
 ```bash
 VENV_PY="${CLAUDE_PLUGIN_DATA}/venv/bin/python3"
 if [ -x "${VENV_PY}" ]; then
-  "${VENV_PY}" "${CLAUDE_PLUGIN_ROOT}/scripts/setup_coding_categories.py" --apply
+  MEM0_DEBUG=1 "${VENV_PY}" "${CLAUDE_PLUGIN_ROOT}/scripts/auto_setup_categories.py"
 else
-  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/setup_coding_categories.py" --apply
+  MEM0_DEBUG=1 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/auto_setup_categories.py"
 fi
 ```
 
 Parse the output:
-- `"Categories already match -- skipping update."` → Print: `- Coding categories already installed. Skipped.`
-- `"Done."` → Print: `- Coding categories installed (<N> categories).`
-- Error → Print the error and suggest re-running `/mem0:onboard`.
-
-If the script fails with "mem0ai SDK not found", run the dependency installer first:
+- contains `Applied <N> coding categories` → Print: `- Coding categories installed (<N> categories).`
+- contains `already configured` → Print: `- Coding categories already configured.`
+- error or `SDK not ready` → run the dependency installer first, then retry:
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/scripts/ensure_deps.sh"
 ```
@@ -177,7 +175,7 @@ Print a summary:
   user_id:    <user_id>
   project_id: <project_id> (app_id)
   files:      <N> found, <M> imported
-  categories: <N installed | already installed | skipped by user>
+  categories: <installed | already configured>
 
 Memory is now active for this project. Start working — mem0 will
 automatically search relevant context and capture learnings.
