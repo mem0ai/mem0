@@ -1,0 +1,132 @@
+---
+title: ScyllaDB
+description: "Use ScyllaDB as a high-performance, shard-aware distributed vector store in Mem0."
+---
+
+[ScyllaDB](https://www.scylladb.com/) is an ultra-low latency, high-throughput NoSQL database fully compatible with Apache Cassandra's CQL interface. Because Mem0 uses the standard `cassandra.*` driver API, you can point it at a ScyllaDB cluster without any code changes — simply swap in the `scylla-driver` package, which provides identical import paths plus shard-aware routing that sends requests directly to the CPU shard owning the target partition.
+
+### Prerequisites
+
+Install the optimized driver:
+
+```bash
+pip install scylla-driver
+```
+
+<Note>
+`scylla-driver` is a drop-in replacement for `cassandra-driver`. It exposes the same `cassandra.*` namespace, so existing code requires no modifications.
+</Note>
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "cassandra",
+        "config": {
+            "contact_points": ["127.0.0.1"],
+            "port": 9042,
+            "username": "scylla",
+            "password": "your_password",
+            "keyspace": "mem0",
+            "collection_name": "memories",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+#### Using ScyllaDB Cloud
+
+For a fully managed ScyllaDB cluster on [ScyllaDB Cloud](https://cloud.scylladb.com/):
+
+```python
+from cassandra.policies import DCAwareRoundRobinPolicy
+
+config = {
+    "vector_store": {
+        "provider": "cassandra",
+        "config": {
+            "contact_points": ["node-0.aws-eu-west-1.your-cluster-id.clusters.scylla.cloud"],
+            "port": 9042,
+            "username": "scylla",
+            "password": "your_cluster_password",
+            "keyspace": "mem0",
+            "collection_name": "memories",
+            "load_balancing_policy": DCAwareRoundRobinPolicy(local_dc="AWS_EU_WEST_1")
+        }
+    }
+}
+```
+
+<Tip>
+Use `DCAwareRoundRobinPolicy` with ScyllaDB Cloud to ensure client connections stay within the correct datacenter and benefit from shard-aware routing.
+</Tip>
+
+### Config
+
+ScyllaDB uses the same configuration parameters as the `cassandra` provider:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `contact_points` | List of node IP addresses or hostnames | Required |
+| `port` | CQL native transport port | `9042` |
+| `username` | Database username | `None` |
+| `password` | Database password | `None` |
+| `keyspace` | Keyspace name | `"mem0"` |
+| `collection_name` | Table name for storing vectors | `"memories"` |
+| `embedding_model_dims` | Dimensions of embedding vectors | `1536` |
+| `protocol_version` | CQL protocol version | `4` |
+| `load_balancing_policy` | Custom load balancing policy | `None` |
+
+### Setup
+
+#### Option 1: Local ScyllaDB using Docker
+
+```bash
+docker run --name mem0-scylladb \
+    -p 9042:9042 \
+    -d scylladb/scylla:latest
+
+# Wait for ScyllaDB to finish bootstrapping (~30 seconds)
+docker exec -it mem0-scylladb cqlsh
+
+-- Create keyspace
+CREATE KEYSPACE IF NOT EXISTS mem0
+  WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': 1};
+```
+
+#### Option 2: ScyllaDB Cloud (Managed)
+
+1. Sign up at [ScyllaDB Cloud](https://cloud.scylladb.com/)
+2. Create a new cluster (AWS or GCP, any region)
+3. Retrieve the connection details from the cluster dashboard
+4. Use the connection host, datacenter name, and credentials in your config
+
+<Tip>
+ScyllaDB Cloud provides automatic backups, monitoring dashboards, and zero-maintenance upgrades — recommended for production AI agent deployments.
+</Tip>
+
+### Performance Considerations
+
+- **Shard-aware routing**: `scylla-driver` automatically routes CQL requests to the exact CPU shard that owns the partition, eliminating intra-node hops and reducing tail latency.
+- **Replication Factor**: For production clusters use at least 3 replicas (`NetworkTopologyStrategy`).
+- **Consistency Level**: `LOCAL_QUORUM` is recommended for a balance of consistency and performance.
+- **Compaction**: ScyllaDB's default Incremental Compaction Strategy (ICS) is well-suited for write-heavy memory workloads.
+
+<Warning>
+Do not install both `cassandra-driver` and `scylla-driver` in the same Python environment — they share the `cassandra` namespace and will conflict.
+</Warning>
