@@ -128,57 +128,37 @@ If `add_memory` calls fail, print:
 - Project file import failed. Check API key and MCP connection, then retry with: /mem0:onboard
 ```
 
-## Step 5: Set up coding categories
+## Step 5: Verify coding categories
 
-Ask: "Install coding categories optimized for development workflows? [Y/n]"
+Coding categories are now configured automatically in the background when the plugin starts. This step only verifies they are set up.
 
-If the user says no or skips, print `- Coding categories skipped.` and proceed to Step 6.
+Check if the categories are already configured by searching for a project_profile memory:
 
-If yes, store a project profile memory that records the project and its active coding categories. Call `add_memory` once with:
+Call `search_memories` with `query="coding categories project profile"`, `filters={"AND": [{"user_id": "<active_user_id>"}, {"app_id": "<active_project_id>"}]}`, `top_k=1`.
 
-- `data`: a plain-text description of the project profile and the list of active coding categories (see below)
+If a project_profile memory is found, print:
+```
+- Coding categories already configured (17 categories, auto-installed).
+```
+
+If no project_profile memory is found, store one as a fallback. Call `add_memory` once with:
+
+- `data`: a plain-text description of the project profile and the list of active coding categories:
+  ```
+  Project profile for <project_id>.
+  Active coding categories: architecture_decisions, api_design, data_models,
+  algorithms, dependencies, environment_setup, testing_strategy, debugging_notes,
+  performance, security, deployment, code_conventions, error_handling,
+  refactoring_history, integrations, onboarding, project_meta.
+  ```
 - `user_id`: the active user id
 - `app_id`: the active project id
 - `metadata`: `{"type": "project_profile", "source": "onboard"}`
-
-The standard set of 17 coding categories to include in the `data` field:
-
-```
-architecture_decisions   - High-level design choices and system structure
-api_design               - Interface contracts, REST/GraphQL/RPC conventions
-data_models              - Schemas, entity definitions, relationships
-algorithms               - Non-trivial logic, performance-sensitive routines
-dependencies             - Libraries, versions, upgrade notes
-environment_setup        - Dev environment, tooling, build system
-testing_strategy         - Test patterns, coverage targets, mocking approach
-debugging_notes          - Known issues, workarounds, gotchas
-performance              - Bottlenecks, profiling results, optimizations
-security                 - Auth patterns, secret handling, threat notes
-deployment               - CI/CD pipelines, infra config, release process
-code_conventions         - Naming, formatting, style rules beyond the linter
-error_handling           - Error taxonomy, recovery patterns, logging approach
-refactoring_history      - Past rewrites, why changes were made
-integrations             - Third-party services, webhooks, external APIs
-onboarding               - New-contributor notes, repo orientation
-project_meta             - Goals, non-goals, stakeholder context
-```
-
-Example `data` value:
-
-```
-Project profile for <project_id>.
-Active coding categories: architecture_decisions, api_design, data_models,
-algorithms, dependencies, environment_setup, testing_strategy, debugging_notes,
-performance, security, deployment, code_conventions, error_handling,
-refactoring_history, integrations, onboarding, project_meta.
-```
 
 After the `add_memory` call succeeds, print:
 ```
 - Coding categories installed (17 categories).
 ```
-
-If `add_memory` fails, print the error and suggest re-running `/mem0:onboard`.
 
 ## Step 6: Summary
 

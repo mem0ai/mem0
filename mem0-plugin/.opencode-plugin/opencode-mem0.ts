@@ -6,6 +6,9 @@ import { userInfo } from "os";
 import { basename, resolve, dirname } from "path";
 import { randomBytes } from "crypto";
 import { existsSync, readdirSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
+import { createHash } from "crypto";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -61,6 +64,68 @@ function redact(text: string): string {
     out = out.replace(re, "[REDACTED]");
   }
   return out;
+}
+
+function loadGlobalSearch(): boolean {
+  try {
+    const settingsPath = join(homedir(), ".mem0", "settings.json");
+    if (!existsSync(settingsPath)) return false;
+    const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+    return settings.global_search === true;
+  } catch {}
+  return false;
+}
+
+const CODING_CATEGORIES = [
+  "architecture_decisions", "api_design", "data_models", "algorithms",
+  "dependencies", "environment_setup", "testing_strategy", "debugging_notes",
+  "performance", "security", "deployment", "code_conventions",
+  "error_handling", "refactoring_history", "integrations", "onboarding",
+  "project_meta",
+];
+
+function categoriesFingerprint(): string {
+  const sorted = [...CODING_CATEGORIES].sort();
+  return createHash("sha256").update(sorted.join("\n")).digest("hex").slice(0, 16);
+}
+
+function apiKeyFingerprint(apiKey: string): string {
+  return createHash("sha256").update(apiKey).digest("hex").slice(0, 16);
+}
+
+async function autoSetupCategories(mem0: MemoryClient, apiKey: string): Promise<void> {
+  const stateDir = join(homedir(), ".mem0");
+  const stateFile = join(stateDir, "categories_setup.json");
+  const keyFp = apiKeyFingerprint(apiKey);
+  const catFp = categoriesFingerprint();
+
+  let state: Record<string, string> = {};
+  try {
+    if (existsSync(stateFile)) {
+      state = JSON.parse(readFileSync(stateFile, "utf8"));
+    }
+  } catch {}
+
+  if (state[keyFp] === catFp) return;
+
+  try {
+    const project = await mem0.getProject({ fields: ["customCategories"] });
+    const existing: string[] = (project as any)?.custom_categories ?? (project as any)?.customCategories ?? [];
+    const sortedExisting = [...existing].sort();
+    const sortedTarget = [...CODING_CATEGORIES].sort();
+    if (JSON.stringify(sortedExisting) === JSON.stringify(sortedTarget)) {
+      state[keyFp] = catFp;
+      mkdirSync(stateDir, { recursive: true });
+      writeFileSync(stateFile, JSON.stringify(state, null, 2) + "\n");
+      return;
+    }
+
+    await mem0.updateProject({ customCategories: CODING_CATEGORIES as any });
+
+    state[keyFp] = catFp;
+    mkdirSync(stateDir, { recursive: true });
+    writeFileSync(stateFile, JSON.stringify(state, null, 2) + "\n");
+  } catch {}
 }
 
 const NUDGE_RE =
@@ -173,12 +238,16 @@ const Mem0Plugin: Plugin = async (ctx) => {
   const branch = await getBranch($);
   const stats = { adds: 0, searches: 0, messages: 0 };
   const sessionId = generateSessionId();
+  const globalSearch = loadGlobalSearch();
 
   let initialized = false;
   let memoryCount = 0;
   let msgCount = 0;
 
   const systemContext: string[] = [];
+
+  // Auto-configure coding categories in background (idempotent, never blocks)
+  Promise.resolve().then(() => autoSetupCategories(mem0, apiKey)).catch(() => {});
 
   return {
     "chat.message": async (input: any, output: any) => {
@@ -192,11 +261,13 @@ const Mem0Plugin: Plugin = async (ctx) => {
       if (!initialized) {
         initialized = true;
 
+        const searchFilters = globalSearch
+          ? { OR: [{ user_id: "*" }] }
+          : { AND: [{ user_id: userId }, { app_id: appId }] };
+
         try {
           const all = await mem0.getAll({
-            filters: {
-              AND: [{ user_id: userId }, { app_id: appId }],
-            },
+            filters: searchFilters,
             page: 1,
             pageSize: 1,
           });
@@ -205,9 +276,15 @@ const Mem0Plugin: Plugin = async (ctx) => {
             (all as any)?.results?.length ??
             0;
 
-          systemContext.push(
-            `Always include user_id="${userId}" and app_id="${appId}" in every search_memories filter and add_memory call.`,
-          );
+          if (globalSearch) {
+            systemContext.push(
+              `Global search is ON — searches return all memories across all users and projects. Writes still use user_id="${userId}", app_id="${appId}".`,
+            );
+          } else {
+            systemContext.push(
+              `Always include user_id="${userId}" and app_id="${appId}" in every search_memories filter and add_memory call.`,
+            );
+          }
 
           if (memoryCount === 0) {
             systemContext.push(
@@ -223,9 +300,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
               const res = await mem0.search(
                 "recent session state decisions and learnings",
                 {
-                  filters: {
-                    AND: [{ user_id: userId }, { app_id: appId }],
-                  },
+                  filters: searchFilters,
                   topK: 5,
                 },
               );
@@ -265,25 +340,21 @@ const Mem0Plugin: Plugin = async (ctx) => {
       const hasResume = RESUME_RE.test(safeText);
       if (hasResume) {
         try {
-          const [stateRes, decisionsRes] = await Promise.all([
-            mem0.search("session state current task", {
-              filters: {
+          const resumeFilters = globalSearch
+            ? { OR: [{ user_id: "*" }] }
+            : {
                 AND: [
                   { user_id: userId },
                   { app_id: appId },
-                  { metadata: { type: "session_state" } },
                 ],
-              },
+              };
+          const [stateRes, decisionsRes] = await Promise.all([
+            mem0.search("session state current task", {
+              filters: resumeFilters,
               topK: 3,
             }),
             mem0.search("recent decisions and learnings", {
-              filters: {
-                AND: [
-                  { user_id: userId },
-                  { app_id: appId },
-                  { metadata: { type: "decision" } },
-                ],
-              },
+              filters: resumeFilters,
               topK: 3,
             }),
           ]);
@@ -309,8 +380,11 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
       if (!hasResume && memoryCount > 0) {
         try {
+          const msgFilters = globalSearch
+            ? { OR: [{ user_id: "*" }] }
+            : { AND: [{ user_id: userId }, { app_id: appId }] };
           const res = await mem0.search(safeText, {
-            filters: { AND: [{ user_id: userId }, { app_id: appId }] },
+            filters: msgFilters,
             topK: 5,
           });
           stats.searches++;
@@ -401,32 +475,36 @@ const Mem0Plugin: Plugin = async (ctx) => {
         }
 
         if (isMem0SearchOrGet(toolName)) {
-          const existingFilters = output.args.filters;
-          if (existingFilters === undefined || existingFilters === null) {
-            output.args.filters = {
-              AND: [{ user_id: userId }, { app_id: appId }],
-            };
-          } else if (typeof existingFilters === "object") {
-            const andClauses: any[] = existingFilters.AND;
-            if (Array.isArray(andClauses)) {
-              const hasUid = andClauses.some(
-                (c: any) => c && typeof c === "object" && "user_id" in c,
-              );
-              const hasAid = andClauses.some(
-                (c: any) => c && typeof c === "object" && "app_id" in c,
-              );
-              if (!hasUid) andClauses.push({ user_id: userId });
-              if (!hasAid) andClauses.push({ app_id: appId });
-            } else if (andClauses === undefined) {
-              const hasUid = "user_id" in existingFilters;
-              const hasAid = "app_id" in existingFilters;
-              if (!hasUid || !hasAid) {
-                const existing = Object.entries(existingFilters).map(
-                  ([k, v]) => ({ [k]: v }),
+          if (globalSearch) {
+            output.args.filters = { OR: [{ user_id: "*" }] };
+          } else {
+            const existingFilters = output.args.filters;
+            if (existingFilters === undefined || existingFilters === null) {
+              output.args.filters = {
+                AND: [{ user_id: userId }, { app_id: appId }],
+              };
+            } else if (typeof existingFilters === "object") {
+              const andClauses: any[] = existingFilters.AND;
+              if (Array.isArray(andClauses)) {
+                const hasUid = andClauses.some(
+                  (c: any) => c && typeof c === "object" && "user_id" in c,
                 );
-                if (!hasUid) existing.push({ user_id: userId });
-                if (!hasAid) existing.push({ app_id: appId });
-                output.args.filters = { AND: existing };
+                const hasAid = andClauses.some(
+                  (c: any) => c && typeof c === "object" && "app_id" in c,
+                );
+                if (!hasUid) andClauses.push({ user_id: userId });
+                if (!hasAid) andClauses.push({ app_id: appId });
+              } else if (andClauses === undefined) {
+                const hasUid = "user_id" in existingFilters;
+                const hasAid = "app_id" in existingFilters;
+                if (!hasUid || !hasAid) {
+                  const existing = Object.entries(existingFilters).map(
+                    ([k, v]) => ({ [k]: v }),
+                  );
+                  if (!hasUid) existing.push({ user_id: userId });
+                  if (!hasAid) existing.push({ app_id: appId });
+                  output.args.filters = { AND: existing };
+                }
               }
             }
           }
@@ -481,25 +559,21 @@ const Mem0Plugin: Plugin = async (ctx) => {
           const errorQuery = errorLine.slice(0, 80);
           if (errorQuery.length < 10) return;
 
-          const [antiPatternRes, bugFixRes] = await Promise.all([
-            mem0.search(`error: ${errorQuery}`, {
-              filters: {
+          const errorFilters = globalSearch
+            ? { OR: [{ user_id: "*" }] }
+            : {
                 AND: [
                   { user_id: userId },
                   { app_id: appId },
-                  { metadata: { type: "anti_pattern" } },
                 ],
-              },
+              };
+          const [antiPatternRes, bugFixRes] = await Promise.all([
+            mem0.search(`error: ${errorQuery}`, {
+              filters: errorFilters,
               topK: 3,
             }),
             mem0.search(`error: ${errorQuery}`, {
-              filters: {
-                AND: [
-                  { user_id: userId },
-                  { app_id: appId },
-                  { metadata: { type: "bug_fix" } },
-                ],
-              },
+              filters: errorFilters,
               topK: 3,
             }),
           ]);
@@ -554,8 +628,11 @@ const Mem0Plugin: Plugin = async (ctx) => {
           } catch {}
         });
 
+        const compactFilters = globalSearch
+          ? { OR: [{ user_id: "*" }] }
+          : { AND: [{ user_id: userId }, { app_id: appId }] };
         const res = await mem0.search("session state decisions learnings", {
-          filters: { AND: [{ user_id: userId }, { app_id: appId }] },
+          filters: compactFilters,
           topK: 10,
         });
         const memories = extractMemories(res);
@@ -577,6 +654,7 @@ const Mem0Plugin: Plugin = async (ctx) => {
         output.env.MEM0_APP_ID = appId;
         output.env.MEM0_SESSION_ID = sessionId;
         output.env.MEM0_BRANCH = branch;
+        output.env.MEM0_GLOBAL_SEARCH = globalSearch ? "true" : "false";
       }
     },
   };

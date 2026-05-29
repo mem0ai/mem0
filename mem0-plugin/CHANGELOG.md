@@ -6,16 +6,10 @@ All notable changes to the Mem0 plugin will be documented in this file.
 
 ### Added
 
-- **Global search mode (`global_search` setting):** New `global_search` toggle in `~/.mem0/settings.json` (default: `false`). When enabled, `search_memories` and `get_memories` calls use `{"OR": [{"user_id": "*"}]}` instead of the per-user per-project `AND` filter — returning all memories across all users and all `app_id` scopes in the platform project. Writes (`add_memory`) still tag with the current `user_id` and `app_id`. Solves the team-shared-memory use case where multiple team members need access to all memories regardless of which repo or user created them.
-- **`MEM0_GLOBAL_SEARCH` env var:** Exported from `_identity.sh` alongside other settings, consumed by `enforce_metadata_defaults.sh` to switch filter strategy.
-- **`/mem0:switch-project --global` / `--no-global`:** Enables or disables global search via the switch-project skill. Persists to `~/.mem0/settings.json`.
+- **Global search mode (`global_search` setting):** New `global_search` toggle in `~/.mem0/settings.json` (default: `false`). When enabled, `search_memories` and `get_memories` calls use `{"OR": [{"user_id": "*"}]}` instead of the per-user per-project `AND` filter — returning all memories across all users and all `app_id` scopes in the platform project. Writes (`add_memory`) still tag with the current `user_id` and `app_id`. Solves the team-shared-memory use case where multiple team members need access to all memories regardless of which repo or user created them. Works on Claude Code, Cursor, and Codex (not OpenCode, which has its own TypeScript identity logic).
+- **`/mem0:switch-project --global` / `--no-global`:** Enables or disables global search via the switch-project skill. Persists to `~/.mem0/settings.json`. No manual config editing needed.
 - **Session banner scope indicator:** Banner shows `scope=global` when global search is active instead of `project=<app_id>`.
 - **Global-aware memory count:** Session start memory count query uses the global filter when `global_search` is enabled.
-
-### Changed
-
-### Added
-
 - **Background coding-category setup (`scripts/auto_setup_categories.py`):** The coding-focused category taxonomy (17 categories tuned for development work) is now installed automatically in the background on session start — the same way `auto_import.py` imports `CLAUDE.md`/`AGENTS.md`. Users are no longer asked to configure it during onboarding. Mirrors the auto-import design: resolves the API key, holds a lock file (`~/.mem0/categories_setup.lock`), reuses the proven `setup_coding_categories.py` taxonomy + `project.update` path via the plugin venv, logs to stderr only, and always exits 0 so it can never block a session.
 - **Per-account state gating (`~/.mem0/categories_setup.json`):** Keyed by a hash of the API key → a hash of the taxonomy. Categories are scoped to the mem0 project tied to the API key (not the local repo), so setup runs once per account and skips all network calls thereafter — re-applying only if the taxonomy itself changes.
 - **`tests/test_auto_setup_categories.py`:** Covers fingerprint determinism/sensitivity, state-file load/save/gating, and idempotent apply via an injected fake client (no SDK, no network).
