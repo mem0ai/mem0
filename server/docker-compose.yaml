@@ -23,7 +23,7 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=
-      - DASHBOARD_URL=http://localhost:3000
+      - DASHBOARD_URL=http://192.168.24.130:3000
       - APP_DB_NAME=mem0_app
       - JWT_SECRET=${JWT_SECRET}
       - AUTH_DISABLED=${AUTH_DISABLED:-false}
@@ -56,7 +56,7 @@ services:
     networks:
       - mem0_network
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8888
+      - NEXT_PUBLIC_API_URL=http://192.168.24.130:8888
       - API_INTERNAL_URL=http://mem0:8000
       - NEXT_PUBLIC_INSTANCE_NAME=Mem0
     depends_on:
