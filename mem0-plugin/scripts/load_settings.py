@@ -16,6 +16,7 @@ DEFAULTS = {
     "search_limit": 10,
     "retention_session_days": 90,
     "confidence_threshold": 0.3,
+    "global_search": False,
     "debug": False,
 }
 
