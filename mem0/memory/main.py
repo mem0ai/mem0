@@ -2871,16 +2871,33 @@ class AsyncMemory(MemoryBase):
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         memory_boosts = {}
 
+        async def _search_entity(entity_text):
+            # Embed + entity-store search for a single entity. Each entity's work
+            # is independent, so these run concurrently via asyncio.gather below.
+            entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "search")
+            return await asyncio.to_thread(
+                self.entity_store.search,
+                query=entity_text,
+                vectors=entity_embedding,
+                top_k=500,
+                filters=search_filters,
+            )
+
         try:
-            for _, entity_text in deduped:
-                entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "search")
-                matches = await asyncio.to_thread(
-                    self.entity_store.search,
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=500,
-                    filters=search_filters,
-                )
+            # Run the per-entity embedding/search calls in parallel instead of
+            # sequentially. With a remote embedding provider this turns the
+            # latency from roughly the sum of all calls into roughly the slowest
+            # single call. return_exceptions=True keeps one failed entity from
+            # aborting the others; failures are logged and skipped.
+            results = await asyncio.gather(
+                *(_search_entity(entity_text) for _, entity_text in deduped),
+                return_exceptions=True,
+            )
+
+            for matches in results:
+                if isinstance(matches, Exception):
+                    logger.warning(f"Entity boost search failed for one entity: {matches}")
+                    continue
 
                 for match in matches:
                     similarity = match.score if hasattr(match, 'score') else 0.0
