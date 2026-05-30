@@ -137,6 +137,9 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "better-sqlite3"
-    ]
+    ],
+    "overrides": {
+      "langsmith": ">=0.6.0"
+    }
   }
 }

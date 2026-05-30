@@ -79,6 +79,9 @@
     "onlyBuiltDependencies": [
       "@parcel/watcher",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "immutable": ">=5.1.5"
+    }
   }
 }
