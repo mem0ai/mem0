@@ -63,9 +63,25 @@ export class ConfigManager {
           // probe embedding at startup — this makes *any* embedder work
           // out of the box without the user needing to know or set the
           // dimension manually.
+          //
+          // Honor snake_case keys (embedding_dims / embeddingModelDims) the
+          // same way the embedder config above does — Python SDK / OpenClaw
+          // configs are snake_case, so reading only camelCase here silently
+          // dropped an explicitly-configured dimension and forced a probe.
+          const embedderConf = userConfig.embedder?.config as
+            | Record<string, unknown>
+            | undefined;
+          const vectorStoreConf = userConf as
+            | Record<string, unknown>
+            | undefined;
           const explicitDimension =
-            userConf?.dimension ||
-            userConfig.embedder?.config?.embeddingDims ||
+            (userConf?.dimension as number | undefined) ??
+            (vectorStoreConf?.embeddingModelDims as number | undefined) ??
+            (vectorStoreConf?.embedding_model_dims as number | undefined) ??
+            (userConfig.embedder?.config?.embeddingDims as
+              | number
+              | undefined) ??
+            (embedderConf?.embedding_dims as number | undefined) ??
             undefined;
 
           // Prioritize user-provided client instance
