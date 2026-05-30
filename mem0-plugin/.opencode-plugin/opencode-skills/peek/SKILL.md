@@ -1,5 +1,5 @@
 ---
-name: peek
+name: "mem0:peek"
 description: Searches memories and displays compact one-liner results, or looks up a specific memory by ID. Use for quick memory lookups, checking if a decision was recorded, resolving [mem0:id] citations, or browsing memories without full category detail.
 ---
 

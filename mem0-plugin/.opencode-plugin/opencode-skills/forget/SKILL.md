@@ -1,5 +1,5 @@
 ---
-name: forget
+name: "mem0:forget"
 description: Deletes memories by search query or memory ID with confirmation before removal. Use when removing outdated decisions, incorrect memories, sensitive data, or cleaning up after experiments. Also handles undo of recent additions.
 ---
 

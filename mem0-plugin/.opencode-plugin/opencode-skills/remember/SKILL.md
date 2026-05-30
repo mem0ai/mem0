@@ -1,5 +1,5 @@
 ---
-name: remember
+name: "mem0:remember"
 description: Stores a memory verbatim from user input with appropriate type classification and metadata. Use when the user says remember this, save this, store this, note that, or explicitly asks to record a decision, preference, convention, or learning.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: onboard
+name: "mem0:onboard"
 description: Sets up mem0 for a new project including API key configuration, MCP authentication, project file import, and coding categories. Use on first run in a new project, when API key needs updating, or to re-run initial setup after configuration changes.
 ---
 

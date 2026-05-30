@@ -1,5 +1,5 @@
 ---
-name: tour
+name: "mem0:tour"
 description: Browses all stored memories grouped by category with full content display. Use when reviewing all project memories, exploring stored knowledge, onboarding to a project, or getting an overview of captured decisions, conventions, and learnings.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: context-loader
+name: "mem0:context-loader"
 description: Searches and injects relevant memories into context before starting work on a task. Use when beginning a new task, switching context, or when project history, past decisions, or coding conventions need to be loaded.
 ---
 

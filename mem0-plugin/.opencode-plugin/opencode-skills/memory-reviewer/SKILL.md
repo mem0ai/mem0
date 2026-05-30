@@ -1,5 +1,5 @@
 ---
-name: memory-reviewer
+name: "mem0:memory-reviewer"
 description: Reviews stored memory quality by detecting duplicates, contradictions, and stale entries with actionable recommendations. Use when search results seem conflicting, before running dream consolidation, or for periodic memory hygiene audits.
 ---
 

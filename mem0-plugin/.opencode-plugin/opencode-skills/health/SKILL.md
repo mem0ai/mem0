@@ -1,5 +1,5 @@
 ---
-name: health
+name: "mem0:health"
 description: Diagnoses mem0 connectivity, API key validity, and memory read/write functionality. Use when memory operations fail, searches return empty, add_memory errors occur, MCP connection drops, or to verify the plugin is working correctly.
 ---
 
