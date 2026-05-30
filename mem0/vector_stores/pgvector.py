@@ -1,7 +1,9 @@
 import json
 import logging
+import re
 from contextlib import contextmanager
 from typing import Any, List, Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from pydantic import BaseModel
 
@@ -113,6 +115,19 @@ def _build_filter_conditions(filters):
     return conditions, params
 
 
+def _with_sslmode(connection_string: str, sslmode: str) -> str:
+    if "://" in connection_string:
+        parsed = urlsplit(connection_string)
+        query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True) if key != "sslmode"]
+        query.append(("sslmode", sslmode))
+        return parsed._replace(query=urlencode(query)).geturl()
+
+    if re.search(r"(^|\s)sslmode=", connection_string):
+        return re.sub(r"(^|\s)sslmode=\S+", lambda match: f"{match.group(1)}sslmode={sslmode}", connection_string)
+
+    return f"{connection_string} sslmode={sslmode}"
+
+
 class OutputData(BaseModel):
     id: Optional[str]
     score: Optional[float]
@@ -168,18 +183,11 @@ class PGVector(VectorStoreBase):
             self.connection_pool = connection_pool
         elif connection_string:
             if sslmode:
-                # Append sslmode to connection string if provided
-                if 'sslmode=' in connection_string:
-                    # Replace existing sslmode
-                    import re
-                    connection_string = re.sub(r'sslmode=[^ ]*', f'sslmode={sslmode}', connection_string)
-                else:
-                    # Add sslmode to connection string
-                    connection_string = f"{connection_string} sslmode={sslmode}"
+                connection_string = _with_sslmode(connection_string, sslmode)
         else:
             connection_string = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
             if sslmode:
-                connection_string = f"{connection_string} sslmode={sslmode}"
+                connection_string = _with_sslmode(connection_string, sslmode)
         
         if self.connection_pool is None:
             if PSYCOPG_VERSION == 3:
