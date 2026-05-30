@@ -105,7 +105,7 @@ importers:
         specifier: ^10.4.20
         version: 10.4.20(postcss@8.0.0)
       axios:
-        specifier: ^1.15.2
+        specifier: ^1.16.0
         version: 1.16.1
       class-variance-authority:
         specifier: ^0.7.1
@@ -1986,6 +1986,7 @@ packages:
   recharts@2.15.0:
     resolution: {integrity: sha512-cIvMxDfpAmqAmVgc4yb7pgm/O1tmmkl/CjrvXuW+62/+7jj/iF9Ykm+hb/UJt42TREHMyd3gb+pkgoa2MxgDIw==}
     engines: {node: '>=14'}
+    deprecated: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
     peerDependencies:
       react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
