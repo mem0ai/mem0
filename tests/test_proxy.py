@@ -1,3 +1,4 @@
+import inspect
 from unittest.mock import Mock, patch
 
 import pytest
@@ -98,3 +99,9 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
     call_args = mock_litellm.completion.call_args[1]
     assert call_args["messages"][0]["role"] == "system"
     assert call_args["messages"][0]["content"] == "You are a helpful assistant."
+
+
+def test_completions_create_messages_default_is_not_mutable():
+    signature = inspect.signature(Completions.create)
+
+    assert signature.parameters["messages"].default is None

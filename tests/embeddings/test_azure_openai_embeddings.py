@@ -52,6 +52,20 @@ def test_embed_text_with_default_headers(default_headers, expected_header):
     assert embedder.client.default_headers.get("Test") == expected_header
 
 
+def test_base_embedder_config_azure_kwargs_default_is_not_shared():
+    first_config = BaseEmbedderConfig()
+    second_config = BaseEmbedderConfig()
+
+    assert first_config.azure_kwargs is not second_config.azure_kwargs
+
+
+def test_base_embedder_config_accepts_azure_config_instance():
+    azure_kwargs = BaseEmbedderConfig().azure_kwargs
+    config = BaseEmbedderConfig(azure_kwargs=azure_kwargs)
+
+    assert config.azure_kwargs is azure_kwargs
+
+
 @pytest.fixture
 def base_embedder_config():
     class DummyAzureKwargs:

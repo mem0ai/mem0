@@ -25,7 +25,7 @@ class BaseEmbedderConfig(ABC):
         model_kwargs: Optional[dict] = None,
         huggingface_base_url: Optional[str] = None,
         # AzureOpenAI specific
-        azure_kwargs: Optional[AzureConfig] = {},
+        azure_kwargs: Optional[Union[AzureConfig, Dict]] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
         # VertexAI specific
         vertex_credentials_json: Optional[str] = None,
@@ -89,7 +89,10 @@ class BaseEmbedderConfig(ABC):
         self.model_kwargs = model_kwargs or {}
         self.huggingface_base_url = huggingface_base_url
         # AzureOpenAI specific
-        self.azure_kwargs = AzureConfig(**azure_kwargs) or {}
+        if isinstance(azure_kwargs, AzureConfig):
+            self.azure_kwargs = azure_kwargs
+        else:
+            self.azure_kwargs = AzureConfig(**(azure_kwargs or {}))
 
         # VertexAI specific
         self.vertex_credentials_json = vertex_credentials_json
