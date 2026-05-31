@@ -42,7 +42,7 @@ def load_ignore_prefixes() -> list[str]:
     if not IGNORE_FILE.exists():
         return []
     prefixes: list[str] = []
-    for raw in IGNORE_FILE.read_text().splitlines():
+    for raw in IGNORE_FILE.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if line and not line.startswith("#"):
             prefixes.append(line)
@@ -105,7 +105,7 @@ def main() -> int:
 
     ignore_prefixes = load_ignore_prefixes()
     all_pages, included_pages = canonical_repo_pages(ignore_prefixes)
-    text = LLMS_TXT.read_text()
+    text = LLMS_TXT.read_text(encoding="utf-8")
     linked = indexed_urls(text)
 
     missing = sorted(included_pages - linked)
@@ -131,7 +131,7 @@ def main() -> int:
     if args.write:
         if missing:
             new_text = append_triage_block(text, missing)
-            LLMS_TXT.write_text(new_text)
+            LLMS_TXT.write_text(new_text, encoding="utf-8")
             print(
                 f"\nAppended {len(missing)} placeholder entries under "
                 f"'{TRIAGE_HEADER}' in docs/llms.txt."
