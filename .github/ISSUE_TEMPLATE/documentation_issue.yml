@@ -1,0 +1,23 @@
+name: Documentation Issue
+description: Report an issue or suggest an improvement to the mem0 docs
+labels: ["documentation"]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      value: |
+        ### Page
+
+        Link to the docs page: https://docs.mem0.ai/...
+
+        ### What's Wrong or Missing
+
+        Describe what's incorrect, unclear, or missing.
+
+        ### Suggested Fix
+
+        How should the docs be improved?
+    validations:
+      required: true

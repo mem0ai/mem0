@@ -1,0 +1,100 @@
+name: CLI Node CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/node/**'
+      - '.github/workflows/cli-node-ci.yml'
+  pull_request:
+    paths:
+      - 'cli/node/**'
+      - '.github/workflows/cli-node-ci.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: cli/node/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: cli/node
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: cli/node
+        run: pnpm run lint
+
+      - name: Type check
+        working-directory: cli/node
+        run: pnpm run typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+          cache-dependency-path: cli/node/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: cli/node
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        working-directory: cli/node
+        run: pnpm run test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: cli/node/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: cli/node
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: cli/node
+        run: pnpm run build
+
+      - name: Verify dist output
+        run: |
+          test -f cli/node/dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)

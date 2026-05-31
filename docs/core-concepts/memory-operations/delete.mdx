@@ -1,0 +1,241 @@
+---
+title: Delete Memory
+description: Remove memories from Mem0 either individually, in bulk, or via filters.
+icon: "trash"
+iconType: "solid"
+---
+
+# Remove Memories Safely
+
+Deleting memories is how you honor compliance requests, undo bad data, or clean up expired sessions. Mem0 lets you delete a specific memory, a list of IDs, or everything that matches a filter.
+
+<Info>
+  **Why it matters**
+  - Satisfies user erasure (GDPR/CCPA) without touching the rest of your data.
+  - Keeps knowledge bases accurate by removing stale or incorrect facts.
+  - Works for both the managed Platform API and the OSS SDK.
+</Info>
+
+## Key terms
+
+- **memory_id** – Unique ID returned by `add`/`search` identifying the record to delete.
+- **batch_delete** – API call that removes up to 1000 memories in one request.
+- **delete_all** – Filter-based deletion by user, agent, run, or metadata.
+- **immutable** – Flagged memories that cannot be updated; delete + re-add instead.
+
+## How the delete flow works
+
+<Steps>
+<Step title="Choose the scope">
+Decide whether you’re removing a single memory, a list, or everything that matches a filter.
+</Step>
+<Step title="Submit the delete call">
+Call `delete`, `batch_delete`, or `delete_all` with the required IDs or filters.
+</Step>
+<Step title="Verify">
+Confirm the response message, then re-run `search` or check the dashboard/logs to ensure the memory is gone.
+</Step>
+</Steps>
+
+## Delete a single memory (Platform)
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+memory_id = "your_memory_id"
+client.delete(memory_id=memory_id)
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+client.delete("your_memory_id")
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+<Info icon="check">
+  You’ll receive a confirmation payload. The dashboard reflects the removal within seconds.
+</Info>
+
+## Batch delete multiple memories (Platform)
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+delete_memories = [
+    {"memory_id": "id1"},
+    {"memory_id": "id2"}
+]
+
+response = client.batch_delete(delete_memories)
+print(response)
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+const deleteMemories = [
+  { memory_id: "id1" },
+  { memory_id: "id2" }
+];
+
+client.batchDelete(deleteMemories)
+  .then(response => console.log('Batch delete response:', response))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+## Delete memories by filter (Platform)
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Delete all memories for a specific user
+client.delete_all(user_id="alice")
+
+# Delete all memories for a specific agent
+client.delete_all(agent_id="support-bot")
+
+# Delete all memories for a specific run
+client.delete_all(run_id="session-xyz")
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+client.deleteAll({ userId: "alice" })
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+You can also filter by other parameters such as:
+
+- `agent_id`
+- `run_id`
+- `metadata` (as JSON string)
+
+<Warning>
+  **Breaking change:** `delete_all` previously wiped all project memories when called with no filters. It now **raises an error** if no filters are provided. Use `"*"` wildcards for intentional bulk deletion (see below).
+</Warning>
+
+### Wildcard deletes
+
+Setting a filter to `"*"` deletes **all memories** for that entity type across the entire project. This is an intentionally explicit opt-in to bulk deletion.
+
+<CodeGroup>
+```python Python
+from mem0 import MemoryClient
+
+client = MemoryClient(api_key="your-api-key")
+
+# Delete all memories across every user in the project
+client.delete_all(user_id="*")
+
+# Delete all memories across every agent in the project
+client.delete_all(agent_id="*")
+
+# Full project wipe — all four filters must be explicitly set to "*"
+client.delete_all(user_id="*", agent_id="*", app_id="*", run_id="*")
+```
+
+```javascript JavaScript
+import MemoryClient from 'mem0ai';
+
+const client = new MemoryClient({ apiKey: "your-api-key" });
+
+// Delete all memories across every user in the project
+client.deleteAll({ userId: "*" })
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+
+// Full project wipe — all four filters must be explicitly set to "*"
+client.deleteAll({ userId: "*", agentId: "*", appId: "*", runId: "*" })
+  .then(result => console.log(result))
+  .catch(error => console.error(error));
+```
+</CodeGroup>
+
+<Warning>
+  A full project wipe requires **all four** filters set to `"*"`. Setting only some to `"*"` deletes memories only for those entity types, not the entire project.
+</Warning>
+
+## Delete with Mem0 OSS
+
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+memory = Memory()
+
+memory.delete(memory_id="mem_123")
+memory.delete_all(user_id="alice")
+```
+</CodeGroup>
+
+<Note>
+  The OSS JavaScript SDK does not yet expose deletion helpers—use the REST API or Python SDK when self-hosting.
+</Note>
+
+## Use cases recap
+
+- Forget a user’s preferences at their request.
+- Remove outdated or incorrect facts before they spread.
+- Clean up memories after session expiration or retention deadlines.
+- Comply with privacy legislation (GDPR, CCPA) and internal policies.
+
+<Callout type="tip" icon="plug">
+  **MCP Alternative**: With <Link href="/platform/mem0-mcp">Mem0 MCP</Link>, AI agents can delete their own memories when data becomes irrelevant or at user request.
+</Callout>
+
+## Method comparison
+
+| Method | Use when | IDs required | Filters |
+| --- | --- | --- | --- |
+| `delete(memory_id)` | You know the exact record | ✔️ | ✖️ |
+| `batch_delete([...])` | You have a list of IDs to purge | ✔️ | ✖️ |
+| `delete_all(...)` | You need to forget a user/agent/run | ✖️ | ✔️ |
+
+## Put it into practice
+
+- Review the <Link href="/api-reference/memory/delete-memory">Delete Memory API reference</Link>, plus <Link href="/api-reference/memory/batch-delete">Batch Delete</Link> and <Link href="/api-reference/memory/delete-memories">Filtered Delete</Link>.
+- Pair deletes with <Link href="/platform/features/platform-overview">Expiration Policies</Link> to automate retention.
+
+## See it live
+
+- <Link href="/cookbooks/operations/support-inbox">Support Inbox with Mem0</Link> demonstrates compliance-driven deletes.
+- <Link href="/platform/features/direct-import">Data Management tooling</Link> shows how deletes fit into broader lifecycle flows.
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="Review Add Concepts"
+    description="Ensure the memories you keep are structured from the start."
+    icon="circle-check"
+    href="/core-concepts/memory-operations/add"
+  />
+  <Card
+    title="Enable Expiration Policies"
+    description="Automate retention with the platform’s expiration feature."
+    icon="clock"
+    href="/platform/features/platform-overview"
+  />
+</CardGroup>

@@ -1,0 +1,143 @@
+---
+title: "Databricks"
+description: "Use Databricks Vector Search as a serverless vector store in Mem0 with auto-updating indexes from Delta tables."
+---
+[Databricks Vector Search](https://docs.databricks.com/en/generative-ai/vector-search.html) is a serverless similarity search engine that allows you to store a vector representation of your data, including metadata, in a vector database. With Vector Search, you can create auto-updating vector search indexes from Delta tables managed by Unity Catalog and query them with a simple API to return the most similar vectors.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "databricks",
+        "config": {
+            "workspace_url": "https://your-workspace.databricks.com",
+            "access_token": "your-access-token",
+            "endpoint_name": "your-vector-search-endpoint",
+            "catalog": "your_catalog",
+            "schema": "your_schema",
+            "table_name": "your_table",
+            "collection_name": "your_index_name",
+            "embedding_dimension": 1536
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring Databricks Vector Search:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `workspace_url` | The URL of your Databricks workspace | **Required** |
+| `access_token` | Personal Access Token for authentication | `None` |
+| `client_id` | Service principal client ID (alternative to access_token) | `None` |
+| `client_secret` | Service principal client secret (required with client_id) | `None` |
+| `azure_client_id` | Azure AD application client ID (for Azure Databricks) | `None` |
+| `azure_client_secret` | Azure AD application client secret (for Azure Databricks) | `None` |
+| `endpoint_name` | Name of the Vector Search endpoint | **Required** |
+| `catalog` | Unity Catalog catalog name | **Required** |
+| `schema` | Unity Catalog schema name | **Required** |
+| `table_name` | Source Delta table name | **Required** |
+| `collection_name` | Vector search index name | `mem0` |
+| `index_type` | Index type: `DELTA_SYNC` or `DIRECT_ACCESS` | `DELTA_SYNC` |
+| `embedding_model_endpoint_name` | Databricks serving endpoint for embeddings | `None` |
+| `embedding_dimension` | Dimension of self-managed embeddings | `1536` |
+| `endpoint_type` | Type of endpoint (`STANDARD` or `STORAGE_OPTIMIZED`) | `STANDARD` |
+| `pipeline_type` | Sync pipeline type: `TRIGGERED` or `CONTINUOUS` | `TRIGGERED` |
+| `warehouse_name` | Databricks SQL warehouse name (if using SQL warehouse) | `None` |
+| `query_type` | Query type: `ANN` or `HYBRID` | `ANN` |
+
+### Authentication
+
+Databricks Vector Search supports two authentication methods:
+
+#### Service Principal (Recommended for Production)
+```python
+config = {
+    "vector_store": {
+        "provider": "databricks",
+        "config": {
+            "workspace_url": "https://your-workspace.databricks.com",
+            "client_id": "your-service-principal-id",
+            "client_secret": "your-service-principal-secret",
+            "endpoint_name": "your-endpoint",
+            "catalog": "your_catalog",
+            "schema": "your_schema",
+            "table_name": "your_table",
+            "collection_name": "your_index_name",
+        }
+    }
+}
+```
+
+#### Personal Access Token (for Development)
+```python
+config = {
+    "vector_store": {
+        "provider": "databricks",
+        "config": {
+            "workspace_url": "https://your-workspace.databricks.com",
+            "access_token": "your-personal-access-token",
+            "endpoint_name": "your-endpoint",
+            "catalog": "your_catalog",
+            "schema": "your_schema",
+            "table_name": "your_table",
+            "collection_name": "your_index_name",
+        }
+    }
+}
+```
+
+### Embedding Options
+
+#### Self-Managed Embeddings (Default)
+Use your own embedding model and provide vectors directly:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "databricks",
+        "config": {
+            # ... authentication config ...
+            "embedding_dimension": 768,  # Match your embedding model
+        }
+    }
+}
+```
+
+#### Databricks-Computed Embeddings
+Let Databricks compute embeddings from text using a serving endpoint:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "databricks",
+        "config": {
+            # ... authentication config ...
+            "embedding_model_endpoint_name": "e5-small-v2"
+        }
+    }
+}
+```
+
+### Important Notes
+
+- **Index Types**: This implementation supports both `DELTA_SYNC` (auto-syncs with source Delta table) and `DIRECT_ACCESS` (manage vectors directly) index types.
+- **Unity Catalog**: The source table and index are created under the specified `catalog.schema` namespace.
+- **Endpoint Auto-Creation**: If the specified endpoint doesn't exist, it will be created automatically.
+- **Index Auto-Creation**: If the specified index doesn't exist, it will be created automatically with the provided configuration.
+- **Filter Support**: Supports filtering by metadata fields, with different syntax for STANDARD vs STORAGE_OPTIMIZED endpoints.

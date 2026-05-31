@@ -1,0 +1,217 @@
+---
+title: Troubleshooting Playbook Template
+description: "Runbook structure for diagnosing and fixing common issues."
+icon: "life-buoy"
+---
+
+# Troubleshooting Playbook Template
+
+Troubleshooting playbooks map symptoms to diagnostics and fixes. Keep them fast to scan, script-friendly, and closed with prevention tips plus next steps.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Frontmatter must include `title`, `description`, `icon`. Lead with one sentence about the system or workflow this playbook covers.
+- Add an `<Info>` block (“Use this when…”) and a quick index table (Symptom, Likely cause, Fix link). Surface critical safety warnings in `<Warning>`.
+- Each symptom section needs: diagnostic command/snippet, `<Info icon="check">` expected output, `<Warning>` for the observed failure, numbered fix steps, and optional `<Tip>` for prevention.
+- If you’re migrating an existing playbook, carry forward the known failure modes and scripts—reformat them into this structure unless the troubleshooting path changed.
+- Group unrelated issues with horizontal rules and provide escalation guidance when self-service stops.
+- Conclude with prevention checklist, related docs, and the standard two-card CTA (concept/reference left, applied workflow right).
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+
+````mdx
+---
+title: [Playbook name]
+description: Diagnose and resolve [system/component] issues.
+icon: "stethoscope"
+---
+
+# [Playbook headline]
+
+[One sentence describing the scope of this playbook.]
+
+<Info>
+  **Use this when…**
+  - [Trigger symptom]
+  - [Trigger symptom]
+  - [Trigger symptom]
+</Info>
+
+## Quick index
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| [Error code/message] | [Cause] | [Link to section] |
+| [Error code/message] | [Cause] | [Link to section] |
+
+<Warning>
+  [Optional safety note (data loss, downtime risk). Remove if unnecessary.]
+</Warning>
+
+## Symptom: [Name]
+
+Run this check:
+
+```bash
+[diagnostic command]
+```
+
+<Info icon="check">
+  Expected: `[describe success signal]`.
+</Info>
+
+<Warning>
+  Actual: `[describe failure output]`.
+</Warning>
+
+**Fix**
+1. [Step]
+2. [Step]
+3. [Step]
+
+<Tip>
+  [Preventative measure or best practice.]
+</Tip>
+
+---
+
+## Symptom: [Next issue]
+
+[Repeat pattern above.]
+
+## Escalate when
+
+- [Status/case when self-service ends]
+- Contact `[support channel]` with `[logs]`
+
+## Prevention checklist
+
+- [Habit/monitoring item]
+- [Habit/monitoring item]
+
+## Related docs
+
+- [Feature or integration doc]
+- [Runbook or SLO doc]
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="[Concept or feature doc]"
+    description="[Why understanding it prevents this issue]"
+    icon="shield"
+    href="/[concept-link]"
+  />
+  <Card
+    title="[Cookbook or integration]"
+    description="[Where readers can see the healthy flow]"
+    icon="rocket"
+    href="/[cookbook-link]"
+  />
+</CardGroup>
+````
+
+---
+
+## ✅ Publish Checklist
+- [ ] Quick index table includes every symptom covered below.
+- [ ] Each symptom section documents diagnostics, expected vs actual output, and actionable fix steps.
+- [ ] Preventative tips and escalation guidance are present where relevant.
+- [ ] Prevention checklist and related docs point to current resources.
+- [ ] CTA pair links to concept/reference (left) and applied workflow (right).
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

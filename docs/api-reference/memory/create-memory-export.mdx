@@ -1,0 +1,7 @@
+---
+title: 'Create Memory Export'
+description: "Submit an export job to create a structured memory export using a customizable Pydantic schema and filters."
+openapi: post /v1/exports/
+---
+
+Submit a job to create a structured export of memories using a customizable Pydantic schema. This process may take some time to complete, especially if you're exporting a large number of memories. You can tailor the export by applying various filters (e.g., `user_id`, `agent_id`, `run_id`, or `session_id`) and by modifying the Pydantic schema to ensure the final data matches your exact needs.

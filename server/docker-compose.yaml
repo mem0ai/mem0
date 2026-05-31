@@ -1,0 +1,76 @@
+name: mem0-dev
+
+services:
+  mem0:
+    build:
+      context: ..
+      dockerfile: server/dev.Dockerfile
+    ports:
+      - "8888:8000"
+    env_file:
+      - .env
+    networks:
+      - mem0_network
+    volumes:
+      - ./history:/app/history
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "rm -rf /app/packages && pip install -q --force-reinstall --no-deps mem0ai && alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=
+      - DASHBOARD_URL=http://localhost:3000
+      - APP_DB_NAME=mem0_app
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_DISABLED=${AUTH_DISABLED:-false}
+      - MEM0_TELEMETRY=${MEM0_TELEMETRY:-true}
+
+  postgres:
+      image: ankane/pgvector:v0.5.1
+      restart: on-failure
+      shm_size: "128mb"
+      networks:
+        - mem0_network
+      environment:
+        - POSTGRES_USER=postgres
+        - POSTGRES_PASSWORD=postgres
+      healthcheck:
+        test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
+        interval: 5s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - postgres_db:/var/lib/postgresql/data
+        - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+      ports:
+        - "8432:5432"
+
+  mem0-dashboard:
+    build: ./dashboard
+    ports:
+      - "3000:3000"
+    networks:
+      - mem0_network
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8888
+      - API_INTERNAL_URL=http://mem0:8000
+      - NEXT_PUBLIC_INSTANCE_NAME=Mem0
+    depends_on:
+      mem0:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_db:
+
+networks:
+  mem0_network:
+    driver: bridge

@@ -1,0 +1,262 @@
+---
+title: Operation Guide Template
+description: "Checklist and skeleton for documenting a single Mem0 operation."
+icon: "circle-check"
+---
+
+# Operation Guide Template
+
+Operation guides focus on a single action (add, search, update, delete). Show the minimal path to execute it, verify the result, and route readers to references or applied guides.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Frontmatter needs `title`, `description`, `icon`. Title should be a verb phrase (“Add Memories”).
+- Lead with a two-sentence promise (problem → outcome), followed by an `<Info>` prerequisites block and optional `<Warning>` for hazards (overwrites, rate limits).
+- Include a “When to pick this” bullet list (≤3 items) so readers confirm they’re in the right doc.
+- Use Tabs with Python and TypeScript examples. If only one SDK exists, add a `<Note>` stating that explicitly.
+- When migrating legacy guides, keep existing code paths and notes—slot them into these sections instead of replacing them unless behavior changed.
+- Provide `<Info icon="check">` verification after each critical step; call out the most common error with a `<Warning>` close to where it can occur.
+- End with exactly two CTA cards: left = conceptual depth, right = applied example/cookbook.
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+
+````mdx
+---
+title: [Operation title]
+description: [Outcome in one sentence]
+icon: "bolt"
+---
+
+# [Operation headline — say what it does]
+
+[State the problem this solves.] [Explain the outcome after running it.]
+
+<Info>
+  **Prerequisites**
+  - [API key, project, runtime requirements]
+  - [Identifiers the reader needs ready]
+</Info>
+
+<Warning>
+  [Optional: describe the main risk, e.g., duplicates or destructive behavior.]
+</Warning>
+
+## When to pick this
+
+- [Scenario 1]
+- [Scenario 2]
+- [Scenario 3]
+
+## Configure access
+
+```bash
+export MEM0_API_KEY="sk-..."
+```
+
+<Tip>
+  Already configured Mem0? Skip this and move to the next section.
+</Tip>
+
+## Prepare inputs
+
+[Brief sentence describing payload requirements.]
+
+<Tabs>
+  <Tab title="Python">
+<CodeGroup>
+```python Python
+payload = {
+    "user_id": "alex",
+    "memory": "I am training for a marathon.",
+}
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+<CodeGroup>
+```typescript TypeScript
+const payload = {
+  userId: "alex",
+  memory: "I am training for a marathon.",
+};
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+## Call the operation
+
+<Tabs>
+  <Tab title="Python">
+<CodeGroup>
+```python Python
+from mem0 import Memory
+
+memory = Memory(api_key=os.environ["MEM0_API_KEY"])
+response = memory.add(payload)
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+<CodeGroup>
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const memory = new Memory({ apiKey: process.env.MEM0_API_KEY! });
+const response = await memory.add(payload);
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+<Info icon="check">
+  Expect `{"memory_id": "mem_123"}` (or similar). Keep this ID for updates or deletes.
+</Info>
+
+<Warning>
+  `401 Unauthorized` usually means the API key is missing or scoped incorrectly.
+</Warning>
+
+## Interpret the response
+
+| Field | Description |
+| --- | --- |
+| `memory_id` | Use to update or delete later. |
+| `created_at` | ISO 8601 timestamp for auditing. |
+
+<Tip>
+  Need to upsert instead? Switch to the update operation and supply the `memory_id`.
+</Tip>
+
+## Verify it worked
+
+- Check the Mem0 dashboard for the new memory entry.
+- Run the search operation with the same `user_id` and confirm it appears in results.
+
+## Common follow-ups
+
+- [Link to parameter reference]
+- [Link to complementary operation]
+- [Link to troubleshooting playbook section]
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="[Concept guide]"
+    description="[Deepen understanding of the operation’s model]"
+    icon="layers"
+    href="/[concept-link]"
+  />
+  <Card
+    title="[Applied cookbook]"
+    description="[How to apply this operation in a workflow]"
+    icon="rocket"
+    href="/[cookbook-link]"
+  />
+</CardGroup>
+````
+
+---
+
+## ✅ Publish Checklist
+- [ ] Intro states problem + outcome, and prerequisites are complete.
+- [ ] Python and TypeScript snippets stay in sync (or a `<Note>` clarifies missing parity).
+- [ ] Every major step includes an actionable `<Info icon="check">`.
+- [ ] Warnings cover the most likely failure mode near where it occurs.
+- [ ] CTA pair is present with valid links (concept left, cookbook right).
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

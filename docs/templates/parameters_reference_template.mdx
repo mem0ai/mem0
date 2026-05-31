@@ -1,0 +1,250 @@
+---
+title: Parameters Reference Template
+description: "Use this to document accepted fields, defaults, and example payloads."
+icon: "list"
+---
+
+# Parameters Reference Template
+
+Parameter references document every input/output detail for one operation after the quickstart/onboarding journey. Keep them scannable: signature, tables, examples, exits.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Frontmatter requires `title`, `description`, `icon`. Titles should mirror the operation (“Add Memories Parameters”).
+- Place canonical Python and TypeScript signatures right under the heading using `<CodeGroup>`. Mention defaults or breaking changes in an `<Info>` or `<Warning>` immediately after.
+- Parameter table must include columns: Name, Type, Required, Description, Notes. Add a Managed/OSS distinction either as a column or in Notes.
+- When updating legacy parameter sheets, keep the authoritative field lists and notes—reformat them into this structure rather than trimming details unless the schema changed.
+- Response table must include Field, Type, Description, Example. For nested objects, add subtables or `<CodeGroup>` JSON snippets beneath the row.
+- Examples section should show minimal Python and TypeScript calls with one-sentence explanations. If a language is missing, include a `<Note>` explaining why.
+- Finish with related operations, troubleshooting tied to parameter misuse, and a two-card CTA (operation guide on the left, cookbook/integration on the right).
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+
+````mdx
+---
+title: [Operation title] Parameters
+description: Full reference for `[client.method]` inputs and responses.
+icon: "table"
+---
+
+# [Operation title] Parameters
+
+<CodeGroup>
+```python Python
+client.memories.add(
+    user_id: str,
+    memory: str,
+    metadata: Optional[dict] = None,
+    memory_type: Literal["session", "long_term"] = "session",
+)
+```
+
+```ts TypeScript
+await mem0.memories.add({
+  userId: string;
+  memory: string;
+  metadata?: Record<string, string>;
+  memoryType?: "session" | "long_term";
+});
+```
+</CodeGroup>
+
+<Info>
+  Defaults to session memories. Override `memory_type` for long-term storage.
+</Info>
+
+<Warning>
+  [Optional: call out deprecated fields or upcoming removals.]
+</Warning>
+
+## Parameters
+
+| Name | Type | Required | Description | Notes |
+| --- | --- | --- | --- | --- |
+| `user_id` | string | Yes | Unique identifier for the end user. | Must match follow-up operations. |
+| `memory` | string | Yes | Content to persist. | Managed & OSS. Markdown allowed. |
+| `metadata` | object | No | Key-value pairs for filters. | OSS stores as JSONB; limit to 2KB. |
+| `memory_type` | string | No | Retention bucket | Platform supports `shared`. |
+
+<Tip>
+  Set `ttl_seconds` when you need memories to expire automatically (OSS only).
+</Tip>
+
+## Response fields
+
+| Field | Type | Description | Example |
+| --- | --- | --- | --- |
+| `memory_id` | string | Identifier used for updates/deletes. | `mem_123` |
+| `created_at` | string (ISO 8601) | Timestamp when the memory was stored. | `2025-02-04T12:00:00Z` |
+| `metadata` | object | Echoed metadata (if provided). | `{ "team": "support" }` |
+
+```json
+{
+  "memory_id": "mem_123",
+  "memory": "I am training for a marathon.",
+  "metadata": {
+    "team": "support"
+  }
+}
+```
+
+## Examples
+
+<Tabs>
+  <Tab title="Python">
+<CodeGroup>
+```python Python
+response = client.memories.add(
+    user_id="alex",
+    memory="I am training for a marathon.",
+)
+print(response["memory_id"])
+```
+</CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+<CodeGroup>
+```typescript TypeScript
+const { memoryId } = await mem0.memories.add({
+  userId: "alex",
+  memory: "I am training for a marathon.",
+});
+console.log(memoryId);
+```
+</CodeGroup>
+  </Tab>
+</Tabs>
+
+These snippets confirm the method returns the new `memory_id` for follow-up operations.
+
+## Related operations
+
+- [Operation guide](./[operation-guide-slug])
+- [Complementary operation](./[secondary-operation-slug])
+
+## Troubleshooting
+
+- **`400 Missing user_id`** — Provide either `user_id` or `agent_id` in the payload.
+- **`422 Metadata too large`** — Reduce metadata size below 2KB (OSS hard limit).
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="[Operation guide title]"
+    description="[Why to read the operation walkthrough next]"
+    icon="book"
+    href="/[operation-guide-link]"
+  />
+  <Card
+    title="[Cookbook or integration]"
+    description="[How these parameters power a real workflow]"
+    icon="rocket"
+    href="/[cookbook-link]"
+  />
+</CardGroup>
+````
+
+---
+
+## ✅ Publish Checklist
+- [ ] Python and TypeScript signatures match the current SDKs (or a `<Note>` explains missing parity).
+- [ ] Parameter and response tables cover every field with clear Managed vs OSS notes.
+- [ ] Examples execute the minimal happy path and include one-line explanations.
+- [ ] Troubleshooting entries correspond to parameter misuse or validation errors.
+- [ ] CTA pair links to the operation guide (left) and an applied example (right).
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

@@ -1,0 +1,201 @@
+---
+title: Custom Prompts
+description: "Customize the LLM reranker prompt template in Mem0 to control how search results are ranked and scored."
+---
+
+When using LLM rerankers, you can customize the prompts used for ranking to better suit your specific use case and domain.
+
+## Default Prompt
+
+The default LLM reranker prompt scores each memory individually on a 0.0-1.0 scale:
+
+```
+You are a relevance scoring assistant. Given a query and a document, you need to score how relevant the document is to the query.
+
+Score the relevance on a scale from 0.0 to 1.0, where:
+- 1.0 = Perfectly relevant and directly answers the query
+- 0.8-0.9 = Highly relevant with good information
+- 0.6-0.7 = Moderately relevant with some useful information
+- 0.4-0.5 = Slightly relevant with limited useful information
+- 0.0-0.3 = Not relevant or no useful information
+
+Query: "{query}"
+Document: "{document}"
+
+Provide only a single numerical score between 0.0 and 1.0. Do not include any explanation or additional text.
+```
+
+## Custom Prompt Configuration
+
+You can provide a custom prompt template using the `scoring_prompt` parameter:
+
+```python
+from mem0 import Memory
+
+custom_prompt = """
+You are an expert at evaluating memories for a personal AI assistant.
+Given a user query and a memory entry, score how relevant the memory is.
+Consider direct relevance, temporal relevance, and actionability.
+
+Query: "{query}"
+Memory: "{document}"
+
+Provide only a single numerical score between 0.0 and 1.0.
+"""
+
+config = {
+    "reranker": {
+        "provider": "llm_reranker",
+        "config": {
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "api_key": "your-openai-key",
+            "scoring_prompt": custom_prompt,
+            "top_k": 5
+        }
+    }
+}
+
+memory = Memory.from_config(config)
+```
+
+## Prompt Variables
+
+Your custom prompt can use the following variables:
+
+| Variable     | Description                   |
+| ------------ | ----------------------------- |
+| `{query}`    | The search query              |
+| `{document}` | The memory entry being scored |
+
+<Note>
+  Both `{query}` and `{document}` are required in your custom prompt. The LLM reranker scores each memory individually against the query, so the prompt is called once per candidate memory.
+</Note>
+
+## Domain-Specific Examples
+
+### Customer Support
+
+```python
+customer_support_prompt = """
+You are ranking customer support conversation memories.
+Prioritize memories that:
+- Relate to the current customer issue
+- Show previous resolution patterns
+- Indicate customer preferences or constraints
+
+Query: "{query}"
+Memory: "{document}"
+
+Score relevance from 0.0 to 1.0.
+"""
+```
+
+### Educational Content
+
+```python
+educational_prompt = """
+Score this learning memory for relevance to a student query.
+Consider:
+- Prerequisite knowledge requirements
+- Learning progression and difficulty
+- Relevance to current learning objectives
+
+Student Query: "{query}"
+Memory: "{document}"
+
+Score educational relevance from 0.0 to 1.0.
+"""
+```
+
+### Personal Assistant
+
+```python
+personal_assistant_prompt = """
+Score this personal memory for relevance to the user's query.
+Consider:
+- Recent vs. historical importance
+- Personal preferences and habits
+- Contextual relationships
+
+Query: "{query}"
+Memory: "{document}"
+
+Provide relevance score from 0.0 to 1.0.
+"""
+```
+
+## Advanced Prompt Techniques
+
+### Multi-Criteria Scoring
+
+```python
+multi_criteria_prompt = """
+Evaluate this memory using multiple criteria:
+
+1. RELEVANCE (40%): How directly related to the query
+2. RECENCY (20%): How recent the memory appears to be
+3. IMPORTANCE (25%): Personal or business significance
+4. ACTIONABILITY (15%): How useful for next steps
+
+Query: "{query}"
+Memory: "{document}"
+
+Compute a weighted score from 0.0 to 1.0 based on these criteria.
+Provide only the final numerical score.
+"""
+```
+
+### Chain-of-Thought Scoring
+
+```python
+reasoning_prompt = """
+Evaluate this memory's relevance step by step:
+
+1. What is the main intent of the query?
+2. What key information does the memory contain?
+3. How directly does the memory address the query?
+
+Based on this analysis, provide a single relevance score from 0.0 to 1.0.
+
+Query: "{query}"
+Memory: "{document}"
+
+Score:
+"""
+```
+
+## Best Practices
+
+1. **Be Specific**: Clearly define what makes a memory relevant for your use case
+2. **Use 0.0-1.0 Scale**: The score extractor expects values between 0.0 and 1.0
+3. **Request Only the Score**: Ask for just the numerical score to improve extraction reliability
+4. **Test Iteratively**: Refine your prompt based on actual ranking performance
+5. **Consider Token Limits**: Keep prompts concise while being comprehensive
+
+## Prompt Testing
+
+You can test different prompts by comparing ranking results:
+
+```python
+# Test multiple prompt variations
+prompts = [
+    default_prompt,
+    custom_prompt_v1,
+    custom_prompt_v2
+]
+
+for i, prompt in enumerate(prompts):
+    config["reranker"]["config"]["scoring_prompt"] = prompt
+    memory = Memory.from_config(config)
+
+    results = memory.search("test query", filters={"user_id": "test_user"})
+    print(f"Prompt {i+1} results: {results}")
+```
+
+## Common Issues
+
+- **Too Long**: Keep prompts under token limits for your chosen LLM
+- **Too Vague**: Be specific about scoring criteria
+- **Wrong Scale**: Use 0.0-1.0 scale to match the default score extractor
+- **Extra Output**: Ask for only the numeric score — extra text can confuse score extraction

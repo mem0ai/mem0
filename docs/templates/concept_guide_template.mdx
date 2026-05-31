@@ -1,0 +1,212 @@
+---
+title: Concept Guide Template
+description: "Teach mental models and terminology before diving into implementation."
+icon: "brain"
+---
+
+# Concept Guide Template
+
+Concept guides establish a shared mental model before feature or API docs. Define the idea, show how it behaves over time, and point to practical follow-ups.
+
+---
+
+## ❌ DO NOT COPY — Guidance & Constraints
+- Frontmatter must include `title`, `description`, `icon`. Lead with a definition + analogy in two sentences max.
+- Add an `<Info>` block (“Why it matters”) with 2–3 bullets summarizing user impact. Use `<Warning>` near limitations or beta callouts.
+- Introduce vocabulary via `## Key terms` (table or bullets) before diving deeper.
+- When migrating legacy pages, preserve canonical distinctions (e.g., short-term vs long-term) and fold them into the template rather than replacing them with new frameworks.
+- Organize the body with question-style headings (`How does it work?`, `When should you use it?`, `How it compares`). Optional diagrams should be left-to-right (`graph LR`).
+- Include at least one light code/JSON snippet or data table so the concept ties back to implementation.
+- Close with a “Put it into practice” checklist, “See it live” links, and the standard two-card CTA (left = feature/reference, right = applied cookbook).
+
+---
+
+## ✅ COPY THIS — Content Skeleton
+
+````mdx
+---
+title: [Concept name]
+description: [One-sentence promise of understanding]
+icon: "lightbulb"
+---
+
+# [Concept headline]
+
+[Define the concept in one sentence.] [Add an analogy or context hook.]
+
+<Info>
+  **Why it matters**
+  - [Impact bullet]
+  - [Impact bullet]
+  - [Impact bullet]
+</Info>
+
+## Key terms
+
+- **[Term]** – [Short definition]
+- **[Term]** – [Short definition]
+
+{/* Optional: delete if not needed */}
+```mermaid
+graph LR
+  A[Input] */} B[Concept]
+  B */} C[Outcome]
+```
+
+## How does it work?
+
+[Explain lifecycle or architecture.]
+
+```python
+# Minimal snippet that anchors the concept in code
+```
+
+<Tip>
+  [Nuance or best practice related to this concept.]
+</Tip>
+
+## When should you use it?
+
+- [Scenario 1]
+- [Scenario 2]
+- [Scenario 3]
+
+## How it compares
+
+| Option | Best for | Trade-offs |
+| --- | --- | --- |
+| [Concept] | [Use case] | [Caveat] |
+| [Alternative] | [Use case] | [Caveat] |
+
+<Warning>
+  [Optional limitation or beta note.] Delete if not needed.
+</Warning>
+
+## Put it into practice
+
+- [Operation or feature doc that relies on this concept]
+- [Another supporting doc]
+
+## See it live
+
+- [Cookbook or integration demonstrating the concept]
+- [Recording, demo, or sample repo]
+
+{/* DEBUG: verify CTA targets */}
+
+<CardGroup cols={2}>
+  <Card
+    title="[Feature or reference]"
+    description="[Why this deep dive matters]"
+    icon="book"
+    href="/[feature-link]"
+  />
+  <Card
+    title="[Applied cookbook]"
+    description="[What they’ll build next]"
+    icon="rocket"
+    href="/[cookbook-link]"
+  />
+</CardGroup>
+````
+
+---
+
+## ✅ Publish Checklist
+- [ ] Definition + analogy stay within two sentences.
+- [ ] “Why it matters” bullets focus on user impact, not implementation detail.
+- [ ] Key terms, lifecycle explanation, and comparison table are present (or intentionally removed when irrelevant).
+- [ ] At least one code/JSON/table example grounds the concept.
+- [ ] CTA pair links to a feature/reference (left) and applied tutorial (right).
+
+## Browse Other Templates
+
+<CardGroup cols={3}>
+  <Card
+    title="Quickstart"
+    description="Install → Configure → Add → Search → Delete."
+    icon="rocket"
+    href="/templates/quickstart_template"
+  />
+  <Card
+    title="Operation Guide"
+    description="Single task walkthrough with verification checkpoints."
+    icon="circle-check"
+    href="/templates/operation_guide_template"
+  />
+  <Card
+    title="Feature Guide"
+    description="Explain when and why to use a capability, not just the API."
+    icon="sparkles"
+    href="/templates/feature_guide_template"
+  />
+  <Card
+    title="Concept Guide"
+    description="Define mental models, key terms, and diagrams."
+    icon="brain"
+    href="/templates/concept_guide_template"
+  />
+  <Card
+    title="Integration Guide"
+    description="Configure Mem0 alongside third-party tools."
+    icon="plug"
+    href="/templates/integration_guide_template"
+  />
+  <Card
+    title="Cookbook"
+    description="Narrative, end-to-end walkthroughs."
+    icon="book-open"
+    href="/templates/cookbook_template"
+  />
+  <Card
+    title="API Reference"
+    description="Endpoint specifics with dual-language examples."
+    icon="code"
+    href="/templates/api_reference_template"
+  />
+  <Card
+    title="Parameters Reference"
+    description="Accepted fields, defaults, and misuse fixes."
+    icon="list"
+    href="/templates/parameters_reference_template"
+  />
+  <Card
+    title="Migration Guide"
+    description="Plan → migrate → validate with rollback."
+    icon="arrow-right"
+    href="/templates/migration_guide_template"
+  />
+  <Card
+    title="Release Notes"
+    description="Ship highlights and required CTAs."
+    icon="megaphone"
+    href="/templates/release_notes_template"
+  />
+  <Card
+    title="Troubleshooting Playbook"
+    description="Symptom → diagnose → fix."
+    icon="life-buoy"
+    href="/templates/troubleshooting_playbook_template"
+  />
+  <Card
+    title="Section Overview"
+    description="Landing pages with card grids and CTA pair."
+    icon="grid"
+    href="/templates/section_overview_template"
+  />
+</CardGroup>
+
+<CardGroup cols={2}>
+  <Card
+    title="Contribution Hub"
+    description="Review the authoring workflow and linked templates."
+    icon="clipboard-list"
+    href="/platform/contribute"
+  />
+  <Card
+    title="Docs Home"
+    description="Return to the platform overview once you’re done."
+    icon="compass"
+    href="/platform/overview"
+  />
+</CardGroup>

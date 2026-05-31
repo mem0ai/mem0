@@ -1,0 +1,79 @@
+name: CLI Python CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/python/**'
+      - '.github/workflows/cli-python-ci.yml'
+  pull_request:
+    paths:
+      - 'cli/python/**'
+      - '.github/workflows/cli-python-ci.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dev dependencies
+        working-directory: cli/python
+        run: pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        working-directory: cli/python
+        run: ruff check .
+
+      - name: Check formatting
+        working-directory: cli/python
+        run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dev dependencies
+        working-directory: cli/python
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        working-directory: cli/python
+        run: pytest
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Hatch
+        run: pip install hatch
+
+      - name: Build
+        working-directory: cli/python
+        run: hatch build --clean
+
+      - name: Verify dist output
+        run: |
+          ls cli/python/dist/*.whl || (echo "Wheel file missing" && exit 1)
+          ls cli/python/dist/*.tar.gz || (echo "Source dist missing" && exit 1)

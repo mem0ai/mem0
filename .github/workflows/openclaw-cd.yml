@@ -1,0 +1,46 @@
+name: Publish @mem0/openclaw-mem0 📦 to npm
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-n-publish:
+    name: Build and publish @mem0/openclaw-mem0 📦 to npm
+    if: startsWith(github.event.release.tag_name, 'openclaw-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: openclaw
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+          cache-dependency-path: openclaw/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Publish to npm
+        run: |
+          if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+            PREID=$(node -p "require('./package.json').version.split('-')[1].split('.')[0]")
+            npx npm@latest publish --provenance --access public --tag "$PREID"
+          else
+            npx npm@latest publish --provenance --access public
+          fi

@@ -1,0 +1,29 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "compilerOptions": {
+      "composite": false,
+      "declaration": true,
+      "declarationMap": true,
+      "esModuleInterop": true,
+      "forceConsistentCasingInFileNames": true,
+      "inlineSources": false,
+      "isolatedModules": true,
+      "moduleResolution": "node16",
+      "noUnusedLocals": false,
+      "noUnusedParameters": false,
+      "preserveWatchOutput": true,
+      "skipLibCheck": true,
+      "strict": true,
+      "types": ["@types/node", "jest"],
+      "jsx": "react-jsx",
+      "lib": ["dom", "ES2021"],
+      "module": "Node16",
+      "target": "ES2018",
+      "stripInternal": true,
+      "paths": {
+        "@/*": ["./src/*"]
+      }
+    },
+    "include": ["."],
+    "exclude": ["dist", "build", "node_modules"]
+  }

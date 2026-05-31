@@ -1,0 +1,194 @@
+---
+title: Advanced Retrieval
+description: "Advanced memory search with intelligent reranking for precise results"
+---
+
+## What is Advanced Retrieval?
+
+Advanced Retrieval gives you precise control over how memories are found and ranked. While basic search uses semantic similarity, these advanced options help you find exactly what you need, when you need it.
+
+## Search Enhancement Options
+
+### Reranking
+
+Reorders results using deep semantic understanding to put the most relevant memories first.
+
+<Tabs>
+  <Tab title="When to Use">
+- Need the most relevant result at the top
+- Result order is critical for your application
+- Want consistent quality across different queries
+- Building user-facing features where accuracy matters
+</Tab>
+<Tab title="How it Works">
+```python Python
+# Get the most relevant travel plans first
+results = client.search(
+    query="What are my upcoming travel plans?",
+    rerank=True,
+    user_id="user123"
+)
+
+# Before reranking:        After reranking:
+# 1. "Went to Paris"   →   1. "Tokyo trip next month"
+# 2. "Tokyo trip next" →   2. "Need to book hotel in Tokyo"  
+# 3. "Need hotel"      →   3. "Went to Paris last year"
+```
+</Tab>
+<Tab title="Performance">
+- **Latency**: 150-200ms additional
+- **Accuracy**: Significantly improved
+- **Ordering**: Much more relevant
+- **Best for**: Top-N precision, user-facing results
+</Tab>
+</Tabs>
+
+## Real-World Use Cases
+
+<Tabs>
+<Tab title="Personal AI Assistant">
+```python Python
+# Smart home assistant finding device preferences
+results = client.search(
+    query="How do I like my bedroom temperature?",
+    rerank=True,           # Get most recent preferences first
+    user_id="user123"
+)
+
+# Finds: "Keep bedroom at 68°F", "Too cold last night at 65°F", etc.
+```
+</Tab>
+<Tab title="Customer Support">
+```python Python
+# Find specific product issues with high precision
+results = client.search(
+    query="Problems with premium subscription billing",
+    user_id="customer456"
+)
+
+# Returns only relevant billing problems, not general questions
+```
+</Tab>
+<Tab title="Healthcare AI">
+```python Python
+# Critical medical information needs perfect accuracy
+results = client.search(
+    query="Patient allergies and contraindications",
+    rerank=True,            # Most important info first
+    user_id="patient789"
+)
+
+# Ensures critical allergy info appears first
+```
+</Tab>
+<Tab title="Learning Platform">
+```python Python
+# Find learning progress for specific topics
+results = client.search(
+    query="Python programming progress and difficulties",
+    rerank=True,           # Recent progress first
+    user_id="student123"
+)
+
+# Gets comprehensive view of Python learning journey
+```
+</Tab>
+</Tabs>
+
+## Choosing the Right Configuration
+
+### Recommended Configurations
+
+<CodeGroup>
+```python Python
+# Basic search - good for exploration
+def quick_search(query, user_id):
+    return client.search(
+        query=query,
+        user_id=user_id
+    )
+
+# Reranked search - good for most applications
+def standard_search(query, user_id):
+    return client.search(
+        query=query,
+        rerank=True,
+        user_id=user_id
+    )
+
+# Reranked search - good for critical applications
+def precise_search(query, user_id):
+    return client.search(
+        query=query,
+        rerank=True,
+        user_id=user_id
+    )
+```
+
+```javascript JavaScript
+// Basic search - good for exploration
+function quickSearch(query, userId) {
+    return client.search(query, {
+        user_id: userId
+    });
+}
+
+// Reranked search - good for most applications
+function standardSearch(query, userId) {
+    return client.search(query, {
+        user_id: userId,
+        rerank: true
+    });
+}
+
+// Reranked search - good for critical applications
+function preciseSearch(query, userId) {
+    return client.search(query, {
+        user_id: userId,
+        rerank: true
+    });
+}
+```
+</CodeGroup>
+
+## Best Practices
+
+### Do
+
+- Start simple with basic search and measure impact before enabling reranking
+- Use reranking when the top result quality matters most
+- Monitor latency and adjust based on your application's needs
+- Handle empty results gracefully
+
+### Don't
+
+- Enable reranking by default without measuring necessity
+- Ignore latency impact in real-time applications
+- Use advanced retrieval for simple, fast lookup scenarios
+
+## Performance Guidelines
+
+### Latency Expectations
+
+```python Python
+# Performance monitoring example
+import time
+
+start_time = time.time()
+results = client.search(
+    query="user preferences",
+    rerank=True,         # +150ms
+    user_id="user123"
+)
+latency = time.time() - start_time
+print(f"Search completed in {latency:.2f}s")
+```
+
+### Optimization Tips
+
+1. **Cache frequent queries** to avoid repeated advanced processing
+2. **Use session-specific search** with `run_id` to reduce search space
+3. **Implement fallback logic** when search returns empty results
+4. **Monitor and alert** on search latency patterns
+
+<Snippet file="get-help.mdx" />

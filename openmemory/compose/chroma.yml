@@ -1,0 +1,11 @@
+services:
+  mem0_store:
+    image: ghcr.io/chroma-core/chroma:latest
+    restart: unless-stopped
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - mem0_storage:/data

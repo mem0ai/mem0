@@ -1,0 +1,243 @@
+---
+title: ChatDev
+description: "Add persistent, cloud-managed memory to ChatDev multi-agent workflows with Mem0 — no code required, just YAML configuration."
+---
+
+Build multi-agent workflows in [ChatDev](https://github.com/OpenBMB/ChatDev) with persistent memory powered by Mem0. ChatDev is a zero-code multi-agent platform where agents, tools, and workflows are defined entirely in YAML. Mem0 integrates as a built-in memory store (`type: mem0`), giving your agents cloud-managed semantic search and cross-session persistence — all without writing any code.
+
+## Overview
+
+In this guide, you'll:
+1. Set up ChatDev with the Mem0 memory store
+2. Configure agents with persistent memory using YAML
+3. Enable automatic memory retrieval and storage across conversations
+4. Leverage cross-session persistence for personalized multi-agent interactions
+
+## Prerequisites
+
+- **Python 3.12+**
+- **[uv](https://docs.astral.sh/uv/)** — Python package manager
+- **Node.js 18+** and **npm** — only needed if using the web console
+- A **Mem0 API key** from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">app.mem0.ai</a>
+- An **OpenAI API key** (or another LLM provider supported by ChatDev)
+
+## Setup and Configuration
+
+Install ChatDev and its dependencies (includes `mem0ai`):
+
+```bash
+git clone https://github.com/OpenBMB/ChatDev.git
+cd ChatDev
+uv sync
+```
+
+If you plan to use the web console, also install the frontend:
+
+```bash
+cd frontend && npm install && cd ..
+```
+
+Set up your environment variables in a `.env` file:
+
+<Note>Get your Mem0 API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">Mem0 Platform</a>.</Note>
+
+```bash
+MEM0_API_KEY=your-mem0-api-key
+API_KEY=your-openai-api-key
+BASE_URL=https://api.openai.com/v1
+```
+
+## Configure Mem0 Memory Store
+
+In your ChatDev workflow YAML, add a Mem0 memory store in the `memory` section:
+
+```yaml
+memory:
+  - name: mem0_store
+    type: mem0
+    config:
+      api_key: ${MEM0_API_KEY}
+      user_id: my-user-123       # optional: scope memories to a user
+      agent_id: my-agent         # optional: scope memories to an agent
+```
+
+Mem0 handles all storage, embeddings, and search server-side — no local vector databases or embedding models are needed.
+
+## Attach Memory to an Agent
+
+Reference the memory store in your agent node's `memories` list:
+
+```yaml
+nodes:
+  - id: writer
+    type: agent
+    config:
+      role: |
+        You are a knowledgeable writer. Use your memories to build
+        on past interactions.
+      memories:
+        - name: mem0_store
+          top_k: 5
+          similarity_threshold: 0.5   # minimum relevance score (0.0–1.0); set to -1.0 to disable
+          retrieve_stage:
+            - gen
+          read: true
+          write: true
+```
+
+- **`read: true`** — Agent retrieves relevant memories before generating a response
+- **`write: true`** — Agent stores new memories from user input after each interaction
+- **`top_k`** — Number of memories to retrieve per query
+- **`similarity_threshold`** — Minimum relevance score for retrieved memories. Set to `-1.0` to return all results regardless of score
+- **`retrieve_stage`** — When to retrieve memories. Options: `pre_gen_thinking` (before generation), `gen` (during generation), `post_gen_thinking` (after generation), `finished` (after completion)
+
+## Full Example Workflow
+
+Here's a complete workflow YAML that creates a memory-backed conversational agent:
+
+```yaml
+version: 0.4.0
+graph:
+  description: Memory-backed conversation using Mem0
+
+  nodes:
+    - id: writer
+      type: agent
+      config:
+        base_url: ${BASE_URL}
+        api_key: ${API_KEY}
+        provider: openai
+        name: gpt-5.4
+        role: |
+          You are a knowledgeable writer. Use your memories to build
+          on past interactions. If memory sections are provided
+          (wrapped by ===== Related Memories =====), incorporate
+          relevant context from those memories into your response.
+        params:
+          temperature: 0.7
+          max_tokens: 2000
+        memories:
+          - name: mem0_store
+            top_k: 5
+            retrieve_stage:
+              - gen
+            read: true
+            write: true
+
+  memory:
+    - name: mem0_store
+      type: mem0
+      config:
+        api_key: ${MEM0_API_KEY}
+        user_id: project-user-123
+        agent_id: writer-agent
+
+  start:
+    - writer
+  end: []
+```
+
+Run the workflow:
+
+```bash
+# Option 1: CLI (recommended for quick testing)
+uv run python run.py --path yaml_instance/demo_mem0_memory.yaml --name my_project
+
+# Option 2: Web console
+make dev
+# Backend starts at http://localhost:6400, frontend at http://localhost:5173
+```
+
+To use the web console, open `http://localhost:5173`, create a new workflow, and paste your YAML configuration into the editor. The web console provides a visual chat interface for interacting with your memory-backed agents.
+
+## How It Works
+
+When an agent with Mem0 memory receives input, the following cycle runs automatically:
+
+**1. Retrieve** — Before generating a response, ChatDev queries Mem0 with the user's input using semantic search. Relevant memories are injected into the agent's context in this format:
+
+```
+===== Related Memories =====
+--- mem0_store ---
+1. User's favorite language is Rust
+2. User lives in San Francisco
+===== End of Memory =====
+```
+
+This is why the role prompt in the example references `===== Related Memories =====` — the agent needs to know how to use this injected context.
+
+**2. Generate** — The agent produces a response using the retrieved memories as additional context.
+
+**3. Store** — After generation, the user's input is sent to Mem0 via `client.add()`. Mem0's extraction model automatically identifies and stores facts, preferences, and key information. Only user input is stored — agent output is excluded to keep memories clean.
+
+Memories persist in Mem0's cloud across all sessions. The next time the same `user_id` or `agent_id` is used, previous memories are automatically retrieved.
+
+## Dual-Scope Memory (User + Agent)
+
+When both `user_id` and `agent_id` are configured, Mem0 uses an OR filter to search across both scopes in a single query:
+
+```yaml
+memory:
+  - name: shared_store
+    type: mem0
+    config:
+      api_key: ${MEM0_API_KEY}
+      user_id: alice              # stores user preferences ("Alice prefers dark mode")
+      agent_id: support-bot       # stores agent-learned context ("Resolved Alice's billing issue")
+```
+
+This means retrieval returns memories from **both** the user's scope and the agent's scope. Writes include both IDs, so each memory is accessible from either dimension. Use this when you want an agent to remember both what the user told it *and* what the agent learned across sessions.
+
+## Configuration Reference
+
+### Memory Store Config
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `api_key` | Yes | Mem0 API key from <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">app.mem0.ai</a> |
+| `user_id` | No | Scope memories to a specific user |
+| `agent_id` | No | Scope memories to a specific agent |
+
+### Memory Attachment Config
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `top_k` | `3` | Number of memories to retrieve |
+| `similarity_threshold` | `-1.0` (disabled) | Minimum relevance score. Set a value between `0.0` and `1.0` to filter low-relevance results. Default (`-1.0`) returns all matches without filtering |
+| `retrieve_stage` | `["gen"]` | When to retrieve: `pre_gen_thinking`, `gen`, `post_gen_thinking`, or `finished` |
+| `read` | `true` | Whether the agent retrieves memories |
+| `write` | `true` | Whether the agent stores new memories |
+
+## Tips and Common Pitfalls
+
+<Info>
+**Indexing delay** — Freshly stored memories may take a few seconds to become searchable. If a memory isn't retrieved immediately after being stored, wait a moment and try again.
+</Info>
+
+- **No memories returned on first run** — This is expected. Memories are stored *after* the agent responds, so the first interaction has no prior context. Memories appear starting from the second interaction onward.
+- **`mem0ai` not installed** — If you see `ImportError: mem0ai is required for Mem0Memory`, run `uv add mem0ai` or `pip install mem0ai` to add the dependency.
+- **Invalid API key** — A wrong or expired `MEM0_API_KEY` will log errors like `Mem0 search failed` or `Mem0 add failed` but won't crash the agent. Check your key at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">app.mem0.ai</a>.
+- **Pipeline headers in memories** — ChatDev automatically strips internal pipeline headers (e.g., `=== INPUT FROM TASK (user) ===`) before sending text to Mem0, so your memories stay clean.
+- **Clearing test memories** — To delete memories created during testing, use the Mem0 dashboard at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-chatdev" rel="nofollow">app.mem0.ai</a> or the Python SDK: `MemoryClient().delete_all(user_id="your-test-user")`.
+
+## Key Features
+
+1. **Zero-Code Integration** — Configure Mem0 entirely through YAML, no Python code required
+2. **Cloud-Managed Storage** — Mem0 handles embeddings, persistence, and search server-side
+3. **Semantic Search** — Retrieve contextually relevant memories, not just keyword matches
+4. **Cross-Session Persistence** — Memories survive across runs, sessions, and restarts
+5. **Multi-Agent Memory Sharing** — Multiple agents can share memories through common `user_id` or `agent_id` scopes
+6. **Intelligent Input Processing** — Only user input is stored; agent output is excluded to prevent noisy memories
+
+## Conclusion
+
+By adding Mem0 as a memory store in ChatDev, your multi-agent workflows gain persistent, intelligent memory with zero code changes. Agents automatically remember past interactions and use that context to provide personalized, coherent responses across sessions.
+
+<CardGroup cols={2}>
+  <Card title="CrewAI Integration" icon="users" href="/integrations/crewai">
+    Build multi-agent systems with CrewAI and Mem0
+  </Card>
+  <Card title="AutoGen Integration" icon="robot" href="/integrations/autogen">
+    Build conversational agents with AutoGen and Mem0
+  </Card>
+</CardGroup>

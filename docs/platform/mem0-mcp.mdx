@@ -1,0 +1,228 @@
+---
+title: "Mem0 MCP"
+description: "Connect any AI client to Mem0 using Model Context Protocol in minutes"
+icon: "puzzle-piece"
+estimatedTime: "~2 minutes"
+---
+
+<Info>
+  **Prerequisites**
+  - Mem0 Platform account (<a href="https://app.mem0.ai?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Sign up here</a>)
+  - API key (<a href="https://app.mem0.ai/settings/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Get one from dashboard</a>)
+  - Node.js 14+ (for npx)
+  - An MCP-compatible client (Claude, Claude Code, Codex, Cursor, Windsurf, VS Code, OpenCode)
+</Info>
+
+## What is Mem0 MCP?
+
+Mem0 MCP Server exposes Mem0's memory capabilities as MCP tools, letting AI agents decide when to save, search, or update information. The cloud-hosted MCP server requires no local installation — just connect and start using memory.
+
+## Quick Setup
+
+Add Mem0 MCP to your preferred clients with a single command:
+
+```bash
+npx mcp-add \
+  --name mem0-mcp \
+  --type http \
+  --url "https://mcp.mem0.ai/mcp" \
+  --clients "claude,claude code,cursor,windsurf,vscode,opencode"
+```
+
+This automatically configures Mem0 MCP for all supported clients at once.
+
+## Available Tools
+
+The MCP server exposes these memory tools to your AI client:
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across existing memories with filters |
+| `get_memories` | List memories with structured filters and pagination |
+| `get_memory` | Retrieve one memory by its `memory_id` |
+| `update_memory` | Overwrite a memory's text after confirming the ID |
+| `delete_memory` | Delete a single memory by `memory_id` |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | Enumerate users/agents/apps/runs stored in Mem0 |
+| `list_events` | List memory operation events with filters and pagination |
+| `get_event_status` | Check the status of an async memory operation by `event_id` |
+
+---
+
+## Client-Specific Setup
+
+You can also configure individual clients:
+
+<AccordionGroup>
+  <Accordion title="Claude Desktop">
+    ```bash
+    npx mcp-add \
+      --name mem0-mcp \
+      --type http \
+      --url "https://mcp.mem0.ai/mcp" \
+      --clients "claude"
+    ```
+
+    Or manually add to your Claude Desktop configuration (`claude_desktop_config.json`):
+    ```json
+    {
+      "mcpServers": {
+        "mem0-mcp": {
+          "type": "http",
+          "url": "https://mcp.mem0.ai/mcp"
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Claude Code">
+    ```bash
+    npx mcp-add \
+      --name mem0-mcp \
+      --type http \
+      --url "https://mcp.mem0.ai/mcp" \
+      --clients "claude code"
+    ```
+  </Accordion>
+
+  <Accordion title="Codex">
+    **Direct MCP (fastest, MCP only).** Codex reads MCP servers from `~/.codex/config.toml` as TOML (not JSON). Add:
+
+    ```toml
+    [mcp_servers.mem0]
+    url = "https://mcp.mem0.ai/mcp"
+    bearer_token_env_var = "MEM0_API_KEY"
+    ```
+
+    Export `MEM0_API_KEY` in the shell you launch Codex from, then restart Codex. `codex mcp add` only supports stdio servers, so HTTP servers must be added via `config.toml` directly — or via the **Plugins → Connect to a custom MCP → Streamable HTTP** UI in the Codex app.
+
+    <Note>
+      Codex uses the server name `mem0` (not `mem0-mcp` like the other clients on this page) so it matches the name the bundled plugin registers if you ever sideload it later.
+    </Note>
+
+    **Sideloaded plugin (full experience).** If you want the memory protocol skill, Mem0 SDK skill, and opt-in lifecycle hooks alongside the MCP server, sideload the plugin from a clone of `mem0ai/mem0`. The repo ships a marketplace manifest at `.agents/plugins/marketplace.json`, so you can register it with one CLI call:
+
+    ```bash
+    git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
+    codex plugin marketplace add ~/codex-plugins/mem0-source
+    ```
+
+    Then run `codex` and `/plugins`, browse the **Mem0 Plugins** marketplace, and install **Mem0**. Don't combine this with the Direct MCP setup above — the sideloaded plugin auto-registers `mem0` via `.codex-mcp.json`, so a manual `[mcp_servers.mem0]` block would create a duplicate.
+
+    See the [Codex integration guide](/integrations/codex) for full details, lifecycle-hook setup, and management commands (`codex plugin marketplace upgrade` / `remove`).
+  </Accordion>
+
+  <Accordion title="Cursor">
+    ```bash
+    npx mcp-add \
+      --name mem0-mcp \
+      --type http \
+      --url "https://mcp.mem0.ai/mcp" \
+      --clients "cursor"
+    ```
+
+    Or go to Cursor → Settings → MCP and add:
+    ```json
+    {
+      "mcpServers": {
+        "mem0-mcp": {
+          "type": "http",
+          "url": "https://mcp.mem0.ai/mcp"
+        }
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Windsurf">
+    ```bash
+    npx mcp-add \
+      --name mem0-mcp \
+      --type http \
+      --url "https://mcp.mem0.ai/mcp" \
+      --clients "windsurf"
+    ```
+  </Accordion>
+
+  <Accordion title="VS Code">
+    ```bash
+    npx mcp-add \
+      --name mem0-mcp \
+      --type http \
+      --url "https://mcp.mem0.ai/mcp" \
+      --clients "vscode"
+    ```
+  </Accordion>
+
+  <Accordion title="OpenCode">
+    ```bash
+    npx mcp-add \
+      --name mem0-mcp \
+      --type http \
+      --url "https://mcp.mem0.ai/mcp" \
+      --clients "opencode"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Verify Your Setup
+
+Once configured, your AI client can:
+- Automatically save information with `add_memory`
+- Search memories with `search_memories`
+- Update memories with `update_memory`
+- Delete memories with `delete_memory`
+
+**Sample Interactions:**
+
+```
+User: Remember that I love tiramisu
+Agent: Got it! I've saved that you love tiramisu.
+
+User: What do you know about my food preferences?
+Agent: Based on your memories, you love tiramisu.
+
+User: Update my project: the mobile app is now 80% complete
+Agent: Updated your project status successfully.
+```
+
+<Info icon="check">
+  If you get "Connection failed", ensure you have a valid API key from <a href="https://app.mem0.ai/settings/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 Dashboard</a>.
+</Info>
+
+---
+
+## Quick Recovery
+
+- **"Connection refused"** → Check your internet connection and ensure the MCP client is correctly configured
+- **"Invalid API key"** → Get a new key from <a href="https://app.mem0.ai/settings/api-keys?utm_source=oss&utm_medium=platform-mem0-mcp" rel="nofollow">Mem0 Dashboard</a>
+- **"npx command not found"** → Install Node.js from [nodejs.org](https://nodejs.org)
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="MCP Integration Feature"
+    description="Learn about MCP configuration options and advanced patterns"
+    icon="plug"
+    href="/platform/features/mcp-integration"
+  />
+  <Card
+    title="Gemini 3 with Mem0 MCP"
+    description="See how to integrate Gemini 3 with Mem0 MCP server"
+    icon="book-open"
+    href="/cookbooks/frameworks/gemini-3-with-mem0-mcp"
+  />
+</CardGroup>
+
+## Additional Resources
+
+- **[Platform Quickstart](/platform/quickstart)** - Direct API integration guide
+- **[MCP Specification](https://modelcontextprotocol.io)** - Learn about MCP protocol
