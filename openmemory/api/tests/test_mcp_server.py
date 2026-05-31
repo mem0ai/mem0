@@ -6,6 +6,9 @@ tools/call — as well as error handling and context-variable isolation.
 """
 
 import os
+import json
+import uuid
+from types import SimpleNamespace
 
 # Set dummy keys before any imports that trigger client initialization
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
@@ -14,6 +17,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from app import mcp_server
 from app.mcp_server import client_name_var, mcp, mcp_router, user_id_var
 
 # MCP Streamable HTTP requires the Accept header to include application/json.
@@ -394,3 +398,146 @@ class TestRouteRegistration:
     def test_streamable_http_route_is_registered(self, test_app):
         routes = [r.path for r in test_app.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/http/{user_id}" in routes
+
+
+# ---------------------------------------------------------------------------
+# Memory SDK compatibility
+# ---------------------------------------------------------------------------
+
+class TestMemorySDKCompatibility:
+    """Verify MCP tools call the current Mem0 SDK API shape."""
+
+    @pytest.mark.asyncio
+    async def test_list_memories_uses_filters_for_user_id(self, monkeypatch):
+        """Mem0 v3 expects entity filters instead of top-level user_id."""
+
+        class FakeMemoryClient:
+            def __init__(self):
+                self.calls = []
+
+            def get_all(self, *args, **kwargs):
+                self.calls.append((args, kwargs))
+                if "user_id" in kwargs:
+                    raise ValueError("Top-level entity parameters are not supported")
+                return {"results": []}
+
+        class FakeQuery:
+            def filter(self, *args, **kwargs):
+                return self
+
+            def all(self):
+                return []
+
+        class FakeDB:
+            def query(self, *args, **kwargs):
+                return FakeQuery()
+
+            def add(self, *args, **kwargs):
+                pass
+
+            def commit(self):
+                pass
+
+            def close(self):
+                pass
+
+        memory_client = FakeMemoryClient()
+        user = SimpleNamespace(id=uuid.uuid4())
+        app = SimpleNamespace(id=uuid.uuid4())
+
+        monkeypatch.setattr(mcp_server, "get_memory_client_safe", lambda: memory_client)
+        monkeypatch.setattr(mcp_server, "SessionLocal", lambda: FakeDB())
+        monkeypatch.setattr(
+            mcp_server,
+            "get_user_and_app",
+            lambda db, user_id, app_id: (user, app),
+        )
+
+        user_token = user_id_var.set("oliververmeulen")
+        client_token = client_name_var.set("openmemory")
+        try:
+            result = await mcp_server.list_memories()
+        finally:
+            user_id_var.reset(user_token)
+            client_name_var.reset(client_token)
+
+        assert result == "[]"
+        assert memory_client.calls == [
+            ((), {"filters": {"user_id": "oliververmeulen"}})
+        ]
+
+    @pytest.mark.asyncio
+    async def test_search_memory_uses_top_k_for_vector_store(self, monkeypatch):
+        """Mem0 vector stores expect top_k instead of a limit keyword."""
+
+        class FakeEmbeddingModel:
+            def embed(self, query, mode):
+                return [0.1, 0.2, 0.3]
+
+        class FakeVectorStore:
+            def __init__(self):
+                self.calls = []
+
+            def search(self, *args, **kwargs):
+                self.calls.append((args, kwargs))
+                if "limit" in kwargs:
+                    raise TypeError("search() got an unexpected keyword argument 'limit'")
+                return []
+
+        class FakeMemoryClient:
+            def __init__(self):
+                self.embedding_model = FakeEmbeddingModel()
+                self.vector_store = FakeVectorStore()
+
+        class FakeQuery:
+            def filter(self, *args, **kwargs):
+                return self
+
+            def all(self):
+                return []
+
+        class FakeDB:
+            def query(self, *args, **kwargs):
+                return FakeQuery()
+
+            def add(self, *args, **kwargs):
+                pass
+
+            def commit(self):
+                pass
+
+            def close(self):
+                pass
+
+        memory_client = FakeMemoryClient()
+        user = SimpleNamespace(id=uuid.uuid4())
+        app = SimpleNamespace(id=uuid.uuid4())
+
+        monkeypatch.setattr(mcp_server, "get_memory_client_safe", lambda: memory_client)
+        monkeypatch.setattr(mcp_server, "SessionLocal", lambda: FakeDB())
+        monkeypatch.setattr(
+            mcp_server,
+            "get_user_and_app",
+            lambda db, user_id, app_id: (user, app),
+        )
+
+        user_token = user_id_var.set("oliververmeulen")
+        client_token = client_name_var.set("openmemory")
+        try:
+            result = await mcp_server.search_memory("Obsidian vault")
+        finally:
+            user_id_var.reset(user_token)
+            client_name_var.reset(client_token)
+
+        assert json.loads(result) == {"results": []}
+        assert memory_client.vector_store.calls == [
+            (
+                (),
+                {
+                    "query": "Obsidian vault",
+                    "vectors": [0.1, 0.2, 0.3],
+                    "top_k": 10,
+                    "filters": {"user_id": "oliververmeulen"},
+                },
+            )
+        ]

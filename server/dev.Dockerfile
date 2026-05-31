@@ -12,6 +12,7 @@ RUN pip install -r requirements.txt
 
 # Install mem0 in editable mode using Poetry
 WORKDIR /app/packages
+COPY .env .
 COPY pyproject.toml .
 COPY poetry.lock .
 COPY README.md .
