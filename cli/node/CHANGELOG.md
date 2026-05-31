@@ -5,6 +5,21 @@ All notable changes to `@mem0/cli` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] — 2026-06-01
+
+### Security
+
+- Pinned transitive dependencies via pnpm overrides to remediate high-severity CVEs:
+  - `jws` → 4.0.1 (CVE-2025-65945)
+  - `langsmith` → ^0.6.0 (CVE-2026-45134)
+  - `tar-fs` → ^2.1.4 (CVE-2025-48387, CVE-2025-59343)
+  - `picomatch` → ^2.3.2 (CVE-2026-33671)
+  - `minimatch` → ^3.1.3 / ^5.1.8 / ^9.0.7 (CVE-2026-27903, CVE-2026-27904, CVE-2026-26996)
+  - `path-to-regexp` → ^8.4.0 (CVE-2026-4926)
+  - `rollup` → ^4.59.0 (CVE-2026-27606)
+  - `glob` → ^10.5.0 (CVE-2025-64756)
+  - `@modelcontextprotocol/sdk` → ^1.25.4 (CVE-2025-66414, CVE-2026-0621)
+
 ## [0.2.7] — 2026-05-20
 
 ### Added
