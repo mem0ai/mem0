@@ -1,6 +1,6 @@
 import os
 from abc import ABC
-from typing import Dict, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import httpx
 
@@ -25,7 +25,7 @@ class BaseEmbedderConfig(ABC):
         model_kwargs: Optional[dict] = None,
         huggingface_base_url: Optional[str] = None,
         # AzureOpenAI specific
-        azure_kwargs: Optional[AzureConfig] = {},
+        azure_kwargs: Optional[Union[AzureConfig, Dict[str, Any]]] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
         # VertexAI specific
         vertex_credentials_json: Optional[str] = None,
@@ -89,7 +89,7 @@ class BaseEmbedderConfig(ABC):
         self.model_kwargs = model_kwargs or {}
         self.huggingface_base_url = huggingface_base_url
         # AzureOpenAI specific
-        self.azure_kwargs = AzureConfig(**azure_kwargs) or {}
+        self.azure_kwargs = azure_kwargs if isinstance(azure_kwargs, AzureConfig) else AzureConfig(**(azure_kwargs or {}))
 
         # VertexAI specific
         self.vertex_credentials_json = vertex_credentials_json
@@ -107,4 +107,3 @@ class BaseEmbedderConfig(ABC):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_region = aws_region or os.environ.get("AWS_REGION") or "us-west-2"
-

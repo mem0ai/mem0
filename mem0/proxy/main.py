@@ -52,7 +52,7 @@ class Completions:
     def create(
         self,
         model: str,
-        messages: List = [],
+        messages: Optional[List] = None,
         # Mem0 arguments
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
@@ -100,6 +100,7 @@ class Completions:
                 f"Model '{model}' does not support function calling. Please use a model that supports function calling."
             )
 
+        messages = messages or []
         prepared_messages = self._prepare_messages(messages)
         if prepared_messages[-1]["role"] == "user":
             self._async_add_to_memory(messages, user_id, agent_id, run_id, metadata, filters)

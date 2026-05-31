@@ -31,6 +31,13 @@ def test_embed_text(mock_openai_client):
     assert embedding == [0.1, 0.2, 0.3]
 
 
+def test_base_embedder_config_azure_kwargs_default_is_isolated():
+    first = BaseEmbedderConfig()
+    second = BaseEmbedderConfig()
+
+    assert first.azure_kwargs is not second.azure_kwargs
+
+
 @pytest.mark.parametrize(
     "default_headers, expected_header",
     [(None, None), ({"Test": "test_value"}, "test_value"), ({}, None)],

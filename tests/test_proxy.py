@@ -1,3 +1,4 @@
+import inspect
 from unittest.mock import Mock, patch
 
 import pytest
@@ -58,6 +59,12 @@ def test_mem0_initialization_without_params(mock_openai_embedding_client, mock_o
 def test_chat_initialization(mock_memory_client):
     chat = Chat(mock_memory_client)
     assert isinstance(chat.completions, Completions)
+
+
+def test_completions_create_messages_default_is_not_mutable():
+    signature = inspect.signature(Completions.create)
+
+    assert signature.parameters["messages"].default is None
 
 
 def test_completions_create(mock_memory_client, mock_litellm):
