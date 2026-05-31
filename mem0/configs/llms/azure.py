@@ -23,6 +23,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
         vision_details: Optional[str] = "auto",
         reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[dict] = None,
+        is_reasoning_model: Optional[bool] = None,
         # Azure OpenAI-specific parameters
         azure_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -54,6 +55,7 @@ class AzureOpenAIConfig(BaseLlmConfig):
             vision_details=vision_details,
             reasoning_effort=reasoning_effort,
             http_client_proxies=http_client_proxies,
+            is_reasoning_model=is_reasoning_model,
         )
 
         # Azure OpenAI-specific parameters

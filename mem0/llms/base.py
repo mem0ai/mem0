@@ -43,13 +43,23 @@ class LLMBase(ABC):
     def _is_reasoning_model(self, model: str) -> bool:
         """
         Check if the model is a reasoning model or GPT-5 series that doesn't support certain parameters.
-        
+
+        An explicit ``is_reasoning_model`` on the config takes precedence over the
+        name-based heuristic. This lets deployments with custom/versioned model
+        names (e.g. Azure ``gpt-5.4-nano-2026-03-17``) opt in or out without
+        relying on string matching. When the config value is ``None`` (default),
+        classification falls back to the name-based heuristic below.
+
         Args:
             model: The model name to check
-            
+
         Returns:
             bool: True if the model is a reasoning model or GPT-5 series
         """
+        explicit = getattr(self.config, "is_reasoning_model", None)
+        if explicit is not None:
+            return explicit
+
         reasoning_models = {
             "o1", "o1-preview", "o3-mini", "o3",
             "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
