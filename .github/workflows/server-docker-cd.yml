@@ -1,0 +1,63 @@
+name: Publish server Docker image 🐳 to Docker Hub
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Explicit tag to publish (e.g. v0.1.114). Leave blank to use the latest release.'
+        required: false
+        type: string
+
+jobs:
+  build-and-push:
+    # Skip on forks unless someone has copied secrets in — avoids confusing failures
+    # for downstream users who fork the repo.
+    if: github.repository == 'mem0ai/mem0' && startsWith(github.event.release.tag_name, 'v') || github.event_name == 'workflow_dispatch'
+    name: Build + push mem0-api-server
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU (for arm64 cross-build)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: mem0/mem0-api-server
+          # On release/v*: produce vX.Y.Z, vX.Y, vX, latest tags.
+          # On manual dispatch: use the input tag verbatim.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' }}
+
+      - name: Build + push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          file: ./server/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          # GitHub-hosted layer cache — speeds up subsequent builds, no extra setup.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
