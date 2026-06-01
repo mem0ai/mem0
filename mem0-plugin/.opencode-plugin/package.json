@@ -11,9 +11,6 @@
       "import": "./dist/index.js"
     }
   },
-  "bin": {
-    "mem0-opencode": "./cli.ts"
-  },
   "publishConfig": {
     "access": "public"
   },
@@ -34,14 +31,15 @@
   },
   "files": [
     "dist",
-    "cli.ts",
-    "opencode.json",
     "LICENSE",
     "opencode-skills"
   ],
   "scripts": {
-    "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] && tsc --emitDeclarationOnly --outDir dist --declaration",
-    "dev": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
+    "clean": "rm -rf dist",
+    "build": "bun run clean && bun run build:js && bun run build:dts && bun run build:assets",
+    "build:js": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext]",
+    "build:dts": "tsc --emitDeclarationOnly --outDir dist --declaration",
+    "build:assets": "cp -R opencode-skills dist/opencode-skills",
     "type-check": "tsc --noEmit",
     "prepack": "bun run build",
     "postpack": ""

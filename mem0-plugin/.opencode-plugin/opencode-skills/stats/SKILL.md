@@ -1,5 +1,5 @@
 ---
-name: stats
+name: "mem0:stats"
 description: Displays memory usage statistics for the current session and project including counts by category, age distribution, and API latency. Use when checking how many memories exist, reviewing session activity, or auditing memory distribution across categories.
 ---
 

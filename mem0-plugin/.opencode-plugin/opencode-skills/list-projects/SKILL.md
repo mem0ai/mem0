@@ -1,5 +1,5 @@
 ---
-name: list-projects
+name: "mem0:list-projects"
 description: Lists all projects with stored memories for the current user, showing memory counts and last activity dates. Use when checking which projects have memories, comparing memory distribution across repos, or finding a specific project scope.
 ---
 

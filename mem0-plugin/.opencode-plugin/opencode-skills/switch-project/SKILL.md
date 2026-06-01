@@ -1,5 +1,5 @@
 ---
-name: switch-project
+name: "mem0:switch-project"
 description: Overrides the auto-detected project scope to read and write memories under a different project ID, or enables global search to access all memories across all users and projects. Use when working across multiple projects, accessing memories from another repo, enabling team-wide memory access, or when auto-detection resolves to the wrong project.
 ---
 

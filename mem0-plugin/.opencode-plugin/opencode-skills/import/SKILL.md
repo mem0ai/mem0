@@ -1,5 +1,5 @@
 ---
-name: import
+name: "mem0:import"
 description: Imports memories from an exported Markdown file or MEMORY.md into the current project. Use when migrating from another project, restoring from backup, importing Claude Code native MEMORY.md content, or setting up a new project with existing knowledge.
 ---
 
