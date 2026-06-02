@@ -37,23 +37,28 @@ def search_memories(
     min_score: float = 0.0,
     rerank: bool = False,
     threshold: float = 0.3,
+    global_search: bool = False,
 ) -> list[dict]:
     if not api_key:
         return []
 
-    base_clauses: list[dict] = [{"user_id": user_id}, {"app_id": project_id}]
-    if metadata_type:
-        base_clauses.append({"metadata": {"type": metadata_type}})
-    if metadata_filters:
-        for key, value in metadata_filters.items():
-            base_clauses.append({"metadata": {key: value}})
+    if global_search:
+        filters: dict = {"OR": [{"user_id": "*"}]}
+    else:
+        base_clauses: list[dict] = [{"user_id": user_id}, {"app_id": project_id}]
+        if metadata_type:
+            base_clauses.append({"metadata": {"type": metadata_type}})
+        if metadata_filters:
+            for key, value in metadata_filters.items():
+                base_clauses.append({"metadata": {key: value}})
+        filters = {"AND": base_clauses}
 
     base_payload: dict = {"query": query, "top_k": top_k, "threshold": threshold}
     if rerank:
         base_payload["rerank"] = True
 
     try:
-        payload = {**base_payload, "filters": {"AND": list(base_clauses)}}
+        payload = {**base_payload, "filters": filters}
         results = _do_search(api_key, payload)[:top_k]
 
         if min_score > 0:
