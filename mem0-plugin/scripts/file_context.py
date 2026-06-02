@@ -84,22 +84,16 @@ def search_file_context(
     api_key: str, user_id: str, project_id: str, file_path: str, cwd: str
 ) -> str:
     """Search mem0 for memories related to a file path."""
+    global_search = os.environ.get("MEM0_GLOBAL_SEARCH", "false") == "true"
     rel = relative_path(file_path, cwd)
     basename = os.path.basename(file_path)
 
+    query = f"{rel} {basename}" if rel != basename else rel
     results = search_memories(
-        api_key, user_id, project_id, rel, top_k=MAX_RESULTS, threshold=0.3
+        api_key, user_id, project_id, query,
+        top_k=MAX_RESULTS, threshold=0.3,
+        global_search=global_search,
     )
-
-    if len(results) < 2:
-        extra = search_memories(
-            api_key, user_id, project_id, basename, top_k=MAX_RESULTS, threshold=0.3
-        )
-        seen = {m.get("id") for m in results}
-        for m in extra:
-            if m.get("id") not in seen:
-                results.append(m)
-                seen.add(m.get("id"))
 
     results = results[:MAX_RESULTS]
 

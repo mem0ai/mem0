@@ -102,7 +102,7 @@ def extract_last_assistant_message(lines: list[str]) -> str:
 
 
 def extract_files_touched(lines: list[str]) -> list[str]:
-    """Extract unique file paths from tool_input fields in transcript."""
+    """Extract unique file paths from tool_use content blocks in transcript."""
     files = set()
     file_ext_re = re.compile(
         r"[a-zA-Z0-9_./-]+\.(?:py|ts|tsx|js|jsx|rs|go|rb|java|sh|yaml|yml|json|toml|md|sql|css|html)"
@@ -111,18 +111,25 @@ def extract_files_touched(lines: list[str]) -> list[str]:
         line = line.strip()
         if not line:
             continue
-        if '"tool_input"' not in line and '"file_path"' not in line:
+        if '"tool_use"' not in line and '"file_path"' not in line:
             continue
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
             continue
-        tool_input = entry.get("tool_input") or entry.get("message", {}).get("tool_input", {})
-        if isinstance(tool_input, dict):
-            fp = tool_input.get("file_path", "")
+        content = entry.get("message", {}).get("content", [])
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_use":
+                continue
+            inp = block.get("input", {})
+            if not isinstance(inp, dict):
+                continue
+            fp = inp.get("file_path", "")
             if fp:
                 files.add(fp)
-            command = tool_input.get("command", "")
+            command = inp.get("command", "")
             if command:
                 for match in file_ext_re.findall(command):
                     files.add(match)
