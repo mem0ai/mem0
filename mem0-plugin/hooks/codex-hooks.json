@@ -20,6 +20,16 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_file_read.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "SessionStart": [
@@ -64,6 +74,17 @@
             "type": "command",
             "command": "${PLUGIN_ROOT}/scripts/on_bash_output.sh",
             "timeout": 12
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_stop.sh",
+            "timeout": 30
           }
         ]
       }

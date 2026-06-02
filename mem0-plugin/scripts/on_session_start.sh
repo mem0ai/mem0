@@ -156,6 +156,14 @@ if [ "$SOURCE" = "startup" ]; then
     echo "New project with 0 memories. Invoke the mem0:onboard skill to import project files. Coding categories install automatically in the background."
   else
     echo "Search mem0 for recent decisions and task learnings before responding. Run 2 parallel searches: one for decision type, one for task_learning type."
+
+    # Inject compact recent activity timeline (non-blocking, 5s timeout)
+    # Use perl alarm as portable timeout (macOS lacks GNU timeout)
+    _TIMELINE=$(MEM0_CWD="$MEM0_CWD_RESOLVED" perl -e 'alarm 5; exec @ARGV' python3 "$SCRIPT_DIR/session_timeline.py" 2>/dev/null || echo "")
+    if [ -n "$_TIMELINE" ]; then
+      echo ""
+      echo "$_TIMELINE"
+    fi
   fi
 
   _PROJ_KEY=$(printf '%s' "$MEM0_CWD_RESOLVED" | tr '/' '-')

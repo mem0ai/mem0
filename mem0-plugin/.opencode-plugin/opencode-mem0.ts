@@ -66,6 +66,38 @@ function redact(text: string): string {
   return out;
 }
 
+function formatAge(createdAt: string): string {
+  try {
+    const dt = new Date(createdAt);
+    const now = Date.now();
+    const seconds = Math.floor((now - dt.getTime()) / 1000);
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    const days = Math.floor(seconds / 86400);
+    if (days === 1) return "1d ago";
+    if (days < 30) return `${days}d ago`;
+    return `${Math.floor(days / 30)}mo ago`;
+  } catch {
+    return "";
+  }
+}
+
+const TYPE_ICONS: Record<string, string> = {
+  decision: "⚖️",
+  anti_pattern: "🔴",
+  bug_fix: "🔴",
+  convention: "🔄",
+  task_learning: "🔵",
+  user_preference: "🟣",
+  session_summary: "📋",
+  session_state: "📋",
+  project_profile: "📖",
+  compact_summary: "📋",
+  auto_capture: "✅",
+};
+
+const FILE_READ_GATE_MIN_BYTES = 1500;
+
 function loadGlobalSearch(): boolean {
   try {
     const settingsPath = join(homedir(), ".mem0", "settings.json");
@@ -308,9 +340,16 @@ const Mem0Plugin: Plugin = async (ctx) => {
               const memories = extractMemories(res);
               if (memories.length > 0) {
                 const memLines = memories
-                  .map((m) => `- ${m.memory}`)
+                  .map((m) => {
+                    const meta = (m as any).metadata ?? {};
+                    const cat = meta.type ?? "unknown";
+                    const icon = TYPE_ICONS[cat] ?? "❓";
+                    const age = (m as any).created_at ? formatAge((m as any).created_at) : "";
+                    const ageStr = age ? ` (${age})` : "";
+                    return `- ${icon} [${cat}]${ageStr} ${m.memory.slice(0, 120)}`;
+                  })
                   .join("\n");
-                systemContext.push(`Prior context from mem0:\n${memLines}`);
+                systemContext.push(`### Recent Activity\n\n${memLines}`);
               }
             } catch {}
           }
@@ -444,6 +483,41 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
     "tool.execute.before": async (input: any, output: any) => {
       const toolName: string = input?.tool ?? "";
+
+      // File-context injection: before reading a file, search mem0 for prior work on it
+      if (toolName === "read" || toolName === "Read") {
+        const filePath = String(output?.args?.file_path ?? output?.args?.filePath ?? "");
+        if (filePath && filePath.length > 0) {
+          try {
+            const absPath = filePath.startsWith("/") ? filePath : resolve(process.cwd(), filePath);
+            const { statSync } = await import("fs");
+            const stat = statSync(absPath);
+            if (stat.isFile() && stat.size >= FILE_READ_GATE_MIN_BYTES) {
+              const searchFilters = globalSearch
+                ? { OR: [{ user_id: "*" }] }
+                : { AND: [{ user_id: userId }, { app_id: appId }] };
+              const relPath = filePath.startsWith("/")
+                ? filePath.replace(process.cwd() + "/", "")
+                : filePath;
+              const res = await mem0.search(relPath, {
+                filters: searchFilters,
+                topK: 5,
+              });
+              stats.searches++;
+              const memories = extractMemories(res);
+              if (memories.length > 0) {
+                const lines = memories.map((m) => {
+                  const text = m.memory.slice(0, 150).replace(/\n/g, " ");
+                  return `- ${text} [mem0:${m.id.slice(0, 8)}]`;
+                });
+                systemContext.push(
+                  `Prior work on \`${relPath}\`:\n${lines.join("\n")}`,
+                );
+              }
+            }
+          } catch {}
+        }
+      }
 
       if (WRITE_TOOLS.has(toolName)) {
         const fp = String(
@@ -611,15 +685,22 @@ const Mem0Plugin: Plugin = async (ctx) => {
     ) => {
       try {
         const compactSessionId = input?.sessionID ?? sessionId;
-        const summaryContent = `Session compacting. Project: ${appId}. Branch: ${branch}. Session: ${compactSessionId}. Stats: ${stats.adds} memories stored, ${stats.searches} searches, ${stats.messages} messages.`;
+
+        // Session summary capture: store a structured summary of the session
+        const summaryPrompt = [
+          `Session summary for project ${appId} (branch: ${branch}).`,
+          `Session: ${compactSessionId}.`,
+          `Stats: ${stats.adds} memories stored, ${stats.searches} searches, ${stats.messages} messages.`,
+          `Extract and remember: what was requested, what was investigated, key decisions made, what was completed, and what needs to happen next.`,
+        ].join(" ");
         Promise.resolve().then(async () => {
           try {
-            await mem0.add([{ role: "user", content: summaryContent }], {
+            await mem0.add([{ role: "user", content: summaryPrompt }], {
               user_id: userId,
               app_id: appId,
               metadata: {
-                type: "session_state",
-                source: "pre-compaction",
+                type: "session_summary",
+                source: "opencode-stop",
                 session_id: compactSessionId,
                 branch,
               },

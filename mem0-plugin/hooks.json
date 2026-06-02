@@ -51,6 +51,29 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "name": "mem0-file-context",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_file_read.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "name": "mem0-session-summary",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=${extensionPath} CLAUDE_PLUGIN_ROOT=${extensionPath} bash ${extensionPath}/scripts/on_stop.sh",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "PostToolUse": [
