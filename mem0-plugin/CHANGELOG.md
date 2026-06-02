@@ -2,11 +2,29 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.9 — File-context injection, session summaries & activity timeline
+
+### Added
+
+- **File-context injection (`PreToolUse/Read` hook):** Before Claude reads a file, the new `on_file_read.sh` hook searches mem0 for memories that reference that file path and injects a compact timeline of prior work as `additionalContext`. Gives Claude "I've seen this file before and here's what I remember" context automatically. Gates on file size (>= 1,500 bytes), 5-second hard timeout, silent skip on any failure. Applies to Claude Code, Codex, and Cursor (`on_file_read_cursor.sh`).
+- **Stop hook session summary (`on_stop.sh`):** On session end, parses the transcript JSONL, extracts the last assistant message and files touched, builds a structured prompt, and stores it via the mem0 API with `infer=True` — letting the platform's backend AI extract structured facts (request, decisions, learnings, next steps). Memories are stored as `metadata.type=session_summary` with 90-day expiry. Guards: skips subagent sessions (`agent_id` present), dedup via marker file, always exits 0. Applies to Claude Code, Codex, and Cursor (`on_stop_cursor.sh`).
+- **SessionStart activity timeline (`session_timeline.py`):** On startup (when project has existing memories), fetches the 10 most recent memories and renders a compact timeline with type icons, age indicators, and short text below the existing banner. Shows recent decisions, bug fixes, and session summaries at a glance. 5-second timeout — if the API is slow, the timeline silently skips while the banner still displays.
+- **`scripts/file_context.py`:** Core Python module for file-context injection. Searches mem0 cloud API with both relative and absolute file paths, deduplicates results, formats as compact timeline with type icons and memory age.
+- **`scripts/capture_session_summary.py`:** Core Python module for Stop hook. Reads transcript JSONL (tail 3,000 lines), extracts last assistant message, extracts file paths from tool_input fields, strips system tags and `<private>` blocks, stores via mem0 API.
+- **`scripts/session_timeline.py`:** Core Python module for SessionStart timeline. Fetches recent memories from mem0 API, formats with type icons, relative age, and short text.
+
+### Changed
+
+- **`on_session_start.sh`:** On startup (when memories > 0), calls `session_timeline.py` to inject a compact recent activity timeline below the existing banner and rubric instructions.
+- **`hooks/hooks.json`:** Added `PreToolUse` matcher for `Read` (5s timeout) and `Stop` hook (30s timeout).
+- **`hooks/codex-hooks.json`:** Added `PreToolUse` matcher for `Read` (5s timeout) and `Stop` hook (30s timeout).
+- **`hooks/cursor-hooks.json`:** Added `preToolUse` matcher for `Read` (5s timeout) and `stop` hook (30s timeout).
+
 ## 0.2.8 — Automatic coding categories & global search
 
 ### Added
 
-- **Global search mode (`global_search` setting):** New `global_search` toggle in `~/.mem0/settings.json` (default: `false`). When enabled, `search_memories` and `get_memories` calls use `{"OR": [{"user_id": "*"}]}` instead of the per-user per-project `AND` filter — returning all memories across all users and all `app_id` scopes in the platform project. Writes (`add_memory`) still tag with the current `user_id` and `app_id`. Solves the team-shared-memory use case where multiple team members need access to all memories regardless of which repo or user created them. Works on Claude Code, Cursor, and Codex (not OpenCode, which has its own TypeScript identity logic).
+- **Global search mode (`global_search` setting):** New `global_search` toggle in `~/.mem0/settings.json` (default: `false`). When enabled, `search_memories` and `get_memories` calls use `{"OR": [{"user_id": "*"}]}` instead of the per-user per-project `AND` filter — returning all memories across all users and all `app_id` scopes in the platform project. Writes (`add_memory`) still tag with the current `user_id` and `app_id`. Solves the team-shared-memory use case where multiple team members need access to all memories regardless of which repo or user created them. Works on Claude Code, Cursor, and Codex.
 - **`/mem0:switch-project --global` / `--no-global`:** Enables or disables global search via the switch-project skill. Persists to `~/.mem0/settings.json`. No manual config editing needed.
 - **Session banner scope indicator:** Banner shows `scope=global` when global search is active instead of `project=<app_id>`.
 - **Global-aware memory count:** Session start memory count query uses the global filter when `global_search` is enabled.
@@ -20,17 +38,10 @@ All notable changes to the Mem0 plugin will be documented in this file.
 - **`/mem0:onboard` Step 5 is no longer interactive:** Removed the `Install coding categories? [Y/n]` prompt. Categories now configure automatically in the background; the onboarding step only verifies status and applies them if the background run hasn't finished yet — mirroring how Step 4 (project-file import) already works.
 - **Session-start "new project" hint** now notes that coding categories install automatically in the background.
 
-## 0.1.0 — OpenCode & Antigravity
+## 0.1.0 — Antigravity
 
 ### Added
 
-- **OpenCode plugin** (`@mem0/opencode-plugin` on npm): Pure TypeScript plugin using the `mem0ai` TS SDK — no Python, no shell scripts. Hooks into all 6 OpenCode events (`chat.message`, `tool.execute.before`, `tool.execute.after`, `experimental.chat.system.transform`, `experimental.session.compacting`, `shell.env`). Features: session start memory loading, per-prompt semantic search, error pattern detection with memory lookup, resume/remember intent detection, auto-capture every 3rd message, periodic save nudges, full metadata defaults injection (confidence, source, type, session_id, files, branch), identity injection for search/get/delete filters, type-filtered error pre-fetch (anti_pattern + bug_fix), pre-compaction memory capture, MEMORY.md write blocking, and secret redaction.
-- **16 OpenCode-native skills** bundled in `opencode-skills/`: `context-loader`, `dream`, `export`, `forget`, `health`, `import`, `list-projects`, `mem0` (SDK reference), `memory-reviewer`, `onboard`, `peek`, `pin`, `remember`, `stats`, `switch-project`, `tour`. All skills are pure MCP-tool-based — no Python scripts, no shell scripts, no Claude Code dependencies.
-- **Auto-install skills and commands (`installSkills()`):** On plugin load, copies all 16 skills to `.opencode/skills/` and creates command wrapper files in `.opencode/commands/` so they appear in the OpenCode `/` palette. No manual setup needed.
-- **`extractUserText()` handler:** Robust text extraction from OpenCode response shapes — handles `parts[]` array, `content[]` array, `message.content`, and plain string responses.
-- **Identity resolution:** `getUserId()` uses `os.userInfo().username` (matching Claude Code's `${USER}` convention) with `MEM0_USER_ID` env override. `getProjectId()` uses git remote with `MEM0_APP_ID` env override.
-- **Context injection via `experimental.chat.system.transform`:** All memory context (session start memories, per-prompt search results, error-related memories, compaction context) injected as system context.
-- **CLI installer (`cli.ts`):** `bunx @mem0/opencode-plugin install` auto-configures plugin and MCP server in `~/.config/opencode/opencode.json`.
 - **Antigravity plugin** (`.antigravity/`): Restructured to follow the same shared-infrastructure pattern as Claude Code, Cursor, and Codex. Self-contained plugin directory with `plugin.json`, `mcp_config.json`, `hooks/hooks.json` (own file), `scripts/` (symlink → `../scripts/`), and `skills/` (symlink → `../skills/`). Installable via `agy plugin install .antigravity` or `npx degit mem0ai/mem0/mem0-plugin/.antigravity ~/.gemini/config/plugins/mem0`. Uses `contextFileName: "AGENTS.md"` per Antigravity convention.
 - **Codex hooks parity:** Added missing `PreToolUse` Write/Edit/MultiEdit block and `PreCompact` hook to Codex hooks config, bringing it to full parity with Claude Code.
 
