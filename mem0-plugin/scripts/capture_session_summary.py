@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """Capture a structured session summary on Stop hook.
 
-Reads the transcript JSONL, extracts the last assistant message and
-files touched during the session, then stores a structured summary
-via the mem0 API with infer=True — letting the platform's AI extract
-key facts (request, decisions, learnings, next steps).
-
-This is the "second agent" architecture: the Stop hook captures raw
-session data, and mem0's backend AI processes it into structured memory.
+Runs on every Stop (end of each assistant turn). Each invocation reads
+the transcript JSONL, extracts the latest assistant message and all
+files touched so far, then stores via mem0 API with infer=True. The
+platform's AI deduplicates by session_id metadata, so the final stored
+summary always reflects the most recent turn — not just the first.
 
 Input:  JSON on stdin with transcript_path, session_id, cwd, agent_id
 Output: stderr logs only (exit 0 always — must not block)
@@ -208,29 +206,6 @@ def store_summary(
         return False
 
 
-MARKER_PREFIX = "stop_captured_"
-MARKER_MAX_AGE_SECONDS = 7 * 86400  # 7 days
-
-
-def cleanup_old_markers(marker_dir: str) -> None:
-    """Remove dedup marker files older than 7 days."""
-    try:
-        import time
-
-        now = time.time()
-        for name in os.listdir(marker_dir):
-            if not name.startswith(MARKER_PREFIX):
-                continue
-            path = os.path.join(marker_dir, name)
-            try:
-                if now - os.path.getmtime(path) > MARKER_MAX_AGE_SECONDS:
-                    os.remove(path)
-            except OSError:
-                pass
-    except OSError:
-        pass
-
-
 def main():
     api_key = resolve_api_key()
     if not api_key:
@@ -257,13 +232,6 @@ def main():
     session_id = hook_input.get("session_id", "")
     cwd = hook_input.get("cwd") or None
 
-    # Dedup: don't re-capture the same session
-    marker_dir = os.path.expanduser("~/.mem0")
-    marker_file = os.path.join(marker_dir, f"stop_captured_{session_id}")
-    if session_id and os.path.isfile(marker_file):
-        log.info("Session summary already captured for %s — skipping", session_id)
-        return
-
     user_id = resolve_user_id()
     project_id = resolve_project_id(cwd)
     branch = resolve_branch(cwd)
@@ -284,15 +252,7 @@ def main():
     summary_prompt = build_summary_prompt(assistant_msg, files)
 
     log.info("Capturing session summary (%d chars, %d files)", len(assistant_msg), len(files))
-    if store_summary(api_key, summary_prompt, user_id, session_id, project_id, branch, files):
-        if session_id:
-            try:
-                os.makedirs(marker_dir, exist_ok=True)
-                with open(marker_file, "w") as f:
-                    f.write("")
-            except OSError:
-                pass
-        cleanup_old_markers(marker_dir)
+    store_summary(api_key, summary_prompt, user_id, session_id, project_id, branch, files)
 
 
 if __name__ == "__main__":
