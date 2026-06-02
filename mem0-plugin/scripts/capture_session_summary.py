@@ -3,9 +3,9 @@
 
 Runs on every Stop (end of each assistant turn). Each invocation reads
 the transcript JSONL, extracts the latest assistant message and all
-files touched so far, then stores via mem0 API with infer=True. The
-platform's AI deduplicates by session_id metadata, so the final stored
-summary always reflects the most recent turn — not just the first.
+files touched so far, then stores via mem0 API with infer=True. Uses
+run_id=session_id to scope infer dedup to the session, so the final
+stored summary reflects the most recent turn — not just the first.
 
 Input:  JSON on stdin with transcript_path, session_id, cwd, agent_id
 Output: stderr logs only (exit 0 always — must not block)
@@ -179,6 +179,7 @@ def store_summary(
         "messages": [{"role": "user", "content": summary_prompt}],
         "user_id": user_id,
         "app_id": project_id,
+        "run_id": session_id,
         "metadata": metadata,
         "infer": True,
         "expiration_date": expires,

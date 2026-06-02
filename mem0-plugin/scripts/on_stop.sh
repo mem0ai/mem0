@@ -41,8 +41,8 @@ if [ -z "$TRANSCRIPT_PATH" ]; then
   exit 0
 fi
 
-# Run the capture in the foreground (Stop hook has 30s timeout, plenty of time)
-echo "$INPUT" | python3 "$SCRIPT_DIR/capture_session_summary.py" 2>/dev/null || true
+# Run capture in the background — fires every turn now, so avoid blocking
+echo "$INPUT" | python3 "$SCRIPT_DIR/capture_session_summary.py" 2>/dev/null &
 
 # Telemetry
 python3 "$SCRIPT_DIR/telemetry.py" session_stop 2>/dev/null &
