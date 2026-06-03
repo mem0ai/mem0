@@ -2084,8 +2084,8 @@ class TestPGVector(unittest.TestCase):
             connection_string=connection_string
         )
         
-        # Verify ConnectionPool was called with the connection string including sslmode
-        expected_conn_string = f"{connection_string} sslmode=require"
+        # Verify ConnectionPool was called with proper URI query param format
+        expected_conn_string = f"{connection_string}?sslmode=require"
         mock_connection_pool.assert_called_with(
             conninfo=expected_conn_string,
             min_size=1,
@@ -2094,6 +2094,71 @@ class TestPGVector(unittest.TestCase):
         )
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_individual_params_with_sslmode_psycopg3(self, mock_connection_pool):
+        """Test that sslmode is appended as a URI query param when built from individual params."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+        self.mock_cursor.fetchall.return_value = []
+
+        PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            sslmode="require",
+        )
+
+        expected_conn_string = "postgresql://test_user:test_pass@localhost:5432/test_db?sslmode=require"
+        mock_connection_pool.assert_called_with(
+            conninfo=expected_conn_string,
+            min_size=1,
+            max_size=4,
+            open=True
+        )
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_connection_string_uri_with_existing_query_params_and_sslmode(self, mock_connection_pool):
+        """Test sslmode appended with & when URI already contains query params."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+        self.mock_cursor.fetchall.return_value = []
+
+        connection_string = "postgresql://user:pass@localhost:5432/db?connect_timeout=10"
+
+        PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4,
+            sslmode="require",
+            connection_string=connection_string,
+        )
+
+        expected_conn_string = f"{connection_string}&sslmode=require"
+        mock_connection_pool.assert_called_with(
+            conninfo=expected_conn_string,
+            min_size=1,
+            max_size=4,
+            open=True
+        )
 
     # Enhanced Test for Index Creation with DiskANN
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
