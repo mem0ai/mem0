@@ -1,0 +1,71 @@
+[Oracle AI Vector Search](https://www.oracle.com/database/ai-vector-search/) is designed for AI workloads and lets you query data based on semantics rather than keywords. A key benefit is the ability to combine semantic search on unstructured data with relational search on business data in a single system.
+
+## Overview
+
+The `oracledb` provider integrates mem0 with Oracle Database’s AI Vector Search feature. It stores embeddings in an Oracle table that uses the `VECTOR` data type and leverages `CREATE VECTOR INDEX` for fast similarity search.
+
+This backend uses the official `python-oracledb` driver. You’ll need a database user with privileges to create tables and vector indexes.
+
+Install the required library:
+```bash
+python -m pip install -U oracledb
+```
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "oracledb",
+        "config": {
+            "connection_params": {
+                "user": "",
+                "password": "",
+                "dsn": ""
+            },
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+</CodeGroup>
+
+## Configuration
+
+### Config
+
+Here are the parameters available for configuring Oracle AI Vector Search:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `connection_params` | Oracle connection settings for `python-oracledb` (`user`, `password`, `dsn` or more). See https://python-oracledb.readthedocs.io/en/latest/user_guide/connection_handling.html | `None` |
+| `use_connection_pool` | If `true`, a connection pool is created from `connection_params`; if `false`, a single connection is created | `True` |
+| `client` | An existing `oracledb.Connection` or `oracledb.ConnectionPool` to use instead of building one from `connection_params` | `None` |
+| `collection_name` | Name of the Oracle table used to store vectors and payloads | `mem0` |
+| `embedding_model_dims` | Dimension of your embedding vectors (must be > 0) | `1536` |
+| `distance_metric` | Distance function used for indexing and search. One of `EUCLIDEAN`, `EUCLIDEAN_SQUARED`, `COSINE`, `DOT`, `HAMMING`, `MANHATTAN` | `COSINE` |
+| `do_create_index` | Whether to create a vector index on the collection | `True` |
+| `index_type` | Vector index type. `HNSW` or `IVF` | `HNSW` |
+| `index_name` | Name of the vector index. Defaults to `<collection_name>_VEC_IDX` | `None` |
+| `index_parameters_str` | Additional parameters passed to `CREATE VECTOR INDEX` via `PARAMETERS(...)` | `None` |
+| `index_accuracy` | Target index accuracy (1–100), used with `WITH TARGET ACCURACY <n>` | `None` |
+
+**Notes**
+- When you provide a pre-built `client`, mem0 will use it instead of creating a new connection or pool.
+- Do not include the index “type” in `index_parameters_str`; set it via `index_type`. See Oracle docs: https://docs.oracle.com/en/database/oracle/oracle-database/26/sqlrf/create-vector-index.html
+- `connection_params` must follow `python-oracledb` conventions (`user`, `password`, `dsn` and more).
+- The returned `score` from searches is Oracle’s `VECTOR_DISTANCE` (lower means closer/more similar).
