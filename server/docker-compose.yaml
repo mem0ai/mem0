@@ -46,6 +46,8 @@ services:
       volumes:
         - postgres_db:/var/lib/postgresql/data
         - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+      ports:
+        - "8432:5432"
 
   mem0-dashboard:
     build: ./dashboard
