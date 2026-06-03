@@ -190,6 +190,7 @@ class VectorStoreFactory:
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
         "turbopuffer": "mem0.vector_stores.turbopuffer.TurbopufferDB",
+        "oracledb": "mem0.vector_stores.oracledb.OracleAIVectorSearch",
     }
 
     @classmethod
@@ -219,7 +220,10 @@ class RerankerFactory:
     # Provider mappings with their config classes
     provider_to_class = {
         "cohere": ("mem0.reranker.cohere_reranker.CohereReranker", CohereRerankerConfig),
-        "sentence_transformer": ("mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker", SentenceTransformerRerankerConfig),
+        "sentence_transformer": (
+            "mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker",
+            SentenceTransformerRerankerConfig,
+        ),
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
         "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),

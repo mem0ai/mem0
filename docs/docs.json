@@ -246,7 +246,8 @@
                               "components/vectordbs/dbs/s3_vectors",
                               "components/vectordbs/dbs/databricks",
                               "components/vectordbs/dbs/neptune_analytics",
-                              "components/vectordbs/dbs/turbopuffer"
+                              "components/vectordbs/dbs/turbopuffer",
+                              "components/vectordbs/dbs/oracledb"
                             ]
                           }
                         ]
