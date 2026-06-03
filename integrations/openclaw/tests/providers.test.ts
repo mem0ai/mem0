@@ -6,7 +6,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { providerToBackend } from "../providers.ts";
+import {
+  createProvider,
+  customCategoryMapToList,
+  providerToBackend,
+} from "../providers.ts";
 
 // ---------------------------------------------------------------------------
 // Mock provider factory
@@ -35,6 +39,77 @@ const DEFAULT_USER = "test-user";
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// customCategoryMapToList
+// ---------------------------------------------------------------------------
+
+describe("customCategoryMapToList", () => {
+  it("converts category maps to the Mem0 SDK list shape", () => {
+    expect(
+      customCategoryMapToList({
+        preference: "User preferences",
+        work: "Work context",
+      }),
+    ).toEqual([
+      { preference: "User preferences" },
+      { work: "Work context" },
+    ]);
+  });
+
+  it("returns undefined for empty or missing category maps", () => {
+    expect(customCategoryMapToList()).toBeUndefined();
+    expect(customCategoryMapToList({})).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PlatformProvider
+// ---------------------------------------------------------------------------
+
+describe("PlatformProvider", () => {
+  it("passes custom_categories as a list to the Mem0 SDK", async () => {
+    let addOptions: Record<string, unknown> | undefined;
+
+    vi.doMock("mem0ai", () => ({
+      default: class MockMemoryClient {
+        async add(_messages: unknown, opts: Record<string, unknown>) {
+          addOptions = opts;
+          return { results: [] };
+        }
+      },
+    }));
+
+    const provider = createProvider(
+      {
+        mode: "platform",
+        apiKey: "test-key",
+        userId: "test-user",
+        autoCapture: true,
+        autoRecall: true,
+        customInstructions: "Store durable facts.",
+        customCategories: {},
+        searchThreshold: 0.1,
+        topK: 5,
+      },
+      { resolvePath: (p: string) => p } as any,
+    );
+
+    await provider.add([{ role: "user", content: "Remember this" }], {
+      user_id: "test-user",
+      custom_categories: customCategoryMapToList({
+        preference: "User preferences",
+      }),
+      source: "OPENCLAW",
+    });
+
+    expect(addOptions?.customCategories).toEqual([
+      { preference: "User preferences" },
+    ]);
+
+    vi.doUnmock("mem0ai");
+  });
 });
 
 // ---------------------------------------------------------------------------

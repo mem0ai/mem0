@@ -25,7 +25,11 @@ import type {
   AddOptions,
   SearchOptions,
 } from "./types.ts";
-import { createProvider, providerToBackend } from "./providers.ts";
+import {
+  createProvider,
+  customCategoryMapToList,
+  providerToBackend,
+} from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
 import type { FileConfig } from "./config.ts";
 import { createPublicArtifactsProvider } from "./public-artifacts.ts";
@@ -273,7 +277,8 @@ const memoryPlugin = definePluginEntry({
       if (runId) opts.run_id = runId;
       // Pass customInstructions and customCategories to control what Mem0 extracts
       if (cfg.customInstructions) opts.custom_instructions = cfg.customInstructions;
-      if (cfg.customCategories) opts.custom_categories = cfg.customCategories;
+      const customCategories = customCategoryMapToList(cfg.customCategories);
+      if (customCategories) opts.custom_categories = customCategories;
       return opts;
     }
 
