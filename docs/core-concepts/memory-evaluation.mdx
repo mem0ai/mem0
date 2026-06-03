@@ -143,6 +143,50 @@ All benchmarks run on the same production-representative model stack. Scores car
 
 The full evaluation framework is [open-sourced](https://github.com/mem0ai/memory-benchmarks) so anyone can reproduce the numbers independently. It supports both Mem0 Cloud and self-hosted OSS backends.
 
+### Scenario-Level Memory Reliability Checks
+
+LoCoMo, LongMemEval, and BEAM measure whether a model can answer correctly after memory retrieval. For agent teams debugging production memory behavior, it is also useful to test the memory layer directly: what was written, which memory IDs were persisted or updated, and which facts were recalled later.
+
+The `mem0.evals` scenario runner provides a lightweight, deterministic harness for those state-transition checks. It can run against `Memory`, `MemoryClient`, or a test double with `add`, `update`, and `search` methods.
+
+```python
+from mem0.evals import MemoryEvent, MemoryScenario, evaluate_memory
+
+scenario = MemoryScenario(
+    name="alert-channel-update",
+    user_id="user_123",
+    expected_memory_id="alert_channel",
+    stale_memory_ids=["alert_channel"],
+    events=[
+        MemoryEvent(
+            action="add",
+            text="The user wants deployment alerts by email.",
+            memory_id="alert_channel",
+        ),
+        MemoryEvent(
+            action="update",
+            text="The user wants deployment alerts in Slack.",
+            memory_id="alert_channel",
+        ),
+        MemoryEvent(action="query", text="Where should deployment alerts go?"),
+    ],
+    expected="The user wants deployment alerts in Slack.",
+    stale=["The user wants deployment alerts by email."],
+)
+
+result = evaluate_memory(client, scenario)
+print(result.memory_recall_rate)
+print(result.conflict_resolution_acc)
+print(result.to_dict()["trace"])
+```
+
+This is intentionally API-free and does not call an LLM judge. It focuses on failure modes that are easy to miss in answer-level benchmarks:
+
+- stale memories retrieved after a preference or fact update
+- older conflicting facts ranked above newer facts
+- expected memory IDs missing from recall
+- write/update/search traces that separate persistence problems from retrieval problems
+
 ### Setup
 
 <Tabs>
