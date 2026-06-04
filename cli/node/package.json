@@ -40,7 +40,8 @@
     "typescript": "^5.4.0",
     "tsup": "^8.0.0",
     "tsx": "^4.7.0",
-    "vitest": "^1.5.0",
+    "vite": "^6.0.0",
+    "vitest": "^4.1.0",
     "@biomejs/biome": "^1.7.0",
     "@types/node": "^20.0.0"
   }
