@@ -116,6 +116,11 @@ def _build_filter_conditions(filters):
 
 
 def _with_sslmode(connection_string: str, sslmode: str) -> str:
+    """Add or replace sslmode in URI and keyword conninfo strings.
+
+    Keyword conninfo values are assumed not to contain nested ``sslmode=``
+    substrings, such as inside an ``options`` value.
+    """
     if "://" in connection_string:
         parsed = urlsplit(connection_string)
         query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True) if key != "sslmode"]
