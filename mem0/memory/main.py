@@ -1463,15 +1463,33 @@ class Memory(MemoryBase):
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         memory_boosts = {}
 
+        # Single batch embed for all unique query entities; fall back to
+        # serial embed() on batch failure (mirrors add() entity-batch pattern).
+        entity_texts = [t for _, t in deduped]
         try:
-            for _, entity_text in deduped:
-                entity_embedding = self.embedding_model.embed(entity_text, "search")
-                matches = self.entity_store.search(
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=500,
-                    filters=search_filters,
-                )
+            entity_embeddings = self.embedding_model.embed_batch(entity_texts, "search")
+        except Exception:
+            entity_embeddings = []
+            for t in entity_texts:
+                try:
+                    entity_embeddings.append(self.embedding_model.embed(t, "search"))
+                except Exception:
+                    entity_embeddings.append(None)
+
+        try:
+            for (_, entity_text), entity_embedding in zip(deduped, entity_embeddings):
+                if entity_embedding is None:
+                    continue
+                try:
+                    matches = self.entity_store.search(
+                        query=entity_text,
+                        vectors=entity_embedding,
+                        top_k=500,
+                        filters=search_filters,
+                    )
+                except Exception:
+                    # Individual entity boost failed — continue
+                    continue
 
                 for match in matches:
                     similarity = match.score if hasattr(match, 'score') else 0.0
@@ -2871,16 +2889,38 @@ class AsyncMemory(MemoryBase):
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         memory_boosts = {}
 
+        # Single batch embed for all unique query entities; fall back to
+        # serial embed() on batch failure (mirrors sync _compute_entity_boosts).
+        entity_texts = [t for _, t in deduped]
         try:
-            for _, entity_text in deduped:
-                entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "search")
-                matches = await asyncio.to_thread(
-                    self.entity_store.search,
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=500,
-                    filters=search_filters,
-                )
+            entity_embeddings = await asyncio.to_thread(
+                self.embedding_model.embed_batch, entity_texts, "search"
+            )
+        except Exception:
+            entity_embeddings = []
+            for t in entity_texts:
+                try:
+                    entity_embeddings.append(
+                        await asyncio.to_thread(self.embedding_model.embed, t, "search")
+                    )
+                except Exception:
+                    entity_embeddings.append(None)
+
+        try:
+            for (_, entity_text), entity_embedding in zip(deduped, entity_embeddings):
+                if entity_embedding is None:
+                    continue
+                try:
+                    matches = await asyncio.to_thread(
+                        self.entity_store.search,
+                        query=entity_text,
+                        vectors=entity_embedding,
+                        top_k=500,
+                        filters=search_filters,
+                    )
+                except Exception:
+                    # Individual entity boost failed — continue
+                    continue
 
                 for match in matches:
                     similarity = match.score if hasattr(match, 'score') else 0.0
