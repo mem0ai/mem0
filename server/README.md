@@ -90,6 +90,45 @@ Wire the command into cron or a systemd timer in production. The `created_at` co
 - API: `http://localhost:8888`
 - OpenAPI docs: `http://localhost:8888/docs`
 
+> These are localhost defaults. For LAN access, set `DASHBOARD_URL` and `NEXT_PUBLIC_API_URL` to your machine's LAN IP in `.env`.
+
+### LAN / Network Deployment
+
+The stack supports serving LAN clients out of the box. Set these environment variables in your `.env` file:
+
+```env
+DASHBOARD_URL=http://YOUR_LAN_IP:3000
+NEXT_PUBLIC_API_URL=http://YOUR_LAN_IP:8888
+INSTANCE_NAME=Mem0
+EXTRA_CORS_ORIGINS=
+```
+
+**CORS behavior:**
+- When `AUTH_DISABLED=true` (local dev), CORS allows all origins (`*`) — any LAN client can call the API without origin configuration.
+- When auth is enabled, CORS allows `DASHBOARD_URL` plus any origins listed in `EXTRA_CORS_ORIGINS` (comma-separated).
+- Use `EXTRA_CORS_ORIGINS` to whitelist additional frontend apps or tools running on other LAN machines.
+
+**PostgreSQL access:**
+- By default, the Postgres port (8432) is bound to `127.0.0.1` (localhost only) for security.
+- To expose Postgres to the LAN, change the port mapping in `docker-compose.yaml` from `127.0.0.1:8432:5432` to `8432:5432`.
+
+**Local source install:**
+- The API container installs from the local `mem0/` source directory (`/opt/mem0-src`) instead of PyPI, so code changes are picked up on container rebuild without publishing a package.
+
+### Transient Error Retry
+
+The API automatically retries transient upstream errors (provider timeouts, rate limits, service unavailable) on the following endpoints:
+
+- `POST /memories`
+- `POST /search`
+
+Retry settings:
+- **Attempts:** 3
+- **Backoff:** Linear (1s × attempt number)
+- **Transient codes:** `provider_timeout`, `provider_rate_limited`, `provider_unavailable`, `datastore_unavailable`, `vector_store_unavailable`, `provider_bad_request`
+
+Client errors (400/401/403/404/422) are never retried.
+
 ## Dashboard
 
 Once logged in, the dashboard exposes:
@@ -120,6 +159,11 @@ The dashboard sets the following response headers on every path (see `server/das
 - `Referrer-Policy: strict-origin-when-cross-origin`
 
 Together these prevent iframe embedding, sniffing of mislabelled MIME types, and cross-origin referrer leaks. Harden further behind your own reverse proxy if needed.
+
+## API Notes
+
+- `POST /search` with no `filters` field (or empty filters) searches across all users.
+- `DELETE /memories/{id}` returns 404 for invalid or not-found memory IDs.
 
 ## Reference
 
