@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -231,6 +232,20 @@ def _build_memory_instance(mocker, memory_cls):
     return memory
 
 
+class _ProbeMemory(Memory):
+    @property
+    def entity_store(self):
+        self.entity_store_accesses += 1
+        return self._dummy_entity_store
+
+
+class _ProbeAsyncMemory(AsyncMemory):
+    @property
+    def entity_store(self):
+        self.entity_store_accesses += 1
+        return self._dummy_entity_store
+
+
 def _assert_utc_timestamp(timestamp: str):
     parsed = datetime.fromisoformat(timestamp)
     assert parsed.tzinfo == timezone.utc
@@ -319,6 +334,61 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     payload = memory.vector_store.update.call_args.kwargs["payload"]
     assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
     assert payload["updated_at"] is not None
+
+
+def test_delete_initializes_entity_store_before_cleanup():
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    entity_store = MagicMock()
+    entity_store.list.return_value = [stale_row]
+
+    memory = _ProbeMemory.__new__(_ProbeMemory)
+    memory._entity_store = None
+    memory._dummy_entity_store = entity_store
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+
+    existing_memory = SimpleNamespace(
+        payload={
+            "data": "trip to Paris",
+            "created_at": "2026-04-16T00:00:00+00:00",
+            "user_id": "user-1",
+        }
+    )
+
+    memory._delete_memory("mem-1", existing_memory=existing_memory)
+
+    assert memory.entity_store_accesses == 1
+    entity_store.list.assert_called_once_with(filters={"user_id": "user-1"}, top_k=10000)
+    entity_store.delete.assert_called_once_with(vector_id="entity-1")
+
+
+@pytest.mark.asyncio
+async def test_async_delete_initializes_entity_store_before_cleanup():
+    stale_row = SimpleNamespace(id="entity-1", payload={"data": "Paris", "linked_memory_ids": ["mem-1"]})
+    entity_store = MagicMock()
+    entity_store.list.return_value = [stale_row]
+
+    memory = _ProbeAsyncMemory.__new__(_ProbeAsyncMemory)
+    memory._entity_store = None
+    memory._dummy_entity_store = entity_store
+    memory.entity_store_accesses = 0
+    memory.vector_store = MagicMock()
+    memory.db = MagicMock()
+
+    existing_memory = SimpleNamespace(
+        payload={
+            "data": "trip to Paris",
+            "created_at": "2026-04-16T00:00:00+00:00",
+            "user_id": "user-1",
+        }
+    )
+
+    await memory._delete_memory("mem-1", existing_memory=existing_memory)
+
+    assert memory.entity_store_accesses == 1
+    entity_store.list.assert_called_once_with(filters={"user_id": "user-1"}, top_k=10000)
+    entity_store.delete.assert_called_once_with(vector_id="entity-1")
 
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
@@ -661,5 +731,3 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
 
     stored = memory.vector_store.update.call_args.kwargs["payload"]
     assert stored["actor_id"] == "Alice"
-
-
