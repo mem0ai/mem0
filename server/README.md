@@ -2,7 +2,23 @@
 
 Mem0 ships a self-hosted FastAPI server plus a local dashboard. It is secure by default, supports dashboard login and API keys, and exposes OpenAPI docs at `/docs`.
 
+> **Upgrading?** The Postgres image changed from the archived `ankane/pgvector:v0.5.1`
+> to the official `pgvector/pgvector:pg17`, and `POSTGRES_PASSWORD` is now a required
+> env var. If you have an existing install, see
+> [Migrating from ankane/pgvector to pgvector/pgvector](#migrating-from-ankanepgvector-to-pgvectorpgvector)
+> before running `docker compose up`.
+
 ## Quick Start
+
+### Prerequisites
+
+Copy the example env file and set a Postgres password (required):
+
+```bash
+cd server
+cp .env.example .env
+# Edit .env — at minimum set POSTGRES_PASSWORD and OPENAI_API_KEY
+```
 
 ### Agent-first
 
@@ -120,6 +136,132 @@ The dashboard sets the following response headers on every path (see `server/das
 - `Referrer-Policy: strict-origin-when-cross-origin`
 
 Together these prevent iframe embedding, sniffing of mislabelled MIME types, and cross-origin referrer leaks. Harden further behind your own reverse proxy if needed.
+
+## Migrating from `ankane/pgvector` to `pgvector/pgvector`
+
+The `ankane/pgvector` Docker image is archived and no longer maintained. This release
+replaces it with the official `pgvector/pgvector:pg17` image (PostgreSQL 17, pgvector 0.8.0).
+
+**What changed:**
+
+| | Before | After |
+|---|---|---|
+| Docker image | `ankane/pgvector:v0.5.1` | `pgvector/pgvector:pg17` |
+| PostgreSQL version | 15 | 17 |
+| pgvector version | 0.5.1 | 0.8.0 |
+| Credentials | Hardcoded `postgres`/`postgres` | Driven by `POSTGRES_USER` / `POSTGRES_PASSWORD` env vars |
+
+### Fresh installs (no existing data)
+
+No migration needed. Copy `.env.example` to `.env`, set `POSTGRES_PASSWORD`, and run:
+
+```bash
+cd server
+make up
+```
+
+### Existing installs (preserving data)
+
+PostgreSQL 17 cannot read data files written by PostgreSQL 15 directly.
+You must export your data first, then import it into the new container.
+
+**1. Export your data from the old container**
+
+With the old stack still running:
+
+```bash
+cd server
+
+# Dump all databases (mem0 memories + mem0_app auth/config data)
+docker compose exec -T postgres pg_dumpall -U postgres > mem0_backup.sql
+```
+
+Verify the dump file is non-empty:
+
+```bash
+ls -lh mem0_backup.sql
+```
+
+**2. Stop the old stack and remove the old volume**
+
+```bash
+# Stop containers
+docker compose down
+
+# Remove the old Postgres data volume
+docker compose down -v
+```
+
+> **Warning:** `docker compose down -v` deletes the `postgres_db` volume permanently.
+> Only run this after you have verified your backup.
+
+**3. Update your `.env`**
+
+The Postgres credentials are no longer hardcoded in `docker-compose.yaml`.
+Add them to your `.env` file (or verify they match your old setup):
+
+```bash
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<your-password>    # required — compose will refuse to start without it
+POSTGRES_COLLECTION_NAME=memories
+```
+
+If you previously relied on the hardcoded defaults (`postgres`/`postgres`), set
+`POSTGRES_PASSWORD=postgres` to keep the same credentials.
+
+**4. Start the new stack**
+
+```bash
+docker compose up -d --build
+```
+
+Wait for the Postgres healthcheck to pass:
+
+```bash
+docker compose exec -T postgres pg_isready -q && echo "ready" || echo "not ready"
+```
+
+**5. Restore your data**
+
+```bash
+docker compose exec -T postgres psql -U postgres < mem0_backup.sql
+```
+
+You may see notices like `role "postgres" already exists` — these are harmless.
+
+**6. Run Alembic migrations**
+
+The mem0 API container runs `alembic upgrade head` on startup, but if you restored
+into an already-running container, trigger it manually:
+
+```bash
+docker compose restart mem0
+```
+
+**7. Verify**
+
+```bash
+# Check the API is healthy
+make health
+
+# Confirm your memories are present
+curl -s http://localhost:8888/v1/memories/ -H "Authorization: Bearer <your-api-key>" | head
+```
+
+### Rollback
+
+If you need to revert, restore the old image tag in `docker-compose.yaml`:
+
+```yaml
+postgres:
+    image: ankane/pgvector:v0.5.1
+```
+
+Then `docker compose down -v`, `docker compose up -d --build`, and restore from
+`mem0_backup.sql` into the old container the same way.
 
 ## Reference
 
