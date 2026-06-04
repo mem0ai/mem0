@@ -410,6 +410,48 @@ class Memory(MemoryBase):
             )
         return self._entity_store
 
+    @staticmethod
+    def _is_memory_active(payload: Optional[Dict[str, Any]]) -> bool:
+        """Treat memories as active unless explicitly marked inactive."""
+        if not isinstance(payload, dict):
+            return True
+        return payload.get("is_active", True) is not False
+
+    @staticmethod
+    def _resolve_existing_memory_id(ref: Any, uuid_mapping: Dict[str, str]) -> Optional[str]:
+        """Resolve LLM-provided previous memory reference to a concrete UUID."""
+        if ref is None:
+            return None
+        ref_key = str(ref).strip()
+        if not ref_key:
+            return None
+        if ref_key in uuid_mapping:
+            return uuid_mapping[ref_key]
+        if ref_key in uuid_mapping.values():
+            return ref_key
+        return None
+
+    def _soft_supersede_memory(self, old_id: str, new_id: str) -> None:
+        """Soft-supersede an old memory without mutating its text content."""
+        if not old_id or not new_id or old_id == new_id:
+            return
+
+        existing_memory = self.vector_store.get(vector_id=old_id)
+        if existing_memory is None:
+            logger.warning(f"Soft-supersede skipped: old memory not found for id={old_id}")
+            return
+
+        payload = deepcopy(existing_memory.payload or {})
+        payload["is_active"] = False
+        payload["superseded_by"] = new_id
+        payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        self.vector_store.update(
+            vector_id=old_id,
+            vector=None,
+            payload=payload,
+        )
+
     def _upsert_entity(self, entity_text, entity_type, memory_id, filters):
         """Upsert an entity into the entity store, linking it to a memory."""
         try:
@@ -712,6 +754,10 @@ class Memory(MemoryBase):
             top_k=10,
             filters=search_filters,
         )
+        existing_results = [
+            mem for mem in existing_results
+            if self._is_memory_active(mem.payload if hasattr(mem, "payload") else None)
+        ]
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -790,6 +836,7 @@ class Memory(MemoryBase):
                 existing_hashes.add(h)
 
         records = []  # (memory_id, text, embedding, payload)
+        supersede_edges = []  # (old_memory_id, new_memory_id)
         seen_hashes = set()  # dedup within the current batch
         for mem in extracted_memories:
             text = mem.get("text")
@@ -812,8 +859,14 @@ class Memory(MemoryBase):
             if "created_at" not in mem_metadata:
                 mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
             mem_metadata["updated_at"] = mem_metadata["created_at"]
+            mem_metadata["is_active"] = True
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+
+            previous_memory_id = mem.get("previous_memory_id")
+            resolved_previous_id = self._resolve_existing_memory_id(previous_memory_id, uuid_mapping)
+            if resolved_previous_id:
+                supersede_edges.append((resolved_previous_id, memory_id))
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
@@ -826,19 +879,33 @@ class Memory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        inserted_ids = set()
         try:
             self.vector_store.insert(
                 vectors=all_vectors,
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            inserted_ids = set(all_ids)
         except Exception:
             # Fallback: insert one by one
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    inserted_ids.add(mid)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid}: {e}")
+
+        if supersede_edges:
+            for old_id, new_id in supersede_edges:
+                if new_id not in inserted_ids:
+                    continue
+                try:
+                    self._soft_supersede_memory(old_id, new_id)
+                except Exception as e:
+                    logger.warning(
+                        f"Soft-supersede failed for old_id={old_id}, new_id={new_id}: {e}"
+                    )
 
         # Batch history
         history_records = [
@@ -1078,6 +1145,7 @@ class Memory(MemoryBase):
 
     def _get_all_from_vector_store(self, filters, limit):
         memories_result = self.vector_store.list(filters=filters, top_k=limit)
+        include_inactive = self._has_explicit_active_filter(filters)
 
         # Handle different vector store return formats by inspecting first element
         if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
@@ -1103,19 +1171,23 @@ class Memory(MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            payload = mem.payload if hasattr(mem, "payload") else {}
+            if not include_inactive and not self._is_memory_active(payload):
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload.get("data", ""),
-                hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                memory=payload.get("data", ""),
+                hash=payload.get("hash"),
+                created_at=payload.get("created_at"),
+                updated_at=payload.get("updated_at"),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
+                if key in payload:
+                    memory_item_dict[key] = payload[key]
 
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
+            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
             if additional_metadata:
                 memory_item_dict["metadata"] = additional_metadata
 
@@ -1340,10 +1412,39 @@ class Memory(MemoryBase):
                 return True
         return False
 
+    @classmethod
+    def _has_explicit_active_filter(cls, filters: Optional[Dict[str, Any]]) -> bool:
+        """Return True if `is_active` appears anywhere in the filter tree."""
+        if not isinstance(filters, dict):
+            return False
+
+        if "is_active" in filters:
+            return True
+
+        for logical_key in ("AND", "OR", "NOT", "$and", "$or", "$not"):
+            branch = filters.get(logical_key)
+            if isinstance(branch, list):
+                for item in branch:
+                    if isinstance(item, dict) and cls._has_explicit_active_filter(item):
+                        return True
+            elif isinstance(branch, dict) and cls._has_explicit_active_filter(branch):
+                return True
+
+        for value in filters.values():
+            if isinstance(value, dict) and cls._has_explicit_active_filter(value):
+                return True
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict) and cls._has_explicit_active_filter(item):
+                        return True
+
+        return False
+
     def _search_vector_store(self, query, filters, limit, threshold=0.1):
         # Guard against None threshold (backward compat)
         if threshold is None:
             threshold = 0.1
+        include_inactive = self._has_explicit_active_filter(filters)
 
         # Step 1: Preprocess query
         query_lemmatized = lemmatize_for_bm25(query)
@@ -1381,11 +1482,14 @@ class Memory(MemoryBase):
         # Step 7: Build candidate set from semantic results
         candidates = []
         for mem in semantic_results:
+            payload = mem.payload if hasattr(mem, "payload") else {}
+            if not include_inactive and not self._is_memory_active(payload):
+                continue
             mem_id = str(mem.id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
+                "payload": payload,
             })
 
         # Step 8: Score and rank
@@ -1597,6 +1701,7 @@ class Memory(MemoryBase):
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["is_active"] = True
 
         self.vector_store.insert(
             vectors=[embeddings],
@@ -1675,6 +1780,7 @@ class Memory(MemoryBase):
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["is_active"] = True
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -1852,6 +1958,49 @@ class AsyncMemory(MemoryBase):
                 self.config.vector_store.provider, entity_config
             )
         return self._entity_store
+
+    @staticmethod
+    def _is_memory_active(payload: Optional[Dict[str, Any]]) -> bool:
+        """Treat memories as active unless explicitly marked inactive."""
+        if not isinstance(payload, dict):
+            return True
+        return payload.get("is_active", True) is not False
+
+    @staticmethod
+    def _resolve_existing_memory_id(ref: Any, uuid_mapping: Dict[str, str]) -> Optional[str]:
+        """Resolve LLM-provided previous memory reference to a concrete UUID."""
+        if ref is None:
+            return None
+        ref_key = str(ref).strip()
+        if not ref_key:
+            return None
+        if ref_key in uuid_mapping:
+            return uuid_mapping[ref_key]
+        if ref_key in uuid_mapping.values():
+            return ref_key
+        return None
+
+    async def _soft_supersede_memory_async(self, old_id: str, new_id: str) -> None:
+        """Async soft-supersede without mutating old memory text content."""
+        if not old_id or not new_id or old_id == new_id:
+            return
+
+        existing_memory = await asyncio.to_thread(self.vector_store.get, vector_id=old_id)
+        if existing_memory is None:
+            logger.warning(f"Soft-supersede skipped (async): old memory not found for id={old_id}")
+            return
+
+        payload = deepcopy(existing_memory.payload or {})
+        payload["is_active"] = False
+        payload["superseded_by"] = new_id
+        payload["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        await asyncio.to_thread(
+            self.vector_store.update,
+            vector_id=old_id,
+            vector=None,
+            payload=payload,
+        )
 
     async def _upsert_entity_async(self, entity_text, entity_type, memory_id, filters):
         """Async variant of `_upsert_entity` — per-entity search-then-update-or-insert."""
@@ -2128,6 +2277,10 @@ class AsyncMemory(MemoryBase):
             top_k=10,
             filters=search_filters,
         )
+        existing_results = [
+            mem for mem in existing_results
+            if self._is_memory_active(mem.payload if hasattr(mem, "payload") else None)
+        ]
 
         # Map UUIDs to integers (anti-hallucination)
         existing_memories = []
@@ -2204,6 +2357,7 @@ class AsyncMemory(MemoryBase):
                 existing_hashes.add(h)
 
         records = []
+        supersede_edges = []  # (old_memory_id, new_memory_id)
         seen_hashes = set()
         for mem in extracted_memories:
             text = mem.get("text")
@@ -2226,8 +2380,14 @@ class AsyncMemory(MemoryBase):
             if "created_at" not in mem_metadata:
                 mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
             mem_metadata["updated_at"] = mem_metadata["created_at"]
+            mem_metadata["is_active"] = True
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+
+            previous_memory_id = mem.get("previous_memory_id")
+            resolved_previous_id = self._resolve_existing_memory_id(previous_memory_id, uuid_mapping)
+            if resolved_previous_id:
+                supersede_edges.append((resolved_previous_id, memory_id))
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
@@ -2240,6 +2400,7 @@ class AsyncMemory(MemoryBase):
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
 
+        inserted_ids = set()
         try:
             await asyncio.to_thread(
                 self.vector_store.insert,
@@ -2247,12 +2408,25 @@ class AsyncMemory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            inserted_ids = set(all_ids)
         except Exception:
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     await asyncio.to_thread(self.vector_store.insert, vectors=[vec], ids=[mid], payloads=[pay])
+                    inserted_ids.add(mid)
                 except Exception as e:
                     logger.error(f"Failed to insert memory {mid} (async): {e}")
+
+        if supersede_edges:
+            for old_id, new_id in supersede_edges:
+                if new_id not in inserted_ids:
+                    continue
+                try:
+                    await self._soft_supersede_memory_async(old_id, new_id)
+                except Exception as e:
+                    logger.warning(
+                        f"Soft-supersede failed (async) for old_id={old_id}, new_id={new_id}: {e}"
+                    )
 
         # Batch history
         history_records = [
@@ -2493,6 +2667,7 @@ class AsyncMemory(MemoryBase):
 
     async def _get_all_from_vector_store(self, filters, limit):
         memories_result = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=limit)
+        include_inactive = self._has_explicit_active_filter(filters)
 
         # Handle different vector store return formats by inspecting first element
         if isinstance(memories_result, (tuple, list)) and len(memories_result) > 0:
@@ -2518,19 +2693,23 @@ class AsyncMemory(MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            payload = mem.payload if hasattr(mem, "payload") else {}
+            if not include_inactive and not self._is_memory_active(payload):
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
-                memory=mem.payload.get("data", ""),
-                hash=mem.payload.get("hash"),
-                created_at=mem.payload.get("created_at"),
-                updated_at=mem.payload.get("updated_at"),
+                memory=payload.get("data", ""),
+                hash=payload.get("hash"),
+                created_at=payload.get("created_at"),
+                updated_at=payload.get("updated_at"),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
-                if key in mem.payload:
-                    memory_item_dict[key] = mem.payload[key]
+                if key in payload:
+                    memory_item_dict[key] = payload[key]
 
-            additional_metadata = {k: v for k, v in mem.payload.items() if k not in core_and_promoted_keys}
+            additional_metadata = {k: v for k, v in payload.items() if k not in core_and_promoted_keys}
             if additional_metadata:
                 memory_item_dict["metadata"] = additional_metadata
 
@@ -2760,9 +2939,38 @@ class AsyncMemory(MemoryBase):
                 return True
         return False
 
+    @classmethod
+    def _has_explicit_active_filter(cls, filters: Optional[Dict[str, Any]]) -> bool:
+        """Return True if `is_active` appears anywhere in the filter tree."""
+        if not isinstance(filters, dict):
+            return False
+
+        if "is_active" in filters:
+            return True
+
+        for logical_key in ("AND", "OR", "NOT", "$and", "$or", "$not"):
+            branch = filters.get(logical_key)
+            if isinstance(branch, list):
+                for item in branch:
+                    if isinstance(item, dict) and cls._has_explicit_active_filter(item):
+                        return True
+            elif isinstance(branch, dict) and cls._has_explicit_active_filter(branch):
+                return True
+
+        for value in filters.values():
+            if isinstance(value, dict) and cls._has_explicit_active_filter(value):
+                return True
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict) and cls._has_explicit_active_filter(item):
+                        return True
+
+        return False
+
     async def _search_vector_store(self, query, filters, limit, threshold=0.1):
         if threshold is None:
             threshold = 0.1
+        include_inactive = self._has_explicit_active_filter(filters)
 
         # Step 1: Preprocess query (CPU-bound)
         query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query)
@@ -2800,11 +3008,14 @@ class AsyncMemory(MemoryBase):
         # Step 7: Build candidate set from semantic results
         candidates = []
         for mem in semantic_results:
+            payload = mem.payload if hasattr(mem, "payload") else {}
+            if not include_inactive and not self._is_memory_active(payload):
+                continue
             mem_id = str(mem.id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
+                "payload": payload,
             })
 
         # Step 8: Score and rank
@@ -3010,6 +3221,7 @@ class AsyncMemory(MemoryBase):
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
+        new_metadata["is_active"] = True
 
         await asyncio.to_thread(
             self.vector_store.insert,
@@ -3106,6 +3318,7 @@ class AsyncMemory(MemoryBase):
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+        new_metadata["is_active"] = True
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
