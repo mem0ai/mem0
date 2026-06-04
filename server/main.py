@@ -4,10 +4,16 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
-import telemetry
-from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
-from db import SessionLocal
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel, Field
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from sqlalchemy import func, select
+
+from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
 from errors import (
     UpstreamError,
     install_request_id_logging,
@@ -16,27 +22,16 @@ from errors import (
     upstream_error,
     upstream_error_handler,
 )
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
-from models import RequestLog, User
-from pydantic import BaseModel, Field
 from rate_limit import limiter
-from routers import api_keys as api_keys_router
+from db import SessionLocal
+from models import RequestLog, User
+import telemetry
 from routers import auth as auth_router
+from routers import api_keys as api_keys_router
 from routers import entities as entities_router
 from routers import requests as requests_router
 from schemas import MessageResponse
-from server_state import (
-    get_current_config,
-    get_memory_instance,
-    initialize_state,
-    set_session_factory,
-    update_config,
-)
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from sqlalchemy import func, select
+from server_state import get_current_config, get_memory_instance, initialize_state, set_session_factory, update_config
 
 load_dotenv()
 
@@ -103,12 +98,10 @@ elif not ADMIN_API_KEY:
 
 telemetry.log_status()
 
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "postgres")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
-POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
+MILVUS_URL = os.environ.get("MILVUS_URL", "http://milvus-standalone:19530")
+MILVUS_TOKEN = os.environ.get("MILVUS_TOKEN", "")
+MILVUS_COLLECTION_NAME = os.environ.get("MILVUS_COLLECTION_NAME", "mem0")
+MILVUS_EMBEDDING_DIMS = int(os.environ.get("MILVUS_EMBEDDING_DIMS", "1536"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
@@ -118,14 +111,13 @@ DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-emb
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
-        "provider": "pgvector",
+        "provider": "milvus",
         "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
+            "url": MILVUS_URL,
+            "token": MILVUS_TOKEN,
+            "collection_name": MILVUS_COLLECTION_NAME,
+            "embedding_model_dims": MILVUS_EMBEDDING_DIMS,
+            "metric_type": "COSINE",
         },
     },
     "llm": {
@@ -193,9 +185,9 @@ class MemoryUpdate(BaseModel):
 
 class SearchRequest(BaseModel):
     query: str = Field(..., description="Search query.")
-    user_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
-    run_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
-    agent_id: Optional[str] = Field(None, description="Deprecated: pass inside `filters` instead.", deprecated=True)
+    user_id: Optional[str] = None
+    run_id: Optional[str] = None
+    agent_id: Optional[str] = None
     filters: Optional[Dict[str, Any]] = None
     top_k: Optional[int] = Field(None, description="Maximum number of results to return.")
     threshold: Optional[float] = Field(None, description="Minimum similarity score for results.")
@@ -421,25 +413,8 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
 def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
-        filters = search_req.filters or {}
-        deprecated_keys = []
-        for entity_key in ("user_id", "agent_id", "run_id"):
-            entity_val = getattr(search_req, entity_key, None)
-            if entity_val is not None:
-                filters[entity_key] = entity_val
-                deprecated_keys.append(entity_key)
-        if deprecated_keys:
-            logging.warning(
-                "Top-level %s in /search is deprecated. Use filters={%s} instead.",
-                ", ".join(deprecated_keys),
-                ", ".join(f'"{k}": "..."' for k in deprecated_keys),
-            )
-        params = {}
-        if search_req.top_k is not None:
-            params["top_k"] = search_req.top_k
-        if search_req.threshold is not None:
-            params["threshold"] = search_req.threshold
-        return get_memory_instance().search(query=search_req.query, filters=filters, **params)
+        params = {k: v for k, v in search_req.model_dump().items() if v is not None and k != "query"}
+        return get_memory_instance().search(query=search_req.query, **params)
     except Exception:
         raise upstream_error()
 

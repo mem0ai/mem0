@@ -30,29 +30,29 @@ services:
       - MEM0_TELEMETRY=${MEM0_TELEMETRY:-true}
 
   postgres:
-      image: ankane/pgvector:v0.5.1
-      restart: on-failure
-      shm_size: "128mb"
-      networks:
-        - mem0_network
-      environment:
-        - POSTGRES_USER=postgres
-        - POSTGRES_PASSWORD=postgres
-      healthcheck:
-        test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
-        interval: 5s
-        timeout: 5s
-        retries: 5
-      volumes:
-        - postgres_db:/var/lib/postgresql/data
-        - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
-      ports:
-        - "8432:5432"
+    image: ankane/pgvector:v0.5.1
+    restart: on-failure
+    shm_size: "128mb"
+    networks:
+      - mem0_network
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    ports:
+      - "8432:5432"
 
   mem0-dashboard:
     build: ./dashboard
     ports:
-      - "3000:3000"
+      - "3001:3001"
     networks:
       - mem0_network
     environment:
