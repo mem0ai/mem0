@@ -1,13 +1,9 @@
 ---
 title: ScyllaDB
-description: "Use ScyllaDB as a high-performance vector store in Mem0 with native ANN search."
+description: "Use ScyllaDB as a real-time distributed vector store in Mem0 with ANN search."
 ---
 
-[ScyllaDB](https://www.scylladb.com/) is a drop-in replacement for Apache Cassandra, re-engineered in C++ for sub-millisecond latency and extreme throughput. Its **Storage Attached Index (SAI)** feature provides native, server-side Approximate Nearest Neighbor (ANN) vector search without loading any data into the application process — making it ideal for production-scale AI memory workloads.
-
-<Tip>
-ScyllaDB Cloud is the fastest path to getting started. Sign up for free at [cloud.scylladb.com](https://cloud.scylladb.com) and get a fully managed cluster in minutes.
-</Tip>
+[ScyllaDB](https://www.scylladb.com/) is a real-time distributed NoSQL database designed for AI workloads requiring sub-millisecond latency, extreme throughput and high-availability.
 
 ### Prerequisites
 
@@ -77,54 +73,10 @@ m.add(messages, user_id="alice", metadata={"category": "books"})
 | `use_ssl` | Enable TLS/SSL | `False` |
 | `ssl_cert_path` | Path to CA certificate file. Leave `None` to use system CAs. | `None` |
 
-### Memory Operations
-
-```python
-import os
-from mem0 import Memory
-
-os.environ["OPENAI_API_KEY"] = "sk-xx"
-
-config = {
-    "vector_store": {
-        "provider": "scylladb",
-        "config": {
-            "contact_points": ["node-0.aws-us-east-1.xxxxxxxx.clusters.scylla.cloud"],
-            "port": 9042,
-            "username": "scylla",
-            "password": "<your-password>",
-            "datacenter": "AWS_US_EAST_1",
-        }
-    }
-}
-
-m = Memory.from_config(config)
-
-# Add a memory
-result = m.add("Alice loves hard sci-fi and dislikes fantasy.", user_id="alice")
-print(result)
-
-# Search memories
-hits = m.search("book recommendations for Alice", user_id="alice")
-for hit in hits["results"]:
-    print(hit["memory"], hit["score"])
-
-# Get all memories for a user
-all_memories = m.get_all(user_id="alice")
-
-# Update a memory
-m.update(memory_id=result["results"][0]["id"], data="Alice loves hard sci-fi, especially Andy Weir.")
-
-# Delete a memory
-m.delete(memory_id=result["results"][0]["id"])
-
-# Delete all memories for a user
-m.delete_all(user_id="alice")
-```
 
 ### Setup
 1. Sign up at [cloud.scylladb.com](https://cloud.scylladb.com)
-2. Create a new cluster (choose AWS or GCP region)
+2. Create a new cluster
 3. In the cluster dashboard, open the **Connect** tab and note your **connection details**:
    - Contact point hostname (e.g., `node-0.aws-us-east-1.xxxxxxxx.clusters.scylla.cloud`)
    - Port: `9042`
@@ -150,7 +102,7 @@ ORDER BY vector ANN OF ?
 LIMIT 5;
 ```
 
-This means **no vectors are transferred to the application** during search — ScyllaDB returns only the top-K most similar records.
+ScyllaDB returns only the top-K most similar records.
 
 ### Performance Considerations
 
