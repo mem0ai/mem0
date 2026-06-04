@@ -168,18 +168,17 @@ class PGVector(VectorStoreBase):
             self.connection_pool = connection_pool
         elif connection_string:
             if sslmode:
-                # Append sslmode to connection string if provided
+                # Append sslmode as URL query parameter
                 if 'sslmode=' in connection_string:
-                    # Replace existing sslmode
                     import re
-                    connection_string = re.sub(r'sslmode=[^ ]*', f'sslmode={sslmode}', connection_string)
+                    connection_string = re.sub(r'sslmode=[^&\s]*', f'sslmode={sslmode}', connection_string)
                 else:
-                    # Add sslmode to connection string
-                    connection_string = f"{connection_string} sslmode={sslmode}"
+                    sep = '&' if '?' in connection_string else '?'
+                    connection_string = f"{connection_string}{sep}sslmode={sslmode}"
         else:
             connection_string = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
             if sslmode:
-                connection_string = f"{connection_string} sslmode={sslmode}"
+                connection_string = f"{connection_string}?sslmode={sslmode}"
         
         if self.connection_pool is None:
             if PSYCOPG_VERSION == 3:
