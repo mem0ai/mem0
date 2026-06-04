@@ -52,6 +52,9 @@ export interface SearchOptions {
   categories?: string[];
   filters?: Record<string, unknown>;
   source?: string;
+  /** Platform-only: request Mem0 Advanced Retrieval reranking of results.
+   *  Ignored in open-source mode (the OSS SDK has no reranker). */
+  rerank?: boolean;
 }
 
 // ============================================================================
@@ -80,7 +83,13 @@ export interface SkillsConfig {
     strategy?: "always" | "smart" | "manual";
     tokenBudget?: number;
     maxMemories?: number;
+    /** Platform-only. When true, threads `rerank` into the Mem0 search
+     *  payload so the platform applies Advanced Retrieval reranking on top
+     *  of the plugin's local ranking. No effect in open-source mode. */
     rerank?: boolean;
+    /** @deprecated No-op since Mem0 v3 removed keyword search from the
+     *  search API. Kept for backwards compatibility; setting it has no
+     *  effect. Will be removed in a future major version. */
     keywordSearch?: boolean;
     filterMemories?: boolean;
     threshold?: number;
