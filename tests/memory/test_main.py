@@ -90,6 +90,17 @@ class TestPromptOverridesCustomInstructions:
         memory.db.save_messages = MagicMock()
         return memory
 
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
+
+        memory = AsyncMemory()
+        memory.custom_instructions = "config-level instructions"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
     def test_prompt_overrides_custom_instructions(self, mock_memory):
         mock_memory._add_to_vector_store(
             messages=[{"role": "user", "content": "hello"}],
@@ -113,6 +124,29 @@ class TestPromptOverridesCustomInstructions:
 
         user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
         assert "config-level instructions" in user_prompt
+
+    def test_metadata_timestamp_sets_observation_date(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"timestamp": "2023-05-24T10:00:00+00:00"},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "## Observation Date\n2023-05-24T10:00:00+00:00" in user_prompt
+
+    @pytest.mark.asyncio
+    async def test_async_metadata_timestamp_sets_observation_date(self, mock_async_memory):
+        await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "I went to Paris last week"}],
+            metadata={"timestamp": "2023-05-24T10:00:00+00:00"},
+            effective_filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_async_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "## Observation Date\n2023-05-24T10:00:00+00:00" in user_prompt
 
 
 class TestAsyncUpdate:
@@ -661,5 +695,4 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
 
     stored = memory.vector_store.update.call_args.kwargs["payload"]
     assert stored["actor_id"] == "Alice"
-
 
