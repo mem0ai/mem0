@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -76,6 +76,19 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 only makes 1 LLM call (no separate merge step)
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
+
+    def test_metadata_timestamp_forwarded_to_extraction_prompt(self, mock_memory):
+        messages = [{"role": "user", "content": "I visited Paris last week"}]
+        with patch("mem0.memory.main.generate_additive_extraction_prompt") as mock_prompt:
+            mock_prompt.return_value = "mocked prompt"
+            mock_memory._add_to_vector_store(
+                messages=messages,
+                metadata={"timestamp": "2023-05-24T10:00:00+00:00"},
+                filters={},
+                infer=True,
+            )
+            call_kwargs = mock_prompt.call_args.kwargs
+            assert call_kwargs.get("timestamp") == "2023-05-24T10:00:00+00:00"
 
 
 class TestPromptOverridesCustomInstructions:
@@ -215,6 +228,20 @@ class TestAsyncAddToVectorStoreErrors:
 
         assert result == []
         assert mock_async_memory.llm.generate_response.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_async_metadata_timestamp_forwarded_to_extraction_prompt(self, mock_async_memory):
+        messages = [{"role": "user", "content": "I visited Paris last week"}]
+        with patch("mem0.memory.main.generate_additive_extraction_prompt") as mock_prompt:
+            mock_prompt.return_value = "mocked prompt"
+            await mock_async_memory._add_to_vector_store(
+                messages=messages,
+                metadata={"timestamp": "2023-05-24T10:00:00+00:00"},
+                effective_filters={},
+                infer=True,
+            )
+            call_kwargs = mock_prompt.call_args.kwargs
+            assert call_kwargs.get("timestamp") == "2023-05-24T10:00:00+00:00"
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -661,5 +688,6 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
 
     stored = memory.vector_store.update.call_args.kwargs["payload"]
     assert stored["actor_id"] == "Alice"
+
 
 
