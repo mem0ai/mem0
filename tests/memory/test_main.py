@@ -1,5 +1,7 @@
 import logging
+import time
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -663,3 +665,168 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+def _make_match(score, linked_memory_ids):
+    return SimpleNamespace(score=score, payload={"linked_memory_ids": linked_memory_ids})
+
+
+class TestEntityBoostParallelism:
+    """Tests for parallelized entity boost searches (#5214)."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        return Memory()
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        return AsyncMemory()
+
+    def test_sync_boosts_preserve_scoring(self, mock_memory):
+        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
+
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        results_by_query = {
+            "alice": [_make_match(0.9, ["mem-1"])],
+            "bob": [_make_match(0.6, ["mem-1", "mem-2"])],
+        }
+
+        def fake_search(query, vectors, top_k, filters):
+            return results_by_query[query]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        boosts = mock_memory._compute_entity_boosts(
+            [("person", "alice"), ("person", "bob")],
+            {"user_id": "u1"},
+        )
+
+        boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
+        boost_bob = 0.6 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (1**2)))
+        assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
+        assert boosts["mem-2"] == pytest.approx(boost_bob)
+
+    @pytest.mark.asyncio
+    async def test_async_boosts_preserve_scoring(self, mock_async_memory):
+        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
+
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        results_by_query = {
+            "alice": [_make_match(0.9, ["mem-1"])],
+            "bob": [_make_match(0.6, ["mem-1", "mem-2"])],
+        }
+
+        def fake_search(query, vectors, top_k, filters):
+            return results_by_query[query]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        boosts = await mock_async_memory._compute_entity_boosts_async(
+            [("person", "alice"), ("person", "bob")],
+            {"user_id": "u1"},
+        )
+
+        boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
+        boost_bob = 0.6 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (1**2)))
+        assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
+        assert boosts["mem-2"] == pytest.approx(boost_bob)
+
+    def test_sync_one_entity_failure_does_not_abort_others(self, mock_memory, caplog):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        def fake_search(query, vectors, top_k, filters):
+            if query == "boom":
+                raise RuntimeError("provider timeout")
+            return [_make_match(0.8, ["mem-9"])]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        with caplog.at_level(logging.WARNING):
+            boosts = mock_memory._compute_entity_boosts(
+                [("person", "boom"), ("person", "ok")],
+                {"user_id": "u1"},
+            )
+
+        assert "mem-9" in boosts
+        assert any("Entity boost search failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_async_one_entity_failure_does_not_abort_others(self, mock_async_memory, caplog):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        def fake_search(query, vectors, top_k, filters):
+            if query == "boom":
+                raise RuntimeError("provider timeout")
+            return [_make_match(0.8, ["mem-9"])]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        with caplog.at_level(logging.WARNING):
+            boosts = await mock_async_memory._compute_entity_boosts_async(
+                [("person", "boom"), ("person", "ok")],
+                {"user_id": "u1"},
+            )
+
+        assert "mem-9" in boosts
+        assert any("Entity boost search failed" in r.message for r in caplog.records)
+
+    def test_sync_searches_run_concurrently(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        concurrent_count = {"current": 0, "peak": 0}
+
+        def blocking_search(query, vectors, top_k, filters):
+            concurrent_count["current"] += 1
+            concurrent_count["peak"] = max(concurrent_count["peak"], concurrent_count["current"])
+            time.sleep(0.2)
+            concurrent_count["current"] -= 1
+            return [_make_match(0.7, [f"mem-{query}"])]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=blocking_search)
+
+        entities = [("person", f"e{i}") for i in range(4)]
+        start = time.perf_counter()
+        boosts = mock_memory._compute_entity_boosts(entities, {"user_id": "u1"})
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.6, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
+        assert len(boosts) == 4
+
+    @pytest.mark.asyncio
+    async def test_async_searches_run_concurrently(self, mock_async_memory):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        concurrent_count = {"current": 0, "peak": 0}
+
+        def blocking_search(query, vectors, top_k, filters):
+            concurrent_count["current"] += 1
+            concurrent_count["peak"] = max(concurrent_count["peak"], concurrent_count["current"])
+            time.sleep(0.2)
+            concurrent_count["current"] -= 1
+            return [_make_match(0.7, [f"mem-{query}"])]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=blocking_search)
+
+        entities = [("person", f"e{i}") for i in range(4)]
+        start = time.perf_counter()
+        boosts = await mock_async_memory._compute_entity_boosts_async(entities, {"user_id": "u1"})
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.6, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
+        assert len(boosts) == 4

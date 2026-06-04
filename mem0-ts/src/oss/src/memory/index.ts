@@ -1170,42 +1170,39 @@ export class Memory {
         if (deduped.length > 0) {
           const entityStore = await this.getEntityStore();
 
-          for (const entity of deduped) {
-            try {
+          const searchResults = await Promise.allSettled(
+            deduped.map(async (entity) => {
               const entityEmbedding = await this.embedder.embed(entity.text);
-              const matches = await entityStore.search(
-                entityEmbedding,
-                500,
-                effectiveFilters,
-              );
+              return entityStore.search(entityEmbedding, 500, effectiveFilters);
+            }),
+          );
 
-              for (const match of matches) {
-                const similarity = match.score ?? 0;
-                if (similarity < 0.5) continue;
+          for (const result of searchResults) {
+            if (result.status === "rejected") continue;
 
-                const payload = match.payload || {};
-                const linkedMemoryIds = payload.linkedMemoryIds ?? [];
-                if (!Array.isArray(linkedMemoryIds)) continue;
+            for (const match of result.value) {
+              const similarity = match.score ?? 0;
+              if (similarity < 0.5) continue;
 
-                // Spread-attenuated boost
-                const numLinked = Math.max(linkedMemoryIds.length, 1);
-                const memoryCountWeight =
-                  1.0 / (1.0 + 0.001 * (numLinked - 1) ** 2);
-                const boost =
-                  similarity * ENTITY_BOOST_WEIGHT * memoryCountWeight;
+              const payload = match.payload || {};
+              const linkedMemoryIds = payload.linkedMemoryIds ?? [];
+              if (!Array.isArray(linkedMemoryIds)) continue;
 
-                for (const memoryId of linkedMemoryIds) {
-                  if (memoryId) {
-                    const memKey = String(memoryId);
-                    entityBoosts[memKey] = Math.max(
-                      entityBoosts[memKey] ?? 0,
-                      boost,
-                    );
-                  }
+              const numLinked = Math.max(linkedMemoryIds.length, 1);
+              const memoryCountWeight =
+                1.0 / (1.0 + 0.001 * (numLinked - 1) ** 2);
+              const boost =
+                similarity * ENTITY_BOOST_WEIGHT * memoryCountWeight;
+
+              for (const memoryId of linkedMemoryIds) {
+                if (memoryId) {
+                  const memKey = String(memoryId);
+                  entityBoosts[memKey] = Math.max(
+                    entityBoosts[memKey] ?? 0,
+                    boost,
+                  );
                 }
               }
-            } catch (e) {
-              // Individual entity boost failed — continue
             }
           }
         }
