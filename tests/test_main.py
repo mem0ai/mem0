@@ -348,3 +348,45 @@ class TestSearchParamValidation:
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
+
+
+class TestSearchEmptyQueryValidation:
+    """Tests for Memory.search() blank-query short-circuit (regression #5220)."""
+
+    def test_search_returns_empty_for_empty_string_query(self, memory_instance):
+        """Empty string query should return {"results": []} without embedding."""
+        memory_instance.embedding_model = Mock()
+        memory_instance.embedding_model.embed = Mock(side_effect=AssertionError("embed must not be called"))
+        memory_instance.vector_store.search = Mock(side_effect=AssertionError("search must not be called"))
+
+        result = memory_instance.search("", filters={"user_id": "test_user"})
+
+        assert result == {"results": []}
+        memory_instance.embedding_model.embed.assert_not_called()
+        memory_instance.vector_store.search.assert_not_called()
+
+    def test_search_returns_empty_for_whitespace_only_query(self, memory_instance):
+        """Whitespace-only query should return {"results": []} without embedding."""
+        memory_instance.embedding_model = Mock()
+        memory_instance.embedding_model.embed = Mock(side_effect=AssertionError("embed must not be called"))
+        memory_instance.vector_store.search = Mock(side_effect=AssertionError("search must not be called"))
+
+        result = memory_instance.search("   \t\n  ", filters={"user_id": "test_user"})
+
+        assert result == {"results": []}
+        memory_instance.embedding_model.embed.assert_not_called()
+
+    def test_search_returns_empty_for_none_query(self, memory_instance):
+        """None query should return {"results": []} without embedding."""
+        memory_instance.embedding_model = Mock()
+        memory_instance.embedding_model.embed = Mock(side_effect=AssertionError("embed must not be called"))
+
+        result = memory_instance.search(None, filters={"user_id": "test_user"})
+
+        assert result == {"results": []}
+
+    def test_search_still_validates_threshold_before_blank_check(self, memory_instance):
+        """Invalid threshold should still raise even with empty query
+        (param-level validation precedes blank-query short-circuit)."""
+        with pytest.raises(ValueError, match="Invalid threshold"):
+            memory_instance.search("", filters={"user_id": "test"}, threshold=1.5)

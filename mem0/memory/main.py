@@ -1176,6 +1176,14 @@ class Memory(MemoryBase):
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
 
+        # Reject blank queries before embedding. Without this guard the
+        # query is passed straight to the embedding model: some providers
+        # (e.g. Ollama) raise on empty input, others silently return a
+        # zero/random vector which then matches every stored memory.
+        # See #5220.
+        if not query or not query.strip():
+            return {"results": []}
+
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
         if "user_id" in effective_filters:
@@ -2590,6 +2598,14 @@ class AsyncMemory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+
+        # Reject blank queries before embedding. Without this guard the
+        # query is passed straight to the embedding model: some providers
+        # (e.g. Ollama) raise on empty input, others silently return a
+        # zero/random vector which then matches every stored memory.
+        # See #5220.
+        if not query or not query.strip():
+            return {"results": []}
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
