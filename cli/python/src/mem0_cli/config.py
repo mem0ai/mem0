@@ -52,11 +52,19 @@ class TelemetryConfig:
 
 
 @dataclass
+class AgentRushConfig:
+    # ISO timestamp the human acknowledged the "memories are public" warning.
+    # Empty until first interactive `mem0 agent-rush add`.
+    acknowledged_at: str = ""
+
+
+@dataclass
 class Mem0Config:
     version: int = CONFIG_VERSION
     defaults: DefaultsConfig = field(default_factory=DefaultsConfig)
     platform: PlatformConfig = field(default_factory=PlatformConfig)
     telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
+    agent_rush: AgentRushConfig = field(default_factory=AgentRushConfig)
 
 
 SHORT_KEY_ALIASES: dict[str, str] = {
@@ -104,6 +112,9 @@ def load_config() -> Mem0Config:
         config.defaults.run_id = defaults.get("run_id", "")
         telemetry = data.get("telemetry", {})
         config.telemetry.anonymous_id = telemetry.get("anonymous_id", "")
+
+        agent_rush = data.get("agent_rush", {})
+        config.agent_rush.acknowledged_at = agent_rush.get("acknowledged_at", "")
 
     # Environment variable overrides
     env_key = os.environ.get("MEM0_API_KEY")
@@ -157,6 +168,9 @@ def save_config(config: Mem0Config) -> None:
         },
         "telemetry": {
             "anonymous_id": config.telemetry.anonymous_id,
+        },
+        "agent_rush": {
+            "acknowledged_at": config.agent_rush.acknowledged_at,
         },
     }
 

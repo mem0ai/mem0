@@ -23,7 +23,8 @@ import urllib.request
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _identity import resolve_user_id
+from _identity import resolve_api_key, resolve_user_id
+from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-capture")
 log.setLevel(logging.DEBUG)
@@ -136,56 +137,51 @@ def parse_transcript(lines: list[str]) -> dict:
 
 
 def build_content(state: dict, source: str) -> str:
-    """Build structured markdown from parsed state."""
-    parts = [f"## Session State ({source})\n"]
+    """Build minimal context — only what's needed to resume work.
 
-    if state["user_messages"]:
-        parts.append("### What the user was working on")
-        for msg in state["user_messages"]:
-            truncated = msg[:5000] + "..." if len(msg) > 5000 else msg
-            parts.append(f"- {truncated}")
-        parts.append("")
+    This is a FALLBACK safety net, not the primary capture path.
+    The agent handles rich memory storage via on_pre_compact.sh prompts.
+    This script only fires when the agent didn't store enough on its own.
+
+    Keep it short — mem0 infer=True will extract structured facts.
+    """
+    parts = []
 
     if state["files_modified"]:
-        parts.append("### Files modified this session")
-        for fp in state["files_modified"]:
-            parts.append(f"- `{fp}`")
-        parts.append("")
+        parts.append(f"Files touched: {', '.join(state['files_modified'][:15])}")
 
     if state["bash_commands"]:
-        parts.append("### Recent commands")
-        for cmd in state["bash_commands"]:
-            truncated = cmd[:1000] + "..." if len(cmd) > 1000 else cmd
-            parts.append(f"- `{truncated}`")
-        parts.append("")
-
-    if state["last_assistant_text"]:
-        parts.append("### Last context")
-        parts.append(state["last_assistant_text"])
-        parts.append("")
+        git_cmds = [c for c in state["bash_commands"] if "git " in c]
+        if git_cmds:
+            parts.append(f"Git operations: {len(git_cmds)}")
 
     return "\n".join(parts)
 
 
-def store_memory(api_key: str, content: str, user_id: str, source: str, session_id: str = "") -> bool:
+def store_memory(api_key: str, content: str, user_id: str, source: str, session_id: str = "", project_id: str = "", branch: str = "") -> bool:
     """Store session state as a memory via the Mem0 REST API."""
     expires = (date.today() + timedelta(days=SESSION_STATE_EXPIRY_DAYS)).isoformat()
+    metadata = {
+        "type": "session_state",
+        "source": source,
+        "session_id": session_id,
+    }
+    if branch:
+        metadata["branch"] = branch
     body = {
         "messages": [
             {"role": "user", "content": content}
         ],
         "user_id": user_id,
-        "metadata": {
-            "type": "session_state",
-            "source": source,
-            "session_id": session_id,
-        },
+        "app_id": project_id,
+        "metadata": metadata,
         "expiration_date": expires,
+        "infer": True,
     }
 
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        f"{API_URL}/v1/memories/",
+        f"{API_URL}/v3/memories/add/",
         data=data,
         headers={
             "Content-Type": "application/json",
@@ -206,15 +202,51 @@ def store_memory(api_key: str, content: str, user_id: str, source: str, session_
         return False
 
 
+def format_status(state: dict, source: str, stored: bool, skipped_reason: str = "") -> str:
+    """Build a clean, readable status line for terminal display."""
+    files_count = len(state.get("files_modified", []))
+    git_cmds = [c for c in state.get("bash_commands", []) if "git " in c]
+    user_msgs = len(state.get("user_messages", []))
+
+    parts = []
+    if files_count:
+        parts.append(f"{files_count} file{'s' if files_count != 1 else ''} touched")
+    if git_cmds:
+        parts.append(f"{len(git_cmds)} git op{'s' if len(git_cmds) != 1 else ''}")
+    if user_msgs:
+        parts.append(f"{user_msgs} exchange{'s' if user_msgs != 1 else ''}")
+
+    activity = ", ".join(parts) if parts else "minimal activity"
+
+    if source == "pre-compaction":
+        icon = "✨"  # ✨
+        label = "Pre-compaction snapshot"
+    else:
+        icon = "\U0001f4be"  # 💾
+        label = "Session-end snapshot"
+
+    if skipped_reason:
+        return f"{icon} Mem0 {label} — {activity} — {skipped_reason}"
+    elif stored:
+        return f"{icon} Mem0 {label} — {activity} — saved to mem0"
+    else:
+        return f"{icon} Mem0 {label} — {activity} — nothing to capture"
+
+
 def main():
     source = "pre-compaction"
+    show_status = False
     for arg in sys.argv[1:]:
         if arg.startswith("--source="):
             source = arg.split("=", 1)[1]
+        elif arg == "--status":
+            show_status = True
 
-    api_key = os.environ.get("MEM0_API_KEY", "")
+    api_key = resolve_api_key()
     if not api_key:
         log.debug("MEM0_API_KEY not set, skipping capture")
+        if show_status:
+            print("✨ Mem0 — no API key, skipping capture")
         return
 
     try:
@@ -229,7 +261,10 @@ def main():
         return
 
     session_id = hook_input.get("session_id", "")
+    cwd = hook_input.get("cwd") or None
     user_id = resolve_user_id()
+    project_id = resolve_project_id(cwd)
+    branch = resolve_branch(cwd)
 
     lines = tail_lines(transcript_path, MAX_TAIL_LINES)
     if not lines:
@@ -237,20 +272,38 @@ def main():
         return
 
     state = parse_transcript(lines)
-    if not state["user_messages"] and not state["files_modified"]:
-        log.debug("No meaningful session state to capture")
+
+    # Skip if agent already stored memories this session — avoid duplicate writes.
+    stats_file = f"/tmp/mem0_session_stats_{os.environ.get('USER', 'default')}.json"
+    try:
+        with open(stats_file) as f:
+            stats = json.load(f)
+        if stats.get("adds", 0) >= 1:
+            log.info("Agent stored %d memories this session — skipping fallback", stats["adds"])
+            if show_status:
+                print(format_status(state, source, False, f"agent already stored {stats['adds']} memor{'ies' if stats['adds'] != 1 else 'y'}"))
+            return
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    if not state["files_modified"]:
+        log.debug("No files modified — skipping fallback capture")
+        if show_status:
+            print(format_status(state, source, False))
         return
 
     content = build_content(state, source)
+    if not content.strip():
+        log.debug("No content to store")
+        if show_status:
+            print(format_status(state, source, False))
+        return
 
-    log.info(
-        "Capturing session state: %d user msgs, %d files, %d commands",
-        len(state["user_messages"]),
-        len(state["files_modified"]),
-        len(state["bash_commands"]),
-    )
+    log.info("Fallback capture: %d files modified", len(state["files_modified"]))
+    stored = store_memory(api_key, content, user_id, source, session_id, project_id, branch)
 
-    store_memory(api_key, content, user_id, source, session_id)
+    if show_status:
+        print(format_status(state, source, stored))
 
 
 if __name__ == "__main__":

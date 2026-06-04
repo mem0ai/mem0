@@ -170,7 +170,6 @@ cython_debug/
 # Database
 db
 test-db
-!embedchain/embedchain/core/db/
 
 .vscode
 .idea/
