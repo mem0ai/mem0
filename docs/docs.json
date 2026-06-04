@@ -229,7 +229,8 @@
                               "components/vectordbs/dbs/databricks",
                               "components/vectordbs/dbs/neon",
                               "components/vectordbs/dbs/neptune-analytics",
-                              "components/vectordbs/dbs/turbopuffer"
+                              "components/vectordbs/dbs/turbopuffer",
+                              "components/vectordbs/dbs/scylladb"
                             ]
                           }
                         ]
