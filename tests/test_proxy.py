@@ -98,3 +98,34 @@ def test_completions_create_with_system_message(mock_memory_client, mock_litellm
     call_args = mock_litellm.completion.call_args[1]
     assert call_args["messages"][0]["role"] == "system"
     assert call_args["messages"][0]["content"] == "You are a helpful assistant."
+
+
+def test_completions_create_default_messages_is_none(mock_memory_client, mock_litellm):
+    """Regression test for mem0#5301 — messages default must not be
+    a mutable shared list instance (was `messages: List = []`, now
+    `messages: Optional[List] = None`)."""
+    import inspect
+
+    sig = inspect.signature(Completions.create)
+    default = sig.parameters["messages"].default
+    assert default is None, (
+        f"messages default must be None (B006); got {default!r}"
+    )
+
+
+def test_completions_create_with_none_messages(mock_memory_client, mock_litellm):
+    """Completions.create(messages=None) must not crash; the function
+    should normalize to an empty list internally and reach litellm."""
+    completions = Completions(mock_memory_client)
+    mock_memory_client.search.return_value = []
+    mock_litellm.completion.return_value = {
+        "choices": [{"message": {"content": "ok"}}]
+    }
+    mock_litellm.supports_function_calling.return_value = True
+
+    response = completions.create(
+        model="gpt-4.1-nano-2025-04-14",
+        messages=None,
+        user_id="test_user",
+    )
+    assert response == {"choices": [{"message": {"content": "ok"}}]}
