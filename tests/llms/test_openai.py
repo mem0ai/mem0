@@ -172,7 +172,7 @@ def test_callback_exception_handling(mock_openai_client):
 
 def test_reasoning_model_with_reasoning_effort(mock_openai_client):
     """Test that reasoning_effort is passed to the API for reasoning models."""
-    config = OpenAIConfig(model="o3-mini", reasoning_effort="low")
+    config = OpenAIConfig(model="o3-mini", max_tokens=100, reasoning_effort="low")
     llm = OpenAILLM(config)
     messages = [{"role": "user", "content": "Hello"}]
 
@@ -184,8 +184,30 @@ def test_reasoning_model_with_reasoning_effort(mock_openai_client):
 
     call_kwargs = mock_openai_client.chat.completions.create.call_args
     assert call_kwargs[1]["reasoning_effort"] == "low"
+    assert call_kwargs[1]["max_completion_tokens"] == 100
+    assert "max_tokens" not in call_kwargs[1]
     assert "temperature" not in call_kwargs[1]  # reasoning models don't get temperature
     assert response == "Response from o3-mini"
+
+
+def test_gpt5_mini_uses_max_completion_tokens(mock_openai_client):
+    """Test that gpt-5-mini translates max_tokens for Chat Completions."""
+    config = OpenAIConfig(model="gpt-5-mini", max_tokens=100)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response from gpt-5-mini"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["max_completion_tokens"] == 100
+    assert "max_tokens" not in call_kwargs
+    assert "reasoning_effort" not in call_kwargs
+    assert "temperature" not in call_kwargs
+    assert response == "Response from gpt-5-mini"
 
 
 def test_reasoning_model_without_reasoning_effort(mock_openai_client):
@@ -317,6 +339,10 @@ def test_is_reasoning_model_classification(mock_openai_client):
     assert llm._is_reasoning_model("o3-mini") is True
     assert llm._is_reasoning_model("o3") is True
     assert llm._is_reasoning_model("gpt-5") is True
+    assert llm._is_reasoning_model("gpt-5-mini") is True
+    assert llm._is_reasoning_model("gpt-5-nano") is True
+    assert llm._is_reasoning_model("gpt-5-pro") is True
+    assert llm._is_reasoning_model("gpt-5-2025-08-07") is True
     assert llm._is_reasoning_model("o1-preview") is True
     assert llm._is_reasoning_model("o1-2024-12-17") is True
     assert llm._is_reasoning_model("openai/o3-mini") is True

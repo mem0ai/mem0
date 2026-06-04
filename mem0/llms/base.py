@@ -43,16 +43,22 @@ class LLMBase(ABC):
     def _is_reasoning_model(self, model: str) -> bool:
         """
         Check if the model is a reasoning model or GPT-5 series that doesn't support certain parameters.
-        
+
         Args:
             model: The model name to check
-            
+
         Returns:
             bool: True if the model is a reasoning model or GPT-5 series
         """
         reasoning_models = {
-            "o1", "o1-preview", "o3-mini", "o3",
-            "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
+            "o1",
+            "o1-preview",
+            "o3-mini",
+            "o3",
+            "gpt-5",
+            "gpt-5o",
+            "gpt-5o-mini",
+            "gpt-5o-micro",
         }
 
         model_lower = model.lower()
@@ -62,9 +68,8 @@ class LLMBase(ABC):
         if base_model in reasoning_models:
             return True
 
-        # Match o1/o3 family with prefixes (o1-2024-12-17, o3-2025-04-16)
-        # but NOT gpt-5.x variants (gpt-5.4-mini supports temperature)
-        if any(base_model.startswith(prefix) for prefix in ["o1-", "o1.", "o3-", "o3."]):
+        # Match o-series/GPT-5 snapshots and aliases without catching gpt-5.x variants.
+        if any(base_model.startswith(prefix) for prefix in ["o1-", "o1.", "o3-", "o3.", "gpt-5-"]):
             return True
 
         return False
@@ -73,18 +78,18 @@ class LLMBase(ABC):
         """
         Get parameters that are supported by the current model.
         Filters out unsupported parameters for reasoning models and GPT-5 series.
-        
+
         Args:
             **kwargs: Additional parameters to include
-            
+
         Returns:
             Dict: Filtered parameters dictionary
         """
-        model = getattr(self.config, 'model', '')
-        
+        model = getattr(self.config, "model", "")
+
         if self._is_reasoning_model(model):
             supported_params = {}
-            
+
             if "messages" in kwargs:
                 supported_params["messages"] = kwargs["messages"]
             if "response_format" in kwargs:
@@ -94,8 +99,11 @@ class LLMBase(ABC):
             if "tool_choice" in kwargs:
                 supported_params["tool_choice"] = kwargs["tool_choice"]
 
-            # Add reasoning_effort if configured
-            reasoning_effort = getattr(self.config, 'reasoning_effort', None)
+            max_tokens = getattr(self.config, "max_tokens", None)
+            if max_tokens is not None:
+                supported_params["max_completion_tokens"] = max_tokens
+
+            reasoning_effort = getattr(self.config, "reasoning_effort", None)
             if reasoning_effort:
                 supported_params["reasoning_effort"] = reasoning_effort
 
