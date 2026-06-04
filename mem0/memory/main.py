@@ -391,7 +391,9 @@ class Memory(MemoryBase):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = f"{self.collection_name}_entities"
+            # S3 Vectors does not support underscores in collection names
+            sep = "-" if self.config.vector_store.provider == "s3_vectors" else "_"
+            entity_collection = f"{self.collection_name}{sep}entities"
             # Set collection name on the cloned config
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection
@@ -1835,7 +1837,9 @@ class AsyncMemory(MemoryBase):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = f"{self.collection_name}_entities"
+            # S3 Vectors does not support underscores in collection names
+            sep = "-" if self.config.vector_store.provider == "s3_vectors" else "_"
+            entity_collection = f"{self.collection_name}{sep}entities"
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
