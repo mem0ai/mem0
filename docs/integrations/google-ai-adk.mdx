@@ -9,7 +9,7 @@ Integrate [**Mem0**](https://github.com/mem0ai/mem0) with [Google ADK (Agent Dev
 
 In this guide, we'll create a Google ADK agent that:
 1. Uses ADK's native `MemoryService` interface to connect Mem0
-2. Automatically injects relevant memories at the start of each turn using `PreloadMemoryTool`
+2. Automatically injects relevant memories using ADK's built-in `load_memory` tool
 3. Persists session history to Mem0 after each turn via an after-agent callback
 4. Shares memory seamlessly across multi-agent hierarchies
 
@@ -21,9 +21,7 @@ Install the necessary libraries:
 pip install google-adk mem0ai python-dotenv
 ```
 
-Import the required modules and set up configurations:
-
-Valid API keys:
+Set up your API keys:
    - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-google-ai-adk" rel="nofollow">Mem0 API Key</a>
    - Google AI Studio API Key
 
@@ -32,24 +30,22 @@ Valid API keys:
 ```python
 import os
 from dotenv import load_dotenv
-from mem0 import MemoryClient
 
 load_dotenv()
 
 # os.environ["GOOGLE_API_KEY"] = "your-google-api-key"
 # os.environ["MEM0_API_KEY"] = "your-mem0-api-key"
-
-mem0 = MemoryClient()
 ```
 
 ## Implement Mem0MemoryService
 
-Create a custom `MemoryService` by implementing ADK's `BaseMemoryService`. This class handles both memory search and session persistence:
+Create a custom `MemoryService` by implementing ADK's `BaseMemoryService`. Save the following as **`mem0_memory_service.py`**:
 
 ```python
-# mem0_memory_service.py
+import os
 from typing import Optional
 from typing_extensions import override
+from datetime import datetime
 
 from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
 from google.adk.memory.memory_entry import MemoryEntry
@@ -63,7 +59,6 @@ class Mem0MemoryService(BaseMemoryService):
 
     def __init__(self, api_key: Optional[str] = None):
         super().__init__()
-        import os
         api_key = api_key or os.environ.get("MEM0_API_KEY")
         self._client: Optional[MemoryClient] = MemoryClient(api_key=api_key) if api_key else None
 
@@ -79,33 +74,23 @@ class Mem0MemoryService(BaseMemoryService):
             results = self._client.search(
                 query,
                 filters={"user_id": user_id},
-                limit=5,
+                top_k=5,
             )
 
             entries = []
-            total_chars = 0
-            MAX_TOTAL = 2000
-            MAX_EACH = 500
-
             for mem in results.get("results", []):
                 text = mem.get("memory", "")
                 if not text:
                     continue
-                if len(text) > MAX_EACH:
-                    text = text[:MAX_EACH] + "..."
-                if total_chars + len(text) > MAX_TOTAL:
-                    break
-                total_chars += len(text)
 
                 timestamp_str = None
                 raw_ts = mem.get("created_at") or mem.get("updated_at")
                 if raw_ts:
-                    from datetime import datetime
                     try:
                         timestamp_str = datetime.fromisoformat(
                             str(raw_ts).replace("Z", "+00:00")
                         ).isoformat()
-                    except Exception:
+                    except (ValueError, TypeError):
                         pass
 
                 entries.append(
@@ -137,10 +122,11 @@ class Mem0MemoryService(BaseMemoryService):
             for event in session.events:
                 if not (event.content and event.content.parts):
                     continue
-                # Map ADK's "model" role to Mem0's expected "assistant" role
                 role = getattr(event.content, "role", "user")
                 if role == "model":
                     role = "assistant"
+                elif role not in ("user", "assistant"):
+                    continue
                 text_parts = [
                     p.text for p in event.content.parts if hasattr(p, "text") and p.text
                 ]
@@ -156,30 +142,15 @@ class Mem0MemoryService(BaseMemoryService):
 
 ## Add Auto-Save Callback
 
-This after-agent callback fires at the end of every turn and saves the session to Mem0:
+This after-agent callback fires at the end of every turn and saves the session to Mem0. Save as **`memory_callbacks.py`**:
 
 ```python
-# memory_callbacks.py
-
 async def save_session_to_memory(callback_context) -> None:
     """Persist the completed session to Mem0 after each agent turn."""
     try:
-        ctx = getattr(callback_context, "_invocation_context", None)
-        if not ctx:
-            return
-
-        session = getattr(ctx, "session", None)
-        memory_service = getattr(ctx, "memory_service", None)
-
-        if not session or not memory_service:
-            return
-
-        # Skip if the session has no agent response yet
-        if len(getattr(session, "events", [])) < 2:
-            return
-
-        await memory_service.add_session_to_memory(session)
-
+        await callback_context.add_session_to_memory()
+    except ValueError:
+        pass
     except Exception as e:
         print(f"[save_session_to_memory] error: {e}")
 ```
@@ -191,15 +162,16 @@ The following example demonstrates creating an ADK agent with automatic Mem0 mem
 ```python
 import asyncio
 from google.adk.agents import LlmAgent
-from google.adk import Runner
+from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
-from google.adk.tools.preload_memory_tool import PreloadMemoryTool
+from google.adk.tools import load_memory
 from google.genai.types import Content, Part
 
 from mem0_memory_service import Mem0MemoryService
 from memory_callbacks import save_session_to_memory
 
 memory_service = Mem0MemoryService()
+session_service = InMemorySessionService()
 
 agent = LlmAgent(
     name="personal_assistant",
@@ -208,39 +180,36 @@ agent = LlmAgent(
     Relevant memories from past conversations are provided to you automatically.
     Use them to personalize your responses.""",
     description="A personal assistant that remembers user preferences and past interactions",
-    tools=[PreloadMemoryTool()],                  # Automatically injects memories each turn
-    after_agent_callback=save_session_to_memory,  # Automatically saves session after each turn
+    tools=[load_memory],
+    after_agent_callback=save_session_to_memory,
+)
+
+runner = Runner(
+    agent=agent,
+    session_service=session_service,
+    memory_service=memory_service,
+    app_name="memory_assistant",
 )
 
 
 async def chat(user_input: str, user_id: str) -> str:
-    session_service = InMemorySessionService()
     session = await session_service.create_session(
         app_name="memory_assistant",
         user_id=user_id,
-        session_id=f"session_{user_id}",
-    )
-    runner = Runner(
-        agent=agent,
-        session_service=session_service,
-        memory_service=memory_service,  # Wire Mem0 into the Runner
-        app_name="memory_assistant",
     )
     content = Content(role="user", parts=[Part(text=user_input)])
-    for event in runner.run(user_id=user_id, session_id=session.id, new_message=content):
+    async for event in runner.run_async(user_id=user_id, session_id=session.id, new_message=content):
         if event.is_final_response():
             return event.content.parts[0].text
     return "No response generated"
 
 
 if __name__ == "__main__":
-    # First turn — preferences are stored automatically
     print(asyncio.run(chat(
         "I love Italian food and I'm planning a trip to Rome next month",
         user_id="alice",
     )))
 
-    # Second turn — memories are retrieved and injected automatically
     print(asyncio.run(chat(
         "Any food recommendations for my trip?",
         user_id="alice",
@@ -249,17 +218,22 @@ if __name__ == "__main__":
 
 ## Multi-Agent Hierarchy with Shared Memory
 
-Because `memory_service` is passed to the `Runner`, every agent in the hierarchy shares the same memory automatically. Each agent only needs `PreloadMemoryTool` and the callback:
+Because `memory_service` is passed to the `Runner`, every agent in the hierarchy shares the same memory automatically. Only the root coordinator needs the auto-save callback — ADK fires it once when the full turn completes:
 
 ```python
+import asyncio
 from google.adk.agents import LlmAgent
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
 from google.adk.tools.agent_tool import AgentTool
-from google.adk.tools.preload_memory_tool import PreloadMemoryTool
+from google.adk.tools import load_memory
+from google.genai.types import Content, Part
 
 from mem0_memory_service import Mem0MemoryService
 from memory_callbacks import save_session_to_memory
 
 memory_service = Mem0MemoryService()
+session_service = InMemorySessionService()
 
 travel_agent = LlmAgent(
     name="travel_specialist",
@@ -268,8 +242,7 @@ travel_agent = LlmAgent(
     Relevant memories about the user's travel preferences are provided automatically.
     Use them to make personalized recommendations.""",
     description="Specialist in travel planning and recommendations",
-    tools=[PreloadMemoryTool()],
-    after_agent_callback=save_session_to_memory,
+    tools=[load_memory],
 )
 
 health_agent = LlmAgent(
@@ -279,8 +252,7 @@ health_agent = LlmAgent(
     Relevant memories about the user's health goals are provided automatically.
     Use them to give personalized advice.""",
     description="Specialist in health and wellness advice",
-    tools=[PreloadMemoryTool()],
-    after_agent_callback=save_session_to_memory,
+    tools=[load_memory],
 )
 
 coordinator = LlmAgent(
@@ -292,51 +264,75 @@ coordinator = LlmAgent(
     Relevant memories about the user are provided automatically.""",
     description="Coordinates requests between specialist agents",
     tools=[
-        PreloadMemoryTool(),
+        load_memory,
         AgentTool(agent=travel_agent, skip_summarization=False),
         AgentTool(agent=health_agent, skip_summarization=False),
     ],
     after_agent_callback=save_session_to_memory,
 )
 
+runner = Runner(
+    agent=coordinator,
+    session_service=session_service,
+    memory_service=memory_service,
+    app_name="specialist_system",
+)
+
 
 async def chat_with_specialists(user_input: str, user_id: str) -> str:
-    from google.adk.sessions import InMemorySessionService
-    from google.adk import Runner
-    from google.genai import types
-
-    session_service = InMemorySessionService()
     session = await session_service.create_session(
         app_name="specialist_system",
         user_id=user_id,
-        session_id=f"session_{user_id}",
     )
-    runner = Runner(
-        agent=coordinator,
-        session_service=session_service,
-        memory_service=memory_service,  # Shared across all agents in the hierarchy
-        app_name="specialist_system",
-    )
-    content = types.Content(role="user", parts=[types.Part(text=user_input)])
-    for event in runner.run(user_id=user_id, session_id=session.id, new_message=content):
+    content = Content(role="user", parts=[Part(text=user_input)])
+    async for event in runner.run_async(user_id=user_id, session_id=session.id, new_message=content):
         if event.is_final_response():
             return event.content.parts[0].text
     return "No response generated"
 
 
-# Example usage
-import asyncio
-response = asyncio.run(chat_with_specialists("Plan a healthy meal for my Italy trip", user_id="alice"))
-print(response)
+if __name__ == "__main__":
+    response = asyncio.run(chat_with_specialists("Plan a healthy meal for my Italy trip", user_id="alice"))
+    print(response)
 ```
 
 ## Key Features
 
-1. **Automatic Memory Injection**: `PreloadMemoryTool` searches Mem0 at the start of each turn and injects relevant memories directly into the agent context — no prompt instructions needed.
+1. **Automatic Memory Injection**: ADK's built-in `load_memory` tool searches Mem0 at the start of each turn and injects relevant memories directly into the agent context — no prompt instructions needed.
 2. **Automatic Session Saving**: The `save_session_to_memory` callback persists every completed turn to Mem0 without any manual calls.
 3. **Native ADK Integration**: `Mem0MemoryService` implements ADK's `BaseMemoryService` and integrates via the `Runner` — works natively across the entire agent hierarchy.
 4. **User Scoping**: `user_id` is passed automatically from the ADK session context, ensuring memories are always scoped to the correct user.
 5. **Multi-Agent Support**: A single `Mem0MemoryService` instance shared through the `Runner` gives all agents — coordinators and specialists — access to the same user memory.
+
+## Configuration Options
+
+### Using Vertex AI
+
+To use Google Cloud Vertex AI instead of AI Studio, set the following environment variables before creating agents:
+
+```python
+import os
+os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "True"
+os.environ["GOOGLE_CLOUD_PROJECT"] = "your-project-id"
+os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
+```
+
+### Advanced Memory Filtering
+
+You can customize how memories are searched by modifying `Mem0MemoryService.search_memory`:
+
+```python
+results = self._client.search(
+    query,
+    filters={
+        "AND": [
+            {"user_id": user_id},
+            {"categories": {"contains": "travel"}}
+        ]
+    },
+    top_k=10,
+)
+```
 
 ## Conclusion
 
