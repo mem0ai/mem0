@@ -1,3 +1,4 @@
+import os
 from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -21,13 +22,26 @@ class QdrantConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def check_host_port_or_path(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        host, port, path, url, api_key = (
+        host, port, path, url, api_key, client = (
             values.get("host"),
             values.get("port"),
             values.get("path"),
             values.get("url"),
             values.get("api_key"),
+            values.get("client"),
         )
+
+        if not client and not url and not (host and port) and not path:
+            env_url = os.environ.get("QDRANT_URL")
+            if env_url:
+                values["url"] = env_url
+                url = env_url
+                if not api_key:
+                    env_api_key = os.environ.get("QDRANT_API_KEY")
+                    if env_api_key:
+                        values["api_key"] = env_api_key
+                        api_key = env_api_key
+
         if not path and not (host and port) and not (url and api_key):
             raise ValueError("Either 'host' and 'port' or 'url' and 'api_key' or 'path' must be provided.")
         return values

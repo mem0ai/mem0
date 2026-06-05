@@ -18,8 +18,7 @@ config = {
         "provider": "qdrant",
         "config": {
             "collection_name": "test",
-            "host": "localhost",
-            "port": 6333,
+            "url": "http://localhost:6333",
         }
     }
 }
@@ -91,3 +90,10 @@ Let's see the available parameters for the `qdrant` config:
 | `onDisk` | For enabling persistent storage | `False` |
 </Tab>
 </Tabs>
+
+<Note>
+  For a self-hosted Qdrant server exposed over plain HTTP with API key authentication,
+  use `url: "http://..."` (or set `QDRANT_URL`) together with `api_key` (or
+  `QDRANT_API_KEY`). Avoid using `host` + `port` + `api_key` for this case because
+  the Python `qdrant-client` defaults to HTTPS when an API key is provided.
+</Note>

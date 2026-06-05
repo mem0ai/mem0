@@ -63,7 +63,7 @@ from mem0 import Memory
 config = {
     "vector_store": {
         "provider": "qdrant",
-        "config": {"host": "localhost", "port": 6333},
+        "config": {"url": "http://localhost:6333"},
     },
     "llm": {
         "provider": "openai",
@@ -98,8 +98,7 @@ export COHERE_API_KEY="..."
 vector_store:
   provider: qdrant
   config:
-    host: localhost
-    port: 6333
+    url: http://localhost:6333
 
 llm:
   provider: azure_openai
@@ -132,6 +131,12 @@ memory = Memory.from_config_file("config.yaml")
 <Info icon="check">
   Run `memory.add(["Remember my favorite cafe in Tokyo."], user_id="alex")` and then `memory.search("favorite cafe", filters={"user_id": "alex"})`. You should see the Qdrant collection populate and the reranker mark the memory as a top hit.
 </Info>
+
+<Note>
+  If your self-hosted Qdrant server uses plain HTTP with API key authentication, set
+  `url: "http://..."` in the Qdrant config or export `QDRANT_URL`. The Python
+  `qdrant-client` treats `host` + `port` + `api_key` as HTTPS by default.
+</Note>
 
 ## Tune component settings
 
