@@ -17,6 +17,7 @@ export interface SearchMemoryOptions {
   topK?: number;
   filters?: SearchFilters;
   threshold?: number;
+  explain?: boolean;
 }
 
 export interface GetAllMemoryOptions {
