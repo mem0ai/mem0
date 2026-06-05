@@ -2,8 +2,8 @@
  * Regression tests for per-agent memory isolation helpers and
  * message filtering logic.
  */
-import { describe, it, expect } from "vitest";
-import {
+import { describe, it, expect, vi } from "vitest";
+import memoryPlugin, {
   extractAgentId,
   effectiveUserId,
   agentUserId,
@@ -15,6 +15,47 @@ import {
   stripNoiseFromContent,
   filterMessagesForExtraction,
 } from "./index.ts";
+
+function createPluginApi(registrationMode?: string) {
+  return {
+    pluginConfig: {
+      mode: "platform",
+      apiKey: "test-api-key",
+      userId: "alice",
+    },
+    registrationMode,
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    },
+    resolvePath: vi.fn((p: string) => p),
+    registerTool: vi.fn(),
+    on: vi.fn(),
+    registerCli: vi.fn(),
+    registerCommand: vi.fn(),
+    registerService: vi.fn(),
+    registerMemoryCapability: vi.fn(),
+  };
+}
+
+describe("plugin registration modes", () => {
+  it("keeps cli-metadata registration free of runtime side effects", () => {
+    const api = createPluginApi("cli-metadata");
+
+    memoryPlugin.register(api as any);
+
+    expect(api.registerCli).toHaveBeenCalledTimes(1);
+    expect(api.registerService).not.toHaveBeenCalled();
+    expect(api.registerMemoryCapability).not.toHaveBeenCalled();
+    expect(api.registerTool).not.toHaveBeenCalled();
+    expect(api.on).not.toHaveBeenCalled();
+    expect(api.logger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining("openclaw-mem0: registered"),
+    );
+  });
+});
 
 // ---------------------------------------------------------------------------
 // extractAgentId

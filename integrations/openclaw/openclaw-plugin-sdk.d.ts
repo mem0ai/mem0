@@ -26,6 +26,7 @@ declare module "openclaw/plugin-sdk" {
 
   export interface OpenClawPluginApi {
     pluginConfig: Record<string, unknown>;
+    registrationMode?: "full" | "cli-metadata" | string;
     logger: {
       info(msg: string): void;
       warn(msg: string): void;
