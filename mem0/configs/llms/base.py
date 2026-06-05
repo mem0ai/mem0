@@ -58,11 +58,11 @@ class BaseLlmConfig(ABC):
             is_reasoning_model: Explicit override for reasoning-model detection.
                 When None (default), the model is classified automatically from its
                 name (preserving existing behavior). Set to True to force the
-                reasoning-model parameter set (e.g. send max_completion_tokens and
-                drop max_tokens/temperature), or False to force the standard
-                parameter set. Useful for deployments with custom/versioned model
-                names (e.g. Azure "gpt-5.4-nano-2026-03-17") that the name-based
-                heuristic cannot recognize. Defaults to None
+                reasoning-model parameter set (drop max_tokens and temperature),
+                or False to force the standard parameter set. Useful for
+                deployments with custom/versioned model names (e.g. Azure
+                "gpt-5.4-nano-2026-03-17") that the name-based heuristic cannot
+                recognize. Defaults to None
         """
         self.model = model
         self.temperature = temperature

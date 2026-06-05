@@ -41,6 +41,10 @@ class AzureOpenAIConfig(BaseLlmConfig):
             vision_details: Vision detail level, defaults to "auto"
             reasoning_effort: Effort level for reasoning models ("low", "medium", "high"), defaults to None
             http_client_proxies: HTTP client proxy settings, defaults to None
+            is_reasoning_model: Explicit override for reasoning-model detection.
+                None (default) uses the name-based heuristic. Set True to drop
+                max_tokens/temperature (e.g. for versioned Azure deployments like
+                "gpt-5.4-nano-2026-03-17"), or False to force standard params.
             azure_kwargs: Azure-specific configuration, defaults to None
         """
         # Initialize base parameters

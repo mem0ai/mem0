@@ -353,6 +353,28 @@ def test_is_reasoning_model_explicit_override(mock_openai_client):
     assert llm_none._is_reasoning_model("gpt-5.4-mini") is False
 
 
+def test_is_reasoning_model_override_generates_correct_params(mock_openai_client):
+    """End-to-end: is_reasoning_model=True drops max_tokens/temperature from the actual API call."""
+    config = OpenAIConfig(
+        model="gpt-5.4-nano-2026-03-17",
+        temperature=0.7,
+        max_tokens=100,
+        is_reasoning_model=True,
+    )
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" not in call_kwargs
+    assert "temperature" not in call_kwargs
+
+
 def test_callback_with_tools(mock_openai_client):
     mock_callback = Mock()
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)

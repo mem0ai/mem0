@@ -31,6 +31,7 @@ class OpenAILLM(LLMBase):
                 vision_details=config.vision_details,
                 reasoning_effort=getattr(config, 'reasoning_effort', None),
                 http_client_proxies=config.http_client,
+                is_reasoning_model=getattr(config, 'is_reasoning_model', None),
             )
 
         super().__init__(config)
