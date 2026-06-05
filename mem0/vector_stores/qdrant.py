@@ -38,6 +38,7 @@ class Qdrant(VectorStoreBase):
         url: str = None,
         api_key: str = None,
         on_disk: bool = False,
+        https: bool = None,
     ):
         """
         Initialize the Qdrant vector store.
@@ -53,6 +54,8 @@ class Qdrant(VectorStoreBase):
             api_key (str, optional): API key for Qdrant server. Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
+            https (bool, optional): Force HTTPS on/off for the Qdrant client. Defaults to None (auto-detect).
+                Set False for self-hosted HTTP servers with API key authentication to avoid HTTPS connection errors.
         """
         if client:
             self.client = client
@@ -61,6 +64,8 @@ class Qdrant(VectorStoreBase):
             params = {}
             if api_key:
                 params["api_key"] = api_key
+            if https is not None:
+                params["https"] = https
             if url:
                 params["url"] = url
             if host and port:

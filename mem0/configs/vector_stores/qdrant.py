@@ -17,6 +17,7 @@ class QdrantConfig(BaseModel):
     url: Optional[str] = Field(None, description="Full URL for Qdrant server")
     api_key: Optional[str] = Field(None, description="API key for Qdrant server")
     on_disk: Optional[bool] = Field(False,description="Enables persistent storage. Vectors are kept on disk (True) or in memory (False). Does not delete the local database path.")
+    https: Optional[bool] = Field(None, description="Force HTTPS on/off for the Qdrant client. Defaults to None (auto-detect). Set False for self-hosted HTTP servers with API key authentication to avoid HTTPS connection errors.")
 
     @model_validator(mode="before")
     @classmethod
