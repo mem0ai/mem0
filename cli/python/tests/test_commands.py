@@ -758,6 +758,25 @@ class TestImportCommand:
             cmd_import(mock_backend, str(file_path), user_id="alice", agent_id=None)
         assert mock_backend.add.call_count == 2
 
+    def test_import_skips_non_object_items(self, mock_backend, tmp_path):
+        file_path = tmp_path / "import.json"
+        data = [
+            {"memory": "Test memory"},
+            "not an object",
+            123,
+            {},
+        ]
+        file_path.write_text(json.dumps(data))
+        console, _buf = _make_console()
+        err_console, _err_buf = _make_err_console()
+        with (
+            patch("mem0_cli.commands.utils.console", console),
+            patch("mem0_cli.commands.utils.err_console", err_console),
+        ):
+            cmd_import(mock_backend, str(file_path), user_id="alice", agent_id=None)
+
+        mock_backend.add.assert_called_once()
+
     def test_import_invalid_file(self, mock_backend):
         console, _buf = _make_console()
         err_console, _err_buf = _make_err_console()
