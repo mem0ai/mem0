@@ -1064,7 +1064,7 @@ export class Memory {
       : {};
 
     await this._ensureInitialized();
-    const { topK = 20, threshold = 0.1 } = config;
+    const { topK = 20, threshold = 0.1, explain = false } = config;
 
     await this._captureEvent("search", {
       query_length: query.length,
@@ -1243,6 +1243,7 @@ export class Memory {
       entityBoosts,
       threshold ?? 0.1,
       topK,
+      explain,
     );
 
     // Step 9: Format results
@@ -1275,6 +1276,7 @@ export class Memory {
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),
+          ...(scored.scoreDetails && { score_details: scored.scoreDetails }),
         };
       });
 
