@@ -4,18 +4,30 @@
 
 ## For agents reading this file
 
+### Don't have a Mem0 API key?
+
+Install the CLI, then mint a key — no email, no dashboard, no OTP required:
+
+```bash
+# Python
+pip install mem0-cli
+
+# or Node
+npm install -g @mem0/cli
+```
+
+Then run: `mem0 init --agent --agent-caller <your-name> --json` — replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init to attribute the signup.
+
+This mints an evaluation key in <5 seconds. Use it immediately against the Platform API or MCP server. When the human is ready, claim with `mem0 init --email <your-email>` to transfer ownership (memories preserved, same API key, no agent disruption).
+
+### Routing and references
+
 - Use `MemoryClient` (Python) / `mem0ai` (npm) when the user has a Mem0 Platform API key. Docs under `/platform/` and `/api-reference/` apply; the managed product handles providers server-side, so you can ignore `## Optional` below.
 - Use `Memory` (Python) / `mem0ai/oss` (npm) when the user self-hosts. Docs under `/open-source/` and `/components/` apply; Platform-only features (entity filters v2, custom categories, webhooks, advanced retrieval) may not be available.
 - Scope tag reference: `[Platform]` = managed only, `[OSS]` = self-hosted only, `[Both]` = same API surface on both.
 - OpenAPI spec: https://docs.mem0.ai/openapi.json
 - Live MCP server: https://mcp.mem0.ai (see `platform/mem0-mcp`).
 - Source repo: https://github.com/mem0ai/mem0
-
-### Don't have a Mem0 API key?
-
-Run: `mem0 init --agent --agent-caller <your-name> --json` — replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init to attribute the signup.
-
-This mints an evaluation key in <5 seconds — no email, no dashboard, no OTP required. Use it immediately against the Platform API or MCP server. When the human is ready, claim with `mem0 init --email <your-email>` to transfer ownership (memories preserved, same API key, no agent disruption).
 
 ## Install
 
@@ -159,6 +171,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Introduction](https://docs.mem0.ai/introduction) [Both]: Use when the user wants a one-page overview of how memory fits between the LLM and the app.
 - [Vibe Code with Mem0](https://docs.mem0.ai/vibecoding) [Both]: Use when the user is in Claude Code, Cursor, or Windsurf and wants memory wired into their editor.
 - [Platform Overview](https://docs.mem0.ai/platform/overview) [Platform]: Use when the user picks the managed product - 4-line integration, sub-50ms retrieval, dashboard.
+- [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup) [Platform]: Use when an AI agent needs to mint a Mem0 API key autonomously - four commands, no email or dashboard, human claims ownership later.
 - [Platform vs Open Source](https://docs.mem0.ai/platform/platform-vs-oss) [Both]: Use when the user is deciding between managed and self-hosted.
 - [Platform Quickstart](https://docs.mem0.ai/platform/quickstart) [Platform]: Use for the first Platform integration - API key plus `MemoryClient.add/search`.
 - [Platform CLI](https://docs.mem0.ai/platform/cli) [Platform]: Use when the user wants to manage Platform memories from the terminal.
@@ -215,6 +228,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [OSS v2 to v3 Migration](https://docs.mem0.ai/migration/oss-v2-to-v3) [OSS]: Use when upgrading a self-hosted deployment across major versions.
 - [Platform v2 to v3 Migration](https://docs.mem0.ai/migration/platform-v2-to-v3) [Platform]: Use when upgrading a Platform integration across major versions.
 - [API Changes](https://docs.mem0.ai/migration/api-changes) [Both]: Use when the upgrade involves API surface changes.
+- [Server pgvector Image Upgrade](https://docs.mem0.ai/migration/server-pgvector-upgrade) [OSS]: Use when upgrading the self-hosted server Docker image from ankane/pgvector to pgvector/pgvector.
 - [Changelog](https://docs.mem0.ai/changelog/highlights) [Both]: Use when the user asks what shipped recently.
 
 ## Open Source
@@ -255,6 +269,8 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Claude Code](https://docs.mem0.ai/integrations/claude-code) [Both]: Use when wiring memory into Claude Code.
 - [Cursor](https://docs.mem0.ai/integrations/cursor) [Both]: Use when wiring memory into Cursor.
 - [Codex](https://docs.mem0.ai/integrations/codex) [Both]: Use when wiring memory into Codex / other editor assistants.
+- [OpenCode](https://docs.mem0.ai/integrations/opencode) [Both]: Use when wiring memory into OpenCode.
+- [Antigravity](https://docs.mem0.ai/integrations/antigravity) [Both]: Use when wiring memory into Google Antigravity.
 
 ### Voice & Real-time
 - [LiveKit](https://docs.mem0.ai/integrations/livekit) [Both]: Use when building real-time voice/video with memory.
@@ -383,13 +399,15 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 Source: https://github.com/mem0ai/mem0/tree/main/mem0-plugin
 
-The `mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, and Codex. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
+The `mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, Codex, OpenCode, and Antigravity. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 
 - `integrations/claude-code` [Both]
 - `integrations/cursor` [Both]
 - `integrations/codex` [Both]
+- `integrations/opencode` [Both]
+- `integrations/antigravity` [Both]
 - `integrations/openclaw` [Both]
 
 ### MCP Endpoints
@@ -457,6 +475,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Elasticsearch](https://docs.mem0.ai/components/vectordbs/dbs/elasticsearch) [OSS]: Use when Elasticsearch is the backing store.
 - [OpenSearch](https://docs.mem0.ai/components/vectordbs/dbs/opensearch) [OSS]: Use when OpenSearch is the backing store.
 - [Supabase](https://docs.mem0.ai/components/vectordbs/dbs/supabase) [OSS]: Use when Supabase with pgvector is the backing store.
+- [Neon](https://docs.mem0.ai/components/vectordbs/dbs/neon) [OSS]: Use when Neon Postgres with pgvector is the backing store.
 - [Upstash Vector](https://docs.mem0.ai/components/vectordbs/dbs/upstash-vector) [OSS]: Use for serverless Upstash Vector.
 - [Vectorize](https://docs.mem0.ai/components/vectordbs/dbs/vectorize) [OSS]: Use when the store is Cloudflare Vectorize.
 - [Vertex AI Vector Search](https://docs.mem0.ai/components/vectordbs/dbs/vertex_ai) [OSS]: Use when the store is Google Cloud Vertex Vector Search.

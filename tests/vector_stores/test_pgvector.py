@@ -4,7 +4,11 @@ import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
-from mem0.vector_stores.pgvector import PGVector
+from mem0.vector_stores.pgvector import (
+    PGVector,
+    _build_filter_conditions,
+    _with_sslmode,
+)
 
 
 class TestPGVector(unittest.TestCase):
@@ -450,9 +454,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -499,9 +503,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1145,7 +1149,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1195,7 +1199,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1245,7 +1249,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -1293,7 +1297,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -1341,9 +1345,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1390,9 +1394,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -2084,8 +2088,8 @@ class TestPGVector(unittest.TestCase):
             connection_string=connection_string
         )
         
-        # Verify ConnectionPool was called with the connection string including sslmode
-        expected_conn_string = f"{connection_string} sslmode=require"
+        # Verify ConnectionPool was called with sslmode as a URI query parameter
+        expected_conn_string = f"{connection_string}?sslmode=require"
         mock_connection_pool.assert_called_with(
             conninfo=expected_conn_string,
             min_size=1,
@@ -2094,6 +2098,36 @@ class TestPGVector(unittest.TestCase):
         )
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
+
+    def test_with_sslmode_appends_uri_query_param(self):
+        """Test sslmode is appended to URI connection strings without corrupting dbname."""
+        connection_string = _with_sslmode(
+            "postgresql://user:pass@localhost:5432/db?connect_timeout=10",
+            "require",
+        )
+
+        self.assertEqual(
+            connection_string,
+            "postgresql://user:pass@localhost:5432/db?connect_timeout=10&sslmode=require",
+        )
+
+    def test_with_sslmode_replaces_existing_uri_sslmode(self):
+        """Test existing URI sslmode values are replaced rather than duplicated."""
+        connection_string = _with_sslmode(
+            "postgresql://user:pass@localhost:5432/db?sslmode=prefer&connect_timeout=10",
+            "require",
+        )
+
+        self.assertEqual(
+            connection_string,
+            "postgresql://user:pass@localhost:5432/db?connect_timeout=10&sslmode=require",
+        )
+
+    def test_with_sslmode_preserves_keyword_conninfo_format(self):
+        """Test non-URI conninfo strings keep PostgreSQL keyword syntax."""
+        connection_string = _with_sslmode("dbname=test user=postgres sslmode=prefer", "require")
+
+        self.assertEqual(connection_string, "dbname=test user=postgres sslmode=require")
 
     # Enhanced Test for Index Creation with DiskANN
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -2233,3 +2267,178 @@ class TestPGVector(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test."""
         pass
+
+
+class TestBuildFilterConditions(unittest.TestCase):
+    """Tests for the _build_filter_conditions helper that translates filter dicts to SQL."""
+
+    def test_none_filters(self):
+        conditions, params = _build_filter_conditions(None)
+        self.assertEqual(conditions, [])
+        self.assertEqual(params, [])
+
+    def test_empty_filters(self):
+        conditions, params = _build_filter_conditions({})
+        self.assertEqual(conditions, [])
+        self.assertEqual(params, [])
+
+    def test_simple_equality(self):
+        conditions, params = _build_filter_conditions({"user_id": "alice"})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertEqual(params, ["user_id", "alice"])
+
+    def test_multiple_equalities(self):
+        conditions, params = _build_filter_conditions({"user_id": "alice", "agent_id": "bot1"})
+        self.assertEqual(len(conditions), 2)
+        self.assertEqual(params, ["user_id", "alice", "agent_id", "bot1"])
+
+    def test_eq_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"eq": "active"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertEqual(params, ["status", "active"])
+
+    def test_ne_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"ne": "deleted"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s != %s", conditions[0])
+        self.assertEqual(params, ["status", "deleted"])
+
+    def test_gt_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"gt": 100}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric > %s", conditions[0])
+        self.assertEqual(params, ["price", 100.0])
+
+    def test_gte_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"gte": 100}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
+        self.assertEqual(params, ["price", 100.0])
+
+    def test_lt_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"lt": 50}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric < %s", conditions[0])
+        self.assertEqual(params, ["price", 50.0])
+
+    def test_lte_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"lte": 50}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric <= %s", conditions[0])
+        self.assertEqual(params, ["price", 50.0])
+
+    def test_range_combination(self):
+        conditions, params = _build_filter_conditions({"score": {"gte": 1, "lte": 10}})
+        self.assertEqual(len(conditions), 2)
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
+        self.assertIn("(payload->>%s)::numeric <= %s", conditions[1])
+        self.assertEqual(params, ["score", 1.0, "score", 10.0])
+
+    def test_in_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"in": ["active", "pending"]}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
+        self.assertEqual(params, ["status", ["active", "pending"]])
+
+    def test_nin_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"nin": ["deleted", "archived"]}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("NOT (payload->>%s = ANY(%s))", conditions[0])
+        self.assertEqual(params, ["status", ["deleted", "archived"]])
+
+    def test_contains_operator(self):
+        conditions, params = _build_filter_conditions({"name": {"contains": "alice"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("LIKE %s ESCAPE", conditions[0])
+        self.assertEqual(params, ["name", "%alice%"])
+
+    def test_icontains_operator(self):
+        conditions, params = _build_filter_conditions({"name": {"icontains": "Alice"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("ILIKE %s ESCAPE", conditions[0])
+        self.assertEqual(params, ["name", "%Alice%"])
+
+    def test_contains_escapes_wildcards(self):
+        conditions, params = _build_filter_conditions({"name": {"contains": "50%_off"}})
+        self.assertEqual(params, ["name", "%50\\%\\_off%"])
+
+    def test_icontains_escapes_wildcards(self):
+        conditions, params = _build_filter_conditions({"promo": {"icontains": "a%b_c"}})
+        self.assertEqual(params, ["promo", "%a\\%b\\_c%"])
+
+    def test_wildcard(self):
+        conditions, params = _build_filter_conditions({"metadata_key": "*"})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload ? %s", conditions[0])
+        self.assertEqual(params, ["metadata_key"])
+
+    def test_list_shorthand(self):
+        conditions, params = _build_filter_conditions({"tags": ["a", "b", "c"]})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
+        self.assertEqual(params, ["tags", ["a", "b", "c"]])
+
+    def test_or_operator(self):
+        conditions, params = _build_filter_conditions({
+            "$or": [
+                {"user_id": "alice"},
+                {"user_id": "bob"},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertIn(" OR ", conditions[0])
+        self.assertTrue(conditions[0].startswith("("))
+        self.assertEqual(params, ["user_id", "alice", "user_id", "bob"])
+
+    def test_not_operator(self):
+        conditions, params = _build_filter_conditions({
+            "$not": [
+                {"status": "deleted"},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertTrue(conditions[0].startswith("NOT"))
+        self.assertEqual(params, ["status", "deleted"])
+
+    def test_or_with_operators(self):
+        conditions, params = _build_filter_conditions({
+            "$or": [
+                {"price": {"gt": 100}},
+                {"price": {"lt": 10}},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertIn(" OR ", conditions[0])
+        self.assertEqual(params, ["price", 100.0, "price", 10.0])
+
+    def test_mixed_simple_and_operator_filters(self):
+        conditions, params = _build_filter_conditions({
+            "user_id": "alice",
+            "score": {"gte": 5},
+        })
+        self.assertEqual(len(conditions), 2)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[1])
+
+    def test_unsupported_operator_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            _build_filter_conditions({"x": {"badop": 1}})
+        self.assertIn("Unsupported filter operator", str(ctx.exception))
+
+    def test_in_with_numeric_values(self):
+        conditions, params = _build_filter_conditions({"priority": {"in": [1, 2, 3]}})
+        self.assertEqual(params, ["priority", ["1", "2", "3"]])
+
+    def test_boolean_true_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"is_active": True})
+        self.assertEqual(params, ["is_active", "true"])
+
+    def test_boolean_false_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"is_active": False})
+        self.assertEqual(params, ["is_active", "false"])
+
+    def test_numeric_scalar_becomes_string(self):
+        conditions, params = _build_filter_conditions({"priority": 42})
+        self.assertEqual(params, ["priority", "42"])

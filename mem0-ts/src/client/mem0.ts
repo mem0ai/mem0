@@ -9,6 +9,7 @@ import {
   SearchMemoryOptions,
   GetAllMemoryOptions,
   DeleteAllMemoryOptions,
+  DeleteMemoryOptions,
   MemoryUpdateBody,
   ProjectResponse,
   PromptUpdatePayload,
@@ -377,11 +378,17 @@ export default class MemoryClient {
     return response;
   }
 
-  async delete(memoryId: string): Promise<{ message: string }> {
+  async delete(
+    memoryId: string,
+    options: DeleteMemoryOptions = {},
+  ): Promise<{ message: string }> {
     if (this.telemetryId === "") await this.ping();
-    this._captureEvent("delete", []);
+    this._captureEvent("delete", [Object.keys(options || {})]);
+    const snakeOptions = camelToSnakeKeys(this._prepareParams(options));
+    // @ts-ignore
+    const query = new URLSearchParams(snakeOptions).toString();
     return this._fetchWithErrorHandling(
-      `${this.host}/v1/memories/${memoryId}/`,
+      `${this.host}/v1/memories/${memoryId}/${query ? `?${query}` : ""}`,
       {
         method: "DELETE",
         headers: this.headers,

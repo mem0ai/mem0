@@ -218,7 +218,7 @@ def claim_via_otp(config: Mem0Config, *, email: str, code: str | None = None) ->
         print_error(err_console, f"Claim failed: {detail}")
         if code_str == "email_already_claimed":
             console.print(
-                f"  [{DIM_COLOR}]Tip: this email already has a Mem0 account. Sign in there and run `mem0 link <key>` to attach this agent.[/]"
+                f"  [{DIM_COLOR}]Tip: this email already has a Mem0 account. Sign in at app.mem0.ai with your existing credentials.[/]"
             )
         raise typer.Exit(1)
 

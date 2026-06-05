@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mem0ai"
-version = "2.0.2"
+version = "2.0.4"
 description = "Long-term memory for AI Agents"
 authors = [
     { name = "Mem0", email = "support@mem0.ai" }
@@ -64,9 +64,9 @@ llms = [
 ]
 extras = [
     "boto3>=1.34.0",
-    "langchain>=0.3.0,<1.0.0",
-    "langchain-community>=0.3.0,<1.0.0",
-    "langchain-core>=0.3.81,<1.0.0",
+    "langchain>=0.3.30,<1.0.0",
+    "langchain-community>=0.3.27,<1.0.0",
+    "langchain-core>=0.3.85,<1.0.0",
     "sentence-transformers>=5.0.0",
     "elasticsearch>=8.0.0,<9.0.0",
     "opensearch-py>=2.0.0",
@@ -145,7 +145,7 @@ test = [
 
 [tool.ruff]
 line-length = 120
-exclude = ["embedchain/", "openmemory/"]
+exclude = ["openmemory/"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["mem0", "mem0_cli"]

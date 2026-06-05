@@ -28,6 +28,133 @@ function escapeFilterKey(key: string): string {
   return key;
 }
 
+interface FilterResult {
+  conditions: string[];
+  values: any[];
+  paramIndex: number;
+}
+
+const OPERATOR_SQL_MAP: Record<string, { template: string; numeric: boolean }> =
+  {
+    eq: { template: "payload->>'%KEY%' = $%IDX%", numeric: false },
+    ne: { template: "payload->>'%KEY%' != $%IDX%", numeric: false },
+    gt: { template: "(payload->>'%KEY%')::numeric > $%IDX%", numeric: true },
+    gte: { template: "(payload->>'%KEY%')::numeric >= $%IDX%", numeric: true },
+    lt: { template: "(payload->>'%KEY%')::numeric < $%IDX%", numeric: true },
+    lte: { template: "(payload->>'%KEY%')::numeric <= $%IDX%", numeric: true },
+    in: { template: "payload->>'%KEY%' = ANY($%IDX%::text[])", numeric: false },
+    nin: {
+      template: "NOT (payload->>'%KEY%' = ANY($%IDX%::text[]))",
+      numeric: false,
+    },
+    contains: {
+      template: "payload->>'%KEY%' LIKE $%IDX% ESCAPE '\\'",
+      numeric: false,
+    },
+    icontains: {
+      template: "payload->>'%KEY%' ILIKE $%IDX% ESCAPE '\\'",
+      numeric: false,
+    },
+  };
+
+export function buildFilterConditions(
+  filters: Record<string, any> | undefined,
+  startIndex: number,
+): FilterResult {
+  const conditions: string[] = [];
+  const values: any[] = [];
+  let paramIndex = startIndex;
+
+  if (!filters) {
+    return { conditions, values, paramIndex };
+  }
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (key === "$or") {
+      const orGroups: string[] = [];
+      for (const orFilter of value as Record<string, any>[]) {
+        const sub = buildFilterConditions(orFilter, paramIndex);
+        if (sub.conditions.length > 0) {
+          orGroups.push("(" + sub.conditions.join(" AND ") + ")");
+          values.push(...sub.values);
+          paramIndex = sub.paramIndex;
+        }
+      }
+      if (orGroups.length > 0) {
+        conditions.push("(" + orGroups.join(" OR ") + ")");
+      }
+      continue;
+    }
+
+    if (key === "$not") {
+      const notGroups: string[] = [];
+      for (const notFilter of value as Record<string, any>[]) {
+        const sub = buildFilterConditions(notFilter, paramIndex);
+        if (sub.conditions.length > 0) {
+          notGroups.push("(" + sub.conditions.join(" AND ") + ")");
+          values.push(...sub.values);
+          paramIndex = sub.paramIndex;
+        }
+      }
+      if (notGroups.length > 0) {
+        conditions.push("NOT (" + notGroups.join(" OR ") + ")");
+      }
+      continue;
+    }
+
+    const safeKey = escapeFilterKey(key);
+
+    if (value === "*") {
+      conditions.push(`payload ? $${paramIndex}`);
+      values.push(key);
+      paramIndex++;
+      continue;
+    }
+
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      for (const [op, opValue] of Object.entries(value)) {
+        const mapping = OPERATOR_SQL_MAP[op];
+        if (!mapping) {
+          throw new Error(`Unsupported filter operator: ${op}`);
+        }
+        const clause = mapping.template
+          .replace("%KEY%", safeKey)
+          .replace("%IDX%", String(paramIndex));
+        conditions.push(clause);
+
+        if (op === "in" || op === "nin") {
+          values.push((opValue as any[]).map(String));
+        } else if (op === "contains" || op === "icontains") {
+          const escaped = String(opValue)
+            .replace(/\\/g, "\\\\")
+            .replace(/%/g, "\\%")
+            .replace(/_/g, "\\_");
+          values.push(`%${escaped}%`);
+        } else if (mapping.numeric) {
+          values.push(Number(opValue));
+        } else {
+          values.push(String(opValue));
+        }
+        paramIndex++;
+      }
+    } else if (Array.isArray(value)) {
+      conditions.push(`payload->>'${safeKey}' = ANY($${paramIndex}::text[])`);
+      values.push(value.map(String));
+      paramIndex++;
+    } else {
+      conditions.push(`payload->>'${safeKey}' = $${paramIndex}`);
+      if (typeof value === "boolean") {
+        values.push(JSON.stringify(value));
+      } else {
+        values.push(String(value));
+      }
+      paramIndex++;
+    }
+  }
+
+  return { conditions, values, paramIndex };
+}
+
 interface PGVectorConfig extends VectorStoreConfig {
   dbname?: string;
   user: string;
@@ -203,23 +330,15 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
     try {
-      const filterConditions: string[] = [];
-      const filterValues: any[] = [query, topK];
-      let filterIndex = 3;
-
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          const safeKey = escapeFilterKey(key);
-          filterConditions.push(`payload->>'${safeKey}' = $${filterIndex}`);
-          filterValues.push(value);
-          filterIndex++;
-        }
-      }
+      const {
+        conditions,
+        values,
+        paramIndex: _,
+      } = buildFilterConditions(filters, 3);
+      const filterValues: any[] = [query, topK, ...values];
 
       const filterClause =
-        filterConditions.length > 0
-          ? "AND " + filterConditions.join(" AND ")
-          : "";
+        conditions.length > 0 ? "AND " + conditions.join(" AND ") : "";
 
       const searchQuery = `
         SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'textLemmatized'), plainto_tsquery('simple', $1)) AS score, payload
@@ -248,24 +367,16 @@ export class PGVector implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
-    const filterConditions: string[] = [];
     const queryVector = `[${query.join(",")}]`;
-    const filterValues: any[] = [queryVector, topK];
-    let filterIndex = 3;
-
-    if (filters) {
-      for (const [key, value] of Object.entries(filters)) {
-        const safeKey = escapeFilterKey(key);
-        filterConditions.push(`payload->>'${safeKey}' = $${filterIndex}`);
-        filterValues.push(value);
-        filterIndex++;
-      }
-    }
+    const {
+      conditions,
+      values,
+      paramIndex: _,
+    } = buildFilterConditions(filters, 3);
+    const filterValues: any[] = [queryVector, topK, ...values];
 
     const filterClause =
-      filterConditions.length > 0
-        ? "WHERE " + filterConditions.join(" AND ")
-        : "";
+      conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
     const searchQuery = `
       SELECT id, vector <=> $1::vector AS distance, payload
@@ -337,23 +448,14 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
-    const filterConditions: string[] = [];
-    const filterValues: any[] = [];
-    let paramIndex = 1;
-
-    if (filters) {
-      for (const [key, value] of Object.entries(filters)) {
-        const safeKey = escapeFilterKey(key);
-        filterConditions.push(`payload->>'${safeKey}' = $${paramIndex}`);
-        filterValues.push(value);
-        paramIndex++;
-      }
-    }
+    const {
+      conditions,
+      values: filterValues,
+      paramIndex,
+    } = buildFilterConditions(filters, 1);
 
     const filterClause =
-      filterConditions.length > 0
-        ? "WHERE " + filterConditions.join(" AND ")
-        : "";
+      conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
     const listQuery = `
       SELECT id, payload
@@ -368,11 +470,11 @@ export class PGVector implements VectorStore {
       ${filterClause}
     `;
 
-    filterValues.push(topK); // Add limit as the last parameter
+    const listValues = [...filterValues, topK];
 
     const [listResult, countResult] = await Promise.all([
-      this.client.query(listQuery, filterValues),
-      this.client.query(countQuery, filterValues.slice(0, -1)), // Remove limit parameter for count query
+      this.client.query(listQuery, listValues),
+      this.client.query(countQuery, filterValues),
     ]);
 
     const results = listResult.rows.map((row) => ({

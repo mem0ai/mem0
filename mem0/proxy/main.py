@@ -52,7 +52,7 @@ class Completions:
     def create(
         self,
         model: str,
-        messages: List = [],
+        messages: Optional[List] = None,
         # Mem0 arguments
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
@@ -92,6 +92,8 @@ class Completions:
         api_key: Optional[str] = None,
         model_list: Optional[list] = None,  # pass in a list of api_base,keys, etc.
     ):
+        if messages is None:
+            messages = []
         if not any([user_id, agent_id, run_id]):
             raise ValueError("One of user_id, agent_id, run_id must be provided")
 
