@@ -5,15 +5,14 @@ mem0 auto-tags every memory with one or more `categories`. By default the list
 is consumer-oriented (food, hobbies, music, ...), which is meaningless for code.
 This script replaces the project's category list with a coding-focused one.
 
-The change is project-level (per the platform docs, per-request overrides are
-not supported on the managed API). Run once per project; future memories will
-be tagged using the new list automatically.
+Uses the mem0ai SDK (client.project.update). The SDK is installed into a
+persistent venv at ${CLAUDE_PLUGIN_DATA}/venv by the ensure_deps.sh hook.
 
 Usage:
-  python setup_coding_categories.py            # dry-run: show current vs proposed, no changes
+  python setup_coding_categories.py            # dry-run: show current vs proposed
   python setup_coding_categories.py --apply    # actually call project.update()
 
-Requires the mem0ai Python SDK and MEM0_API_KEY to be set.
+Requires MEM0_API_KEY (or CLAUDE_PLUGIN_OPTION_MEM0_API_KEY).
 """
 
 from __future__ import annotations
@@ -22,6 +21,19 @@ import argparse
 import json
 import os
 import sys
+
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _script_dir)
+from _identity import resolve_api_key  # noqa: E402
+
+_plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT", os.path.join(_script_dir, ".."))
+_data_dir = os.environ.get("CLAUDE_PLUGIN_DATA", os.path.join(os.path.expanduser("~"), ".mem0", "plugin-data"))
+_venv_site = os.path.join(_data_dir, "venv", "lib")
+if os.path.isdir(_venv_site):
+    for d in sorted(os.listdir(_venv_site)):
+        sp = os.path.join(_venv_site, d, "site-packages")
+        if os.path.isdir(sp) and sp not in sys.path:
+            sys.path.insert(1, sp)
 
 CODING_CATEGORIES = [
     {
@@ -66,6 +78,66 @@ CODING_CATEGORIES = [
             "and ways of working."
         )
     },
+    {
+        "dependency_decisions": (
+            "Why specific libraries, frameworks, or package versions were chosen or replaced, "
+            "including the alternatives considered and the reasoning behind the selection."
+        )
+    },
+    {
+        "performance_findings": (
+            "Profiling results, bottlenecks identified, optimisations applied, and measurable "
+            "improvements achieved -- useful for avoiding regressions and guiding future work."
+        )
+    },
+    {
+        "security_constraints": (
+            "Security requirements, authentication and authorisation rules, data-handling "
+            "constraints, compliance obligations, and known threat mitigations in effect."
+        )
+    },
+    {
+        "testing_patterns": (
+            "Test strategies, frameworks chosen, coverage targets, fixture patterns, mocking "
+            "approaches, and how the test suite is structured for this project."
+        )
+    },
+    {
+        "data_model": (
+            "Schema definitions, database column semantics, domain object relationships, "
+            "field constraints, and how data flows between storage and application layers."
+        )
+    },
+    {
+        "api_contracts": (
+            "API endpoint shapes, request and response schemas, authentication requirements, "
+            "versioning policy, and any breaking-change commitments or deprecation timelines."
+        )
+    },
+    {
+        "deployment_runbook": (
+            "How to build, release, deploy, and roll back the project. CI/CD pipeline steps, "
+            "environment-specific configuration, and on-call runbook entries."
+        )
+    },
+    {
+        "team_norms": (
+            "Team working agreements, PR review etiquette, branching strategy, on-call "
+            "rotation, and other social or process conventions the team has agreed on."
+        )
+    },
+    {
+        "domain_glossary": (
+            "Domain-specific terms, abbreviations, and acronyms with their precise meanings "
+            "in this project -- prevents misunderstandings across code, docs, and discussion."
+        )
+    },
+    {
+        "experiment_results": (
+            "Results from A/B tests, feature-flag experiments, spikes, or proof-of-concept "
+            "work -- what was tried, what was measured, and what conclusion was reached."
+        )
+    },
 ]
 
 
@@ -78,6 +150,22 @@ def _print_categories(label: str, cats):
     print()
 
 
+def _categories_match(current: list | None, proposed: list) -> bool:
+    """Compare categories by key sets, tolerating order differences and extra API fields."""
+    if not current:
+        return False
+    current_keys = {k for d in current if isinstance(d, dict) for k in d}
+    proposed_keys = {k for d in proposed if isinstance(d, dict) for k in d}
+    if current_keys != proposed_keys:
+        return False
+    current_map = {k: v for d in current if isinstance(d, dict) for k, v in d.items()}
+    proposed_map = {k: v for d in proposed if isinstance(d, dict) for k, v in d.items()}
+    return all(
+        current_map.get(k, "").strip() == v.strip()
+        for k, v in proposed_map.items()
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument(
@@ -87,17 +175,19 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    if not os.environ.get("MEM0_API_KEY"):
-        print("ERROR: MEM0_API_KEY is not set. Export it and try again.", file=sys.stderr)
+    api_key = resolve_api_key()
+    if not api_key:
+        print("ERROR: MEM0_API_KEY is not set. Export it or configure it via plugin userConfig.", file=sys.stderr)
         return 1
+    os.environ["MEM0_API_KEY"] = api_key
 
     try:
         from mem0 import MemoryClient
     except ImportError:
         print(
-            "ERROR: the mem0ai Python SDK is not installed.\n"
-            "Install with: pip install mem0ai\n"
-            "Then re-run this script.",
+            "ERROR: mem0ai SDK not found. The plugin's ensure_deps.sh hook should\n"
+            "install it automatically on session start. Try restarting Claude Code,\n"
+            "or run manually:  pip install mem0ai",
             file=sys.stderr,
         )
         return 1
@@ -125,6 +215,10 @@ def main() -> int:
 
     if not args.apply:
         print("Dry-run only -- no changes made. Re-run with --apply to write.")
+        return 0
+
+    if _categories_match(current_cats, CODING_CATEGORIES):
+        print("Categories already match -- skipping update.")
         return 0
 
     print("Applying coding categories...")

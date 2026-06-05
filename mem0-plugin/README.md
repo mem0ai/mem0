@@ -1,6 +1,18 @@
-# Mem0 Plugin for Claude Code, Claude Cowork, Cursor & Codex
+# Mem0 Plugin for Claude Code, Claude Cowork, Cursor, Codex, OpenCode & Antigravity
 
-Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, and **Codex**.
+Add persistent memory to your AI workflows. Store, retrieve, and manage memories across sessions using the Mem0 Platform. Works with **Claude Code** (CLI), **Claude Cowork** (desktop app), **Cursor**, **Codex**, **OpenCode**, and **Antigravity**.
+
+## Quick path for agents
+
+If you're an AI agent setting up Mem0 autonomously (no human dashboard signup available), run:
+
+```bash
+mem0 init --agent --json
+```
+
+This mints an evaluation API key in <5 seconds — no email, no OTP, no browser. The key is written to your config and exported as `MEM0_API_KEY` for the current shell. Use it immediately against the Mem0 Platform or the MCP server. The human owner can later run `mem0 init --email <their-email>` to claim ownership: memories transfer, the same API key keeps working, and the agent isn't disrupted.
+
+Humans setting up Mem0 by hand should continue with Step 1 below.
 
 ## Step 1: Set your API key
 
@@ -9,7 +21,9 @@ Add persistent memory to your AI workflows. Store, retrieve, and manage memories
 1. Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=mem0-plugin-readme) if you haven't already
 2. Go to [app.mem0.ai/dashboard/api-keys](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=mem0-plugin-readme)
 3. Click **Create API Key** and copy the key (starts with `m0-`)
-4. Add it to your shell profile:
+4. Set the key using **one** of these methods:
+
+   **CLI** — add to your shell profile:
 
    ```bash
    # For zsh (default on macOS)
@@ -20,6 +34,12 @@ Add persistent memory to your AI workflows. Store, retrieve, and manage memories
    echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
    source ~/.bashrc
    ```
+
+   **Desktop app** — use the local environment editor:
+
+   Click the environment dropdown next to the prompt box → hover over **Local** → click the **gear icon** → add `MEM0_API_KEY` with your key. Values are stored encrypted on your machine.
+
+   > **Note:** The Desktop app does not inherit custom environment variables from shell profiles — it only reads `PATH`. You must use the local environment editor for Desktop.
 
 5. Confirm it's set:
 
@@ -135,53 +155,134 @@ Add the following to your `.cursor/mcp.json`:
 
 Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the complete experience including lifecycle hooks and the Mem0 SDK skill.
 
+### OpenCode
+
+```bash
+bunx @mem0/opencode-plugin@latest install
+```
+
+Or via OpenCode's built-in CLI: `opencode plugin @mem0/opencode-plugin`
+
+Then add the MCP server to your `opencode.json` (project or global at `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "mem0": {
+      "type": "remote",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token {env:MEM0_API_KEY}"
+      },
+      "oauth": false
+    }
+  }
+}
+```
+
+Restart OpenCode. The plugin installs hooks and skills automatically. Drop the `plugin` install if you only want MCP.
+
+See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for full details.
+
+### Antigravity (Google)
+
+**Option A — degit** (recommended):
+
+```bash
+# Install the plugin (MCP server, hooks, scripts)
+npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
+```
+
+This installs the MCP server, lifecycle hooks, and shared scripts.
+
+See [Antigravity integration docs](https://docs.mem0.ai/integrations/antigravity) for full details.
+
+## Post-Installation: Run `/mem0:onboard`
+
+After installing, start a new session and run:
+
+```
+/mem0:onboard
+```
+
+This runs the setup wizard which:
+1. Verifies your API key and MCP connection
+2. Detects and imports project files (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`)
+3. Installs coding-optimized memory categories
+4. Shows your identity (user ID, project scope, branch)
+
+The onboarding is idempotent — safe to re-run anytime. On first session in a new project (0 memories), Claude is prompted to run it automatically.
+
 ## Verify it works
 
-After installing, confirm the MCP server is connected:
+After onboarding, confirm everything is connected:
 
-1. Start a new session (or restart your current one)
-2. Ask: *"List my mem0 entities"* or *"Search my memories for hello"*
-3. If the `mem0` tools appear and respond, you're all set
+1. Run `/mem0:health` to check connectivity
+2. Run `/mem0:stats` to see memory counts
+3. Try `/mem0:remember "we use TypeScript"` then `/mem0:tour` to see it stored
+
+## Available Skills
+
+The plugin includes 17 skills accessible via `/mem0:` commands:
+
+| Command | Description |
+|---------|-------------|
+| `/mem0:remember` | Store a memory verbatim — decisions, preferences, conventions |
+| `/mem0:tour` | Browse all memories grouped by category |
+| `/mem0:peek` | Quick search with compact one-liner results |
+| `/mem0:stats` | Session and project memory statistics |
+| `/mem0:dream` | Consolidate memories — merge duplicates, resolve contradictions |
+| `/mem0:pin` | Protect critical memories from pruning |
+| `/mem0:forget` | Delete memories by search or ID |
+| `/mem0:health` | Diagnose connectivity, API key, and read/write |
+| `/mem0:export` | Export memories to portable Markdown |
+| `/mem0:import` | Import memories from export file or MEMORY.md |
+| `/mem0:list-projects` | List all projects with stored memories |
+| `/mem0:switch-project` | Override auto-detected project scope |
+| `/mem0:memory-reviewer` | Audit memory quality — duplicates, contradictions, stale |
+| `/mem0:context-loader` | Pre-load relevant memories for current task |
 
 ## What's included
 
-| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) |
-|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|
-| MCP Server | Yes | Yes | Yes | Yes | Yes |
-| Lifecycle Hooks | Yes | Yes | No | Opt-in | No |
-| Mem0 SDK Skill | Yes | Yes | No | Yes | No |
-| Memory Protocol Skill | No | No | No | Yes | No |
+| Component | Claude Code / Cowork | Cursor (Marketplace) | Cursor (Deeplink/Manual) | Codex (Sideload) | Codex (Direct MCP) | OpenCode (Full) | OpenCode (MCP) | Antigravity |
+|-----------|:--------------------:|:--------------------:|:------------------------:|:----------------:|:------------------:|:---------------:|:--------------:|:-----------:|
+| MCP Server | Yes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Lifecycle Hooks | Yes | Yes | No | Opt-in | No | Yes | No | Yes |
+| Mem0 SDK Skill | Yes | Yes | No | Yes | No | Yes | No | Yes |
 
 - **MCP Server** — Connects to the Mem0 remote MCP server (`mcp.mem0.ai`), providing tools to add, search, update, and delete memories. No local dependencies required.
-- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code and Cursor wire hooks up natively when the plugin is installed (session start, context compaction, task completion, session end). Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`) that writes entries into `~/.codex/hooks.json` for `SessionStart`, `UserPromptSubmit`, and `Stop`.
+- **Lifecycle Hooks** — Automatic memory capture at key points. Claude Code, Cursor, OpenCode, and Antigravity wire hooks natively when the full plugin is installed. Codex hooks are opt-in via a one-time installer (`scripts/install_codex_hooks.py`).
 - **Mem0 SDK Skill** — Guides the AI on how to integrate the Mem0 SDK (Python & TypeScript) into your applications.
-- **Memory Protocol Skill** — Codex-specific skill that instructs the agent to retrieve relevant memories at task start, store learnings on completion, and capture session state before context loss. Complements the lifecycle hooks on Codex.
 
 ## Updating the plugin
 
-When the plugin updates (new version pulled from the marketplace, or a fresh local install), the MCP server connection in your existing Claude Code / Cursor / Codex session is left holding a stale handle and stops responding. **Restart your client to reconnect:**
+When the plugin updates (new version pulled from the marketplace, or a fresh local install), the MCP server connection in your existing session is left holding a stale handle and stops responding. **Restart your client to reconnect:**
 
 - **Claude Code:** run `/restart` in the prompt, or close and reopen the CLI.
 - **Cursor:** quit and relaunch.
 - **Codex:** restart the editor session.
+- **OpenCode:** restart the session.
+- **Antigravity:** restart the session.
 
 Your `MEM0_API_KEY` doesn't need to be re-entered — the auth header is re-read from your environment on the new session. The plugin's MCP config uses `${MEM0_API_KEY}` interpolation at session start, not at install time, so as long as the env var is set persistently (in your shell profile or `~/.claude/settings.json` `env` block), reconnection is automatic on restart.
 
 If reconnection still fails after a restart, check that `MEM0_API_KEY` is reachable in the new shell (`echo $MEM0_API_KEY`) and confirm you're using a key that starts with `m0-` (from https://app.mem0.ai/dashboard/api-keys, not a legacy token).
 
-## Optional: tune categories for coding workflows
+## Coding-tuned categories (automatic)
 
-mem0 auto-tags every memory with one or more `categories` from a project-level list. The default list is consumer-oriented (`food`, `hobbies`, `music` …) — useful for chat assistants, less so for code. A one-shot script in this plugin replaces it with a coding-focused taxonomy:
+mem0 auto-tags every memory with one or more `categories` from a project-level list. The default list is consumer-oriented (`food`, `hobbies`, `music` …) — useful for chat assistants, less so for code. **The plugin installs a coding-focused taxonomy automatically in the background on session start** — no prompt, no manual step. New memories then auto-tag against 17 development-oriented categories: `architecture_decisions`, `anti_patterns`, `task_learnings`, `tooling_setup`, `bug_fixes`, `coding_conventions`, `user_preferences`, `dependency_decisions`, `performance_findings`, `security_constraints`, `testing_patterns`, `data_model`, `api_contracts`, `deployment_runbook`, `team_norms`, `domain_glossary`, `experiment_results`.
+
+The background setup is idempotent and runs once per account (cached in `~/.mem0/categories_setup.json`); it re-applies only if the taxonomy itself changes. To preview the taxonomy or force a refresh manually:
 
 ```bash
-# Dry-run first -- prints current vs proposed, no changes:
+# Dry-run -- prints current vs proposed, no changes:
 python mem0-plugin/scripts/setup_coding_categories.py
 
-# Actually write:
+# Write explicitly:
 python mem0-plugin/scripts/setup_coding_categories.py --apply
 ```
 
-Requires the `mem0ai` Python SDK (`pip install mem0ai`) and `MEM0_API_KEY` set. New memories will then auto-tag against `architecture_decisions`, `anti_patterns`, `task_learnings`, `tooling_setup`, `bug_fixes`, `coding_conventions`, `user_preferences`. Re-run with a different list any time; `project.update(custom_categories=[...])` always replaces.
+Requires the `mem0ai` Python SDK (`pip install mem0ai`) and `MEM0_API_KEY` set. `project.update(custom_categories=[...])` always replaces the full list.
 
 ## MCP Tools
 

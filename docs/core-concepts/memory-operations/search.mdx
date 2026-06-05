@@ -25,10 +25,6 @@ Mem0's search operation lets agents ask natural-language questions and get back 
 
 ## Architecture
 
-<Frame caption="Architecture diagram illustrating the memory search process.">
-  <img src="../../images/search_architecture.png" />
-</Frame>
-
 <Steps>
 <Step title="Query processing">
 Mem0 cleans and enriches your natural-language query so the downstream embedding search is accurate.
@@ -155,6 +151,10 @@ const memories = memory.search("food preferences", {
 <Info icon="check">
   Expect an array of memory documents. Platform responses include vectors, metadata, and timestamps; OSS returns your stored schema.
 </Info>
+
+<Note>
+  On Mem0 Platform v3, time-aware queries use Temporal Reasoning internally while preserving the normal search response shape. See <Link href="/platform/features/temporal-reasoning">Temporal Reasoning</Link>.
+</Note>
 
 ## Filter patterns
 
