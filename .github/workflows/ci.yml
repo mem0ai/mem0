@@ -3,18 +3,7 @@ name: ci
 on:
   push:
     branches: [main]
-    paths:
-      - 'mem0/**'
-      - 'tests/**'
-      - 'embedchain/**'
-      - '.github/workflows/**'
-      - 'pyproject.toml'
   pull_request:
-    paths:
-      - 'mem0/**'
-      - 'tests/**'
-      - 'embedchain/**'
-      - 'pyproject.toml'
 
 jobs:
   changelog_check:
@@ -60,9 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       mem0_changed: ${{ steps.filter.outputs.mem0 }}
-      embedchain_changed: ${{ steps.filter.outputs.embedchain }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: dorny/paths-filter@v2
       id: filter
       with:
@@ -70,25 +58,28 @@ jobs:
           mem0:
             - 'mem0/**'
             - 'tests/**'
-            - '.github/workflows/**'
+            - '.github/workflows/ci.yml'
             - 'pyproject.toml'
-          embedchain:
-            - 'embedchain/**'
 
   build_mem0:
     needs: check_changes
-    if: needs.check_changes.outputs.mem0_changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v3
+      - name: Skip — no relevant changes
+        if: needs.check_changes.outputs.mem0_changed != 'true'
+        run: echo "No changes in mem0/, tests/, pyproject.toml, or ci.yml — skipping"
+      - uses: actions/checkout@v4
+        if: needs.check_changes.outputs.mem0_changed == 'true'
       - name: Set up Python ${{ matrix.python-version }}
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Clean up disk space
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: |
           df -h
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
@@ -96,61 +87,27 @@ jobs:
           sudo docker builder prune -a
           df -h
       - name: Install Hatch
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: pip install hatch
       - name: Load cached venv
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         id: cached-hatch-dependencies
         uses: actions/cache@v3
         with:
           path: .venv
           key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install GEOS Libraries
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: sudo apt-get update && sudo apt-get install -y libgeos-dev
       - name: Install dependencies
+        if: needs.check_changes.outputs.mem0_changed == 'true' && steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
         run: |
           pip install --upgrade pip
           pip install -e ".[test,graph,vector_stores,llms,extras]"
           pip install ruff
-        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Linting
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: make lint
       - name: Run tests and generate coverage report
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: make test
-
-  build_embedchain:
-    needs: check_changes
-    if: needs.check_changes.outputs.embedchain_changed == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install Hatch
-        run: pip install hatch
-      - name: Load cached venv
-        id: cached-hatch-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
-      - name: Install dependencies
-        run: cd embedchain && make install_all
-        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
-      - name: Run Formatting
-        run: |
-          mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
-          cd embedchain && hatch run format
-      - name: Lint with ruff
-        run: cd embedchain && make lint
-      - name: Run tests and generate coverage report
-        run: cd embedchain && make coverage
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: coverage.xml
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

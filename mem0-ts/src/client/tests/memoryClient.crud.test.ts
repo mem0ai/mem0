@@ -200,9 +200,26 @@ describe("MemoryClient - delete()", () => {
     const client = new MemoryClient({ apiKey: TEST_API_KEY });
     await client.delete("mem_123");
 
-    expect(
-      findFetchCall(mock, "/v1/memories/mem_123/", "DELETE"),
-    ).toBeDefined();
+    const call = findFetchCall(mock, "/v1/memories/mem_123/", "DELETE");
+    expect(call).toBeDefined();
+    // Default: no cascade query param, URL byte-identical to before.
+    expect(call![0]).not.toContain("delete_linked");
+  });
+
+  test("serializes deleteLinked as delete_linked query param", async () => {
+    const extra = new Map<string, { status: number; body: unknown }>();
+    extra.set("/v1/memories/mem_123/", {
+      status: 200,
+      body: { message: "Memory deleted successfully", cascade_count: 1 },
+    });
+    const mock = setupMockFetch(extra);
+
+    const client = new MemoryClient({ apiKey: TEST_API_KEY });
+    await client.delete("mem_123", { deleteLinked: true });
+
+    const call = findFetchCall(mock, "/v1/memories/mem_123/", "DELETE");
+    expect(call).toBeDefined();
+    expect(call![0]).toContain("delete_linked=true");
   });
 });
 
