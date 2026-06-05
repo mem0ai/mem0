@@ -932,3 +932,80 @@ class TestQdrantDatetimeRangeFilters(unittest.TestCase):
         types = {type(c.range) for c in result.must}
         self.assertIn(DatetimeRange, types)
         self.assertIn(Range, types)
+
+
+class TestQdrantHttpsDefault(unittest.TestCase):
+    """Tests for HTTPS default behavior when using host/port vs url.
+    See: https://github.com/mem0ai/mem0/issues/5378
+    """
+
+    @patch("mem0.vector_stores.qdrant.QdrantClient")
+    def test_host_port_defaults_to_http(self, MockQdrantClient):
+        """When using host+port, https should default to False."""
+        mock_client = MagicMock()
+        MockQdrantClient.return_value = mock_client
+        mock_client.get_collections.return_value = MagicMock(collections=[])
+
+        Qdrant(
+            collection_name="test",
+            embedding_model_dims=128,
+            host="127.0.0.1",
+            port=6333,
+            api_key="test-key",
+        )
+
+        call_kwargs = MockQdrantClient.call_args[1]
+        self.assertEqual(call_kwargs["https"], False)
+
+    @patch("mem0.vector_stores.qdrant.QdrantClient")
+    def test_host_port_explicit_https_true(self, MockQdrantClient):
+        """When https=True is explicitly set, it should be respected."""
+        mock_client = MagicMock()
+        MockQdrantClient.return_value = mock_client
+        mock_client.get_collections.return_value = MagicMock(collections=[])
+
+        Qdrant(
+            collection_name="test",
+            embedding_model_dims=128,
+            host="127.0.0.1",
+            port=6333,
+            api_key="test-key",
+            https=True,
+        )
+
+        call_kwargs = MockQdrantClient.call_args[1]
+        self.assertEqual(call_kwargs["https"], True)
+
+    @patch("mem0.vector_stores.qdrant.QdrantClient")
+    def test_url_does_not_set_https(self, MockQdrantClient):
+        """When using url, https should not be forced (let qdrant-client decide)."""
+        mock_client = MagicMock()
+        MockQdrantClient.return_value = mock_client
+        mock_client.get_collections.return_value = MagicMock(collections=[])
+
+        Qdrant(
+            collection_name="test",
+            embedding_model_dims=128,
+            url="https://my-qdrant.cloud.io",
+            api_key="test-key",
+        )
+
+        call_kwargs = MockQdrantClient.call_args[1]
+        self.assertNotIn("https", call_kwargs)
+
+    @patch("mem0.vector_stores.qdrant.QdrantClient")
+    def test_host_port_no_api_key_defaults_to_http(self, MockQdrantClient):
+        """Even without api_key, host+port should default to HTTP."""
+        mock_client = MagicMock()
+        MockQdrantClient.return_value = mock_client
+        mock_client.get_collections.return_value = MagicMock(collections=[])
+
+        Qdrant(
+            collection_name="test",
+            embedding_model_dims=128,
+            host="127.0.0.1",
+            port=6333,
+        )
+
+        call_kwargs = MockQdrantClient.call_args[1]
+        self.assertEqual(call_kwargs["https"], False)

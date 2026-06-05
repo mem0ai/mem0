@@ -37,6 +37,7 @@ class Qdrant(VectorStoreBase):
         path: str = None,
         url: str = None,
         api_key: str = None,
+        https: bool = None,
         on_disk: bool = False,
     ):
         """
@@ -51,6 +52,9 @@ class Qdrant(VectorStoreBase):
             path (str, optional): Path for local Qdrant database. Defaults to None.
             url (str, optional): Full URL for Qdrant server. Defaults to None.
             api_key (str, optional): API key for Qdrant server. Defaults to None.
+            https (bool, optional): Use HTTPS for connection. When None, defaults to False
+                for host/port connections and lets qdrant-client decide for url connections.
+                Defaults to None.
             on_disk (bool, optional): Enables persistent storage. Vectors are stored on disk (True) or in memory (False).
                 Does not delete the local database path. Defaults to False.
         """
@@ -66,6 +70,15 @@ class Qdrant(VectorStoreBase):
             if host and port:
                 params["host"] = host
                 params["port"] = port
+                # When using host/port without an explicit url, default to HTTP
+                # to avoid qdrant-client assuming HTTPS when api_key is present.
+                # See: https://github.com/mem0ai/mem0/issues/5378
+                if https is None:
+                    params["https"] = False
+
+            # Allow explicit https override when provided
+            if https is not None and "https" not in params:
+                params["https"] = https
 
             if not params:
                 params["path"] = path
