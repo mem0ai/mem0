@@ -97,9 +97,13 @@ describe("Entity boost parallelism (#5214)", () => {
     };
     m._entityStore = mockEntityStore;
 
-    // Inject mock embedder that resolves immediately
     m.embedder = {
       embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
     };
 
     // Mock the vector store to return a semantic result
@@ -147,6 +151,11 @@ describe("Entity boost parallelism (#5214)", () => {
     m._entityStore = mockEntityStore;
     m.embedder = {
       embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
     };
 
     // Semantic results include mem-1 and mem-2
@@ -189,6 +198,11 @@ describe("Entity boost parallelism (#5214)", () => {
     m._entityStore = mockEntityStore;
     m.embedder = {
       embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
     };
     m.vectorStore.search = jest
       .fn()
@@ -236,6 +250,11 @@ describe("Entity boost parallelism (#5214)", () => {
     m._entityStore = mockEntityStore;
     m.embedder = {
       embed: jest.fn().mockResolvedValue(mockEmbedding),
+      embedBatch: jest
+        .fn()
+        .mockImplementation((texts: string[]) =>
+          Promise.resolve(texts.map(() => mockEmbedding)),
+        ),
     };
     m.vectorStore.search = jest
       .fn()

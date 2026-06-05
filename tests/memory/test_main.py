@@ -686,7 +686,7 @@ class TestEntityBoostParallelism:
         from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
 
         mock_memory.embedding_model = Mock()
-        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
 
         results_by_query = {
             "alice": [_make_match(0.9, ["mem-1"])],
@@ -709,12 +709,25 @@ class TestEntityBoostParallelism:
         assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
         assert boosts["mem-2"] == pytest.approx(boost_bob)
 
+    def test_sync_embed_batch_called_once(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
+
+        mock_memory._compute_entity_boosts(
+            [("person", "alice"), ("person", "bob"), ("person", "carol")],
+            {"user_id": "u1"},
+        )
+
+        mock_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
+
     @pytest.mark.asyncio
     async def test_async_boosts_preserve_scoring(self, mock_async_memory):
         from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
 
         mock_async_memory.embedding_model = Mock()
-        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
 
         results_by_query = {
             "alice": [_make_match(0.9, ["mem-1"])],
@@ -737,9 +750,23 @@ class TestEntityBoostParallelism:
         assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
         assert boosts["mem-2"] == pytest.approx(boost_bob)
 
+    @pytest.mark.asyncio
+    async def test_async_embed_batch_called_once(self, mock_async_memory):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
+
+        await mock_async_memory._compute_entity_boosts_async(
+            [("person", "alice"), ("person", "bob"), ("person", "carol")],
+            {"user_id": "u1"},
+        )
+
+        mock_async_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
+
     def test_sync_one_entity_failure_does_not_abort_others(self, mock_memory, caplog):
         mock_memory.embedding_model = Mock()
-        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
 
         def fake_search(query, vectors, top_k, filters):
             if query == "boom":
@@ -761,7 +788,7 @@ class TestEntityBoostParallelism:
     @pytest.mark.asyncio
     async def test_async_one_entity_failure_does_not_abort_others(self, mock_async_memory, caplog):
         mock_async_memory.embedding_model = Mock()
-        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
 
         def fake_search(query, vectors, top_k, filters):
             if query == "boom":
@@ -782,7 +809,7 @@ class TestEntityBoostParallelism:
 
     def test_sync_searches_run_concurrently(self, mock_memory):
         mock_memory.embedding_model = Mock()
-        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
 
         concurrent_count = {"current": 0, "peak": 0}
 
@@ -808,7 +835,7 @@ class TestEntityBoostParallelism:
     @pytest.mark.asyncio
     async def test_async_searches_run_concurrently(self, mock_async_memory):
         mock_async_memory.embedding_model = Mock()
-        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
 
         concurrent_count = {"current": 0, "peak": 0}
 

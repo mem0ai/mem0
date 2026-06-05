@@ -1464,18 +1464,20 @@ class Memory(MemoryBase):
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         memory_boosts = {}
 
-        def _search_entity(entity_text):
-            entity_embedding = self.embedding_model.embed(entity_text, "search")
-            return self.entity_store.search(
-                query=entity_text,
-                vectors=entity_embedding,
-                top_k=500,
-                filters=search_filters,
-            )
-
         try:
+            entity_texts = [text for _, text in deduped]
+            embeddings = self.embedding_model.embed_batch(entity_texts, "search")
+
+            def _search_entity(entity_text, embedding):
+                return self.entity_store.search(
+                    query=entity_text, vectors=embedding, top_k=500, filters=search_filters
+                )
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
-                futures = {pool.submit(_search_entity, entity_text): entity_text for _, entity_text in deduped}
+                futures = {
+                    pool.submit(_search_entity, text, emb): text
+                    for text, emb in zip(entity_texts, embeddings)
+                }
 
                 for future in concurrent.futures.as_completed(futures):
                     try:
@@ -2881,22 +2883,24 @@ class AsyncMemory(MemoryBase):
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         memory_boosts = {}
 
-        sem = asyncio.Semaphore(4)
-
-        async def _search_entity(entity_text):
-            async with sem:
-                entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "search")
-                return await asyncio.to_thread(
-                    self.entity_store.search,
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=500,
-                    filters=search_filters,
-                )
-
         try:
+            entity_texts = [text for _, text in deduped]
+            embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "search")
+
+            sem = asyncio.Semaphore(4)
+
+            async def _search_entity(entity_text, embedding):
+                async with sem:
+                    return await asyncio.to_thread(
+                        self.entity_store.search,
+                        query=entity_text,
+                        vectors=embedding,
+                        top_k=500,
+                        filters=search_filters,
+                    )
+
             results = await asyncio.gather(
-                *(_search_entity(entity_text) for _, entity_text in deduped),
+                *(_search_entity(text, emb) for text, emb in zip(entity_texts, embeddings)),
                 return_exceptions=True,
             )
 

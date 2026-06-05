@@ -1169,17 +1169,21 @@ export class Memory {
 
         if (deduped.length > 0) {
           const entityStore = await this.getEntityStore();
+          const entityTexts = deduped.map((e) => e.text);
+          const embeddings = await this.embedder.embedBatch(entityTexts);
 
           const searchResults = await Promise.allSettled(
-            deduped.map(async (entity) => {
-              const entityEmbedding = await this.embedder.embed(entity.text);
-              return entityStore.search(entityEmbedding, 500, effectiveFilters);
-            }),
+            deduped.map((_, i) =>
+              entityStore.search(embeddings[i], 500, effectiveFilters),
+            ),
           );
 
           for (const result of searchResults) {
             if (result.status === "rejected") {
-              console.warn("Entity boost search failed for one entity:", result.reason);
+              console.warn(
+                "Entity boost search failed for one entity:",
+                result.reason,
+              );
               continue;
             }
 
