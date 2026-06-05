@@ -74,6 +74,25 @@ await memory.add(messages, { userId: "alice", metadata: { category: "movies" } }
 ```
 </CodeGroup>
 
+### Custom headers
+
+Use `extra_headers` when OpenAI-compatible observability or proxy services need request-specific headers on chat completion calls. These headers are sent to the LLM request only.
+
+```python
+config = {
+    "llm": {
+        "provider": "openai",
+        "config": {
+            "model": "gpt-5-mini",
+            "extra_headers": {
+                "Helicone-Auth": "Bearer <token>",
+                "X-Trace-Id": "trace-123",
+            },
+        },
+    },
+}
+```
+
 We also support the new [OpenAI structured-outputs](https://platform.openai.com/docs/guides/structured-outputs/introduction) model.
 
 ```python
