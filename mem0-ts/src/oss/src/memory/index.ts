@@ -1178,7 +1178,10 @@ export class Memory {
           );
 
           for (const result of searchResults) {
-            if (result.status === "rejected") continue;
+            if (result.status === "rejected") {
+              console.warn("Entity boost search failed for one entity:", result.reason);
+              continue;
+            }
 
             for (const match of result.value) {
               const similarity = match.score ?? 0;

@@ -197,14 +197,21 @@ describe("Entity boost parallelism (#5214)", () => {
       ]);
     m.vectorStore.keywordSearch = jest.fn().mockResolvedValue(null);
 
-    // Should not throw
-    const result = await m.search("boom and ok", {
+    const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    // "John Smith met Jane Doe" extracts two proper entities
+    const result = await m.search("John Smith met Jane Doe", {
       filters: { user_id: "u1" },
     });
 
     expect(result.results.length).toBeGreaterThan(0);
-    // The surviving entity's boost for mem-9 should still contribute
     expect(result.results[0].id).toBe("mem-9");
+    // Should log the failure like Python does
+    expect(warnSpy).toHaveBeenCalledWith(
+      "Entity boost search failed for one entity:",
+      expect.any(Error),
+    );
+    warnSpy.mockRestore();
   });
 
   it("should call entity searches concurrently, not sequentially", async () => {
