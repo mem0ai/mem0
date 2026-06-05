@@ -702,6 +702,10 @@ class Memory(MemoryBase):
         session_scope = _build_session_scope(filters)
         last_messages = self.db.get_last_messages(session_scope, limit=10)
         parsed_messages = parse_messages(messages)
+        
+        # Truncate to avoid token limit crash (8192 tokens ≈ 24000 chars)
+        if len(str(parsed_messages)) > 24000:
+            parsed_messages = parsed_messages[-24000:]
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
@@ -2117,6 +2121,10 @@ class AsyncMemory(MemoryBase):
         session_scope = _build_session_scope(effective_filters)
         last_messages = await asyncio.to_thread(self.db.get_last_messages, session_scope, 10)
         parsed_messages = parse_messages(messages)
+        
+        # Truncate to avoid token limit crash (8192 tokens ≈ 24000 chars)
+        if len(str(parsed_messages)) > 24000:
+            parsed_messages = parsed_messages[-24000:]
 
         # Phase 1: Existing memory retrieval
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
