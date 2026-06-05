@@ -1169,17 +1169,35 @@ export class Memory {
 
         if (deduped.length > 0) {
           const entityStore = await this.getEntityStore();
+          const entitySearchFilters: Record<string, any> = {};
+          for (const k of ["user_id", "agent_id", "run_id"] as const) {
+            if (effectiveFilters[k])
+              entitySearchFilters[k] = effectiveFilters[k];
+          }
+          const entityTexts = deduped.map((e) => e.text);
+          const embeddings = await this.embedder.embedBatch(entityTexts);
 
-          for (const entity of deduped) {
-            try {
-              const entityEmbedding = await this.embedder.embed(entity.text);
-              const matches = await entityStore.search(
-                entityEmbedding,
-                500,
-                effectiveFilters,
-              );
+          if (embeddings.length !== entityTexts.length) {
+            console.warn(
+              `embedBatch returned ${embeddings.length} vectors for ${entityTexts.length} texts — skipping entity boost`,
+            );
+          } else {
+            const searchResults = await Promise.allSettled(
+              deduped.map((_, i) =>
+                entityStore.search(embeddings[i], 500, entitySearchFilters),
+              ),
+            );
 
-              for (const match of matches) {
+            for (const result of searchResults) {
+              if (result.status === "rejected") {
+                console.warn(
+                  "Entity boost search failed for one entity:",
+                  result.reason,
+                );
+                continue;
+              }
+
+              for (const match of result.value) {
                 const similarity = match.score ?? 0;
                 if (similarity < 0.5) continue;
 
@@ -1187,7 +1205,6 @@ export class Memory {
                 const linkedMemoryIds = payload.linkedMemoryIds ?? [];
                 if (!Array.isArray(linkedMemoryIds)) continue;
 
-                // Spread-attenuated boost
                 const numLinked = Math.max(linkedMemoryIds.length, 1);
                 const memoryCountWeight =
                   1.0 / (1.0 + 0.001 * (numLinked - 1) ** 2);
@@ -1204,8 +1221,6 @@ export class Memory {
                   }
                 }
               }
-            } catch (e) {
-              // Individual entity boost failed — continue
             }
           }
         }
