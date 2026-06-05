@@ -26,6 +26,15 @@ declare module "openclaw/plugin-sdk" {
 
   export interface OpenClawPluginApi {
     pluginConfig: Record<string, unknown>;
+    /**
+     * Which registration pass the core plugin loader is running.
+     * The loader calls `register()` twice: once with "full" (the real
+     * registration) and once with "cli-metadata" (to collect CLI command
+     * metadata for `openclaw <plugin> help`). Plugins should skip heavy,
+     * non-CLI side effects on the "cli-metadata" pass. Older cores leave
+     * this undefined, which is treated as a full registration.
+     */
+    registrationMode?: "full" | "cli-metadata" | string;
     logger: {
       info(msg: string): void;
       warn(msg: string): void;

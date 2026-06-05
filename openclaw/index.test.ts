@@ -14,6 +14,7 @@ import {
   isGenericAssistantMessage,
   stripNoiseFromContent,
   filterMessagesForExtraction,
+  isCliMetadataPass,
 } from "./index.ts";
 
 // ---------------------------------------------------------------------------
@@ -608,5 +609,29 @@ describe("auto-recall threshold respects cfg.searchThreshold", () => {
   it("threshold 0 returns all results", () => {
     const filtered = applyThresholdFilter(typicalV3Results, 0);
     expect(filtered).toHaveLength(6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isCliMetadataPass — guards the duplicate register() pass (issue #5371)
+// ---------------------------------------------------------------------------
+describe("isCliMetadataPass", () => {
+  it("returns true on the cli-metadata registration pass", () => {
+    expect(isCliMetadataPass("cli-metadata")).toBe(true);
+  });
+
+  it("returns false on the full registration pass", () => {
+    expect(isCliMetadataPass("full")).toBe(false);
+  });
+
+  it("returns false when registrationMode is undefined (older cores)", () => {
+    expect(isCliMetadataPass(undefined)).toBe(false);
+  });
+
+  it("returns false for unknown/other modes", () => {
+    expect(isCliMetadataPass("")).toBe(false);
+    expect(isCliMetadataPass(null)).toBe(false);
+    expect(isCliMetadataPass("Cli-Metadata")).toBe(false);
+    expect(isCliMetadataPass(0)).toBe(false);
   });
 });

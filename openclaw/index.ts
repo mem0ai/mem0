@@ -87,6 +87,25 @@ export { createProvider } from "./providers.ts";
 // Helpers
 // ============================================================================
 
+/**
+ * The OpenClaw plugin loader invokes `register()` twice per gateway startup:
+ * once in the main pass (`registrationMode: "full"`) and once in a metadata
+ * pass (`registrationMode: "cli-metadata"`) used only to collect CLI command
+ * metadata for `openclaw mem0 help` and similar commands.
+ *
+ * On the metadata pass we must still register CLI commands, but everything
+ * else (provider/backend construction, memory capability, service, lifecycle
+ * hooks, telemetry, and the "registered" info log) should be skipped so those
+ * side effects only run once. Older cores that do not set `registrationMode`
+ * pass `undefined`, which we treat as a full registration for backwards
+ * compatibility.
+ *
+ * See https://github.com/mem0ai/mem0/issues/5371
+ */
+export function isCliMetadataPass(registrationMode: unknown): boolean {
+  return registrationMode === "cli-metadata";
+}
+
 // ============================================================================
 // Plugin Definition
 // ============================================================================
@@ -107,6 +126,27 @@ const memoryPlugin = definePluginEntry({
       baseUrl: pluginAuth.baseUrl,
     };
     const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
+
+    // The core loader calls register() twice: a "full" pass and a
+    // "cli-metadata" pass. The metadata pass only needs the CLI surface so
+    // `openclaw mem0 help` can enumerate commands. Register CLI commands and
+    // return early to avoid constructing a second provider/backend, firing
+    // duplicate telemetry, double-registering the service/capability, and
+    // emitting a duplicate "registered" log line. See issue #5371.
+    if (isCliMetadataPass(api.registrationMode)) {
+      registerCliCommands(
+        api,
+        null as any,
+        null as any,
+        cfg,
+        () => cfg.userId,
+        (id: string) => `${cfg.userId}:agent:${id}`,
+        () => ({ user_id: cfg.userId, top_k: cfg.topK }),
+        () => undefined,
+        () => undefined,
+      );
+      return;
+    }
 
     // Telemetry context bound to this plugin instance's config
     const telemetryCtx = {
