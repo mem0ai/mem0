@@ -391,19 +391,25 @@ def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
 
 @app.get("/memories", summary="Get memories")
 def get_all_memories(
+    request: Request,
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
     _auth=Depends(verify_auth),
 ):
-    """Retrieve stored memories. Lists all memories when no identifier is provided."""
+    """Retrieve stored memories. Lists all memories when no identifier is provided (admin only)."""
     try:
         if not any([user_id, run_id, agent_id]):
+            auth_type = getattr(request.state, "auth_type", "none")
+            if _auth is not None and _auth.role != "admin" and auth_type not in {"admin_api_key", "disabled"}:
+                raise HTTPException(status_code=403, detail="Admin role required to list all memories.")
             return _list_all_memories()
         filters = {
             k: v for k, v in {"user_id": user_id, "run_id": run_id, "agent_id": agent_id}.items() if v is not None
         }
         return get_memory_instance().get_all(filters=filters)
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 
@@ -479,9 +485,9 @@ def delete_all_memories(
     user_id: Optional[str] = None,
     run_id: Optional[str] = None,
     agent_id: Optional[str] = None,
-    _auth=Depends(verify_auth),
+    _auth=Depends(require_admin),
 ):
-    """Delete all memories for a given identifier."""
+    """Delete all memories for a given identifier. Requires admin role."""
     if not any([user_id, run_id, agent_id]):
         raise HTTPException(status_code=400, detail="At least one identifier is required.")
     try:
