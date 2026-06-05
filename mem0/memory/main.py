@@ -1468,6 +1468,14 @@ class Memory(MemoryBase):
             entity_texts = [text for _, text in deduped]
             embeddings = self.embedding_model.embed_batch(entity_texts, "search")
 
+            if len(embeddings) != len(entity_texts):
+                logger.warning(
+                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
+                    len(embeddings),
+                    len(entity_texts),
+                )
+                return memory_boosts
+
             def _search_entity(entity_text, embedding):
                 return self.entity_store.search(
                     query=entity_text, vectors=embedding, top_k=500, filters=search_filters
@@ -2886,6 +2894,14 @@ class AsyncMemory(MemoryBase):
         try:
             entity_texts = [text for _, text in deduped]
             embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "search")
+
+            if len(embeddings) != len(entity_texts):
+                logger.warning(
+                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
+                    len(embeddings),
+                    len(entity_texts),
+                )
+                return memory_boosts
 
             sem = asyncio.Semaphore(4)
 
