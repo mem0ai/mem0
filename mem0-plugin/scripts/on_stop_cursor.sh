@@ -24,6 +24,10 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi
 
+if [ "${MEM0_AUTO_SAVE:-true}" = "false" ]; then
+  exit 0
+fi
+
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")
 if [ -z "$TRANSCRIPT_PATH" ]; then
   exit 0

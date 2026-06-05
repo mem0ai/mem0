@@ -284,6 +284,24 @@ python mem0-plugin/scripts/setup_coding_categories.py --apply
 
 Requires the `mem0ai` Python SDK (`pip install mem0ai`) and `MEM0_API_KEY` set. `project.update(custom_categories=[...])` always replaces the full list.
 
+## Settings
+
+The plugin reads `~/.mem0/settings.json` at startup. Create it with defaults by running:
+
+```bash
+python mem0-plugin/scripts/load_settings.py init
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `auto_save` | `true` | When `false`, disables all automatic memory writes — stop-hook session summaries and pre-compaction captures are skipped. Manual saves via `add_memory` still work. Useful on hobby/low-tier plans to avoid unintended API credit usage. |
+| `auto_search` | `true` | When `false`, disables automatic memory search on each user prompt. |
+| `search_limit` | `10` | Maximum number of memories returned by automatic search. |
+| `retention_session_days` | `90` | Expiry (in days) applied to session summary memories. |
+| `confidence_threshold` | `0.3` | Minimum relevance score for memories surfaced during auto-search. |
+| `global_search` | `false` | When `true`, searches return memories across all users and projects in the account rather than scoping to the current user and project. |
+| `debug` | `false` | When `true`, appends verbose hook logs to `~/.mem0/hooks.log`. |
+
 ## MCP Tools
 
 Once installed, the following tools are available:
