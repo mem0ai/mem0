@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import gc
 import hashlib
 import json
@@ -1464,34 +1465,55 @@ class Memory(MemoryBase):
         memory_boosts = {}
 
         try:
-            for _, entity_text in deduped:
-                entity_embedding = self.embedding_model.embed(entity_text, "search")
-                matches = self.entity_store.search(
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=500,
-                    filters=search_filters,
+            entity_texts = [text for _, text in deduped]
+            embeddings = self.embedding_model.embed_batch(entity_texts, "search")
+
+            if len(embeddings) != len(entity_texts):
+                logger.warning(
+                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
+                    len(embeddings),
+                    len(entity_texts),
+                )
+                return memory_boosts
+
+            entity_store = self.entity_store
+
+            def _search_entity(entity_text, embedding):
+                return entity_store.search(
+                    query=entity_text, vectors=embedding, top_k=500, filters=search_filters
                 )
 
-                for match in matches:
-                    similarity = match.score if hasattr(match, 'score') else 0.0
-                    if similarity < 0.5:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                futures = {
+                    pool.submit(_search_entity, text, emb): text
+                    for text, emb in zip(entity_texts, embeddings)
+                }
+
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        matches = future.result()
+                    except Exception as e:
+                        logger.warning("Entity boost search failed for one entity: %s", e)
                         continue
 
-                    payload = match.payload if hasattr(match, 'payload') else {}
-                    linked_memory_ids = payload.get("linked_memory_ids", [])
-                    if not isinstance(linked_memory_ids, list):
-                        continue
+                    for match in matches:
+                        similarity = match.score if hasattr(match, 'score') else 0.0
+                        if similarity < 0.5:
+                            continue
 
-                    # Spread-attenuated boost: entities linking to many memories get attenuated
-                    num_linked = max(len(linked_memory_ids), 1)
-                    memory_count_weight = 1.0 / (1.0 + 0.001 * ((num_linked - 1) ** 2))
-                    boost = similarity * ENTITY_BOOST_WEIGHT * memory_count_weight
+                        payload = match.payload if hasattr(match, 'payload') else {}
+                        linked_memory_ids = payload.get("linked_memory_ids", [])
+                        if not isinstance(linked_memory_ids, list):
+                            continue
 
-                    for memory_id in linked_memory_ids:
-                        if memory_id:
-                            memory_key = str(memory_id)
-                            memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
+                        num_linked = max(len(linked_memory_ids), 1)
+                        memory_count_weight = 1.0 / (1.0 + 0.001 * ((num_linked - 1) ** 2))
+                        boost = similarity * ENTITY_BOOST_WEIGHT * memory_count_weight
+
+                        for memory_id in linked_memory_ids:
+                            if memory_id:
+                                memory_key = str(memory_id)
+                                memory_boosts[memory_key] = max(memory_boosts.get(memory_key, 0.0), boost)
 
         except Exception as e:
             logger.warning(f"Entity boost computation failed: {e}")
@@ -2872,15 +2894,38 @@ class AsyncMemory(MemoryBase):
         memory_boosts = {}
 
         try:
-            for _, entity_text in deduped:
-                entity_embedding = await asyncio.to_thread(self.embedding_model.embed, entity_text, "search")
-                matches = await asyncio.to_thread(
-                    self.entity_store.search,
-                    query=entity_text,
-                    vectors=entity_embedding,
-                    top_k=500,
-                    filters=search_filters,
+            entity_texts = [text for _, text in deduped]
+            embeddings = await asyncio.to_thread(self.embedding_model.embed_batch, entity_texts, "search")
+
+            if len(embeddings) != len(entity_texts):
+                logger.warning(
+                    "embed_batch returned %d vectors for %d texts — skipping entity boost",
+                    len(embeddings),
+                    len(entity_texts),
                 )
+                return memory_boosts
+
+            sem = asyncio.Semaphore(4)
+
+            async def _search_entity(entity_text, embedding):
+                async with sem:
+                    return await asyncio.to_thread(
+                        self.entity_store.search,
+                        query=entity_text,
+                        vectors=embedding,
+                        top_k=500,
+                        filters=search_filters,
+                    )
+
+            results = await asyncio.gather(
+                *(_search_entity(text, emb) for text, emb in zip(entity_texts, embeddings)),
+                return_exceptions=True,
+            )
+
+            for matches in results:
+                if isinstance(matches, BaseException):
+                    logger.warning("Entity boost search failed for one entity: %s", matches)
+                    continue
 
                 for match in matches:
                     similarity = match.score if hasattr(match, 'score') else 0.0
