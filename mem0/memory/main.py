@@ -1025,8 +1025,9 @@ class Memory(MemoryBase):
 
         Args:
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
-                Must contain at least one of: user_id, agent_id, run_id.
+                Optional: when provided, can contain user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
+                When omitted or empty, searches across all users.
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
@@ -1034,8 +1035,9 @@ class Memory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if top_k is invalid.
+            ValueError: If top_k is invalid.
+
+
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "get_all")
@@ -1058,12 +1060,8 @@ class Memory(MemoryBase):
                 effective_filters["run_id"], "run_id"
             )
 
-        # Validate filters contains at least one entity ID
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
-            )
+        # Allow empty filters to fetch all memories
+        # (previously required at least one of user_id/agent_id/run_id)
 
         limit = top_k
 
@@ -1140,8 +1138,9 @@ class Memory(MemoryBase):
             query (str): Query to search for.
             top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
-                Must contain at least one of: user_id, agent_id, run_id.
+                Optional: when provided, can contain user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
+                When omitted or empty, searches across all users.
 
                 Enhanced metadata filtering with operators:
                 - {"key": "value"} - exact match
@@ -1167,8 +1166,7 @@ class Memory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if threshold/top_k values are invalid.
+            ValueError: If threshold/top_k values are invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
@@ -1190,11 +1188,8 @@ class Memory(MemoryBase):
             effective_filters["run_id"] = _validate_and_trim_entity_id(
                 effective_filters["run_id"], "run_id"
             )
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
-            )
+        # Allow empty filters to search across all users
+        # (previously required at least one of user_id/agent_id/run_id)
 
         limit = top_k
 
@@ -2440,8 +2435,9 @@ class AsyncMemory(MemoryBase):
 
         Args:
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
-                Must contain at least one of: user_id, agent_id, run_id.
+                Optional: when provided, can contain user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
+                When omitted or empty, searches across all users.
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
@@ -2449,8 +2445,7 @@ class AsyncMemory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if top_k is invalid.
+            ValueError: If top_k is invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "get_all")
@@ -2473,12 +2468,7 @@ class AsyncMemory(MemoryBase):
                 effective_filters["run_id"], "run_id"
             )
 
-        # Validate filters contains at least one entity ID
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
-            )
+        # Allow empty filters to fetch all memories
 
         limit = top_k
 
@@ -2555,8 +2545,9 @@ class AsyncMemory(MemoryBase):
             query (str): Query to search for.
             top_k (int, optional): Maximum number of results to return. Defaults to 20.
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
-                Must contain at least one of: user_id, agent_id, run_id.
+                Optional: when provided, can contain user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
+                When omitted or empty, searches across all users.
 
                 Enhanced metadata filtering with operators:
                 - {"key": "value"} - exact match
@@ -2582,8 +2573,7 @@ class AsyncMemory(MemoryBase):
                   Example for v1.1+: `{"results": [{"id": "...", "memory": "...", "score": 0.8, ...}]}`
 
         Raises:
-            ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
-                or if threshold/top_k values are invalid.
+            ValueError: If threshold/top_k values are invalid.
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
@@ -2606,12 +2596,7 @@ class AsyncMemory(MemoryBase):
                 effective_filters["run_id"], "run_id"
             )
 
-        # Validate filters contains at least one entity ID
-        if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError(
-                "filters must contain at least one of: user_id, agent_id, run_id. "
-                "Example: filters={'user_id': 'u1'}"
-            )
+        # Allow empty filters to search across all users
 
         limit = top_k
 

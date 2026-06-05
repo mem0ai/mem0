@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+import functools
 from typing import Any, Dict, List, Optional
 
 import telemetry
@@ -36,7 +37,7 @@ from server_state import (
 )
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 load_dotenv()
 
@@ -54,11 +55,56 @@ SENSITIVE_CONFIG_KEYS = {
     "secret",
     "token",
 }
-SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
+SKIPPED_REQUEST_LOG_PATHS = {"/health", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
 BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
 BUNDLED_EMBEDDER_PROVIDERS = ("openai", "gemini")
+
+# Retry settings for transient upstream provider errors
+_RETRY_ATTEMPTS = 3
+_RETRY_DELAY_SECONDS = 1
+
+
+def _retry_upstream(max_attempts: int = _RETRY_ATTEMPTS, delay: float = _RETRY_DELAY_SECONDS):
+    """Retry a view function on transient upstream errors (provider timeout, rate limit, 5xx).
+
+    Skips retry on client errors (400/401/403/404/422) that indicate a permanent problem.
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exc = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except UpstreamError as exc:
+                    # Only retry on transient error codes
+                    transient_codes = {
+                        "provider_timeout",
+                        "provider_rate_limited",
+                        "provider_unavailable",
+                        "datastore_unavailable",
+                        "vector_store_unavailable",
+                        "provider_bad_request",  # upstream occasionally returns 400 during outages
+                    }
+                    if exc.code not in transient_codes or attempt == max_attempts:
+                        raise
+                    logging.warning(
+                        "Retrying %s (attempt %d/%d) after transient error: code=%s",
+                        func.__name__,
+                        attempt,
+                        max_attempts,
+                        exc.code,
+                    )
+                    last_exc = exc
+                    time.sleep(delay * attempt)
+            raise last_exc  # should not reach here
+
+        return wrapper
+
+    return decorator
 
 
 def _warn_if_unconfigured() -> None:
@@ -156,10 +202,20 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(UpstreamError, upstream_error_handler)
 DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
+
+# Build allowed CORS origins: explicit list + auto-detected LAN IPs
+_extra_cors = os.environ.get("EXTRA_CORS_ORIGINS", "")
+_cors_origins = [DASHBOARD_URL]
+if _extra_cors:
+    _cors_origins.extend(o.strip() for o in _extra_cors.split(",") if o.strip())
+# Allow "Access-Control-Allow-Origin: <request-origin>" when AUTH_DISABLED=true
+# so any LAN client can use the API without per-origin configuration.
+_cors_allow_all = os.environ.get("AUTH_DISABLED", "false").lower() == "true"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DASHBOARD_URL],
-    allow_credentials=True,
+    allow_origins=_cors_origins if not _cors_allow_all else ["*"],
+    allow_credentials=not _cors_allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -168,6 +224,18 @@ app.include_router(auth_router.router)
 app.include_router(api_keys_router.router)
 app.include_router(entities_router.router)
 app.include_router(requests_router.router)
+
+
+@app.get("/health", summary="Health check", include_in_schema=True)
+def health_check():
+    """Lightweight liveness & readiness probe. No auth required."""
+    try:
+        with SessionLocal() as session:
+            session.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+    return {"status": "ok" if db_ok else "degraded", "db": db_ok}
 
 
 class Message(BaseModel):
@@ -351,6 +419,7 @@ def generate_instructions(req: GenerateInstructionsRequest, _auth=Depends(verify
 
 
 @app.post("/memories", summary="Create memories")
+@_retry_upstream()
 def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     """Store new memories."""
     if not any([memory_create.user_id, memory_create.agent_id, memory_create.run_id]):
@@ -418,14 +487,17 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
 
 
 @app.post("/search", summary="Search memories")
+@_retry_upstream()
 def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
-        filters = search_req.filters or {}
+        filters = dict(search_req.filters) if search_req.filters else None
         deprecated_keys = []
         for entity_key in ("user_id", "agent_id", "run_id"):
             entity_val = getattr(search_req, entity_key, None)
             if entity_val is not None:
+                if filters is None:
+                    filters = {}
                 filters[entity_key] = entity_val
                 deprecated_keys.append(entity_key)
         if deprecated_keys:
@@ -470,7 +542,14 @@ def delete_memory(memory_id: str, _auth=Depends(verify_auth)):
     try:
         get_memory_instance().delete(memory_id=memory_id)
         return MessageResponse(message="Memory deleted successfully")
-    except Exception:
+    except (ValueError,) as exc:
+        # ValueError: memory not found or invalid identifier
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        # Catch DB-level errors for invalid UUID format (psycopg InvalidTextRepresentation, etc.)
+        exc_name = type(exc).__name__
+        if "InvalidTextRepresentation" in exc_name or "DataError" in exc_name:
+            raise HTTPException(status_code=404, detail=f"Memory with id {memory_id} not found (invalid identifier).")
         raise upstream_error()
 
 
