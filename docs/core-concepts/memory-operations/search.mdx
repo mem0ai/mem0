@@ -160,7 +160,8 @@ const memories = memory.search("food preferences", {
 
 OSS search combines semantic similarity with optional keyword and entity signals. Pass `explain=True` when tuning retrieval quality or debugging why a memory ranked where it did:
 
-```python
+<CodeGroup>
+```python Python
 results = m.search(
     "food preferences",
     filters={"user_id": "alice"},
@@ -170,7 +171,17 @@ results = m.search(
 print(results["results"][0]["score_details"])
 ```
 
-Each result includes `score_details` with the semantic score, normalized BM25 score, entity boost, raw combined score, maximum possible score, final score, and threshold used for filtering. The field is omitted unless `explain=True`, so existing response shapes stay unchanged.
+```javascript JavaScript
+const results = await memory.search("food preferences", {
+    filters: { user_id: "alice" },
+    explain: true,
+});
+
+console.log(results.results[0].score_details);
+```
+</CodeGroup>
+
+Each result includes `score_details` with the semantic score, normalized BM25 score, entity boost, raw combined score, maximum possible score, final score, and threshold used for filtering. The field is omitted unless `explain` is enabled, so existing response shapes stay unchanged.
 
 ## Filter patterns
 
