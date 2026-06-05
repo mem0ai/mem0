@@ -360,6 +360,8 @@ def add_memory(memory_create: MemoryCreate, _auth=Depends(verify_auth)):
     params = {k: v for k, v in memory_create.model_dump().items() if v is not None and k != "messages"}
     try:
         response = get_memory_instance().add(messages=[m.model_dump() for m in memory_create.messages], **params)
+        if response.get("results"):
+            telemetry.log_dashboard_nudge_once(DASHBOARD_URL)
         return JSONResponse(content=response)
     except Exception:
         raise upstream_error()
