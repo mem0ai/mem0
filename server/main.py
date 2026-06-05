@@ -318,6 +318,9 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 @app.post("/configure", summary="Configure Mem0")
 def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
     """Set memory configuration."""
+    # Admin-only check (CVE-2026-XXXX)
+    if not _auth or getattr(_auth, "role", None) != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
     _validate_bundled_providers(config)
     update_config(config)
     return {"message": "Configuration set successfully"}
