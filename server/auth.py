@@ -185,6 +185,9 @@ async def require_auth(
     return user
 
 
+_BOOTSTRAP_ADMIN = User(name="admin_api_key", email="", password_hash="", role="admin")
+
+
 async def require_admin(
     request: Request,
     user: User | None = Depends(verify_auth),
@@ -203,8 +206,7 @@ async def require_admin(
                 if default_user.role != "admin":
                     raise HTTPException(status_code=403, detail="Admin role required.")
                 return default_user
-            # Empty DB + ADMIN_API_KEY or AUTH_DISABLED: allow bootstrap.
-            return None  # type: ignore[return-value]
+            return _BOOTSTRAP_ADMIN
         raise HTTPException(status_code=401, detail="Authentication required.")
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin role required.")
