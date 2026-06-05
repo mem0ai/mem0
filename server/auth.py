@@ -185,7 +185,9 @@ async def require_auth(
     return user
 
 
-_BOOTSTRAP_ADMIN = User(name="admin_api_key", email="", password_hash="", role="admin")
+_BOOTSTRAP_ADMIN = User(
+    id=uuid.UUID(int=0), name="admin_api_key", email="", password_hash="", role="admin", created_at=datetime.min.replace(tzinfo=timezone.utc),
+)
 
 
 async def require_admin(
