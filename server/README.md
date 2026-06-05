@@ -212,10 +212,14 @@ POSTGRES_COLLECTION_NAME=memories
 If you previously relied on the hardcoded defaults (`postgres`/`postgres`), set
 `POSTGRES_PASSWORD=postgres` to keep the same credentials.
 
-**4. Start the new stack**
+**4. Start only Postgres**
+
+Start **only** the Postgres container first — do not start the mem0 API yet.
+The API runs `alembic upgrade head` on startup, which creates empty tables that
+would conflict with the restore.
 
 ```bash
-docker compose up -d --build
+docker compose up -d postgres
 ```
 
 Wait for the Postgres healthcheck to pass:
@@ -232,13 +236,17 @@ docker compose exec -T postgres psql -U postgres < mem0_backup.sql
 
 You may see notices like `role "postgres" already exists` — these are harmless.
 
-**6. Run Alembic migrations**
+> **Important:** You must restore before starting the mem0 API container. The API
+> runs database migrations on startup which create empty tables — restoring after
+> that would fail with duplicate-key errors and lose your API keys and settings.
 
-The mem0 API container runs `alembic upgrade head` on startup, but if you restored
-into an already-running container, trigger it manually:
+**6. Start the API**
+
+Now start the mem0 API container. Alembic will detect the existing tables and
+only apply any new migrations:
 
 ```bash
-docker compose restart mem0
+docker compose up -d mem0
 ```
 
 **7. Verify**
@@ -248,7 +256,7 @@ docker compose restart mem0
 make health
 
 # Confirm your memories are present
-curl -s http://localhost:8888/v1/memories/ -H "Authorization: Bearer <your-api-key>" | head
+curl -s http://localhost:8888/memories?user_id=<your-user-id> -H "X-API-Key: <your-api-key>"
 ```
 
 ### Rollback
