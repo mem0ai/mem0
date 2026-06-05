@@ -1170,6 +1170,10 @@ class Memory(MemoryBase):
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
                 or if threshold/top_k values are invalid.
         """
+        # Reject empty/whitespace queries early
+        if not query or (isinstance(query, str) and query.strip() == ""):
+            return {"results": []}
+
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
@@ -2585,6 +2589,10 @@ class AsyncMemory(MemoryBase):
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
                 or if threshold/top_k values are invalid.
         """
+        # Reject empty/whitespace queries early
+        if not query or (isinstance(query, str) and query.strip() == ""):
+            return {"results": []}
+
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
