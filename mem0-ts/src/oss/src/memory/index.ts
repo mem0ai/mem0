@@ -1169,6 +1169,11 @@ export class Memory {
 
         if (deduped.length > 0) {
           const entityStore = await this.getEntityStore();
+          const entitySearchFilters: Record<string, any> = {};
+          for (const k of ["user_id", "agent_id", "run_id"] as const) {
+            if (effectiveFilters[k])
+              entitySearchFilters[k] = effectiveFilters[k];
+          }
           const entityTexts = deduped.map((e) => e.text);
           const embeddings = await this.embedder.embedBatch(entityTexts);
 
@@ -1179,7 +1184,7 @@ export class Memory {
           } else {
             const searchResults = await Promise.allSettled(
               deduped.map((_, i) =>
-                entityStore.search(embeddings[i], 500, effectiveFilters),
+                entityStore.search(embeddings[i], 500, entitySearchFilters),
               ),
             );
 

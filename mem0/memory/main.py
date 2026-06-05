@@ -1476,8 +1476,10 @@ class Memory(MemoryBase):
                 )
                 return memory_boosts
 
+            entity_store = self.entity_store
+
             def _search_entity(entity_text, embedding):
-                return self.entity_store.search(
+                return entity_store.search(
                     query=entity_text, vectors=embedding, top_k=500, filters=search_filters
                 )
 
