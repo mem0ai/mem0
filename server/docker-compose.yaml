@@ -39,7 +39,7 @@ services:
         - POSTGRES_USER=${POSTGRES_USER:-postgres}
         - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       healthcheck:
-        test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
+        test: ["CMD-SHELL", "pg_isready -q -d postgres -U ${POSTGRES_USER:-postgres}"]
         interval: 5s
         timeout: 5s
         retries: 5

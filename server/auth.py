@@ -187,9 +187,25 @@ async def require_auth(
 
 async def require_admin(
     request: Request,
-    user: User = Depends(require_auth),
+    user: User | None = Depends(verify_auth),
+    db: Session = Depends(get_db),
 ) -> User:
-    """Like require_auth but also enforces admin role."""
+    """Like require_auth but also enforces admin role.
+
+    ADMIN_API_KEY and AUTH_DISABLED callers are treated as admin even when
+    the users table is empty (fresh-deploy bootstrap).
+    """
+    auth_type = getattr(request.state, "auth_type", "none")
+    if user is None:
+        if auth_type in {"admin_api_key", "disabled"}:
+            default_user = _get_default_user(db)
+            if default_user is not None:
+                if default_user.role != "admin":
+                    raise HTTPException(status_code=403, detail="Admin role required.")
+                return default_user
+            # Empty DB + ADMIN_API_KEY or AUTH_DISABLED: allow bootstrap.
+            return None  # type: ignore[return-value]
+        raise HTTPException(status_code=401, detail="Authentication required.")
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin role required.")
     return user
