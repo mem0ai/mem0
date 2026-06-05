@@ -64,7 +64,6 @@ fi
 
 echo ""
 echo "=== Ready ==="
-echo "Dashboard:  $DASHBOARD_URL"
 echo "Email:      $EMAIL"
 echo "Password:   $PASSWORD"
 echo "API Key:    $API_KEY"
