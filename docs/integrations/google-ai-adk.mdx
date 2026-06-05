@@ -42,10 +42,10 @@ load_dotenv()
 Create a custom `MemoryService` by implementing ADK's `BaseMemoryService`. Save the following as **`mem0_memory_service.py`**:
 
 ```python
+import asyncio
 import os
 from typing import Optional
 from typing_extensions import override
-from datetime import datetime
 
 from google.adk.memory.base_memory_service import BaseMemoryService, SearchMemoryResponse
 from google.adk.memory.memory_entry import MemoryEntry
@@ -71,9 +71,10 @@ class Mem0MemoryService(BaseMemoryService):
             return SearchMemoryResponse(memories=[])
 
         try:
-            results = self._client.search(
+            results = await asyncio.to_thread(
+                self._client.search,
                 query,
-                filters={"user_id": user_id},
+                filters={"AND": [{"user_id": user_id}, {"app_id": app_name}]},
                 top_k=5,
             )
 
@@ -83,21 +84,12 @@ class Mem0MemoryService(BaseMemoryService):
                 if not text:
                     continue
 
-                timestamp_str = None
                 raw_ts = mem.get("created_at") or mem.get("updated_at")
-                if raw_ts:
-                    try:
-                        timestamp_str = datetime.fromisoformat(
-                            str(raw_ts).replace("Z", "+00:00")
-                        ).isoformat()
-                    except (ValueError, TypeError):
-                        pass
-
                 entries.append(
                     MemoryEntry(
                         content=Content(parts=[Part(text=text)]),
                         author=mem.get("metadata", {}).get("author", "user"),
-                        timestamp=timestamp_str,
+                        timestamp=str(raw_ts) if raw_ts else None,
                     )
                 )
 
@@ -113,16 +105,18 @@ class Mem0MemoryService(BaseMemoryService):
         if not self._client:
             return
 
-        user_id = getattr(session, "user_id", None)
+        user_id = session.user_id
         if not user_id:
             return
+
+        app_name = getattr(session, "app_name", None)
 
         try:
             messages = []
             for event in session.events:
                 if not (event.content and event.content.parts):
                     continue
-                role = getattr(event.content, "role", "user")
+                role = getattr(event.content, "role", None) or "user"
                 if role == "model":
                     role = "assistant"
                 elif role not in ("user", "assistant"):
@@ -134,7 +128,10 @@ class Mem0MemoryService(BaseMemoryService):
                     messages.append({"role": role, "content": " ".join(text_parts)})
 
             if messages:
-                self._client.add(messages, user_id=user_id)
+                metadata = {"app_id": app_name} if app_name else {}
+                await asyncio.to_thread(
+                    self._client.add, messages, user_id=user_id, metadata=metadata
+                )
 
         except Exception as e:
             print(f"[Mem0MemoryService] add_session_to_memory error: {e}")
@@ -199,7 +196,7 @@ async def chat(user_input: str, user_id: str) -> str:
     )
     content = Content(role="user", parts=[Part(text=user_input)])
     async for event in runner.run_async(user_id=user_id, session_id=session.id, new_message=content):
-        if event.is_final_response():
+        if event.is_final_response() and event.content and event.content.parts:
             return event.content.parts[0].text
     return "No response generated"
 
@@ -286,7 +283,7 @@ async def chat_with_specialists(user_input: str, user_id: str) -> str:
     )
     content = Content(role="user", parts=[Part(text=user_input)])
     async for event in runner.run_async(user_id=user_id, session_id=session.id, new_message=content):
-        if event.is_final_response():
+        if event.is_final_response() and event.content and event.content.parts:
             return event.content.parts[0].text
     return "No response generated"
 
@@ -319,20 +316,24 @@ os.environ["GOOGLE_CLOUD_LOCATION"] = "us-central1"
 
 ### Advanced Memory Filtering
 
-You can customize how memories are searched by modifying `Mem0MemoryService.search_memory`:
+You can customize how memories are searched by modifying `Mem0MemoryService.search_memory`. For example, to filter by category:
 
 ```python
-results = self._client.search(
+results = await asyncio.to_thread(
+    self._client.search,
     query,
     filters={
         "AND": [
             {"user_id": user_id},
+            {"app_id": app_name},
             {"categories": {"contains": "travel"}}
         ]
     },
     top_k=10,
 )
 ```
+
+<Note>`InMemorySessionService` stores sessions in memory and is intended for prototyping. For production, use a persistent session service and clean up sessions when they are no longer needed.</Note>
 
 ## Conclusion
 
