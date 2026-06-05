@@ -97,9 +97,11 @@ class ChromaDB(VectorStoreBase):
 
         result = []
         for i in range(max_length):
+            raw_distance = distances[i] if isinstance(distances, list) and distances and i < len(distances) else None
+            score = 1.0 / (1.0 + raw_distance) if raw_distance is not None else None
             entry = OutputData(
                 id=ids[i] if isinstance(ids, list) and ids and i < len(ids) else None,
-                score=(distances[i] if isinstance(distances, list) and distances and i < len(distances) else None),
+                score=score,
                 payload=(metadatas[i] if isinstance(metadatas, list) and metadatas and i < len(metadatas) else None),
             )
             result.append(entry)
