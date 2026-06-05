@@ -3,15 +3,14 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from db import get_db
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from models import APIKey, RefreshTokenJti, User
 from passlib.context import CryptContext
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
-
-from db import get_db
-from models import APIKey, RefreshTokenJti, User
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "")
 JWT_ALGORITHM = "HS256"
@@ -183,4 +182,14 @@ async def require_auth(
             if default_user is not None:
                 return default_user
         raise HTTPException(status_code=401, detail="Authentication required.")
+    return user
+
+
+async def require_admin(
+    request: Request,
+    user: User = Depends(require_auth),
+) -> User:
+    """Like require_auth but also enforces admin role."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required.")
     return user

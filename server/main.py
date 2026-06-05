@@ -5,7 +5,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 import telemetry
-from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, verify_auth
+from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, require_admin, verify_auth
 from db import SessionLocal
 from dotenv import load_dotenv
 from errors import (
@@ -316,8 +316,8 @@ def list_bundled_providers(_auth=Depends(verify_auth)):
 
 
 @app.post("/configure", summary="Configure Mem0")
-def set_config(config: Dict[str, Any], _auth=Depends(verify_auth)):
-    """Set memory configuration."""
+def set_config(config: Dict[str, Any], _auth=Depends(require_admin)):
+    """Set memory configuration. Requires admin role."""
     _validate_bundled_providers(config)
     update_config(config)
     return {"message": "Configuration set successfully"}
@@ -495,8 +495,8 @@ def delete_all_memories(
 
 
 @app.post("/reset", summary="Reset all memories")
-def reset_memory(_auth=Depends(verify_auth)):
-    """Completely reset stored memories."""
+def reset_memory(_auth=Depends(require_admin)):
+    """Completely reset stored memories. Requires admin role."""
     try:
         get_memory_instance().reset()
         return {"message": "All memories reset"}
