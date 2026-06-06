@@ -170,6 +170,9 @@ const memoryPlugin = definePluginEntry({
 
     // Shared mutable state — declared together before any closures capture them.
     let currentSessionId: string | undefined;
+    // Track the last seen unique session UUID so we can detect when /new
+    // creates a fresh conversation (UUID changes even though sessionKey stays the same).
+    let lastSeenSessionUuid: string | undefined;
     let pluginStateDir: string | undefined;
 
     // ========================================================================
@@ -352,6 +355,8 @@ const memoryPlugin = definePluginEntry({
         setCurrentSessionId: (id: string) => {
           currentSessionId = id;
         },
+        getLastSeenSessionUuid: () => lastSeenSessionUuid,
+        setLastSeenSessionUuid: (uuid: string) => { lastSeenSessionUuid = uuid; },
         getStateDir: () => pluginStateDir,
       },
       skillsActive,
@@ -661,7 +666,20 @@ function registerHooks(
   // Track last seen session ID to detect actual new sessions (not every turn)
   let lastRecallSessionId: string | undefined;
 
-  // Auto-recall: inject relevant memories before prompt is built
+function registerHooks(
+  api: OpenClawPluginApi,
+  provider: Mem0Provider,
+  cfg: Mem0Config,
+  _effectiveUserId: (sessionKey?: string) => string,
+  buildAddOptions: (userIdOverride?: string, runId?: string, sessionKey?: string) => AddOptions,
+  buildSearchOptions: (userIdOverride?: string, limit?: number, runId?: string, sessionKey?: string) => SearchOptions,
+  session: {
+    setCurrentSessionId: (id: string) => void;
+    getLastSeenSessionUuid: () => string | undefined;
+    setLastSeenSessionUuid: (uuid: string) => void;
+  },
+) {
+  // Auto-recall: inject relevant memories before agent starts
   if (cfg.autoRecall) {
     const RECALL_TIMEOUT_MS = 8_000;
 
@@ -694,16 +712,24 @@ function registerHooks(
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
-      // Detect actual new session (first turn with a different sessionKey)
+      // ctx.sessionId is the unique UUID assigned per conversation (changes on /new).
+      // ctx.sessionKey is the stable channel key (e.g. agent:main:main) that never changes.
+      // We use the UUID as run_id so session memories are isolated per conversation,
+      // and we detect new sessions by checking whether the UUID has changed.
+      const sessionUuid = (ctx as any)?.sessionId ?? undefined;
       const isNewSession =
-        sessionId !== undefined && sessionId !== lastRecallSessionId;
-      if (sessionId) lastRecallSessionId = sessionId;
+        sessionUuid !== undefined && sessionUuid !== session.getLastSeenSessionUuid();
+      if (sessionUuid) session.setLastSeenSessionUuid(sessionUuid);
 
       // Subagents have ephemeral UUIDs — their namespace is always empty.
       // Search the parent (main) user namespace instead so subagents get
       // the user's long-term context.
       const isSubagent = isSubagentSession(sessionId);
       const recallSessionKey = isSubagent ? undefined : sessionId;
+      // Use the unique session UUID as run_id for session-scoped memory searches
+      // so memories are truly isolated per conversation and don't bleed across /new.
+      // Fall back to sessionKey for gateways that don't yet emit ctx.sessionId.
+      const sessionRunId = sessionUuid ?? sessionId;
 
       // Strip OpenClaw sender metadata from the prompt before searching
       const cleanPrompt = event.prompt
@@ -769,7 +795,27 @@ function registerHooks(
         // Cap at configured topK after filtering
         longTermResults = longTermResults.slice(0, cfg.topK);
 
-        if (longTermResults.length === 0) return undefined;
+        // Search session memories scoped to the unique session UUID (sessionRunId).
+        // Using the UUID (not the channel sessionKey) ensures memories from a
+        // previous conversation are never injected after /new resets the session.
+        let sessionResults: MemoryItem[] = [];
+        if (sessionRunId) {
+          sessionResults = await provider.search(
+            event.prompt,
+            buildSearchOptions(undefined, undefined, sessionRunId, recallSessionKey),
+          );
+          sessionResults = sessionResults.filter(
+            (r) => (r.score ?? 0) >= cfg.searchThreshold,
+          );
+        }
+
+        // Deduplicate session results against long-term
+        const longTermIds = new Set(longTermResults.map((r) => r.id));
+        const uniqueSessionResults = sessionResults.filter(
+          (r) => !longTermIds.has(r.id),
+        );
+
+        if (longTermResults.length === 0 && uniqueSessionResults.length === 0) return;
 
         // Build context with clear labels
         const memoryContext = longTermResults
@@ -848,6 +894,56 @@ function registerHooks(
       // Update shared state for tools (best-effort — tools don't have ctx)
       if (sessionId) session.setCurrentSessionId(sessionId);
 
+      // Use the unique session UUID as run_id for captured memories, matching
+      // what we use during recall, so session memories stay isolated per conversation.
+      const sessionUuid = (ctx as any)?.sessionId ?? undefined;
+      const sessionRunId = sessionUuid ?? sessionId;
+
+      try {
+        // completed work — these are high-value for extraction and should
+        // be included even if they fall outside the recent-message window.
+        const SUMMARY_PATTERNS = [
+          /## What I (Accomplished|Built|Updated)/i,
+          /✅\s*(Done|Complete|All done)/i,
+          /Here's (what I updated|the recap|a summary)/i,
+          /### Changes Made/i,
+          /Implementation Status/i,
+          /All locked in\. Quick summary/i,
+        ];
+
+        // First pass: extract all messages into a typed array
+        const allParsed: Array<{
+          role: string;
+          content: string;
+          index: number;
+          isSummary: boolean;
+        }> = [];
+
+        for (let i = 0; i < event.messages.length; i++) {
+          const msg = event.messages[i];
+          if (!msg || typeof msg !== "object") continue;
+          const msgObj = msg as Record<string, unknown>;
+
+          const role = msgObj.role;
+          if (role !== "user" && role !== "assistant") continue;
+
+          let textContent = "";
+          const content = msgObj.content;
+
+          if (typeof content === "string") {
+            textContent = content;
+          } else if (Array.isArray(content)) {
+            for (const block of content) {
+              if (
+                block &&
+                typeof block === "object" &&
+                "text" in block &&
+                typeof (block as Record<string, unknown>).text === "string"
+              ) {
+                textContent +=
+                  (textContent ? "\n" : "") +
+                  ((block as Record<string, unknown>).text as string);
+              }
       const MEMORY_MUTATE_TOOLS = new Set([
         "memory_add",
         "memory_update",
@@ -991,6 +1087,10 @@ function registerHooks(
 
       if (formattedMessages.length === 0) return;
 
+        const addOpts = buildAddOptions(undefined, sessionRunId, sessionId);
+        const result = await provider.add(
+          formattedMessages,
+          addOpts,
       // Skip if no meaningful user content remains after filtering
       if (!formattedMessages.some((m) => m.role === "user")) return;
       const userContent = formattedMessages
