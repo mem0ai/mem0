@@ -200,7 +200,7 @@ class S3Vectors(VectorStoreBase):
         all_vectors = []
         for page in pages:
             all_vectors.extend(page.get("vectors", []))
-        return [self._parse_output(all_vectors)]
+        return self._parse_output(all_vectors)
 
     def reset(self):
         logger.warning(f"Resetting index {self.collection_name}...")
