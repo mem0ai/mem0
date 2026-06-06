@@ -380,6 +380,54 @@ class TestStreamableHTTPResponses:
 # Route registration
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# search_memory — kwarg regression
+# ---------------------------------------------------------------------------
+
+class TestSearchMemoryKwargs:
+    """Regression: vector_store.search() must be called with top_k, not limit."""
+
+    @pytest.mark.asyncio
+    async def test_search_uses_top_k_not_limit(self):
+        from unittest.mock import MagicMock, patch
+
+        from app.mcp_server import (
+            client_name_var,
+            search_memory,
+            user_id_var,
+        )
+
+        mock_client = MagicMock()
+        mock_client.embedding_model.embed.return_value = [0.1] * 4
+        mock_client.vector_store.search.return_value = []
+
+        mock_user = MagicMock()
+        mock_app = MagicMock()
+        mock_app.id = 1
+
+        with (
+            patch("app.mcp_server.get_memory_client", return_value=mock_client),
+            patch("app.mcp_server.SessionLocal") as mock_session_cls,
+            patch("app.mcp_server.get_user_and_app", return_value=(mock_user, mock_app)),
+            patch("app.mcp_server.check_memory_access_permissions", return_value=True),
+        ):
+            mock_session_cls.return_value.query.return_value.filter.return_value.all.return_value = []
+
+            uid_tok = user_id_var.set("test-user")
+            cn_tok = client_name_var.set("test-client")
+            try:
+                await search_memory("hello world")
+            finally:
+                user_id_var.reset(uid_tok)
+                client_name_var.reset(cn_tok)
+
+        assert mock_client.vector_store.search.called, "vector_store.search was never called"
+        _, kwargs = mock_client.vector_store.search.call_args
+        assert "top_k" in kwargs, "search() must use top_k kwarg"
+        assert "limit" not in kwargs, "search() must not pass limit= (wrong kwarg name)"
+        assert kwargs["top_k"] == 10
+
+
 class TestRouteRegistration:
     """Verify all expected routes are registered in the router."""
 
