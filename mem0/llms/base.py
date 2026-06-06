@@ -139,9 +139,15 @@ class LLMBase(ABC):
         Returns:
             Dict: Common parameters dictionary.
         """
+        model = getattr(self.config, "model", "")
+        base_model = model.lower().rsplit("/", 1)[-1]
+        # gpt-5.x variants (e.g. gpt-5.4-mini) require max_completion_tokens;
+        # older models use the legacy max_tokens parameter.
+        token_param = "max_completion_tokens" if base_model.startswith("gpt-5.") else "max_tokens"
+
         params = {
             "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
+            token_param: self.config.max_tokens,
             "top_p": self.config.top_p,
         }
 
