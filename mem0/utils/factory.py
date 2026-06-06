@@ -7,6 +7,7 @@ from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
 from mem0.configs.llms.azure import AzureOpenAIConfig
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.deepseek import DeepSeekConfig
+from mem0.configs.llms.futurmix import FuturMixConfig
 from mem0.configs.llms.minimax import MinimaxConfig
 from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.ollama import OllamaConfig
@@ -50,6 +51,7 @@ class LlmFactory:
         "minimax": ("mem0.llms.minimax.MiniMaxLLM", MinimaxConfig),
         "xai": ("mem0.llms.xai.XAILLM", BaseLlmConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
+        "futurmix": ("mem0.llms.futurmix.FuturMixLLM", FuturMixConfig),
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
         "vllm": ("mem0.llms.vllm.VllmLLM", VllmConfig),
         "langchain": ("mem0.llms.langchain.LangchainLLM", BaseLlmConfig),
