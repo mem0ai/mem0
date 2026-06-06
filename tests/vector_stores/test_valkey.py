@@ -383,6 +383,14 @@ def test_create_col(valkey_db, mock_valkey_client):
     assert args[dim_index + 1] == "768"
 
 
+def test_build_index_schema_uses_text_for_memory(valkey_db):
+    """Test that memory content is indexed as searchable text."""
+    cmd = valkey_db._build_index_schema("test_collection", 1536, "COSINE", "mem0:test_collection")
+
+    memory_index = cmd.index("memory")
+    assert cmd[memory_index + 1] == "TEXT"
+
+
 def test_list(valkey_db, mock_valkey_client):
     """Test listing vectors."""
     # Mock search results
