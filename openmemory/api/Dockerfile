@@ -11,4 +11,4 @@ COPY config.json .
 COPY . .
 
 EXPOSE 8765
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8765"]
+ENTRYPOINT ["sh", "entrypoint.sh"]
