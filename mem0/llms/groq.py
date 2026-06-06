@@ -22,6 +22,14 @@ class GroqLLM(LLMBase):
         api_key = self.config.api_key or os.getenv("GROQ_API_KEY")
         self.client = Groq(api_key=api_key)
 
+    @staticmethod
+    def _supports_json_mode(model: str) -> bool:
+        """
+        Groq's compound/agentic models don't support the ``response_format``
+        JSON mode and return empty or non-JSON content when it is requested.
+        """
+        return "compound" not in (model or "").lower()
+
     def _parse_response(self, response, tools):
         """
         Process the response based on whether tools are used or not.
@@ -78,7 +86,7 @@ class GroqLLM(LLMBase):
             "max_tokens": self.config.max_tokens,
             "top_p": self.config.top_p,
         }
-        if response_format:
+        if response_format and self._supports_json_mode(self.config.model):
             params["response_format"] = response_format
         if tools:
             params["tools"] = tools

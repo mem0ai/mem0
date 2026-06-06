@@ -84,3 +84,33 @@ def test_generate_response_with_tools(mock_groq_client):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_generate_response_skips_json_mode_for_compound_model(mock_groq_client):
+    config = BaseLlmConfig(model="groq/compound", temperature=0.1, max_tokens=100, top_p=1.0)
+    llm = GroqLLM(config)
+    messages = [{"role": "user", "content": "hi, i'm zach"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi Zach!"))]
+    mock_groq_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages, response_format={"type": "json_object"})
+
+    _, kwargs = mock_groq_client.chat.completions.create.call_args
+    assert "response_format" not in kwargs
+
+
+def test_generate_response_keeps_json_mode_for_standard_model(mock_groq_client):
+    config = BaseLlmConfig(model="llama-3.3-70b-versatile", temperature=0.1, max_tokens=100, top_p=1.0)
+    llm = GroqLLM(config)
+    messages = [{"role": "user", "content": "hi, i'm zach"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content='{"memory": []}'))]
+    mock_groq_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages, response_format={"type": "json_object"})
+
+    _, kwargs = mock_groq_client.chat.completions.create.call_args
+    assert kwargs["response_format"] == {"type": "json_object"}
