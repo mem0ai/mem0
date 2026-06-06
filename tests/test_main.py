@@ -348,3 +348,35 @@ class TestSearchParamValidation:
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result
+
+
+class TestSearchQueryValidation:
+    """Tests for search query validation (empty/whitespace queries)."""
+
+    def test_search_rejects_empty_query(self, memory_instance):
+        """Search should reject empty string query."""
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            memory_instance.search("", filters={"user_id": "test"})
+
+    def test_search_rejects_whitespace_only_query(self, memory_instance):
+        """Search should reject whitespace-only query."""
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            memory_instance.search("   ", filters={"user_id": "test"})
+
+    def test_search_rejects_tab_only_query(self, memory_instance):
+        """Search should reject tab-only query."""
+        with pytest.raises(ValueError, match="query must be a non-empty string"):
+            memory_instance.search("\t\t", filters={"user_id": "test"})
+
+    def test_search_accepts_query_with_whitespace(self, memory_instance):
+        """Search should accept queries that contain whitespace but have content."""
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="hello world"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            result = memory_instance.search("  hello world  ", filters={"user_id": "test"})
+
+        assert "results" in result
