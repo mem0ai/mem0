@@ -470,6 +470,14 @@ def get_memory_client(custom_instructions: str = None):
         if config.get("embedder", {}).get("provider") == "ollama":
             config["embedder"] = _fix_ollama_urls(config["embedder"])
 
+        # Propagate embedding_dims to vector store so the collection is created
+        # with the correct dimension instead of QdrantConfig's hardcoded default
+        # of 1536, which causes a dimension-mismatch error at insert time.
+        dims = config.get("embedder", {}).get("config", {}).get("embedding_dims")
+        if dims:
+            config["vector_store"]["config"]["embedding_model_dims"] = dims
+            print(f"Set vector store embedding_model_dims={dims} from embedder config")
+
         # ALWAYS parse environment variables in the final config
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed
         print("Parsing environment variables in final config...")
