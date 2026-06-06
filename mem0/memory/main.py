@@ -325,6 +325,107 @@ def _build_session_scope(filters):
     return "&".join(parts)
 
 
+# Default maximum token budget for search queries sent to the embedding model.
+# OpenAI embedding models accept up to 8192 tokens; we use a conservative
+# budget to leave headroom for model differences and tokenizer variance.
+_DEFAULT_SEARCH_QUERY_TOKEN_BUDGET = 500
+
+# Rough character-to-token ratio for English text (OpenAI models).
+_TOKEN_CHARS_PER_TOKEN = 4
+
+
+def _estimate_tokens(text: str) -> int:
+    """Estimate token count using a character-based heuristic.
+
+    Uses a conservative 4 chars/token for English text. This is a rough
+    estimate suitable for budget-gating — it will never underestimate by
+    more than ~25% for typical English prose, which is safe for our
+    conservative budget.
+
+    Args:
+        text: The text to estimate token count for.
+
+    Returns:
+        Estimated token count as int.
+    """
+    return max(1, len(text) // _TOKEN_CHARS_PER_TOKEN)
+
+
+def _build_search_query(
+    messages: list,
+    max_tokens: int = _DEFAULT_SEARCH_QUERY_TOKEN_BUDGET,
+) -> str:
+    """Build a token-budgeted search query from conversation messages.
+
+    Instead of embedding the entire raw conversation (which can exceed
+    embedding model token limits and produce poor multi-topic vectors),
+    this extracts a focused query from the most recent user messages.
+
+    Strategy:
+    1. If the full conversation fits within the budget, return it as-is.
+    2. Otherwise, walk backwards through user messages, collecting content
+       until the token budget is exhausted.
+    3. User messages are prioritized because they contain the personal
+       facts, preferences, and context that existing memory retrieval
+       needs to match against.
+
+    Args:
+        messages: List of message dicts with "role" and "content" keys.
+        max_tokens: Maximum token budget for the search query.
+
+    Returns:
+        A token-budgeted string for use as a vector search query.
+    """
+    if not messages:
+        return ""
+
+    full_text = parse_messages(messages)
+    if _estimate_tokens(full_text) <= max_tokens:
+        return full_text
+
+    # Build from recent user messages, newest first
+    user_messages = [
+        m["content"]
+        for m in messages
+        if isinstance(m, dict) and m.get("role") == "user" and m.get("content")
+    ]
+
+    if not user_messages:
+        # No user messages — use the last assistant message as fallback
+        assistant_messages = [
+            m["content"]
+            for m in messages
+            if isinstance(m, dict) and m.get("role") == "assistant" and m.get("content")
+        ]
+        if not assistant_messages:
+            return full_text[: max_tokens * _TOKEN_CHARS_PER_TOKEN]
+        query_parts = []
+        budget = max_tokens
+        for content in reversed(assistant_messages):
+            content_tokens = _estimate_tokens(content)
+            if content_tokens <= budget:
+                query_parts.append(content)
+                budget -= content_tokens
+            else:
+                query_parts.append(content[: budget * _TOKEN_CHARS_PER_TOKEN])
+                break
+        return "\n".join(reversed(query_parts))
+
+    query_parts = []
+    budget = max_tokens
+    for content in reversed(user_messages):
+        content_tokens = _estimate_tokens(content)
+        if content_tokens <= budget:
+            query_parts.append(content)
+            budget -= content_tokens
+        else:
+            # Truncate this message to fit remaining budget
+            query_parts.append(content[: budget * _TOKEN_CHARS_PER_TOKEN])
+            break
+
+    return "\n".join(reversed(query_parts))
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -705,10 +806,16 @@ class Memory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
+        # Use a token-budgeted search query instead of the full raw
+        # conversation.  Long conversations can exceed embedding model
+        # token limits (e.g. OpenAI's 8192) and produce poor multi-topic
+        # vectors.  _build_search_query extracts the most recent user
+        # messages within a safe token budget.
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = self.embedding_model.embed(parsed_messages, "search")
+        search_query = _build_search_query(messages)
+        query_embedding = self.embedding_model.embed(search_query, "search")
         existing_results = self.vector_store.search(
-            query=parsed_messages,
+            query=search_query,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -767,6 +874,35 @@ class Memory(MemoryBase):
             # Save messages even if nothing extracted
             self.db.save_messages(messages, session_scope)
             return []
+
+        # Phase 2b: Per-fact retrieval augmentation
+        # Each extracted fact is a short, focused string (~10-30 tokens).
+        # Embedding and searching per-fact produces much higher precision
+        # than the Phase 1 single-vector query especially for multi-topic
+        # conversations.  Per-fact matches are merged with Phase 1 results
+        # so the dedup step (Phase 5) has comprehensive coverage.
+        per_fact_mem_ids = set()
+        for mem in extracted_memories:
+            fact_text = mem.get("text", "")
+            if not fact_text or len(fact_text) < 10:
+                continue  # skip very short or empty facts
+            try:
+                fact_embedding = self.embedding_model.embed(fact_text, "search")
+                fact_results = self.vector_store.search(
+                    query=fact_text,
+                    vectors=fact_embedding,
+                    top_k=3,
+                    filters=search_filters,
+                )
+                for r in fact_results:
+                    r_id = r.id if hasattr(r, "id") else None
+                    if r_id and r_id not in per_fact_mem_ids:
+                        per_fact_mem_ids.add(r_id)
+                        existing_results.append(r)
+            except Exception:
+                # Per-fact search is best-effort; a single failure
+                # should not block the overall add() call.
+                pass
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
@@ -2147,11 +2283,17 @@ class AsyncMemory(MemoryBase):
         parsed_messages = parse_messages(messages)
 
         # Phase 1: Existing memory retrieval
+        # Use a token-budgeted search query instead of the full raw
+        # conversation.  Long conversations can exceed embedding model
+        # token limits (e.g. OpenAI's 8192) and produce poor multi-topic
+        # vectors.  _build_search_query extracts the most recent user
+        # messages within a safe token budget.
         search_filters = {k: v for k, v in effective_filters.items() if k in ("user_id", "agent_id", "run_id") and v}
-        query_embedding = await asyncio.to_thread(self.embedding_model.embed, parsed_messages, "search")
+        search_query = _build_search_query(messages)
+        query_embedding = await asyncio.to_thread(self.embedding_model.embed, search_query, "search")
         existing_results = await asyncio.to_thread(
             self.vector_store.search,
-            query=parsed_messages,
+            query=search_query,
             vectors=query_embedding,
             top_k=10,
             filters=search_filters,
@@ -2210,6 +2352,38 @@ class AsyncMemory(MemoryBase):
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
             return []
+
+        # Phase 2b: Per-fact retrieval augmentation
+        # Each extracted fact is a short, focused string (~10-30 tokens).
+        # Embedding and searching per-fact produces much higher precision
+        # than the Phase 1 single-vector query especially for multi-topic
+        # conversations.  Per-fact matches are merged with Phase 1 results
+        # so the dedup step (Phase 5) has comprehensive coverage.
+        per_fact_mem_ids = set()
+        for mem in extracted_memories:
+            fact_text = mem.get("text", "")
+            if not fact_text or len(fact_text) < 10:
+                continue  # skip very short or empty facts
+            try:
+                fact_embedding = await asyncio.to_thread(
+                    self.embedding_model.embed, fact_text, "search"
+                )
+                fact_results = await asyncio.to_thread(
+                    self.vector_store.search,
+                    query=fact_text,
+                    vectors=fact_embedding,
+                    top_k=3,
+                    filters=search_filters,
+                )
+                for r in fact_results:
+                    r_id = r.id if hasattr(r, "id") else None
+                    if r_id and r_id not in per_fact_mem_ids:
+                        per_fact_mem_ids.add(r_id)
+                        existing_results.append(r)
+            except Exception:
+                # Per-fact search is best-effort; a single failure
+                # should not block the overall add() call.
+                pass
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]

@@ -549,9 +549,10 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
 
     memory.add("I like Python", user_id="test_user", infer=True)
 
-    # V3 pipeline: embed called once for search query (Phase 1),
+    # V3 pipeline: embed called at least once for search query (Phase 1),
+    # plus one call per extracted fact (Phase 2b per-fact retrieval).
     # embed_batch called once for extracted memories (Phase 3)
-    assert embedder.embed.call_count == 1
+    assert embedder.embed.call_count >= 1
     assert embedder.embed_batch.call_count == 1
     mock_vector_store.insert.assert_called_once()
 
@@ -606,9 +607,10 @@ def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm
 
     memory.add("I love Python now", user_id="test_user", infer=True)
 
-    # V3 pipeline: embed called once for search query (Phase 1),
+    # V3 pipeline: embed called at least once for search query (Phase 1),
+    # plus one call per extracted fact (Phase 2b per-fact retrieval).
     # embed_batch called once for extracted memories (Phase 3)
-    assert embedder.embed.call_count == 1
+    assert embedder.embed.call_count >= 1
     assert embedder.embed_batch.call_count == 1
     mock_vector_store.insert.assert_called_once()
 
