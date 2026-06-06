@@ -799,17 +799,23 @@ function registerHooks(
       };
 
       try {
+        // Race the recall against a timer, but `clearTimeout` the timer when
+        // recall settles first — otherwise the orphaned setTimeout fires
+        // RECALL_TIMEOUT_MS later and emits a phantom "recall timed out"
+        // warning even though the recall already succeeded. `.finally()`
+        // covers both fulfilled and rejected outcomes.
+        let timer: ReturnType<typeof setTimeout>;
         const timeout = new Promise<undefined>((resolve) => {
-          setTimeout(() => resolve(undefined), RECALL_TIMEOUT_MS);
-        });
-        const result = await Promise.race([
-          recallWork(),
-          timeout.then(() => {
+          timer = setTimeout(() => {
             api.logger.warn(
               `openclaw-mem0: recall timed out after ${RECALL_TIMEOUT_MS}ms, skipping`,
             );
-            return undefined;
-          }),
+            resolve(undefined);
+          }, RECALL_TIMEOUT_MS);
+        });
+        const result = await Promise.race([
+          recallWork().finally(() => clearTimeout(timer)),
+          timeout,
         ]);
         return result;
       } catch (err) {
