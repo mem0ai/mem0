@@ -475,6 +475,16 @@ def get_memory_client(custom_instructions: str = None):
         print("Parsing environment variables in final config...")
         config = _parse_environment_variables(config)
 
+        # Propagate the embedder's embedding_dims to the vector store config so the
+        # collection is created with the matching dimension. Vector store configs
+        # commonly default to 1536 (OpenAI size); using a different embedder without
+        # forwarding this causes a dimension-mismatch error at insert time.
+        embedding_dims = config.get("embedder", {}).get("config", {}).get("embedding_dims")
+        if embedding_dims and isinstance(config.get("vector_store"), dict) and isinstance(
+            config["vector_store"].get("config"), dict
+        ):
+            config["vector_store"]["config"]["embedding_model_dims"] = embedding_dims
+
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)
         
