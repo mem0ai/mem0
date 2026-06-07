@@ -394,3 +394,44 @@ class TestRouteRegistration:
     def test_streamable_http_route_is_registered(self, test_app):
         routes = [r.path for r in test_app.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/http/{user_id}" in routes
+
+
+# ---------------------------------------------------------------------------
+# search_memory — vector store kwarg regression (#5404)
+# ---------------------------------------------------------------------------
+
+class TestSearchMemoryKwargs:
+    """vector_store.search() must be called with top_k, not the wrong limit kwarg."""
+
+    @pytest.mark.asyncio
+    async def test_search_uses_top_k_not_limit(self):
+        from unittest.mock import MagicMock, patch
+
+        from app.mcp_server import client_name_var, search_memory, user_id_var
+
+        mock_client = MagicMock()
+        mock_client.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        mock_client.vector_store.search.return_value = []
+
+        mock_db = MagicMock()
+        mock_db.query.return_value.filter.return_value.all.return_value = []
+
+        with (
+            patch("app.mcp_server.get_memory_client_safe", return_value=mock_client),
+            patch("app.mcp_server.SessionLocal", return_value=mock_db),
+            patch("app.mcp_server.get_user_and_app", return_value=(MagicMock(id=1), MagicMock(id=1))),
+            patch("app.mcp_server.check_memory_access_permissions", return_value=True),
+        ):
+            uid_token = user_id_var.set("test-user")
+            client_token = client_name_var.set("test-client")
+            try:
+                await search_memory("hello world")
+            finally:
+                user_id_var.reset(uid_token)
+                client_name_var.reset(client_token)
+
+        assert mock_client.vector_store.search.called, "vector_store.search was never called"
+        _, kwargs = mock_client.vector_store.search.call_args
+        assert "top_k" in kwargs, "search() must be called with top_k"
+        assert "limit" not in kwargs, "search() must not pass the wrong limit kwarg"
+        assert kwargs["top_k"] == 10
