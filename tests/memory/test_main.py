@@ -259,6 +259,33 @@ def test_create_memory_sets_updated_at(mocker):
     assert history_kwargs.kwargs["updated_at"] == payload["updated_at"]
 
 
+def test_search_returns_empty_results_for_blank_query(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.embedding_model.embed.side_effect = AssertionError(
+        "blank query should not be embedded"
+    )
+
+    result = memory.search("   ", filters={"user_id": "test_user"})
+
+    assert result == {"results": []}
+    memory.embedding_model.embed.assert_not_called()
+    memory.vector_store.search.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_search_returns_empty_results_for_blank_query(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.embedding_model.embed.side_effect = AssertionError(
+        "blank query should not be embedded"
+    )
+
+    result = await memory.search("", filters={"user_id": "test_user"})
+
+    assert result == {"results": []}
+    memory.embedding_model.embed.assert_not_called()
+    memory.vector_store.search.assert_not_called()
+
+
 def test_create_memory_preserves_existing_created_at(mocker):
     memory = _build_memory_instance(mocker, Memory)
     custom_ts = "2023-05-06T09:19:20+00:00"

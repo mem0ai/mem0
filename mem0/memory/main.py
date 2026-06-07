@@ -169,6 +169,10 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
             )
 
 
+def _is_blank_search_query(query: str) -> bool:
+    return isinstance(query, str) and query.strip() == ""
+
+
 def _is_sensitive_field(field_name: str) -> bool:
     """Check if a field should be redacted for telemetry safety.
 
@@ -1200,6 +1204,8 @@ class Memory(MemoryBase):
             )
 
         limit = top_k
+        if _is_blank_search_query(query):
+            return {"results": []}
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if self._has_advanced_operators(effective_filters):
@@ -2644,6 +2650,8 @@ class AsyncMemory(MemoryBase):
             )
 
         limit = top_k
+        if _is_blank_search_query(query):
+            return {"results": []}
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if self._has_advanced_operators(effective_filters):
