@@ -359,6 +359,16 @@ def get_default_memory_config():
     )
     print(f"Auto-detected embedder provider: {embedder_provider}")
 
+    # Propagate the embedder's vector dimension to the vector store config. Vector
+    # stores default to 1536 (OpenAI's size), so any embedder producing a different
+    # dimension (e.g. Ollama's nomic-embed-text at 768) fails on insert with a
+    # dimension mismatch unless the collection is created with the correct size.
+    embedding_dims = os.environ.get('EMBEDDER_EMBEDDING_DIMS')
+    if embedding_dims:
+        embedding_dims = int(embedding_dims)
+        embedder_config['embedding_dims'] = embedding_dims
+        vector_store_config['embedding_model_dims'] = embedding_dims
+
     return {
         "vector_store": {
             "provider": vector_store_provider,
