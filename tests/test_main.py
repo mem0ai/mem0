@@ -117,6 +117,49 @@ def test_search(memory_instance):
     )
 
 
+@pytest.mark.parametrize("blank_query", ["", "   ", "\n\t "])
+def test_search_blank_query_returns_empty_without_embedding(memory_instance, blank_query):
+    """Empty/whitespace queries must short-circuit to no results.
+
+    Without validation, a blank query is embedded — some providers raise, others
+    return a vector that matches all stored memories (an unintended memory leak).
+    """
+    memory_instance.embedding_model.embed = Mock()
+    memory_instance.vector_store.search = Mock()
+
+    result = memory_instance.search(blank_query, filters={"user_id": "test_user"})
+
+    assert result == {"results": []}
+    memory_instance.embedding_model.embed.assert_not_called()
+    memory_instance.vector_store.search.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_async_search_blank_query_returns_empty_without_embedding():
+    """Async search must short-circuit blank queries, same as the sync path."""
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_llm.create.return_value = Mock()
+
+        from mem0.memory.main import AsyncMemory
+
+        memory = AsyncMemory(MemoryConfig(version="v1.1"))
+        memory.embedding_model.embed = Mock()
+        memory.vector_store.search = Mock()
+
+        result = await memory.search("   ", filters={"user_id": "test_user"})
+
+        assert result == {"results": []}
+        memory.embedding_model.embed.assert_not_called()
+        memory.vector_store.search.assert_not_called()
+
+
 def test_update(memory_instance):
     memory_instance.embedding_model = Mock()
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])

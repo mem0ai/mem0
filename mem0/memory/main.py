@@ -1176,6 +1176,12 @@ class Memory(MemoryBase):
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
+        # A blank query has no meaningful embedding: some providers raise on empty
+        # input, others return a vector that matches everything (an unintended
+        # memory leak). Short-circuit to no results.
+        if not query or not query.strip():
+            return {"results": []}
+
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
 
@@ -2617,6 +2623,12 @@ class AsyncMemory(MemoryBase):
         """
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
+
+        # A blank query has no meaningful embedding: some providers raise on empty
+        # input, others return a vector that matches everything (an unintended
+        # memory leak). Short-circuit to no results.
+        if not query or not query.strip():
+            return {"results": []}
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
