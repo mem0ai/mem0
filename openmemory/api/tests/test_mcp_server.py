@@ -394,3 +394,48 @@ class TestRouteRegistration:
     def test_streamable_http_route_is_registered(self, test_app):
         routes = [r.path for r in test_app.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/http/{user_id}" in routes
+
+
+# ---------------------------------------------------------------------------
+# search_memory — vector store query
+# ---------------------------------------------------------------------------
+
+class TestSearchMemoryVectorStoreCall:
+    """search_memory must query the vector store with the supported `top_k` kwarg.
+
+    The Mem0 vector store interface uses `top_k`, not `limit`. Passing `limit`
+    does not constrain the result count (it is the wrong kwarg), so the requested
+    cap of 10 is not honored.
+    """
+
+    @pytest.mark.asyncio
+    async def test_search_passes_top_k_not_limit(self):
+        from unittest.mock import MagicMock, patch
+
+        from app import mcp_server
+
+        memory_client = MagicMock()
+        memory_client.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        memory_client.vector_store.search.return_value = []
+
+        db = MagicMock()
+        db.query.return_value.filter.return_value.all.return_value = []
+
+        user = MagicMock()
+        app = MagicMock()
+
+        user_token = user_id_var.set("user-1")
+        client_token = client_name_var.set("app-1")
+        try:
+            with patch.object(mcp_server, "get_memory_client_safe", return_value=memory_client), \
+                 patch.object(mcp_server, "SessionLocal", return_value=db), \
+                 patch.object(mcp_server, "get_user_and_app", return_value=(user, app)):
+                await mcp_server.search_memory("hello world")
+        finally:
+            user_id_var.reset(user_token)
+            client_name_var.reset(client_token)
+
+        memory_client.vector_store.search.assert_called_once()
+        _, kwargs = memory_client.vector_store.search.call_args
+        assert kwargs.get("top_k") == 10
+        assert "limit" not in kwargs
