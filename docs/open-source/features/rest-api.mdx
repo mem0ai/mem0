@@ -31,7 +31,7 @@ The Mem0 REST API server exposes every OSS memory operation over HTTP. Run it al
 
 - **CRUD endpoints:** Create, retrieve, search, update, delete, and reset memories by `user_id`, `agent_id`, or `run_id`.
 - **Authentication:** On by default. Dashboard sessions use JWTs; programmatic clients use per-user `X-API-Key` headers. Legacy `ADMIN_API_KEY` is still supported.
-- **Status health check:** Access base routes to confirm the server is online.
+- **Operational probes:** Use `/api/health` for liveness and `/api/ready` for readiness checks.
 - **OpenAPI explorer:** Visit `/docs` for interactive testing and schema reference.
 
 ---
@@ -126,7 +126,7 @@ docker build -t mem0-api-server .
 
 ## Authentication
 
-Auth is on by default. Protected endpoints require either a JWT (from the dashboard login flow) or an `X-API-Key` header. The `/` redirect, `/docs`, and `/openapi.json` routes stay open so you can reach the OpenAPI explorer.
+Auth is on by default. Protected endpoints require either a JWT (from the dashboard login flow) or an `X-API-Key` header. The `/` redirect, `/docs`, `/openapi.json`, `/api/health`, and `/api/ready` routes stay open so you can reach the OpenAPI explorer and wire container probes.
 
 | Mode | How to send it | When to use it |
 |---|---|---|
@@ -273,6 +273,13 @@ The OSS REST server exposes the following endpoints. None use the `/v1/` prefix.
 | `POST` | `/search` | Search memories |
 | `POST` | `/reset` | Reset all memories |
 
+### Operational endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/health` | Liveness check for the FastAPI process. Open, no auth required |
+| `GET` | `/api/ready` | Readiness check for database and runtime configuration availability. Open, no auth required |
+
 ### Authentication
 
 | Method | Path | Description |
@@ -314,7 +321,7 @@ The `/auth/*`, `/api-keys`, `/requests`, and `/entities` routes are new to the s
 
 ## Verify the feature is working
 
-- Hit the root route and `/docs` to confirm the server is reachable.
+- Hit `/api/health` to confirm the server is reachable and `/api/ready` to confirm dependencies are ready.
 - Run a full cycle: `POST /memories` → `GET /memories/{id}` → `DELETE /memories/{id}`.
 - Watch server logs for import errors or provider misconfigurations during startup.
 - Confirm environment variables (API keys, vector store credentials) load correctly when containers restart.

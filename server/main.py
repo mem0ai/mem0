@@ -54,7 +54,7 @@ SENSITIVE_CONFIG_KEYS = {
     "secret",
     "token",
 }
-SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/docs", "/redoc", "/openapi.json"}
+SKIPPED_REQUEST_LOG_PATHS = {"/api/health", "/api/ready", "/docs", "/redoc", "/openapi.json"}
 SKIPPED_REQUEST_LOG_PREFIXES = ("/requests",)
 
 BUNDLED_LLM_PROVIDERS = ("openai", "anthropic", "gemini")
@@ -246,6 +246,30 @@ def _validate_bundled_providers(config: Dict[str, Any]) -> None:
         )
 
 
+def _readiness_response() -> tuple[int, Dict[str, Any]]:
+    checks = {"database": "ok", "configuration": "ok"}
+
+    try:
+        with SessionLocal() as session:
+            session.execute(select(1))
+    except Exception:
+        checks["database"] = "error"
+        logging.exception("Readiness check failed: database unavailable")
+
+    try:
+        get_current_config()
+    except Exception:
+        checks["configuration"] = "error"
+        logging.exception("Readiness check failed: configuration unavailable")
+
+    ready = all(status == "ok" for status in checks.values())
+    return 200 if ready else 503, {
+        "status": "ready" if ready else "not_ready",
+        "service": "mem0-api",
+        "checks": checks,
+    }
+
+
 def _should_log_request(request: Request) -> bool:
     if request.method == "OPTIONS":
         return False
@@ -304,6 +328,17 @@ async def log_requests(request: Request, call_next):
                 round((time.perf_counter() - start) * 1000, 2),
                 getattr(request.state, "auth_type", "none"),
             )
+
+
+@app.get("/api/health", summary="Liveness check", tags=["health"])
+def health_check():
+    return {"status": "ok", "service": "mem0-api"}
+
+
+@app.get("/api/ready", summary="Readiness check", tags=["health"])
+def readiness_check():
+    status_code, payload = _readiness_response()
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 @app.get("/configure", summary="Get current Mem0 configuration")

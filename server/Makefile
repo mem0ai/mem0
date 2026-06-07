@@ -43,7 +43,8 @@ wait-dashboard:
 bootstrap: up wait-api wait-dashboard seed
 
 health:
-	@echo "API:       $$(curl -s -o /dev/null -w '%{http_code}' "$(API_URL)/docs")"
+	@echo "API live:  $$(curl -s -o /dev/null -w '%{http_code}' "$(API_URL)/api/health")"
+	@echo "API ready: $$(curl -s -o /dev/null -w '%{http_code}' "$(API_URL)/api/ready")"
 	@echo "Dashboard: $$(curl -s -o /dev/null -w '%{http_code}' "$(DASHBOARD_URL)/api/health")"
 	@echo "Postgres:  $$(docker compose exec -T postgres pg_isready -q && echo 'ok' || echo 'down')"
 
