@@ -325,6 +325,11 @@ def _build_session_scope(filters):
     return "&".join(parts)
 
 
+def _entity_collection_name(provider: str, collection_name: str) -> str:
+    separator = "-" if provider == "s3_vectors" else "_"
+    return f"{collection_name}{separator}entities"
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -392,7 +397,7 @@ class Memory(MemoryBase):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = f"{self.collection_name}_entities"
+            entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             # Set collection name on the cloned config
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection
@@ -1863,7 +1868,7 @@ class AsyncMemory(MemoryBase):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = f"{self.collection_name}_entities"
+            entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):

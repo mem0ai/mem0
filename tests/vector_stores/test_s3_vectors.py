@@ -110,6 +110,32 @@ def test_memory_initialization_with_config(mock_boto_client, mock_llm, mock_embe
         pytest.fail("Memory initialization failed")
 
 
+def test_memory_entity_store_uses_s3_valid_index_name(mock_boto_client, mock_llm, mock_embedder):
+    mock_boto_client.get_vector_bucket.return_value = {}
+    mock_boto_client.get_index.return_value = {}
+
+    config = {
+        "vector_store": {
+            "provider": "s3_vectors",
+            "config": {
+                "vector_bucket_name": BUCKET_NAME,
+                "collection_name": INDEX_NAME,
+                "embedding_model_dims": EMBEDDING_DIMS,
+                "distance_metric": "cosine",
+                "region_name": REGION,
+            },
+        }
+    }
+
+    memory = Memory.from_config(config)
+    assert memory.entity_store is not None
+
+    index_names = [call.kwargs["indexName"] for call in mock_boto_client.get_index.call_args_list]
+    assert INDEX_NAME in index_names
+    assert f"{INDEX_NAME}-entities" in index_names
+    assert f"{INDEX_NAME}_entities" not in index_names
+
+
 def test_insert(mock_boto_client):
     """Test inserting vectors."""
     store = S3Vectors(
