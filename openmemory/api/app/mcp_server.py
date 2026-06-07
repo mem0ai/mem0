@@ -179,7 +179,7 @@ async def search_memory(query: str) -> str:
             hits = memory_client.vector_store.search(
                 query=query, 
                 vectors=embeddings, 
-                limit=10, 
+                top_k=10, 
                 filters=filters,
             )
 

@@ -475,6 +475,10 @@ def get_memory_client(custom_instructions: str = None):
         print("Parsing environment variables in final config...")
         config = _parse_environment_variables(config)
 
+        dims = config.get("embedder", {}).get("config", {}).get("embedding_dims")
+        if dims and "vector_store" in config and "config" in config["vector_store"]:
+            config["vector_store"]["config"]["embedding_model_dims"] = dims
+
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)
         
