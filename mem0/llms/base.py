@@ -10,6 +10,12 @@ class LLMBase(ABC):
     Handles common functionality and delegates provider-specific logic to subclasses.
     """
 
+    #: Whether this provider can recover extraction via a forced tool call —
+    #: i.e. it honors ``tools`` / ``tool_choice`` and returns the standard
+    #: ``{"tool_calls": [{"name", "arguments"}]}`` dict. Providers that support
+    #: forced structured output opt in by overriding this to ``True``.
+    supports_tool_calls: bool = False
+
     def __init__(self, config: Optional[Union[BaseLlmConfig, Dict]] = None):
         """Initialize a base LLM class
 

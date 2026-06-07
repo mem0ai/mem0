@@ -31,6 +31,7 @@ from mem0.memory.utils import (
     parse_messages,
     parse_vision_messages,
     process_telemetry_filters,
+    recover_extraction_via_tools,
     remove_code_blocks,
 )
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
@@ -761,7 +762,10 @@ class Memory(MemoryBase):
                     extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
         except Exception as e:
             logger.error(f"Error parsing extraction response: {e}")
-            extracted_memories = []
+            # The response had no parseable JSON (e.g. the model returned prose /
+            # continued the transcript instead of extracting). Recover via a
+            # forced tool call where supported, else fall back to [].
+            extracted_memories = recover_extraction_via_tools(self.llm, system_prompt, user_prompt)
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -2205,7 +2209,10 @@ class AsyncMemory(MemoryBase):
                     extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
         except Exception as e:
             logger.error(f"Error parsing extraction response (async): {e}")
-            extracted_memories = []
+            # Recover via a forced tool call where supported, else fall back to [].
+            extracted_memories = await asyncio.to_thread(
+                recover_extraction_via_tools, self.llm, system_prompt, user_prompt
+            )
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)

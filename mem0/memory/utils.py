@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from typing import Any, Dict, List
@@ -6,6 +7,7 @@ from typing import Any, Dict, List
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
     FACT_RETRIEVAL_PROMPT,
+    MEMORY_EXTRACTION_TOOL,
     USER_MEMORY_EXTRACTION_PROMPT,
 )
 
@@ -140,6 +142,125 @@ def extract_json(text):
         else:
             json_str = text
     return json_str
+
+
+def llm_supports_tool_calls(llm) -> bool:
+    """Whether this LLM provider can recover extraction via a forced tool call.
+
+    The recovery path (``recover_extraction_via_tools``) only works on providers
+    that (a) accept ``tools`` / ``tool_choice`` and (b) return the standard
+    ``{"tool_calls": [{"name", "arguments"}]}`` dict when a tool is called.
+    Providers opt in explicitly by setting the class attribute
+    ``supports_tool_calls = True``. This is intentionally distinct from
+    AWSBedrockLLM's pre-existing ``supports_tools`` (whether the underlying
+    Bedrock model family accepts tools at all): this flag specifically asserts
+    "honors a forced ``tool_choice`` and returns the standard tool_calls dict",
+    which is what the recovery path needs.
+
+    The ``is True`` check is deliberate: it requires a real boolean opt-in and
+    will not be tripped by the auto-populated attributes of a ``MagicMock`` in
+    tests or by partially-wired providers.
+    """
+    return getattr(llm, "supports_tool_calls", False) is True
+
+
+def parse_tool_calls_for_memory(response) -> List[Dict[str, Any]]:
+    """Pull the ``memory`` list out of a provider's tool-call response.
+
+    Providers return ``{"content": ..., "tool_calls": [{"name", "arguments"}]}``
+    (or a bare ``{"tool_calls": [...]}``) when a tool is invoked. ``arguments``
+    is normally a dict but some providers hand back a JSON string. Returns the
+    first tool call's ``memory`` array, or ``[]`` if none is present.
+    """
+    if not isinstance(response, dict):
+        return []
+    for call in response.get("tool_calls") or []:
+        if not isinstance(call, dict):
+            continue
+        arguments = call.get("arguments")
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except (json.JSONDecodeError, ValueError):
+                continue
+        if isinstance(arguments, dict):
+            memory = arguments.get("memory")
+            if isinstance(memory, list):
+                return memory
+    return []
+
+
+# A forced tool call whose own structured output hits ``max_tokens`` is retried
+# at this multiple of the configured ``max_tokens``. Real-corpus data: tool-call
+# truncations recovered at ~4x the base budget; a 2x raise under-shot.
+_TOOL_RETRY_TOKEN_MULTIPLIER = 4
+
+
+def _forced_tool_extraction(llm, system_prompt, user_prompt, max_tokens=None) -> List[Dict[str, Any]]:
+    """Run one forced tool call and return its parsed memory list, or ``[]``.
+
+    ``max_tokens`` overrides the provider's configured budget for this one call
+    (used by the truncation retry). Never raises.
+    """
+    kwargs = {
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        # No response_format: the forced tool call supersedes it, and OpenAI
+        # rejects response_format={"type": "json_object"} combined with a forced
+        # tool_choice.
+        "tools": [MEMORY_EXTRACTION_TOOL],
+        "tool_choice": "required",
+    }
+    if max_tokens:
+        kwargs["max_tokens"] = max_tokens
+    try:
+        return parse_tool_calls_for_memory(llm.generate_response(**kwargs))
+    except Exception as e:
+        logger.warning("Tool-based extraction recovery failed: %s", e)
+        return []
+
+
+def recover_extraction_via_tools(llm, system_prompt, user_prompt) -> List[Dict[str, Any]]:
+    """Recover dropped memories after a parse failure using forced tool use.
+
+    When the extraction LLM returns prose with no JSON object, the standard
+    parse path raises ``json.JSONDecodeError`` and the memories are silently
+    lost. This retries the same extraction with a forced ``tool_choice`` on the
+    ``save_memories`` schema: the model cannot answer a forced tool call with
+    free prose, so the content-hijack that caused the drop cannot recur.
+
+    If the forced tool call yields nothing, its own structured output may have
+    been truncated (``max_tokens`` reached mid-call). In that case it retries
+    once at a raised ``max_tokens`` **staying in tool mode** - reverting to free
+    text would reintroduce the content-hijack the tool call exists to prevent.
+
+    Gated to providers that declare ``supports_tool_calls``; any failure (an
+    unsupported provider, an API error, or an unparseable response) falls back
+    to the current behavior by returning ``[]`` - recovery never raises.
+    """
+    if not llm_supports_tool_calls(llm):
+        return []
+
+    memories = _forced_tool_extraction(llm, system_prompt, user_prompt)
+    if memories:
+        logger.info("Recovered %d memory item(s) via forced tool call after parse failure", len(memories))
+        return memories
+
+    # Empty result: the forced tool call may have truncated. Retry once at a
+    # raised budget, still forcing the tool.
+    current = getattr(getattr(llm, "config", None), "max_tokens", None)
+    if current:
+        retried = _forced_tool_extraction(
+            llm, system_prompt, user_prompt, max_tokens=current * _TOOL_RETRY_TOKEN_MULTIPLIER
+        )
+        if retried:
+            logger.info(
+                "Recovered %d memory item(s) via forced tool call after a raised-token retry", len(retried)
+            )
+            return retried
+    return memories
 
 
 def get_image_description(image_obj, llm, vision_details):

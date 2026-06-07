@@ -9,7 +9,15 @@ import json
 
 import pytest
 
-from mem0.memory.utils import extract_json, remove_code_blocks
+from unittest.mock import MagicMock
+
+from mem0.memory.utils import (
+    extract_json,
+    llm_supports_tool_calls,
+    parse_tool_calls_for_memory,
+    recover_extraction_via_tools,
+    remove_code_blocks,
+)
 
 
 # --- Test extract_json ---
@@ -230,3 +238,101 @@ I hope this helps!"""
         response = 'Sure! Here are the facts:\n{"facts": ["Name is Alex", "Loves basketball"]}\nHope that helps!'
         result = self._parse_with_fallback(response)
         assert result["facts"] == ["Name is Alex", "Loves basketball"]
+
+
+class TestToolCallRecovery:
+    """The forced-tool-call recovery used when no JSON could be parsed at all
+    (full content-hijack — the case extract_json structurally cannot fix)."""
+
+    def test_parse_tool_calls_extracts_memory_from_dict_arguments(self):
+        response = {
+            "content": None,
+            "tool_calls": [{"name": "save_memories", "arguments": {"memory": [{"text": "Likes hiking"}]}}],
+        }
+        assert parse_tool_calls_for_memory(response) == [{"text": "Likes hiking"}]
+
+    def test_parse_tool_calls_handles_stringified_arguments(self):
+        response = {"tool_calls": [{"name": "save_memories", "arguments": '{"memory": [{"text": "Has a cat"}]}'}]}
+        assert parse_tool_calls_for_memory(response) == [{"text": "Has a cat"}]
+
+    def test_parse_tool_calls_returns_empty_for_plain_string(self):
+        # A provider that ignored the tool and returned prose recovers nothing.
+        assert parse_tool_calls_for_memory("just some prose") == []
+        assert parse_tool_calls_for_memory({"tool_calls": []}) == []
+
+    def test_gate_requires_explicit_true(self):
+        # A MagicMock auto-populates attributes; the gate must not be tripped by one.
+        assert llm_supports_tool_calls(MagicMock()) is False
+        capable = MagicMock()
+        capable.supports_tool_calls = True
+        assert llm_supports_tool_calls(capable) is True
+
+    def test_recover_skips_uncapable_provider_without_calling_llm(self):
+        llm = MagicMock()
+        llm.supports_tool_calls = False
+        assert recover_extraction_via_tools(llm, "sys", "user") == []
+        llm.generate_response.assert_not_called()
+
+    def test_recover_forces_tool_choice_and_returns_memory(self):
+        llm = MagicMock()
+        llm.supports_tool_calls = True
+        llm.generate_response.return_value = {
+            "tool_calls": [{"name": "save_memories", "arguments": {"memory": [{"text": "Born in Pittsburgh"}]}}]
+        }
+        result = recover_extraction_via_tools(llm, "sys", "user")
+        assert result == [{"text": "Born in Pittsburgh"}]
+        call_kwargs = llm.generate_response.call_args.kwargs
+        assert call_kwargs["tool_choice"] == "required"
+        assert call_kwargs["tools"][0]["function"]["name"] == "save_memories"
+
+    def test_recover_is_graceful_when_llm_raises(self):
+        llm = MagicMock()
+        llm.supports_tool_calls = True
+        llm.generate_response.side_effect = RuntimeError("provider exploded")
+        assert recover_extraction_via_tools(llm, "sys", "user") == []
+
+    def test_recover_returns_empty_when_nothing_memorable(self):
+        # A forced tool call with an empty memory array round-trips to [] —
+        # the model is not compelled to invent a fact to satisfy the call.
+        llm = MagicMock()
+        llm.supports_tool_calls = True
+        llm.generate_response.return_value = {
+            "tool_calls": [{"name": "save_memories", "arguments": {"memory": []}}]
+        }
+        assert recover_extraction_via_tools(llm, "sys", "user") == []
+
+    def test_recover_is_graceful_when_tool_calls_malformed(self):
+        # A provider returning a non-dict tool_call must not raise — the
+        # "recovery never raises" guarantee.
+        llm = MagicMock()
+        llm.supports_tool_calls = True
+        llm.generate_response.return_value = {"tool_calls": ["not-a-dict", None]}
+        assert recover_extraction_via_tools(llm, "sys", "user") == []
+
+    def test_tool_call_truncation_retries_at_raised_tokens_staying_in_tool_mode(self):
+        # The forced tool call itself truncates (its arguments are a cut-off JSON
+        # string -> no memory parses). Recovery retries the tool call once at a
+        # raised max_tokens, still forcing the tool (not reverting to free text).
+        llm = MagicMock()
+        llm.supports_tool_calls = True
+        llm.config.max_tokens = 2000
+        llm.generate_response.side_effect = [
+            {"tool_calls": [{"name": "save_memories", "arguments": '{"memory": [{"text": "User likes hik'}]},
+            {"tool_calls": [{"name": "save_memories", "arguments": {"memory": [{"text": "User likes hiking"}]}}]},
+        ]
+        result = recover_extraction_via_tools(llm, "sys", "user")
+        assert result == [{"text": "User likes hiking"}]
+        assert llm.generate_response.call_count == 2
+        # the retry is still a forced tool call, at 4x the configured budget
+        retry_kwargs = llm.generate_response.call_args_list[1].kwargs
+        assert retry_kwargs["tool_choice"] == "required"
+        assert retry_kwargs["max_tokens"] == 8000
+
+    def test_no_token_raise_retry_when_max_tokens_unset(self):
+        # If max_tokens is unset there is nothing to raise; do not spuriously retry.
+        llm = MagicMock()
+        llm.supports_tool_calls = True
+        llm.config.max_tokens = None
+        llm.generate_response.return_value = {"tool_calls": [{"name": "save_memories", "arguments": {"memory": []}}]}
+        assert recover_extraction_via_tools(llm, "sys", "user") == []
+        assert llm.generate_response.call_count == 1

@@ -1060,3 +1060,59 @@ def generate_additive_extraction_prompt(
 
     sections.append("# Output:")
     return "\n\n".join(sections)
+
+
+# Forced structured-output tool used to recover extraction when the LLM returns
+# free prose with no JSON object (e.g. the model role-plays / continues the
+# transcript instead of extracting facts, producing the classic
+# "Expecting value: line 1 column 1 (char 0)" parse failure). Forcing a tool
+# call constrains the model to the schema, so it cannot answer with prose.
+#
+# Defined in OpenAI function-calling format — the format mem0 providers expect
+# and convert from internally (see e.g. AnthropicLLM / AWSBedrockLLM). Mirrors
+# the ADDITIVE_EXTRACTION_PROMPT output shape: {"memory": [{"id", "text", ...}]}.
+# The "text" field name is load-bearing: the add() pipeline reads m.get("text")
+# (mem0/memory/main.py). Renaming it here silently drops every recovered memory.
+MEMORY_EXTRACTION_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "save_memories",
+        "description": (
+            "Save the memorable facts extracted from the conversation. "
+            "Call this with every distinct fact worth remembering."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "memory": {
+                    "type": "array",
+                    "description": "The list of extracted memories. Empty if nothing is memorable.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "description": "Sequential id for this memory ('0', '1', ...).",
+                            },
+                            "text": {
+                                "type": "string",
+                                "description": "The self-contained, contextually rich memory statement.",
+                            },
+                            "attributed_to": {
+                                "type": "string",
+                                "description": "Optional speaker name the memory is attributed to.",
+                            },
+                            "linked_memory_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Optional ids of related existing memories.",
+                            },
+                        },
+                        "required": ["text"],
+                    },
+                }
+            },
+            "required": ["memory"],
+        },
+    },
+}
