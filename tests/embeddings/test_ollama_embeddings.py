@@ -60,3 +60,39 @@ def test_embed_empty_response_raises(mock_ollama_client):
 
     with pytest.raises(ValueError, match="returned no embeddings"):
         embedder.embed("some text")
+
+
+def test_embed_batch(mock_ollama_client):
+    config = BaseEmbedderConfig(model="nomic-embed-text", embedding_dims=512)
+    embedder = OllamaEmbedding(config)
+
+    mock_response = {"embeddings": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]}
+    mock_ollama_client.embed.return_value = mock_response
+
+    texts = ["First text.", "Second text."]
+    embeddings = embedder.embed_batch(texts)
+
+    mock_ollama_client.embed.assert_called_once_with(model="nomic-embed-text", input=texts)
+    assert embeddings == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+def test_embed_batch_strips_newlines(mock_ollama_client):
+    config = BaseEmbedderConfig(model="nomic-embed-text", embedding_dims=512)
+    embedder = OllamaEmbedding(config)
+
+    mock_response = {"embeddings": [[0.1, 0.2, 0.3]]}
+    mock_ollama_client.embed.return_value = mock_response
+
+    embedder.embed_batch(["line1\nline2"])
+
+    mock_ollama_client.embed.assert_called_once_with(model="nomic-embed-text", input=["line1 line2"])
+
+
+def test_embed_batch_empty_response_raises(mock_ollama_client):
+    config = BaseEmbedderConfig(model="nomic-embed-text", embedding_dims=512)
+    embedder = OllamaEmbedding(config)
+
+    mock_ollama_client.embed.return_value = {"embeddings": []}
+
+    with pytest.raises(ValueError, match="returned no embeddings"):
+        embedder.embed_batch(["some text"])
