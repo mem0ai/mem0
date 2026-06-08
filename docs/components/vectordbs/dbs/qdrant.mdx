@@ -76,6 +76,7 @@ Let's see the available parameters for the `qdrant` config:
 | `path` | Path for the qdrant database | `/tmp/qdrant` |
 | `url` | Full URL for the qdrant server | `None` |
 | `api_key` | API key for the qdrant server | `None` |
+| `https` | Force HTTPS on/off. Defaults to None (auto-detect). Set to `True` for Qdrant Cloud, `False` for self-hosted HTTP instances with API key authentication | `None` |
 | `on_disk` | For enabling persistent storage | `False` |
 </Tab>
 <Tab title="TypeScript">
@@ -91,3 +92,10 @@ Let's see the available parameters for the `qdrant` config:
 | `onDisk` | For enabling persistent storage | `False` |
 </Tab>
 </Tabs>
+
+<Note>
+  If your self-hosted Qdrant server uses plain HTTP with API key authentication,
+  set `https: False` in the Qdrant config to disable HTTPS auto-detection.
+  Without this, the Python `qdrant-client` treats `api_key` as a signal to use HTTPS,
+  which causes SSL errors when connecting to an HTTP endpoint.
+</Note>
