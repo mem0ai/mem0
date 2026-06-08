@@ -80,6 +80,78 @@ class TestAddToVectorStoreErrors:
         assert result == []  # Should return empty list when no memories processed
 
 
+# A response truncated mid-stream: memories 0 and 1 finished; memory 2 was cut
+# off while its text was still being written (model hit max_tokens).
+TRUNCATED_EXTRACTION = (
+    '{"memory": ['
+    '{"id": "0", "text": "User likes hiking in the Laurel Highlands"}, '
+    '{"id": "1", "text": "User was promoted to Senior Engineer"}, '
+    '{"id": "2", "text": "User has a dog nam'
+)
+# The same extraction, complete, as a higher-max_tokens retry would return it.
+COMPLETE_EXTRACTION = (
+    '{"memory": ['
+    '{"id": "0", "text": "User likes hiking in the Laurel Highlands"}, '
+    '{"id": "1", "text": "User was promoted to Senior Engineer"}, '
+    '{"id": "2", "text": "User has a dog named Max"}]}'
+)
+
+
+class TestTruncationRecovery:
+    """Truncated extractions: complete memories are always salvaged (Layer 1);
+    the cut-off remainder is recovered only when the opt-in retry is enabled."""
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        mocker.patch("mem0.memory.main.capture_event")
+        mocker.patch("mem0.memory.main.extract_entities_batch", return_value=[[]])
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed_batch = MagicMock(side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts])
+        return memory
+
+    def test_salvages_complete_memories_by_default_no_retry(self, mock_memory, caplog):
+        # Default: opt-in retry OFF. Salvage still recovers the 2 complete ones.
+        mock_memory.config.recover_truncated_extractions = False
+        mock_memory.llm.generate_response.return_value = TRUNCATED_EXTRACTION
+
+        with caplog.at_level(logging.INFO):
+            result = mock_memory._add_to_vector_store(
+                messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+            )
+
+        assert mock_memory.llm.generate_response.call_count == 1  # no retry
+        texts = [m["memory"] for m in result]
+        assert "User likes hiking in the Laurel Highlands" in texts
+        assert "User was promoted to Senior Engineer" in texts
+        # the cut-off memory is dropped, not stored as a partial fact
+        assert not any("dog nam" in t for t in texts)
+        assert any("Salvaged" in r.message for r in caplog.records)
+
+    def test_opt_in_retry_recovers_cut_off_remainder(self, mock_memory):
+        mock_memory.config.recover_truncated_extractions = True
+        mock_memory.llm.config.max_tokens = 1000
+        mock_memory.llm.generate_response.side_effect = [TRUNCATED_EXTRACTION, COMPLETE_EXTRACTION]
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+        )
+
+        assert mock_memory.llm.generate_response.call_count == 2  # extraction + token-raise retry
+        # retry ran with a 4x-raised max_tokens (data-driven; see _RETRY_TOKEN_MULTIPLIER)
+        assert mock_memory.llm.generate_response.call_args_list[1].kwargs["max_tokens"] == 4000
+        texts = [m["memory"] for m in result]
+        assert "User has a dog named Max" in texts  # the previously cut-off fact
+        assert len(result) == 3
+
+
 class TestPromptOverridesCustomInstructions:
     @pytest.fixture
     def mock_memory(self, mocker):

@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from mem0.memory.utils import extract_json, remove_code_blocks
+from mem0.memory.utils import extract_json, remove_code_blocks, salvage_memory_objects
 
 
 # --- Test extract_json ---
@@ -230,3 +230,50 @@ I hope this helps!"""
         response = 'Sure! Here are the facts:\n{"facts": ["Name is Alex", "Loves basketball"]}\nHope that helps!'
         result = self._parse_with_fallback(response)
         assert result["facts"] == ["Name is Alex", "Loves basketball"]
+
+
+class TestSalvageTruncatedMemories:
+    """salvage_memory_objects: recover the complete memory objects from a
+    response truncated mid-stream (the model hit max_tokens), dropping only the
+    half-written tail object."""
+
+    def test_recovers_complete_objects_drops_cut_off_tail(self):
+        # Memories 1-4 finished; memory 5 was cut off mid-write.
+        truncated = (
+            '{"memory": ['
+            '{"id": "0", "text": "User likes hiking in the Laurel Highlands"}, '
+            '{"id": "1", "text": "User was promoted to Senior Engineer"}, '
+            '{"id": "2", "text": "User has a wife named Elena"}, '
+            '{"id": "3", "text": "User celebrated at Osteria Francescana"}, '
+            '{"id": "4", "text": "User has a dog nam'
+        )
+        memories, was_truncated = salvage_memory_objects(truncated)
+        assert was_truncated is True
+        assert len(memories) == 4  # the cut-off 5th is dropped
+        assert [m["id"] for m in memories] == ["0", "1", "2", "3"]
+        assert all("nam" not in m["text"] or m["text"].endswith("nam") is False for m in memories)
+        assert "dog nam" not in memories[-1]["text"]
+
+    def test_clean_array_reports_not_truncated(self):
+        # json.loads failed on the whole blob (trailing junk), but the array closed.
+        text = '{"memory": [{"id": "0", "text": "Name is Alex"}]} <<trailing garbage'
+        memories, was_truncated = salvage_memory_objects(text)
+        assert was_truncated is False
+        assert len(memories) == 1
+        assert memories[0]["text"] == "Name is Alex"
+
+    def test_no_memory_array_returns_empty_not_truncated(self):
+        # Content-hijack (prose, no JSON) is not a truncation case.
+        memories, was_truncated = salvage_memory_objects("I need to ask you a few questions first.")
+        assert memories == []
+        assert was_truncated is False
+
+    def test_empty_input(self):
+        assert salvage_memory_objects("") == ([], False)
+
+    def test_truncated_right_after_an_object_before_array_close(self):
+        # Cut after object 1's '}' but before ']' -> object 1 complete, still truncated.
+        text = '{"memory": [{"id": "0", "text": "Name is Alex"}, '
+        memories, was_truncated = salvage_memory_objects(text)
+        assert len(memories) == 1
+        assert was_truncated is True
