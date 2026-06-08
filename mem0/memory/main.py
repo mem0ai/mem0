@@ -1623,16 +1623,22 @@ class Memory(MemoryBase):
         """Delete memories that have exceeded the configured TTL.
 
         Args:
-            filters: Optional filters to scope which memories to check.
+            filters: Filters to scope which memories to check. At least one
+                filter is required to prevent accidental cross-user deletion.
 
         Returns:
             Dict with the count of deleted memories.
 
         Raises:
-            ValueError: If memory_ttl is not configured.
+            ValueError: If memory_ttl is not configured or no filters provided.
         """
         if not self.config.memory_ttl:
             raise ValueError("memory_ttl is not configured. Set it in MemoryConfig to use cleanup_expired().")
+        if not filters:
+            raise ValueError(
+                "At least one filter is required for cleanup_expired. "
+                "Pass user_id, agent_id, or run_id to scope the cleanup."
+            )
 
         all_memories = self.vector_store.list(filters=filters, top_k=10000)
         if isinstance(all_memories, (tuple, list)) and len(all_memories) > 0:
@@ -3101,16 +3107,22 @@ class AsyncMemory(MemoryBase):
         """Delete memories that have exceeded the configured TTL.
 
         Args:
-            filters: Optional filters to scope which memories to check.
+            filters: Filters to scope which memories to check. At least one
+                filter is required to prevent accidental cross-user deletion.
 
         Returns:
             Dict with the count of deleted memories.
 
         Raises:
-            ValueError: If memory_ttl is not configured.
+            ValueError: If memory_ttl is not configured or no filters provided.
         """
         if not self.config.memory_ttl:
             raise ValueError("memory_ttl is not configured. Set it in MemoryConfig to use cleanup_expired().")
+        if not filters:
+            raise ValueError(
+                "At least one filter is required for cleanup_expired. "
+                "Pass user_id, agent_id, or run_id to scope the cleanup."
+            )
 
         all_memories = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=10000)
         if isinstance(all_memories, (tuple, list)) and len(all_memories) > 0:
@@ -3122,8 +3134,8 @@ class AsyncMemory(MemoryBase):
             if _is_expired(mem.payload, self.config.memory_ttl):
                 delete_tasks.append(self._delete_memory(mem.id, existing_memory=mem))
 
-        await asyncio.gather(*delete_tasks)
-        deleted = len(delete_tasks)
+        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+        deleted = sum(1 for r in results if not isinstance(r, BaseException))
         logger.info(f"Cleaned up {deleted} expired memories")
         return {"deleted": deleted}
 
