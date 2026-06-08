@@ -12,6 +12,13 @@ from mem0.llms.base import LLMBase
 
 
 class GeminiLLM(LLMBase):
+    # Gemini honors a forced tool_choice and returns the standard
+    # {"content", "tool_calls"} dict, so the forced-structure extraction
+    # recovery can use it. Forcing a tool call also keeps Gemini's reasoning
+    # tokens out of the response, which is what corrupts the JSON in the
+    # leakage case (see issue #3918).
+    supports_tool_calls = True
+
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 

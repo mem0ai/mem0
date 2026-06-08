@@ -262,3 +262,37 @@ def test_max_tokens_kwarg_overrides_config(mock_gemini_client: Mock):
 
     cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
     assert cfg.max_output_tokens == 8000
+
+
+# --- Forced-structure extraction recovery enablement (issue #3918) ---
+
+
+def test_gemini_declares_tool_call_support():
+    """Gemini opts into the forced-structure extraction recovery."""
+    assert GeminiLLM.supports_tool_calls is True
+
+
+def test_forced_structure_recovery_works_end_to_end_on_gemini(mock_gemini_client: Mock):
+    """A parse failure is recovered via a forced tool call on Gemini. Exercises
+    the recovery path + the forced tool_choice mapping + supports_tool_calls
+    together: the model returns a structured tool call (so leaked reasoning
+    tokens cannot corrupt the JSON), and the memories are recovered."""
+    from mem0.memory.utils import recover_extraction_via_tools
+
+    llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", max_tokens=2000))
+    call = Mock()
+    call.name = "save_memories"
+    call.args = {"memory": [{"id": "0", "text": "User adopted a dog named Max"}]}
+    part = Mock()
+    part.text = None
+    part.function_call = call
+    mock_gemini_client.models.generate_content.return_value = Mock(
+        candidates=[Mock(content=Mock(parts=[part]))]
+    )
+
+    recovered = recover_extraction_via_tools(llm, "system prompt", "user prompt")
+
+    assert recovered == [{"id": "0", "text": "User adopted a dog named Max"}]
+    # recovery forced a tool call (ANY mode), not free text
+    cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert cfg.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.ANY
