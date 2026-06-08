@@ -32,6 +32,11 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
+# Honor auto_save=false in ~/.mem0/settings.json
+if [ "${MEM0_AUTO_SAVE:-true}" = "false" ]; then
+  exit 0
+fi
+
 if [ -z "${MEM0_API_KEY:-}" ]; then
   exit 0
 fi

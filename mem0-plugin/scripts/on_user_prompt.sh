@@ -174,7 +174,7 @@ fi
 # overlapping window ensures the next batch (MSG_COUNT=6) picks up the
 # exchange that was incomplete in the previous batch.
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")
-if [ $((MSG_COUNT % 3)) -eq 0 ] && [ "$MSG_COUNT" -gt 0 ] && [ -n "$TRANSCRIPT_PATH" ]; then
+if [ "${MEM0_AUTO_SAVE:-true}" != "false" ] && [ $((MSG_COUNT % 3)) -eq 0 ] && [ "$MSG_COUNT" -gt 0 ] && [ -n "$TRANSCRIPT_PATH" ]; then
   python3 "$SCRIPT_DIR/auto_capture.py" "$TRANSCRIPT_PATH" 2>/dev/null &
 fi
 
