@@ -1,5 +1,11 @@
+from unittest.mock import Mock
+
 import pytest
-from mem0.memory.utils import remove_spaces_from_entities, sanitize_relationship_for_cypher
+from mem0.memory.utils import (
+    parse_vision_messages,
+    remove_spaces_from_entities,
+    sanitize_relationship_for_cypher,
+)
 
 
 class TestRemoveSpacesFromEntities:
@@ -55,3 +61,38 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestParseVisionMessages:
+    def test_text_array_content_without_llm_does_not_crash(self):
+        """#3646: text-only array content + no llm must flatten, not crash."""
+        messages = [
+            {"role": "user", "content": "你好"},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "For context:"},
+                    {"type": "text", "text": "xxxxxxx"},
+                ],
+            },
+        ]
+        out = parse_vision_messages(messages)
+        assert out[0] == {"role": "user", "content": "你好"}
+        assert isinstance(out[1]["content"], str)
+        assert "For context:" in out[1]["content"]
+        assert "xxxxxxx" in out[1]["content"]
+
+    def test_image_url_in_array_still_uses_vision(self):
+        llm = Mock()
+        llm.generate_response.return_value = "a description of the image"
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": "http://example.com/cat.png"}},
+                ],
+            }
+        ]
+        out = parse_vision_messages(messages, llm=llm)
+        llm.generate_response.assert_called_once()
+        assert "a description of the image" in out[0]["content"]
