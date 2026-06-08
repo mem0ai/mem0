@@ -12,6 +12,7 @@ from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
 from mem0.configs.llms.vllm import VllmConfig
+from mem0.configs.llms.xai import XAIConfig
 from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.cohere import CohereRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
@@ -48,7 +49,7 @@ class LlmFactory:
         "gemini": ("mem0.llms.gemini.GeminiLLM", BaseLlmConfig),
         "deepseek": ("mem0.llms.deepseek.DeepSeekLLM", DeepSeekConfig),
         "minimax": ("mem0.llms.minimax.MiniMaxLLM", MinimaxConfig),
-        "xai": ("mem0.llms.xai.XAILLM", BaseLlmConfig),
+        "xai": ("mem0.llms.xai.XAILLM", XAIConfig),
         "sarvam": ("mem0.llms.sarvam.SarvamLLM", BaseLlmConfig),
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
         "vllm": ("mem0.llms.vllm.VllmLLM", VllmConfig),
@@ -209,7 +210,6 @@ class VectorStoreFactory:
         return instance
 
 
-
 class RerankerFactory:
     """
     Factory for creating reranker instances with appropriate configurations.
@@ -219,7 +219,10 @@ class RerankerFactory:
     # Provider mappings with their config classes
     provider_to_class = {
         "cohere": ("mem0.reranker.cohere_reranker.CohereReranker", CohereRerankerConfig),
-        "sentence_transformer": ("mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker", SentenceTransformerRerankerConfig),
+        "sentence_transformer": (
+            "mem0.reranker.sentence_transformer_reranker.SentenceTransformerReranker",
+            SentenceTransformerRerankerConfig,
+        ),
         "zero_entropy": ("mem0.reranker.zero_entropy_reranker.ZeroEntropyReranker", ZeroEntropyRerankerConfig),
         "llm_reranker": ("mem0.reranker.llm_reranker.LLMReranker", LLMRerankerConfig),
         "huggingface": ("mem0.reranker.huggingface_reranker.HuggingFaceReranker", HuggingFaceRerankerConfig),
