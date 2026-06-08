@@ -641,11 +641,11 @@ class TestSearchEntityIdMapping:
         assert kwargs["filters"]["user_id"] == "u1"
         assert kwargs["filters"]["category"] == "food"
 
-    def test_no_entity_ids_no_filters(self, client, mock_memory):
+    def test_no_entity_ids_no_filters_returns_400(self, client, mock_memory):
         resp = client.post("/search", json={"query": "food"})
-        assert resp.status_code == 200
-        _, kwargs = mock_memory.search.call_args
-        assert kwargs["filters"] == {}
+        assert resp.status_code == 400
+        assert "filters must contain at least one of" in resp.json()["detail"]
+        mock_memory.search.assert_not_called()
 
     def test_only_filters_no_entity_ids(self, client, mock_memory):
         resp = client.post("/search", json={

@@ -430,7 +430,7 @@ def get_memory(memory_id: str, _auth=Depends(verify_auth)):
 def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
     """Search for memories based on a query."""
     try:
-        filters = search_req.filters or {}
+        filters = dict(search_req.filters or {})
         deprecated_keys = []
         for entity_key in ("user_id", "agent_id", "run_id"):
             entity_val = getattr(search_req, entity_key, None)
@@ -443,12 +443,22 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
                 ", ".join(deprecated_keys),
                 ", ".join(f'"{k}": "..."' for k in deprecated_keys),
             )
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "filters must contain at least one of: user_id, agent_id, run_id. "
+                    "Example: filters={'user_id': 'u1'}"
+                ),
+            )
         params = {}
         if search_req.top_k is not None:
             params["top_k"] = search_req.top_k
         if search_req.threshold is not None:
             params["threshold"] = search_req.threshold
         return get_memory_instance().search(query=search_req.query, filters=filters, **params)
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 
