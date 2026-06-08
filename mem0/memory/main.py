@@ -32,6 +32,8 @@ from mem0.memory.utils import (
     parse_vision_messages,
     process_telemetry_filters,
     remove_code_blocks,
+    retry_extraction_with_more_tokens,
+    salvage_memory_objects,
 )
 from mem0.utils.entity_extraction import extract_entities, extract_entities_batch
 from mem0.utils.factory import (
@@ -761,7 +763,17 @@ class Memory(MemoryBase):
                     extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
         except Exception as e:
             logger.error(f"Error parsing extraction response: {e}")
-            extracted_memories = []
+            # Layer 1 (always): salvage the complete memory objects from a
+            # truncated/malformed response instead of dropping them all.
+            extracted_memories, truncated = salvage_memory_objects(response)
+            if extracted_memories:
+                logger.info("Salvaged %d complete memory item(s) from a malformed extraction response", len(extracted_memories))
+            # Layer 2 (opt-in): if the response was truncated, retry once with a
+            # raised max_tokens to recover the cut-off remainder.
+            if truncated and getattr(self.config, "recover_truncated_extractions", False) is True:
+                retried = retry_extraction_with_more_tokens(self.llm, system_prompt, user_prompt)
+                if len(retried) > len(extracted_memories):
+                    extracted_memories = retried
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -2205,7 +2217,17 @@ class AsyncMemory(MemoryBase):
                     extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
         except Exception as e:
             logger.error(f"Error parsing extraction response (async): {e}")
-            extracted_memories = []
+            # Layer 1 (always): salvage complete memory objects from a truncated response.
+            extracted_memories, truncated = salvage_memory_objects(response)
+            if extracted_memories:
+                logger.info("Salvaged %d complete memory item(s) from a malformed extraction response (async)", len(extracted_memories))
+            # Layer 2 (opt-in): retry once with a raised max_tokens on truncation.
+            if truncated and getattr(self.config, "recover_truncated_extractions", False) is True:
+                retried = await asyncio.to_thread(
+                    retry_extraction_with_more_tokens, self.llm, system_prompt, user_prompt
+                )
+                if len(retried) > len(extracted_memories):
+                    extracted_memories = retried
 
         if not extracted_memories:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)

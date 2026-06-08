@@ -1,7 +1,8 @@
 import hashlib
+import json
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -140,6 +141,97 @@ def extract_json(text):
         else:
             json_str = text
     return json_str
+
+
+def salvage_memory_objects(text: str) -> Tuple[List[Dict[str, Any]], bool]:
+    """Recover complete memory objects from a malformed or truncated extraction.
+
+    When the extraction LLM hits ``max_tokens`` mid-output, it returns valid but
+    incomplete JSON (an unterminated ``{"memory": [...]}`` array). ``json.loads``
+    and ``extract_json`` both fail on it, so every fact is dropped - including
+    the ones the model fully wrote before the cut.
+
+    This peels complete objects off the ``memory`` array one at a time with
+    ``json.JSONDecoder.raw_decode`` (stdlib, no new dependency), stopping at the
+    first object that does not fully parse (the cut-off tail). Only fully-closed,
+    self-contained objects are returned; the half-written object is dropped
+    because its content cannot be trusted.
+
+    Returns ``(memories, truncated)`` where ``truncated`` is True when the array
+    did not close cleanly (at least one object was cut off, so the optional
+    token-raise retry could recover more).
+    """
+    if not text:
+        return [], False
+    match = re.search(r'"memory"\s*:\s*\[', text)
+    if not match:
+        return [], False
+
+    decoder = json.JSONDecoder()
+    idx = match.end()
+    n = len(text)
+    memories: List[Dict[str, Any]] = []
+    truncated = True  # assume cut off until we see the closing ']'
+    while idx < n:
+        while idx < n and text[idx] in " \t\r\n,":
+            idx += 1
+        if idx >= n:
+            break
+        if text[idx] == "]":
+            truncated = False  # array closed cleanly; nothing was lost
+            break
+        try:
+            obj, end = decoder.raw_decode(text, idx)
+        except (json.JSONDecodeError, ValueError):
+            break  # incomplete tail object -> stop, leave truncated=True
+        if isinstance(obj, dict):
+            memories.append(obj)
+        idx = end
+    return memories, truncated
+
+
+#: A truncated extraction is retried once at this multiple of the configured
+#: ``max_tokens``. Real-corpus data: truncations recovered at ~4x the base
+#: budget (e.g. 2000 -> 8000); a 2x raise under-shot and re-truncated.
+_RETRY_TOKEN_MULTIPLIER = 4
+
+
+def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[Dict[str, Any]]:
+    """Single bounded retry of extraction with a raised ``max_tokens``.
+
+    For the truncation case only: re-runs the same extraction once at
+    ``_RETRY_TOKEN_MULTIPLIER`` times the configured ``max_tokens`` to recover
+    the memories that were cut off. Bounded to one attempt (no retry loop, no
+    unbounded raising). Returns the parsed memory list, or ``[]`` on any failure
+    (including a second truncation, where the caller falls back to whatever
+    ``salvage_memory_objects`` already kept).
+
+    Skipped when ``max_tokens`` is unset (cannot compute a raise).
+    """
+    current = getattr(getattr(llm, "config", None), "max_tokens", None)
+    if not current:
+        return []
+    raised = current * _RETRY_TOKEN_MULTIPLIER
+    try:
+        response = llm.generate_response(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=raised,
+        )
+        response = remove_code_blocks(response)
+        try:
+            memories = json.loads(response, strict=False).get("memory", [])
+        except json.JSONDecodeError:
+            memories = json.loads(extract_json(response), strict=False).get("memory", [])
+    except Exception as e:
+        logger.warning("Token-raise extraction retry failed: %s", e)
+        return []
+    if memories:
+        logger.info("Recovered %d memory item(s) via token-raise retry after truncation", len(memories))
+    return memories
 
 
 def get_image_description(image_obj, llm, vision_details):
