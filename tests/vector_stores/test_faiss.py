@@ -173,6 +173,36 @@ def test_search_with_filters(faiss_instance, mock_faiss_index):
                 assert results[0].payload == {"name": "vector1", "category": "A"}
 
 
+def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_index):
+    # Regression: with filters, search() over-fetches fetch_k = top_k * 2 candidates
+    # so post-filtering can still reach top_k. It must hand the full fetched set to
+    # _parse_output; passing top_k instead truncated the extra candidates away before
+    # filtering ran, so results came back short when the nearest top_k failed the filter.
+    query_vector = [0.1, 0.2, 0.3]
+
+    # Four stored vectors: the two nearest fail the filter, the next two pass it.
+    faiss_instance.docstore = {
+        "id1": {"name": "v1", "category": "B"},
+        "id2": {"name": "v2", "category": "B"},
+        "id3": {"name": "v3", "category": "A"},
+        "id4": {"name": "v4", "category": "A"},
+    }
+    faiss_instance.index_to_id = {0: "id1", 1: "id2", 2: "id3", 3: "id4"}
+
+    # top_k=2 with filters -> fetch_k = 4; the index returns all four candidates.
+    search_scores = np.array([[0.9, 0.8, 0.7, 0.6]])
+    search_indices = np.array([[0, 1, 2, 3]])
+    mock_faiss_index.search.return_value = (search_scores, search_indices)
+
+    results = faiss_instance.search(
+        query="test query", vectors=query_vector, top_k=2, filters={"category": "A"}
+    )
+
+    # Two matching vectors exist among the over-fetched set, so we must get top_k of them.
+    assert len(results) == 2
+    assert [r.id for r in results] == ["id3", "id4"]
+
+
 def test_delete(faiss_instance, mock_faiss_index):
     # Setup the docstore and index_to_id mapping
     faiss_instance.docstore = {"id1": {"name": "vector1"}, "id2": {"name": "vector2"}}
