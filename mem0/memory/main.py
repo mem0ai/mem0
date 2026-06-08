@@ -41,6 +41,7 @@ from mem0.utils.factory import (
     VectorStoreFactory,
 )
 from mem0.utils.lemmatization import lemmatize_for_bm25
+from mem0.utils.memory_attributes import infer_memory_attributes
 from mem0.utils.scoring import (
     ENTITY_BOOST_WEIGHT,
     get_bm25_params,
@@ -810,6 +811,8 @@ class Memory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
+            for key, value in infer_memory_attributes(text).items():
+                mem_metadata.setdefault(key, value)
             if "created_at" not in mem_metadata:
                 mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
             mem_metadata["updated_at"] = mem_metadata["created_at"]
@@ -1400,6 +1403,7 @@ class Memory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            query=query,
         )
 
         # Step 9: Format results
@@ -2251,6 +2255,8 @@ class AsyncMemory(MemoryBase):
             mem_metadata["data"] = text
             mem_metadata["text_lemmatized"] = text_lemmatized
             mem_metadata["hash"] = mem_hash
+            for key, value in infer_memory_attributes(text).items():
+                mem_metadata.setdefault(key, value)
             if "created_at" not in mem_metadata:
                 mem_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
             mem_metadata["updated_at"] = mem_metadata["created_at"]
@@ -2846,6 +2852,7 @@ class AsyncMemory(MemoryBase):
             threshold=threshold,
             top_k=limit,
             explain=explain,
+            query=query,
         )
 
         # Step 9: Format results

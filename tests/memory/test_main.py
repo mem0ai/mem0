@@ -117,6 +117,46 @@ class TestPromptOverridesCustomInstructions:
         assert "config-level instructions" in user_prompt
 
 
+class TestMemoryAttributeInference:
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = (
+            '{"memory": [{"id": "0", "text": '
+            '"User does not want Smash Arena recommended because it is too noisy", '
+            '"attributed_to": "user"}]}'
+        )
+
+        memory = Memory()
+        memory.custom_instructions = None
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        memory.db.batch_add_history = MagicMock()
+        memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+        memory.embedding_model.embed_batch.return_value = [[0.1, 0.2, 0.3]]
+        memory.vector_store.search.return_value = []
+        memory.entity_store.search_batch.return_value = []
+        memory.entity_store.insert = MagicMock()
+        return memory
+
+    def test_add_to_vector_store_stores_negative_constraint_attributes(self, mock_memory, mocker):
+        mocker.patch(
+            "mem0.memory.main.extract_entities_batch",
+            return_value=[[("PROPER", "Smash Arena")]],
+        )
+
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "Please do not recommend Smash Arena because it is too noisy."}],
+            metadata={"user_id": "alice"},
+            filters={"user_id": "alice"},
+            infer=True,
+        )
+
+        payload = mock_memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["memory_type"] == "constraint"
+        assert payload["polarity"] == "negative"
+
+
 class TestAsyncUpdate:
     @pytest.fixture
     def mock_async_memory(self, mocker):
