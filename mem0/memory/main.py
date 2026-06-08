@@ -8,7 +8,7 @@ import os
 import uuid
 import warnings
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
@@ -227,6 +227,19 @@ def _normalize_iso_timestamp_to_utc(timestamp: Optional[str]) -> Optional[str]:
     if parsed.tzinfo is None:
         return timestamp
     return parsed.astimezone(timezone.utc).isoformat()
+
+
+def _is_expired(payload, ttl_seconds):
+    created_at = payload.get("created_at") if isinstance(payload, dict) else None
+    if not created_at or not ttl_seconds:
+        return False
+    try:
+        ts = datetime.fromisoformat(created_at)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) - ts > timedelta(seconds=ttl_seconds)
+    except (ValueError, TypeError):
+        return False
 
 
 def _build_filters_and_metadata(
@@ -1102,8 +1115,12 @@ class Memory(MemoryBase):
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
+        ttl = self.config.memory_ttl
         formatted_memories = []
         for mem in actual_memories:
+            if ttl and _is_expired(mem.payload, ttl):
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -1412,12 +1429,16 @@ class Memory(MemoryBase):
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
+        ttl = self.config.memory_ttl
         original_memories = []
         for scored in scored_results:
             payload = scored.get("payload") or {}
 
             if not payload.get("data"):
-                continue  # Skip candidates with no payload data
+                continue
+
+            if ttl and _is_expired(payload, ttl):
+                continue
 
             memory_item_dict = MemoryItem(
                 id=scored["id"],
@@ -1597,6 +1618,35 @@ class Memory(MemoryBase):
         logger.info(f"Deleted {len(memories)} memories")
 
         return {"message": "Memories deleted successfully!"}
+
+    def cleanup_expired(self, filters=None):
+        """Delete memories that have exceeded the configured TTL.
+
+        Args:
+            filters: Optional filters to scope which memories to check.
+
+        Returns:
+            Dict with the count of deleted memories.
+
+        Raises:
+            ValueError: If memory_ttl is not configured.
+        """
+        if not self.config.memory_ttl:
+            raise ValueError("memory_ttl is not configured. Set it in MemoryConfig to use cleanup_expired().")
+
+        all_memories = self.vector_store.list(filters=filters, top_k=10000)
+        if isinstance(all_memories, (tuple, list)) and len(all_memories) > 0:
+            if isinstance(all_memories[0], (list, tuple)):
+                all_memories = all_memories[0]
+
+        deleted = 0
+        for mem in all_memories:
+            if _is_expired(mem.payload, self.config.memory_ttl):
+                self._delete_memory(mem.id, existing_memory=mem)
+                deleted += 1
+
+        logger.info(f"Cleaned up {deleted} expired memories")
+        return {"deleted": deleted}
 
     def history(self, memory_id):
         """
@@ -2544,8 +2594,12 @@ class AsyncMemory(MemoryBase):
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
+        ttl = self.config.memory_ttl
         formatted_memories = []
         for mem in actual_memories:
+            if ttl and _is_expired(mem.payload, ttl):
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -2858,10 +2912,14 @@ class AsyncMemory(MemoryBase):
         ]
         core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
+        ttl = self.config.memory_ttl
         original_memories = []
         for scored in scored_results:
             payload = scored.get("payload") or {}
             if not payload.get("data"):
+                continue
+
+            if ttl and _is_expired(payload, ttl):
                 continue
 
             memory_item_dict = MemoryItem(
@@ -3038,6 +3096,36 @@ class AsyncMemory(MemoryBase):
         logger.info(f"Deleted {len(memories[0])} memories")
 
         return {"message": "Memories deleted successfully!"}
+
+    async def cleanup_expired(self, filters=None):
+        """Delete memories that have exceeded the configured TTL.
+
+        Args:
+            filters: Optional filters to scope which memories to check.
+
+        Returns:
+            Dict with the count of deleted memories.
+
+        Raises:
+            ValueError: If memory_ttl is not configured.
+        """
+        if not self.config.memory_ttl:
+            raise ValueError("memory_ttl is not configured. Set it in MemoryConfig to use cleanup_expired().")
+
+        all_memories = await asyncio.to_thread(self.vector_store.list, filters=filters, top_k=10000)
+        if isinstance(all_memories, (tuple, list)) and len(all_memories) > 0:
+            if isinstance(all_memories[0], (list, tuple)):
+                all_memories = all_memories[0]
+
+        delete_tasks = []
+        for mem in all_memories:
+            if _is_expired(mem.payload, self.config.memory_ttl):
+                delete_tasks.append(self._delete_memory(mem.id, existing_memory=mem))
+
+        await asyncio.gather(*delete_tasks)
+        deleted = len(delete_tasks)
+        logger.info(f"Cleaned up {deleted} expired memories")
+        return {"deleted": deleted}
 
     async def history(self, memory_id):
         """
