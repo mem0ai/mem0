@@ -239,6 +239,20 @@ def _assert_utc_timestamp(timestamp: str):
     assert parsed.utcoffset().total_seconds() == 0
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["", "   "])
+async def test_async_search_returns_empty_results_for_blank_query(mocker, query):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory._search_vector_store = mocker.AsyncMock(
+        side_effect=AssertionError("blank query should not be embedded")
+    )
+
+    result = await memory.search(query, filters={"user_id": "test_user"})
+
+    assert result == {"results": []}
+    memory._search_vector_store.assert_not_called()
+
+
 def test_create_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, Memory)
     memory._create_memory("new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})

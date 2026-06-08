@@ -117,6 +117,16 @@ def test_search(memory_instance):
     )
 
 
+@pytest.mark.parametrize("query", ["", "   "])
+def test_search_returns_empty_results_for_blank_query(memory_instance, query):
+    memory_instance._search_vector_store = Mock(side_effect=AssertionError("blank query should not be embedded"))
+
+    result = memory_instance.search(query, filters={"user_id": "test_user"})
+
+    assert result == {"results": []}
+    memory_instance._search_vector_store.assert_not_called()
+
+
 def test_update(memory_instance):
     memory_instance.embedding_model = Mock()
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])

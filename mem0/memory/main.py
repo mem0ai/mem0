@@ -1212,6 +1212,9 @@ class Memory(MemoryBase):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
 
+        if isinstance(query, str) and not query.strip():
+            return {"results": []}
+
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.search",
@@ -2655,6 +2658,9 @@ class AsyncMemory(MemoryBase):
                 if fk not in ("AND", "OR", "NOT", "user_id", "agent_id", "run_id") and isinstance(effective_filters.get(fk), dict):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
+
+        if isinstance(query, str) and not query.strip():
+            return {"results": []}
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
