@@ -2223,6 +2223,9 @@ class AsyncMemory(MemoryBase):
                 logger.info("Salvaged %d complete memory item(s) from a malformed extraction response (async)", len(extracted_memories))
             # Layer 2 (opt-in): retry once with a raised max_tokens on truncation.
             if truncated and getattr(self.config, "recover_truncated_extractions", False) is True:
+                # Runs the sync retry on a worker thread. retry_extraction_with_more_tokens
+                # raises and restores llm.config.max_tokens under a lock, so concurrent
+                # retries sharing this llm cannot corrupt the shared config.
                 retried = await asyncio.to_thread(
                     retry_extraction_with_more_tokens, self.llm, system_prompt, user_prompt
                 )
