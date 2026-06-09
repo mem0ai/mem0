@@ -6,10 +6,12 @@ This extension gives Pi Agent long-term memory that persists across sessions, pr
 
 ## Features
 
-- **Automatic memory capture** — learns from every conversation without manual effort
+- **Automatic memory capture** — learns from every conversation (both user and assistant messages)
 - **Semantic search** — find memories by meaning, not just keywords
 - **Scoped memory** — project, session, or global scope
+- **Monorepo-aware** — uses git root for project detection, consistent app_id across subdirectories
 - **Dream consolidation** — merges duplicates, resolves contradictions, prunes stale entries
+- **Confirmation dialogs** — destructive commands ask before acting
 - **8 slash commands** — essential memory management from the command line
 - **Agent tool** — `mem0_memory` tool lets the agent search and store memories autonomously
 
@@ -58,11 +60,11 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 | Command | Description |
 |---------|-------------|
 | `/mem0-remember <text>` | Store a memory verbatim (no inference) |
-| `/mem0-forget <query\|id>` | Search and delete memories |
+| `/mem0-forget <query>` | Search and delete memories (with confirmation) |
 | `/mem0-search <query>` | Semantic search across memories |
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-dream` | Consolidate — merge duplicates, prune stale, resolve contradictions |
-| `/mem0-pin <query\|id>` | Pin a memory to protect from dream pruning |
+| `/mem0-pin <query>` | Pin a memory to protect from dream pruning (preserves ID) |
 | `/mem0-scope <scope>` | Change default scope for this session |
 | `/mem0-status` | Connection health, identity, and memory count |
 
@@ -85,9 +87,11 @@ The plugin includes 8 skills that guide the agent on how to use each capability:
 
 | Scope | Filters | Use case |
 |-------|---------|----------|
-| `project` | user + project | Default. Project-specific knowledge |
-| `session` | user + project + session | Ephemeral, session-only context |
-| `global` | user + all projects | All memories across all your projects |
+| `project` | user + app_id (git root) | Default. Project-specific knowledge |
+| `session` | user + app_id + run_id | Ephemeral, session-only context |
+| `global` | user only | All memories across all your projects |
+
+Project scoping uses `git rev-parse --show-toplevel` to detect the repository root, so all subdirectories within a monorepo share the same memory pool.
 
 ## Memory Categories
 
@@ -116,10 +120,11 @@ pi-agent-plugin/
 │   ├── commands.ts       # 8 slash commands
 │   ├── prompt.ts         # System prompt injection (MEMORY_POLICY)
 │   ├── types.ts          # Shared interfaces and categories
+│   ├── telemetry.ts      # PostHog telemetry (batched, PII-safe)
 │   ├── config/           # Config loading (~/.pi/agent/mem0-config.json)
-│   ├── memory/           # Tool registration, scoping, formatting
-│   ├── capture/          # Auto-capture from conversations
-│   └── dream/            # Consolidation state, locking, prompts
+│   ├── memory/           # Tool registration, scoping (git root), formatting
+│   ├── capture/          # Auto-capture from conversations (user + assistant)
+│   └── dream/            # Consolidation state, gating, locking, prompts
 ├── skills/               # 8 SKILL.md files for Pi Agent
 ├── tests/                # Vitest unit tests
 └── dist/                 # Built output (ESM + DTS)
