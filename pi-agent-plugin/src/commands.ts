@@ -7,6 +7,7 @@ import { formatMemoryList, formatMemoryCompact, groupByCategory } from "./memory
 import { DREAM_PROTOCOL } from "./dream/prompt.ts";
 import { acquireDreamLock } from "./dream/index.ts";
 import { CONFIG_DIR } from "./config/index.ts";
+import { captureCommandEvent } from "./telemetry.ts";
 
 const ID_PATTERN = /^[0-9a-f-]{8,}$/i;
 
@@ -26,6 +27,7 @@ export function registerCommands(
   mem0: MemoryClient,
   config: Mem0Config,
   getScopeCtx: () => ScopeContext,
+  telemetryCtx?: { apiKey?: string },
 ): void {
   // ── /mem0-remember ──────────────────────────────────────────────────
   pi.registerCommand("mem0-remember", {
@@ -44,6 +46,7 @@ export function registerCommands(
         { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
       );
       const msg = (result as any).message ?? "Memory stored.";
+      captureCommandEvent("mem0-remember", {}, telemetryCtx);
       ctx.ui.notify(msg, "info");
     },
   });
@@ -64,6 +67,7 @@ export function registerCommands(
       const memories = result.results ?? [];
 
       if (memories.length === 0) {
+        captureCommandEvent("mem0-forget", { result_count: 0 }, telemetryCtx);
         ctx.ui.notify("No matching memories found.", "info");
         return;
       }
@@ -71,10 +75,12 @@ export function registerCommands(
       if (memories.length === 1) {
         const target = memories[0];
         await mem0.delete(target.id);
+        captureCommandEvent("mem0-forget", { deleted_count: 1 }, telemetryCtx);
         ctx.ui.notify(`Deleted: ${formatMemoryCompact(target)}`, "info");
         return;
       }
 
+      captureCommandEvent("mem0-forget", { match_count: memories.length }, telemetryCtx);
       const list = formatMemoryList(memories);
       pi.sendMessage({
         customType: "mem0-forget",
@@ -100,10 +106,12 @@ export function registerCommands(
       if (query.match(ID_PATTERN)) {
         const fullId = await resolveMemoryId(mem0, query, filters);
         if (!fullId) {
+          captureCommandEvent("mem0-search", { result_count: 0, lookup: "id" }, telemetryCtx);
           pi.sendMessage({ customType: "mem0-search", content: `No memory found matching ID "${query}".`, display: true });
           return;
         }
         const mem = await mem0.get(fullId);
+        captureCommandEvent("mem0-search", { result_count: 1, lookup: "id" }, telemetryCtx);
         pi.sendMessage({
           customType: "mem0-search",
           content: formatMemoryCompact(mem),
@@ -115,6 +123,7 @@ export function registerCommands(
       const result = await mem0.search(query, { filters });
       const memories = result.results ?? [];
 
+      captureCommandEvent("mem0-search", { result_count: memories.length }, telemetryCtx);
       pi.sendMessage({
         customType: "mem0-search",
         content: formatMemoryList(memories),
@@ -140,6 +149,7 @@ export function registerCommands(
       const memories = result.results ?? [];
 
       if (memories.length === 0) {
+        captureCommandEvent("mem0-tour", { memory_count: 0, scope }, telemetryCtx);
         pi.sendMessage({ customType: "mem0-tour", content: "No memories found.", display: true });
         return;
       }
@@ -155,6 +165,7 @@ export function registerCommands(
         lines.push("");
       }
 
+      captureCommandEvent("mem0-tour", { memory_count: memories.length, scope }, telemetryCtx);
       pi.sendMessage({ customType: "mem0-tour", content: lines.join("\n"), display: true });
     },
   });
@@ -168,6 +179,7 @@ export function registerCommands(
         return;
       }
 
+      captureCommandEvent("mem0-dream", {}, telemetryCtx);
       pi.sendMessage({ customType: "mem0-dream", content: DREAM_PROTOCOL, display: true }, { triggerTurn: true });
       ctx.ui.notify("Dream consolidation started.", "info");
     },
@@ -189,6 +201,7 @@ export function registerCommands(
       const memories = result.results ?? [];
 
       if (memories.length === 0) {
+        captureCommandEvent("mem0-pin", { result_count: 0 }, telemetryCtx);
         ctx.ui.notify("No matching memories found to pin.", "info");
         return;
       }
@@ -204,10 +217,12 @@ export function registerCommands(
           );
           await mem0.delete(target.id);
         }
+        captureCommandEvent("mem0-pin", { pinned: true }, telemetryCtx);
         ctx.ui.notify(`Pinned: ${formatMemoryCompact(target)}`, "info");
         return;
       }
 
+      captureCommandEvent("mem0-pin", { match_count: memories.length }, telemetryCtx);
       const list = formatMemoryList(memories);
       pi.sendMessage({
         customType: "mem0-pin",
@@ -235,6 +250,7 @@ export function registerCommands(
       }
 
       config.defaultScope = scope as Scope;
+      captureCommandEvent("mem0-scope", { scope }, telemetryCtx);
       ctx.ui.notify(`Default scope changed to "${scope}" for this session.`, "info");
     },
   });
@@ -269,6 +285,7 @@ export function registerCommands(
         `- Dream: ${config.dream.enabled ? "enabled" : "disabled"}`,
       ];
 
+      captureCommandEvent("mem0-status", { connected, memory_count: count }, telemetryCtx);
       pi.sendMessage({ customType: "mem0-status", content: lines.join("\n"), display: true });
     },
   });

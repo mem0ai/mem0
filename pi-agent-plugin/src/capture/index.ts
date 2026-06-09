@@ -3,6 +3,7 @@ import type MemoryClient from "mem0ai";
 import type { Mem0Config, ScopeContext } from "../types.ts";
 import { DEFAULT_CUSTOM_CATEGORIES } from "../types.ts";
 import { resolveAddParams } from "../memory/scoping.ts";
+import { captureEvent } from "../telemetry.ts";
 
 interface MessageLike {
   role: string;
@@ -40,6 +41,7 @@ export function setupAutoCapture(
   mem0: MemoryClient,
   config: Mem0Config,
   getScopeCtx: () => ScopeContext,
+  telemetryCtx?: { apiKey?: string },
 ): void {
   if (!config.autoCapture) return;
 
@@ -56,7 +58,11 @@ export function setupAutoCapture(
         ...addParams,
         customCategories: DEFAULT_CUSTOM_CATEGORIES,
       })
+      .then(() => {
+        captureEvent("pi.capture.auto", { success: true, message_count: conversation.length }, telemetryCtx);
+      })
       .catch((err: unknown) => {
+        captureEvent("pi.capture.auto", { success: false, error: String(err) }, telemetryCtx);
         console.error("[mem0] auto-capture failed:", err);
       });
   });

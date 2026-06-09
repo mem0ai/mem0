@@ -6,6 +6,7 @@ import type { Scope, ScopeContext, Mem0Config } from "../types.ts";
 import { DEFAULT_CUSTOM_CATEGORIES } from "../types.ts";
 import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { formatMemoryList } from "./formatting.ts";
+import { captureToolEvent } from "../telemetry.ts";
 
 const MAX_OUTPUT_LINES = 200;
 const MAX_OUTPUT_BYTES = 50_000;
@@ -113,6 +114,7 @@ export function registerMemoryTool(
   mem0: MemoryClient,
   config: Mem0Config,
   getScopeCtx: () => ScopeContext,
+  telemetryCtx?: { apiKey?: string },
 ): void {
   pi.registerTool({
     name: "mem0_memory",
@@ -150,7 +152,23 @@ export function registerMemoryTool(
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const scopeCtx = getScopeCtx();
       const exec = buildToolExecute(mem0, scopeCtx, config.defaultScope);
-      return exec(params as ToolParams, signal);
+      const start = Date.now();
+      try {
+        const result = await exec(params as ToolParams, signal);
+        captureToolEvent((params as ToolParams).action, {
+          success: true,
+          latency_ms: Date.now() - start,
+          ...((result as any).details ?? {}),
+        }, telemetryCtx);
+        return result;
+      } catch (err) {
+        captureToolEvent((params as ToolParams).action, {
+          success: false,
+          latency_ms: Date.now() - start,
+          error: err instanceof Error ? err.message : String(err),
+        }, telemetryCtx);
+        throw err;
+      }
     },
   });
 }

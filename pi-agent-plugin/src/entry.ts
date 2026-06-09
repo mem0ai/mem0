@@ -15,6 +15,7 @@ import {
   releaseDreamLock,
   recordDreamCompletion,
 } from "./dream/index.ts";
+import { captureEvent } from "./telemetry.ts";
 import * as os from "node:os";
 import type { ScopeContext } from "./types.ts";
 
@@ -38,10 +39,18 @@ export default function mem0Extension(pi: ExtensionAPI): void {
     return scopeCtx;
   }
 
+  const telemetryCtx = { apiKey: config.apiKey };
+
   // ── Register tool + commands + auto-capture ─────────────────────────
-  registerMemoryTool(pi, mem0, config, getScopeCtx);
-  registerCommands(pi, mem0, config, getScopeCtx);
-  setupAutoCapture(pi, mem0, config, getScopeCtx);
+  registerMemoryTool(pi, mem0, config, getScopeCtx, telemetryCtx);
+  registerCommands(pi, mem0, config, getScopeCtx, telemetryCtx);
+  setupAutoCapture(pi, mem0, config, getScopeCtx, telemetryCtx);
+
+  captureEvent("pi.plugin.registered", {
+    auto_capture: config.autoCapture,
+    dream_enabled: config.dream.enabled,
+    default_scope: config.defaultScope,
+  }, telemetryCtx);
 
   // ── session_start: detect project + session, reconstruct scope ──────
   pi.on("session_start", async (_event, ctx) => {
@@ -57,6 +66,8 @@ export default function mem0Extension(pi: ExtensionAPI): void {
     if (config.dream.enabled) {
       incrementSessionCount(CONFIG_DIR, scopeCtx.runId);
     }
+
+    captureEvent("pi.session.start", {}, telemetryCtx);
   });
 
   // ── before_agent_start: append memory policy + auto-dream trigger ───
@@ -77,6 +88,7 @@ export default function mem0Extension(pi: ExtensionAPI): void {
           if (memGate.pass && acquireDreamLock(CONFIG_DIR)) {
             dreamTriggered = true;
             extra += "\n\n" + DREAM_PROTOCOL;
+            captureEvent("pi.dream.triggered", { memory_count: count }, telemetryCtx);
           }
         } catch {
           // Memory count check failed — skip dream this turn
@@ -107,6 +119,7 @@ export default function mem0Extension(pi: ExtensionAPI): void {
 
     if (hadWriteAction) {
       recordDreamCompletion(CONFIG_DIR);
+      captureEvent("pi.dream.completed", {}, telemetryCtx);
     }
 
     releaseDreamLock(CONFIG_DIR);
@@ -115,6 +128,7 @@ export default function mem0Extension(pi: ExtensionAPI): void {
 
   // ── session_shutdown: release dream lock if still held ──────────────
   pi.on("session_shutdown", async () => {
+    captureEvent("pi.session.stop", {}, telemetryCtx);
     if (dreamTriggered) {
       releaseDreamLock(CONFIG_DIR);
       dreamTriggered = false;
