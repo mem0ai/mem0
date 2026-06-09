@@ -182,3 +182,83 @@ def test_no_memory_found_recall_zero():
     client = MockMemoryClient()
     result = evaluate_memory(client, scenario)
     assert result.memory_recall_rate == 0.0
+
+
+def test_polarity_update_not_merged():
+    """Test that a polarity-reversing update replaces the old fact rather than merging.
+
+    Covers the case where a boolean preference flips (e.g., enabled -> disabled).
+    The new fact should win outright; the old fact should not appear as a stale match.
+    """
+    scenario = MemoryScenario(
+        name="polarity_update_not_merged",
+        user_id="user_polarity",
+        events=[
+            MemoryEvent(
+                action="add",
+                text="Email notifications are enabled.",
+                memory_id="notif_1",
+            ),
+            MemoryEvent(
+                action="update",
+                memory_id="notif_1",
+                text="Email notifications are disabled.",
+            ),
+            MemoryEvent(
+                action="query",
+                text="Are email notifications on or off?",
+            ),
+        ],
+        expected="Email notifications are disabled",
+        stale=["Email notifications are enabled"],
+    )
+    client = MockMemoryClient()
+    result = evaluate_memory(client, scenario)
+    # The newer polarity (disabled) must be recalled
+    assert result.memory_recall_rate == 1.0
+    # The old polarity (enabled) must NOT appear as a stale match
+    assert result.staleness_score == 0.0, (
+        "Old polarity was surfaced alongside the new one — update was merged, not replaced"
+    )
+    # Explicit update must have propagated
+    assert result.update_propagation_rate == 1.0
+
+
+def test_superseded_memory_excluded_from_context():
+    """Test that a superseded memory has zero probability of appearing in context injection.
+
+    Unlike the staleness_score check (which measures ranking), this test asserts
+    the stronger contract: a superseded memory must not appear in search results at all.
+    """
+    scenario = MemoryScenario(
+        name="superseded_memory_excluded",
+        user_id="user_supersede",
+        events=[
+            MemoryEvent(
+                action="add",
+                text="My phone number is 555-0100.",
+                memory_id="phone_old",
+            ),
+            MemoryEvent(
+                action="update",
+                memory_id="phone_old",
+                text="My phone number is 555-0199.",
+            ),
+            MemoryEvent(
+                action="query",
+                text="What is my phone number?",
+            ),
+        ],
+        expected="My phone number is 555-0199",
+        stale=["My phone number is 555-0100"],
+    )
+    client = MockMemoryClient()
+    result = evaluate_memory(client, scenario)
+    # New value must be recalled
+    assert result.memory_recall_rate == 1.0
+    # Old value must be completely absent from retrieved context (not just ranked lower)
+    assert result.staleness_score == 0.0, (
+        "Superseded memory appeared in context injection output — "
+        "it must be fully excluded, not just deprioritized"
+    )
+    assert result.update_propagation_rate == 1.0
