@@ -12,7 +12,7 @@ The plugin provides:
 2. **Semantic recall** — Retrieves relevant memories via the `mem0_memory` tool before each response
 3. **Dream consolidation** — Periodic maintenance: merges duplicates, resolves contradictions, prunes stale entries
 4. **Scoped memory** — Project, session, user, or global scope for fine-grained control
-5. **8 skills + 7 commands** — Essential memory management from slash commands and agent-guided workflows
+5. **8 skills + 8 commands** — Essential memory management from slash commands and agent-guided workflows
 
 ## Prerequisites
 
@@ -85,7 +85,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | Component | Description |
 |-----------|-------------|
 | `mem0_memory` tool | Agent-callable tool for search, add, get_all, delete, delete_all |
-| 7 slash commands | Essential memory management from the command line |
+| 8 slash commands | Essential memory management from the command line |
 | 8 skills | Guide the agent on how to use each capability |
 | Auto-capture | Extracts and stores facts on every `agent_end` event |
 | System prompt | Appends memory policy to every agent turn |
@@ -117,6 +117,7 @@ Tool output is truncated to 200 lines / 50KB to prevent context overflow.
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-dream` | Consolidate — merge duplicates, prune stale, resolve contradictions |
 | `/mem0-pin <query\|id>` | Pin a memory to protect from dream pruning |
+| `/mem0-scope <scope>` | Change default scope for this session (project, session, user, global) |
 | `/mem0-status` | Connection health, identity, and memory count |
 
 ## Memory Scopes

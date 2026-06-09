@@ -183,6 +183,28 @@ export function registerCommands(
     },
   });
 
+  // ── /mem0-scope ─────────────────────────────────────────────────────
+  pi.registerCommand("mem0-scope", {
+    description: "Change default memory scope for this session (project, session, user, global)",
+    handler: async (args, ctx) => {
+      const scope = args?.trim().toLowerCase();
+      const valid: Scope[] = ["project", "session", "user", "global"];
+
+      if (!scope) {
+        ctx.ui.notify(`Current scope: ${config.defaultScope}. Usage: /mem0-scope <${valid.join("|")}>`, "info");
+        return;
+      }
+
+      if (!valid.includes(scope as Scope)) {
+        ctx.ui.notify(`Invalid scope "${scope}". Must be one of: ${valid.join(", ")}`, "warning");
+        return;
+      }
+
+      config.defaultScope = scope as Scope;
+      ctx.ui.notify(`Default scope changed to "${scope}" for this session.`, "info");
+    },
+  });
+
   // ── /mem0-status ────────────────────────────────────────────────────
   pi.registerCommand("mem0-status", {
     description: "Show connection health, identity, project, and memory count",
@@ -207,6 +229,7 @@ export function registerCommands(
         `- User: ${scopeCtx.userId}`,
         `- Project: ${scopeCtx.appId}`,
         `- Session: ${scopeCtx.runId}`,
+        `- Default scope: ${config.defaultScope}`,
         `- Project memories: ${count}`,
         `- Auto-capture: ${config.autoCapture ? "on" : "off"}`,
         `- Dream: ${config.dream.enabled ? "enabled" : "disabled"}`,

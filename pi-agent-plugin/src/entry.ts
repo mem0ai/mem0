@@ -15,6 +15,7 @@ import {
   releaseDreamLock,
   recordDreamCompletion,
 } from "./dream/index.ts";
+import * as os from "node:os";
 import type { ScopeContext } from "./types.ts";
 
 export default function mem0Extension(pi: ExtensionAPI): void {
@@ -28,9 +29,9 @@ export default function mem0Extension(pi: ExtensionAPI): void {
   const mem0 = new MemoryClient({ apiKey: config.apiKey });
 
   const scopeCtx: ScopeContext = {
-    userId: config.userId || "default",
-    appId: "unknown",
-    runId: "unknown",
+    userId: config.userId || process.env.USER || process.env.USERNAME || (() => { try { return os.userInfo().username; } catch { return "default"; } })(),
+    appId: detectAppId(process.cwd()),
+    runId: `pid-${process.pid}`,
   };
 
   function getScopeCtx(): ScopeContext {

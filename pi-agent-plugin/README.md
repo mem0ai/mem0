@@ -10,7 +10,7 @@ This extension gives Pi Agent long-term memory that persists across sessions, pr
 - **Semantic search** — find memories by meaning, not just keywords
 - **Scoped memory** — project, session, user, or global scope
 - **Dream consolidation** — merges duplicates, resolves contradictions, prunes stale entries
-- **7 slash commands** — essential memory management from the command line
+- **8 slash commands** — essential memory management from the command line
 - **Agent tool** — `mem0_memory` tool lets the agent search and store memories autonomously
 
 ## Setup
@@ -63,6 +63,7 @@ Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-dream` | Consolidate — merge duplicates, prune stale, resolve contradictions |
 | `/mem0-pin <query\|id>` | Pin a memory to protect from dream pruning |
+| `/mem0-scope <scope>` | Change default scope for this session |
 | `/mem0-status` | Connection health, identity, and memory count |
 
 ## Skills
@@ -113,7 +114,7 @@ pi-agent-plugin/
 ├── src/
 │   ├── entry.ts          # Extension entry point
 │   ├── index.ts          # Barrel exports
-│   ├── commands.ts       # 7 slash commands
+│   ├── commands.ts       # 8 slash commands
 │   ├── prompt.ts         # System prompt injection (MEMORY_POLICY)
 │   ├── types.ts          # Shared interfaces and categories
 │   ├── config/           # Config loading (~/.pi/agent/mem0-config.json)

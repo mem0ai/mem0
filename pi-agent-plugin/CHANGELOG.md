@@ -6,7 +6,7 @@ Initial release of `@mem0/pi-agent-plugin` — persistent semantic memory for Pi
 
 ### Features
 
-- **Extension entry point** — registers `mem0_memory` tool, 7 slash commands, and auto-capture hooks
+- **Extension entry point** — registers `mem0_memory` tool, 8 slash commands, and auto-capture hooks
 - **Agent tool** (`mem0_memory`) — search, add, get_all, delete, delete_all with scoped filters
 - **Auto-capture** — extracts and stores memories from conversations on `agent_end`
 - **Dream consolidation** — automated memory maintenance: merge duplicates, resolve contradictions, prune stale entries. Gated by session count, time elapsed, and memory count thresholds
@@ -28,4 +28,5 @@ Initial release of `@mem0/pi-agent-plugin` — persistent semantic memory for Pi
 | `/mem0-tour` | Browse all memories by category |
 | `/mem0-dream` | Trigger memory consolidation |
 | `/mem0-pin` | Pin a memory to protect from pruning |
+| `/mem0-scope` | Change default scope for this session |
 | `/mem0-status` | Connection health and diagnostics |
