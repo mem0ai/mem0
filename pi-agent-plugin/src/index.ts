@@ -11,7 +11,7 @@ export { loadConfig, CONFIG_DIR } from "./config/index.ts";
 
 export { registerMemoryTool, buildToolExecute } from "./memory/tools.ts";
 export { detectAppId, detectRunId, resolveSearchFilters, resolveAddParams } from "./memory/scoping.ts";
-export { formatAge, shortId, formatMemoryCompact, formatMemoryList, groupByCategory } from "./memory/formatting.ts";
+export { formatAge, formatMemoryCompact, formatMemoryList, groupByCategory } from "./memory/formatting.ts";
 
 export { setupAutoCapture, extractConversation } from "./capture/index.ts";
 

@@ -26,7 +26,7 @@ describe("formatMemoryCompact", () => {
     const line = formatMemoryCompact(mem);
     expect(line).toContain("[preference]");
     expect(line).toContain("User prefers dark mode");
-    expect(line).toContain("[mem0:abc-123-]");
+    expect(line).toContain("[mem0:abc-123-def-456]");
   });
 });
 

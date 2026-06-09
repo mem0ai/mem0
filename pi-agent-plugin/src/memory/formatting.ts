@@ -16,14 +16,10 @@ export function formatAge(date: Date | string): string {
   return `${days}d ago`;
 }
 
-export function shortId(id: string): string {
-  return id.slice(0, 8);
-}
-
 export function formatMemoryCompact(mem: MemoryLike): string {
   const cat = mem.categories?.[0] ?? "uncategorized";
   const age = mem.createdAt ? ` (${formatAge(mem.createdAt)})` : "";
-  return `[${cat}] ${mem.memory ?? "(empty)"}${age} [mem0:${shortId(mem.id)}]`;
+  return `[${cat}] ${mem.memory ?? "(empty)"}${age} [mem0:${mem.id}]`;
 }
 
 export function formatMemoryList(memories: MemoryLike[]): string {
