@@ -1,14 +1,20 @@
 import * as path from "node:path";
 import * as crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 import type { Scope, ScopeContext } from "../types.ts";
 
 export function detectAppId(cwd: string): string {
-  const base = path.basename(cwd);
-  const parent = path.basename(path.dirname(cwd));
-  if (parent && parent !== "." && parent !== "/") {
-    return `${parent}/${base}`;
+  try {
+    const root = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd,
+      encoding: "utf-8",
+      timeout: 3000,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return path.basename(root);
+  } catch {
+    return path.basename(cwd);
   }
-  return base;
 }
 
 export function detectRunId(sessionFile: string | undefined): string {
