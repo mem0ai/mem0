@@ -31,7 +31,7 @@ export default function mem0Extension(pi: ExtensionAPI): void {
   const scopeCtx: ScopeContext = {
     userId: config.userId || process.env.USER || process.env.USERNAME || (() => { try { return os.userInfo().username; } catch { return "default"; } })(),
     appId: detectAppId(process.cwd()),
-    runId: `pid-${process.pid}`,
+    runId: "unknown",
   };
 
   function getScopeCtx(): ScopeContext {
