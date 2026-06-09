@@ -155,17 +155,18 @@ export function registerMemoryTool(
       const start = Date.now();
       try {
         const result = await exec(params as ToolParams, signal);
+        const details = (result as any).details ?? {};
         captureToolEvent((params as ToolParams).action, {
           success: true,
           latency_ms: Date.now() - start,
-          ...((result as any).details ?? {}),
+          result_count: details.matchCount ?? details.totalCount ?? undefined,
         }, telemetryCtx);
         return result;
       } catch (err) {
         captureToolEvent((params as ToolParams).action, {
           success: false,
           latency_ms: Date.now() - start,
-          error: err instanceof Error ? err.message : String(err),
+          error_type: err instanceof Error ? err.name : "unknown",
         }, telemetryCtx);
         throw err;
       }

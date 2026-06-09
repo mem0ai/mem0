@@ -62,7 +62,10 @@ export function setupAutoCapture(
         captureEvent("pi.capture.auto", { success: true, message_count: conversation.length }, telemetryCtx);
       })
       .catch((err: unknown) => {
-        captureEvent("pi.capture.auto", { success: false, error: String(err) }, telemetryCtx);
+        captureEvent("pi.capture.auto", {
+          success: false,
+          error_type: err instanceof Error ? err.name : "unknown",
+        }, telemetryCtx);
         console.error("[mem0] auto-capture failed:", err);
       });
   });
