@@ -88,15 +88,7 @@ export function buildToolExecute(
       case "delete": {
         if (signal?.aborted) throw new Error("Cancelled");
         if (!params.memory_id) throw new Error("memory_id is required for delete");
-        let memoryId = params.memory_id;
-        if (memoryId.length < 20) {
-          const filters = resolveSearchFilters(scope, scopeCtx);
-          const all = await mem0.getAll({ filters });
-          const match = (all.results ?? []).find((m) => m.id.startsWith(memoryId));
-          if (!match) throw new Error(`No memory found matching ID "${memoryId}"`);
-          memoryId = match.id;
-        }
-        const result = await mem0.delete(memoryId);
+        const result = await mem0.delete(params.memory_id);
         return {
           content: [{ type: "text" as const, text: result.message ?? "Memory deleted." }],
           details: {},

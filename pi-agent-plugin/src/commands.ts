@@ -50,28 +50,16 @@ export function registerCommands(
 
   // ── /mem0-forget ────────────────────────────────────────────────────
   pi.registerCommand("mem0-forget", {
-    description: "Search and delete memories by query or ID",
+    description: "Delete memories matching a natural language query",
     handler: async (args, ctx) => {
       const query = args?.trim();
       if (!query) {
-        ctx.ui.notify("Usage: /mem0-forget <query|id>", "warning");
+        ctx.ui.notify("Usage: /mem0-forget <query>", "warning");
         return;
       }
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-
-      if (query.match(ID_PATTERN)) {
-        const fullId = await resolveMemoryId(mem0, query, filters);
-        if (!fullId) {
-          ctx.ui.notify(`No memory found matching ID "${query}".`, "warning");
-          return;
-        }
-        const result = await mem0.delete(fullId);
-        ctx.ui.notify(result.message ?? `Deleted memory ${fullId.slice(0, 8)}.`, "info");
-        return;
-      }
-
       const result = await mem0.search(query, { filters });
       const memories = result.results ?? [];
 
@@ -80,12 +68,19 @@ export function registerCommands(
         return;
       }
 
+      if (memories.length === 1) {
+        const target = memories[0];
+        await mem0.delete(target.id);
+        ctx.ui.notify(`Deleted: ${formatMemoryCompact(target)}`, "info");
+        return;
+      }
+
       const list = formatMemoryList(memories);
       pi.sendMessage({
         customType: "mem0-forget",
-        content: `Found ${memories.length} matching memory(s):\n\n${list}\n\nUse /mem0-forget <memory_id> to delete a specific entry.`,
+        content: `Found ${memories.length} matching memories:\n\n${list}\n\nWhich memory should I delete? Tell me the number or describe which one.`,
         display: true,
-      });
+      }, { triggerTurn: true });
     },
   });
 
@@ -184,33 +179,12 @@ export function registerCommands(
     handler: async (args, ctx) => {
       const query = args?.trim();
       if (!query) {
-        ctx.ui.notify("Usage: /mem0-pin <query|id>", "warning");
+        ctx.ui.notify("Usage: /mem0-pin <query>", "warning");
         return;
       }
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-
-      if (query.match(ID_PATTERN)) {
-        const fullId = await resolveMemoryId(mem0, query, filters);
-        if (!fullId) {
-          ctx.ui.notify(`No memory found matching ID "${query}".`, "warning");
-          return;
-        }
-        const mem = await mem0.get(fullId);
-        const text = mem?.memory ?? "";
-        if (!text.startsWith("[PINNED]")) {
-          const addParams = resolveAddParams(config.defaultScope, scopeCtx);
-          await mem0.add(
-            [{ role: "user", content: `[PINNED] ${text}` }],
-            { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
-          );
-          await mem0.delete(fullId);
-        }
-        ctx.ui.notify(`Pinned memory ${fullId.slice(0, 8)}.`, "info");
-        return;
-      }
-
       const result = await mem0.search(query, { filters });
       const memories = result.results ?? [];
 
@@ -219,12 +193,27 @@ export function registerCommands(
         return;
       }
 
+      if (memories.length === 1) {
+        const target = memories[0];
+        const text = target.memory ?? "";
+        if (!text.startsWith("[PINNED]")) {
+          const addParams = resolveAddParams(config.defaultScope, scopeCtx);
+          await mem0.add(
+            [{ role: "user", content: `[PINNED] ${text}` }],
+            { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
+          );
+          await mem0.delete(target.id);
+        }
+        ctx.ui.notify(`Pinned: ${formatMemoryCompact(target)}`, "info");
+        return;
+      }
+
       const list = formatMemoryList(memories);
       pi.sendMessage({
         customType: "mem0-pin",
-        content: `Found ${memories.length} match(es):\n\n${list}\n\nUse /mem0-pin <memory_id> to pin a specific memory.`,
+        content: `Found ${memories.length} matches:\n\n${list}\n\nWhich memory should I pin? Tell me the number or describe which one.`,
         display: true,
-      });
+      }, { triggerTurn: true });
     },
   });
 
