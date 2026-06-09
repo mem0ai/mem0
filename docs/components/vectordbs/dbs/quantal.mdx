@@ -1,0 +1,55 @@
+---
+title: "Quantal"
+description: "Use quantal as an embedded, quantized vector store in Mem0: no server to run, with graph-routed search and a fraction of the memory of full-precision stores."
+---
+
+[quantal](https://github.com/PaytonWebber/quantal) is an embedded vector index you link into your application, not a server you run. It routes each query through a graph over quantized codes instead of scanning every vector, so search stays fast as memories accumulate, and the index stores compressed data rather than full-precision vectors. Deletes are O(1) tombstones, so removing memories never rebuilds the index.
+
+### Installation
+
+```bash
+pip install quantaldb
+```
+
+Prebuilt wheels cover the common embedding dimensions (256/384/512/768/1024/1536/3072) on Linux, macOS (Apple Silicon), and Windows.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "quantal",
+        "config": {
+            "collection_name": "test",
+            "path": "/tmp/quantal_memories",
+            "embedding_model_dims": 1536,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about a thriller? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+### Config
+
+Here are the parameters available for configuring quantal:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | The name of the collection | `mem0` |
+| `path` | Directory for the index and metadata files | `/tmp/quantal` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+
+Vectors are stored normalized and scored by inner product, so similarity is always cosine. Searches with filters (for example `user_id`) restrict scoring to the matching memories up front rather than over-fetching and post-filtering.
