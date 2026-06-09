@@ -53,20 +53,18 @@ export function setupAutoCapture(
     const scopeCtx = getScopeCtx();
     const addParams = resolveAddParams("project", scopeCtx);
 
-    mem0
-      .add(conversation, {
+    try {
+      await mem0.add(conversation, {
         ...addParams,
         customCategories: DEFAULT_CUSTOM_CATEGORIES,
-      })
-      .then(() => {
-        captureEvent("pi.capture.auto", { success: true, message_count: conversation.length }, telemetryCtx);
-      })
-      .catch((err: unknown) => {
-        captureEvent("pi.capture.auto", {
-          success: false,
-          error_type: err instanceof Error ? err.name : "unknown",
-        }, telemetryCtx);
-        console.error("[mem0] auto-capture failed:", err);
       });
+      captureEvent("pi.capture.auto", { success: true, message_count: conversation.length }, telemetryCtx);
+    } catch (err: unknown) {
+      captureEvent("pi.capture.auto", {
+        success: false,
+        error_type: err instanceof Error ? err.name : "unknown",
+      }, telemetryCtx);
+      console.error("[mem0] auto-capture failed:", err);
+    }
   });
 }
