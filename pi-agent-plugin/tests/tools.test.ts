@@ -46,9 +46,18 @@ describe("buildToolExecute", () => {
     });
   });
 
-  it("delete calls mem0.delete with memory_id", async () => {
+  it("delete calls mem0.delete with full memory_id", async () => {
     mockMem0.delete.mockResolvedValue({ message: "deleted" });
-    await execute({ action: "delete", memory_id: "abc-123" });
-    expect(mockMem0.delete).toHaveBeenCalledWith("abc-123");
+    await execute({ action: "delete", memory_id: "abc12345-6789-0abc-def0-123456789abc" });
+    expect(mockMem0.delete).toHaveBeenCalledWith("abc12345-6789-0abc-def0-123456789abc");
+  });
+
+  it("delete resolves short ID to full ID before deleting", async () => {
+    const fullId = "956e3d68-b420-4e07-a4e3-3019e7cebe6f";
+    mockMem0.getAll.mockResolvedValue({ results: [{ id: fullId, memory: "test" }] });
+    mockMem0.delete.mockResolvedValue({ message: "deleted" });
+    await execute({ action: "delete", memory_id: "956e3d68" });
+    expect(mockMem0.getAll).toHaveBeenCalled();
+    expect(mockMem0.delete).toHaveBeenCalledWith(fullId);
   });
 });

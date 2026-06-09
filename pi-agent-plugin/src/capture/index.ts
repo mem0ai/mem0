@@ -26,10 +26,10 @@ export function extractConversation(
   const result: Array<{ role: "user" | "assistant"; content: string }> = [];
 
   for (const msg of messages) {
-    if (msg.role !== "user" && msg.role !== "assistant") continue;
+    if (msg.role !== "user") continue;
     const text = extractText(msg.content);
     if (!text) continue;
-    result.push({ role: msg.role as "user" | "assistant", content: text });
+    result.push({ role: "user", content: text });
   }
 
   return result;

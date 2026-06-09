@@ -8,6 +8,19 @@ import { DREAM_PROTOCOL } from "./dream/prompt.ts";
 import { acquireDreamLock } from "./dream/index.ts";
 import { CONFIG_DIR } from "./config/index.ts";
 
+const ID_PATTERN = /^[0-9a-f-]{8,}$/i;
+
+async function resolveMemoryId(
+  mem0: MemoryClient,
+  input: string,
+  filters: Record<string, string>,
+): Promise<string | null> {
+  if (input.length >= 20) return input;
+  const result = await mem0.getAll({ filters });
+  const match = (result.results ?? []).find((m) => m.id.startsWith(input));
+  return match?.id ?? null;
+}
+
 export function registerCommands(
   pi: ExtensionAPI,
   mem0: MemoryClient,
@@ -46,14 +59,19 @@ export function registerCommands(
       }
 
       const scopeCtx = getScopeCtx();
+      const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
 
-      if (query.match(/^[0-9a-f-]{20,}$/i)) {
-        const result = await mem0.delete(query);
-        ctx.ui.notify(result.message ?? `Deleted memory ${query}.`, "info");
+      if (query.match(ID_PATTERN)) {
+        const fullId = await resolveMemoryId(mem0, query, filters);
+        if (!fullId) {
+          ctx.ui.notify(`No memory found matching ID "${query}".`, "warning");
+          return;
+        }
+        const result = await mem0.delete(fullId);
+        ctx.ui.notify(result.message ?? `Deleted memory ${fullId.slice(0, 8)}.`, "info");
         return;
       }
 
-      const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
       const result = await mem0.search(query, { filters });
       const memories = result.results ?? [];
 
@@ -65,7 +83,7 @@ export function registerCommands(
       const list = formatMemoryList(memories);
       pi.sendMessage({
         customType: "mem0-forget",
-        content: `Found ${memories.length} matching memory(s):\n\n${list}\n\nUse mem0_memory with action "delete" and a memory_id to remove specific entries.`,
+        content: `Found ${memories.length} matching memory(s):\n\n${list}\n\nUse /mem0-forget <memory_id> to delete a specific entry.`,
         display: true,
       });
     },
@@ -83,6 +101,22 @@ export function registerCommands(
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
+
+      if (query.match(ID_PATTERN)) {
+        const fullId = await resolveMemoryId(mem0, query, filters);
+        if (!fullId) {
+          pi.sendMessage({ customType: "mem0-search", content: `No memory found matching ID "${query}".`, display: true });
+          return;
+        }
+        const mem = await mem0.get(fullId);
+        pi.sendMessage({
+          customType: "mem0-search",
+          content: formatMemoryCompact(mem),
+          display: true,
+        });
+        return;
+      }
+
       const result = await mem0.search(query, { filters });
       const memories = result.results ?? [];
 
@@ -155,9 +189,15 @@ export function registerCommands(
       }
 
       const scopeCtx = getScopeCtx();
+      const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
 
-      if (query.match(/^[0-9a-f-]{20,}$/i)) {
-        const mem = await mem0.get(query);
+      if (query.match(ID_PATTERN)) {
+        const fullId = await resolveMemoryId(mem0, query, filters);
+        if (!fullId) {
+          ctx.ui.notify(`No memory found matching ID "${query}".`, "warning");
+          return;
+        }
+        const mem = await mem0.get(fullId);
         const text = mem?.memory ?? "";
         if (!text.startsWith("[PINNED]")) {
           const addParams = resolveAddParams(config.defaultScope, scopeCtx);
@@ -165,13 +205,12 @@ export function registerCommands(
             [{ role: "user", content: `[PINNED] ${text}` }],
             { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
           );
-          await mem0.delete(query);
+          await mem0.delete(fullId);
         }
-        ctx.ui.notify(`Pinned memory ${query.slice(0, 8)}.`, "info");
+        ctx.ui.notify(`Pinned memory ${fullId.slice(0, 8)}.`, "info");
         return;
       }
 
-      const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
       const result = await mem0.search(query, { filters });
       const memories = result.results ?? [];
 
