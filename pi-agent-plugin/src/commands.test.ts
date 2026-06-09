@@ -21,6 +21,7 @@ function makeMem0() {
     add: vi.fn(),
     get: vi.fn(),
     getAll: vi.fn(),
+    update: vi.fn(),
   } as any;
 }
 
@@ -141,11 +142,10 @@ describe("registerCommands", () => {
   });
 
   describe("/mem0-pin", () => {
-    it("asks for confirmation before pinning", async () => {
+    it("uses update to pin in-place, preserving memory ID", async () => {
       const ctx = makeCtx(true);
       mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "important fact" }] });
-      mem0.add.mockResolvedValue({ message: "Stored" });
-      mem0.delete.mockResolvedValue({ message: "Deleted" });
+      mem0.update.mockResolvedValue([]);
 
       await pi._invoke("mem0-pin", "important", ctx);
 
@@ -153,11 +153,9 @@ describe("registerCommands", () => {
         "Pin this memory?",
         expect.stringContaining("important fact"),
       );
-      expect(mem0.add).toHaveBeenCalledWith(
-        [{ role: "user", content: "[PINNED] important fact" }],
-        expect.any(Object),
-      );
-      expect(mem0.delete).toHaveBeenCalledWith("abc-123");
+      expect(mem0.update).toHaveBeenCalledWith("abc-123", { text: "[PINNED] important fact" });
+      expect(mem0.add).not.toHaveBeenCalled();
+      expect(mem0.delete).not.toHaveBeenCalled();
     });
 
     it("does not pin when user cancels", async () => {
@@ -166,8 +164,7 @@ describe("registerCommands", () => {
 
       await pi._invoke("mem0-pin", "fact", ctx);
 
-      expect(mem0.add).not.toHaveBeenCalled();
-      expect(mem0.delete).not.toHaveBeenCalled();
+      expect(mem0.update).not.toHaveBeenCalled();
     });
 
     it("skips already-pinned memories", async () => {

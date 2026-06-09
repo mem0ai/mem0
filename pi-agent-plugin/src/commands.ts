@@ -198,12 +198,7 @@ export function registerCommands(
           ctx.ui.notify("Cancelled.", "info");
           return;
         }
-        const addParams = resolveAddParams(config.defaultScope, scopeCtx);
-        await mem0.add(
-          [{ role: "user", content: `[PINNED] ${text}` }],
-          { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
-        );
-        await mem0.delete(target.id);
+        await mem0.update(target.id, { text: `[PINNED] ${text}` });
         captureCommandEvent("mem0-pin", { pinned: true }, telemetryCtx);
         ctx.ui.notify(`Pinned: ${formatMemoryCompact(target)}`, "info");
         return;
