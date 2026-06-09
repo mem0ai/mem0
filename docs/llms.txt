@@ -259,6 +259,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Camel AI](https://docs.mem0.ai/integrations/camel-ai) [Both]: Use when the user is on Camel AI.
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Both]: Use when the user is on ChatDev.
 - [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
+- [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding persistent memory to Pi Agent with the Mem0 plugin.
 - [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Both]: Use when the user is on the OpenAI Agents SDK.
 - [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) [Both]: Use when the user is on Google's Agent Development Kit.
 - [Mastra](https://docs.mem0.ai/integrations/mastra) [Both]: Use when the user is on Mastra (TypeScript).
