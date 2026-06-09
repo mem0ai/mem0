@@ -45,7 +45,7 @@ export function registerCommands(
         [{ role: "user", content: text }],
         { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
       );
-      const msg = (result as any).message ?? "Memory stored.";
+      const msg = (result as { message?: string }).message ?? "Memory stored.";
       captureCommandEvent("mem0-remember", {}, telemetryCtx);
       ctx.ui.notify(msg, "info");
     },

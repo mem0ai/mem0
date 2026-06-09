@@ -8,6 +8,12 @@ import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { formatMemoryList } from "./formatting.ts";
 import { captureToolEvent } from "../telemetry.ts";
 
+interface AddResult {
+  message?: string;
+  eventId?: string;
+  status?: string;
+}
+
 const MAX_OUTPUT_LINES = 200;
 const MAX_OUTPUT_BYTES = 50_000;
 
@@ -67,7 +73,7 @@ export function buildToolExecute(
           [{ role: "user", content: params.content }],
           { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES },
         );
-        const res = result as any;
+        const res = result as AddResult;
         const msg = res.message ?? "Memory stored.";
         return {
           content: [{ type: "text" as const, text: msg }],

@@ -19,6 +19,13 @@ import { captureEvent } from "./telemetry.ts";
 import * as os from "node:os";
 import type { ScopeContext } from "./types.ts";
 
+export function resolveUserId(configUserId: string): string {
+  if (configUserId) return configUserId;
+  if (process.env.USER) return process.env.USER;
+  if (process.env.USERNAME) return process.env.USERNAME;
+  try { return os.userInfo().username; } catch { return "default"; }
+}
+
 export default function mem0Extension(pi: ExtensionAPI): void {
   const config = loadConfig();
 
@@ -30,7 +37,7 @@ export default function mem0Extension(pi: ExtensionAPI): void {
   const mem0 = new MemoryClient({ apiKey: config.apiKey });
 
   const scopeCtx: ScopeContext = {
-    userId: config.userId || process.env.USER || process.env.USERNAME || (() => { try { return os.userInfo().username; } catch { return "default"; } })(),
+    userId: resolveUserId(config.userId),
     appId: detectAppId(process.cwd()),
     runId: "unknown",
   };

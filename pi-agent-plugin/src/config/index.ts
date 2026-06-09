@@ -1,8 +1,9 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type { Mem0Config, DreamConfig } from "../types.ts";
 
-const AGENT_ROOT = path.join(process.env.HOME || "~", ".pi", "agent");
+const AGENT_ROOT = path.join(os.homedir(), ".pi", "agent");
 export const CONFIG_DIR = AGENT_ROOT;
 const CONFIG_PATH = path.join(AGENT_ROOT, "mem0-config.json");
 
