@@ -1,0 +1,216 @@
+---
+title: Pi Agent
+description: "Add persistent memory to Pi Agent with the Mem0 plugin semantic search, auto-capture, dream consolidation, and 14 skills."
+---
+
+Add persistent memory to [**Pi Agent**](https://pi.dev) with `@mem0/pi-agent-plugin`. Your agent forgets everything between sessions — this plugin fixes that by automatically capturing knowledge from conversations, storing it in Mem0's cloud memory layer, and retrieving relevant context before every response.
+
+## Overview
+
+The plugin provides:
+1. **Auto-capture** — Extracts durable facts from every conversation automatically
+2. **Semantic recall** — Retrieves relevant memories via the `mem0_memory` tool before each response
+3. **Dream consolidation** — Periodic maintenance: merges duplicates, resolves contradictions, prunes stale entries
+4. **Scoped memory** — Project, session, user, or global scope for fine-grained control
+5. **14 skills + 13 commands** — Full memory management from slash commands and agent-guided workflows
+
+## Prerequisites
+
+1. A Mem0 Platform account and API key:
+   - <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-pi-agent" rel="nofollow">Sign up at app.mem0.ai</a>
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-pi-agent" rel="nofollow">Get your API key</a> (starts with `m0-`)
+
+2. Pi Agent installed ([pi.dev](https://pi.dev))
+
+3. Your API key added to your shell profile:
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc
+source ~/.bashrc
+```
+</CodeGroup>
+
+## Installation
+
+```bash
+pi install npm:@mem0/pi-agent-plugin
+```
+
+That's it. The extension loads automatically on every Pi session. No config files needed — `MEM0_API_KEY` from your environment is picked up automatically.
+
+<Info>
+  Start a new Pi session and run `/mem0-status` to verify the connection. You should see your user ID, detected project, and memory count.
+</Info>
+
+### Optional Configuration
+
+For advanced settings, create `~/.pi/agent/mem0-config.json`:
+
+```json
+{
+  "apiKey": "m0-your-key-here",
+  "userId": "your-username",
+  "autoCapture": true,
+  "defaultScope": "project",
+  "dream": {
+    "enabled": true,
+    "auto": true,
+    "minHours": 24,
+    "minSessions": 5,
+    "minMemories": 20
+  }
+}
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `apiKey` | `string` | `$MEM0_API_KEY` | Mem0 API key. Environment variable takes precedence. |
+| `userId` | `string` | `$MEM0_USER_ID` or `"default"` | User identity for memory scoping |
+| `autoCapture` | `boolean` | `true` | Store facts from conversations automatically |
+| `defaultScope` | `string` | `"project"` | Default memory scope: `project`, `session`, `user`, or `global` |
+| `dream.enabled` | `boolean` | `true` | Enable dream consolidation |
+| `dream.auto` | `boolean` | `true` | Auto-trigger dreams when thresholds are met |
+| `dream.minHours` | `number` | `24` | Minimum hours between auto-dreams |
+| `dream.minSessions` | `number` | `5` | Minimum sessions before first auto-dream |
+| `dream.minMemories` | `number` | `20` | Minimum memories before auto-dream triggers |
+
+## What's Included
+
+| Component | Description |
+|-----------|-------------|
+| `mem0_memory` tool | Agent-callable tool for search, add, get_all, delete, delete_all |
+| 13 slash commands | Full memory management from the command line |
+| 14 skills | Guide the agent on how to use each capability |
+| Auto-capture | Extracts and stores facts on every `agent_end` event |
+| System prompt | Appends memory policy to every agent turn |
+| Dream consolidation | Automated memory maintenance with session/time/count gates |
+
+## Agent Tool
+
+The `mem0_memory` tool is registered with Pi and callable by the agent during conversations:
+
+| Action | Required Params | Description |
+|--------|----------------|-------------|
+| `search` | `query` | Semantic search across memories |
+| `add` | `content` | Store a new memory |
+| `get_all` | — | List all memories in scope |
+| `delete` | `memory_id` | Delete a specific memory |
+| `delete_all` | — | Delete all memories in scope |
+
+All actions accept an optional `scope` parameter: `project` (default), `session`, `user`, or `global`.
+
+Tool output is truncated to 200 lines / 50KB to prevent context overflow.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/mem0-remember <text>` | Store a memory verbatim (no inference) |
+| `/mem0-forget <query\|id>` | Search and delete memories |
+| `/mem0-search <query>` | Semantic search across memories |
+| `/mem0-tour [scope]` | Browse all memories grouped by category |
+| `/mem0-dream` | Consolidate — merge duplicates, prune stale, resolve contradictions |
+| `/mem0-pin <query\|id>` | Pin a memory to protect from dream pruning |
+| `/mem0-status` | Connection health, identity, and memory count |
+| `/mem0-stats [scope]` | Memory dashboard — counts by category and age |
+| `/mem0-review` | Read-only quality audit |
+| `/mem0-export [scope]` | Export all memories to markdown |
+| `/mem0-import [file]` | Import memories from export file |
+| `/mem0-projects` | List all projects with memory counts |
+| `/mem0-switch <project>` | Override the auto-detected project scope |
+
+## Memory Scopes
+
+Memories are scoped using Mem0's `user_id`, `app_id`, and `run_id` parameters:
+
+| Scope | Filters | Use Case |
+|-------|---------|----------|
+| `project` | user_id + app_id | **Default.** Project-specific knowledge — decisions, architecture, config |
+| `session` | user_id + app_id + run_id | Ephemeral context for the current session only |
+| `user` | user_id | Cross-project personal knowledge — preferences, identity, goals |
+| `global` | *(none)* | Everything across all users and projects |
+
+The `app_id` (project) is auto-detected from the working directory name. The `run_id` (session) is derived from Pi's session file path.
+
+## Memory Categories
+
+Memories are automatically classified into 10 general-purpose categories:
+
+| Category | What it captures |
+|----------|-----------------|
+| `identity` | Personal details, background, self-descriptions |
+| `preferences` | Likes, dislikes, habits, preferred approaches |
+| `goals` | Objectives, aspirations, targets |
+| `projects` | Ongoing work, initiatives, areas of focus |
+| `decisions` | Choices made, rationale, trade-offs |
+| `technical` | Technical knowledge, tools, configurations |
+| `relationships` | People, teams, organizations |
+| `routines` | Recurring patterns, workflows, schedules |
+| `lessons` | Insights learned, mistakes to avoid |
+| `work` | Professional context, role, responsibilities |
+
+## Dream Consolidation
+
+Dream is an automated memory maintenance process that:
+- **Merges** near-duplicate memories into a single entry
+- **Resolves** contradictions between memories (keeps the latest)
+- **Prunes** stale or outdated entries
+- **Respects** pinned memories (marked with `[PINNED]` prefix)
+
+### Auto-Dream
+
+When enabled, dreams trigger automatically when all three gates pass:
+1. **Time gate** — at least `minHours` since last dream (default: 24h)
+2. **Session gate** — at least `minSessions` sessions since last dream (default: 5)
+3. **Memory gate** — at least `minMemories` in the current project (default: 20)
+
+### Manual Dream
+
+Run `/mem0-dream` to trigger consolidation immediately, bypassing the gates.
+
+## Example Workflow
+
+```text
+# Session 1: Planning a trip
+You: I'm planning a trip to Japan in October. I prefer budget airlines
+     and staying in traditional ryokans.
+
+# Mem0 auto-captures:
+#   - [goals] Planning trip to Japan in October
+#   - [preferences] Prefers budget airlines
+#   - [preferences] Prefers traditional ryokans for accommodation
+
+# Session 2 (days later): Continuing trip planning
+You: What do you remember about my travel plans?
+
+# Pi searches memories, retrieves Japan trip context
+# Responds with full context — no re-explaining needed
+
+# Session 3: Different topic entirely
+You: /mem0-search budget airlines
+
+# Returns: "Prefers budget airlines" with similarity score
+```
+
+## Troubleshooting
+
+- **"No API key found"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
+- **Extension not loading** — Check Pi startup output for errors. Run `pi -e ./src/entry.ts` from the plugin directory for verbose output
+- **Memories not capturing** — Verify `autoCapture` is `true` (default). Check `/mem0-status` for connection health
+- **Wrong project detected** — The plugin uses the working directory name as `app_id`. Use `/mem0-switch <name>` to override
+- **Dream not triggering** — All three gates must pass (time, sessions, memories). Use `/mem0-dream` to force it manually
+
+<CardGroup cols={2}>
+  <Card title="Claude Code Integration" icon="terminal" href="/integrations/claude-code">
+    Add Mem0 memory to Claude Code
+  </Card>
+  <Card title="OpenClaw Integration" icon="plug" href="/integrations/openclaw">
+    Add Mem0 memory to OpenClaw agents
+  </Card>
+</CardGroup>
