@@ -26,10 +26,14 @@
       "import": "./dist/index.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist",
     "src",
     "skills",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE"
   ],
