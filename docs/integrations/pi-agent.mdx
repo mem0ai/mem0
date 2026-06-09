@@ -138,64 +138,20 @@ Memories are scoped using Mem0's `user_id`, `app_id`, and `run_id` parameters:
 
 The `app_id` (project) is auto-detected from the working directory name. The `run_id` (session) is derived from Pi's session file path.
 
-## Memory Categories
-
-Memories are automatically classified into 10 general-purpose categories:
-
-| Category | What it captures |
-|----------|-----------------|
-| `identity` | Personal details, background, self-descriptions |
-| `preferences` | Likes, dislikes, habits, preferred approaches |
-| `goals` | Objectives, aspirations, targets |
-| `projects` | Ongoing work, initiatives, areas of focus |
-| `decisions` | Choices made, rationale, trade-offs |
-| `technical` | Technical knowledge, tools, configurations |
-| `relationships` | People, teams, organizations |
-| `routines` | Recurring patterns, workflows, schedules |
-| `lessons` | Insights learned, mistakes to avoid |
-| `work` | Professional context, role, responsibilities |
-
 ## Dream Consolidation
 
-Dream is an automated memory maintenance process that:
-- **Merges** near-duplicate memories into a single entry
-- **Resolves** contradictions between memories (keeps the latest)
-- **Prunes** stale or outdated entries
-- **Respects** pinned memories (marked with `[PINNED]` prefix)
-
-### Auto-Dream
-
-When enabled, dreams trigger automatically when all three gates pass:
-1. **Time gate** — at least `minHours` since last dream (default: 24h)
-2. **Session gate** — at least `minSessions` sessions since last dream (default: 5)
-3. **Memory gate** — at least `minMemories` in the current project (default: 20)
-
-### Manual Dream
-
-Run `/mem0-dream` to trigger consolidation immediately, bypassing the gates.
+The plugin includes automated memory maintenance ("dream") that merges duplicates, resolves contradictions, and prunes stale entries. When enabled, dreams auto-trigger after enough sessions, time, and memories accumulate (configurable via `dream.*` settings). Run `/mem0-dream` to trigger consolidation manually at any time. Pinned memories (via `/mem0-pin`) are protected from pruning.
 
 ## Example Workflow
 
 ```text
-# Session 1: Planning a trip
-You: I'm planning a trip to Japan in October. I prefer budget airlines
-     and staying in traditional ryokans.
+# Session 1
+You: I prefer dark mode and concise answers.
+# Mem0 auto-captures preferences
 
-# Mem0 auto-captures:
-#   - [goals] Planning trip to Japan in October
-#   - [preferences] Prefers budget airlines
-#   - [preferences] Prefers traditional ryokans for accommodation
-
-# Session 2 (days later): Continuing trip planning
-You: What do you remember about my travel plans?
-
-# Pi searches memories, retrieves Japan trip context
-# Responds with full context — no re-explaining needed
-
-# Session 3: Different topic entirely
-You: /mem0-search budget airlines
-
-# Returns: "Prefers budget airlines" with similarity score
+# Session 2 (days later)
+You: What do you know about my preferences?
+# Pi retrieves stored memories — no re-explaining needed
 ```
 
 ## Troubleshooting
