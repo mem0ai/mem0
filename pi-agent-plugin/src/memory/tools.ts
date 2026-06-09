@@ -66,10 +66,11 @@ export function buildToolExecute(
           [{ role: "user", content: params.content }],
           { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES },
         );
-        const added = Array.isArray(result) ? result : [];
+        const res = result as any;
+        const msg = res.message ?? "Memory stored.";
         return {
-          content: [{ type: "text" as const, text: `Stored ${added.length} memory(s).` }],
-          details: { ids: added.map((m: any) => m.id) },
+          content: [{ type: "text" as const, text: msg }],
+          details: { eventId: res.eventId ?? null, status: res.status ?? null },
         };
       }
 

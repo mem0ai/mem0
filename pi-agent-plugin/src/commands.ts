@@ -30,8 +30,8 @@ export function registerCommands(
         [{ role: "user", content: text }],
         { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
       );
-      const stored = Array.isArray(result) ? result.length : 0;
-      ctx.ui.notify(`Remembered (verbatim): stored ${stored} memory(s).`, "info");
+      const msg = (result as any).message ?? "Memory stored.";
+      ctx.ui.notify(msg, "info");
     },
   });
 

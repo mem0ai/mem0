@@ -2,11 +2,12 @@ interface MemoryLike {
   id: string;
   memory?: string;
   categories?: string[];
-  createdAt?: Date;
+  createdAt?: Date | string;
 }
 
-export function formatAge(date: Date): string {
-  const ms = Date.now() - date.getTime();
+export function formatAge(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const ms = Date.now() - d.getTime();
   const minutes = Math.floor(ms / 60_000);
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
