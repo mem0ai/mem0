@@ -79,13 +79,15 @@ export default function mem0Extension(pi: ExtensionAPI): void {
 
   // ── before_agent_start: append memory policy + auto-dream trigger ───
   let dreamTriggered = false;
+  let dreamChecked = false;
 
   pi.on("before_agent_start", async (event, _ctx) => {
     let extra = MEMORY_POLICY;
 
-    if (config.dream.enabled && config.dream.auto && !dreamTriggered) {
+    if (config.dream.enabled && config.dream.auto && !dreamTriggered && !dreamChecked) {
       const gates = checkCheapGates(CONFIG_DIR, config.dream);
       if (gates.proceed) {
+        dreamChecked = true;
         try {
           const filters = resolveSearchFilters("project", scopeCtx);
           const result = await mem0.getAll({ filters });

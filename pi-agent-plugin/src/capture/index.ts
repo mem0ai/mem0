@@ -27,11 +27,10 @@ export function extractConversation(
   const result: Array<{ role: "user" | "assistant"; content: string }> = [];
 
   for (const msg of messages) {
-    // Only capture user messages — assistant content is inferred/derived and would add noise to memory.
-    if (msg.role !== "user") continue;
+    if (msg.role !== "user" && msg.role !== "assistant") continue;
     const text = extractText(msg.content);
     if (!text) continue;
-    result.push({ role: "user", content: text });
+    result.push({ role: msg.role as "user" | "assistant", content: text });
   }
 
   return result;

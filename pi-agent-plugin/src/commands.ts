@@ -9,24 +9,6 @@ import { acquireDreamLock } from "./dream/index.ts";
 import { CONFIG_DIR } from "./config/index.ts";
 import { captureCommandEvent } from "./telemetry.ts";
 
-const UUID_PREFIX_PATTERN = /^[0-9a-f]{8}-[0-9a-f]/i;
-const SHORT_ID_PATTERN = /^[0-9a-f]{8}$/i;
-
-function looksLikeMemoryId(input: string): boolean {
-  return UUID_PREFIX_PATTERN.test(input) || SHORT_ID_PATTERN.test(input);
-}
-
-async function expandShortId(
-  mem0: MemoryClient,
-  input: string,
-  filters: Record<string, string>,
-): Promise<string | null> {
-  if (input.length >= 36) return input;
-  const result = await mem0.getAll({ filters });
-  const match = (result.results ?? []).find((m) => m.id.startsWith(input));
-  return match?.id ?? null;
-}
-
 export function registerCommands(
   pi: ExtensionAPI,
   mem0: MemoryClient,
@@ -115,24 +97,6 @@ export function registerCommands(
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-
-      if (looksLikeMemoryId(query)) {
-        const fullId = await expandShortId(mem0, query, filters);
-        if (!fullId) {
-          captureCommandEvent("mem0-search", { result_count: 0, lookup: "id" }, telemetryCtx);
-          pi.sendMessage({ customType: "mem0-search", content: `No memory found matching ID "${query}".`, display: true });
-          return;
-        }
-        const mem = await mem0.get(fullId);
-        captureCommandEvent("mem0-search", { result_count: 1, lookup: "id" }, telemetryCtx);
-        pi.sendMessage({
-          customType: "mem0-search",
-          content: formatMemoryCompact(mem),
-          display: true,
-        });
-        return;
-      }
-
       const result = await mem0.search(query, { filters });
       const memories = result.results ?? [];
 

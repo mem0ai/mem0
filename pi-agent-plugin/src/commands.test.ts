@@ -183,7 +183,7 @@ describe("registerCommands", () => {
   });
 
   describe("/mem0-search", () => {
-    it("performs semantic search for normal queries", async () => {
+    it("always performs semantic search", async () => {
       const ctx = makeCtx();
       mem0.search.mockResolvedValue({ results: [{ id: "id-1", memory: "result" }] });
 
@@ -195,26 +195,26 @@ describe("registerCommands", () => {
       );
     });
 
-    it("resolves short UUID-prefix IDs", async () => {
-      const ctx = makeCtx();
-      const fullId = "abcd1234-5678-9abc-def0-123456789abc";
-      mem0.getAll.mockResolvedValue({ results: [{ id: fullId, memory: "found it" }] });
-      mem0.get.mockResolvedValue({ id: fullId, memory: "found it" });
-
-      await pi._invoke("mem0-search", "abcd1234", ctx);
-
-      expect(mem0.getAll).toHaveBeenCalled();
-      expect(mem0.get).toHaveBeenCalledWith(fullId);
-    });
-
-    it("does not treat regular hex-looking words as IDs", async () => {
+    it("uses semantic search even for hex-looking strings", async () => {
       const ctx = makeCtx();
       mem0.search.mockResolvedValue({ results: [] });
 
-      await pi._invoke("mem0-search", "deadbeefs", ctx);
+      await pi._invoke("mem0-search", "abcd1234", ctx);
 
-      expect(mem0.search).toHaveBeenCalledWith("deadbeefs", expect.any(Object));
+      expect(mem0.search).toHaveBeenCalledWith("abcd1234", expect.any(Object));
       expect(mem0.getAll).not.toHaveBeenCalled();
+      expect(mem0.get).not.toHaveBeenCalled();
+    });
+
+    it("shows empty results message", async () => {
+      const ctx = makeCtx();
+      mem0.search.mockResolvedValue({ results: [] });
+
+      await pi._invoke("mem0-search", "nonexistent", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: "No memories found." }),
+      );
     });
   });
 
