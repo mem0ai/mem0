@@ -11,7 +11,7 @@ Initial release of `@mem0/pi-agent-plugin` — persistent semantic memory for Pi
 - **Auto-capture** — extracts and stores memories from conversations on `agent_end`
 - **Dream consolidation** — automated memory maintenance: merge duplicates, resolve contradictions, prune stale entries. Gated by session count, time elapsed, and memory count thresholds
 - **System prompt injection** — appends `MEMORY_POLICY` to every agent turn via `before_agent_start`
-- **4 memory scopes** — project (default), session, user, global
+- **3 memory scopes** — project (default), session, global
 - **10 memory categories** — identity, preferences, goals, projects, decisions, technical, relationships, routines, lessons, work
 - **8 skills** — context-loader, remember, search, forget, dream, tour, pin, status
 - **Output truncation** — tool results capped at 200 lines / 50KB per Pi docs

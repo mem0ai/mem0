@@ -11,7 +11,7 @@ The plugin provides:
 1. **Auto-capture** — Extracts durable facts from every conversation automatically
 2. **Semantic recall** — Retrieves relevant memories via the `mem0_memory` tool before each response
 3. **Dream consolidation** — Periodic maintenance: merges duplicates, resolves contradictions, prunes stale entries
-4. **Scoped memory** — Project, session, user, or global scope for fine-grained control
+4. **Scoped memory** — Project, session, or global scope for fine-grained control
 5. **8 skills + 8 commands** — Essential memory management from slash commands and agent-guided workflows
 
 ## Prerequisites
@@ -73,7 +73,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | `apiKey` | `string` | `$MEM0_API_KEY` | Mem0 API key. Environment variable takes precedence. |
 | `userId` | `string` | `$MEM0_USER_ID` or `"default"` | User identity for memory scoping |
 | `autoCapture` | `boolean` | `true` | Store facts from conversations automatically |
-| `defaultScope` | `string` | `"project"` | Default memory scope: `project`, `session`, `user`, or `global` |
+| `defaultScope` | `string` | `"project"` | Default memory scope: `project`, `session`, or `global` |
 | `dream.enabled` | `boolean` | `true` | Enable dream consolidation |
 | `dream.auto` | `boolean` | `true` | Auto-trigger dreams when thresholds are met |
 | `dream.minHours` | `number` | `24` | Minimum hours between auto-dreams |
@@ -103,7 +103,7 @@ The `mem0_memory` tool is registered with Pi and callable by the agent during co
 | `delete` | `memory_id` | Delete a specific memory |
 | `delete_all` | — | Delete all memories in scope |
 
-All actions accept an optional `scope` parameter: `project` (default), `session`, `user`, or `global`.
+All actions accept an optional `scope` parameter: `project` (default), `session`, or `global`.
 
 Tool output is truncated to 200 lines / 50KB to prevent context overflow.
 
@@ -117,7 +117,7 @@ Tool output is truncated to 200 lines / 50KB to prevent context overflow.
 | `/mem0-tour [scope]` | Browse all memories grouped by category |
 | `/mem0-dream` | Consolidate — merge duplicates, prune stale, resolve contradictions |
 | `/mem0-pin <query\|id>` | Pin a memory to protect from dream pruning |
-| `/mem0-scope <scope>` | Change default scope for this session (project, session, user, global) |
+| `/mem0-scope <scope>` | Change default scope for this session (project, session, global) |
 | `/mem0-status` | Connection health, identity, and memory count |
 
 ## Memory Scopes

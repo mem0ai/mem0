@@ -21,12 +21,10 @@ describe("resolveSearchFilters", () => {
     });
   });
 
-  it("user scope returns user_id only", () => {
-    expect(resolveSearchFilters("user", ctx)).toEqual({ user_id: "kartik" });
-  });
-
-  it("global scope returns empty object", () => {
-    expect(resolveSearchFilters("global", ctx)).toEqual({});
+  it("global scope returns user_id with app_id wildcard", () => {
+    expect(resolveSearchFilters("global", ctx)).toEqual({
+      user_id: "kartik", app_id: "*",
+    });
   });
 });
 
@@ -43,11 +41,7 @@ describe("resolveAddParams", () => {
     });
   });
 
-  it("user scope returns userId only", () => {
-    expect(resolveAddParams("user", ctx)).toEqual({ userId: "kartik" });
-  });
-
-  it("global scope returns empty object", () => {
-    expect(resolveAddParams("global", ctx)).toEqual({});
+  it("global scope returns userId only", () => {
+    expect(resolveAddParams("global", ctx)).toEqual({ userId: "kartik" });
   });
 });

@@ -8,7 +8,7 @@ This extension gives Pi Agent long-term memory that persists across sessions, pr
 
 - **Automatic memory capture** — learns from every conversation without manual effort
 - **Semantic search** — find memories by meaning, not just keywords
-- **Scoped memory** — project, session, user, or global scope
+- **Scoped memory** — project, session, or global scope
 - **Dream consolidation** — merges duplicates, resolves contradictions, prunes stale entries
 - **8 slash commands** — essential memory management from the command line
 - **Agent tool** — `mem0_memory` tool lets the agent search and store memories autonomously

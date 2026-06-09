@@ -38,11 +38,11 @@ describe("buildToolExecute", () => {
     expect(call[1].customCategories.length).toBe(10);
   });
 
-  it("search with scope=user only filters by user_id", async () => {
+  it("search with scope=global filters by user_id with app_id wildcard", async () => {
     mockMem0.search.mockResolvedValue({ results: [] });
-    await execute({ action: "search", query: "preferences", scope: "user" });
+    await execute({ action: "search", query: "preferences", scope: "global" });
     expect(mockMem0.search).toHaveBeenCalledWith("preferences", {
-      filters: { user_id: "testuser" },
+      filters: { user_id: "testuser", app_id: "*" },
     });
   });
 
