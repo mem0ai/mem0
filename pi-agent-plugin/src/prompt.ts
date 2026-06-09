@@ -4,8 +4,7 @@ You have persistent semantic memory via the mem0_memory tool, powered by Mem0.
 Memory is scoped by default to the current project. Use the scope parameter to access:
 - "project" (default): memories for this project directory
 - "session": memories from this session only
-- "user": all memories for this user across projects
-- "global": all memories
+- "global": all memories across all your projects
 
 When to use memory:
 - Search when the user references past conversations, preferences, or decisions

@@ -11,7 +11,7 @@ Show the user what Mem0 has stored — a full walkthrough of all memories groupe
 
 When invoked with `--all-projects` (e.g., `/mem0-tour --all-projects`), search across ALL projects:
 
-1. Use `mem0_memory` tool with `action="get_all"`, `scope="user"` — no project filter.
+1. Use `mem0_memory` tool with `action="get_all"`, `scope="global"` — no project filter.
 2. Group results by project first, then by category within each project.
 3. Display:
    ```

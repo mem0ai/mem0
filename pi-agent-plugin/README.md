@@ -87,8 +87,7 @@ The plugin includes 8 skills that guide the agent on how to use each capability:
 |-------|---------|----------|
 | `project` | user + project | Default. Project-specific knowledge |
 | `session` | user + project + session | Ephemeral, session-only context |
-| `user` | user only | Cross-project personal knowledge |
-| `global` | none | All memories across all users |
+| `global` | user + all projects | All memories across all your projects |
 
 ## Memory Categories
 

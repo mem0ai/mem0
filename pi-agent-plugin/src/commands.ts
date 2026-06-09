@@ -97,8 +97,14 @@ export function registerCommands(
   // ── /mem0-tour ──────────────────────────────────────────────────────
   pi.registerCommand("mem0-tour", {
     description: "Browse all memories grouped by category",
-    handler: async (args, _ctx) => {
-      const scope = (args?.trim() as Scope) || config.defaultScope;
+    handler: async (args, ctx) => {
+      const raw = args?.trim().toLowerCase();
+      const validScopes: Scope[] = ["project", "session", "global"];
+      if (raw && !validScopes.includes(raw as Scope)) {
+        ctx.ui.notify(`Invalid scope "${raw}". Must be one of: ${validScopes.join(", ")}`, "warning");
+        return;
+      }
+      const scope: Scope = (raw as Scope) || config.defaultScope;
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(scope, scopeCtx);
       const result = await mem0.getAll({ filters });

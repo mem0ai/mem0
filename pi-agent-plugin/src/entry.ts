@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import MemoryClient from "mem0ai";
 import { loadConfig, CONFIG_DIR } from "./config/index.ts";
-import { detectAppId, detectRunId } from "./memory/scoping.ts";
+import { detectAppId, detectRunId, resolveSearchFilters } from "./memory/scoping.ts";
 import { registerMemoryTool } from "./memory/tools.ts";
 import { registerCommands } from "./commands.ts";
 import { setupAutoCapture } from "./capture/index.ts";
@@ -69,7 +69,7 @@ export default function mem0Extension(pi: ExtensionAPI): void {
       const gates = checkCheapGates(CONFIG_DIR, config.dream);
       if (gates.proceed) {
         try {
-          const filters = { user_id: scopeCtx.userId, app_id: scopeCtx.appId };
+          const filters = resolveSearchFilters("project", scopeCtx);
           const result = await mem0.getAll({ filters });
           const count = result.count ?? (result.results ?? []).length;
           const memGate = checkMemoryGate(count, config.dream);

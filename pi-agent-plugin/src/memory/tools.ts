@@ -123,9 +123,8 @@ export function registerMemoryTool(
     promptGuidelines: [
       'Use mem0_memory with action "search" when the user asks about past conversations, preferences, or decisions',
       'Use mem0_memory with action "add" to save important facts, preferences, goals, decisions, or lessons the user shares',
-      'Use mem0_memory with action "search" and scope "user" for cross-project knowledge',
-      'Use mem0_memory with action "search" and scope "global" to find any memory across all projects',
-      "Default scope for mem0_memory is project — memories are scoped to the current working directory",
+      'Use mem0_memory with action "search" and scope "global" to find memories across all projects',
+      "Default scope is project — memories are scoped to the current working directory. Available scopes: project, session, global",
     ],
     parameters: Type.Object({
       action: StringEnum([

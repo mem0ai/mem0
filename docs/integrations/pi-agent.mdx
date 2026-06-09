@@ -128,8 +128,7 @@ Memories are scoped using Mem0's `user_id`, `app_id`, and `run_id` parameters:
 |-------|---------|----------|
 | `project` | user_id + app_id | **Default.** Project-specific knowledge — decisions, architecture, config |
 | `session` | user_id + app_id + run_id | Ephemeral context for the current session only |
-| `user` | user_id | Cross-project personal knowledge — preferences, identity, goals |
-| `global` | *(none)* | Everything across all users and projects |
+| `global` | user_id + app_id wildcard | All memories across all your projects |
 
 The `app_id` (project) is auto-detected from the working directory name. The `run_id` (session) is derived from Pi's session file path.
 
