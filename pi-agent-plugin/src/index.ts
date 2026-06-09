@@ -2,8 +2,6 @@ export type {
   Scope,
   Mem0Config,
   DreamConfig,
-  DreamState,
-  DreamLock,
   ScopeContext,
   CustomCategory,
 } from "./types.ts";
@@ -18,7 +16,6 @@ export { formatAge, shortId, formatMemoryCompact, formatMemoryList, groupByCateg
 export { setupAutoCapture, extractConversation } from "./capture/index.ts";
 
 export {
-  getDreamState,
   incrementSessionCount,
   checkCheapGates,
   checkMemoryGate,

@@ -40,10 +40,6 @@ function writeState(stateDir: string, state: DreamState): void {
   fs.writeFileSync(statePath(stateDir), JSON.stringify(state, null, 2));
 }
 
-export function getDreamState(stateDir: string): DreamState {
-  return readState(stateDir);
-}
-
 export function incrementSessionCount(stateDir: string, sessionId: string): void {
   const state = readState(stateDir);
   if (state.lastSessionId !== sessionId) {
