@@ -1,6 +1,6 @@
 ---
 title: Pi Agent
-description: "Add persistent memory to Pi Agent with the Mem0 plugin semantic search, auto-capture, dream consolidation, and 14 skills."
+description: "Add persistent memory to Pi Agent with the Mem0 plugin semantic search, auto-capture, and dream consolidation."
 ---
 
 Add persistent memory to [**Pi Agent**](https://pi.dev) with `@mem0/pi-agent-plugin`. Your agent forgets everything between sessions — this plugin fixes that by automatically capturing knowledge from conversations, storing it in Mem0's cloud memory layer, and retrieving relevant context before every response.
@@ -12,7 +12,7 @@ The plugin provides:
 2. **Semantic recall** — Retrieves relevant memories via the `mem0_memory` tool before each response
 3. **Dream consolidation** — Periodic maintenance: merges duplicates, resolves contradictions, prunes stale entries
 4. **Scoped memory** — Project, session, user, or global scope for fine-grained control
-5. **14 skills + 13 commands** — Full memory management from slash commands and agent-guided workflows
+5. **8 skills + 7 commands** — Essential memory management from slash commands and agent-guided workflows
 
 ## Prerequisites
 
@@ -85,8 +85,8 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | Component | Description |
 |-----------|-------------|
 | `mem0_memory` tool | Agent-callable tool for search, add, get_all, delete, delete_all |
-| 13 slash commands | Full memory management from the command line |
-| 14 skills | Guide the agent on how to use each capability |
+| 7 slash commands | Essential memory management from the command line |
+| 8 skills | Guide the agent on how to use each capability |
 | Auto-capture | Extracts and stores facts on every `agent_end` event |
 | System prompt | Appends memory policy to every agent turn |
 | Dream consolidation | Automated memory maintenance with session/time/count gates |
@@ -118,12 +118,6 @@ Tool output is truncated to 200 lines / 50KB to prevent context overflow.
 | `/mem0-dream` | Consolidate — merge duplicates, prune stale, resolve contradictions |
 | `/mem0-pin <query\|id>` | Pin a memory to protect from dream pruning |
 | `/mem0-status` | Connection health, identity, and memory count |
-| `/mem0-stats [scope]` | Memory dashboard — counts by category and age |
-| `/mem0-review` | Read-only quality audit |
-| `/mem0-export [scope]` | Export all memories to markdown |
-| `/mem0-import [file]` | Import memories from export file |
-| `/mem0-projects` | List all projects with memory counts |
-| `/mem0-switch <project>` | Override the auto-detected project scope |
 
 ## Memory Scopes
 
@@ -159,7 +153,7 @@ You: What do you know about my preferences?
 - **"No API key found"** — Verify `MEM0_API_KEY` is set: `echo $MEM0_API_KEY`. If empty, add it to your shell profile (see Prerequisites)
 - **Extension not loading** — Check Pi startup output for errors. Run `pi -e ./src/entry.ts` from the plugin directory for verbose output
 - **Memories not capturing** — Verify `autoCapture` is `true` (default). Check `/mem0-status` for connection health
-- **Wrong project detected** — The plugin uses the working directory name as `app_id`. Use `/mem0-switch <name>` to override
+- **Wrong project detected** — The plugin uses the working directory name as `app_id`. Run Pi from the correct project directory to change scope
 - **Dream not triggering** — All three gates must pass (time, sessions, memories). Use `/mem0-dream` to force it manually
 
 <CardGroup cols={2}>
