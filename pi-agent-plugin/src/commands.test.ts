@@ -122,8 +122,32 @@ describe("registerCommands", () => {
       expect(ctx.ui.notify).toHaveBeenCalledWith("Cancelled.", "info");
     });
 
-    it("sends interactive message for multiple matches", async () => {
+    it("uses select UI for multiple matches and deletes chosen memory", async () => {
       const ctx = makeCtx();
+      mem0.search.mockResolvedValue({
+        results: [
+          { id: "id-1", memory: "mem one" },
+          { id: "id-2", memory: "mem two" },
+        ],
+      });
+      mem0.delete.mockResolvedValue({ message: "Deleted" });
+      ctx.ui.select = vi.fn(async (_title: string, options: string[]) => options[1]);
+
+      await pi._invoke("mem0-forget", "test", ctx);
+
+      expect(ctx.ui.select).toHaveBeenCalledWith(
+        "Which memory should I delete?",
+        expect.arrayContaining([
+          expect.stringContaining("mem one"),
+          expect.stringContaining("mem two"),
+        ]),
+      );
+      expect(mem0.delete).toHaveBeenCalledWith("id-2");
+    });
+
+    it("does not delete when user cancels select", async () => {
+      const ctx = makeCtx();
+      ctx.ui.select = vi.fn(async () => undefined);
       mem0.search.mockResolvedValue({
         results: [
           { id: "id-1", memory: "mem one" },
@@ -134,10 +158,7 @@ describe("registerCommands", () => {
       await pi._invoke("mem0-forget", "test", ctx);
 
       expect(mem0.delete).not.toHaveBeenCalled();
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ customType: "mem0-forget" }),
-        expect.objectContaining({ triggerTurn: true }),
-      );
+      expect(ctx.ui.notify).toHaveBeenCalledWith("Cancelled.", "info");
     });
   });
 
@@ -176,6 +197,45 @@ describe("registerCommands", () => {
       expect(ctx.ui.confirm).not.toHaveBeenCalled();
       expect(mem0.add).not.toHaveBeenCalled();
       expect(ctx.ui.notify).toHaveBeenCalledWith("Already pinned.", "info");
+    });
+
+    it("uses select UI for multiple matches and pins chosen memory", async () => {
+      const ctx = makeCtx();
+      mem0.search.mockResolvedValue({
+        results: [
+          { id: "id-1", memory: "fact one" },
+          { id: "id-2", memory: "fact two" },
+        ],
+      });
+      mem0.update.mockResolvedValue([]);
+      ctx.ui.select = vi.fn(async (_title: string, options: string[]) => options[1]);
+
+      await pi._invoke("mem0-pin", "fact", ctx);
+
+      expect(ctx.ui.select).toHaveBeenCalledWith(
+        "Which memory should I pin?",
+        expect.arrayContaining([
+          expect.stringContaining("fact one"),
+          expect.stringContaining("fact two"),
+        ]),
+      );
+      expect(mem0.update).toHaveBeenCalledWith("id-2", { text: "[PINNED] fact two" });
+    });
+
+    it("does not pin when user cancels select", async () => {
+      const ctx = makeCtx();
+      ctx.ui.select = vi.fn(async () => undefined);
+      mem0.search.mockResolvedValue({
+        results: [
+          { id: "id-1", memory: "fact one" },
+          { id: "id-2", memory: "fact two" },
+        ],
+      });
+
+      await pi._invoke("mem0-pin", "fact", ctx);
+
+      expect(mem0.update).not.toHaveBeenCalled();
+      expect(ctx.ui.notify).toHaveBeenCalledWith("Cancelled.", "info");
     });
   });
 

@@ -75,13 +75,18 @@ export function registerCommands(
         return;
       }
 
-      captureCommandEvent("mem0-forget", { match_count: memories.length }, telemetryCtx);
-      const list = formatMemoryList(memories);
-      pi.sendMessage({
-        customType: "mem0-forget",
-        content: `Found ${memories.length} matching memories:\n\n${list}\n\nWhich memory should I delete? Tell me the number or describe which one.`,
-        display: true,
-      }, { triggerTurn: true });
+      const labels = memories.map((m) => formatMemoryCompact(m));
+      const selected = await ctx.ui.select("Which memory should I delete?", labels);
+      if (!selected) {
+        ctx.ui.notify("Cancelled.", "info");
+        return;
+      }
+      const idx = labels.indexOf(selected);
+      if (idx < 0) return;
+      const target = memories[idx];
+      await mem0.delete(target.id);
+      captureCommandEvent("mem0-forget", { deleted_count: 1 }, telemetryCtx);
+      ctx.ui.notify(`Deleted: ${formatMemoryCompact(target)}`, "info");
     },
   });
 
@@ -204,13 +209,23 @@ export function registerCommands(
         return;
       }
 
-      captureCommandEvent("mem0-pin", { match_count: memories.length }, telemetryCtx);
-      const list = formatMemoryList(memories);
-      pi.sendMessage({
-        customType: "mem0-pin",
-        content: `Found ${memories.length} matches:\n\n${list}\n\nWhich memory should I pin? Tell me the number or describe which one.`,
-        display: true,
-      }, { triggerTurn: true });
+      const labels = memories.map((m) => formatMemoryCompact(m));
+      const selected = await ctx.ui.select("Which memory should I pin?", labels);
+      if (!selected) {
+        ctx.ui.notify("Cancelled.", "info");
+        return;
+      }
+      const idx = labels.indexOf(selected);
+      if (idx < 0) return;
+      const target = memories[idx];
+      const selectedText = target.memory ?? "";
+      if (selectedText.startsWith("[PINNED]")) {
+        ctx.ui.notify("Already pinned.", "info");
+        return;
+      }
+      await mem0.update(target.id, { text: `[PINNED] ${selectedText}` });
+      captureCommandEvent("mem0-pin", { pinned: true }, telemetryCtx);
+      ctx.ui.notify(`Pinned: ${formatMemoryCompact(target)}`, "info");
     },
   });
 

@@ -37,7 +37,7 @@ function truncateOutput(text: string): string {
 }
 
 interface ToolParams {
-  action: "search" | "add" | "get_all" | "delete" | "delete_all";
+  action: "search" | "add" | "get_all" | "update" | "delete" | "delete_all";
   query?: string;
   content?: string;
   memory_id?: string;
@@ -92,6 +92,17 @@ export function buildToolExecute(
         };
       }
 
+      case "update": {
+        if (signal?.aborted) throw new Error("Cancelled");
+        if (!params.memory_id) throw new Error("memory_id is required for update");
+        if (!params.content) throw new Error("content is required for update");
+        const updateResult = await mem0.update(params.memory_id, { text: params.content });
+        return {
+          content: [{ type: "text" as const, text: (updateResult as any).status ?? "Memory updated." }],
+          details: { memoryId: params.memory_id },
+        };
+      }
+
       case "delete": {
         if (signal?.aborted) throw new Error("Cancelled");
         if (!params.memory_id) throw new Error("memory_id is required for delete");
@@ -126,11 +137,12 @@ export function registerMemoryTool(
     name: "mem0_memory",
     label: "Mem0 Memory",
     description:
-      "Search, add, and manage persistent semantic memories powered by Mem0. Memories persist across sessions and devices. Output is truncated to 200 lines / 50KB.",
+      "Search, add, update, and manage persistent semantic memories powered by Mem0. Memories persist across sessions and devices. Output is truncated to 200 lines / 50KB.",
     promptSnippet: "Semantic memory search and storage via Mem0",
     promptGuidelines: [
       'Use mem0_memory with action "search" when the user asks about past conversations, preferences, or decisions',
       'Use mem0_memory with action "add" to save important facts, preferences, goals, decisions, or lessons the user shares',
+      'Use mem0_memory with action "update" to modify an existing memory — requires memory_id and content. Preserves the memory ID',
       "Always use the default project scope unless the user EXPLICITLY asks to search across all projects — only then use scope \"global\"",
       "Do NOT pass scope at all for normal queries — omitting it uses the project default automatically",
     ],
@@ -139,6 +151,7 @@ export function registerMemoryTool(
         "search",
         "add",
         "get_all",
+        "update",
         "delete",
         "delete_all",
       ] as const),
@@ -146,10 +159,10 @@ export function registerMemoryTool(
         Type.String({ description: "Search query or memory text" }),
       ),
       content: Type.Optional(
-        Type.String({ description: "Memory content to store" }),
+        Type.String({ description: "Memory content to store or updated text" }),
       ),
       memory_id: Type.Optional(
-        Type.String({ description: "Memory ID for delete" }),
+        Type.String({ description: "Memory ID for update or delete" }),
       ),
       scope: Type.Optional(
         StringEnum(["project", "session", "global"] as const),
