@@ -9,14 +9,19 @@ import { acquireDreamLock } from "./dream/index.ts";
 import { CONFIG_DIR } from "./config/index.ts";
 import { captureCommandEvent } from "./telemetry.ts";
 
-const ID_PATTERN = /^[0-9a-f-]{8,}$/i;
+const UUID_PREFIX_PATTERN = /^[0-9a-f]{8}-[0-9a-f]/i;
+const SHORT_ID_PATTERN = /^[0-9a-f]{8}$/i;
 
-async function resolveMemoryId(
+function looksLikeMemoryId(input: string): boolean {
+  return UUID_PREFIX_PATTERN.test(input) || SHORT_ID_PATTERN.test(input);
+}
+
+async function expandShortId(
   mem0: MemoryClient,
   input: string,
   filters: Record<string, string>,
 ): Promise<string | null> {
-  if (input.length >= 20) return input;
+  if (input.length >= 36) return input;
   const result = await mem0.getAll({ filters });
   const match = (result.results ?? []).find((m) => m.id.startsWith(input));
   return match?.id ?? null;
@@ -74,6 +79,14 @@ export function registerCommands(
 
       if (memories.length === 1) {
         const target = memories[0];
+        const confirmed = await ctx.ui.confirm(
+          "Delete this memory?",
+          formatMemoryCompact(target),
+        );
+        if (!confirmed) {
+          ctx.ui.notify("Cancelled.", "info");
+          return;
+        }
         await mem0.delete(target.id);
         captureCommandEvent("mem0-forget", { deleted_count: 1 }, telemetryCtx);
         ctx.ui.notify(`Deleted: ${formatMemoryCompact(target)}`, "info");
@@ -103,8 +116,8 @@ export function registerCommands(
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
 
-      if (query.match(ID_PATTERN)) {
-        const fullId = await resolveMemoryId(mem0, query, filters);
+      if (looksLikeMemoryId(query)) {
+        const fullId = await expandShortId(mem0, query, filters);
         if (!fullId) {
           captureCommandEvent("mem0-search", { result_count: 0, lookup: "id" }, telemetryCtx);
           pi.sendMessage({ customType: "mem0-search", content: `No memory found matching ID "${query}".`, display: true });
@@ -209,14 +222,24 @@ export function registerCommands(
       if (memories.length === 1) {
         const target = memories[0];
         const text = target.memory ?? "";
-        if (!text.startsWith("[PINNED]")) {
-          const addParams = resolveAddParams(config.defaultScope, scopeCtx);
-          await mem0.add(
-            [{ role: "user", content: `[PINNED] ${text}` }],
-            { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
-          );
-          await mem0.delete(target.id);
+        if (text.startsWith("[PINNED]")) {
+          ctx.ui.notify("Already pinned.", "info");
+          return;
         }
+        const confirmed = await ctx.ui.confirm(
+          "Pin this memory?",
+          formatMemoryCompact(target),
+        );
+        if (!confirmed) {
+          ctx.ui.notify("Cancelled.", "info");
+          return;
+        }
+        const addParams = resolveAddParams(config.defaultScope, scopeCtx);
+        await mem0.add(
+          [{ role: "user", content: `[PINNED] ${text}` }],
+          { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
+        );
+        await mem0.delete(target.id);
         captureCommandEvent("mem0-pin", { pinned: true }, telemetryCtx);
         ctx.ui.notify(`Pinned: ${formatMemoryCompact(target)}`, "info");
         return;

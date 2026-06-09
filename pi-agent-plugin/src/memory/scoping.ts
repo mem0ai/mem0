@@ -3,7 +3,12 @@ import * as crypto from "node:crypto";
 import type { Scope, ScopeContext } from "../types.ts";
 
 export function detectAppId(cwd: string): string {
-  return path.basename(cwd);
+  const base = path.basename(cwd);
+  const parent = path.basename(path.dirname(cwd));
+  if (parent && parent !== "." && parent !== "/") {
+    return `${parent}/${base}`;
+  }
+  return base;
 }
 
 export function detectRunId(sessionFile: string | undefined): string {
