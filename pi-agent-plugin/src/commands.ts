@@ -185,10 +185,10 @@ export function registerCommands(
 
   // ── /mem0-scope ─────────────────────────────────────────────────────
   pi.registerCommand("mem0-scope", {
-    description: "Change default memory scope for this session (project, session, user, global)",
+    description: "Change default memory scope for this session (project, session, global)",
     handler: async (args, ctx) => {
       const scope = args?.trim().toLowerCase();
-      const valid: Scope[] = ["project", "session", "user", "global"];
+      const valid: Scope[] = ["project", "session", "global"];
 
       if (!scope) {
         ctx.ui.notify(`Current scope: ${config.defaultScope}. Usage: /mem0-scope <${valid.join("|")}>`, "info");

@@ -20,10 +20,8 @@ export function resolveSearchFilters(
       return { user_id: ctx.userId, app_id: ctx.appId };
     case "session":
       return { user_id: ctx.userId, app_id: ctx.appId, run_id: ctx.runId };
-    case "user":
-      return { user_id: ctx.userId };
     case "global":
-      return {};
+      return { user_id: ctx.userId, app_id: "*" };
   }
 }
 
@@ -36,9 +34,7 @@ export function resolveAddParams(
       return { userId: ctx.userId, appId: ctx.appId };
     case "session":
       return { userId: ctx.userId, appId: ctx.appId, runId: ctx.runId };
-    case "user":
-      return { userId: ctx.userId };
     case "global":
-      return {};
+      return { userId: ctx.userId };
   }
 }

@@ -1,4 +1,4 @@
-export type Scope = "project" | "session" | "user" | "global";
+export type Scope = "project" | "session" | "global";
 
 export interface DreamConfig {
   enabled: boolean;

@@ -145,7 +145,7 @@ export function registerMemoryTool(
         Type.String({ description: "Memory ID for delete" }),
       ),
       scope: Type.Optional(
-        StringEnum(["project", "session", "user", "global"] as const),
+        StringEnum(["project", "session", "global"] as const),
       ),
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
