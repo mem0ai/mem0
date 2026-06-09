@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import re
+import threading
 from typing import Any, Dict, List, Tuple
 
 from mem0.configs.prompts import (
@@ -200,6 +201,12 @@ def salvage_memory_objects(text: str) -> Tuple[List[Dict[str, Any]], bool]:
 #: ``max_tokens``. Real-corpus data: truncations recovered at ~4x the base
 #: budget (e.g. 2000 -> 8000); a 2x raise under-shot and re-truncated.
 _RETRY_TOKEN_MULTIPLIER = 4
+# Serializes the raise/restore of the shared llm.config.max_tokens below. The async
+# add() path runs this retry in a worker thread on a single shared llm, so without
+# this lock two concurrent retries could interleave and leave config.max_tokens
+# permanently corrupted. The retry is a rare truncation-only fallback, so serializing
+# it is cheap.
+_RETRY_TOKEN_LOCK = threading.Lock()
 
 
 def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[Dict[str, Any]]:
@@ -212,21 +219,37 @@ def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[D
     (including a second truncation, where the caller falls back to whatever
     ``salvage_memory_objects`` already kept).
 
-    Skipped when ``max_tokens`` is unset (cannot compute a raise).
+    Skipped when ``max_tokens`` is unset or non-positive (cannot compute a raise).
     """
     current = getattr(getattr(llm, "config", None), "max_tokens", None)
-    if not current:
+    if not current or current <= 0:
         return []
-    raised = current * _RETRY_TOKEN_MULTIPLIER
+    # ``max_tokens`` is not part of the ``generate_response`` signature. Nearly half the
+    # providers accept ``**kwargs`` (so the kwarg reached the API there), but the rest
+    # raise ``TypeError`` on the unexpected kwarg, which the broad except swallowed -
+    # silently recovering nothing on those. Most providers instead read
+    # ``self.config.max_tokens`` at request time, so raise it there for the single retry
+    # call and restore it. Providers that snapshot or bake in max_tokens (LangChain,
+    # Bedrock) or drop it (the OpenAI structured-output provider, reasoning models such as
+    # gpt-5/o1/o3) ignore the raise, and the caller falls back to the already-salvaged
+    # memories. The raise/restore runs under a process-wide lock with the base re-read
+    # inside it, so concurrent retries on a shared llm cannot corrupt the config; the lock
+    # is held across the one retry call and over-serializes across llm instances, which is
+    # acceptable for this rare truncation-only fallback.
     try:
-        response = llm.generate_response(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            response_format={"type": "json_object"},
-            max_tokens=raised,
-        )
+        with _RETRY_TOKEN_LOCK:
+            base = llm.config.max_tokens
+            try:
+                llm.config.max_tokens = base * _RETRY_TOKEN_MULTIPLIER
+                response = llm.generate_response(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    response_format={"type": "json_object"},
+                )
+            finally:
+                llm.config.max_tokens = base
         response = remove_code_blocks(response)
         try:
             memories = json.loads(response, strict=False).get("memory", [])

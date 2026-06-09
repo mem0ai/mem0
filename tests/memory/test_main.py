@@ -138,18 +138,65 @@ class TestTruncationRecovery:
     def test_opt_in_retry_recovers_cut_off_remainder(self, mock_memory):
         mock_memory.config.recover_truncated_extractions = True
         mock_memory.llm.config.max_tokens = 1000
-        mock_memory.llm.generate_response.side_effect = [TRUNCATED_EXTRACTION, COMPLETE_EXTRACTION]
+
+        # Record the max_tokens in effect at each call so we can prove the retry raised it
+        # via the shared config, not via a kwarg most providers reject (the original bug).
+        responses = iter([TRUNCATED_EXTRACTION, COMPLETE_EXTRACTION])
+        observed_max_tokens = []
+
+        def fake_generate_response(*args, **kwargs):
+            observed_max_tokens.append(mock_memory.llm.config.max_tokens)
+            return next(responses)
+
+        mock_memory.llm.generate_response.side_effect = fake_generate_response
 
         result = mock_memory._add_to_vector_store(
             messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
         )
 
         assert mock_memory.llm.generate_response.call_count == 2  # extraction + token-raise retry
-        # retry ran with a 4x-raised max_tokens (data-driven; see _RETRY_TOKEN_MULTIPLIER)
-        assert mock_memory.llm.generate_response.call_args_list[1].kwargs["max_tokens"] == 4000
+        # The retry raised max_tokens 4x via the shared config (see _RETRY_TOKEN_MULTIPLIER)
+        # and must NOT pass max_tokens as a kwarg; this fails against the old kwarg-based code.
+        assert observed_max_tokens[1] == 4000
+        assert "max_tokens" not in mock_memory.llm.generate_response.call_args_list[1].kwargs
+        assert mock_memory.llm.config.max_tokens == 1000  # restored after the retry
         texts = [m["memory"] for m in result]
         assert "User has a dog named Max" in texts  # the previously cut-off fact
         assert len(result) == 3
+
+    def test_concurrent_retries_do_not_corrupt_shared_config(self):
+        # The retry raises a SHARED llm.config.max_tokens; the async path runs it in a
+        # worker thread, so concurrent retries on one llm must not corrupt it. The lock in
+        # retry_extraction_with_more_tokens serializes the raise/restore. Without the lock
+        # this trips: some retry sees a doubly-raised budget, or the config never restores.
+        import threading
+        import time
+
+        from mem0.memory.utils import _RETRY_TOKEN_MULTIPLIER, retry_extraction_with_more_tokens
+
+        class _FakeConfig:
+            max_tokens = 1000
+
+        class _FakeLLM:
+            def __init__(self):
+                self.config = _FakeConfig()
+                self.seen = []
+
+            def generate_response(self, messages, response_format=None):
+                self.seen.append(self.config.max_tokens)  # what this retry sees while it holds the raise
+                time.sleep(0.001)  # widen the interleaving window
+                return COMPLETE_EXTRACTION
+
+        llm = _FakeLLM()
+        threads = [threading.Thread(target=retry_extraction_with_more_tokens, args=(llm, "sys", "usr")) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        expected = 1000 * _RETRY_TOKEN_MULTIPLIER
+        assert llm.seen == [expected] * 8  # every retry saw exactly base*MULT, never a corrupted budget
+        assert llm.config.max_tokens == 1000  # always restored to the original
 
 
 class TestPromptOverridesCustomInstructions:
