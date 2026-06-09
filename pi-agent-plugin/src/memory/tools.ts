@@ -8,7 +8,7 @@ import { resolveSearchFilters, resolveAddParams } from "./scoping.ts";
 import { formatMemoryList } from "./formatting.ts";
 import { captureToolEvent } from "../telemetry.ts";
 
-interface AddResult {
+interface MemoryResult {
   message?: string;
   eventId?: string;
   status?: string;
@@ -73,7 +73,7 @@ export function buildToolExecute(
           [{ role: "user", content: params.content }],
           { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES },
         );
-        const res = result as AddResult;
+        const res = result as MemoryResult;
         const msg = res.message ?? "Memory stored.";
         return {
           content: [{ type: "text" as const, text: msg }],
@@ -97,8 +97,9 @@ export function buildToolExecute(
         if (!params.memory_id) throw new Error("memory_id is required for update");
         if (!params.content) throw new Error("content is required for update");
         const updateResult = await mem0.update(params.memory_id, { text: params.content });
+        const res = updateResult as MemoryResult;
         return {
-          content: [{ type: "text" as const, text: (updateResult as any).status ?? "Memory updated." }],
+          content: [{ type: "text" as const, text: res.status ?? "Memory updated." }],
           details: { memoryId: params.memory_id },
         };
       }

@@ -38,7 +38,7 @@ export default function mem0Extension(pi: ExtensionAPI): void {
 
   const scopeCtx: ScopeContext = {
     userId: resolveUserId(config.userId),
-    appId: detectAppId(process.cwd()),
+    appId: "",
     runId: "unknown",
   };
 
@@ -87,11 +87,11 @@ export default function mem0Extension(pi: ExtensionAPI): void {
     if (config.dream.enabled && config.dream.auto && !dreamTriggered && !dreamChecked) {
       const gates = checkCheapGates(CONFIG_DIR, config.dream);
       if (gates.proceed) {
-        dreamChecked = true;
         try {
           const filters = resolveSearchFilters("project", scopeCtx);
           const result = await mem0.getAll({ filters });
           const count = result.count ?? (result.results ?? []).length;
+          dreamChecked = true;
           const memGate = checkMemoryGate(count, config.dream);
 
           if (memGate.pass && acquireDreamLock(CONFIG_DIR)) {
@@ -100,7 +100,7 @@ export default function mem0Extension(pi: ExtensionAPI): void {
             captureEvent("pi.dream.triggered", { memory_count: count }, telemetryCtx);
           }
         } catch {
-          // Memory count check failed — skip dream this turn
+          // Transient error — retry next turn
         }
       }
     }

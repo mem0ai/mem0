@@ -10,8 +10,8 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
+import { CONFIG_DIR } from "./config/index.ts";
 
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
@@ -51,7 +51,6 @@ function isTelemetryEnabled(): boolean {
 
 // ── Identity ─────────────────────────────────────────────────────────────
 
-const CONFIG_DIR = path.join(os.homedir(), ".pi", "agent");
 const TELEMETRY_ID_PATH = path.join(CONFIG_DIR, "mem0-telemetry-id.json");
 
 let _cachedAnonymousId: string | undefined;
