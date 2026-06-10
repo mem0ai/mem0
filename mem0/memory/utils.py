@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 def get_fact_retrieval_messages(message, is_agent_memory=False):
     """Get fact retrieval messages based on the memory type.
-    
+
     Args:
         message: The message content to extract facts from
         is_agent_memory: If True, use agent memory extraction prompt, else use user memory extraction prompt
-        
+
     Returns:
         tuple: (system_prompt, user_prompt)
     """
@@ -54,8 +54,7 @@ def ensure_json_instruction(system_prompt, user_prompt):
     combined = (system_prompt + user_prompt).lower()
     if "json" not in combined:
         system_prompt += (
-            "\n\nYou must return your response in valid JSON format "
-            "with a 'facts' key containing an array of strings."
+            "\n\nYou must return your response in valid JSON format with a 'facts' key containing an array of strings."
         )
     return system_prompt, user_prompt
 
@@ -82,6 +81,7 @@ def format_entities(entities):
         formatted_lines.append(simplified)
 
     return "\n".join(formatted_lines)
+
 
 def normalize_facts(raw_facts):
     """Normalize LLM-extracted facts to a list of strings.
@@ -119,9 +119,8 @@ def remove_code_blocks(content: str) -> str:
     """
     pattern = r"^```[a-zA-Z0-9]*\n([\s\S]*?)\n```$"
     match = re.match(pattern, content.strip())
-    match_res=match.group(1).strip() if match else content.strip()
+    match_res = match.group(1).strip() if match else content.strip()
     return re.sub(r"<think>.*?</think>", "", match_res, flags=re.DOTALL).strip()
-
 
 
 def extract_json(text):
@@ -162,7 +161,9 @@ def salvage_memory_objects(text: str) -> Tuple[List[Dict[str, Any]], bool]:
     did not close cleanly (at least one object was cut off, so the optional
     token-raise retry could recover more).
     """
-    if not text:
+    if not text or not isinstance(text, str):
+        # This runs inside the parse-failure except handler; a provider that
+        # returned a non-string must degrade to "nothing salvaged", not raise.
         return [], False
     match = re.search(r'"memory"\s*:\s*\[', text)
     if not match:
@@ -193,8 +194,12 @@ def salvage_memory_objects(text: str) -> Tuple[List[Dict[str, Any]], bool]:
 
 #: A truncated extraction is retried once at this multiple of the configured
 #: ``max_tokens``. Real-corpus data: truncations recovered at ~4x the base
-#: budget (e.g. 2000 -> 8000); a 2x raise under-shot and re-truncated.
+#: budget (e.g. 2000 -> 8000); a 2x raise under-shot and re-truncated. The
+#: absolute cap bounds the retry's cost so a large configured budget cannot
+#: multiply into an arbitrarily expensive call, and keeps the raised value
+#: inside common provider output limits.
 _RETRY_TOKEN_MULTIPLIER = 4
+_RETRY_TOKEN_CAP = 8192
 # Serializes the raise/restore of the shared llm.config.max_tokens below. The async
 # add() path runs this retry in a worker thread on a single shared llm, so without
 # this lock two concurrent retries could interleave and leave config.max_tokens
@@ -213,10 +218,13 @@ def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[D
     (including a second truncation, where the caller falls back to whatever
     ``salvage_memory_objects`` already kept).
 
-    Skipped when ``max_tokens`` is unset or non-positive (cannot compute a raise).
+    Skipped when ``max_tokens`` is unset or non-positive (cannot compute a
+    raise) or already at/above ``_RETRY_TOKEN_CAP`` (no meaningful raise left).
     """
     current = getattr(getattr(llm, "config", None), "max_tokens", None)
     if not current or current <= 0:
+        return []
+    if min(current * _RETRY_TOKEN_MULTIPLIER, _RETRY_TOKEN_CAP) <= current:
         return []
     # ``max_tokens`` is not part of the ``generate_response`` signature. Nearly half the
     # providers accept ``**kwargs`` (so the kwarg reached the API there), but the rest
@@ -229,12 +237,14 @@ def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[D
     # memories. The raise/restore runs under a process-wide lock with the base re-read
     # inside it, so concurrent retries on a shared llm cannot corrupt the config; the lock
     # is held across the one retry call and over-serializes across llm instances, which is
-    # acceptable for this rare truncation-only fallback.
+    # acceptable for this rare truncation-only fallback. (Concurrent non-retry calls on the
+    # same llm take no lock and can observe the raised value during the retry window - a
+    # transient output-budget bump on those calls, not corruption; always restored.)
     try:
         with _RETRY_TOKEN_LOCK:
             base = llm.config.max_tokens
             try:
-                llm.config.max_tokens = base * _RETRY_TOKEN_MULTIPLIER
+                llm.config.max_tokens = min(base * _RETRY_TOKEN_MULTIPLIER, _RETRY_TOKEN_CAP)
                 response = llm.generate_response(
                     messages=[
                         {"role": "system", "content": system_prompt},
@@ -252,6 +262,11 @@ def retry_extraction_with_more_tokens(llm, system_prompt, user_prompt) -> List[D
     except Exception as e:
         logger.warning("Token-raise extraction retry failed: %s", e)
         return []
+    if not isinstance(memories, list):
+        return []
+    # Same shape discipline as salvage_memory_objects: downstream reads
+    # m.get("text"), so non-dict items must be dropped, not passed through.
+    memories = [m for m in memories if isinstance(m, dict)]
     if memories:
         logger.info("Recovered %d memory item(s) via token-raise retry after truncation", len(memories))
     return memories
@@ -407,4 +422,3 @@ def remove_spaces_from_entities(
         item["destination"] = item["destination"].lower().replace(" ", "_")
         cleaned.append(item)
     return cleaned
-
