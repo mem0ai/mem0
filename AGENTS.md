@@ -418,8 +418,11 @@ To add a new LLM, embedding, vector store, or reranker provider:
 
 ### CD Workflows (automated publishing)
 
+Publishing is routed through a single entry point: **`release.yml` (Release Router)** is the only workflow that listens to `release: published` events. It matches the release tag prefix and dispatches the corresponding package workflow via `workflow_dispatch`, so each release produces exactly one routed run (no skipped runs from the other pipelines).
+
 | Workflow | File | Tag Prefix | Target |
 |----------|------|------------|--------|
+| Release Router | `release.yml` | (all releases) | dispatches the matching workflow below |
 | Python SDK | `cd.yml` | `v*` | PyPI (`mem0ai`) |
 | TypeScript SDK | `ts-sdk-cd.yml` | `ts-v*` | npm (`mem0ai`) |
 | Python CLI | `cli-python-cd.yml` | `cli-v*` | PyPI (`mem0-cli`) |
@@ -429,8 +432,11 @@ To add a new LLM, embedding, vector store, or reranker provider:
 | OpenCode Plugin | `opencode-plugin-cd.yml` | `opencode-v*` | npm (`@mem0/opencode-plugin`) |
 | Pi Agent Plugin | `pi-agent-plugin-cd.yml` | `pi-agent-v*` | npm (`@mem0/pi-agent-plugin`) |
 
+- Package CD workflows are `workflow_dispatch`-only (inputs: `tag`, `prerelease`); they check out and build the given tag. Registry trusted-publisher settings stay pinned to each package's own workflow filename.
 - All publishing uses **OIDC trusted publishing** — no tokens or secrets required.
 - First publish of a new npm package must be done manually; OIDC works for subsequent versions.
+- To re-publish a release (e.g. after a registry settings fix), do **not** delete/recreate the GitHub release — manually dispatch the package workflow instead: `gh workflow run <package>-cd.yml --ref refs/tags/<tag> -f tag=<tag>`.
+- When adding a new package: add its CD workflow (`workflow_dispatch` with `tag`/`prerelease` inputs), then register its tag prefix in the `case` block in `release.yml`. Keep the bare `v*` arm last.
 
 ### Utility Workflows
 
