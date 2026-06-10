@@ -1489,6 +1489,29 @@ A full-featured command-line interface for Mem0, available in both Python and No
 
 </Update>
 
+<Update label="2026-06-10" description="Vercel AI SDK v3.0.0">
+
+**Major Release** — Migrated to Vercel AI SDK v6 (`LanguageModelV3` / `ProviderV3`) and Mem0 v3 API.
+
+**Breaking Changes:**
+- **AI SDK v6:** Upgraded from AI SDK v5 (`LanguageModelV2`) to v6 (`LanguageModelV3`). Users must upgrade `ai` to `^6.0.199` and all `@ai-sdk/*` provider packages to `^3.x` ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Mem0 v3 API:** Memory endpoints migrated from `/v1/memories/` and `/v2/memories/search/` to `/v3/memories/add/` and `/v3/memories/search/`. Entity IDs (`user_id`, `agent_id`, `run_id`) now go inside the `filters` object for search requests ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Graph memory removed:** All `enable_graph`, graph prompts, and relation-extraction code removed. Graph memory is now a project-level setting on the Platform ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Deprecated params removed:** `org_id`, `project_id`, `org_name`, `project_name`, `output_format`, `filter_memories`, `async_mode`, `enable_graph`, `version`, `api_version` removed from `Mem0ConfigSettings` ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+
+**New Features:**
+- **V3 provider contract:** `specificationVersion: 'v3'`, `supportedUrls` property, V3 content array in `doGenerate`, V3 stream lifecycle events in `doStream` ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Mem0 source in responses:** Memories are attached as a `source` in `generateText`/`streamText` responses with `providerMetadata.mem0.memories` for programmatic access ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+
+**Bug Fixes:**
+- **Async memory storage:** `addMemories` is now properly `await`ed — memories no longer silently fail to store ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Prompt mutation:** Prompt array is now cloned before injecting memory context, preventing side effects on the caller's array ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Null guard on content:** `doGenerate` guards against null `content` from upstream providers ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Stream response:** `doStream` now returns the full `LanguageModelV3StreamResult` object preserving all V3 fields ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+- **Response normalization:** `getMemories` and `retrieveMemories` now handle both array and `{results: [...]}` envelope responses from the v3 API ([#4741](https://github.com/mem0ai/mem0/pull/4741))
+
+</Update>
+
 <Update label="2026-06-01" description="Vercel AI SDK v2.0.6">
 
 **Security:**
