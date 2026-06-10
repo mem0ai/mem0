@@ -364,7 +364,7 @@ You are a memory summarization system that records and preserves the complete in
 ## Summary of the agent's execution history
 
 **Task Objective**: Scrape blog post titles and full content from the OpenAI blog.
-**Progress Status**: 10% complete — 5 out of 50 blog posts processed.
+**Progress Status**: 10% complete - 5 out of 50 blog posts processed.
 
 1. **Agent Action**: Opened URL "https://openai.com"  
    **Action Result**:  
@@ -407,7 +407,6 @@ def get_update_memory_messages(retrieved_old_memory_dict, response_content, cust
     if custom_update_memory_prompt is None:
         global DEFAULT_UPDATE_MEMORY_PROMPT
         custom_update_memory_prompt = DEFAULT_UPDATE_MEMORY_PROMPT
-
 
     if retrieved_old_memory_dict:
         current_memory_part = f"""
@@ -469,11 +468,11 @@ ADDITIVE_EXTRACTION_PROMPT = """
 
 # ROLE
 
-You are a Memory Extractor — a precise, evidence-bound processor responsible for extracting rich, contextual memories from conversations. Your sole operation is ADD: identify every piece of memorable information and produce self-contained, contextually rich factual statements.
+You are a Memory Extractor - a precise, evidence-bound processor responsible for extracting rich, contextual memories from conversations. Your sole operation is ADD: identify every piece of memorable information and produce self-contained, contextually rich factual statements.
 
 You extract from BOTH user and assistant messages. User messages reveal personal facts, preferences, plans, and experiences. Assistant messages contain recommendations, plans, suggestions, and actionable information the user may later reference.
 
-Accuracy and completeness are critical. Every piece of memorable information must be captured — a missed extraction means lost context that degrades future personalization. When a conversation covers multiple topics, extract each one separately. Do not let a dominant topic cause you to miss secondary information.
+Accuracy and completeness are critical. Every piece of memorable information must be captured - a missed extraction means lost context that degrades future personalization. When a conversation covers multiple topics, extract each one separately. Do not let a dominant topic cause you to miss secondary information.
 
 # INPUTS
 
@@ -495,12 +494,12 @@ Do NOT extract:
 
 ## Summary
 
-A narrative summary of the user's profile from prior conversations. May be empty for new users. Use it to enrich extractions — it holds established context like names, locations, and relationships.
+A narrative summary of the user's profile from prior conversations. May be empty for new users. Use it to enrich extractions - it holds established context like names, locations, and relationships.
 
 
 ## Recently Extracted Memories
 
-Memories already captured from recent messages in this session (up to 20). This is your primary deduplication reference — do not re-extract information already captured here.
+Memories already captured from recent messages in this session (up to 20). This is your primary deduplication reference - do not re-extract information already captured here.
 
 
 ## Existing Memories
@@ -508,12 +507,12 @@ Memories already captured from recent messages in this session (up to 20). This 
 Memories currently in the system relevant to this conversation. Formatted as:
 [{"id": "uuid-string", "text": "..."}, ...]
 
-Use these ONLY for deduplication and linking — do NOT extract new memories from Existing Memories. Your extractions must come exclusively from New Messages. If new information in New Messages is semantically equivalent to an Existing Memory with no meaningful new context, skip it.
+Use these ONLY for deduplication and linking - do NOT extract new memories from Existing Memories. Your extractions must come exclusively from New Messages. If new information in New Messages is semantically equivalent to an Existing Memory with no meaningful new context, skip it.
 
-When a new memory is related to an Existing Memory — same topic, overlapping entities, updated/shifted preference, follow-up event, or continuation of a narrative — include the Existing Memory's ID in the new memory's "linked_memory_ids" array. Your ADD output IDs remain sequential ("0", "1", ...) but linked_memory_ids uses the UUIDs from this list.
+When a new memory is related to an Existing Memory - same topic, overlapping entities, updated/shifted preference, follow-up event, or continuation of a narrative - include the Existing Memory's ID in the new memory's "linked_memory_ids" array. Your ADD output IDs remain sequential ("0", "1", ...) but linked_memory_ids uses the UUIDs from this list.
 
 
-IMPORTANT: An existing memory about an entity (e.g., "User has a dog named Max") does NOT mean all information about that entity has been captured. New events, activities, experiences, or details about a known entity MUST still be extracted as separate memories and linked back. Only skip extraction when the specific fact or event itself is already captured — not merely because the entity appears in an existing memory. "User has a dog named Max" and "User went on a camping trip with Max where they hiked and swam" are two distinct memories, not duplicates.
+IMPORTANT: An existing memory about an entity (e.g., "User has a dog named Max") does NOT mean all information about that entity has been captured. New events, activities, experiences, or details about a known entity MUST still be extracted as separate memories and linked back. Only skip extraction when the specific fact or event itself is already captured - not merely because the entity appears in an existing memory. "User has a dog named Max" and "User went on a camping trip with Max where they hiked and swam" are two distinct memories, not duplicates.
 
 
 ## Last k Messages
@@ -537,7 +536,7 @@ CRITICAL: "User went to Paris last week" is useless 6 months later. "User went t
 
 ## Current Date
 
-Today's system date. May be years after Observation Date. Do NOT use this to resolve temporal references in messages — only Observation Date grounds user and assistant statements.
+Today's system date. May be years after Observation Date. Do NOT use this to resolve temporal references in messages - only Observation Date grounds user and assistant statements.
 
 
 ## Optional Inputs
@@ -559,40 +558,40 @@ Extract ALL memorable information from both user and assistant messages. Think b
 - Health/wellness, opinions, hobbies, emotional states
 - Entity attributes (breed, model, color, make, size)
 - Implicit preferences revealed through requests 
-- **Shared content and reference material** — when a user shares documents, case studies, articles, data, specifications, stat blocks, code, or any structured information, extract the key factual data FROM that content. The user shared it because they want it remembered.
-- Firsts and milestones — 'first call-out', 'just started', 'recently joined', etc.
-- Specific foods, meals, and who was present (e.g. 'dinner with mom — salads, sandwiches, homemade desserts').
-- Inspiration and motivation — what inspired someone to start something, who encouraged them.
+- **Shared content and reference material** - when a user shares documents, case studies, articles, data, specifications, stat blocks, code, or any structured information, extract the key factual data FROM that content. The user shared it because they want it remembered.
+- Firsts and milestones - 'first call-out', 'just started', 'recently joined', etc.
+- Specific foods, meals, and who was present (e.g. 'dinner with mom - salads, sandwiches, homemade desserts').
+- Inspiration and motivation - what inspired someone to start something, who encouraged them.
 
 **From assistant messages (ONLY when genuinely new):**
 - Specific recommendations given (books, restaurants, products, services)
 - Plans or schedules created for the user
 - Information researched or provided (facts, instructions, solutions)
 - Agreements reached during conversation
-- **Personal facts, experiences, and details shared by named speakers** — in multi-speaker conversations, the "assistant" role may represent a real person sharing their own life (e.g., "Maria: I just got a new cat named Bailey"). Extract their personal information with the same rigor as user-stated facts, attributed to the speaker by name.
+- **Personal facts, experiences, and details shared by named speakers** - in multi-speaker conversations, the "assistant" role may represent a real person sharing their own life (e.g., "Maria: I just got a new cat named Bailey"). Extract their personal information with the same rigor as user-stated facts, attributed to the speaker by name.
 
-Do NOT extract from assistant messages that merely restate, summarize, or confirm what the user already said. The user's own words are the primary source — if the user said it and the assistant echoed it, extract only once from the user's version. Note: a single assistant message may contain BOTH an echo AND new personal facts — skip the echo portion but still extract the new facts.
+Do NOT extract from assistant messages that merely restate, summarize, or confirm what the user already said. The user's own words are the primary source - if the user said it and the assistant echoed it, extract only once from the user's version. Note: a single assistant message may contain BOTH an echo AND new personal facts - skip the echo portion but still extract the new facts.
 
 Do NOT extract: greetings, filler, vague acknowledgments, or content too generic to be useful.
 
-**When in doubt, extract.** A slightly redundant memory is far less costly than a missing one. The deduplication system downstream will handle true duplicates — your job is to ensure nothing meaningful is lost.
+**When in doubt, extract.** A slightly redundant memory is far less costly than a missing one. The deduplication system downstream will handle true duplicates - your job is to ensure nothing meaningful is lost.
 
 ### Casual Topics Are Still Extractable
 
-Conversations about pets, hobbies, childhood memories, funny anecdotes, and personal preferences are NOT "chitchat" to be skipped. In a personal memory system, these casual revelations are often the MOST valuable — someone's pet's name, a childhood activity with a parent, a funny incident, a new hobby. Only skip messages that are PURELY phatic ("Hi!", "Sounds good!", "Thanks!") with zero informational content.
+Conversations about pets, hobbies, childhood memories, funny anecdotes, and personal preferences are NOT "chitchat" to be skipped. In a personal memory system, these casual revelations are often the MOST valuable - someone's pet's name, a childhood activity with a parent, a funny incident, a new hobby. Only skip messages that are PURELY phatic ("Hi!", "Sounds good!", "Thanks!") with zero informational content.
 
 ### Extract Incidental Facts, Not Just Requests
 
 When a user asks a question or makes a request, their message often contains INCIDENTAL PERSONAL FACTS stated as context. These facts are just as extractable as the request itself:
 
-- "I've harvested cherry tomatoes from my garden — any companion plant suggestions?" → Extract BOTH "User grows cherry tomatoes in their garden" 
-- "I just started 'The Nightingale' by Kristin Hannah — can you recommend similar books?" → Extract BOTH "User started reading 'The Nightingale' by Kristin Hannah on [date]" 
+- "I've harvested cherry tomatoes from my garden - any companion plant suggestions?" → Extract BOTH "User grows cherry tomatoes in their garden" 
+- "I just started 'The Nightingale' by Kristin Hannah - can you recommend similar books?" → Extract BOTH "User started reading 'The Nightingale' by Kristin Hannah on [date]" 
 - "As an aspiring stand-up comedian, can you suggest Netflix comedy specials?" → Extract BOTH the career aspiration 
-- "My daughter Sara loves painting — where can I find kids' art classes?" → Extract "User has a daughter named Sara who loves painting" 
+- "My daughter Sara loves painting - where can I find kids' art classes?" → Extract "User has a daughter named Sara who loves painting" 
 
 Do NOT let the request overshadow the facts. A question about companion plants is transient; the fact that the user grows cherry tomatoes is a persistent personal detail worth remembering.
 
-**IMPORTANT — Extract ALL dimensions of a conversation.** A single session may contain career facts, entertainment preferences, scheduled plans, and personal opinions. Extract each dimension as a separate memory. Do not let one dominant topic cause you to miss secondary information.
+**IMPORTANT - Extract ALL dimensions of a conversation.** A single session may contain career facts, entertainment preferences, scheduled plans, and personal opinions. Extract each dimension as a separate memory. Do not let one dominant topic cause you to miss secondary information.
 
 ### Shared Photos and Images
 
@@ -605,11 +604,11 @@ When a message contains a photo description (e.g., "[Shared photo: ...]" or desc
 ## Memory Quality Standards
 
 ### Contextually Rich, Not Atomic
-Capture the full picture — fact AND surrounding context — in a single unified memory, not scattered fragments.
+Capture the full picture - fact AND surrounding context - in a single unified memory, not scattered fragments.
 
 Bad: "User has a dog" | Good: "User has a dog named Poppy and their morning walks together are the highlight of their day"
 
-This applies especially to **transitions and changes**. When the user describes changing, switching, replacing, stopping, or trying something new in place of something else, the memory MUST capture the transition — what the new state is AND what it replaces or changes from. The relationship between old and new is critical context. Without it, the system has an isolated new fact with no understanding of what changed.
+This applies especially to **transitions and changes**. When the user describes changing, switching, replacing, stopping, or trying something new in place of something else, the memory MUST capture the transition - what the new state is AND what it replaces or changes from. The relationship between old and new is critical context. Without it, the system has an isolated new fact with no understanding of what changed.
 
 Bad: "User prefers oat milk lattes"
 Good: "User switched from almond milk to oat milk lattes after developing an almond sensitivity"
@@ -617,7 +616,7 @@ Good: "User switched from almond milk to oat milk lattes after developing an alm
 Bad: "User is taking online Spanish classes on Wednesdays"
 Good: "User switched from in-person French classes to online Spanish classes on Wednesdays after relocating"
 
-When the change is explicitly temporary or a trial, capture that too — "for a month", "trying out", "testing" — these signal the old arrangement may resume.
+When the change is explicitly temporary or a trial, capture that too - "for a month", "trying out", "testing" - these signal the old arrangement may resume.
 
 ### Clean Factual Statements
 Preserve the FULL meaning including emotional reactions, motivations, and subjective experiences. Remove filler words and conversation mechanics (greetings, "like", "you know"), but KEEP:
@@ -629,7 +628,7 @@ Preserve the FULL meaning including emotional reactions, motivations, and subjec
 Every memory must be understandable on its own. Replace all pronouns with specific names or "User."
 
 ### Concise but Complete (15-80 words, up to 100 for detail-rich content)
-1-2 sentences per memory (up to 3 for content with multiple proper nouns, specific quantities, or enumerated items). When a topic has too many details, split into multiple focused memories rather than compressing details away. NEVER sacrifice a proper noun, title, date, or specific detail to meet a word count — completeness beats brevity.
+1-2 sentences per memory (up to 3 for content with multiple proper nouns, specific quantities, or enumerated items). When a topic has too many details, split into multiple focused memories rather than compressing details away. NEVER sacrifice a proper noun, title, date, or specific detail to meet a word count - completeness beats brevity.
 
 ### Temporally Grounded
 Preserve exact dates, durations, and temporal relationships. Convert relative → absolute using Observation Date (NOT Current Date). NEVER convert absolute → vague. "18 days" stays "18 days", not "some time."
@@ -637,13 +636,13 @@ Preserve exact dates, durations, and temporal relationships. Convert relative �
 ### Numerically Precise
 Preserve exact quantities as stated. "416 pages" stays "416 pages", not "about 400 pages."
 
-### Preserve Specific Details — Never Generalize Concrete Information
+### Preserve Specific Details - Never Generalize Concrete Information
 
-When information contains specific details — whether quantities, identifiers, descriptions, visual details, quoted text, named objects, proper nouns, or any concrete information — those specifics MUST survive extraction. Replacing a specific detail with a vague category is a critical error.
+When information contains specific details - whether quantities, identifiers, descriptions, visual details, quoted text, named objects, proper nouns, or any concrete information - those specifics MUST survive extraction. Replacing a specific detail with a vague category is a critical error.
 
 #### Proper Nouns and Titles Should be Preserved
 
-Book titles, movie titles, game names, song titles, restaurant names, neighborhood names, brand names, character names, and named places are the HIGHEST-VALUE details in a memory. Users search by name — a memory without the name is unfindable. ALWAYS preserve exact proper nouns:
+Book titles, movie titles, game names, song titles, restaurant names, neighborhood names, brand names, character names, and named places are the HIGHEST-VALUE details in a memory. Users search by name - a memory without the name is unfindable. ALWAYS preserve exact proper nouns:
 
 - "watched 'Eternal Sunshine of the Spotless Mind'" → KEEP the full title
 - "went to Woodhaven for a road trip" → KEEP "Woodhaven"
@@ -663,7 +662,7 @@ Never generalize specific qualifiers. The qualifier is almost always the detail 
 - "scored 3 goals in the semifinal" → KEEP "3 goals in the semifinal", NOT "scored several goals"
 - "walks her dogs multiple times a day" → KEEP "multiple times a day", NOT "regularly" or "daily"
 
-If the input is specific, the memory must be equally specific. The concrete details are precisely what distinguishes a useful memory from a useless one. NEVER replace a specific noun, number, title, or description with a vague category or paraphrase — this destroys the information the user actually shared.
+If the input is specific, the memory must be equally specific. The concrete details are precisely what distinguishes a useful memory from a useless one. NEVER replace a specific noun, number, title, or description with a vague category or paraphrase - this destroys the information the user actually shared.
 
 ### Meaning-Preserving
 Capture the EXACT meaning of what was said. Read carefully:
@@ -679,14 +678,14 @@ Misinterpreting the user's words is worse than not extracting at all.
 - **No Fabrication**: Every detail must trace to the inputs. If you can't point to where it came from, don't include it.
 - **No Implicit Attribute Inference**: Don't infer gender, age, ethnicity, etc. from names or context. Only record explicitly stated attributes.
 - **Correct Attribution**: Distinguish user-stated facts from assistant-provided information. Frame assistant content appropriately.
-- **No Echo Extraction**: When an assistant message restates, summarizes, or confirms information the user already provided in the same conversation, do NOT extract it again from the assistant's message. Only extract from assistant messages when they contribute genuinely NEW information not already present in the user's messages — specific recommendations, newly created plans or schedules, researched facts, or solutions the assistant provided that the user did not state themselves. If the user says "I want daily check-ins at 7:30 AM" and the assistant responds "I've set up daily check-ins at 7:30 AM", that is already captured from the user's message — do not extract a second memory from the assistant's echo.
-- **No Within-Response Duplication**: Each piece of information must appear exactly ONCE in your output, regardless of how many messages mention it. Before finalizing your output, review your extractions and remove any that are semantically equivalent to another extraction in the same response. Two memories about the same fact phrased differently are redundant — keep the richer one and drop the other.
+- **No Echo Extraction**: When an assistant message restates, summarizes, or confirms information the user already provided in the same conversation, do NOT extract it again from the assistant's message. Only extract from assistant messages when they contribute genuinely NEW information not already present in the user's messages - specific recommendations, newly created plans or schedules, researched facts, or solutions the assistant provided that the user did not state themselves. If the user says "I want daily check-ins at 7:30 AM" and the assistant responds "I've set up daily check-ins at 7:30 AM", that is already captured from the user's message - do not extract a second memory from the assistant's echo.
+- **No Within-Response Duplication**: Each piece of information must appear exactly ONCE in your output, regardless of how many messages mention it. Before finalizing your output, review your extractions and remove any that are semantically equivalent to another extraction in the same response. Two memories about the same fact phrased differently are redundant - keep the richer one and drop the other.
 - **No Meta-Extraction**: Extract the CONTENT of what was shared, not a description of the user's action. When a user shares a document, data, or reference material, extract the actual facts FROM that material.
   - WRONG: "User asked for the introductory paragraph to be shortened" / "User shared a case summary for optimization"
   - RIGHT: "The Bajimaya v Reward Homes case involved construction starting in 2014, contract signed in 2015, with completion due by October 2015" / "The tribunal found Reward Homes breached its contract through poor workmanship, waterproofing defects, and non-compliance with the Building Code of Australia"
   - WRONG: "Assistant created a D&D adventure with enemies"
   - RIGHT: "The Lost Temple of the Djinn adventure includes 4 Mummies (AC 11, 45 HP), 2 Construct Guardians (AC 17, 110 HP), and 6 Skeletal Warriors (AC 12, 22 HP)"
-- **No Detail Contamination from Context**: When extracting from New Messages, do NOT import or merge details from Existing Memories or Recent Memories into the new extraction UNLESS the new message explicitly references those details. If the New Message says "I had a great meal" and an Existing Memory says "User's favorite restaurant is Olive Garden," do NOT produce "User had a great meal at Olive Garden" — the new message never mentioned the restaurant. Each extraction must be faithful to its source message only.
+- **No Detail Contamination from Context**: When extracting from New Messages, do NOT import or merge details from Existing Memories or Recent Memories into the new extraction UNLESS the new message explicitly references those details. If the New Message says "I had a great meal" and an Existing Memory says "User's favorite restaurant is Olive Garden," do NOT produce "User had a great meal at Olive Garden" - the new message never mentioned the restaurant. Each extraction must be faithful to its source message only.
 
 
 ## Memory Linking
@@ -698,7 +697,7 @@ When extracting a new memory, check if it relates to any Existing Memory. Add re
 - **Continuation**: Follow-up event or next step in a previously captured narrative
 - **Contradiction**: New information that conflicts with an existing memory
 
-Do NOT link memories that merely share a vague theme. Links should be specific and meaningful — the linked memories should be about the same specific entity, event, or topic. If no existing memories are related, omit linked_memory_ids or pass an empty array.
+Do NOT link memories that merely share a vague theme. Links should be specific and meaningful - the linked memories should be about the same specific entity, event, or topic. If no existing memories are related, omit linked_memory_ids or pass an empty array.
 
 
 # EXAMPLES
@@ -721,7 +720,7 @@ Output:
   {"id": "2", "text": "Marcus and his wife Elena are expecting their first baby in March 2026"}
 ]}
 
-Three distinct topics — career, relationship/dining, family milestone — each get their own memory with full context.
+Three distinct topics - career, relationship/dining, family milestone - each get their own memory with full context.
 
 
 ## Example 2: Extracting from Assistant Recommendations
@@ -754,7 +753,7 @@ Observation Date: 2025-08-19
 
 Output: {"memory": []}
 
-## Example 5: Deduplication — Skip Already Captured
+## Example 5: Deduplication - Skip Already Captured
 
 Recently Extracted: ["Marcus was promoted to Senior Engineer at Shopify around August 12, 2025"]
 Existing Memories: [{"id": "0", "text": "Marcus was promoted to Senior Engineer at Shopify around August 12, 2025"}]
@@ -765,7 +764,7 @@ Observation Date: 2025-08-19
 Output: {"memory": []}
 
 
-## Example 6: Extract ALL Dimensions — Don't Miss Secondary Info
+## Example 6: Extract ALL Dimensions - Don't Miss Secondary Info
 
 Summary: "User is an aspiring actor."
 Recently Extracted: []
@@ -797,16 +796,16 @@ Current Date: 2026-02-18
 Output:
 {"memory": [{"id": "0", "text": "User listened to the Ready Player One audiobook around early January 2022 and enjoyed the pop culture references"}]}
 
-"Recently" is grounded to the Observation Date (January 2022), NOT Current Date (February 2026). The Hitchhiker's Guide memory already exists — not re-extracted.
+"Recently" is grounded to the Observation Date (January 2022), NOT Current Date (February 2026). The Hitchhiker's Guide memory already exists - not re-extracted.
 
 
-## Example 8: Document / Reference Material — Extract Content, Not Actions
+## Example 8: Document / Reference Material - Extract Content, Not Actions
 
 Summary: ""
 Recently Extracted: []
 Existing Memories: []
 New Messages:
-[{"role": "user", "content": "I want you to remember this case. If you understand, just say acknowledged. Bajimaya v Reward Homes Pty Ltd [2021] NSWCATAP 297 — The construction began in 2014, contract signed in 2015 with completion due by October 2015. The plaintiff received keys in December 2016 and found defects including incomplete works, poor workmanship, and non-compliance with the building code. The tribunal found the builder breached contract."},
+[{"role": "user", "content": "I want you to remember this case. If you understand, just say acknowledged. Bajimaya v Reward Homes Pty Ltd [2021] NSWCATAP 297 - The construction began in 2014, contract signed in 2015 with completion due by October 2015. The plaintiff received keys in December 2016 and found defects including incomplete works, poor workmanship, and non-compliance with the building code. The tribunal found the builder breached contract."},
  {"role": "assistant", "content": "Acknowledged."}]
 Observation Date: 2024-03-10
 
@@ -817,7 +816,7 @@ Output:
   {"id": "2", "text": "The tribunal found Reward Homes Pty Ltd breached its contract with Mr. Bajimaya by failing to complete work in a proper and workmanlike manner and failing to comply with plans, specifications, and the Building Code."}
 ]}
 
-The user shared reference material to be remembered. Extract the actual factual content — dates, parties, findings — NOT "User shared a case summary" or "User asked to remember a case."
+The user shared reference material to be remembered. Extract the actual factual content - dates, parties, findings - NOT "User shared a case summary" or "User asked to remember a case."
 
 
 ## Example 9: Structured Data with Counts and Specifics
@@ -840,13 +839,13 @@ Output:
 Every count (4 Mummies, 2 Construct Guardians, 6 Skeletal Warriors) and every specific value (AC, HP, DCs, trait names) is preserved. Dropping the counts or stat values would destroy the most queryable information.
 
 
-## Example 10: Memory Linking — Connecting Related Memories
+## Example 10: Memory Linking - Connecting Related Memories
 
 Summary: ""
 Recently Extracted: []
 Existing Memories: [{"id": "a1b2c3d4-5678-9abc-def0-111111111111", "text": "User has a dog named Poppy, a golden retriever"}, {"id": "b2c3d4e5-6789-abcd-ef01-222222222222", "text": "User works as a Senior Engineer at Shopify"}]
 New Messages:
-[{"role": "user", "content": "Poppy had her vet checkup yesterday — she's healthy but needs to lose a few pounds. Also, I'm switching teams at work next month to the payments platform."}]
+[{"role": "user", "content": "Poppy had her vet checkup yesterday - she's healthy but needs to lose a few pounds. Also, I'm switching teams at work next month to the payments platform."}]
 Observation Date: 2025-03-15
 
 Output:
@@ -855,10 +854,10 @@ Output:
   {"id": "1", "text": "User is switching teams at Shopify to the payments platform in April 2025", "linked_memory_ids": ["b2c3d4e5-6789-abcd-ef01-222222222222"]}
 ]}
 
-Both new memories link to related existing memories — the vet checkup links to the existing Poppy memory, and the team switch links to the existing Shopify memory. This enables the system to build a graph of related memories.
+Both new memories link to related existing memories - the vet checkup links to the existing Poppy memory, and the team switch links to the existing Shopify memory. This enables the system to build a graph of related memories.
 
 
-## Example 11: Long Multi-Topic Conversation — Don't Stop After First Topic
+## Example 11: Long Multi-Topic Conversation - Don't Stop After First Topic
 
 Summary: ""
 Recently Extracted: []
@@ -868,7 +867,7 @@ New Messages:
  {"role": "assistant", "content": "Congratulations! How's he settling in?"},
  {"role": "user", "content": "Great! Oh, and I also started pottery classes on Tuesdays. Made a mug with my daughter's face on it."},
  {"role": "assistant", "content": "Fun! Sounds like a lot going on."},
- {"role": "user", "content": "Yeah — my sister just moved to Portland too. I'm happy but honestly a bit overwhelmed. My boss gave me a promotion to team lead last week as well."}]
+ {"role": "user", "content": "Yeah - my sister just moved to Portland too. I'm happy but honestly a bit overwhelmed. My boss gave me a promotion to team lead last week as well."}]
 Observation Date: 2025-03-10
 
 Output:
@@ -880,18 +879,18 @@ Output:
   {"id": "4", "text": "User was promoted to team lead around March 3, 2025, and feels happy but overwhelmed about all the recent changes"}
 ]}
 
-FIVE topics across 5 messages — each one extracted separately. Do not stop after the first topic (the puppy). The pottery mug detail, the sister's move, and the emotional reaction to the promotion are all distinct, extractable facts.
+FIVE topics across 5 messages - each one extracted separately. Do not stop after the first topic (the puppy). The pottery mug detail, the sister's move, and the emotional reaction to the promotion are all distinct, extractable facts.
 
 
-## Example 12: Multi-Speaker Conversation — Extract From ALL Speakers
+## Example 12: Multi-Speaker Conversation - Extract From ALL Speakers
 
 Summary: "John has a dog named Max."
 Recently Extracted: []
 Existing Memories: [{"id": "a1b2c3d4-0000-0000-0000-111111111111", "text": "John has a dog named Max"}]
 New Messages:
 [{"role": "user", "content": "John: Max and I had a blast on our camping trip last summer. We hiked, swam, and made great memories. It was a really peaceful experience."},
- {"role": "assistant", "content": "Maria: That sounds amazing! I actually just got a new cat named Bailey last week — she's been such a joy already. Camping with pets is so soul-nourishing."},
- {"role": "user", "content": "John: Congrats on Bailey! Here's a picture of my family too — that was from a trip we took for my daughter Sara's birthday last fall."}]
+ {"role": "assistant", "content": "Maria: That sounds amazing! I actually just got a new cat named Bailey last week - she's been such a joy already. Camping with pets is so soul-nourishing."},
+ {"role": "user", "content": "John: Congrats on Bailey! Here's a picture of my family too - that was from a trip we took for my daughter Sara's birthday last fall."}]
 Observation Date: 2023-08-11
 
 Output:
@@ -901,18 +900,18 @@ Output:
   {"id": "2", "text": "John has a daughter named Sara and the family took a trip for her birthday in fall 2022"}
 ]}
 
-Three key lessons: (1) The existing memory "John has a dog named Max" does NOT mean all Max-related information is captured — the camping trip is a new event with specific activities (hiking, swimming) and must be extracted and linked. (2) Maria is a named speaker in the "assistant" role but shares a genuine personal fact (new cat Bailey) — this MUST be extracted with the same rigor as user facts. Her echo ("that sounds amazing", "camping is soul-nourishing") is correctly skipped, but her personal fact is not. (3) Sara's name and the birthday trip are separate factual details that each deserve their own extraction.
+Three key lessons: (1) The existing memory "John has a dog named Max" does NOT mean all Max-related information is captured - the camping trip is a new event with specific activities (hiking, swimming) and must be extracted and linked. (2) Maria is a named speaker in the "assistant" role but shares a genuine personal fact (new cat Bailey) - this MUST be extracted with the same rigor as user facts. Her echo ("that sounds amazing", "camping is soul-nourishing") is correctly skipped, but her personal fact is not. (3) Sara's name and the birthday trip are separate factual details that each deserve their own extraction.
 
 
 # CRITICAL: Exhaustive Extraction Checklist
 
-Before producing output, mentally scan the ENTIRE conversation — every single message — and verify:
+Before producing output, mentally scan the ENTIRE conversation - every single message - and verify:
 1. Have you extracted at least one memory from every distinct topic or subject change in the conversation?
 2. Have you extracted facts from messages in the MIDDLE and END of the conversation, not just the beginning?
-3. For conversations with 10+ messages, you should typically extract 5-15 memories. If you have fewer than 3, re-read the conversation — you are almost certainly missing information.
+3. For conversations with 10+ messages, you should typically extract 5-15 memories. If you have fewer than 3, re-read the conversation - you are almost certainly missing information.
 4. Re-read each user message individually: does EVERY specific fact, preference, experience, or event mentioned in that message have a corresponding extraction? If a single message mentions two distinct facts (e.g., an allergy AND a hobby), both must be captured.
 
-A common failure mode is "first topic dominance" — the extractor captures the first major topic thoroughly, then treats subsequent topics as filler. This is WRONG. Every topic mentioned deserves extraction if it contains memorable facts. If a chunk has 8 messages covering 4 different topics, you MUST produce memories for all 4 topics — not just the first or most prominent one.
+A common failure mode is "first topic dominance" - the extractor captures the first major topic thoroughly, then treats subsequent topics as filler. This is WRONG. Every topic mentioned deserves extraction if it contains memorable facts. If a chunk has 8 messages covering 4 different topics, you MUST produce memories for all 4 topics - not just the first or most prominent one.
 
 
 # OUTPUT FORMAT
@@ -958,7 +957,7 @@ The attributed_to field should still reflect the original source: "user" for fac
 
 
 # ---------------------------------------------------------------------------
-# V3 Prompt Builder — constructs the user-side prompt for additive extraction
+# V3 Prompt Builder - constructs the user-side prompt for additive extraction
 # Ported from platform/backend/shared/core/utils/prompt_builder.py
 # ---------------------------------------------------------------------------
 
@@ -1048,7 +1047,7 @@ def generate_additive_extraction_prompt(
         sections.append(
             "## Language Requirement\n"
             "CRITICAL: Respond in the SAME LANGUAGE and SCRIPT as the input messages.\n"
-            "1. Match the language of the user's messages exactly — if they write in Korean, extract in Korean; Japanese in Japanese; etc.\n"
+            "1. Match the language of the user's messages exactly - if they write in Korean, extract in Korean; Japanese in Japanese; etc.\n"
             "2. Preserve the exact script/alphabet of the input.\n"
             "3. Do NOT translate or transliterate into English unless the input is already in English.\n"
             "4. Maintain all quality standards (contextual richness, temporal grounding, etc.) regardless of language.\n"
@@ -1068,11 +1067,15 @@ def generate_additive_extraction_prompt(
 # "Expecting value: line 1 column 1 (char 0)" parse failure). Forcing a tool
 # call constrains the model to the schema, so it cannot answer with prose.
 #
-# Defined in OpenAI function-calling format — the format mem0 providers expect
+# Defined in OpenAI function-calling format - the format mem0 providers expect
 # and convert from internally (see e.g. AnthropicLLM / AWSBedrockLLM). Mirrors
 # the ADDITIVE_EXTRACTION_PROMPT output shape: {"memory": [{"id", "text", ...}]}.
 # The "text" field name is load-bearing: the add() pipeline reads m.get("text")
 # (mem0/memory/main.py). Renaming it here silently drops every recovered memory.
+# "attributed_to" is also consumed (main.py promotes it into the memory's
+# metadata); "id" and "linked_memory_ids" mirror the prompt's output shape for
+# model familiarity and are harmlessly ignored downstream. Only "text" is
+# required - the others are optional, including "id".
 MEMORY_EXTRACTION_TOOL = {
     "type": "function",
     "function": {
@@ -1092,7 +1095,7 @@ MEMORY_EXTRACTION_TOOL = {
                         "properties": {
                             "id": {
                                 "type": "string",
-                                "description": "Sequential id for this memory ('0', '1', ...).",
+                                "description": "Optional sequential id for this memory ('0', '1', ...).",
                             },
                             "text": {
                                 "type": "string",

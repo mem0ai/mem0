@@ -62,7 +62,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -116,7 +118,9 @@ class TestParseFailureRecovery:
         memory.db.get_last_messages = MagicMock(return_value=[])
         memory.db.save_messages = MagicMock()
         memory.db.batch_add_history = MagicMock()
-        memory.embedding_model.embed_batch = MagicMock(side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts])
+        memory.embedding_model.embed_batch = MagicMock(
+            side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts]
+        )
         return memory
 
     def test_recovers_dropped_memories_when_provider_supports_tools(self, mock_memory, caplog):
@@ -154,6 +158,38 @@ class TestParseFailureRecovery:
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
         assert any("Error parsing extraction response" in r.message for r in caplog.records)
+
+    def test_truncated_json_does_not_trigger_tool_recovery(self, mock_memory):
+        # A response that contained JSON but failed to parse (e.g. max_tokens
+        # cut it off mid-object) is a token-budget problem, not a content
+        # hijack. The forced-tool recovery must not fire - otherwise every
+        # under-budgeted extraction silently pays for extra LLM calls.
+        mock_memory.llm.supports_tool_calls = True
+        mock_memory.llm.generate_response.return_value = '{"memory": [{"id": "0", "text": "User likes hik'
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+        )
+
+        assert mock_memory.llm.generate_response.call_count == 1
+        assert result == []
+
+    def test_hijack_prose_containing_a_brace_keeps_current_behavior(self, mock_memory):
+        # Pins the deliberate fail-safe edge of the '{' gate: hijack prose that
+        # merely contains a brace (e.g. an echoed code snippet) is treated as
+        # "JSON may have been emitted" and keeps the current no-recovery
+        # behavior rather than paying for a recovery call.
+        mock_memory.llm.supports_tool_calls = True
+        mock_memory.llm.generate_response.return_value = (
+            "Sure! Here is a config you could use: server { listen 80; } - let me know if it works."
+        )
+
+        result = mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
+        )
+
+        assert mock_memory.llm.generate_response.call_count == 1
+        assert result == []
 
 
 class TestPromptOverridesCustomInstructions:
@@ -276,7 +312,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -313,7 +351,9 @@ class TestAsyncParseFailureRecovery:
         memory.db.get_last_messages = MagicMock(return_value=[])
         memory.db.save_messages = MagicMock()
         memory.db.batch_add_history = MagicMock()
-        memory.embedding_model.embed_batch = MagicMock(side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts])
+        memory.embedding_model.embed_batch = MagicMock(
+            side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts]
+        )
         return memory
 
     @pytest.mark.asyncio
@@ -347,6 +387,20 @@ class TestAsyncParseFailureRecovery:
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
         assert any("Error parsing extraction response (async)" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_async_truncated_json_does_not_trigger_tool_recovery(self, mock_async_memory):
+        # Async counterpart: truncated JSON (token budget) must not fire the
+        # forced-tool recovery.
+        mock_async_memory.llm.supports_tool_calls = True
+        mock_async_memory.llm.generate_response.return_value = '{"memory": [{"id": "0", "text": "User likes hik'
+
+        result = await mock_async_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "test"}], metadata={}, effective_filters={}, infer=True
+        )
+
+        assert mock_async_memory.llm.generate_response.call_count == 1
+        assert result == []
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -633,6 +687,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -763,7 +818,8 @@ def test_update_preserves_actor_id_when_different_actor_updates(mocker):
     )
 
     memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -786,7 +842,8 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     )
 
     await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )

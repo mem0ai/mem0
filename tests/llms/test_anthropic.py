@@ -150,9 +150,7 @@ def test_openai_format_tools_converted_to_anthropic_schema(mock_anthropic_client
         content=[_tool_use_block("save_memories", {"memory": []})]
     )
 
-    llm.generate_response(
-        [{"role": "user", "content": "Hi"}], tools=[OPENAI_FORMAT_TOOL], tool_choice="required"
-    )
+    llm.generate_response([{"role": "user", "content": "Hi"}], tools=[OPENAI_FORMAT_TOOL], tool_choice="required")
 
     call_kwargs = mock_anthropic_client.messages.create.call_args[1]
     sent_tool = call_kwargs["tools"][0]
@@ -168,9 +166,7 @@ def test_tool_use_block_parsed_into_tool_calls_dict(mock_anthropic_client):
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
     llm = AnthropicLLM(config)
     payload = {"memory": [{"id": "0", "text": "Likes hiking"}]}
-    mock_anthropic_client.messages.create.return_value = Mock(
-        content=[_tool_use_block("save_memories", payload)]
-    )
+    mock_anthropic_client.messages.create.return_value = Mock(content=[_tool_use_block("save_memories", payload)])
 
     result = llm.generate_response(
         [{"role": "user", "content": "Hi"}], tools=[OPENAI_FORMAT_TOOL], tool_choice="required"
@@ -193,7 +189,7 @@ def test_tool_choice_auto_maps_to_dict(mock_anthropic_client):
 
 def test_tool_requested_but_text_returned_yields_no_tool_calls(mock_anthropic_client):
     """If the model returns only text despite a forced tool, tool_calls is empty
-    (graceful — the recovery degrades to [] rather than raising)."""
+    (graceful - the recovery degrades to [] rather than raising)."""
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
     llm = AnthropicLLM(config)
     text_block = Mock()
@@ -224,9 +220,7 @@ def test_already_anthropic_format_tool_passed_through(mock_anthropic_client):
 def test_tool_missing_parameters_gets_empty_object_schema(mock_anthropic_client):
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
     llm = AnthropicLLM(config)
-    mock_anthropic_client.messages.create.return_value = Mock(
-        content=[_tool_use_block("noop", {})]
-    )
+    mock_anthropic_client.messages.create.return_value = Mock(content=[_tool_use_block("noop", {})])
     tool = {"type": "function", "function": {"name": "noop", "description": "d"}}
 
     llm.generate_response([{"role": "user", "content": "Hi"}], tools=[tool], tool_choice="required")
@@ -243,12 +237,21 @@ def test_parse_response_output_feeds_recovery_parser(mock_anthropic_client):
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
     llm = AnthropicLLM(config)
     payload = {"memory": [{"id": "0", "text": "Likes hiking"}]}
-    mock_anthropic_client.messages.create.return_value = Mock(
-        content=[_tool_use_block("save_memories", payload)]
-    )
+    mock_anthropic_client.messages.create.return_value = Mock(content=[_tool_use_block("save_memories", payload)])
 
     response = llm.generate_response(
         [{"role": "user", "content": "Hi"}], tools=[OPENAI_FORMAT_TOOL], tool_choice="required"
     )
 
     assert parse_tool_calls_for_memory(response) == [{"id": "0", "text": "Likes hiking"}]
+
+
+def test_no_tools_path_empty_content_returns_empty_string(mock_anthropic_client):
+    """An empty content list (e.g. a blocked/refused response) must not raise
+    IndexError on the no-tools path; it degrades to an empty string."""
+    config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+    llm = AnthropicLLM(config)
+
+    mock_anthropic_client.messages.create.return_value = Mock(content=[])
+
+    assert llm.generate_response([{"role": "user", "content": "Hi"}]) == ""
