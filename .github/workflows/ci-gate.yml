@@ -53,7 +53,6 @@ jobs:
               - 'mem0/**'
               - 'tests/**'
               - 'pyproject.toml'
-              - 'docs/changelog/sdk.mdx'
               - '.github/workflows/ci.yml'
               - '.github/workflows/ci-gate.yml'
             ts_sdk:
