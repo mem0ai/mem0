@@ -104,73 +104,58 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
   }
 
   async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> {
-    try {
-      const provider = this.config.provider;
-      const mem0_api_key = this.config.mem0ApiKey;
+    const provider = this.config.provider;
+    const mem0_api_key = this.config.mem0ApiKey;
 
-      const settings: Mem0ProviderSettings = {
-        provider: provider,
-        mem0ApiKey: mem0_api_key,
-        apiKey: this.config.apiKey,
-      }
-
-      const mem0Config: Mem0ConfigSettings = {
-        mem0ApiKey: mem0_api_key,
-        ...this.config.mem0Config,
-        ...this.settings,
-      }
-
-      const selector = new Mem0ClassSelector(this.modelId, settings, this.provider_config);
-
-      let messagesPrompts = options.prompt;
-
-      // Process memories and update prompts
-      const { memories, messagesPrompts: updatedPrompts } = await this.processMemories(messagesPrompts, mem0Config);
-
-      const model = selector.createProvider();
-
-      const ans = await model.doGenerate({
-        ...options,
-        prompt: updatedPrompts,
-      });
-
-      // If there are no memories, return the original response
-      if (!memories || memories?.length === 0) {
-        return ans;
-      }
-
-      try {
-        // Create sources array with existing sources
-        const sources: LanguageModelV3Source[] = [
-          {
-            type: "source",
-            title: "Mem0 Memories",
-            sourceType: "url",
-            id: "mem0-" + generateRandomId(),
-            url: "https://app.mem0.ai",
-            providerMetadata: {
-              mem0: {
-                memories: memories,
-                memoriesText: memories
-                  ?.map((memory: any) => memory?.memory)
-                  .join("\n\n"),
-              },
-            },
-          },
-        ];
-      } catch (e) {
-        console.error("Error while creating sources");
-      }
-
-      return {
-        ...ans,
-        // sources
-      };
-    } catch (error) {
-      // Handle errors properly
-      console.error("Error in doGenerate:", error);
-      throw new Error("Failed to generate response.");
+    const settings: Mem0ProviderSettings = {
+      provider: provider,
+      mem0ApiKey: mem0_api_key,
+      apiKey: this.config.apiKey,
     }
+
+    const mem0Config: Mem0ConfigSettings = {
+      mem0ApiKey: mem0_api_key,
+      ...this.config.mem0Config,
+      ...this.settings,
+    }
+
+    const selector = new Mem0ClassSelector(this.modelId, settings, this.provider_config);
+
+    let messagesPrompts = options.prompt;
+
+    const { memories, messagesPrompts: updatedPrompts } = await this.processMemories(messagesPrompts, mem0Config);
+
+    const model = selector.createProvider();
+
+    const ans = await model.doGenerate({
+      ...options,
+      prompt: updatedPrompts,
+    });
+
+    if (!memories || memories?.length === 0) {
+      return ans;
+    }
+
+    const mem0Source: LanguageModelV3Source = {
+      type: "source",
+      sourceType: "url",
+      id: "mem0-" + generateRandomId(),
+      url: "https://app.mem0.ai",
+      title: "Mem0 Memories",
+      providerMetadata: {
+        mem0: {
+          memories: memories,
+          memoriesText: memories
+            ?.map((memory: any) => memory?.memory)
+            .join("\n\n"),
+        },
+      },
+    };
+
+    return {
+      ...ans,
+      content: [...ans.content, mem0Source],
+    };
   }
 
   async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {

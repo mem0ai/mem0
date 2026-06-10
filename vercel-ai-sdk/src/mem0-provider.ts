@@ -31,7 +31,7 @@ export interface Mem0ProviderSettings {
   /**
    * Custom headers to include in the requests.
    */
-  headers?: Record<string, string>;
+  headers?: Record<string, string | undefined>;
   name?: string;
   mem0ApiKey?: string;
   apiKey?: string;
@@ -113,7 +113,7 @@ export function createMem0(
         mem0ApiKey: options.mem0ApiKey,
         apiKey: options.apiKey,
         mem0Config: options.mem0Config,
-        modelType: "completion",
+        modelType: "chat",
       },
       options.config
     );

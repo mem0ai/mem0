@@ -7,7 +7,7 @@ class Mem0ClassSelector {
     provider_wrapper: string;
     config: Mem0ProviderSettings;
     provider_config?: ProviderSettings;
-    static supportedProviders = ["openai", "anthropic", "cohere", "groq", "google"];
+    static supportedProviders = ["openai", "anthropic", "cohere", "groq", "google", "gemini"];
 
     constructor(modelId: string, config: Mem0ProviderSettings, provider_config?: ProviderSettings) {
         this.modelId = modelId;
