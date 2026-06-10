@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SkillsConfig, CategoryConfig } from "./types.ts";
 import { readText, exists } from "./fs-safe.ts";
+import { toFileUrl } from "./providers.ts";
 
 // ============================================================================
 // Defaults
@@ -94,9 +95,11 @@ function parseSkillFile(content: string): ParsedSkill {
 function resolveSkillsDir(): string {
   const candidates: string[] = [];
 
-  // Strategy 1: import.meta.url (works in native ESM)
+  // Strategy 1: import.meta.url (works in native ESM and Windows raw-path loaders)
+  // toFileUrl() normalises raw Windows paths (C:\...) to file:// URLs so that
+  // fileURLToPath() can convert them back to the correct filesystem path.
   try {
-    const metaDir = path.dirname(fileURLToPath(import.meta.url));
+    const metaDir = path.dirname(fileURLToPath(toFileUrl(import.meta.url)));
     candidates.push(path.join(metaDir, "skills"));
     candidates.push(path.join(metaDir, "..", "skills"));
   } catch {

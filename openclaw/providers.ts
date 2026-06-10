@@ -2,6 +2,8 @@
  * Mem0 provider implementations: Platform (cloud) and OSS (self-hosted).
  */
 
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import type {
   Mem0Config,
@@ -12,6 +14,62 @@ import type {
   MemoryItem,
   AddResult,
 } from "./types.ts";
+
+// ============================================================================
+// Windows ESM URL helpers
+// ============================================================================
+
+/**
+ * Ensure `p` is a valid URL string that Node's ESM loader accepts.
+ *
+ * When OpenClaw loads a third-party plugin extension via a raw Windows
+ * absolute path (e.g. import("C:\\...\\dist\\index.js")), Node sets
+ * import.meta.url inside the loaded module to that raw path instead of a
+ * proper "file://" URL.  Any subsequent dynamic import("pkg-name") call then
+ * fails with ERR_UNSUPPORTED_ESM_URL_SCHEME because Node cannot use a bare
+ * drive-letter path as the base URL for package resolution.
+ *
+ * This helper detects raw paths (Windows drive-letter paths and POSIX absolute
+ * paths) and converts them to "file://" URLs so that createRequire() can
+ * resolve package specifiers correctly.
+ *
+ * @param p - a string that may be a URL or a raw filesystem path
+ * @returns a valid "file://" URL string, or the input unchanged if it already
+ *   has a URL scheme (file://, node:, data:, …)
+ */
+export function toFileUrl(p: string): string {
+  // Already has a multi-character URL scheme (file://, node:, data:, …).
+  // Single-letter prefixes like "C:" are Windows drive letters, not schemes.
+  if (/^[a-zA-Z]{2,}[a-zA-Z0-9+\-.]*:/.test(p)) return p;
+  // Raw filesystem path (Windows C:\... or C:/... or POSIX /...). Convert to
+  // a file:// URL so Node's ESM loader accepts it as a base URL.
+  // On macOS/Linux the Windows backslash path is normalised by replacing
+  // backslashes before handing it to pathToFileURL (which is POSIX-only).
+  const normalised = p.replace(/\\/g, "/");
+  return pathToFileURL(normalised).href;
+}
+
+/**
+ * Dynamically import a package specifier, falling back to createRequire when
+ * import.meta.url is a raw filesystem path (Windows ESM loader quirk).
+ *
+ * Returns the module namespace object (same shape as a dynamic import()).
+ */
+async function safeImport(specifier: string): Promise<any> {
+  const metaUrl = import.meta.url;
+  // If import.meta.url already has a multi-character URL scheme it is valid.
+  // Single-letter "schemes" like "C:" are Windows drive letters, not URLs.
+  if (/^[a-zA-Z]{2,}[a-zA-Z0-9+\-.]*:/.test(metaUrl)) {
+    return import(specifier);
+  }
+  // import.meta.url is a raw path (Windows raw-path loader). createRequire
+  // needs a "file://" URL or an absolute path; convert so resolution works.
+  const req = createRequire(toFileUrl(metaUrl));
+  const mod = req(specifier);
+  // Wrap in a synthetic ESM namespace: CJS module.exports → default export.
+  // Named exports (if any) are spread alongside default for interop.
+  return { default: mod, ...mod };
+}
 
 // ============================================================================
 // Result Normalizers
@@ -95,7 +153,7 @@ class PlatformProvider implements Mem0Provider {
   }
 
   private async _init(): Promise<void> {
-    const { default: MemoryClient } = await import("mem0ai");
+    const { default: MemoryClient } = await safeImport("mem0ai");
     const opts: {
       apiKey: string;
       host?: string;
@@ -316,7 +374,7 @@ class OSSProvider implements Mem0Provider {
   }
 
   private async _init(): Promise<void> {
-    const mod = await import("mem0ai/oss");
+    const mod = await safeImport("mem0ai/oss");
     const Memory = mod.Memory;
     for (const cls of ["PGVector", "RedisDB", "Qdrant"]) {
       const VectorCls = (mod as any)[cls];
@@ -348,7 +406,7 @@ class OSSProvider implements Mem0Provider {
     if (!this.ossConfig?.disableHistory) {
       try {
         // @ts-ignore — better-sqlite3 is a transitive dep; no types in this package
-        const bs3Mod = await import("better-sqlite3");
+        const bs3Mod = await safeImport("better-sqlite3");
         const BS3 = bs3Mod.default ?? bs3Mod;
         const testDb = new (BS3 as any)(":memory:");
         (testDb as any).close();
