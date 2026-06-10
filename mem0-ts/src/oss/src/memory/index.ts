@@ -1064,7 +1064,7 @@ export class Memory {
       : {};
 
     await this._ensureInitialized();
-    const { topK = 20, threshold = 0.1 } = config;
+    const { topK = 20, threshold = 0.1, explain = false } = config;
 
     await this._captureEvent("search", {
       query_length: query.length,
@@ -1169,17 +1169,35 @@ export class Memory {
 
         if (deduped.length > 0) {
           const entityStore = await this.getEntityStore();
+          const entitySearchFilters: Record<string, any> = {};
+          for (const k of ["user_id", "agent_id", "run_id"] as const) {
+            if (effectiveFilters[k])
+              entitySearchFilters[k] = effectiveFilters[k];
+          }
+          const entityTexts = deduped.map((e) => e.text);
+          const embeddings = await this.embedder.embedBatch(entityTexts);
 
-          for (const entity of deduped) {
-            try {
-              const entityEmbedding = await this.embedder.embed(entity.text);
-              const matches = await entityStore.search(
-                entityEmbedding,
-                500,
-                effectiveFilters,
-              );
+          if (embeddings.length !== entityTexts.length) {
+            console.warn(
+              `embedBatch returned ${embeddings.length} vectors for ${entityTexts.length} texts — skipping entity boost`,
+            );
+          } else {
+            const searchResults = await Promise.allSettled(
+              deduped.map((_, i) =>
+                entityStore.search(embeddings[i], 500, entitySearchFilters),
+              ),
+            );
 
-              for (const match of matches) {
+            for (const result of searchResults) {
+              if (result.status === "rejected") {
+                console.warn(
+                  "Entity boost search failed for one entity:",
+                  result.reason,
+                );
+                continue;
+              }
+
+              for (const match of result.value) {
                 const similarity = match.score ?? 0;
                 if (similarity < 0.5) continue;
 
@@ -1187,7 +1205,6 @@ export class Memory {
                 const linkedMemoryIds = payload.linkedMemoryIds ?? [];
                 if (!Array.isArray(linkedMemoryIds)) continue;
 
-                // Spread-attenuated boost
                 const numLinked = Math.max(linkedMemoryIds.length, 1);
                 const memoryCountWeight =
                   1.0 / (1.0 + 0.001 * (numLinked - 1) ** 2);
@@ -1204,8 +1221,6 @@ export class Memory {
                   }
                 }
               }
-            } catch (e) {
-              // Individual entity boost failed — continue
             }
           }
         }
@@ -1228,6 +1243,7 @@ export class Memory {
       entityBoosts,
       threshold ?? 0.1,
       topK,
+      explain,
     );
 
     // Step 9: Format results
@@ -1260,6 +1276,7 @@ export class Memory {
           ...(payload.user_id && { user_id: payload.user_id }),
           ...(payload.agent_id && { agent_id: payload.agent_id }),
           ...(payload.run_id && { run_id: payload.run_id }),
+          ...(scored.scoreDetails && { score_details: scored.scoreDetails }),
         };
       });
 

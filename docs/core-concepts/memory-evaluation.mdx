@@ -47,7 +47,7 @@ When a query arrives, the retrieval pipeline scores candidates across three sign
 
 1. **Semantic Search** — Vector similarity scoring against memory embeddings
 2. **Keyword Search** — Normalized term matching via BM25 with verb-form lemmatization
-3. **Entity Search** — Entity graph matching boosts memories linked to query entities
+3. **Entity Search** — Entity matching boosts memories linked to query entities
 
 Results are fused via rank scoring into a final top-K set. Different query types lean on different signals:
 

@@ -45,7 +45,7 @@ def test_search_vectors(chromadb_instance, mock_chromadb_client):
 
     assert len(results) == 2
     assert results[0].id == "id1"
-    assert results[0].score == 0.1
+    assert results[0].score == pytest.approx(1.0 / 1.1)
     assert results[0].payload == {"name": "vector1"}
 
 
@@ -150,7 +150,7 @@ def test_get_vector(chromadb_instance):
     chromadb_instance.collection.get.assert_called_once_with(ids=["id1"])
 
     assert result.id == "id1"
-    assert result.score == 0.1
+    assert result.score == pytest.approx(1.0 / 1.1)
     assert result.payload == {"name": "vector1"}
 
 

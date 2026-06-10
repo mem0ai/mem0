@@ -22,6 +22,7 @@ export interface SearchMemoryOptions {
   topK?: number;
   threshold?: number;
   rerank?: boolean;
+  latestOnly?: boolean;
   fields?: string[];
   categories?: string[];
 }
@@ -32,10 +33,20 @@ export interface GetAllMemoryOptions {
   pageSize?: number;
   startDate?: string;
   endDate?: string;
+  latestOnly?: boolean;
   categories?: string[];
 }
 
 export interface DeleteAllMemoryOptions extends EntityOptions {}
+
+export interface DeleteMemoryOptions {
+  /**
+   * When `true`, also delete the older memories this one superseded (the v3
+   * linked chain), transitively — the delete-side counterpart of `latestOnly`.
+   * Off by default. Serialized as `delete_linked`.
+   */
+  deleteLinked?: boolean;
+}
 
 // ─── Project Options ────────────────────────────────────────
 export interface ProjectOptions {
