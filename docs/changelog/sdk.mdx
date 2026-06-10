@@ -11,12 +11,18 @@ mode: "wide"
 
 **New Features:**
 - **Memory:** Warn at init time when hybrid/BM25 search silently degrades to semantic-only because the configured vector store does not implement `keyword_search`. Affected stores: Chroma, FAISS, Cassandra, LangChain, Neptune Analytics, S3 Vectors, Supabase, TurboPuffer, Valkey ([#5444](https://github.com/mem0ai/mem0/pull/5444))
+- **Memory:** Add opt-in `explain=True` parameter to `Memory.search()` and `AsyncMemory.search()`. When enabled, each result includes a `score_breakdown` dict with `semantic`, `keyword` (normalized BM25), `entity_boost`, and `temporal_boost` signals so callers can understand and tune retrieval ranking ([#5102](https://github.com/mem0ai/mem0/pull/5102))
 
 **Bug Fixes:**
 - **Vector Stores:** Normalize similarity scores to `[0, 1]` (higher = better) consistently across all backends. Previously some adapters (FAISS, Chroma, Milvus, Redis, Cassandra, S3 Vectors, and others) returned raw distance metrics where lower was better, causing incorrect ranking in multi-store setups ([#5391](https://github.com/mem0ai/mem0/pull/5391))
 - **Memory:** Parallelize entity boost searches in `Memory.search()` and `AsyncMemory.search()`. Previously up to 8 entities were embedded and queried sequentially (16 serial round-trips with remote embedders); all entity lookups now run concurrently, eliminating multi-second latency on entity-rich queries ([#5377](https://github.com/mem0ai/mem0/pull/5377))
+- **Memory:** Reject empty or whitespace-only queries in `Memory.search()`, `AsyncMemory.search()`, `MemoryClient.search()`, and `AsyncMemoryClient.search()` before any embedding or API call is made. Also strips leading/trailing whitespace from valid queries ([#5258](https://github.com/mem0ai/mem0/pull/5258))
 - **LLMs:** Add `is_reasoning_model: Optional[bool]` override to `BaseLlmConfig` (surfaced on `OpenAILlmConfig` and `AzureOpenAILlmConfig`). Fixes silent zero-extraction when using Azure deployments with versioned `gpt-5.x` names that the automatic name-based heuristic cannot recognize ([#5327](https://github.com/mem0ai/mem0/pull/5327))
+- **LLMs:** Fix xAI LLM provider: add `XAIConfig` with `xai_base_url`, forward `tools`/`tool_choice` in `generate_response()`, and parse `tool_calls` in the response. Previously the provider raised `AttributeError` at init and silently dropped tool results ([#5190](https://github.com/mem0ai/mem0/pull/5190))
+- **Vector Stores:** Fix PGVector `ConnectionPool` hang in Docker Compose environments where the app container starts before Postgres is DNS-resolvable — switched to `open=False` to avoid blocking constructor or silent zombie pool ([#5155](https://github.com/mem0ai/mem0/pull/5155))
 - **Vector Stores:** Fix PGVector `sslmode` handling for PostgreSQL URIs — the `sslmode` query parameter is now correctly extracted and forwarded when building the async connection pool ([#5308](https://github.com/mem0ai/mem0/pull/5308))
+- **Vector Stores:** Fix S3 Vectors `list()` not applying metadata filters — filtering is now done client-side after fetching, with pagination preserved and `top_k` applied after filtering to prevent pre-truncation of matching rows ([#5018](https://github.com/mem0ai/mem0/pull/5018))
+- **Vector Stores:** Fix Upstash Vector `search()` routing all queries to the default namespace — `namespace` is now passed as a top-level keyword argument to `query_many()` instead of inside the per-query dict where it was silently ignored ([#5202](https://github.com/mem0ai/mem0/pull/5202))
 - **Core:** Replace mutable default arguments with `None` sentinels in embedder configs and the proxy module, preventing cross-request state contamination ([#5302](https://github.com/mem0ai/mem0/pull/5302))
 
 </Update>
@@ -958,10 +964,12 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 
 **New Features:**
 - **Embeddings:** Add `LMStudioEmbedding` provider for local embeddings via the LM Studio server ([#5377](https://github.com/mem0ai/mem0/pull/5377))
+- **Memory:** Add opt-in `explain: true` option to `Memory.search()`. When enabled, each result includes a `scoreBreakdown` object with `semantic`, `keyword`, `entityBoost`, and `temporalBoost` fields so callers can inspect and tune retrieval ranking ([#5102](https://github.com/mem0ai/mem0/pull/5102))
 
 **Bug Fixes:**
 - **Memory:** Parallelize entity boost searches in `Memory.search()`. All entity embed + store lookups now run concurrently instead of sequentially, eliminating multi-second latency on entity-rich queries with remote embedding providers ([#5377](https://github.com/mem0ai/mem0/pull/5377))
 - **Vector Stores:** Normalize similarity scores to `[0, 1]` (higher = better) — fixed score inversion in the Redis vector store adapter ([#5391](https://github.com/mem0ai/mem0/pull/5391))
+- **Embeddings:** Request `encoding_format: "float"` from the OpenAI embedder in both `embed()` and `embedBatch()`. Fixes incorrect vector dimensions when using OpenAI-compatible proxies that default to base64 encoding ([#5170](https://github.com/mem0ai/mem0/pull/5170))
 
 </Update>
 
