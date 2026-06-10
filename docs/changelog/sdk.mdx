@@ -7,6 +7,20 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-06-10" description="v2.0.5">
+
+**New Features:**
+- **Memory:** Warn at init time when hybrid/BM25 search silently degrades to semantic-only because the configured vector store does not implement `keyword_search`. Affected stores: Chroma, FAISS, Cassandra, LangChain, Neptune Analytics, S3 Vectors, Supabase, TurboPuffer, Valkey ([#5444](https://github.com/mem0ai/mem0/pull/5444))
+
+**Bug Fixes:**
+- **Vector Stores:** Normalize similarity scores to `[0, 1]` (higher = better) consistently across all backends. Previously some adapters (FAISS, Chroma, Milvus, Redis, Cassandra, S3 Vectors, and others) returned raw distance metrics where lower was better, causing incorrect ranking in multi-store setups ([#5391](https://github.com/mem0ai/mem0/pull/5391))
+- **Memory:** Parallelize entity boost searches in `Memory.search()` and `AsyncMemory.search()`. Previously up to 8 entities were embedded and queried sequentially (16 serial round-trips with remote embedders); all entity lookups now run concurrently, eliminating multi-second latency on entity-rich queries ([#5377](https://github.com/mem0ai/mem0/pull/5377))
+- **LLMs:** Add `is_reasoning_model: Optional[bool]` override to `BaseLlmConfig` (surfaced on `OpenAILlmConfig` and `AzureOpenAILlmConfig`). Fixes silent zero-extraction when using Azure deployments with versioned `gpt-5.x` names that the automatic name-based heuristic cannot recognize ([#5327](https://github.com/mem0ai/mem0/pull/5327))
+- **Vector Stores:** Fix PGVector `sslmode` handling for PostgreSQL URIs — the `sslmode` query parameter is now correctly extracted and forwarded when building the async connection pool ([#5308](https://github.com/mem0ai/mem0/pull/5308))
+- **Core:** Replace mutable default arguments with `None` sentinels in embedder configs and the proxy module, preventing cross-request state contamination ([#5302](https://github.com/mem0ai/mem0/pull/5302))
+
+</Update>
+
 <Update label="2026-05-27" description="v2.0.4">
 
 **New Features:**
@@ -939,6 +953,18 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-06-10" description="v3.0.7">
+
+**New Features:**
+- **Embeddings:** Add `LMStudioEmbedding` provider for local embeddings via the LM Studio server ([#5377](https://github.com/mem0ai/mem0/pull/5377))
+
+**Bug Fixes:**
+- **Memory:** Parallelize entity boost searches in `Memory.search()`. All entity embed + store lookups now run concurrently instead of sequentially, eliminating multi-second latency on entity-rich queries with remote embedding providers ([#5377](https://github.com/mem0ai/mem0/pull/5377))
+- **Vector Stores:** Normalize similarity scores to `[0, 1]` (higher = better) — fixed score inversion in the Redis vector store adapter ([#5391](https://github.com/mem0ai/mem0/pull/5391))
+
+</Update>
+
 <Update label="2026-06-01" description="v3.0.6">
 
 **Security:**
