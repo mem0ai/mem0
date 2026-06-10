@@ -42,7 +42,6 @@ const flattenPrompt = (prompt: LanguageModelV3Prompt) => {
                     if (content.type === 'text' && content.text) {
                         return content.text;
                     } else if (content.type === 'file') {
-                        // For file content, we'll include a descriptive placeholder
                         if (content.mediaType === 'application/pdf') {
                             return '[PDF document]';
                         } else if (content.mediaType === 'text/markdown' || content.mediaType === 'application/mdx') {
@@ -54,8 +53,6 @@ const flattenPrompt = (prompt: LanguageModelV3Prompt) => {
                         }
                     }
                 }
-                // For non-text content (images, pdfs, mdx), we'll include a placeholder
-                // This helps maintain context for memory search while not breaking the text flow
                 return "[multimodal content]";
             }
             return "";
@@ -85,7 +82,6 @@ const convertToMem0Format = (messages: LanguageModelV3Prompt) => {
                                     content: obj.text,
                                 };
                             } else if (obj.type === "file") {
-                                // Handle LanguageModelV3Prompt file format
                                 if (obj.mediaType === "application/pdf") {
                                     return {
                                         role: message.role,
@@ -155,7 +151,6 @@ const convertToMem0Format = (messages: LanguageModelV3Prompt) => {
                         }
                     }).filter((item: null) => item !== null);
                 } else {
-                    // Handle single multimodal content object
                     const obj = message.content;
                     if (obj.type === "text") {
                         return {
@@ -163,7 +158,6 @@ const convertToMem0Format = (messages: LanguageModelV3Prompt) => {
                             content: obj.text,
                         };
                     } else if (obj.type === "file") {
-                        // Handle LanguageModelV3Prompt file format
                         if (obj.mediaType === "application/pdf") {
                             return {
                                 role: message.role,
@@ -265,14 +259,14 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
             });
         }
         const org_project_filters = {
-            org_id: config&&config.org_id,
-            project_id: config&&config.project_id,
-            org_name: !config?.org_id ? config&&config.org_name : undefined,
-            project_name: !config?.org_id ? config&&config.project_name : undefined,
+            org_id: config?.org_id,
+            project_id: config?.project_id,
+            org_name: !config?.org_id ? config?.org_name : undefined,
+            project_name: !config?.org_id ? config?.project_name : undefined,
         }
 
         const apiKey = loadApiKey({
-            apiKey: (config&&config.mem0ApiKey),
+            apiKey: config?.mem0ApiKey,
             environmentVariableName: "MEM0_API_KEY",
             description: "Mem0",
         });
@@ -287,7 +281,7 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
                 query,
                 filters,
                 ...config,
-                top_k: config&&config.top_k || top_k,
+                top_k: config?.top_k ?? top_k,
                 version: "v2",
                 output_format: "v1.1",
                 ...org_project_filters
@@ -326,7 +320,7 @@ const addMemories = async (messages: LanguageModelV3Prompt, config?: Mem0ConfigS
 const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSettings) => {
     try {
         const apiKey = loadApiKey({
-            apiKey: (config&&config.mem0ApiKey),
+            apiKey: config?.mem0ApiKey,
             environmentVariableName: "MEM0_API_KEY",
             description: "Mem0",
         });
@@ -357,32 +351,20 @@ const retrieveMemories = async (prompt: LanguageModelV3Prompt | string, config?:
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const systemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
-        
-        const memories = await searchInternalMemories(message, config);
-        let memoriesText1 = "";
-        let memoriesText2 = "";
-        let graphPrompt = "";
 
-        try {
-            memoriesText1 = memories?.results?.map((memory: any) => {
-                return `Memory: ${memory.memory}\n\n`;
-            }).join("\n\n");
+        const data = await searchInternalMemories(message, config);
+        // The API response may be a flat array or an object with a results key
+        const memories: any[] = Array.isArray(data) ? data : (data?.results ?? []);
 
-            if (config?.enable_graph) {
-                memoriesText2 = memories?.relations?.map((memory: any) => {
-                    return `Relation: ${memory.source} -> ${memory.relationship} -> ${memory.target} \n\n`;
-                }).join("\n\n");
-                graphPrompt = `HERE ARE THE GRAPHS RELATIONS FOR THE PREFERENCES OF THE USER:\n\n ${memoriesText2}`;
-            }
-        } catch (error) {
-            console.error("Error while parsing memories:", error);
-        }
-
-        if (!memories || memories?.length === 0) {
+        if (memories.length === 0) {
             return "";
         }
 
-        return `System Message: ${systemPrompt} ${memoriesText1} ${graphPrompt}`;
+        const memoriesText = memories
+            .map((memory: any) => `Memory: ${memory.memory}\n\n`)
+            .join("\n\n");
+
+        return `System Message: ${systemPrompt} ${memoriesText}`;
     } catch (error) {
         console.error("Error in retrieveMemories:", error);
         throw error;
@@ -392,12 +374,9 @@ const retrieveMemories = async (prompt: LanguageModelV3Prompt | string, config?:
 const getMemories = async (prompt: LanguageModelV3Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
-        const memories = await searchInternalMemories(message, config);
-        
-        if (!config?.enable_graph) {
-            return memories?.results;
-        }
-        return memories;
+        const data = await searchInternalMemories(message, config);
+        // Normalize: always return a flat array regardless of API response shape
+        return Array.isArray(data) ? data : (data?.results ?? []);
     } catch (error) {
         console.error("Error in getMemories:", error);
         throw error;

@@ -7,9 +7,8 @@ import {
   LanguageModelV3Source,
   LanguageModelV3StreamResult,
 } from '@ai-sdk/provider';
-// streaming uses provider-native doStream; no middleware needed
 
-import { Mem0ChatConfig, Mem0ChatModelId, Mem0ChatSettings, Mem0ConfigSettings, Mem0StreamResponse } from "./mem0-types";
+import { Mem0ChatConfig, Mem0ChatModelId, Mem0ChatSettings, Mem0ConfigSettings } from "./mem0-types";
 import { Mem0ClassSelector } from "./mem0-provider-selector";
 import { Mem0ProviderSettings } from "./mem0-provider";
 import { addMemories, getMemories } from "./mem0-utils";
@@ -20,7 +19,6 @@ const generateRandomId = () => {
 
 export class Mem0GenericLanguageModel implements LanguageModelV3 {
   readonly specificationVersion = "v3";
-  // Allow All Media Types for now
   readonly supportedUrls: Record<string, RegExp[]> = {
     '*': [/.*/]
   };
@@ -38,68 +36,44 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
 
   private async processMemories(messagesPrompts: LanguageModelV3Message[], mem0Config: Mem0ConfigSettings) {
     try {
-    // Add New Memories
-    addMemories(messagesPrompts, mem0Config).then((res) => {
-      return res;
-    }).catch((e) => {
-      console.error("Error while adding memories");
-      return { memories: [], messagesPrompts: [] };
-    });
-
-    // Get Memories
-    let memories = await getMemories(messagesPrompts, mem0Config);
-
-    const mySystemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
-
-    const isGraphEnabled = mem0Config?.enable_graph;
-
-    let memoriesText = "";
-    let memoriesText2 = "";
-    try {
-      // @ts-ignore
-      if (isGraphEnabled) {
-        memoriesText = memories?.results?.map((memory: any) => {
-          return `Memory: ${memory?.memory}\n\n`;
-        }).join("\n\n");
-
-        memoriesText2 = memories?.relations?.map((memory: any) => {
-          return `Relation: ${memory?.source} -> ${memory?.relationship} -> ${memory?.target} \n\n`;
-        }).join("\n\n");
-      } else {
-        memoriesText = memories?.map((memory: any) => {
-          return `Memory: ${memory?.memory}\n\n`;
-        }).join("\n\n");
+      // Add new memories — await to ensure writes complete before returning
+      try {
+        await addMemories(messagesPrompts, mem0Config);
+      } catch (e) {
+        console.error("Error while adding memories");
       }
-    } catch(e) {
-      console.error("Error while parsing memories");
-    }
 
-    let graphPrompt = "";
-    if (isGraphEnabled) {
-      graphPrompt = `HERE ARE THE GRAPHS RELATIONS FOR THE PREFERENCES OF THE USER:\n\n ${memoriesText2}`;
-    }
+      // Get memories (always returns an array since graph support is removed)
+      const memories: any[] = await getMemories(messagesPrompts, mem0Config) ?? [];
 
-    const memoriesPrompt = `System Message: ${mySystemPrompt} ${memoriesText} ${graphPrompt} `;
+      const mySystemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
 
-    // System Prompt - The memories go as a system prompt
-    const systemPrompt: LanguageModelV3Message = {
-      role: "system",
-      content: memoriesPrompt
-    };
+      let memoriesText = "";
+      try {
+        memoriesText = memories
+          ?.map((memory: any) => `Memory: ${memory?.memory}\n\n`)
+          .join("\n\n");
+      } catch (e) {
+        console.error("Error while parsing memories");
+      }
 
-    // Add the system prompt to the beginning of the messages if there are memories
-    if (memories?.length > 0) {
-      messagesPrompts.unshift(systemPrompt);
-    }
+      const memoriesPrompt = `System Message: ${mySystemPrompt} ${memoriesText} `;
 
-    if (isGraphEnabled) {
-      memories = memories?.results;
-    }
+      // Clone the prompt array to avoid mutating the caller's reference on retries
+      const updatedPrompts = [...messagesPrompts];
 
-    return { memories, messagesPrompts };
-    } catch(e) {
+      if (memories?.length > 0) {
+        const systemPrompt: LanguageModelV3Message = {
+          role: "system",
+          content: memoriesPrompt
+        };
+        updatedPrompts.unshift(systemPrompt);
+      }
+
+      return { memories, messagesPrompts: updatedPrompts };
+    } catch (e) {
       console.error("Error while processing memories");
-      return { memories: [], messagesPrompts };
+      return { memories: [], messagesPrompts: [...messagesPrompts] };
     }
   }
 
@@ -111,6 +85,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
       provider: provider,
       mem0ApiKey: mem0_api_key,
       apiKey: this.config.apiKey,
+      modelType: this.config.modelType,
     }
 
     const mem0Config: Mem0ConfigSettings = {
@@ -121,9 +96,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
 
     const selector = new Mem0ClassSelector(this.modelId, settings, this.provider_config);
 
-    let messagesPrompts = options.prompt;
-
-    const { memories, messagesPrompts: updatedPrompts } = await this.processMemories(messagesPrompts, mem0Config);
+    const { memories, messagesPrompts: updatedPrompts } = await this.processMemories(options.prompt, mem0Config);
 
     const model = selector.createProvider();
 
@@ -154,7 +127,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
 
     return {
       ...ans,
-      content: [...ans.content, mem0Source],
+      content: [...(ans.content ?? []), mem0Source],
     };
   }
 
@@ -178,30 +151,17 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
 
       const selector = new Mem0ClassSelector(this.modelId, settings, this.provider_config);
 
-      let messagesPrompts = options.prompt;
-
-      // Process memories and update prompts
-      const { memories, messagesPrompts: updatedPrompts } = await this.processMemories(messagesPrompts, mem0Config);
+      const { messagesPrompts: updatedPrompts } = await this.processMemories(options.prompt, mem0Config);
 
       const baseModel = selector.createProvider();
 
-      // Use the provider's native streaming directly to avoid buffering
       const streamResponse = await baseModel.doStream({
         ...options,
         prompt: updatedPrompts,
       });
 
-      // If there are no memories, return the original stream
-      if (!memories || memories?.length === 0) {
-        return streamResponse;
-      }
-
-      // Return stream untouched for true streaming behavior
-      return {
-        stream: streamResponse.stream,
-        request: streamResponse.request,
-        response: streamResponse.response,
-      };
+      // Return the full stream response, preserving all V3 fields (warnings, etc.)
+      return streamResponse;
     } catch (error) {
       console.error("Error in doStream:", error);
       throw new Error("Streaming failed or method not implemented.");

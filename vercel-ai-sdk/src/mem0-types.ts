@@ -1,7 +1,6 @@
 import { Mem0ProviderSettings } from "./mem0-provider";
 import { OpenAIProviderSettings } from "@ai-sdk/openai";
 import { AnthropicProviderSettings } from "@ai-sdk/anthropic";
-import { LanguageModelV3StreamResult } from '@ai-sdk/provider';
 import { CohereProviderSettings } from "@ai-sdk/cohere";
 import { GroqProviderSettings } from "@ai-sdk/groq";
 import { GoogleGenerativeAIProviderSettings } from "@ai-sdk/google";
@@ -26,7 +25,6 @@ export interface Mem0ConfigSettings {
   top_k?: number;
   threshold?: number;
   rerank?: boolean;
-  enable_graph?: boolean;
   host?: string;
   output_format?: string;
   filter_memories?: boolean;
@@ -39,7 +37,3 @@ export type LLMProviderSettings = OpenAIProviderSettings | AnthropicProviderSett
 
 export interface Mem0Config extends Mem0ConfigSettings {}
 export interface Mem0ChatSettings extends Mem0ConfigSettings {}
-
-export interface Mem0StreamResponse extends LanguageModelV3StreamResult {
-  memories: any;
-}
