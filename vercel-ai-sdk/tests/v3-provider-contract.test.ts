@@ -202,7 +202,7 @@ describe("V3 Provider Contract", () => {
       ];
       const originalLength = originalPrompt.length;
 
-      // Mock both Mem0 API calls — addMemories (POST /v1/memories/) and getMemories (POST /v2/memories/search/)
+      // Mock both Mem0 API calls — addMemories (POST /v3/memories/add/) and getMemories (POST /v3/memories/search/)
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
@@ -334,6 +334,153 @@ describe("V3 Provider Contract", () => {
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.top_k).toBe(0);
+    });
+  });
+
+  describe("Mem0 v3 API migration", () => {
+    it("should call /v3/memories/search/ endpoint for search", async () => {
+      const { searchMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      });
+
+      await searchMemories("test query", { mem0ApiKey: "test-key", user_id: "test-user" });
+
+      const url = mockFetch.mock.calls[0][0];
+      expect(url).toBe("https://api.mem0.ai/v3/memories/search/");
+    });
+
+    it("should call /v3/memories/add/ endpoint for add", async () => {
+      const { addMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: "ok", status: "PENDING", event_id: "test" }),
+      });
+
+      await addMemories(
+        [{ role: "user" as const, content: [{ type: "text" as const, text: "Hello" }] }],
+        { mem0ApiKey: "test-key", user_id: "test-user" }
+      );
+
+      const url = mockFetch.mock.calls[0][0];
+      expect(url).toBe("https://api.mem0.ai/v3/memories/add/");
+    });
+
+    it("should put entity IDs inside filters for search (not top-level)", async () => {
+      const { searchMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      });
+
+      await searchMemories("test query", {
+        mem0ApiKey: "test-key",
+        user_id: "user-123",
+        agent_id: "agent-456",
+      });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.filters.user_id).toBe("user-123");
+      expect(body.filters.agent_id).toBe("agent-456");
+      // Should NOT be top-level
+      expect(body.user_id).toBeUndefined();
+      expect(body.agent_id).toBeUndefined();
+    });
+
+    it("should not send deprecated v2 params (version, output_format, org_id, etc.)", async () => {
+      const { searchMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      });
+
+      await searchMemories("test query", { mem0ApiKey: "test-key", user_id: "test-user" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.version).toBeUndefined();
+      expect(body.output_format).toBeUndefined();
+      expect(body.org_id).toBeUndefined();
+      expect(body.project_id).toBeUndefined();
+      expect(body.org_name).toBeUndefined();
+      expect(body.project_name).toBeUndefined();
+    });
+
+    it("should not send deprecated params in add body", async () => {
+      const { addMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ message: "ok", status: "PENDING", event_id: "test" }),
+      });
+
+      await addMemories(
+        [{ role: "user" as const, content: [{ type: "text" as const, text: "Hello" }] }],
+        { mem0ApiKey: "test-key", user_id: "test-user" }
+      );
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.version).toBeUndefined();
+      expect(body.async_mode).toBeUndefined();
+      expect(body.output_format).toBeUndefined();
+      expect(body.enable_graph).toBeUndefined();
+      expect(body.filter_memories).toBeUndefined();
+      expect(body.org_id).toBeUndefined();
+      expect(body.project_id).toBeUndefined();
+      // Should have entity ID at top-level for add endpoint
+      expect(body.user_id).toBe("test-user");
+    });
+
+    it("should not have deprecated fields in Mem0ConfigSettings type", () => {
+      const config: Mem0ConfigSettings = {
+        user_id: "test-user",
+        mem0ApiKey: "test-key",
+      };
+      expect((config as any).org_id).toBeUndefined();
+      expect((config as any).project_id).toBeUndefined();
+      expect((config as any).org_name).toBeUndefined();
+      expect((config as any).project_name).toBeUndefined();
+      expect((config as any).output_format).toBeUndefined();
+      expect((config as any).filter_memories).toBeUndefined();
+      expect((config as any).async_mode).toBeUndefined();
+      expect((config as any).enable_graph).toBeUndefined();
+    });
+
+    it("should default top_k to 10 (v3 default) when not provided", async () => {
+      const { searchMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      });
+
+      await searchMemories("test query", { mem0ApiKey: "test-key", user_id: "test-user" });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.top_k).toBe(10);
+    });
+
+    it("should merge user-provided filters with entity ID filters", async () => {
+      const { searchMemories } = require("../src/mem0-utils");
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      });
+
+      await searchMemories("test query", {
+        mem0ApiKey: "test-key",
+        user_id: "user-123",
+        filters: { category: "preferences" },
+      });
+
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.filters.user_id).toBe("user-123");
+      expect(body.filters.category).toBe("preferences");
     });
   });
 });

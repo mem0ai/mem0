@@ -12,10 +12,6 @@ export interface Mem0ConfigSettings {
   app_id?: string;
   agent_id?: string;
   run_id?: string;
-  org_name?: string;
-  project_name?: string;
-  org_id?: string;
-  project_id?: string;
   metadata?: Record<string, any>;
   filters?: Record<string, any>;
   infer?: boolean;
@@ -26,9 +22,6 @@ export interface Mem0ConfigSettings {
   threshold?: number;
   rerank?: boolean;
   host?: string;
-  output_format?: string;
-  filter_memories?: boolean;
-  async_mode?: boolean;
 }
 
 export interface Mem0ChatConfig extends Mem0ConfigSettings, Mem0ProviderSettings {}

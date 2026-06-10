@@ -233,36 +233,23 @@ const convertToMem0Format = (messages: LanguageModelV3Prompt) => {
     }
 }
 
-const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings, top_k: number = 5) => {
+const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings, top_k: number = 10) => {
     try {
-        const filters: { OR: Array<{ [key: string]: string | undefined }> } = {
-            OR: [],
+        // v3: entity IDs go inside the filters object, not as top-level params
+        const filters: Record<string, any> = {
+            ...(config?.filters ?? {}),
         };
         if (config?.user_id) {
-            filters.OR.push({
-                user_id: config.user_id,
-            });
+            filters.user_id = config.user_id;
         }
         if (config?.app_id) {
-            filters.OR.push({
-                app_id: config.app_id,
-            });
+            filters.app_id = config.app_id;
         }
         if (config?.agent_id) {
-            filters.OR.push({
-                agent_id: config.agent_id,
-            });
+            filters.agent_id = config.agent_id;
         }
         if (config?.run_id) {
-            filters.OR.push({
-                run_id: config.run_id,
-            });
-        }
-        const org_project_filters = {
-            org_id: config?.org_id,
-            project_id: config?.project_id,
-            org_name: !config?.org_id ? config?.org_name : undefined,
-            project_name: !config?.org_id ? config?.project_name : undefined,
+            filters.run_id = config.run_id;
         }
 
         const apiKey = loadApiKey({
@@ -271,25 +258,32 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
             description: "Mem0",
         });
 
+        const body: Record<string, any> = {
+            query,
+            filters,
+            top_k: config?.top_k ?? top_k,
+        };
+        if (config?.threshold != null) {
+            body.threshold = config.threshold;
+        }
+        if (config?.rerank != null) {
+            body.rerank = config.rerank;
+        }
+        if (config?.metadata) {
+            body.metadata = config.metadata;
+        }
+
         const options = {
             method: 'POST',
             headers: {
                 Authorization: `Token ${apiKey}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                query,
-                filters,
-                ...config,
-                top_k: config?.top_k ?? top_k,
-                version: "v2",
-                output_format: "v1.1",
-                ...org_project_filters
-            }),
+            body: JSON.stringify(body),
         };
 
         const baseUrl = config?.host || 'https://api.mem0.ai';
-        const response = await fetch(`${baseUrl}/v2/memories/search/`, options);
+        const response = await fetch(`${baseUrl}/v3/memories/search/`, options);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -325,17 +319,25 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
             description: "Mem0",
         });
 
+        const body: Record<string, any> = { messages };
+        if (config?.user_id) body.user_id = config.user_id;
+        if (config?.app_id) body.app_id = config.app_id;
+        if (config?.agent_id) body.agent_id = config.agent_id;
+        if (config?.run_id) body.run_id = config.run_id;
+        if (config?.metadata) body.metadata = config.metadata;
+        if (config?.infer != null) body.infer = config.infer;
+
         const options = {
             method: 'POST',
             headers: {
                 Authorization: `Token ${apiKey}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({messages, ...config, version: "v2"}),
+            body: JSON.stringify(body),
         };
 
         const baseUrl = config?.host || 'https://api.mem0.ai';
-        const response = await fetch(`${baseUrl}/v1/memories/`, options);
+        const response = await fetch(`${baseUrl}/v3/memories/add/`, options);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
