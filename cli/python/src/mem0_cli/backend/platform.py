@@ -30,7 +30,7 @@ class PlatformBackend(Backend):
         )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
-        from mem0_cli.state import is_agent_mode
+        from mem0_cli.state import capture_notice, is_agent_mode
 
         self._client.headers["X-Mem0-Caller-Type"] = "agent" if is_agent_mode() else "user"
         resp = self._client.request(method, path, **kwargs)
@@ -48,7 +48,26 @@ class PlatformBackend(Backend):
         resp.raise_for_status()
         if resp.status_code == 204:
             return {}
-        return resp.json()
+        data = resp.json()
+
+        # Pull the unclaimed-Agent-Mode notice out of the body (or the header
+        # fallback for endpoints that return non-dict / non-dict-leading
+        # payloads) and stash it for end-of-command surfacing.
+        notice = None
+        if isinstance(data, dict) and "mem0_notice" in data:
+            notice = data.pop("mem0_notice")
+        elif (
+            isinstance(data, list)
+            and data
+            and isinstance(data[0], dict)
+            and "mem0_notice" in data[0]
+        ):
+            notice = data[0].pop("mem0_notice")
+        if notice is None:
+            notice = resp.headers.get("X-Mem0-Notice-Message") or None
+        capture_notice(notice)
+
+        return data
 
     def add(
         self,

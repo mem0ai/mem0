@@ -26,6 +26,28 @@ def mock_memory_client():
 class TestSearchEntityParamRejection:
     """Tests that top-level entity params are rejected in search()."""
 
+    @pytest.mark.parametrize("query", ["", "   ", "\n\t"])
+    def test_search_rejects_empty_query(self, mock_memory_client, query):
+        """search() should reject empty or whitespace-only queries before API calls."""
+        with pytest.raises(ValueError, match="Invalid query.*empty or whitespace-only"):
+            mock_memory_client.search(query, filters={"user_id": "u1"})
+
+        mock_memory_client.client.post.assert_not_called()
+
+    def test_search_trims_query_before_api_call(self, mock_memory_client):
+        """search() should send the normalized query to the API."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        mock_memory_client.search("  test query  ", filters={"user_id": "u1"})
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/search/",
+            json={"query": "test query", "filters": {"user_id": "u1"}},
+        )
+
     def test_search_rejects_user_id_kwarg(self, mock_memory_client):
         """search() should reject user_id as top-level kwarg."""
         with pytest.raises(ValueError, match=r"user_id"):
@@ -147,3 +169,41 @@ class TestFilterOperatorPassthrough:
         call_args = mock_memory_client.client.post.call_args
         payload = call_args.kwargs.get("json", call_args.args[1] if len(call_args.args) > 1 else {})
         assert payload["filters"] == complex_filter
+
+
+class TestDeleteLinked:
+    """delete() should forward the opt-in delete_linked flag as a query param."""
+
+    def _setup_delete(self, client):
+        client.client.delete.return_value = MagicMock(
+            json=lambda: {"message": "Memory deleted successfully!"},
+            raise_for_status=lambda: None,
+        )
+
+    def test_delete_default_omits_delete_linked(self, mock_memory_client):
+        """Default delete sends no delete_linked param — byte-identical to before."""
+        self._setup_delete(mock_memory_client)
+
+        mock_memory_client.delete("mem_123")
+
+        call_args = mock_memory_client.client.delete.call_args
+        assert call_args.args[0] == "/v1/memories/mem_123/"
+        assert "delete_linked" not in call_args.kwargs.get("params", {})
+
+    def test_delete_linked_true_sets_param(self, mock_memory_client):
+        """delete_linked=True forwards delete_linked into the request params."""
+        self._setup_delete(mock_memory_client)
+
+        mock_memory_client.delete("mem_123", delete_linked=True)
+
+        call_args = mock_memory_client.client.delete.call_args
+        assert call_args.kwargs.get("params", {}).get("delete_linked") is True
+
+    def test_delete_linked_false_omits_param(self, mock_memory_client):
+        """delete_linked=False is stripped, so the default path is untouched."""
+        self._setup_delete(mock_memory_client)
+
+        mock_memory_client.delete("mem_123", delete_linked=False)
+
+        call_args = mock_memory_client.client.delete.call_args
+        assert "delete_linked" not in call_args.kwargs.get("params", {})

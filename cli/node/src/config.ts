@@ -21,6 +21,12 @@ export interface PlatformConfig {
 	apiKey: string;
 	baseUrl: string;
 	userEmail: string;
+	// Agent Mode (unclaimed-shadow signup)
+	agentMode: boolean; // true while the key is an unclaimed agent-mode key
+	createdVia: string; // "agent_mode" | "email" | "api_key" | "existing_key"
+	agentCaller: string; // canonical agent name when createdVia === "agent_mode" (e.g. "claude-code")
+	claimedAt: string; // ISO timestamp once the agent has been claimed
+	defaultUserId: string; // `user_<slug>` returned by bootstrap; auto-default scope
 }
 
 export interface DefaultsConfig {
@@ -34,11 +40,18 @@ export interface TelemetryConfig {
 	anonymousId: string;
 }
 
+export interface AgentRushConfig {
+	// ISO timestamp the human acknowledged the "memories are public" warning.
+	// Empty until first interactive `mem0 agent-rush add`.
+	acknowledgedAt: string;
+}
+
 export interface Mem0Config {
 	version: number;
 	defaults: DefaultsConfig;
 	platform: PlatformConfig;
 	telemetry: TelemetryConfig;
+	agentRush: AgentRushConfig;
 }
 
 export function createDefaultConfig(): Mem0Config {
@@ -54,9 +67,17 @@ export function createDefaultConfig(): Mem0Config {
 			apiKey: "",
 			baseUrl: DEFAULT_BASE_URL,
 			userEmail: "",
+			agentMode: false,
+			createdVia: "",
+			agentCaller: "",
+			claimedAt: "",
+			defaultUserId: "",
 		},
 		telemetry: {
 			anonymousId: "",
+		},
+		agentRush: {
+			acknowledgedAt: "",
 		},
 	};
 }
@@ -79,6 +100,11 @@ export function loadConfig(): Mem0Config {
 		config.platform.apiKey = plat.api_key ?? "";
 		config.platform.baseUrl = plat.base_url ?? DEFAULT_BASE_URL;
 		config.platform.userEmail = plat.user_email ?? "";
+		config.platform.agentMode = Boolean(plat.agent_mode ?? false);
+		config.platform.createdVia = plat.created_via ?? "";
+		config.platform.agentCaller = plat.agent_caller ?? "";
+		config.platform.claimedAt = plat.claimed_at ?? "";
+		config.platform.defaultUserId = plat.default_user_id ?? "";
 
 		const defaults = data.defaults ?? {};
 		config.defaults.userId = defaults.user_id ?? "";
@@ -87,6 +113,8 @@ export function loadConfig(): Mem0Config {
 		config.defaults.runId = defaults.run_id ?? "";
 		const telemetry = data.telemetry ?? {};
 		config.telemetry.anonymousId = telemetry.anonymous_id ?? "";
+		const agentRush = data.agent_rush ?? {};
+		config.agentRush.acknowledgedAt = agentRush.acknowledged_at ?? "";
 	}
 
 	// Environment variable overrides
@@ -118,14 +146,36 @@ export function saveConfig(config: Mem0Config): void {
 			api_key: config.platform.apiKey,
 			base_url: config.platform.baseUrl,
 			user_email: config.platform.userEmail,
+			agent_mode: config.platform.agentMode,
+			created_via: config.platform.createdVia,
+			agent_caller: config.platform.agentCaller,
+			claimed_at: config.platform.claimedAt,
+			default_user_id: config.platform.defaultUserId,
 		},
 		telemetry: {
 			anonymous_id: config.telemetry.anonymousId,
+		},
+		agent_rush: {
+			acknowledged_at: config.agentRush.acknowledgedAt,
 		},
 	};
 
 	fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2));
 	fs.chmodSync(CONFIG_FILE, 0o600);
+
+	// Propagate api_key to ecosystem touchpoints (Claude plugin env injection,
+	// shell rc exports). Idempotent — updates only EXISTING entries; never
+	// creates new ones. Best-effort: errors swallowed so config.json is
+	// always authoritative, never blocked by plugin-state issues.
+	if (config.platform.apiKey) {
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-require-imports
+			const { syncApiKey } = require("./plugin-sync.js");
+			syncApiKey(config.platform.apiKey);
+		} catch {
+			/* swallow */
+		}
+	}
 }
 
 export function redactKey(key: string): string {

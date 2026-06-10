@@ -27,13 +27,12 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `server/` | FastAPI REST server for self-hosted Mem0 (Docker: FastAPI + PostgreSQL/pgvector + Neo4j) |
 | `openmemory/` | Self-hosted memory platform — `api/` (FastAPI + Alembic + MCP server) and `ui/` (Next.js 15 + React 19) |
 | `mem0-plugin/` | AI editor plugins (Claude Code, Cursor, Codex) — MCP server connection, lifecycle hooks, skills |
-| `skills/` | Claude Code skill definitions — `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/` |
+| `skills/` | Claude Code skill definitions. Reference skills (SDK knowledge, always-on): `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/`. Pipeline skills (run on demand): `mem0-integrate/`, `mem0-test-integration/` |
 | `docs/` | Documentation site (Mintlify) |
 | `tests/` | Python SDK tests (pytest) |
 | `evaluation/` | Benchmarking framework — LOCOMO evals, experiment runner, score generation |
 | `examples/` | Sample projects — demo apps, Chrome extension, multi-agent patterns |
 | `cookbooks/` | Jupyter notebooks — customer support chatbot, AutoGen integration |
-| `embedchain/` | Legacy Embedchain RAG framework (maintained separately, Poetry-based) |
 | `pr-reviews/` | Pull request review materials |
 | `scripts/` | Repo-wide utility scripts (e.g., `check-llms-txt-coverage.py` for docs/llms.txt sync) |
 
@@ -330,7 +329,7 @@ make run-openai                    # OpenAI comparison
   - Root SDK: line length **120**
   - Python CLI: line length **100** with extended rule set (UP, B, SIM, RUF)
 - **isort** with `profile = "black"` for import sorting.
-- Ruff excludes `embedchain/` and `openmemory/` from root config.
+- Ruff excludes `openmemory/` from root config.
 
 ### TypeScript Conventions
 
@@ -387,7 +386,9 @@ Model Context Protocol support in multiple places:
 ### Plugin & Skills System
 
 - `mem0-plugin/` provides integrations for Claude Code, Cursor, and Codex via MCP server connections and lifecycle hooks for automatic memory capture.
-- `skills/` contains structured skill definitions for AI agents, covering SDK usage, CLI workflows, and Vercel AI SDK patterns.
+- `skills/` contains structured skill definitions for AI agents, split into two categories:
+  - **Reference skills** (always-on SDK knowledge): `mem0` (Python + TS SDKs, framework integrations), `mem0-cli` (terminal workflows), `mem0-vercel-ai-sdk` (Vercel AI provider).
+  - **Pipeline skills** (run on demand): `mem0-integrate` wires Mem0 into an existing repo via a TDD pipeline; `mem0-test-integration` verifies what the integrator produced on the same branch. The two are loosely coupled via `.mem0-integration/` artifacts.
 
 ### Adding a New Provider
 
@@ -412,7 +413,7 @@ To add a new LLM, embedding, vector store, or reranker provider:
 | Python CLI | `cli-python-ci.yml` | Push to `cli/python/`, PRs, manual | Ruff lint + pytest + hatch build on Python 3.10, 3.11, 3.12 |
 | Node CLI | `cli-node-ci.yml` | Push to `cli/node/`, PRs, manual | Biome lint + tsc + vitest + tsup build on Node 20, 22 |
 | OpenClaw | `openclaw-checks.yml` | Push to `openclaw/`, PRs, manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
-| Embedchain | `ci.yml` (shared) | PRs on `embedchain/` | Ruff + pytest + coverage on Python 3.9–3.12 |
+| OpenCode Plugin | `opencode-plugin-checks.yml` | Push to `mem0-plugin/.opencode-plugin/`, PRs, manual | Bun: tsc type-check + build + dist artifact check |
 
 ### CD Workflows (automated publishing)
 
@@ -424,6 +425,7 @@ To add a new LLM, embedding, vector store, or reranker provider:
 | Node CLI | `cli-node-cd.yml` | `cli-node-v*` | npm (`@mem0/cli`) |
 | Vercel AI SDK | `vercel-ai-cd.yml` | `vercel-ai-v*` | npm (`@mem0/vercel-ai-provider`) |
 | OpenClaw | `openclaw-cd.yml` | `openclaw-v*` | npm (`@mem0/openclaw-mem0`) |
+| OpenCode Plugin | `opencode-plugin-cd.yml` | `opencode-v*` | npm (`@mem0/opencode-plugin`) |
 
 - All publishing uses **OIDC trusted publishing** — no tokens or secrets required.
 - First publish of a new npm package must be done manually; OIDC works for subsequent versions.
@@ -574,7 +576,6 @@ N/A
 - Modify CI/CD workflows without explicit approval.
 - Add new Python dependencies to the core `dependencies` list in `pyproject.toml` without discussion — use optional dependency groups instead.
 - Commit `.env` files, API keys, or credentials.
-- Modify `embedchain/` unless specifically working on that package — it has its own build system (Poetry).
 - Skip pre-commit hooks.
 - Use npm or yarn in TypeScript packages — this repo uses pnpm exclusively.
 - Use `require()` for imports in TypeScript — use ES module `import` syntax.

@@ -16,6 +16,7 @@ vi.mock("../cli/config-file.ts", () => ({
   readPluginAuth: vi.fn().mockReturnValue({}),
   writePluginAuth: vi.fn(),
   writePluginConfigField: vi.fn(),
+  enableSkillsConfig: vi.fn(),
   getBaseUrl: vi.fn().mockReturnValue("https://api.mem0.ai"),
   OPENCLAW_CONFIG_FILE: "/mock/.openclaw/openclaw.json",
 }));
@@ -42,6 +43,7 @@ import {
   readPluginAuth,
   writePluginAuth,
   writePluginConfigField,
+  enableSkillsConfig,
   getBaseUrl,
 } from "../cli/config-file.ts";
 import { loadDreamPrompt } from "../skill-loader.ts";
@@ -178,7 +180,7 @@ function createMockCfg() {
     topK: 5,
     autoCapture: true,
     autoRecall: true,
-    searchThreshold: 0.5,
+    searchThreshold: 0.1,
     customInstructions: "",
     customCategories: {},
     skills: {},
