@@ -1,0 +1,172 @@
+name: CI Gate
+
+# Single required status check for all PRs.
+#
+# Path-filtered CI workflows can't be marked as required in branch
+# protection: on a PR that doesn't touch their paths they never report, and
+# the required check hangs at "Expected" forever. This gate solves that. It
+# runs on every PR, detects which packages changed, calls only the relevant
+# package CI workflows (as reusable workflows), and the final "CI Gate" job
+# reports the aggregate result — success when every invoked pipeline passed
+# (skipped pipelines are fine), failure when any failed.
+#
+# Branch protection should require exactly one status check: "CI Gate".
+#
+# Package CI workflows keep their own push-to-main and workflow_dispatch
+# triggers; only their pull_request triggers moved here. To wire in a new
+# package: add a filter under the `changes` job, a call job that `uses:` the
+# package workflow, and list the call job in the gate's `needs`.
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect changed packages
+    runs-on: ubuntu-latest
+    outputs:
+      python_sdk: ${{ steps.filter.outputs.python_sdk }}
+      ts_sdk: ${{ steps.filter.outputs.ts_sdk }}
+      cli_python: ${{ steps.filter.outputs.cli_python }}
+      cli_node: ${{ steps.filter.outputs.cli_node }}
+      openclaw: ${{ steps.filter.outputs.openclaw }}
+      opencode_plugin: ${{ steps.filter.outputs.opencode_plugin }}
+      pi_agent_plugin: ${{ steps.filter.outputs.pi_agent_plugin }}
+      docs_llms_txt: ${{ steps.filter.outputs.docs_llms_txt }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Each filter mirrors the package workflow's old pull_request
+          # paths, plus the package workflow file itself and this gate file
+          # (changing either must re-exercise the pipeline).
+          filters: |
+            python_sdk:
+              - 'mem0/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+              - 'docs/changelog/sdk.mdx'
+              - '.github/workflows/ci.yml'
+              - '.github/workflows/ci-gate.yml'
+            ts_sdk:
+              - 'mem0-ts/**'
+              - '.github/workflows/ts-sdk-ci.yml'
+              - '.github/workflows/ci-gate.yml'
+            cli_python:
+              - 'cli/python/**'
+              - '.github/workflows/cli-python-ci.yml'
+              - '.github/workflows/ci-gate.yml'
+            cli_node:
+              - 'cli/node/**'
+              - '.github/workflows/cli-node-ci.yml'
+              - '.github/workflows/ci-gate.yml'
+            openclaw:
+              - 'openclaw/**'
+              - '.github/workflows/openclaw-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            opencode_plugin:
+              - 'mem0-plugin/.opencode-plugin/**'
+              - '.github/workflows/opencode-plugin-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            pi_agent_plugin:
+              - 'pi-agent-plugin/**'
+              - '.github/workflows/pi-agent-plugin-checks.yml'
+              - '.github/workflows/ci-gate.yml'
+            docs_llms_txt:
+              - 'docs/**/*.mdx'
+              - 'docs/llms.txt'
+              - 'scripts/check-llms-txt-coverage.py'
+              - 'scripts/llms-txt-ignore.txt'
+              - '.github/workflows/docs-llms-txt-check.yml'
+              - '.github/workflows/ci-gate.yml'
+
+  python-sdk:
+    name: Python SDK
+    needs: changes
+    if: needs.changes.outputs.python_sdk == 'true'
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  ts-sdk:
+    name: TypeScript SDK
+    needs: changes
+    if: needs.changes.outputs.ts_sdk == 'true'
+    uses: ./.github/workflows/ts-sdk-ci.yml
+    secrets: inherit
+
+  cli-python:
+    name: Python CLI
+    needs: changes
+    if: needs.changes.outputs.cli_python == 'true'
+    uses: ./.github/workflows/cli-python-ci.yml
+    secrets: inherit
+
+  cli-node:
+    name: Node CLI
+    needs: changes
+    if: needs.changes.outputs.cli_node == 'true'
+    uses: ./.github/workflows/cli-node-ci.yml
+    secrets: inherit
+
+  openclaw:
+    name: OpenClaw
+    needs: changes
+    if: needs.changes.outputs.openclaw == 'true'
+    uses: ./.github/workflows/openclaw-checks.yml
+    secrets: inherit
+
+  opencode-plugin:
+    name: OpenCode Plugin
+    needs: changes
+    if: needs.changes.outputs.opencode_plugin == 'true'
+    uses: ./.github/workflows/opencode-plugin-checks.yml
+    secrets: inherit
+
+  pi-agent-plugin:
+    name: Pi Agent Plugin
+    needs: changes
+    if: needs.changes.outputs.pi_agent_plugin == 'true'
+    uses: ./.github/workflows/pi-agent-plugin-checks.yml
+    secrets: inherit
+
+  docs-llms-txt:
+    name: docs llms.txt
+    needs: changes
+    if: needs.changes.outputs.docs_llms_txt == 'true'
+    uses: ./.github/workflows/docs-llms-txt-check.yml
+    secrets: inherit
+
+  gate:
+    name: CI Gate
+    needs:
+      - changes
+      - python-sdk
+      - ts-sdk
+      - cli-python
+      - cli-node
+      - openclaw
+      - opencode-plugin
+      - pi-agent-plugin
+      - docs-llms-txt
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate pipeline results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          failed=$(echo "$NEEDS" | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key] | join(", ")')
+          if [ -n "$failed" ]; then
+            echo "::error::Failing pipelines: $failed"
+            exit 1
+          fi
+          echo "All pipelines relevant to this change passed."
