@@ -36,6 +36,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Verify publish package
+        run: pnpm package:check
+
       - name: Publish to npm
         run: |
           if [ "${{ github.event.release.prerelease }}" = "true" ]; then
