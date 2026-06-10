@@ -1,6 +1,6 @@
 {
   "name": "@mem0/pi-agent-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Mem0 memory extension for Pi Agent persistent, scoped, semantic memory across sessions and projects",
   "license": "Apache-2.0",

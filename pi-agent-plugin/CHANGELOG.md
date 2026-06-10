@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 (2026-06-10)
+
+Maintenance release — no functional changes.
+
+### Chores
+
+- Version bump to validate the new release pipeline (`pi-agent-plugin-checks.yml` / `pi-agent-plugin-cd.yml`)
+
 ## 0.1.0 (2026-06-09)
 
 Initial release of `@mem0/pi-agent-plugin` — persistent semantic memory for Pi Agent.
