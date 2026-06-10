@@ -11,8 +11,8 @@ import pytest
 
 from mem0.memory.utils import extract_json, remove_code_blocks, salvage_memory_objects
 
-
 # --- Test extract_json ---
+
 
 class TestExtractJson:
     """Tests for extract_json utility."""
@@ -94,6 +94,7 @@ That's the result."""
 
 # --- Test remove_code_blocks ---
 
+
 class TestRemoveCodeBlocks:
     """Tests for remove_code_blocks — verify it does NOT handle chatty text."""
 
@@ -133,6 +134,7 @@ class TestRemoveCodeBlocks:
 
 
 # --- Test the full fallback chain (remove_code_blocks -> extract_json) ---
+
 
 class TestFallbackChain:
     """Tests the actual fallback pattern used in _add_to_vector_store:
@@ -270,6 +272,14 @@ class TestSalvageTruncatedMemories:
 
     def test_empty_input(self):
         assert salvage_memory_objects("") == ([], False)
+
+    def test_non_string_input_degrades_instead_of_raising(self):
+        # salvage runs inside the parse-failure except handler; a provider
+        # returning a non-string (dict, None, list) must degrade to "nothing
+        # salvaged", never raise out of the error handler.
+        assert salvage_memory_objects({"unexpected": "dict"}) == ([], False)
+        assert salvage_memory_objects(None) == ([], False)
+        assert salvage_memory_objects(["a", "list"]) == ([], False)
 
     def test_truncated_right_after_an_object_before_array_close(self):
         # Cut after object 1's '}' but before ']' -> object 1 complete, still truncated.

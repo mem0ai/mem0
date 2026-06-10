@@ -62,7 +62,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -114,7 +116,9 @@ class TestTruncationRecovery:
         memory.db.get_last_messages = MagicMock(return_value=[])
         memory.db.save_messages = MagicMock()
         memory.db.batch_add_history = MagicMock()
-        memory.embedding_model.embed_batch = MagicMock(side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts])
+        memory.embedding_model.embed_batch = MagicMock(
+            side_effect=lambda texts, *a, **k: [[0.1, 0.2, 0.3] for _ in texts]
+        )
         return memory
 
     def test_salvages_complete_memories_by_default_no_retry(self, mock_memory, caplog):
@@ -172,7 +176,10 @@ class TestTruncationRecovery:
         import threading
         import time
 
-        from mem0.memory.utils import _RETRY_TOKEN_MULTIPLIER, retry_extraction_with_more_tokens
+        from mem0.memory.utils import (
+            _RETRY_TOKEN_MULTIPLIER,
+            retry_extraction_with_more_tokens,
+        )
 
         class _FakeConfig:
             max_tokens = 1000
@@ -188,7 +195,9 @@ class TestTruncationRecovery:
                 return COMPLETE_EXTRACTION
 
         llm = _FakeLLM()
-        threads = [threading.Thread(target=retry_extraction_with_more_tokens, args=(llm, "sys", "usr")) for _ in range(8)]
+        threads = [
+            threading.Thread(target=retry_extraction_with_more_tokens, args=(llm, "sys", "usr")) for _ in range(8)
+        ]
         for t in threads:
             t.start()
         for t in threads:
@@ -197,6 +206,74 @@ class TestTruncationRecovery:
         expected = 1000 * _RETRY_TOKEN_MULTIPLIER
         assert llm.seen == [expected] * 8  # every retry saw exactly base*MULT, never a corrupted budget
         assert llm.config.max_tokens == 1000  # always restored to the original
+
+    def test_retry_budget_is_capped(self):
+        # 4x a large configured budget would be very expensive; the raise is
+        # capped at an absolute ceiling instead of multiplying without bound.
+        from mem0.memory.utils import (
+            _RETRY_TOKEN_CAP,
+            retry_extraction_with_more_tokens,
+        )
+
+        class _FakeConfig:
+            max_tokens = 4000  # 4x = 16000, above the cap
+
+        class _FakeLLM:
+            def __init__(self):
+                self.config = _FakeConfig()
+                self.seen = []
+
+            def generate_response(self, messages, response_format=None):
+                self.seen.append(self.config.max_tokens)
+                return COMPLETE_EXTRACTION
+
+        llm = _FakeLLM()
+        retry_extraction_with_more_tokens(llm, "sys", "usr")
+        assert llm.seen == [_RETRY_TOKEN_CAP]
+        assert llm.config.max_tokens == 4000  # restored
+
+    def test_retry_skipped_when_budget_already_at_cap(self):
+        # A budget already at/above the cap has no meaningful raise left; the
+        # retry is skipped rather than re-spending the same budget.
+        from mem0.memory.utils import (
+            _RETRY_TOKEN_CAP,
+            retry_extraction_with_more_tokens,
+        )
+
+        class _FakeConfig:
+            max_tokens = _RETRY_TOKEN_CAP
+
+        class _FakeLLM:
+            def __init__(self):
+                self.config = _FakeConfig()
+                self.calls = 0
+
+            def generate_response(self, messages, response_format=None):
+                self.calls += 1
+                return COMPLETE_EXTRACTION
+
+        llm = _FakeLLM()
+        assert retry_extraction_with_more_tokens(llm, "sys", "usr") == []
+        assert llm.calls == 0
+
+    def test_retry_drops_non_dict_memory_items(self):
+        # A schema-violating retry response (bare strings in the memory array)
+        # must be filtered, not passed downstream where m.get("text") would
+        # crash add() - same shape discipline as salvage_memory_objects.
+        from mem0.memory.utils import retry_extraction_with_more_tokens
+
+        class _FakeConfig:
+            max_tokens = 1000
+
+        class _FakeLLM:
+            def __init__(self):
+                self.config = _FakeConfig()
+
+            def generate_response(self, messages, response_format=None):
+                return '{"memory": ["bare string fact", {"id": "0", "text": "Real fact"}, 42]}'
+
+        llm = _FakeLLM()
+        assert retry_extraction_with_more_tokens(llm, "sys", "usr") == [{"id": "0", "text": "Real fact"}]
 
 
 class TestPromptOverridesCustomInstructions:
@@ -346,7 +423,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -649,6 +728,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -779,7 +859,8 @@ def test_update_preserves_actor_id_when_different_actor_updates(mocker):
     )
 
     memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -802,7 +883,8 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     )
 
     await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
