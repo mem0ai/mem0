@@ -514,6 +514,21 @@ export class Memory {
         "messages is required and cannot be undefined or null. Provide a string or array of messages.",
       );
     }
+    if (Array.isArray(messages)) {
+      if (messages.length === 0) {
+        throw new Error(
+          "messages array cannot be empty. Provide at least one message.",
+        );
+      }
+      const allBlank = messages.every(
+        (m) => typeof m.content === "string" && m.content.trim() === "",
+      );
+      if (allBlank) {
+        throw new Error(
+          "messages array cannot be empty or contain only blank content. Provide at least one message with non-empty content.",
+        );
+      }
+    }
 
     await this._ensureInitialized();
     await this._captureEvent("add", {

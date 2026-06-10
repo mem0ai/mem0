@@ -55,8 +55,9 @@ describe("Memory Input Validation", () => {
       },
       vectorStore: {
         provider: "memory",
-        config: { collectionName: "validation-test" },
+        config: { collectionName: "validation-test", dimension: 1536, dbPath: ":memory:" },
       },
+      disableHistory: true,
     });
     // Wait for initialization
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -83,6 +84,18 @@ describe("Memory Input Validation", () => {
         // @ts-ignore - intentionally passing null
         memory.add(null, { userId: testUserId }),
       ).rejects.toThrow("messages is required");
+    });
+
+    it("should throw error when messages is an empty array", async () => {
+      await expect(
+        memory.add([], { userId: testUserId }),
+      ).rejects.toThrow("messages array cannot be empty");
+    });
+
+    it("should throw error when messages array contains only whitespace-only content strings", async () => {
+      await expect(
+        memory.add([{ role: "user", content: "   " }], { userId: testUserId }),
+      ).rejects.toThrow("messages array cannot be empty or contain only blank content");
     });
   });
 
