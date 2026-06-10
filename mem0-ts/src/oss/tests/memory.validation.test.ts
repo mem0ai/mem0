@@ -55,7 +55,11 @@ describe("Memory Input Validation", () => {
       },
       vectorStore: {
         provider: "memory",
-        config: { collectionName: "validation-test", dimension: 1536, dbPath: ":memory:" },
+        config: {
+          collectionName: "validation-test",
+          dimension: 1536,
+          dbPath: ":memory:",
+        },
       },
       disableHistory: true,
     });
@@ -87,15 +91,17 @@ describe("Memory Input Validation", () => {
     });
 
     it("should throw error when messages is an empty array", async () => {
-      await expect(
-        memory.add([], { userId: testUserId }),
-      ).rejects.toThrow("messages array cannot be empty");
+      await expect(memory.add([], { userId: testUserId })).rejects.toThrow(
+        "messages array cannot be empty",
+      );
     });
 
     it("should throw error when messages array contains only whitespace-only content strings", async () => {
       await expect(
         memory.add([{ role: "user", content: "   " }], { userId: testUserId }),
-      ).rejects.toThrow("messages array cannot be empty or contain only blank content");
+      ).rejects.toThrow(
+        "messages array cannot be empty or contain only blank content",
+      );
     });
   });
 
