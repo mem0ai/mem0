@@ -23,7 +23,7 @@ import urllib.request
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _identity import resolve_api_key, resolve_user_id
+from _identity import resolve_api_key, resolve_config, resolve_user_id
 from _project import resolve_branch, resolve_project_id
 
 log = logging.getLogger("mem0-capture")
@@ -247,6 +247,10 @@ def main():
         log.debug("MEM0_API_KEY not set, skipping capture")
         if show_status:
             print("✨ Mem0 — no API key, skipping capture")
+        return
+
+    if not resolve_config().get("auto_save", True):
+        log.debug("auto_save disabled, skipping capture")
         return
 
     try:
