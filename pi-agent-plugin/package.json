@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mem0ai/mem0/pi-agent-plugin",
+    "url": "https://github.com/mem0ai/mem0",
     "directory": "pi-agent-plugin"
   },
   "keywords": [
