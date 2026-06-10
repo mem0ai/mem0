@@ -288,9 +288,7 @@ def test_forced_structure_recovery_works_end_to_end_on_gemini(mock_gemini_client
     part = Mock()
     part.text = None
     part.function_call = call
-    mock_gemini_client.models.generate_content.return_value = Mock(
-        candidates=[Mock(content=Mock(parts=[part]))]
-    )
+    mock_gemini_client.models.generate_content.return_value = Mock(candidates=[Mock(content=Mock(parts=[part]))])
 
     recovered = recover_extraction_via_tools(llm, "system prompt", "user prompt")
 
