@@ -51,7 +51,7 @@ export function createMem0(
   }
 ): Mem0Provider {
   const baseURL =
-    withoutTrailingSlash(options.baseURL) ?? "http://api.openai.com";
+    withoutTrailingSlash(options.baseURL) ?? "https://api.openai.com";
   const getHeaders = () => ({
     ...options.headers,
   });
