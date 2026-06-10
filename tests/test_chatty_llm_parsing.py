@@ -6,10 +6,9 @@ conversational text, markdown code blocks, or both.
 """
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
-
-from unittest.mock import MagicMock
 
 from mem0.memory.utils import (
     extract_json,
@@ -19,8 +18,8 @@ from mem0.memory.utils import (
     remove_code_blocks,
 )
 
-
 # --- Test extract_json ---
+
 
 class TestExtractJson:
     """Tests for extract_json utility."""
@@ -102,6 +101,7 @@ That's the result."""
 
 # --- Test remove_code_blocks ---
 
+
 class TestRemoveCodeBlocks:
     """Tests for remove_code_blocks — verify it does NOT handle chatty text."""
 
@@ -141,6 +141,7 @@ class TestRemoveCodeBlocks:
 
 
 # --- Test the full fallback chain (remove_code_blocks -> extract_json) ---
+
 
 class TestFallbackChain:
     """Tests the actual fallback pattern used in _add_to_vector_store:
@@ -242,7 +243,7 @@ I hope this helps!"""
 
 class TestToolCallRecovery:
     """The forced-tool-call recovery used when no JSON could be parsed at all
-    (full content-hijack — the case extract_json structurally cannot fix)."""
+    (full content-hijack - the case extract_json structurally cannot fix)."""
 
     def test_parse_tool_calls_extracts_memory_from_dict_arguments(self):
         response = {
@@ -255,10 +256,45 @@ class TestToolCallRecovery:
         response = {"tool_calls": [{"name": "save_memories", "arguments": '{"memory": [{"text": "Has a cat"}]}'}]}
         assert parse_tool_calls_for_memory(response) == [{"text": "Has a cat"}]
 
-    def test_parse_tool_calls_returns_empty_for_plain_string(self):
-        # A provider that ignored the tool and returned prose recovers nothing.
-        assert parse_tool_calls_for_memory("just some prose") == []
-        assert parse_tool_calls_for_memory({"tool_calls": []}) == []
+    def test_parse_tool_calls_returns_none_when_no_tool_call_parses(self):
+        # A provider that ignored the tool and returned prose, or returned no
+        # usable tool call, yields None - "could not parse", distinct from a
+        # successfully parsed empty memory list.
+        assert parse_tool_calls_for_memory("just some prose") is None
+        assert parse_tool_calls_for_memory({"tool_calls": []}) is None
+
+    def test_parse_tool_calls_distinguishes_valid_empty_from_unparseable(self):
+        # {"memory": []} parsed cleanly is a real (empty) result, not a failure.
+        parsed_empty = {"tool_calls": [{"name": "save_memories", "arguments": {"memory": []}}]}
+        assert parse_tool_calls_for_memory(parsed_empty) == []
+        # Truncated stringified arguments cannot parse -> None.
+        truncated = {"tool_calls": [{"name": "save_memories", "arguments": '{"memory": [{"text": "cut of'}]}
+        assert parse_tool_calls_for_memory(truncated) is None
+
+    def test_parse_tool_calls_merges_parallel_tool_calls(self):
+        # The tool description invites one call per fact; a model answering a
+        # forced call with parallel invocations must not lose facts beyond the
+        # first call (and a leading empty call must not mask later facts).
+        response = {
+            "tool_calls": [
+                {"name": "save_memories", "arguments": {"memory": []}},
+                {"name": "save_memories", "arguments": {"memory": [{"text": "Likes hiking"}]}},
+                {"name": "save_memories", "arguments": {"memory": [{"text": "Has a cat"}]}},
+            ]
+        }
+        assert parse_tool_calls_for_memory(response) == [{"text": "Likes hiking"}, {"text": "Has a cat"}]
+
+    def test_parse_tool_calls_drops_non_dict_memory_items(self):
+        # A schema-violating model can emit bare strings in the memory array.
+        # Downstream reads m.get("text"), so non-dict items must be filtered
+        # out here rather than crash add() - the recovery path must never make
+        # things worse than the silent drop it replaces.
+        response = {
+            "tool_calls": [
+                {"name": "save_memories", "arguments": {"memory": ["bare string", {"text": "Has a cat"}, 42]}}
+            ]
+        }
+        assert parse_tool_calls_for_memory(response) == [{"text": "Has a cat"}]
 
     def test_gate_requires_explicit_true(self):
         # A MagicMock auto-populates attributes; the gate must not be tripped by one.
@@ -291,18 +327,20 @@ class TestToolCallRecovery:
         llm.generate_response.side_effect = RuntimeError("provider exploded")
         assert recover_extraction_via_tools(llm, "sys", "user") == []
 
-    def test_recover_returns_empty_when_nothing_memorable(self):
-        # A forced tool call with an empty memory array round-trips to [] —
-        # the model is not compelled to invent a fact to satisfy the call.
+    def test_recover_returns_empty_when_nothing_memorable_without_retrying(self):
+        # A forced tool call with an empty memory array round-trips to [] -
+        # the model is not compelled to invent a fact to satisfy the call. A
+        # valid empty list is NOT treated as truncation: no token-raise retry,
+        # exactly one LLM call.
         llm = MagicMock()
         llm.supports_tool_calls = True
-        llm.generate_response.return_value = {
-            "tool_calls": [{"name": "save_memories", "arguments": {"memory": []}}]
-        }
+        llm.config.max_tokens = 2000
+        llm.generate_response.return_value = {"tool_calls": [{"name": "save_memories", "arguments": {"memory": []}}]}
         assert recover_extraction_via_tools(llm, "sys", "user") == []
+        assert llm.generate_response.call_count == 1
 
     def test_recover_is_graceful_when_tool_calls_malformed(self):
-        # A provider returning a non-dict tool_call must not raise — the
+        # A provider returning a non-dict tool_call must not raise - the
         # "recovery never raises" guarantee.
         llm = MagicMock()
         llm.supports_tool_calls = True
@@ -333,6 +371,34 @@ class TestToolCallRecovery:
         llm = MagicMock()
         llm.supports_tool_calls = True
         llm.config.max_tokens = None
-        llm.generate_response.return_value = {"tool_calls": [{"name": "save_memories", "arguments": {"memory": []}}]}
+        llm.generate_response.return_value = {"tool_calls": [{"name": "save_memories", "arguments": "truncat"}]}
+        assert recover_extraction_via_tools(llm, "sys", "user") == []
+        assert llm.generate_response.call_count == 1
+
+    def test_token_raise_retry_is_capped(self):
+        # 4x a large configured budget would be very expensive; the retry is
+        # capped at an absolute ceiling (8192) instead.
+        llm = MagicMock()
+        llm.supports_tool_calls = True
+        llm.config.max_tokens = 4000  # 4x = 16000, above the cap
+        llm.generate_response.side_effect = [
+            {"tool_calls": [{"name": "save_memories", "arguments": '{"memory": [{"text": "cut of'}]},
+            {"tool_calls": [{"name": "save_memories", "arguments": {"memory": [{"text": "Recovered"}]}}]},
+        ]
+        result = recover_extraction_via_tools(llm, "sys", "user")
+        assert result == [{"text": "Recovered"}]
+        retry_kwargs = llm.generate_response.call_args_list[1].kwargs
+        assert retry_kwargs["max_tokens"] == 8192
+
+    def test_no_token_raise_retry_when_budget_already_at_cap(self):
+        # If the configured budget is already at/above the cap there is no
+        # meaningful raise to attempt; skip the retry rather than re-spend the
+        # same budget.
+        llm = MagicMock()
+        llm.supports_tool_calls = True
+        llm.config.max_tokens = 8192
+        llm.generate_response.return_value = {
+            "tool_calls": [{"name": "save_memories", "arguments": '{"memory": [{"text": "cut of'}]
+        }
         assert recover_extraction_via_tools(llm, "sys", "user") == []
         assert llm.generate_response.call_count == 1

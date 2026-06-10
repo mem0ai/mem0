@@ -117,10 +117,11 @@ class AnthropicLLM(LLMBase):
     def _parse_response(response, tools):
         """Process the Anthropic response based on whether tools were used.
 
-        With tools, returns the same shape as the OpenAI provider —
-        ``{"content": <text>, "tool_calls": [{"name", "arguments"}]}`` — reading
+        With tools, returns the same shape as the OpenAI provider -
+        ``{"content": <text>, "tool_calls": [{"name", "arguments"}]}`` - reading
         the JSON out of each ``tool_use`` block's ``.input`` (the SDK already
-        parses it to a dict). Without tools, returns the assistant text.
+        parses it to a dict). Without tools, returns the assistant text, or ""
+        when the response carries no content blocks (e.g. blocked/refused).
         """
         if tools:
             processed_response = {"content": None, "tool_calls": []}
@@ -129,12 +130,10 @@ class AnthropicLLM(LLMBase):
                 if block_type == "text":
                     processed_response["content"] = block.text
                 elif block_type == "tool_use":
-                    processed_response["tool_calls"].append(
-                        {"name": block.name, "arguments": block.input}
-                    )
+                    processed_response["tool_calls"].append({"name": block.name, "arguments": block.input})
             return processed_response
 
-        return response.content[0].text
+        return response.content[0].text if response.content else ""
 
     def generate_response(
         self,
