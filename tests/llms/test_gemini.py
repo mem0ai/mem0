@@ -216,7 +216,8 @@ def _tool_response():
 def test_tool_choice_required_forces_any_mode(mock_gemini_client: Mock):
     """Regression: tool_choice='required' must map to ANY (force a tool), not
     NONE (tools off). Previously 'required' fell through to NONE and silently
-    disabled tool calling."""
+    disabled tool calling. 'required' means the model must call *some* tool of
+    its choosing, so allowed_function_names stays unset (LiteLLM parity)."""
     llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", max_tokens=100))
     mock_gemini_client.models.generate_content.return_value = _tool_response()
 
@@ -224,10 +225,12 @@ def test_tool_choice_required_forces_any_mode(mock_gemini_client: Mock):
 
     cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
     assert cfg.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.ANY
-    assert cfg.tool_config.function_calling_config.allowed_function_names == ["save_memories"]
+    assert cfg.tool_config.function_calling_config.allowed_function_names is None
 
 
 def test_tool_choice_any_still_forces(mock_gemini_client: Mock):
+    """'any' restricts the forced call to the provided tools, so
+    allowed_function_names is set."""
     llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", max_tokens=100))
     mock_gemini_client.models.generate_content.return_value = _tool_response()
 
@@ -235,6 +238,7 @@ def test_tool_choice_any_still_forces(mock_gemini_client: Mock):
 
     cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
     assert cfg.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.ANY
+    assert cfg.tool_config.function_calling_config.allowed_function_names == ["save_memories"]
 
 
 def test_tool_choice_none_disables_tools(mock_gemini_client: Mock):
@@ -254,9 +258,7 @@ def test_max_tokens_kwarg_overrides_config(mock_gemini_client: Mock):
     mock_part = Mock()
     mock_part.text = "ok"
     mock_part.function_call = None
-    mock_gemini_client.models.generate_content.return_value = Mock(
-        candidates=[Mock(content=Mock(parts=[mock_part]))]
-    )
+    mock_gemini_client.models.generate_content.return_value = Mock(candidates=[Mock(content=Mock(parts=[mock_part]))])
 
     llm.generate_response([{"role": "user", "content": "hi"}], max_tokens=8000)
 

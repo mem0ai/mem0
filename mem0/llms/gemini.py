@@ -176,6 +176,8 @@ class GeminiLLM(LLMBase):
         }
 
         # Per-call overrides take precedence over the configured values.
+        # Accepted kwargs: max_tokens. Anything else is ignored rather than
+        # forwarded, so unsupported OpenAI-style params cannot break the call.
         if kwargs.get("max_tokens") is not None:
             config_params["max_output_tokens"] = kwargs["max_tokens"]
 
@@ -195,11 +197,13 @@ class GeminiLLM(LLMBase):
             if tool_choice:
                 # "any" and "required" both mean "force a tool call" -> Gemini ANY
                 # mode. Previously "required" fell through to NONE, which silently
-                # disabled tool calling for any caller forcing a specific tool.
-                forced = tool_choice in ("any", "required")
+                # disabled tool calling for any caller forcing a tool. They differ on
+                # restriction: "any" forces one of *these* tools (allowed_function_names
+                # set), "required" forces *some* tool with the model free to choose
+                # (allowed_function_names unset), matching LiteLLM's Gemini mapping.
                 if tool_choice == "auto":
                     mode = types.FunctionCallingConfigMode.AUTO
-                elif forced:
+                elif tool_choice in ("any", "required"):
                     mode = types.FunctionCallingConfigMode.ANY
                 else:
                     mode = types.FunctionCallingConfigMode.NONE
@@ -208,7 +212,7 @@ class GeminiLLM(LLMBase):
                     function_calling_config=types.FunctionCallingConfig(
                         mode=mode,
                         allowed_function_names=(
-                            [tool["function"]["name"] for tool in tools] if forced else None
+                            [tool["function"]["name"] for tool in tools] if tool_choice == "any" else None
                         ),
                     )
                 )
