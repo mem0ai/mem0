@@ -986,9 +986,20 @@ class TestHybridSearchWarning:
         from mem0.vector_stores.base import VectorStoreBase
         import logging
 
-        mock_store = MagicMock(spec=VectorStoreBase)
-        type(mock_store).keyword_search = VectorStoreBase.keyword_search
-        mock_vs_factory.return_value = mock_store
+        class StoreWithoutKeywordSearch(VectorStoreBase):
+            def create_col(self, *a, **kw): pass
+            def insert(self, *a, **kw): pass
+            def search(self, *a, **kw): return []
+            def delete(self, *a, **kw): pass
+            def update(self, *a, **kw): pass
+            def get(self, *a, **kw): pass
+            def list_cols(self): return []
+            def delete_col(self): pass
+            def col_info(self): return {}
+            def list(self, *a, **kw): return []
+            def reset(self): pass
+
+        mock_vs_factory.return_value = StoreWithoutKeywordSearch()
         mock_emb.return_value = MagicMock()
         mock_llm.return_value = MagicMock()
 
