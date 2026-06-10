@@ -47,6 +47,7 @@ from mem0.utils.scoring import (
     normalize_bm25,
     score_and_rank,
 )
+from mem0.vector_stores.base import VectorStoreBase
 
 # Suppress SWIG deprecation warnings globally
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
@@ -400,6 +401,15 @@ class Memory(MemoryBase):
             self._telemetry_vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, telemetry_config
             )
+        if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
+            logger.warning(
+                "The '%s' vector store does not support keyword search. "
+                "Hybrid (BM25) scoring will be disabled and search will use "
+                "semantic similarity only. To enable hybrid search, switch to a "
+                "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
+                self.config.vector_store.provider,
+            )
+
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @property
@@ -1871,6 +1881,15 @@ class AsyncMemory(MemoryBase):
                 telemetry_config.path = os.path.join(mem0_dir, provider_path)
                 os.makedirs(telemetry_config.path, exist_ok=True)
             self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
+
+        if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
+            logger.warning(
+                "The '%s' vector store does not support keyword search. "
+                "Hybrid (BM25) scoring will be disabled and search will use "
+                "semantic similarity only. To enable hybrid search, switch to a "
+                "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
+                self.config.vector_store.provider,
+            )
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
