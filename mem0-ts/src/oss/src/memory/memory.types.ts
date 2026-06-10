@@ -11,6 +11,8 @@ export interface AddMemoryOptions extends Entity {
   metadata?: Record<string, any>;
   filters?: SearchFilters;
   infer?: boolean;
+  /** Per-call custom instructions override. Replaces the instance-level customInstructions for this call only. */
+  prompt?: string;
 }
 
 export interface SearchMemoryOptions {

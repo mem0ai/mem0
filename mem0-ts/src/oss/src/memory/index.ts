@@ -522,7 +522,7 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const { metadata = {}, filters = {}, infer = true } = config;
+    const { metadata = {}, filters = {}, infer = true, prompt } = config;
 
     // Validate and trim entity IDs
     const userId = validateAndTrimEntityId(config.userId, "userId");
@@ -552,6 +552,7 @@ export class Memory {
       metadata,
       filters,
       infer,
+      prompt,
     );
 
     return {
@@ -564,6 +565,7 @@ export class Memory {
     metadata: Record<string, any>,
     filters: SearchFilters,
     infer: boolean,
+    prompt?: string,
   ): Promise<MemoryItem[]> {
     if (!infer) {
       const returnedMemories: MemoryItem[] = [];
@@ -634,7 +636,7 @@ export class Memory {
       existingMemories,
       newMessages: parsedMessages,
       lastKMessages: lastMessages,
-      customInstructions: this.customInstructions,
+      customInstructions: prompt ?? this.customInstructions,
     });
 
     let response: string;

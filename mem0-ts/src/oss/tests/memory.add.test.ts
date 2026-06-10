@@ -175,4 +175,13 @@ describe("Memory - add()", () => {
       expect.objectContaining({ event: "ADD" }),
     );
   });
+
+  test("accepts prompt option and returns results", async () => {
+    const result: SearchResult = await memory.add(
+      "I drink coffee every morning",
+      { userId, prompt: "Only extract beverage preferences." },
+    );
+    expect(Array.isArray(result.results)).toBe(true);
+    expect(result.results.length).toBeGreaterThan(0);
+  });
 });
