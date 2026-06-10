@@ -4,7 +4,11 @@ import unittest
 import uuid
 from unittest.mock import MagicMock, patch
 
-from mem0.vector_stores.pgvector import PGVector
+from mem0.vector_stores.pgvector import (
+    PGVector,
+    _build_filter_conditions,
+    _with_sslmode,
+)
 
 
 class TestPGVector(unittest.TestCase):
@@ -36,10 +40,9 @@ class TestPGVector(unittest.TestCase):
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
     def test_init_with_individual_params_psycopg3(self, mock_psycopg_pool):
         """Test initialization with individual parameters using psycopg3."""
-        # Mock psycopg3 to be available
-        mock_psycopg_pool.return_value = self.mock_pool_psycopg
-        self.mock_cursor.fetchall.return_value = []  # No existing collections
-        
+        mock_pool_instance = MagicMock()
+        mock_psycopg_pool.return_value = mock_pool_instance
+
         pgvector = PGVector(
             dbname="test_db",
             collection_name="test_collection",
@@ -58,10 +61,55 @@ class TestPGVector(unittest.TestCase):
             conninfo="postgresql://test_user:test_pass@localhost:5432/test_db",
             min_size=1,
             max_size=4,
-            open=True,
+            open=False,
         )
+        mock_pool_instance.open.assert_called_once_with(wait=False)
+        # No DB calls during __init__ — collection setup is deferred.
+        mock_pool_instance.connection.assert_not_called()
+
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
+
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    def test_init_does_not_block_on_unreachable_host_psycopg3(self, mock_psycopg_pool):
+        """Regression test for issue #3950.
+
+        PGVector.__init__ must NOT block waiting for connections when the DB
+        host is temporarily unreachable (e.g. Docker Compose startup race).
+        The pool is created with open=False and collection setup is deferred
+        to first use, so the constructor returns immediately.
+        """
+        import time
+
+        mock_pool_instance = MagicMock()
+        mock_psycopg_pool.return_value = mock_pool_instance
+
+        start = time.monotonic()
+        pv = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="unreachable-docker-host",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+        )
+        elapsed = time.monotonic() - start
+
+        self.assertLess(elapsed, 1.0, "PGVector.__init__ blocked waiting for connections")
+
+        # Pool created with open=False, then opened non-blocking.
+        mock_psycopg_pool.assert_called_once()
+        call_kwargs = mock_psycopg_pool.call_args.kwargs
+        self.assertFalse(call_kwargs.get("open", True), "Pool must be created with open=False")
+        mock_pool_instance.open.assert_called_once_with(wait=False)
+
+        # No DB calls during __init__ — collection setup is deferred.
+        mock_pool_instance.connection.assert_not_called()
+        self.assertFalse(pv._collection_ensured)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -121,17 +169,18 @@ class TestPGVector(unittest.TestCase):
             minconn=1,
             maxconn=4
         )
-        
-        # Verify the _get_cursor context manager was called
+
+        # Collection setup is deferred — trigger it explicitly.
+        pgvector._ensure_collection()
+
         mock_get_cursor.assert_called()
 
         # Verify vector extension and table creation
         self.mock_cursor.execute.assert_any_call("CREATE EXTENSION IF NOT EXISTS vector")
-        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                              if "CREATE TABLE IF NOT EXISTS test_collection" in str(call)]
+        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list
+                              if "CREATE TABLE IF NOT EXISTS" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(table_creation_calls) > 0)
-        
-        # Verify pgvector instance properties
+
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
 
@@ -143,19 +192,14 @@ class TestPGVector(unittest.TestCase):
         Test collection creation with psycopg3 when an explicit psycopg_pool.ConnectionPool is provided.
         This ensures that PGVector uses the provided pool and still performs collection creation logic.
         """
-        # Set up a real (mocked) psycopg_pool.ConnectionPool instance
         explicit_pool = MagicMock(name="ExplicitPsycopgPool")
-        # The patch for ConnectionPool should not be used in this case, but we patch it for isolation
         mock_connection_pool.return_value = MagicMock(name="ShouldNotBeUsed")
 
-        # Configure the _get_cursor mock to return our mock cursor as a context manager
         mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
         mock_get_cursor.return_value.__exit__.return_value = None
 
-        # Simulate no existing collections in the database
         self.mock_cursor.fetchall.return_value = []
 
-        # Pass the explicit pool to PGVector
         pgvector = PGVector(
             dbname="test_db",
             collection_name="test_collection",
@@ -171,22 +215,19 @@ class TestPGVector(unittest.TestCase):
             connection_pool=explicit_pool
         )
 
-        # Verify the _get_cursor context manager was called
-        mock_get_cursor.assert_called()
+        # Collection setup is deferred — trigger it explicitly.
+        pgvector._ensure_collection()
 
+        mock_get_cursor.assert_called()
         mock_connection_pool.assert_not_called()
 
-
-        # Verify vector extension and table creation
         self.mock_cursor.execute.assert_any_call("CREATE EXTENSION IF NOT EXISTS vector")
-        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                              if "CREATE TABLE IF NOT EXISTS test_collection" in str(call)]
+        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list
+                              if "CREATE TABLE IF NOT EXISTS" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(table_creation_calls) > 0)
 
-        # Verify pgvector instance properties
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
-        # Ensure the pool used is the explicit one
         self.assertIs(pgvector.connection_pool, explicit_pool)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -197,19 +238,14 @@ class TestPGVector(unittest.TestCase):
         Test collection creation with psycopg2 when an explicit psycopg2 ThreadedConnectionPool is provided.
         This ensures that PGVector uses the provided pool and still performs collection creation logic.
         """
-        # Set up a real (mocked) psycopg2 ThreadedConnectionPool instance
         explicit_pool = MagicMock(name="ExplicitPsycopg2Pool")
-        # The patch for ConnectionPool should not be used in this case, but we patch it for isolation
         mock_connection_pool.return_value = MagicMock(name="ShouldNotBeUsed")
 
-        # Configure the _get_cursor mock to return our mock cursor as a context manager
         mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
         mock_get_cursor.return_value.__exit__.return_value = None
 
-        # Simulate no existing collections in the database
         self.mock_cursor.fetchall.return_value = []
 
-        # Pass the explicit pool to PGVector
         pgvector = PGVector(
             dbname="test_db",
             collection_name="test_collection",
@@ -225,21 +261,19 @@ class TestPGVector(unittest.TestCase):
             connection_pool=explicit_pool
         )
 
-        # Verify the _get_cursor context manager was called
-        mock_get_cursor.assert_called()
+        # Collection setup is deferred — trigger it explicitly.
+        pgvector._ensure_collection()
 
+        mock_get_cursor.assert_called()
         mock_connection_pool.assert_not_called()
 
-        # Verify vector extension and table creation
         self.mock_cursor.execute.assert_any_call("CREATE EXTENSION IF NOT EXISTS vector")
-        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                              if "CREATE TABLE IF NOT EXISTS test_collection" in str(call)]
+        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list
+                              if "CREATE TABLE IF NOT EXISTS" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(table_creation_calls) > 0)
 
-        # Verify pgvector instance properties
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
-        # Ensure the pool used is the explicit one
         self.assertIs(pgvector.connection_pool, explicit_pool)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -247,16 +281,14 @@ class TestPGVector(unittest.TestCase):
     @patch.object(PGVector, '_get_cursor')
     def test_create_col_psycopg2(self, mock_get_cursor, mock_connection_pool):
         """Test collection creation with psycopg2."""
-        # Set up mock pool and cursor
         mock_pool = MagicMock()
         mock_connection_pool.return_value = mock_pool
-        
-        # Configure the _get_cursor mock to return our mock cursor
+
         mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
         mock_get_cursor.return_value.__exit__.return_value = None
-        
-        self.mock_cursor.fetchall.return_value = []  # No existing collections
-        
+
+        self.mock_cursor.fetchall.return_value = []
+
         pgvector = PGVector(
             dbname="test_db",
             collection_name="test_collection",
@@ -270,17 +302,17 @@ class TestPGVector(unittest.TestCase):
             minconn=1,
             maxconn=4
         )
-        
-        # Verify the _get_cursor context manager was called
+
+        # Collection setup is deferred — trigger it explicitly.
+        pgvector._ensure_collection()
+
         mock_get_cursor.assert_called()
-        
-        # Verify vector extension and table creation
+
         self.mock_cursor.execute.assert_any_call("CREATE EXTENSION IF NOT EXISTS vector")
-        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                              if "CREATE TABLE IF NOT EXISTS test_collection" in str(call)]
+        table_creation_calls = [call for call in self.mock_cursor.execute.call_args_list
+                              if "CREATE TABLE IF NOT EXISTS" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(table_creation_calls) > 0)
-        
-        # Verify pgvector instance properties
+
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
 
@@ -319,7 +351,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify insert query was executed (psycopg3 uses executemany)
         insert_calls = [call for call in self.mock_cursor.executemany.call_args_list 
-                       if "INSERT INTO test_collection" in str(call)]
+                       if "INSERT INTO" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(insert_calls) > 0)
         
         # Verify data format
@@ -392,13 +424,18 @@ class TestPGVector(unittest.TestCase):
             mock_execute_values.assert_called_once()
             call_args = mock_execute_values.call_args
 
-            self.assertIn("INSERT INTO test_collection", call_args[0][1])
+            mock_psycopg2.sql.SQL.assert_any_call(
+                "INSERT INTO {} (id, vector, payload) VALUES %s"
+            )
 
             # The data argument should be a list of tuples, one per vector
             data_arg = call_args[0][2]
             self.assertEqual(len(data_arg), 2)
             self.assertEqual(data_arg[0][0], self.test_ids[0])
             self.assertEqual(data_arg[1][0], self.test_ids[1])
+
+        # Restore the module after the sys.modules patch reverts
+        importlib.reload(sys.modules['mem0.vector_stores.pgvector'])
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -432,7 +469,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -445,9 +482,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -481,7 +518,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -494,9 +531,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -534,7 +571,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify delete query was executed
         delete_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "DELETE FROM test_collection" in str(call)]
+                       if "DELETE FROM" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(delete_calls) > 0)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -573,7 +610,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify delete query was executed
         delete_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "DELETE FROM test_collection" in str(call)]
+                       if "DELETE FROM" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(delete_calls) > 0)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -615,7 +652,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify update queries were executed
         update_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "UPDATE test_collection" in str(call)]
+                       if "UPDATE" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(update_calls) > 0)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -657,7 +694,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify update queries were executed
         update_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "UPDATE test_collection" in str(call)]
+                       if "UPDATE" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(update_calls) > 0)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -867,7 +904,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify delete_col query was executed
         delete_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "DROP TABLE IF EXISTS test_collection" in str(call)]
+                       if "DROP TABLE IF EXISTS" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(delete_calls) > 0)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -906,7 +943,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify delete_col query was executed
         delete_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "DROP TABLE IF EXISTS test_collection" in str(call)]
+                       if "DROP TABLE IF EXISTS" in str(call) and "test_collection" in str(call)]
         self.assertTrue(len(delete_calls) > 0)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -1031,7 +1068,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.list(limit=2)
+        results = pgvector.list(top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1079,7 +1116,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.list(limit=2)
+        results = pgvector.list(top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1127,7 +1164,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1140,7 +1177,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1177,7 +1214,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1190,7 +1227,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
         self.assertEqual(results[0].payload["agent_id"], "agent1")
         self.assertEqual(results[0].payload["run_id"], "run1")
@@ -1227,7 +1264,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice"}
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1240,7 +1277,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -1275,7 +1312,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice"}
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=filters)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=filters)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1288,7 +1325,7 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[0].payload["user_id"], "alice")
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -1323,7 +1360,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=None)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=None)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1336,9 +1373,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1372,7 +1409,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.search("test query", [0.1, 0.2, 0.3], limit=2, filters=None)
+        results = pgvector.search("test query", [0.1, 0.2, 0.3], top_k=2, filters=None)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1385,9 +1422,9 @@ class TestPGVector(unittest.TestCase):
         # Verify results
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].id, self.test_ids[0])
-        self.assertEqual(results[0].score, 0.1)
+        self.assertEqual(results[0].score, 0.9)
         self.assertEqual(results[1].id, self.test_ids[1])
-        self.assertEqual(results[1].score, 0.2)
+        self.assertEqual(results[1].score, 0.8)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')
@@ -1421,7 +1458,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice", "agent_id": "agent1"}
-        results = pgvector.list(filters=filters, limit=2)
+        results = pgvector.list(filters=filters, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1470,7 +1507,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice", "agent_id": "agent1"}
-        results = pgvector.list(filters=filters, limit=2)
+        results = pgvector.list(filters=filters, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1519,7 +1556,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice"}
-        results = pgvector.list(filters=filters, limit=2)
+        results = pgvector.list(filters=filters, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1567,7 +1604,7 @@ class TestPGVector(unittest.TestCase):
         )
         
         filters = {"user_id": "alice"}
-        results = pgvector.list(filters=filters, limit=2)
+        results = pgvector.list(filters=filters, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1615,7 +1652,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.list(filters=None, limit=2)
+        results = pgvector.list(filters=None, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1663,7 +1700,7 @@ class TestPGVector(unittest.TestCase):
             maxconn=4
         )
         
-        results = pgvector.list(filters=None, limit=2)
+        results = pgvector.list(filters=None, top_k=2)
         
         # Verify the _get_cursor context manager was called
         mock_get_cursor.assert_called()
@@ -1802,7 +1839,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify the update query was executed
         update_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "UPDATE test_collection SET payload" in str(call)]
+                       if "UPDATE" in str(call) and "test_collection" in str(call) and "SET payload" in str(call)]
         self.assertTrue(len(update_calls) > 0)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -1843,7 +1880,7 @@ class TestPGVector(unittest.TestCase):
         
         # Verify the update query was executed
         update_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                       if "UPDATE test_collection SET payload" in str(call)]
+                       if "UPDATE" in str(call) and "test_collection" in str(call) and "SET payload" in str(call)]
         self.assertTrue(len(update_calls) > 0)
 
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 2)
@@ -1861,7 +1898,7 @@ class TestPGVector(unittest.TestCase):
 
         # Only raise exception on the delete operation, not during setup
         def execute_side_effect(*args, **kwargs):
-            if args and "DELETE FROM" in str(args[0]):
+            if args and ("DELETE FROM" in str(args[0]) or "DELETE" in repr(args[0])):
                 raise Exception("Database error")
             return MagicMock()
         mock_cursor.execute.side_effect = execute_side_effect
@@ -2003,9 +2040,9 @@ class TestPGVector(unittest.TestCase):
         
         # Verify only vector update query was executed (not payload)
         vector_update_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                              if "UPDATE test_collection SET vector" in str(call) and "payload" not in str(call)]
+                              if "UPDATE" in str(call) and "test_collection" in str(call) and "SET vector" in str(call) and "payload" not in str(call)]
         payload_update_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                               if "UPDATE test_collection SET payload" in str(call)]
+                               if "UPDATE" in str(call) and "test_collection" in str(call) and "SET payload" in str(call)]
         
         self.assertTrue(len(vector_update_calls) > 0)
         self.assertEqual(len(payload_update_calls), 0)
@@ -2045,9 +2082,9 @@ class TestPGVector(unittest.TestCase):
         
         # Verify both vector and payload update queries were executed
         vector_update_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                              if "UPDATE test_collection SET vector" in str(call)]
+                              if "UPDATE" in str(call) and "test_collection" in str(call) and "SET vector" in str(call)]
         payload_update_calls = [call for call in self.mock_cursor.execute.call_args_list 
-                               if "UPDATE test_collection SET payload" in str(call)]
+                               if "UPDATE" in str(call) and "test_collection" in str(call) and "SET payload" in str(call)]
         
         self.assertTrue(len(vector_update_calls) > 0)
         self.assertTrue(len(payload_update_calls) > 0)
@@ -2059,10 +2096,9 @@ class TestPGVector(unittest.TestCase):
         """Test connection string handling with SSL mode."""
         mock_pool = MagicMock()
         mock_connection_pool.return_value = mock_pool
-        self.mock_cursor.fetchall.return_value = []  # No existing collections
-        
+
         connection_string = "postgresql://user:pass@localhost:5432/db"
-        
+
         pgvector = PGVector(
             dbname="test_db",  # Will be overridden by connection_string
             collection_name="test_collection",
@@ -2078,17 +2114,49 @@ class TestPGVector(unittest.TestCase):
             sslmode="require",
             connection_string=connection_string
         )
-        
-        # Verify ConnectionPool was called with the connection string including sslmode
-        expected_conn_string = f"{connection_string} sslmode=require"
+
+        # Verify ConnectionPool was called with sslmode as a URI query parameter
+        # and open=False to avoid blocking __init__ in Docker (issue #3950).
+        expected_conn_string = f"{connection_string}?sslmode=require"
         mock_connection_pool.assert_called_with(
             conninfo=expected_conn_string,
             min_size=1,
             max_size=4,
-            open=True
+            open=False
         )
+        mock_pool.open.assert_called_once_with(wait=False)
         self.assertEqual(pgvector.collection_name, "test_collection")
         self.assertEqual(pgvector.embedding_model_dims, 3)
+
+    def test_with_sslmode_appends_uri_query_param(self):
+        """Test sslmode is appended to URI connection strings without corrupting dbname."""
+        connection_string = _with_sslmode(
+            "postgresql://user:pass@localhost:5432/db?connect_timeout=10",
+            "require",
+        )
+
+        self.assertEqual(
+            connection_string,
+            "postgresql://user:pass@localhost:5432/db?connect_timeout=10&sslmode=require",
+        )
+
+    def test_with_sslmode_replaces_existing_uri_sslmode(self):
+        """Test existing URI sslmode values are replaced rather than duplicated."""
+        connection_string = _with_sslmode(
+            "postgresql://user:pass@localhost:5432/db?sslmode=prefer&connect_timeout=10",
+            "require",
+        )
+
+        self.assertEqual(
+            connection_string,
+            "postgresql://user:pass@localhost:5432/db?connect_timeout=10&sslmode=require",
+        )
+
+    def test_with_sslmode_preserves_keyword_conninfo_format(self):
+        """Test non-URI conninfo strings keep PostgreSQL keyword syntax."""
+        connection_string = _with_sslmode("dbname=test user=postgres sslmode=prefer", "require")
+
+        self.assertEqual(connection_string, "dbname=test user=postgres sslmode=require")
 
     # Enhanced Test for Index Creation with DiskANN
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
@@ -2121,9 +2189,11 @@ class TestPGVector(unittest.TestCase):
             minconn=1,
             maxconn=4
         )
-        
-        # Verify DiskANN index creation query was executed
-        diskann_calls = [call for call in self.mock_cursor.execute.call_args_list 
+
+        # Collection setup is deferred — trigger it explicitly.
+        pgvector._ensure_collection()
+
+        diskann_calls = [call for call in self.mock_cursor.execute.call_args_list
                         if "USING diskann" in str(call)]
         self.assertTrue(len(diskann_calls) > 0)
         self.assertEqual(pgvector.collection_name, "test_collection")
@@ -2158,9 +2228,11 @@ class TestPGVector(unittest.TestCase):
             minconn=1,
             maxconn=4
         )
-        
-        # Verify HNSW index creation query was executed
-        hnsw_calls = [call for call in self.mock_cursor.execute.call_args_list 
+
+        # Collection setup is deferred — trigger it explicitly.
+        pgvector._ensure_collection()
+
+        hnsw_calls = [call for call in self.mock_cursor.execute.call_args_list
                      if "USING hnsw" in str(call)]
         self.assertTrue(len(hnsw_calls) > 0)
         self.assertEqual(pgvector.collection_name, "test_collection")
@@ -2228,3 +2300,178 @@ class TestPGVector(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test."""
         pass
+
+
+class TestBuildFilterConditions(unittest.TestCase):
+    """Tests for the _build_filter_conditions helper that translates filter dicts to SQL."""
+
+    def test_none_filters(self):
+        conditions, params = _build_filter_conditions(None)
+        self.assertEqual(conditions, [])
+        self.assertEqual(params, [])
+
+    def test_empty_filters(self):
+        conditions, params = _build_filter_conditions({})
+        self.assertEqual(conditions, [])
+        self.assertEqual(params, [])
+
+    def test_simple_equality(self):
+        conditions, params = _build_filter_conditions({"user_id": "alice"})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertEqual(params, ["user_id", "alice"])
+
+    def test_multiple_equalities(self):
+        conditions, params = _build_filter_conditions({"user_id": "alice", "agent_id": "bot1"})
+        self.assertEqual(len(conditions), 2)
+        self.assertEqual(params, ["user_id", "alice", "agent_id", "bot1"])
+
+    def test_eq_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"eq": "active"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertEqual(params, ["status", "active"])
+
+    def test_ne_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"ne": "deleted"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s != %s", conditions[0])
+        self.assertEqual(params, ["status", "deleted"])
+
+    def test_gt_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"gt": 100}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric > %s", conditions[0])
+        self.assertEqual(params, ["price", 100.0])
+
+    def test_gte_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"gte": 100}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
+        self.assertEqual(params, ["price", 100.0])
+
+    def test_lt_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"lt": 50}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric < %s", conditions[0])
+        self.assertEqual(params, ["price", 50.0])
+
+    def test_lte_operator(self):
+        conditions, params = _build_filter_conditions({"price": {"lte": 50}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("(payload->>%s)::numeric <= %s", conditions[0])
+        self.assertEqual(params, ["price", 50.0])
+
+    def test_range_combination(self):
+        conditions, params = _build_filter_conditions({"score": {"gte": 1, "lte": 10}})
+        self.assertEqual(len(conditions), 2)
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[0])
+        self.assertIn("(payload->>%s)::numeric <= %s", conditions[1])
+        self.assertEqual(params, ["score", 1.0, "score", 10.0])
+
+    def test_in_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"in": ["active", "pending"]}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
+        self.assertEqual(params, ["status", ["active", "pending"]])
+
+    def test_nin_operator(self):
+        conditions, params = _build_filter_conditions({"status": {"nin": ["deleted", "archived"]}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("NOT (payload->>%s = ANY(%s))", conditions[0])
+        self.assertEqual(params, ["status", ["deleted", "archived"]])
+
+    def test_contains_operator(self):
+        conditions, params = _build_filter_conditions({"name": {"contains": "alice"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("LIKE %s ESCAPE", conditions[0])
+        self.assertEqual(params, ["name", "%alice%"])
+
+    def test_icontains_operator(self):
+        conditions, params = _build_filter_conditions({"name": {"icontains": "Alice"}})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("ILIKE %s ESCAPE", conditions[0])
+        self.assertEqual(params, ["name", "%Alice%"])
+
+    def test_contains_escapes_wildcards(self):
+        conditions, params = _build_filter_conditions({"name": {"contains": "50%_off"}})
+        self.assertEqual(params, ["name", "%50\\%\\_off%"])
+
+    def test_icontains_escapes_wildcards(self):
+        conditions, params = _build_filter_conditions({"promo": {"icontains": "a%b_c"}})
+        self.assertEqual(params, ["promo", "%a\\%b\\_c%"])
+
+    def test_wildcard(self):
+        conditions, params = _build_filter_conditions({"metadata_key": "*"})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload ? %s", conditions[0])
+        self.assertEqual(params, ["metadata_key"])
+
+    def test_list_shorthand(self):
+        conditions, params = _build_filter_conditions({"tags": ["a", "b", "c"]})
+        self.assertEqual(len(conditions), 1)
+        self.assertIn("payload->>%s = ANY(%s)", conditions[0])
+        self.assertEqual(params, ["tags", ["a", "b", "c"]])
+
+    def test_or_operator(self):
+        conditions, params = _build_filter_conditions({
+            "$or": [
+                {"user_id": "alice"},
+                {"user_id": "bob"},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertIn(" OR ", conditions[0])
+        self.assertTrue(conditions[0].startswith("("))
+        self.assertEqual(params, ["user_id", "alice", "user_id", "bob"])
+
+    def test_not_operator(self):
+        conditions, params = _build_filter_conditions({
+            "$not": [
+                {"status": "deleted"},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertTrue(conditions[0].startswith("NOT"))
+        self.assertEqual(params, ["status", "deleted"])
+
+    def test_or_with_operators(self):
+        conditions, params = _build_filter_conditions({
+            "$or": [
+                {"price": {"gt": 100}},
+                {"price": {"lt": 10}},
+            ]
+        })
+        self.assertEqual(len(conditions), 1)
+        self.assertIn(" OR ", conditions[0])
+        self.assertEqual(params, ["price", 100.0, "price", 10.0])
+
+    def test_mixed_simple_and_operator_filters(self):
+        conditions, params = _build_filter_conditions({
+            "user_id": "alice",
+            "score": {"gte": 5},
+        })
+        self.assertEqual(len(conditions), 2)
+        self.assertIn("payload->>%s = %s", conditions[0])
+        self.assertIn("(payload->>%s)::numeric >= %s", conditions[1])
+
+    def test_unsupported_operator_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            _build_filter_conditions({"x": {"badop": 1}})
+        self.assertIn("Unsupported filter operator", str(ctx.exception))
+
+    def test_in_with_numeric_values(self):
+        conditions, params = _build_filter_conditions({"priority": {"in": [1, 2, 3]}})
+        self.assertEqual(params, ["priority", ["1", "2", "3"]])
+
+    def test_boolean_true_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"is_active": True})
+        self.assertEqual(params, ["is_active", "true"])
+
+    def test_boolean_false_uses_json_casing(self):
+        conditions, params = _build_filter_conditions({"is_active": False})
+        self.assertEqual(params, ["is_active", "false"])
+
+    def test_numeric_scalar_becomes_string(self):
+        conditions, params = _build_filter_conditions({"priority": 42})
+        self.assertEqual(params, ["priority", "42"])

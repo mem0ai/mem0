@@ -20,6 +20,7 @@ export class OpenAIEmbedder implements Embedder {
     const response = await this.openai.embeddings.create({
       model: this.model,
       input: text,
+      encoding_format: "float",
       ...(this.embeddingDims !== undefined && {
         dimensions: this.embeddingDims,
       }),
@@ -28,13 +29,24 @@ export class OpenAIEmbedder implements Embedder {
   }
 
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const response = await this.openai.embeddings.create({
-      model: this.model,
-      input: texts,
-      ...(this.embeddingDims !== undefined && {
-        dimensions: this.embeddingDims,
-      }),
-    });
-    return response.data.map((item) => item.embedding);
+    const MAX_BATCH = 100;
+    const allEmbeddings: number[][] = [];
+    for (let i = 0; i < texts.length; i += MAX_BATCH) {
+      const chunk = texts.slice(i, i + MAX_BATCH);
+      const response = await this.openai.embeddings.create({
+        model: this.model,
+        input: chunk,
+        encoding_format: "float",
+        ...(this.embeddingDims !== undefined && {
+          dimensions: this.embeddingDims,
+        }),
+      });
+      allEmbeddings.push(
+        ...response.data
+          .sort((a, b) => a.index - b.index)
+          .map((item) => item.embedding),
+      );
+    }
+    return allEmbeddings;
   }
 }

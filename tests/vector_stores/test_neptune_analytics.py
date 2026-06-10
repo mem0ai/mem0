@@ -123,7 +123,7 @@ class TestNeptuneAnalyticsOperations:
             payloads=SAMPLE_PAYLOADS
         )
         
-        result = na_instance.search(query="", vectors=VECTOR_1, limit=1)
+        result = na_instance.search(query="", vectors=VECTOR_1, top_k=1)
         assert len(result) == 1
         assert "label" not in result[0].payload
 

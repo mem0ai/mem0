@@ -79,7 +79,7 @@ class CustomerSupportAIAgent:
         :param user_id: Optional user ID to filter memories.
         :return: List of memories.
         """
-        return self.memory.get_all(user_id=user_id)
+        return self.memory.get_all(filters={"user_id": user_id})
 
 # Instantiate the CustomerSupportAIAgent
 support_agent = CustomerSupportAIAgent()

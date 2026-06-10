@@ -283,12 +283,12 @@ for result in results["results"]:
 def safe_llm_rerank_search(query, user_id, max_retries=3):
     for attempt in range(max_retries):
         try:
-            return m.search(query, user_id=user_id, rerank=True)
+            return m.search(query, filters={"user_id": user_id}, rerank=True)
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {e}")
             if attempt == max_retries - 1:
                 # Fall back to vector search
-                return m.search(query, user_id=user_id, rerank=False)
+                return m.search(query, filters={"user_id": user_id}, rerank=False)
 
 # Use the safe function
 results = safe_llm_rerank_search("What are my preferences?", "alice")
@@ -376,19 +376,19 @@ class RobustLLMReranker:
         # Try primary LLM reranker
         for attempt in range(max_retries):
             try:
-                return self.primary.search(query, user_id=user_id, rerank=True)
+                return self.primary.search(query, filters={"user_id": user_id}, rerank=True)
             except Exception as e:
                 print(f"Primary reranker attempt {attempt + 1} failed: {e}")
 
         # Try fallback reranker
         if self.fallback:
             try:
-                return self.fallback.search(query, user_id=user_id, rerank=True)
+                return self.fallback.search(query, filters={"user_id": user_id}, rerank=True)
             except Exception as e:
                 print(f"Fallback reranker failed: {e}")
 
         # Final fallback: vector search only
-        return self.primary.search(query, user_id=user_id, rerank=False)
+        return self.primary.search(query, filters={"user_id": user_id}, rerank=False)
 
 # Usage
 primary_config = {

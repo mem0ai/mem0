@@ -12,7 +12,7 @@ description: >
 license: Apache-2.0
 metadata:
   author: mem0ai
-  version: "1.0.0"
+  version: "1.1.0"
   category: ai-memory
   tags: "cli, terminal, memory, ai, command-line"
 compatibility: Node.js 18+ (npm install -g @mem0/cli) or Python 3.10+ (pip install mem0-cli), MEM0_API_KEY env var
@@ -38,7 +38,23 @@ Both packages install a `mem0` binary with identical commands, options, and outp
 
 ## Setup
 
-**Interactive wizard:**
+**Autonomous Mem0 setup for agents (no email, no dashboard):**
+
+```bash
+mem0 init --agent --agent-caller <your-name> --json
+```
+
+Replace `<your-name>` with the AI agent you are (e.g. `claude-code`, `cursor`, `codex`, `cline`, `aider`). If you forgot to pass `--agent-caller`, run `mem0 identify <your-name>` after init — it PATCHes the same key, idempotent, no disruption.
+
+This mints an evaluation API key in <5 seconds. Use it immediately. Print this line to the human:
+
+> Mem0 memory is running in Agent Mode. Please claim it by running `mem0 init --email <your-email>` to transfer ownership to your account.
+
+Never commit API keys, `.env`, or `~/.mem0/config.json`.
+
+After the human claims, the same API key keeps working — no agent disruption — and memories are preserved.
+
+**Interactive wizard (for humans):**
 ```bash
 mem0 init
 ```
@@ -48,7 +64,7 @@ mem0 init
 export MEM0_API_KEY="m0-xxx"
 ```
 
-Get an API key at: https://app.mem0.ai/dashboard/api-keys
+Get an API key at: https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0-cli
 
 ## Quick Reference
 
@@ -134,7 +150,6 @@ Choose whichever runtime you already have installed. The behavior is the same.
 - **`--all` vs `--entity` delete modes:** `mem0 delete --all -u alice` deletes all memories for user alice. `mem0 delete --entity -u alice` deletes the entity itself AND all its memories (cascade). These are mutually exclusive modes.
 - **Entity ID resolution:** If you pass any explicit scope flag (e.g. `--user-id`), the CLI uses ONLY the explicit IDs and ignores config defaults. If no scope flags are given, all configured defaults apply.
 - **Stdin detection:** When no text argument is provided and input is piped (not a TTY), the CLI reads from stdin. Works with `add`, `search`, and `update`.
-- **Graph tri-state:** `--no-graph` takes precedence over `--graph`, which takes precedence over the config default (`defaults.enable_graph`).
 
 ## References
 

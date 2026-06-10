@@ -45,7 +45,7 @@ class CollaborativeAgent:
 
     def brainstorm(self, prompt):
         # Get recent messages for context
-        memories = self.mem.search(prompt, run_id=self.run_id, limit=5)["results"]
+        memories = self.mem.search(prompt, filters={"run_id": self.run_id}, top_k=5)["results"]
         context = "\n".join(f"- {m['memory']} (by {m.get('actor_id', 'Unknown')})" for m in memories)
         client = OpenAI()
         messages = [
@@ -53,14 +53,14 @@ class CollaborativeAgent:
             {"role": "user", "content": f"Prompt: {prompt}\nContext:\n{context}"}
         ]
         reply = client.chat.completions.create(
-            model="gpt-4.1-nano-2025-04-14",
+            model="gpt-5-mini",
             messages=messages
         ).choices[0].message.content.strip()
         self.add_message("assistant", "assistant", reply)
         return reply
 
     def get_all_messages(self):
-        return self.mem.get_all(run_id=self.run_id)["results"]
+        return self.mem.get_all(filters={"run_id": self.run_id})["results"]
 
     def print_sorted_by_time(self):
         messages = self.get_all_messages()

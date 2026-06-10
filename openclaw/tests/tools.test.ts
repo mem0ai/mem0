@@ -32,13 +32,11 @@ function createMockToolDeps(overrides = {}): ToolDeps {
       mode: "platform",
       userId: "testuser",
       topK: 5,
-      enableGraph: false,
       autoCapture: true,
       autoRecall: true,
-      searchThreshold: 0.5,
+      searchThreshold: 0.1,
       customInstructions: "test",
       customCategories: {},
-      customPrompt: "test",
     } as any,
     provider: {
       search: vi
@@ -109,13 +107,14 @@ describe("registerAllTools", () => {
     ]);
   });
 
-  it("registers tools without a second argument (required, not optional)", () => {
+  it("registers tools with optional: false metadata", () => {
     const ctx = createMockToolDeps();
     registerAllTools(ctx);
 
     const calls = (ctx.api.registerTool as ReturnType<typeof vi.fn>).mock.calls;
     for (const call of calls) {
-      expect(call).toHaveLength(1);
+      expect(call).toHaveLength(2);
+      expect(call[1]).toEqual({ optional: false });
     }
   });
 });
@@ -264,9 +263,10 @@ describe("memory_search execute", () => {
       scope: "session",
     });
 
-    // Should call buildSearchOptions with session ID
+    // Should call buildSearchOptions with session ID as 4th arg (sessionKey)
     expect(ctx.buildSearchOptions).toHaveBeenCalledWith(
       "testuser",
+      undefined,
       undefined,
       "session-abc",
     );
@@ -447,8 +447,8 @@ describe("memory_add execute", () => {
 
     await tool.execute("call-7", { text: "new fact" });
 
-    // Search should be called for dedup before add
-    expect(searchMock).toHaveBeenCalledOnce();
+    // Mem0 backend handles dedup internally — no separate search call
+    expect(searchMock).not.toHaveBeenCalled();
     expect(addMock).toHaveBeenCalledOnce();
   });
 });

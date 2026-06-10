@@ -2,7 +2,7 @@
  * Token-budgeted, category-ranked recall engine.
  *
  * Replaces naive "dump all search results" with:
- * 1. Search with rerank + keyword_search
+ * 1. Search memories with threshold filtering
  * 2. Rank by category priority (identity first)
  * 3. Token-budget the results
  * 4. Format by category with importance scores
@@ -253,17 +253,13 @@ export async function recall(
   const categoryOrder = recallConfig.categoryOrder ?? DEFAULT_CATEGORY_ORDER;
   const identityAlwaysInclude = recallConfig.identityAlwaysInclude !== false;
 
-  // Build search options with enhanced features
+  // Build search options (v3.0.0: keyword_search, reranking, filter_memories removed)
   const searchOpts: SearchOptions = {
     user_id: userId,
     top_k: maxMemories * 2, // Over-fetch for ranking
     threshold,
-    keyword_search: recallConfig.keywordSearch !== false, // Default on
-    reranking: recallConfig.rerank !== false, // Default on
+    source: "OPENCLAW",
   };
-  if (recallConfig.filterMemories) {
-    searchOpts.filter_memories = true;
-  }
 
   // Sanitize query: strip OpenClaw metadata prefix before searching
   const cleanQuery = sanitizeQuery(query);

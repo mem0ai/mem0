@@ -16,6 +16,7 @@ vi.mock("../cli/config-file.ts", () => ({
   readPluginAuth: vi.fn().mockReturnValue({}),
   writePluginAuth: vi.fn(),
   writePluginConfigField: vi.fn(),
+  enableSkillsConfig: vi.fn(),
   getBaseUrl: vi.fn().mockReturnValue("https://api.mem0.ai"),
   OPENCLAW_CONFIG_FILE: "/mock/.openclaw/openclaw.json",
 }));
@@ -32,6 +33,7 @@ vi.mock("../skill-loader.ts", () => ({
   loadDreamPrompt: vi.fn().mockReturnValue("dream prompt"),
 }));
 
+
 // ---------------------------------------------------------------------------
 // Imports (after mocks)
 // ---------------------------------------------------------------------------
@@ -41,6 +43,7 @@ import {
   readPluginAuth,
   writePluginAuth,
   writePluginConfigField,
+  enableSkillsConfig,
   getBaseUrl,
 } from "../cli/config-file.ts";
 import { loadDreamPrompt } from "../skill-loader.ts";
@@ -175,10 +178,9 @@ function createMockCfg() {
     apiKey: "m0-test-key-1234",
     baseUrl: "https://api.mem0.ai",
     topK: 5,
-    enableGraph: false,
     autoCapture: true,
     autoRecall: true,
-    searchThreshold: 0.5,
+    searchThreshold: 0.1,
     customInstructions: "",
     customCategories: {},
     skills: {},
@@ -252,6 +254,7 @@ describe("registerCliCommands", () => {
     warn: ReturnType<typeof vi.spyOn>;
   };
   let stderrSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.resetAllMocks();
@@ -268,6 +271,7 @@ describe("registerCliCommands", () => {
       warn: vi.spyOn(console, "warn").mockImplementation(() => {}),
     };
     stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
   });
 
   afterEach(() => {
@@ -275,6 +279,7 @@ describe("registerCliCommands", () => {
     consoleSpy.error.mockRestore();
     consoleSpy.warn.mockRestore();
     stderrSpy.mockRestore();
+    stdoutSpy.mockRestore();
     vi.restoreAllMocks();
   });
 
@@ -523,6 +528,158 @@ describe("registerCliCommands", () => {
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: "custom-user",
+        }),
+      );
+
+      vi.unstubAllGlobals();
+    });
+
+    it("outputs JSON for --api-key flow when --json is set", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({}),
+      }));
+
+      await initCmd._action!({ apiKey: "m0-key", json: true });
+
+      const jsonCall = stdoutSpy.mock.calls.find((c) => {
+        try {
+          const p = JSON.parse(c[0] as string);
+          return typeof p.ok === "boolean";
+        } catch { return false; }
+      });
+      expect(jsonCall).toBeDefined();
+      const parsed = JSON.parse(jsonCall![0] as string);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.mode).toBe("platform");
+      expect(parsed.validated).toBe(true);
+
+      vi.unstubAllGlobals();
+    });
+
+    it("outputs JSON for --api-key flow with failed validation when --json is set", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: vi.fn().mockResolvedValue({}),
+      }));
+
+      await initCmd._action!({ apiKey: "bad-key", json: true });
+
+      const jsonCall = stdoutSpy.mock.calls.find((c) => {
+        try {
+          const p = JSON.parse(c[0] as string);
+          return typeof p.ok === "boolean";
+        } catch { return false; }
+      });
+      expect(jsonCall).toBeDefined();
+      const parsed = JSON.parse(jsonCall![0] as string);
+      expect(parsed.ok).toBe(false);
+      expect(parsed.mode).toBe("platform");
+      expect(parsed.validated).toBe(false);
+      expect(parsed.httpStatus).toBe(401);
+
+      vi.unstubAllGlobals();
+    });
+
+    it("outputs JSON for --api-key + --email conflict when --json is set", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      await initCmd._action!({ apiKey: "key", email: "a@b.com", json: true });
+
+      const jsonCall = stdoutSpy.mock.calls.find((c) => {
+        try {
+          const p = JSON.parse(c[0] as string);
+          return p.ok === false;
+        } catch { return false; }
+      });
+      expect(jsonCall).toBeDefined();
+      const parsed = JSON.parse(jsonCall![0] as string);
+      expect(parsed.error).toContain("Cannot use both");
+      expect(writePluginAuth).not.toHaveBeenCalled();
+    });
+
+    it("outputs JSON for email send-code flow when --json is set", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({}),
+      }));
+
+      await initCmd._action!({ email: "user@example.com", json: true });
+
+      const jsonCall = stdoutSpy.mock.calls.find((c) => {
+        try {
+          const p = JSON.parse(c[0] as string);
+          return p.codeSent === true;
+        } catch { return false; }
+      });
+      expect(jsonCall).toBeDefined();
+      const parsed = JSON.parse(jsonCall![0] as string);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.email).toBe("user@example.com");
+      expect(parsed.nextCommand).toContain("--code");
+
+      vi.unstubAllGlobals();
+    });
+
+    it("outputs JSON for email verify flow when --json is set", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ api_key: "m0-verified" }),
+      }));
+
+      await initCmd._action!({ email: "u@b.com", code: "123456", json: true });
+
+      const jsonCall = stdoutSpy.mock.calls.find((c) => {
+        try {
+          const p = JSON.parse(c[0] as string);
+          return p.ok === true && p.mode === "platform";
+        } catch { return false; }
+      });
+      expect(jsonCall).toBeDefined();
+      const parsed = JSON.parse(jsonCall![0] as string);
+      expect(parsed.email).toBe("u@b.com");
+      expect(parsed.message).toContain("Authenticated");
+
+      vi.unstubAllGlobals();
+    });
+
+    it("clears stale apiKey when switching to OSS mode", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      (readPluginAuth as ReturnType<typeof vi.fn>).mockReturnValue({
+        apiKey: "m0-old-platform-key",
+        mode: "platform",
+        userId: "testuser",
+      });
+
+      await initCmd._action!({
+        mode: "open-source",
+        ossLlm: "ollama",
+        ossEmbedder: "ollama",
+        ossVector: "qdrant",
+      });
+
+      expect(writePluginAuth).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiKey: "",
+          mode: "open-source",
         }),
       );
 
@@ -967,7 +1124,7 @@ describe("registerCliCommands", () => {
       const configCmd = findCommand(mem0, "config")!;
       const getCmd = findCommand(configCmd, "get")!;
 
-      getCmd._action!("org_id");
+      getCmd._action!("email");
 
       expect(consoleSpy.log).toHaveBeenCalledWith("(not set)");
     });
@@ -1033,18 +1190,6 @@ describe("registerCliCommands", () => {
       );
     });
 
-    it("coerces 'true' to boolean for boolean keys", () => {
-      const { mem0 } = setup();
-      const configCmd = findCommand(mem0, "config")!;
-      const setCmd = findCommand(configCmd, "set")!;
-
-      setCmd._action!("enable_graph", "true");
-
-      expect(writePluginAuth).toHaveBeenCalledWith(
-        expect.objectContaining({ enableGraph: true }),
-      );
-    });
-
     it("coerces 'false' to boolean false for boolean keys", () => {
       const { mem0 } = setup();
       const configCmd = findCommand(mem0, "config")!;
@@ -1066,18 +1211,6 @@ describe("registerCliCommands", () => {
 
       expect(writePluginAuth).toHaveBeenCalledWith(
         expect.objectContaining({ autoCapture: true }),
-      );
-    });
-
-    it("coerces 'yes' to boolean true for boolean keys", () => {
-      const { mem0 } = setup();
-      const configCmd = findCommand(mem0, "config")!;
-      const setCmd = findCommand(configCmd, "set")!;
-
-      setCmd._action!("enable_graph", "yes");
-
-      expect(writePluginAuth).toHaveBeenCalledWith(
-        expect.objectContaining({ enableGraph: true }),
       );
     });
 
@@ -1411,6 +1544,211 @@ describe("registerCliCommands", () => {
       expect(consoleSpy.error).toHaveBeenCalledWith(
         expect.stringContaining("Failed to get event"),
       );
+    });
+
+    it("event list returns early in open-source mode", async () => {
+      const provider = createMockProvider();
+      const cfg = { ...createMockCfg(), mode: "open-source" as const };
+      const mockApi = {
+        registerCli: vi.fn((cb: any) => {
+          const root = createMockCommand("root");
+          cb({ program: root });
+          const mem0 = findCommand(root, "mem0")!;
+          const eventCmd = findCommand(mem0, "event")!;
+          const listCmd = findCommand(eventCmd, "list")!;
+          listCmd._action!();
+        }),
+        logger: { info: vi.fn(), warn: vi.fn() },
+      } as any;
+
+      registerCliCommands(
+        mockApi,
+        null as any,
+        provider as any,
+        cfg as any,
+        vi.fn().mockReturnValue("testuser"),
+        vi.fn((id: string) => `testuser:agent:${id}`),
+        vi.fn().mockReturnValue({ user_id: "testuser", top_k: 5 }),
+        vi.fn().mockReturnValue(undefined),
+      );
+
+      // Wait for async action
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        "Event tracking is only available in platform mode.",
+      );
+    });
+
+    it("event status returns early in open-source mode", async () => {
+      const provider = createMockProvider();
+      const cfg = { ...createMockCfg(), mode: "open-source" as const };
+      const mockApi = {
+        registerCli: vi.fn((cb: any) => {
+          const root = createMockCommand("root");
+          cb({ program: root });
+          const mem0 = findCommand(root, "mem0")!;
+          const eventCmd = findCommand(mem0, "event")!;
+          const statusCmd = findCommand(eventCmd, "status")!;
+          statusCmd._action!("evt-123");
+        }),
+        logger: { info: vi.fn(), warn: vi.fn() },
+      } as any;
+
+      registerCliCommands(
+        mockApi,
+        null as any,
+        provider as any,
+        cfg as any,
+        vi.fn().mockReturnValue("testuser"),
+        vi.fn((id: string) => `testuser:agent:${id}`),
+        vi.fn().mockReturnValue({ user_id: "testuser", top_k: 5 }),
+        vi.fn().mockReturnValue(undefined),
+      );
+
+      // Wait for async action
+      await new Promise((r) => setTimeout(r, 10));
+
+      expect(consoleSpy.log).toHaveBeenCalledWith(
+        "Event tracking is only available in platform mode.",
+      );
+    });
+  });
+
+  // ========================================================================
+  // Restructured init menu flags
+  // ========================================================================
+
+  describe("init — restructured menu", () => {
+    it("registers --mode flag", () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+      const modeOpt = initCmd._options.find((o) => o.flags.includes("--mode"));
+      expect(modeOpt).toBeDefined();
+    });
+
+    it("registers --oss-llm flag", () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+      const opt = initCmd._options.find((o) => o.flags.includes("--oss-llm "));
+      expect(opt).toBeDefined();
+    });
+
+    it("registers --json flag on init", () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+      const opt = initCmd._options.find((o) => o.flags.includes("--json"));
+      expect(opt).toBeDefined();
+    });
+  });
+
+  // ========================================================================
+  // --json flag registration on all commands
+  // ========================================================================
+
+  describe("--json flag registration", () => {
+    for (const name of ["search", "add", "get", "list", "update", "delete", "status", "import", "dream"]) {
+      it(`registers --json on ${name}`, () => {
+        const { mem0 } = setup();
+        const cmd = findCommand(mem0, name)!;
+        const opt = cmd._options.find((o) => o.flags.includes("--json"));
+        expect(opt).toBeDefined();
+      });
+    }
+
+    it("registers --json on config show", () => {
+      const { mem0 } = setup();
+      const configCmd = findCommand(mem0, "config")!;
+      const showCmd = findCommand(configCmd, "show")!;
+      expect(showCmd).toBeDefined();
+      const opt = showCmd._options.find((o) => o.flags.includes("--json"));
+      expect(opt).toBeDefined();
+    });
+  });
+
+  // ========================================================================
+  // Non-interactive OSS init
+  // ========================================================================
+
+  describe("init --mode open-source (non-interactive)", () => {
+    it("writes LLM, embedder, and vector config for ollama + qdrant", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      await initCmd._action!({
+        mode: "open-source",
+        ossLlm: "ollama",
+        ossEmbedder: "ollama",
+        ossVector: "qdrant",
+        userId: "test-user",
+      });
+
+      expect(writePluginConfigField).toHaveBeenCalledWith(
+        ["oss", "llm"],
+        expect.objectContaining({ provider: "ollama" }),
+      );
+      expect(writePluginConfigField).toHaveBeenCalledWith(
+        ["oss", "embedder"],
+        expect.objectContaining({ provider: "ollama" }),
+      );
+      expect(writePluginConfigField).toHaveBeenCalledWith(
+        ["oss", "vectorStore"],
+        expect.objectContaining({ provider: "qdrant" }),
+      );
+      expect(writePluginAuth).toHaveBeenCalledWith(
+        expect.objectContaining({ mode: "open-source", userId: "test-user" }),
+      );
+
+      vi.unstubAllGlobals();
+    });
+
+    it("outputs JSON when --json is passed", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      await initCmd._action!({
+        mode: "open-source",
+        ossLlm: "ollama",
+        ossEmbedder: "ollama",
+        ossVector: "qdrant",
+        json: true,
+      });
+
+      const jsonCall = stdoutSpy.mock.calls.find((c) => {
+        try {
+          const p = JSON.parse(c[0] as string);
+          return p.ok === true;
+        } catch {
+          return false;
+        }
+      });
+      expect(jsonCall).toBeDefined();
+      if (jsonCall) {
+        const parsed = JSON.parse(jsonCall[0] as string);
+        expect(parsed.mode).toBe("open-source");
+        expect(parsed.config.llm.provider).toBe("ollama");
+      }
+
+      vi.unstubAllGlobals();
+    });
+
+    it("errors when openai LLM has no key", async () => {
+      const { mem0 } = setup();
+      const initCmd = findCommand(mem0, "init")!;
+
+      vi.stubEnv("OPENAI_API_KEY", "");
+
+      await initCmd._action!({ mode: "open-source", ossLlm: "openai" });
+
+      expect(consoleSpy.error).toHaveBeenCalledWith(
+        expect.stringContaining("--oss-llm-key"),
+      );
+
+      vi.unstubAllEnvs();
     });
   });
 });

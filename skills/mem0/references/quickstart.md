@@ -5,7 +5,7 @@ Get running with Mem0 in 2 minutes. No infrastructure to deploy -- just an API k
 ## Prerequisites
 
 - Python 3.10+ or Node.js 18+
-- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys))
+- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0-quickstart))
 
 ## Python Setup
 
@@ -59,11 +59,11 @@ const messages = [
     {"role": "user", "content": "I'm a vegetarian and allergic to nuts."},
     {"role": "assistant", "content": "Got it! I'll remember your dietary preferences."}
 ];
-await client.add(messages, { user_id: "user123" });
+await client.add(messages, { userId: "user123" });
 
 // Search memories
 const results = await client.search("What are my dietary restrictions?", {
-    user_id: "user123"
+    filters: { user_id: "user123" }
 });
 console.log(results);
 ```

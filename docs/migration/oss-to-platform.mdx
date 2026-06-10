@@ -14,11 +14,15 @@ Move your Mem0 implementation to managed infrastructure with enterprise features
 | --------------------- | -------------- | ---------------------------- |
 | Infrastructure & Code | Low (~30 mins) | None (Parallel run possible) |
 
+<Note>
+  Using Mem0 Open Source with **hosted Qdrant**? You can migrate your existing memories to Mem0 Platform with a one-line script below.
+</Note>
+
 <Info>
   **Why migrate to Platform?**
 
   - **Time to Market**: Set up in 5 minutes vs 30+ minutes for OSS configuration
-  - **Enterprise Ready**: SOC2 Type II compliance, GDPR support, audit logs
+  - **Enterprise Ready**: Audit logs, workspace governance, and dedicated support
   - **Advanced Features**: Webhooks, memory export, analytics dashboard, custom categories
   - **Multi-tenancy**: Organizations, projects, and team management out of the box
   - **Zero Infrastructure**: No vector database, LLM provider, or maintenance overhead
@@ -28,13 +32,27 @@ Move your Mem0 implementation to managed infrastructure with enterprise features
 
 ## Plan
 
-1. **Sign up**: Create an account on [Mem0 Platform](https://app.mem0.ai).
+1. **Sign up**: Create an account on <a href="https://app.mem0.ai?utm_source=oss&utm_medium=migration-oss-to-platform" rel="nofollow">Mem0 Platform</a>.
 2. **Get API Key**: Navigate to **Settings > API Keys** and generate a new key.
 3. **Review Usage**: Identify where you instantiate `Memory` and where you call `search` or `get_all`.
 
 ## Migrate
 
-### 1. Install or Update SDK
+### 1. Import Memories Into Platform
+
+If your Mem0 Open Source setup uses **hosted Qdrant** as the vector store, you can import your existing memories to Mem0 Platform with one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mem0ai/mem0/main/scripts/oss-to-platform-migrate.sh | bash
+```
+
+<Note>
+  This migration script currently supports **hosted Qdrant only**. Support for local Qdrant, pgvector, and other vector stores is coming soon.
+</Note>
+
+If you are using a different vector store and want to migrate to Platform, please contact Mem0 support and we’ll send you a custom migration script for your setup.
+
+### 2. Install or Update SDK
 
 Ensure you have the latest version of the SDK, which supports both OSS and Platform clients.
 
@@ -42,7 +60,7 @@ Ensure you have the latest version of the SDK, which supports both OSS and Platf
 pip install mem0ai --upgrade
 ```
 
-### 2. Update Initialization
+### 3. Update Initialization
 
 Switch from the local `Memory` class to the managed `MemoryClient`.
 
@@ -75,11 +93,15 @@ client = MemoryClient(api_key="m0-...")
   Run `client.get_all(filters={"user_id": "test_connection"})` to verify your API key works. It should return an empty list or valid results.
 </Info>
 
-### 3. Update Retrieval Calls (Critical)
+### 4. Update Retrieval Calls (Critical)
 
 <Warning>
   **Critical Change**: Platform uses v2 endpoints that require filtering parameters to be nested inside a `filters` dictionary.
 </Warning>
+
+<Note>
+  The `limit` parameter has been removed in favor of `top_k` across all SDKs. Update any code using `limit=` to use `top_k=` instead.
+</Note>
 
 | Method | Open Source | Platform |
 | ------ | ----------- | -------- |
@@ -121,18 +143,18 @@ Note: `add()` and `delete()` methods remain unchanged. The `update()` method is 
     <CodeGroup>
     ```python Open Source (Old)
     # Get all memories for a user
-    memories = m.get_all(user_id="alex", limit=10)
+    memories = m.get_all(user_id="alex", top_k=10)
 
     # Get memories with pagination
-    memories = m.get_all(user_id="alex", limit=5, offset=10)
+    memories = m.get_all(user_id="alex", top_k=5, offset=10)
     ```
 
     ```python Platform (New)
     # Get all memories for a user
-    memories = client.get_all(filters={"user_id": "alex"}, limit=10)
+    memories = client.get_all(filters={"user_id": "alex"}, top_k=10)
 
     # Get memories with pagination
-    memories = client.get_all(filters={"user_id": "alex"}, limit=5, offset=10)
+    memories = client.get_all(filters={"user_id": "alex"}, top_k=5, offset=10)
     ```
     </CodeGroup>
   </Accordion>
@@ -283,7 +305,7 @@ The Platform introduces powerful capabilities not available in OSS:
         "user preferences",
         filters={"user_id": "alex"},
         rerank=True,  # Platform exclusive
-        limit=5
+        top_k=5
     )
 
     # Search with keyword expansion
@@ -335,7 +357,7 @@ The Platform introduces powerful capabilities not available in OSS:
                 {"timestamp": {"gte": "2024-01-01"}}
             ]
         },
-        limit=100
+        top_k=100
     )
 
     # Monitor usage patterns
@@ -368,7 +390,7 @@ If you encounter issues, you can revert immediately by switching your import bac
 
 ## Next Steps
 
-- [Platform Dashboard](https://app.mem0.ai) - Monitor usage and manage settings.
+- <a href="https://app.mem0.ai?utm_source=oss&utm_medium=migration-oss-to-platform" rel="nofollow">Platform Dashboard</a> - Monitor usage and manage settings.
 - [Webhooks Setup](/platform/features/webhooks) - Configure real-time event notifications.
 - [Organizations & Projects](/api-reference/organizations-projects) - Set up multi-tenancy for your team.
 

@@ -19,8 +19,6 @@ import type { Mem0Config, Mem0Mode } from "./types.ts";
 export interface FileConfig {
   apiKey?: string;
   baseUrl?: string;
-  orgId?: string;
-  projectId?: string;
 }
 
 // ============================================================================
@@ -149,17 +147,15 @@ export const DEFAULT_CUSTOM_CATEGORIES: Record<string, string> = {
 const ALLOWED_KEYS = [
   "mode",
   "apiKey",
+  "anonymousTelemetryId",
   "baseUrl",
   "userId",
   "userEmail",
-  "orgId",
-  "projectId",
   "autoCapture",
   "autoRecall",
   "customInstructions",
   "customCategories",
   "customPrompt",
-  "enableGraph",
   "searchThreshold",
   "topK",
   "oss",
@@ -185,6 +181,15 @@ export const mem0ConfigSchema = {
     assertAllowedKeys(cfg, ALLOWED_KEYS, "openclaw-mem0 config");
 
     // Only two modes: "platform" (default) or "open-source"
+    if (
+      typeof cfg.mode === "string" &&
+      cfg.mode !== "platform" &&
+      cfg.mode !== "open-source"
+    ) {
+      console.warn(
+        `[mem0] Unknown mode "${cfg.mode}" — expected "platform" or "open-source". Defaulting to "platform".`,
+      );
+    }
     const mode: Mem0Mode =
       cfg.mode === "open-source" ? "open-source" : "platform";
 
@@ -193,15 +198,9 @@ export const mem0ConfigSchema = {
       typeof cfg.apiKey === "string" ? cfg.apiKey : undefined;
     let resolvedBaseUrl =
       typeof cfg.baseUrl === "string" ? cfg.baseUrl : undefined;
-    let resolvedOrgId = typeof cfg.orgId === "string" ? cfg.orgId : undefined;
-    let resolvedProjectId =
-      typeof cfg.projectId === "string" ? cfg.projectId : undefined;
     if (mode === "platform" && !resolvedApiKey && fileConfig) {
       if (fileConfig.apiKey) resolvedApiKey = fileConfig.apiKey;
       if (fileConfig.baseUrl) resolvedBaseUrl = fileConfig.baseUrl;
-      if (!resolvedOrgId && fileConfig.orgId) resolvedOrgId = fileConfig.orgId;
-      if (!resolvedProjectId && fileConfig.projectId)
-        resolvedProjectId = fileConfig.projectId;
     }
 
     // Platform mode requires apiKey — but don't throw on missing config.
@@ -217,6 +216,10 @@ export const mem0ConfigSchema = {
     return {
       mode,
       apiKey: resolvedApiKey,
+      anonymousTelemetryId:
+        typeof cfg.anonymousTelemetryId === "string"
+          ? cfg.anonymousTelemetryId
+          : undefined,
       baseUrl: resolvedBaseUrl,
       userId:
         typeof cfg.userId === "string" && cfg.userId
@@ -228,27 +231,23 @@ export const mem0ConfigSchema = {
                 return "default";
               }
             })(),
-      orgId: resolvedOrgId,
-      projectId: resolvedProjectId,
       autoCapture: cfg.autoCapture !== false,
       autoRecall: cfg.autoRecall !== false,
+      // v3.0.0: customPrompt renamed to customInstructions (backwards-compat: accept either)
       customInstructions:
         typeof cfg.customInstructions === "string"
           ? cfg.customInstructions
-          : DEFAULT_CUSTOM_INSTRUCTIONS,
+          : typeof cfg.customPrompt === "string"
+            ? cfg.customPrompt
+            : DEFAULT_CUSTOM_INSTRUCTIONS,
       customCategories:
         cfg.customCategories &&
         typeof cfg.customCategories === "object" &&
         !Array.isArray(cfg.customCategories)
           ? (cfg.customCategories as Record<string, string>)
           : DEFAULT_CUSTOM_CATEGORIES,
-      customPrompt:
-        typeof cfg.customPrompt === "string"
-          ? cfg.customPrompt
-          : DEFAULT_CUSTOM_INSTRUCTIONS,
-      enableGraph: cfg.enableGraph === true,
       searchThreshold:
-        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.5,
+        typeof cfg.searchThreshold === "number" ? cfg.searchThreshold : 0.1,
       topK: typeof cfg.topK === "number" ? cfg.topK : 5,
       needsSetup,
       oss: ossConfig,

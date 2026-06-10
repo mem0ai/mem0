@@ -27,7 +27,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from mem0 import MemoryClient
 
-llm = ChatOpenAI(model="gpt-4.1-nano-2025-04-14")
+llm = ChatOpenAI(model="gpt-5-mini")
 mem0 = MemoryClient()
 
 prompt = ChatPromptTemplate.from_messages([
@@ -128,7 +128,7 @@ import { createMem0 } from "@mem0/vercel-ai-provider";
 
 const mem0 = createMem0();
 const { text } = await generateText({
-    model: mem0("gpt-4-turbo", { user_id: "borat" }),
+    model: mem0("gpt-5-mini", { user_id: "borat" }),
     prompt: "Suggest me a good car to buy!",
 });
 ```
@@ -167,7 +167,7 @@ agent = Agent(
     Use search_memory to recall past conversations.
     Use save_memory to store important information.""",
     tools=[search_memory, save_memory],
-    model="gpt-4.1-nano-2025-04-14"
+    model="gpt-5-mini"
 )
 
 result = Runner.run_sync(agent, "I love Italian food and I'm planning a trip to Rome next month")
@@ -183,21 +183,21 @@ travel_agent = Agent(
     name="Travel Planner",
     instructions="You are a travel planning specialist. Use search_memory and save_memory tools.",
     tools=[search_memory, save_memory],
-    model="gpt-4.1-nano-2025-04-14"
+    model="gpt-5-mini"
 )
 
 health_agent = Agent(
     name="Health Advisor",
     instructions="You are a health and wellness advisor. Use search_memory and save_memory tools.",
     tools=[search_memory, save_memory],
-    model="gpt-4.1-nano-2025-04-14"
+    model="gpt-5-mini"
 )
 
 triage_agent = Agent(
     name="Personal Assistant",
     instructions="""Route travel questions to Travel Planner, health questions to Health Advisor.""",
     handoffs=[travel_agent, health_agent],
-    model="gpt-4.1-nano-2025-04-14"
+    model="gpt-5-mini"
 )
 
 result = Runner.run_sync(triage_agent, "Plan a healthy meal for my Italy trip")
@@ -254,7 +254,7 @@ from langchain_openai import ChatOpenAI
 from mem0 import MemoryClient
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
-llm = ChatOpenAI(model="gpt-4")
+llm = ChatOpenAI(model="gpt-5-mini")
 mem0 = MemoryClient()
 
 class State(TypedDict):
@@ -319,7 +319,7 @@ memory = Mem0Memory.from_client(
 from llama_index.core.agent import FunctionCallingAgent
 from llama_index.llms.openai import OpenAI
 
-llm = OpenAI(model="gpt-4")
+llm = OpenAI(model="gpt-5-mini")
 agent = FunctionCallingAgent.from_tools(
     tools=[],
     llm=llm,
@@ -352,7 +352,7 @@ USER_ID = "alice"
 
 agent = ConversableAgent(
     "chatbot",
-    llm_config={"config_list": [{"model": "gpt-4", "api_key": os.environ["OPENAI_API_KEY"]}]},
+    llm_config={"config_list": [{"model": "gpt-5-mini", "api_key": os.environ["OPENAI_API_KEY"]}]},
     code_execution_config=False,
     human_input_mode="NEVER",
 )

@@ -9,12 +9,14 @@ Disable with: MEM0_TELEMETRY=false
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import platform
 import subprocess
 import sys
+import uuid
 from typing import Any
 
 POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
@@ -26,11 +28,31 @@ def _is_telemetry_enabled() -> bool:
     return val not in ("false", "0", "no")
 
 
+def _get_or_create_anonymous_id() -> str:
+    """Return a persistent per-machine anonymous ID, generating one if needed.
+
+    Stored in ~/.mem0/config.json under `telemetry.anonymous_id` so that
+    repeat runs on the same machine share one PostHog identity instead of
+    collapsing into a single shared fallback string.
+    """
+    from mem0_cli.config import load_config, save_config
+
+    config = load_config()
+    if config.telemetry.anonymous_id:
+        return config.telemetry.anonymous_id
+
+    new_id = f"cli-anon-{uuid.uuid4().hex}"
+    config.telemetry.anonymous_id = new_id
+    with contextlib.suppress(Exception):
+        save_config(config)
+    return new_id
+
+
 def _get_distinct_id() -> str:
     """Return a stable anonymous identifier for the current user.
 
-    Priority: cached user_email (from /v1/ping/) > MD5(api_key) > fallback.
-    Matches the SDK pattern in mem0/client/main.py.
+    Priority: cached user_email (from /v1/ping/) > MD5(api_key) >
+    persistent per-machine anonymous ID.
     """
     try:
         from mem0_cli.config import load_config
@@ -42,7 +64,10 @@ def _get_distinct_id() -> str:
             return hashlib.md5(config.platform.api_key.encode()).hexdigest()
     except Exception:
         pass
-    return "anonymous-cli"
+    try:
+        return _get_or_create_anonymous_id()
+    except Exception:
+        return f"cli-anon-{uuid.uuid4().hex}"
 
 
 def capture_event(
@@ -61,12 +86,29 @@ def capture_event(
 
     try:
         from mem0_cli import __version__
-        from mem0_cli.config import CONFIG_FILE, load_config
-        from mem0_cli.state import is_agent_mode
+        from mem0_cli.config import CONFIG_FILE, load_config, save_config
 
         config = load_config()
         distinct_id = pre_resolved_email or _get_distinct_id()
 
+        # Detect anonymous → identified transition. If a stored anonymous_id
+        # exists and we just resolved to a real identity, fire a one-shot
+        # $identify event so PostHog stitches the pre-signup history onto
+        # the authenticated profile. Clear the stored id so we don't re-alias.
+        anon_id_to_alias: str | None = None
+        if (
+            distinct_id
+            and not distinct_id.startswith("cli-anon-")
+            and config.telemetry.anonymous_id
+        ):
+            anon_id_to_alias = config.telemetry.anonymous_id
+            config.telemetry.anonymous_id = ""
+            with contextlib.suppress(Exception):
+                save_config(config)
+
+        # M4: every cli.* event carries agent_mode based on the config flag
+        # (unclaimed Agent Mode key). This is the growth-doc property used to
+        # join init → add → search funnels in PostHog.
         payload = {
             "api_key": POSTHOG_API_KEY,
             "distinct_id": distinct_id,
@@ -75,7 +117,7 @@ def capture_event(
                 "source": "CLI",
                 "language": "python",
                 "cli_version": __version__,
-                "agent_mode": is_agent_mode(),
+                "agent_mode": bool(config.platform.agent_mode),
                 "python_version": sys.version,
                 "os": sys.platform,
                 "os_version": platform.version(),
@@ -92,6 +134,7 @@ def capture_event(
             "mem0_api_key": config.platform.api_key or "",
             "mem0_base_url": config.platform.base_url or "https://api.mem0.ai",
             "config_path": str(CONFIG_FILE),
+            "anon_distinct_id_to_alias": anon_id_to_alias,
         }
 
         subprocess.Popen(

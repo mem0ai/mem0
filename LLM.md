@@ -266,7 +266,7 @@ config = MemoryConfig(
     graph_store=GraphStoreConfig(provider="neo4j", config={...}),  # optional
     history_db_path="~/.mem0/history.db",
     version="v1.1",
-    custom_fact_extraction_prompt="Custom prompt...",
+    custom_instructions="Custom prompt...",
     custom_update_memory_prompt="Custom prompt..."
 )
 ```
@@ -684,7 +684,7 @@ Conversation: {messages}
 """
 
 config = MemoryConfig(
-    custom_fact_extraction_prompt=custom_extraction_prompt
+    custom_instructions=custom_extraction_prompt
 )
 memory = Memory(config)
 ```
@@ -1313,7 +1313,7 @@ async def delete_memory(memory_id: str):
 - **Documentation**: https://docs.mem0.ai
 - **GitHub Repository**: https://github.com/mem0ai/mem0
 - **Discord Community**: https://mem0.dev/DiG
-- **Platform**: https://app.mem0.ai
+- **Platform**: https://app.mem0.ai?utm_source=oss&utm_medium=llm
 - **Research Paper**: https://mem0.ai/research
 - **Examples**: https://github.com/mem0ai/mem0/tree/main/examples
 

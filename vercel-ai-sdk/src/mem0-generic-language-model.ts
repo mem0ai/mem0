@@ -140,7 +140,7 @@ export class Mem0GenericLanguageModel implements LanguageModelV3 {
       type: "source",
       sourceType: "url",
       id: "mem0-" + generateRandomId(),
-      url: "https://app.mem0.ai",
+      url: "https://app.mem0.ai?utm_source=oss&utm_medium=vercel-ai-sdk-src",
       title: "Mem0 Memories",
       providerMetadata: {
         mem0: {

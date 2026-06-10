@@ -59,14 +59,9 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
     expect(cfg.topK).toBe(5);
   });
 
-  it("searchThreshold defaults to 0.5", () => {
+  it("searchThreshold defaults to 0.1", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.searchThreshold).toBe(0.5);
-  });
-
-  it("enableGraph defaults to false", () => {
-    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.enableGraph).toBe(false);
+    expect(cfg.searchThreshold).toBe(0.1);
   });
 
   it("customInstructions defaults to DEFAULT_CUSTOM_INSTRUCTIONS", () => {
@@ -79,9 +74,10 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
     expect(cfg.customCategories).toBe(DEFAULT_CUSTOM_CATEGORIES);
   });
 
-  it("customPrompt defaults to DEFAULT_CUSTOM_INSTRUCTIONS", () => {
-    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
-    expect(cfg.customPrompt).toBe(DEFAULT_CUSTOM_INSTRUCTIONS);
+  // v3.0.0: customPrompt removed, use customInstructions instead
+  it("customPrompt input falls back to customInstructions", () => {
+    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key", customPrompt: "My prompt" });
+    expect(cfg.customInstructions).toBe("My prompt");
   });
 
   it("oss defaults to undefined", () => {
@@ -92,6 +88,11 @@ describe("mem0ConfigSchema.parse() — defaults", () => {
   it("skills defaults to undefined", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "test-key" });
     expect(cfg.skills).toBeUndefined();
+  });
+
+  it("allows anonymousTelemetryId", () => {
+    const cfg = mem0ConfigSchema.parse({ apiKey: "test-key", anonymousTelemetryId: "123" });
+    expect(cfg.anonymousTelemetryId).toBe("123");
   });
 });
 
@@ -274,14 +275,6 @@ describe("mem0ConfigSchema.parse() — explicit overrides", () => {
     expect(cfg.autoRecall).toBe(false);
   });
 
-  it("enableGraph can be set to true", () => {
-    const cfg = mem0ConfigSchema.parse({
-      apiKey: "k",
-      enableGraph: true,
-    });
-    expect(cfg.enableGraph).toBe(true);
-  });
-
   it("custom topK is used when provided", () => {
     const cfg = mem0ConfigSchema.parse({ apiKey: "k", topK: 20 });
     expect(cfg.topK).toBe(20);
@@ -304,13 +297,14 @@ describe("mem0ConfigSchema.parse() — explicit overrides", () => {
     expect(cfg.customInstructions).toBe(custom);
   });
 
-  it("custom customPrompt overrides defaults", () => {
+  // v3.0.0: customPrompt renamed to customInstructions (backwards compat: customPrompt maps to customInstructions)
+  it("customPrompt input maps to customInstructions output", () => {
     const custom = "My custom prompt";
     const cfg = mem0ConfigSchema.parse({
       apiKey: "k",
       customPrompt: custom,
     });
-    expect(cfg.customPrompt).toBe(custom);
+    expect(cfg.customInstructions).toBe(custom);
   });
 
   it("custom customCategories override defaults", () => {
@@ -330,18 +324,6 @@ describe("mem0ConfigSchema.parse() — explicit overrides", () => {
     expect(cfg.baseUrl).toBe("https://custom.api.com");
   });
 
-  it("orgId is passed through when provided", () => {
-    const cfg = mem0ConfigSchema.parse({ apiKey: "k", orgId: "org-123" });
-    expect(cfg.orgId).toBe("org-123");
-  });
-
-  it("projectId is passed through when provided", () => {
-    const cfg = mem0ConfigSchema.parse({
-      apiKey: "k",
-      projectId: "proj-456",
-    });
-    expect(cfg.projectId).toBe("proj-456");
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -359,22 +341,23 @@ describe("mem0ConfigSchema.parse() — oss config", () => {
       historyDbPath: "/tmp/history.db",
       disableHistory: false,
     };
-    const cfg = mem0ConfigSchema.parse({ mode: "oss", oss: ossConfig });
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source", oss: ossConfig });
+    expect(cfg.mode).toBe("open-source");
     expect(cfg.oss).toEqual(ossConfig);
   });
 
   it("ignores oss when it is not a plain object", () => {
-    const cfg = mem0ConfigSchema.parse({ mode: "oss", oss: "not-an-object" });
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source", oss: "not-an-object" });
     expect(cfg.oss).toBeUndefined();
   });
 
   it("ignores oss when it is an array", () => {
-    const cfg = mem0ConfigSchema.parse({ mode: "oss", oss: [1, 2, 3] });
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source", oss: [1, 2, 3] });
     expect(cfg.oss).toBeUndefined();
   });
 
   it("ignores oss when it is null", () => {
-    const cfg = mem0ConfigSchema.parse({ mode: "oss", oss: null });
+    const cfg = mem0ConfigSchema.parse({ mode: "open-source", oss: null });
     expect(cfg.oss).toBeUndefined();
   });
 });
@@ -388,7 +371,6 @@ describe("mem0ConfigSchema.parse() — skills config", () => {
       triage: {
         enabled: true,
         importanceThreshold: 3,
-        enableGraph: false,
         credentialPatterns: ["sk-", "ghp_"],
       },
       recall: {

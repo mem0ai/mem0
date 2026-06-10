@@ -38,7 +38,7 @@ def ensure_json_instruction(system_prompt, user_prompt):
 
     OpenAI's API requires the word 'json' to appear in the messages when
     response_format is set to {"type": "json_object"}. When users provide a
-    custom_fact_extraction_prompt that doesn't include 'json', this causes a
+    custom_instructions that doesn't include 'json', this causes a
     400 error. This function appends a JSON format instruction to the system
     prompt if 'json' is not already present in either prompt.
 

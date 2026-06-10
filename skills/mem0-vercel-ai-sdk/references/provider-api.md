@@ -9,8 +9,8 @@ Factory function that creates a `Mem0Provider` instance. This is the primary ent
 ```typescript
 import { createMem0 } from "@mem0/vercel-ai-provider";
 
-const mem0 = createMem0();                          // defaults: provider "openai"
-const mem0 = createMem0({ provider: "anthropic" }); // use Anthropic as LLM backend
+const mem0 = createMem0();                           // defaults: provider "openai"
+const mem0 = createMem0({ provider: "anthropic" });  // use Anthropic as LLM backend
 ```
 
 **Signature:**
@@ -39,7 +39,7 @@ interface Mem0Provider extends ProviderV2 {
 }
 ```
 
-- **Direct call** (`mem0("gpt-4-turbo", {...})`): creates a generic language model (neither chat nor completion mode forced).
+- **Direct call** (`mem0("gpt-5-mini", {...})`): creates a generic language model (neither chat nor completion mode forced).
 - **`chat()`**: creates a model with `modelType: "chat"` (note: in the current source, the chat constructor sets `modelType: "completion"` -- this appears to be a bug; functionally equivalent to `completion()` at present).
 - **`completion()`**: creates a model with `modelType: "completion"`.
 - **`languageModel()`**: alias for the generic model (same as direct call).
@@ -73,7 +73,7 @@ interface Mem0ProviderSettings {
 | `provider` | Which LLM backend to use | `"openai"`, `"anthropic"`, `"google"`, `"groq"`, `"cohere"` |
 | `mem0ApiKey` | Mem0 Platform API key | `"m0-xxx"` |
 | `apiKey` | LLM provider API key | `"sk-xxx"` (OpenAI), `"sk-ant-xxx"` (Anthropic) |
-| `mem0Config` | Default Mem0 settings for all calls | `{ user_id: "alice", enable_graph: true }` |
+| `mem0Config` | Default Mem0 settings for all calls | `{ user_id: "alice" }` |
 | `config` | Provider-specific SDK settings | `{ organization: "org-xxx" }` for OpenAI |
 | `baseURL` | Override LLM provider base URL | `"https://my-proxy.example.com"` |
 
@@ -85,7 +85,7 @@ A pre-configured instance using default settings (OpenAI provider, no API keys s
 import { mem0 } from "@mem0/vercel-ai-provider";
 
 const { text } = await generateText({
-  model: mem0("gpt-4-turbo", { user_id: "alice" }),
+  model: mem0("gpt-5-mini", { user_id: "alice" }),
   prompt: "Hello",
 });
 ```
@@ -102,10 +102,6 @@ interface Mem0ConfigSettings {
   app_id?: string;               // Scope memories to an application
   agent_id?: string;             // Scope memories to an agent
   run_id?: string;               // Scope memories to a specific run/session
-  org_name?: string;             // Organization name (used if org_id not set)
-  project_name?: string;         // Project name (used if org_id not set)
-  org_id?: string;               // Organization ID (takes precedence over org_name)
-  project_id?: string;           // Project ID (takes precedence over project_name)
   metadata?: Record<string, any>; // Custom metadata attached to memories
   filters?: Record<string, any>; // Custom filters for memory search
   infer?: boolean;               // Enable inference during memory operations
@@ -113,13 +109,9 @@ interface Mem0ConfigSettings {
   page_size?: number;            // Pagination: results per page
   mem0ApiKey?: string;           // Mem0 API key (overrides provider-level key)
   top_k?: number;                // Number of memories to retrieve (default: 5)
-  threshold?: number;            // Minimum similarity score for retrieval
-  rerank?: boolean;              // Enable re-ranking of search results
-  enable_graph?: boolean;        // Enable graph memory (returns relations)
+  threshold?: number;            // Minimum similarity score for retrieval (default: 0.1)
+  rerank?: boolean;              // Enable re-ranking of search results (default: false)
   host?: string;                 // Custom Mem0 API host (default: "https://api.mem0.ai")
-  output_format?: string;        // Output format version
-  filter_memories?: boolean;     // Enable memory filtering
-  async_mode?: boolean;          // Enable async processing of memory operations
 }
 ```
 
@@ -138,9 +130,9 @@ This means a `Mem0ChatConfig` has all fields from both `Mem0ConfigSettings` and 
 Alias for `Mem0ConfigSettings`. Passed as the second argument when creating a model:
 
 ```typescript
-mem0("gpt-4-turbo", { user_id: "alice", enable_graph: true })
-//                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-//                    This object is Mem0ChatSettings
+mem0("gpt-5-mini", { user_id: "alice" })
+//                   ^^^^^^^^^^^^^^^^^^
+//                   This object is Mem0ChatSettings
 ```
 
 ## `LLMProviderSettings` Type
@@ -188,8 +180,8 @@ An alternative exported class that creates models directly without the callable-
 import { Mem0 } from "@mem0/vercel-ai-provider";
 
 const mem0 = new Mem0({ provider: "openai" });
-const chatModel = mem0.chat("gpt-4-turbo", { user_id: "alice" });
-const completionModel = mem0.completion("gpt-3.5-turbo-instruct");
+const chatModel = mem0.chat("gpt-5-mini", { user_id: "alice" });
+const completionModel = mem0.completion("gpt-5-mini");
 ```
 
 The facade defaults its base URL to `"http://127.0.0.1:11434/api"` (Ollama-style) rather than `"http://api.openai.com"`. It always uses `"openai"` as the provider for created models.
@@ -210,7 +202,7 @@ class Mem0GenericLanguageModel implements LanguageModelV2 {
   readonly supportedUrls: Record<string, RegExp[]> = { '*': [/.*/] };
 
   provider: string;   // e.g., "openai"
-  modelId: string;    // e.g., "gpt-4-turbo"
+  modelId: string;    // e.g., "gpt-5-mini"
   settings: Mem0ChatSettings;
   config: Mem0ChatConfig;
 
@@ -230,10 +222,12 @@ Both `doGenerate` and `doStream` follow the same internal flow:
 4. Delegate to the underlying model's `doGenerate` or `doStream`
 5. Return the result
 
+**Note:** Entity identifier fields use snake_case (`user_id`, `app_id`, `agent_id`, `run_id`) to match the Mem0 API.
+
 ## Type: `Mem0ChatModelId`
 
 ```typescript
 type Mem0ChatModelId = string & NonNullable<unknown>;
 ```
 
-Any non-null string. The model ID is passed through to the underlying provider (e.g., `"gpt-4-turbo"`, `"claude-sonnet-4-20250514"`, `"gemini-pro"`).
+Any non-null string. The model ID is passed through to the underlying provider (e.g., `"gpt-5-mini"`, `"gemini-pro"`).

@@ -10,12 +10,6 @@ import { LLM, LLMResponse } from "./base";
 import { LLMConfig, Message } from "../types/index";
 // Import the schemas directly into LangchainLLM
 import { FactRetrievalSchema, MemoryUpdateSchema } from "../prompts";
-// Import graph tool argument schemas
-import {
-  GraphExtractEntitiesArgsSchema,
-  GraphRelationsArgsSchema,
-  GraphSimpleRelationshipArgsSchema, // Used for delete tool
-} from "../graphs/tools";
 
 const convertToLangchainMessages = (messages: Message[]): BaseMessage[] => {
   return messages.map((msg) => {
@@ -73,28 +67,14 @@ export class LangchainLLM implements LLM {
     const invokeOptions: Record<string, any> = {};
     let isStructuredOutput = false;
     let selectedSchema: z.ZodSchema<any> | null = null;
-    let isToolCallResponse = false;
 
     // --- Internal Schema Selection Logic (runs regardless of response_format) ---
     const systemPromptContent =
       (messages.find((m) => m.role === "system")?.content as string) || "";
     const userPromptContent =
       (messages.find((m) => m.role === "user")?.content as string) || "";
-    const toolNames = tools?.map((t) => t.function.name) || [];
-
-    // Prioritize tool call argument schemas
-    if (toolNames.includes("extract_entities")) {
-      selectedSchema = GraphExtractEntitiesArgsSchema;
-      isToolCallResponse = true;
-    } else if (toolNames.includes("establish_relationships")) {
-      selectedSchema = GraphRelationsArgsSchema;
-      isToolCallResponse = true;
-    } else if (toolNames.includes("delete_graph_memory")) {
-      selectedSchema = GraphSimpleRelationshipArgsSchema;
-      isToolCallResponse = true;
-    }
-    // Check for memory prompts if no tool schema matched
-    else if (
+    // Check for memory prompts
+    if (
       systemPromptContent.includes("Personal Information Organizer") &&
       systemPromptContent.includes("extract relevant pieces of information")
     ) {
@@ -111,26 +91,18 @@ export class LangchainLLM implements LLM {
       selectedSchema &&
       typeof (this.llmInstance as any).withStructuredOutput === "function"
     ) {
-      // Apply if a schema was selected (for memory or single tool calls)
-      if (
-        !isToolCallResponse ||
-        (isToolCallResponse && tools && tools.length === 1)
-      ) {
-        try {
-          runnable = (this.llmInstance as any).withStructuredOutput(
-            selectedSchema,
-            { name: tools?.[0]?.function.name },
-          );
-          isStructuredOutput = true;
-        } catch (e) {
-          isStructuredOutput = false; // Ensure flag is false on error
-          // No fallback to response_format here unless explicitly passed
-          if (response_format?.type === "json_object") {
-            invokeOptions.response_format = { type: "json_object" };
-          }
+      try {
+        runnable = (this.llmInstance as any).withStructuredOutput(
+          selectedSchema,
+          { name: tools?.[0]?.function.name },
+        );
+        isStructuredOutput = true;
+      } catch (e) {
+        isStructuredOutput = false; // Ensure flag is false on error
+        // No fallback to response_format here unless explicitly passed
+        if (response_format?.type === "json_object") {
+          invokeOptions.response_format = { type: "json_object" };
         }
-      } else if (isToolCallResponse) {
-        // If multiple tools, don't apply structured output, handle via tool binding below
       }
     } else if (selectedSchema && response_format?.type === "json_object") {
       // Schema selected, but no .withStructuredOutput. Try basic response_format only if explicitly requested.
@@ -164,37 +136,9 @@ export class LangchainLLM implements LLM {
     try {
       const response = await runnable.invoke(langchainMessages, invokeOptions);
 
-      if (isStructuredOutput && !isToolCallResponse) {
+      if (isStructuredOutput) {
         // Memory prompt with structured output
         return JSON.stringify(response);
-      } else if (isStructuredOutput && isToolCallResponse) {
-        // Tool call with structured arguments
-        if (response?.tool_calls && Array.isArray(response.tool_calls)) {
-          const mappedToolCalls = response.tool_calls.map((call: any) => ({
-            name: call.name || tools?.[0]?.function.name || "unknown_tool",
-            arguments:
-              typeof call.args === "string"
-                ? call.args
-                : JSON.stringify(call.args),
-          }));
-          return {
-            content: response.content || "",
-            role: "assistant",
-            toolCalls: mappedToolCalls,
-          };
-        } else {
-          // Direct object response for tool args
-          return {
-            content: "",
-            role: "assistant",
-            toolCalls: [
-              {
-                name: tools?.[0]?.function.name || "unknown_tool",
-                arguments: JSON.stringify(response),
-              },
-            ],
-          };
-        }
       } else if (
         response &&
         response.tool_calls &&

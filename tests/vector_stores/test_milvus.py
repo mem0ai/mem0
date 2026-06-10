@@ -8,10 +8,12 @@ These tests verify:
 4. Update/upsert operations
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
-from mem0.vector_stores.milvus import MilvusDB
+
+import pytest
+
 from mem0.configs.vector_stores.milvus import MetricType
+from mem0.vector_stores.milvus import MilvusDB
 
 
 class TestMilvusDB:
@@ -118,7 +120,7 @@ class TestMilvusDB:
         results = milvus_db.search(
             query="test query",
             vectors=query_vector,
-            limit=5,
+            top_k=5,
             filters=filters
         )
         
@@ -199,7 +201,7 @@ class TestMilvusDB:
             {"id": "mem2", "metadata": {"user_id": "alice"}}
         ]
         
-        results = milvus_db.list(filters={"user_id": "alice"}, limit=10)
+        results = milvus_db.list(filters={"user_id": "alice"}, top_k=10)
         
         # Verify query was called with filter
         call_args = mock_milvus_client.query.call_args

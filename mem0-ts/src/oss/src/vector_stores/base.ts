@@ -8,9 +8,14 @@ export interface VectorStore {
   ): Promise<void>;
   search(
     query: number[],
-    limit?: number,
+    topK?: number,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]>;
+  keywordSearch?(
+    query: string,
+    topK?: number,
+    filters?: SearchFilters,
+  ): Promise<VectorStoreResult[] | null>;
   get(vectorId: string): Promise<VectorStoreResult | null>;
   update(
     vectorId: string,
@@ -21,7 +26,7 @@ export interface VectorStore {
   deleteCol(): Promise<void>;
   list(
     filters?: SearchFilters,
-    limit?: number,
+    topK?: number,
   ): Promise<[VectorStoreResult[], number]>;
   getUserId(): Promise<string>;
   setUserId(userId: string): Promise<void>;

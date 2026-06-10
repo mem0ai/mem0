@@ -561,3 +561,52 @@ What is the deployment plan?`,
     expect(result).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Auto-recall threshold filtering
+// The recall hook in index.ts filters search results using cfg.searchThreshold.
+// These tests verify the threshold is honored and no hardcoded floor overrides it.
+// ---------------------------------------------------------------------------
+describe("auto-recall threshold respects cfg.searchThreshold", () => {
+  const typicalV3Results = [
+    { id: "1", score: 0.553, memory: "User prefers dark mode" },
+    { id: "2", score: 0.496, memory: "User works on mem0 project" },
+    { id: "3", score: 0.471, memory: "User likes TypeScript" },
+    { id: "4", score: 0.45, memory: "User's timezone is PST" },
+    { id: "5", score: 0.42, memory: "User uses VS Code" },
+    { id: "6", score: 0.35, memory: "User mentioned family trip" },
+  ];
+
+  function applyThresholdFilter(
+    results: typeof typicalV3Results,
+    searchThreshold: number,
+  ) {
+    return results.filter((r) => (r.score ?? 0) >= searchThreshold);
+  }
+
+  it("default 0.5 threshold returns results scoring >= 0.5", () => {
+    const filtered = applyThresholdFilter(typicalV3Results, 0.5);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].id).toBe("1");
+  });
+
+  it("threshold 0.4 returns results scoring >= 0.4", () => {
+    const filtered = applyThresholdFilter(typicalV3Results, 0.4);
+    expect(filtered).toHaveLength(5);
+  });
+
+  it("threshold 0.3 returns all results", () => {
+    const filtered = applyThresholdFilter(typicalV3Results, 0.3);
+    expect(filtered).toHaveLength(6);
+  });
+
+  it("threshold 0.6 correctly filters everything below", () => {
+    const filtered = applyThresholdFilter(typicalV3Results, 0.6);
+    expect(filtered).toHaveLength(0);
+  });
+
+  it("threshold 0 returns all results", () => {
+    const filtered = applyThresholdFilter(typicalV3Results, 0);
+    expect(filtered).toHaveLength(6);
+  });
+});

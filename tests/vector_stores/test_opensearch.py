@@ -142,6 +142,10 @@ class TestOpenSearchDB(unittest.TestCase):
         mappings = create_args["body"]["mappings"]["properties"]
         self.assertEqual(mappings["vector_field"]["type"], "knn_vector")
         self.assertEqual(mappings["vector_field"]["dimension"], 1536)
+        metadata_props = mappings["metadata"]["properties"]
+        self.assertEqual(metadata_props["user_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["agent_id"]["type"], "keyword")
+        self.assertEqual(metadata_props["run_id"]["type"], "keyword")
         self.client_mock.reset_mock()
         self.client_mock.indices.exists.return_value = True
         self.os_db.create_index()
@@ -229,7 +233,7 @@ class TestOpenSearchDB(unittest.TestCase):
         }
         self.client_mock.search.return_value = mock_response
         vectors = [[0.1] * 1536]
-        results = self.os_db.search(query="", vectors=vectors, limit=5)
+        results = self.os_db.search(query="", vectors=vectors, top_k=5)
         self.client_mock.search.assert_called_once()
         search_args = self.client_mock.search.call_args[1]
         self.assertEqual(search_args["index"], "test_collection")
@@ -345,7 +349,7 @@ class TestOpenSearchDB(unittest.TestCase):
     def test_search_error_logs_with_exc_info(self, mock_logger):
         """Search error logging should include exc_info for full stack trace."""
         self.client_mock.search.side_effect = Exception("Search failed")
-        results = self.os_db.search(query="", vectors=[[0.1] * 1536], limit=5)
+        results = self.os_db.search(query="", vectors=[[0.1] * 1536], top_k=5)
         self.assertEqual(results, [])
         mock_logger.error.assert_called_once()
         call_kwargs = mock_logger.error.call_args

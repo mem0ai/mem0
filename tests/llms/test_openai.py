@@ -55,7 +55,7 @@ def test_generate_response_without_tools(mock_openai_client):
     response = llm.generate_response(messages)
 
     mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, store=False
+        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0
     )
     assert response == "I'm doing well, thank you for asking!"
 
@@ -97,7 +97,7 @@ def test_generate_response_with_tools(mock_openai_client):
     response = llm.generate_response(messages, tools=tools)
 
     mock_openai_client.chat.completions.create.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto", store=False
+        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1.0, tools=tools, tool_choice="auto"
     )
 
     assert response["content"] == "I've added the memory for you."
@@ -229,6 +229,150 @@ def test_reasoning_effort_config_values():
 
     config = OpenAIConfig(model="o3")
     assert config.reasoning_effort is None
+
+
+def test_store_not_sent_by_default(mock_openai_client):
+    """`store` must NOT be injected into requests when the user has not
+    explicitly configured it. Regression test for issue #4709, where
+    `store=False` was unconditionally sent and rejected by OpenAI-compatible
+    backends such as Google Gemini."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.1)
+    assert config.store is None  # new opt-in default
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert "store" not in call_kwargs
+
+
+def test_store_sent_when_explicitly_true(mock_openai_client):
+    """When the user explicitly sets `store=True`, the field must be forwarded."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", store=True)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["store"] is True
+
+
+def test_store_sent_when_explicitly_false(mock_openai_client):
+    """When the user explicitly sets `store=False`, the field must still be
+    forwarded — explicit opt-out is a valid configuration for users who rely on
+    it for OpenAI's zero-data-retention behavior."""
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", store=False)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args.kwargs
+    assert call_kwargs["store"] is False
+
+
+def test_gpt5_mini_not_classified_as_reasoning(mock_openai_client):
+    """Test that gpt-5.4-mini is NOT treated as a reasoning model.
+
+    gpt-5.4-mini supports temperature and other standard params.
+    The previous substring match on "gpt-5" incorrectly stripped these.
+    Regression test for https://github.com/mem0ai/mem0/issues/4738
+    """
+    config = OpenAIConfig(model="gpt-5.4-mini", temperature=0.1)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    # gpt-5.4-mini should pass through temperature, not strip it
+    assert call_kwargs[1].get("temperature") == 0.1
+
+
+def test_is_reasoning_model_classification(mock_openai_client):
+    """Test _is_reasoning_model correctly classifies known models."""
+    config = OpenAIConfig(model="gpt-4.1")
+    llm = OpenAILLM(config)
+
+    # Reasoning models — should return True
+    assert llm._is_reasoning_model("o1") is True
+    assert llm._is_reasoning_model("o3-mini") is True
+    assert llm._is_reasoning_model("o3") is True
+    assert llm._is_reasoning_model("gpt-5") is True
+    assert llm._is_reasoning_model("o1-preview") is True
+    assert llm._is_reasoning_model("o1-2024-12-17") is True
+    assert llm._is_reasoning_model("openai/o3-mini") is True
+
+    # Non-reasoning models — should return False
+    assert llm._is_reasoning_model("gpt-5.4-mini") is False
+    assert llm._is_reasoning_model("gpt-5.4") is False
+    assert llm._is_reasoning_model("gpt-4.1") is False
+    assert llm._is_reasoning_model("gpt-4.1-nano-2025-04-14") is False
+
+
+def test_is_reasoning_model_explicit_override(mock_openai_client):
+    """Explicit is_reasoning_model overrides the name-based heuristic both ways.
+
+    See https://github.com/mem0ai/mem0/issues/5296 — deployments with custom or
+    versioned names need to opt in/out without relying on string matching.
+    None (default) must preserve the existing heuristic.
+    """
+    # Force True: a name the heuristic would reject is now reasoning.
+    config_true = OpenAIConfig(model="gpt-5.4-nano-2026-03-17", is_reasoning_model=True)
+    llm_true = OpenAILLM(config_true)
+    assert llm_true._is_reasoning_model("gpt-5.4-nano-2026-03-17") is True
+
+    # Force False: an o-series name the heuristic would accept is now standard.
+    config_false = OpenAIConfig(model="o3-mini", is_reasoning_model=False)
+    llm_false = OpenAILLM(config_false)
+    assert llm_false._is_reasoning_model("o3-mini") is False
+
+    # None (default) preserves the existing heuristic.
+    config_none = OpenAIConfig(model="gpt-4.1")
+    llm_none = OpenAILLM(config_none)
+    assert config_none.is_reasoning_model is None
+    assert llm_none._is_reasoning_model("o3-mini") is True
+    assert llm_none._is_reasoning_model("gpt-5.4-mini") is False
+
+
+def test_is_reasoning_model_override_generates_correct_params(mock_openai_client):
+    """End-to-end: is_reasoning_model=True drops max_tokens/temperature from the actual API call."""
+    config = OpenAIConfig(
+        model="gpt-5.4-nano-2026-03-17",
+        temperature=0.7,
+        max_tokens=100,
+        is_reasoning_model=True,
+    )
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" not in call_kwargs
+    assert "temperature" not in call_kwargs
 
 
 def test_callback_with_tools(mock_openai_client):

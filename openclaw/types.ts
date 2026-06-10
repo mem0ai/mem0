@@ -8,14 +8,11 @@ export type Mem0Config = {
   mode: Mem0Mode;
   // Platform-specific
   apiKey?: string;
+  anonymousTelemetryId?: string;
   baseUrl?: string;
-  orgId?: string;
-  projectId?: string;
   customInstructions: string;
   customCategories: Record<string, string>;
-  enableGraph: boolean;
-  // OSS-specific
-  customPrompt?: string;
+  // OSS-specific (customPrompt renamed to customInstructions in v3.0.0)
   oss?: {
     embedder?: { provider: string; config: Record<string, unknown> };
     vectorStore?: { provider: string; config: Record<string, unknown> };
@@ -39,16 +36,12 @@ export interface AddOptions {
   user_id: string;
   run_id?: string;
   custom_instructions?: string;
-  custom_categories?: Array<Record<string, string>>;
-  enable_graph?: boolean;
-  output_format?: string;
+  custom_categories?: Record<string, string>;
   source?: string;
   // Agentic harness additions
   infer?: boolean;
   deduced_memories?: string[];
   metadata?: Record<string, unknown>;
-  expiration_date?: string;
-  immutable?: boolean;
 }
 
 export interface SearchOptions {
@@ -56,10 +49,6 @@ export interface SearchOptions {
   run_id?: string;
   top_k?: number;
   threshold?: number;
-  limit?: number;
-  keyword_search?: boolean;
-  reranking?: boolean;
-  filter_memories?: boolean;
   categories?: string[];
   filters?: Record<string, unknown>;
   source?: string;
@@ -79,7 +68,6 @@ export interface SkillsConfig {
   triage?: {
     enabled?: boolean;
     importanceThreshold?: number;
-    enableGraph?: boolean;
     credentialPatterns?: string[];
   };
   recall?: {

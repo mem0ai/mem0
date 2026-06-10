@@ -42,9 +42,12 @@ def test_initalize_create_col(mongo_vector_fixture):
     mock_collection.insert_one.assert_called_once_with({"_id": 0, "placeholder": True})
     mock_collection.delete_one.assert_called_once_with({"_id": 0})
     assert mongo_vector.index_name == "test_collection_vector_index"
-    mock_collection.list_search_indexes.assert_called_once_with(name="test_collection_vector_index")
-    mock_collection.create_search_index.assert_called_once()
-    args, _ = mock_collection.create_search_index.call_args
+    mock_collection.list_search_indexes.assert_any_call(name="test_collection_vector_index")
+    mock_collection.list_search_indexes.assert_any_call(name="test_collection_text_search_index")
+    assert mock_collection.list_search_indexes.call_count == 2
+    # Two indexes created: vector search + text search
+    assert mock_collection.create_search_index.call_count == 2
+    args, _ = mock_collection.create_search_index.call_args_list[0]
     search_index_model = args[0].document
     assert search_index_model == {
         "name": "test_collection_vector_index",
@@ -86,7 +89,7 @@ def test_search(mongo_vector_fixture):
     ]
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
-    results = mongo_vector.search("query_str", query_vector, limit=2)
+    results = mongo_vector.search("query_str", query_vector, top_k=2)
     mock_collection.list_search_indexes.assert_called_with(name="test_collection_vector_index")
     mock_collection.aggregate.assert_called_once_with(
         [
@@ -119,7 +122,7 @@ def test_search_with_filters(mongo_vector_fixture):
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = mongo_vector.search("query_str", query_vector, limit=2, filters=filters)
+    results = mongo_vector.search("query_str", query_vector, top_k=2, filters=filters)
     
     # Verify that the aggregation pipeline includes the filter stage
     mock_collection.aggregate.assert_called_once()
@@ -153,7 +156,7 @@ def test_search_with_single_filter(mongo_vector_fixture):
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
     filters = {"user_id": "alice"}
-    results = mongo_vector.search("query_str", query_vector, limit=2, filters=filters)
+    results = mongo_vector.search("query_str", query_vector, top_k=2, filters=filters)
     
     # Verify that the aggregation pipeline includes the filter stage
     mock_collection.aggregate.assert_called_once()
@@ -177,7 +180,7 @@ def test_search_with_no_filters(mongo_vector_fixture):
     ]
     mock_collection.list_search_indexes.return_value = ["test_collection_vector_index"]
 
-    results = mongo_vector.search("query_str", query_vector, limit=2, filters=None)
+    results = mongo_vector.search("query_str", query_vector, top_k=2, filters=None)
     
     # Verify that the aggregation pipeline does not include the filter stage
     mock_collection.aggregate.assert_called_once()
@@ -315,7 +318,7 @@ def test_list(mongo_vector_fixture):
         {"_id": "id2", "payload": {"key": "value2"}},
     ]
 
-    results = mongo_vector.list(limit=2)
+    results = mongo_vector.list(top_k=2)
 
     mock_collection.find.assert_called_once_with({})
     mock_cursor.limit.assert_called_once_with(2)
@@ -334,7 +337,7 @@ def test_list_with_filters(mongo_vector_fixture):
     ]
 
     filters = {"user_id": "alice", "agent_id": "agent1", "run_id": "run1"}
-    results = mongo_vector.list(filters=filters, limit=2)
+    results = mongo_vector.list(filters=filters, top_k=2)
     
     # Verify that the find method was called with the correct query
     expected_query = {
@@ -363,7 +366,7 @@ def test_list_with_single_filter(mongo_vector_fixture):
     ]
 
     filters = {"user_id": "alice"}
-    results = mongo_vector.list(filters=filters, limit=2)
+    results = mongo_vector.list(filters=filters, top_k=2)
     
     # Verify that the find method was called with the correct query
     expected_query = {
@@ -387,7 +390,7 @@ def test_list_with_no_filters(mongo_vector_fixture):
         {"_id": "id1", "payload": {"key": "value1"}},
     ]
 
-    results = mongo_vector.list(filters=None, limit=2)
+    results = mongo_vector.list(filters=None, top_k=2)
     
     # Verify that the find method was called with empty query
     mock_collection.find.assert_called_once_with({})

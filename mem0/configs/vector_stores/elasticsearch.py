@@ -14,10 +14,11 @@ class ElasticsearchConfig(BaseModel):
     api_key: Optional[str] = Field(None, description="API key for authentication")
     embedding_model_dims: int = Field(1536, description="Dimension of the embedding vector")
     verify_certs: bool = Field(True, description="Verify SSL certificates")
+    ca_certs: Optional[str] = Field(None, description="Path to CA bundle for SSL certificate verification")
     use_ssl: bool = Field(True, description="Use SSL for connection")
     auto_create_index: bool = Field(True, description="Automatically create index during initialization")
     custom_search_query: Optional[Callable[[List[float], int, Optional[Dict]], Dict]] = Field(
-        None, description="Custom search query function. Parameters: (query, limit, filters) -> Dict"
+        None, description="Custom search query function. Parameters: (query, top_k, filters) -> Dict"
     )
     headers: Optional[Dict[str, str]] = Field(None, description="Custom headers to include in requests")
 

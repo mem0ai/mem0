@@ -52,7 +52,7 @@ m.add(messages, user_id="alex")
 
 <Step title="Search memories">
 ```python
-results = m.search("What do you know about me?", user_id="alex")
+results = m.search("What do you know about me?", filters={"user_id": "alex"})
 print(results)
 ```
 
@@ -79,7 +79,7 @@ print(results)
 
 <Note>
 By default `Memory()` wires up:
-- OpenAI `gpt-4.1-nano-2025-04-14` for fact extraction and updates
+- OpenAI `gpt-5-mini` for fact extraction and updates
 - OpenAI `text-embedding-3-small` embeddings (1536 dimensions)
 - Qdrant vector store with on-disk data at `/tmp/qdrant`
 - SQLite history at `~/.mem0/history.db`
@@ -98,7 +98,7 @@ Learn how to search, update, and manage memories with full CRUD operations
 </Card>
 
 <Card title="Advanced Features" icon="sparkles" href="/open-source/features/async-memory">
-Explore async support, graph memory, and multi-agent memory organization
+Explore async support and multi-agent memory organization
 </Card>
 </CardGroup>
 

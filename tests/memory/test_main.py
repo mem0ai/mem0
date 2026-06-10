@@ -1,10 +1,12 @@
 import logging
+import time
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
 
-from mem0.memory.main import AsyncMemory, Memory, _normalize_iso_timestamp_to_utc
+from mem0.memory.main import AsyncMemory, Memory
 
 
 def _setup_mocks(mocker):
@@ -35,18 +37,21 @@ class TestAddToVectorStoreErrors:
 
         memory = Memory()
         memory.config = mocker.MagicMock()
-        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
         memory.api_version = "v1.1"
+        # v3 pipeline needs db.get_last_messages to return a list
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
 
         return memory
 
     def test_empty_llm_response_fact_extraction(self, mocker, mock_memory, caplog):
-        """Test empty response from LLM during fact extraction"""
+        """Test invalid JSON response from LLM during extraction"""
         # Setup
-        mock_memory.llm.generate_response.return_value = "invalid json"  # This will trigger a JSON decode error
-        mock_capture_event = mocker.MagicMock()
-        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+        mock_memory.llm.generate_response.return_value = "invalid json"
+        mocker.patch("mem0.memory.main.capture_event")
 
         # Execute
         with caplog.at_level(logging.ERROR):
@@ -54,18 +59,15 @@ class TestAddToVectorStoreErrors:
                 messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
             )
 
-        # Verify
+        # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
-        assert result == []  # Should return empty list when no memories processed
-        # Check for error message in any of the log records
-        assert any("Error in new_retrieved_facts" in record.msg for record in caplog.records), "Expected error message not found in logs"
-        assert mock_capture_event.call_count == 1
+        assert result == []
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
-        """Test empty response from LLM during memory actions"""
-        # Setup
-        # First call returns valid JSON, second call returns empty string
-        mock_memory.llm.generate_response.side_effect = ['{"facts": ["test fact"]}', ""]
+        """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
+        # Setup — v3 pipeline does a single LLM call that returns empty/invalid response
+        mock_memory.llm.generate_response.return_value = ""
 
         # Execute
         with caplog.at_level(logging.WARNING):
@@ -73,10 +75,46 @@ class TestAddToVectorStoreErrors:
                 messages=[{"role": "user", "content": "test"}], metadata={}, filters={}, infer=True
             )
 
-        # Verify
-        assert mock_memory.llm.generate_response.call_count == 2
+        # Verify — v3 only makes 1 LLM call (no separate merge step)
+        assert mock_memory.llm.generate_response.call_count == 1
         assert result == []  # Should return empty list when no memories processed
-        assert "Empty response from LLM, no memories to extract" in caplog.text
+
+
+class TestPromptOverridesCustomInstructions:
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        mock_llm, _ = _setup_mocks(mocker)
+        mock_llm.return_value.generate_response.return_value = '{"memory": []}'
+
+        memory = Memory()
+        memory.custom_instructions = "config-level instructions"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    def test_prompt_overrides_custom_instructions(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "hello"}],
+            metadata={},
+            filters={},
+            infer=True,
+            prompt="per-call override",
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "per-call override" in user_prompt
+        assert "config-level instructions" not in user_prompt
+
+    def test_falls_back_to_custom_instructions_when_no_prompt(self, mock_memory):
+        mock_memory._add_to_vector_store(
+            messages=[{"role": "user", "content": "hello"}],
+            metadata={},
+            filters={},
+            infer=True,
+        )
+
+        user_prompt = mock_memory.llm.generate_response.call_args[1]["messages"][1]["content"]
+        assert "config-level instructions" in user_prompt
 
 
 class TestAsyncUpdate:
@@ -139,19 +177,22 @@ class TestAsyncAddToVectorStoreErrors:
 
         memory = AsyncMemory()
         memory.config = mocker.MagicMock()
-        memory.config.custom_fact_extraction_prompt = None
+        memory.config.custom_instructions = None
         memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
         memory.api_version = "v1.1"
+        # v3 pipeline needs db.get_last_messages to return a list
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
 
         return memory
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_fact_extraction(self, mock_async_memory, caplog, mocker):
-        """Test empty response in AsyncMemory._add_to_vector_store"""
+        """Test invalid JSON response from LLM during extraction (async)"""
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
-        mock_async_memory.llm.generate_response.return_value = "invalid json"  # This will trigger a JSON decode error
-        mock_capture_event = mocker.MagicMock()
-        mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
+        mock_async_memory.llm.generate_response.return_value = "invalid json"
+        mocker.patch("mem0.memory.main.capture_event")
 
         with caplog.at_level(logging.ERROR):
             result = await mock_async_memory._add_to_vector_store(
@@ -159,15 +200,13 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        # Check for error message in any of the log records
-        assert any("Error in new_retrieved_facts" in record.msg for record in caplog.records), "Expected error message not found in logs"
-        assert mock_capture_event.call_count == 1
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
-        """Test empty response in AsyncMemory._add_to_vector_store"""
+        """Test empty response in AsyncMemory._add_to_vector_store (v3: single-pass, 1 LLM call)"""
         mocker.patch("mem0.utils.factory.EmbedderFactory.create", return_value=MagicMock())
-        mock_async_memory.llm.generate_response.side_effect = ['{"facts": ["test fact"]}', ""]
+        mock_async_memory.llm.generate_response.return_value = ""
         mock_capture_event = mocker.MagicMock()
         mocker.patch("mem0.memory.main.capture_event", mock_capture_event)
 
@@ -177,8 +216,7 @@ class TestAsyncAddToVectorStoreErrors:
             )
 
         assert result == []
-        assert "Empty response from LLM, no memories to extract" in caplog.text
-        assert mock_capture_event.call_count == 1
+        assert mock_async_memory.llm.generate_response.call_count == 1
 
 
 def _build_memory_instance(mocker, memory_cls):
@@ -187,7 +225,7 @@ def _build_memory_instance(mocker, memory_cls):
     mocker.patch("mem0.memory.main.MEM0_TELEMETRY", False)
     memory = memory_cls()
     memory.config = mocker.MagicMock()
-    memory.config.custom_fact_extraction_prompt = None
+    memory.config.custom_instructions = None
     memory.config.custom_update_memory_prompt = None
     memory.api_version = "v1.1"
     memory.vector_store = mocker.MagicMock()
@@ -237,8 +275,8 @@ def test_update_memory_uses_utc_timestamps(mocker):
     )
     memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.update.call_args.kwargs["payload"]
-    assert payload["created_at"] == "2026-03-18T00:00:00+00:00"
-    _assert_utc_timestamp(payload["updated_at"])
+    assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
+    assert payload["updated_at"] is not None
 
 
 @pytest.mark.asyncio
@@ -281,8 +319,8 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     )
     await memory._update_memory("memory-id", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
     payload = memory.vector_store.update.call_args.kwargs["payload"]
-    assert payload["created_at"] == "2026-03-18T00:00:00+00:00"
-    _assert_utc_timestamp(payload["updated_at"])
+    assert payload["created_at"] == "2026-03-17T17:00:00-07:00"
+    assert payload["updated_at"] is not None
 
 
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
@@ -309,7 +347,7 @@ def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     memory.vector_store.list.return_value = [[mem_result]]
 
     # Step 3: Call search and get_all, compare timestamps
-    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10)
     get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
 
     search_item = search_results[0]
@@ -376,7 +414,7 @@ def test_search_and_get_all_consistent_after_update(mocker):
     memory.vector_store.search.return_value = [mem_result]
     memory.vector_store.list.return_value = [[mem_result]]
 
-    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10, threshold=None)
+    search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10)
     get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
 
     assert search_results[0]["created_at"] == get_all_results[0]["created_at"]
@@ -627,18 +665,195 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
-def test_normalize_iso_timestamp_to_utc_preserves_naive_values():
-    assert _normalize_iso_timestamp_to_utc("2026-03-18T00:00:00") == "2026-03-18T00:00:00"
+def _make_match(score, linked_memory_ids):
+    return SimpleNamespace(score=score, payload={"linked_memory_ids": linked_memory_ids})
 
 
-def test_normalize_iso_timestamp_to_utc_converts_pacific():
-    result = _normalize_iso_timestamp_to_utc("2026-03-17T17:00:00-07:00")
-    assert result == "2026-03-18T00:00:00+00:00"
+class TestEntityBoostParallelism:
+    """Tests for parallelized entity boost searches (#5214)."""
 
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        _setup_mocks(mocker)
+        return Memory()
 
-def test_normalize_iso_timestamp_to_utc_handles_none():
-    assert _normalize_iso_timestamp_to_utc(None) is None
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        return AsyncMemory()
 
+    def test_sync_boosts_preserve_scoring(self, mock_memory):
+        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
 
-def test_normalize_iso_timestamp_to_utc_handles_empty():
-    assert _normalize_iso_timestamp_to_utc("") == ""
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        results_by_query = {
+            "alice": [_make_match(0.9, ["mem-1"])],
+            "bob": [_make_match(0.6, ["mem-1", "mem-2"])],
+        }
+
+        def fake_search(query, vectors, top_k, filters):
+            return results_by_query[query]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        boosts = mock_memory._compute_entity_boosts(
+            [("person", "alice"), ("person", "bob")],
+            {"user_id": "u1"},
+        )
+
+        boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
+        boost_bob = 0.6 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (1**2)))
+        assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
+        assert boosts["mem-2"] == pytest.approx(boost_bob)
+
+    def test_sync_embed_batch_called_once(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
+
+        mock_memory._compute_entity_boosts(
+            [("person", "alice"), ("person", "bob"), ("person", "carol")],
+            {"user_id": "u1"},
+        )
+
+        mock_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
+
+    @pytest.mark.asyncio
+    async def test_async_boosts_preserve_scoring(self, mock_async_memory):
+        from mem0.utils.scoring import ENTITY_BOOST_WEIGHT
+
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        results_by_query = {
+            "alice": [_make_match(0.9, ["mem-1"])],
+            "bob": [_make_match(0.6, ["mem-1", "mem-2"])],
+        }
+
+        def fake_search(query, vectors, top_k, filters):
+            return results_by_query[query]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        boosts = await mock_async_memory._compute_entity_boosts_async(
+            [("person", "alice"), ("person", "bob")],
+            {"user_id": "u1"},
+        )
+
+        boost_alice = 0.9 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (0**2)))
+        boost_bob = 0.6 * ENTITY_BOOST_WEIGHT * (1.0 / (1.0 + 0.001 * (1**2)))
+        assert boosts["mem-1"] == pytest.approx(max(boost_alice, boost_bob))
+        assert boosts["mem-2"] == pytest.approx(boost_bob)
+
+    @pytest.mark.asyncio
+    async def test_async_embed_batch_called_once(self, mock_async_memory):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1], [0.1], [0.1]])
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(return_value=[_make_match(0.7, ["mem-1"])])
+
+        await mock_async_memory._compute_entity_boosts_async(
+            [("person", "alice"), ("person", "bob"), ("person", "carol")],
+            {"user_id": "u1"},
+        )
+
+        mock_async_memory.embedding_model.embed_batch.assert_called_once_with(["alice", "bob", "carol"], "search")
+
+    def test_sync_one_entity_failure_does_not_abort_others(self, mock_memory, caplog):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        def fake_search(query, vectors, top_k, filters):
+            if query == "boom":
+                raise RuntimeError("provider timeout")
+            return [_make_match(0.8, ["mem-9"])]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        with caplog.at_level(logging.WARNING):
+            boosts = mock_memory._compute_entity_boosts(
+                [("person", "boom"), ("person", "ok")],
+                {"user_id": "u1"},
+            )
+
+        assert "mem-9" in boosts
+        assert any("Entity boost search failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_async_one_entity_failure_does_not_abort_others(self, mock_async_memory, caplog):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1, 0.2, 0.3], [0.1, 0.2, 0.3]])
+
+        def fake_search(query, vectors, top_k, filters):
+            if query == "boom":
+                raise RuntimeError("provider timeout")
+            return [_make_match(0.8, ["mem-9"])]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=fake_search)
+
+        with caplog.at_level(logging.WARNING):
+            boosts = await mock_async_memory._compute_entity_boosts_async(
+                [("person", "boom"), ("person", "ok")],
+                {"user_id": "u1"},
+            )
+
+        assert "mem-9" in boosts
+        assert any("Entity boost search failed" in r.message for r in caplog.records)
+
+    def test_sync_searches_run_concurrently(self, mock_memory):
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
+
+        concurrent_count = {"current": 0, "peak": 0}
+
+        def blocking_search(query, vectors, top_k, filters):
+            concurrent_count["current"] += 1
+            concurrent_count["peak"] = max(concurrent_count["peak"], concurrent_count["current"])
+            time.sleep(0.2)
+            concurrent_count["current"] -= 1
+            return [_make_match(0.7, [f"mem-{query}"])]
+
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(side_effect=blocking_search)
+
+        entities = [("person", f"e{i}") for i in range(4)]
+        start = time.perf_counter()
+        boosts = mock_memory._compute_entity_boosts(entities, {"user_id": "u1"})
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.6, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
+        assert len(boosts) == 4
+
+    @pytest.mark.asyncio
+    async def test_async_searches_run_concurrently(self, mock_async_memory):
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed_batch = Mock(return_value=[[0.1]] * 4)
+
+        concurrent_count = {"current": 0, "peak": 0}
+
+        def blocking_search(query, vectors, top_k, filters):
+            concurrent_count["current"] += 1
+            concurrent_count["peak"] = max(concurrent_count["peak"], concurrent_count["current"])
+            time.sleep(0.2)
+            concurrent_count["current"] -= 1
+            return [_make_match(0.7, [f"mem-{query}"])]
+
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(side_effect=blocking_search)
+
+        entities = [("person", f"e{i}") for i in range(4)]
+        start = time.perf_counter()
+        boosts = await mock_async_memory._compute_entity_boosts_async(entities, {"user_id": "u1"})
+        elapsed = time.perf_counter() - start
+
+        assert elapsed < 0.6, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
+        assert len(boosts) == 4

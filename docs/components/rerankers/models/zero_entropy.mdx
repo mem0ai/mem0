@@ -86,7 +86,7 @@ messages = [
 memory.add(messages, user_id="alice")
 
 # Search with reranking
-results = memory.search("What Italian food does the user like?", user_id="alice")
+results = memory.search("What Italian food does the user like?", filters={"user_id": "alice"})
 
 for result in results['results']:
     print(f"Memory: {result['memory']}")
