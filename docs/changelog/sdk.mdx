@@ -971,9 +971,6 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 - **Vector Stores:** Normalize similarity scores to `[0, 1]` (higher = better) — fixed score inversion in the Redis vector store adapter ([#5391](https://github.com/mem0ai/mem0/pull/5391))
 - **Embeddings:** Request `encoding_format: "float"` from the OpenAI embedder in both `embed()` and `embedBatch()`. Fixes incorrect vector dimensions when using OpenAI-compatible proxies that default to base64 encoding ([#5170](https://github.com/mem0ai/mem0/pull/5170))
 
-**Security:**
-- **Dependencies:** Remediate 47 high-severity Dependabot vulnerabilities. Direct upgrades: `axios` → `^1.15.2` in the community package (CVE-2025-27152, CVE-2025-58754, CVE-2026-25639, CVE-2026-42033/35/43/264), `@google/genai` → `^1.40.0` (CVE-2025-66414, CVE-2026-0621, CVE-2026-25536), `@qdrant/js-client-rest` → `^1.18.0` (upgrades transitive `undici` to `^6.24.0`, fixes CVE-2026-1526, CVE-2026-2229). Transitive overrides: `picomatch` → `^2.3.2` (CVE-2026-33671), `jws` → `4.0.1` (CVE-2025-65945), `langsmith` → `^0.6.0` (CVE-2026-45134), `minimatch` across 3.x/5.x/9.x ranges (CVE-2026-27903/04, CVE-2026-26996), `path-to-regexp` → `^8.4.0` (CVE-2026-4926), `rollup` → `^4.59.0` (CVE-2026-27606), `tar-fs` → `^2.1.4` (CVE-2025-48387, CVE-2025-59343), `glob` → `^10.5.0` (CVE-2025-64756) ([#5294](https://github.com/mem0ai/mem0/pull/5294))
-
 </Update>
 
 <Update label="2026-06-01" description="v3.0.6">
