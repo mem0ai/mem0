@@ -23,7 +23,7 @@ def _load_config():
     if not os.path.exists(path):
         return {}
     try:
-        with open(path, "r") as f:
+        with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
     except Exception as e:
@@ -35,7 +35,7 @@ def _write_config(config):
     """Best-effort write of ~/.mem0/config.json. Never raises."""
     path = _config_path()
     try:
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=4)
     except Exception as e:
         _logger.debug("Failed to write mem0 config %s: %s", path, e)
