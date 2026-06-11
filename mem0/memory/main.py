@@ -27,12 +27,18 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
+    detect_scale_threshold_from_add_result,
+    detect_scale_threshold_from_top_k,
     detect_temporal_usage_from_metadata,
     detect_temporal_usage_from_search,
     display_first_run_notice,
     display_first_run_notice_async,
+    display_scale_threshold_notice,
+    display_scale_threshold_notice_async,
     display_temporal_usage_notice,
     display_temporal_usage_notice_async,
+    get_decay_feature_error_message,
+    get_decay_feature_error_message_async,
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
@@ -353,6 +359,36 @@ def _build_session_scope(filters):
 setup_config()
 logger = logging.getLogger(__name__)
 
+_PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
+
+
+class _OSSProject:
+    def update(
+        self,
+        custom_instructions: Optional[str] = None,
+        custom_categories: Optional[list] = None,
+        retrieval_criteria: Optional[list] = None,
+        multilingual: Optional[bool] = None,
+        decay: Optional[bool] = None,
+    ):
+        if decay is True:
+            raise ValueError(get_decay_feature_error_message("sync", "project.update", "decay"))
+        raise ValueError(_PROJECT_UPDATE_UNSUPPORTED_ERROR)
+
+
+class _AsyncOSSProject:
+    async def update(
+        self,
+        custom_instructions: Optional[str] = None,
+        custom_categories: Optional[list] = None,
+        retrieval_criteria: Optional[list] = None,
+        multilingual: Optional[bool] = None,
+        decay: Optional[bool] = None,
+    ):
+        if decay is True:
+            raise ValueError(await get_decay_feature_error_message_async("async", "project.update", "decay"))
+        raise ValueError(_PROJECT_UPDATE_UNSUPPORTED_ERROR)
+
 
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
@@ -411,6 +447,10 @@ class Memory(MemoryBase):
                 self.config.vector_store.provider, telemetry_config
             )
         capture_event("mem0.init", self, {"sync_type": "sync"})
+
+    @property
+    def project(self):
+        return _OSSProject()
 
     @property
     def entity_store(self):
@@ -680,8 +720,11 @@ class Memory(MemoryBase):
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
+            scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
             if temporal_usage_notice:
                 display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+            elif scale_threshold_notice:
+                display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
             else:
                 display_first_run_notice(self, "sync", "add")
             return results
@@ -692,8 +735,11 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
         else:
             display_first_run_notice(self, "sync", "add")
         return {"results": vector_store_result}
@@ -1107,6 +1153,7 @@ class Memory(MemoryBase):
             )
 
         limit = top_k
+        scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -1115,7 +1162,10 @@ class Memory(MemoryBase):
 
         all_memories_result = self._get_all_from_vector_store(effective_filters, limit)
 
-        display_first_run_notice(self, "sync", "get_all")
+        if scale_threshold_notice:
+            display_scale_threshold_notice(self, "sync", "get_all", *scale_threshold_notice)
+        else:
+            display_first_run_notice(self, "sync", "get_all")
         return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit):
@@ -1248,6 +1298,7 @@ class Memory(MemoryBase):
             )
 
         limit = top_k
+        scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if self._has_advanced_operators(effective_filters):
@@ -1288,6 +1339,8 @@ class Memory(MemoryBase):
 
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            display_scale_threshold_notice(self, "sync", "search", *scale_threshold_notice)
         else:
             display_first_run_notice(self, "sync", "search")
         return {"results": original_memories}
@@ -1917,6 +1970,10 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @property
+    def project(self):
+        return _AsyncOSSProject()
+
+    @property
     def entity_store(self):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
@@ -2149,8 +2206,11 @@ class AsyncMemory(MemoryBase):
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
+            scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
             if temporal_usage_notice:
                 await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+            elif scale_threshold_notice:
+                await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
             else:
                 await display_first_run_notice_async(self, "async", "add")
             return results
@@ -2161,8 +2221,11 @@ class AsyncMemory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
         else:
             await display_first_run_notice_async(self, "async", "add")
         return {"results": vector_store_result}
@@ -2583,6 +2646,7 @@ class AsyncMemory(MemoryBase):
             )
 
         limit = top_k
+        scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -2591,7 +2655,10 @@ class AsyncMemory(MemoryBase):
 
         all_memories_result = await self._get_all_from_vector_store(effective_filters, limit)
 
-        await display_first_run_notice_async(self, "async", "get_all")
+        if scale_threshold_notice:
+            await display_scale_threshold_notice_async(self, "async", "get_all", *scale_threshold_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "get_all")
         return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit):
@@ -2728,6 +2795,7 @@ class AsyncMemory(MemoryBase):
             )
 
         limit = top_k
+        scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
         # Apply enhanced metadata filtering if advanced operators are detected
         if self._has_advanced_operators(effective_filters):
@@ -2771,6 +2839,8 @@ class AsyncMemory(MemoryBase):
 
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "search", *temporal_usage_notice)
+        elif scale_threshold_notice:
+            await display_scale_threshold_notice_async(self, "async", "search", *scale_threshold_notice)
         else:
             await display_first_run_notice_async(self, "async", "search")
         return {"results": original_memories}
