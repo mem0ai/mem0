@@ -673,9 +673,18 @@ class Memory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        if not messages or all(
-            not msg.get("content", "").strip() for msg in messages if isinstance(msg, dict)
-        ):
+        invalid_message_types = [
+            {"index": idx, "type": type(msg).__name__} for idx, msg in enumerate(messages) if not isinstance(msg, dict)
+        ]
+        if invalid_message_types:
+            raise Mem0ValidationError(
+                message="messages must be str, dict, or list[dict]",
+                error_code="VALIDATION_003",
+                details={"invalid_message_types": invalid_message_types, "valid_types": ["str", "dict", "list[dict]"]},
+                suggestion="Convert list items to dictionaries with role and content fields.",
+            )
+
+        if not messages or all(not str(msg.get("content") or "").strip() for msg in messages):
             raise Mem0ValidationError(
                 message="messages must not be empty",
                 error_code="VALIDATION_004",
@@ -2126,9 +2135,18 @@ class AsyncMemory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        if not messages or all(
-            not msg.get("content", "").strip() for msg in messages if isinstance(msg, dict)
-        ):
+        invalid_message_types = [
+            {"index": idx, "type": type(msg).__name__} for idx, msg in enumerate(messages) if not isinstance(msg, dict)
+        ]
+        if invalid_message_types:
+            raise Mem0ValidationError(
+                message="messages must be str, dict, or list[dict]",
+                error_code="VALIDATION_003",
+                details={"invalid_message_types": invalid_message_types, "valid_types": ["str", "dict", "list[dict]"]},
+                suggestion="Convert list items to dictionaries with role and content fields.",
+            )
+
+        if not messages or all(not str(msg.get("content") or "").strip() for msg in messages):
             raise Mem0ValidationError(
                 message="messages must not be empty",
                 error_code="VALIDATION_004",
