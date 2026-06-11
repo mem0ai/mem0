@@ -1047,3 +1047,28 @@ class TestHybridSearchWarning:
             Memory(config)
 
         assert not any("does not support keyword search" in r.message for r in caplog.records)
+
+
+def test_s3_vectors_entity_collection_uses_dashes():
+    with patch.object(Memory, "__init__", return_value=None):
+        m = Memory()
+    m.embedding_model = MagicMock()
+    m._entity_store = None
+    m.collection_name = "my_memories"
+
+    mock_config = MagicMock()
+    mock_config.vector_store.provider = "s3_vectors"
+    mock_config.vector_store.config = MagicMock()
+    mock_config.vector_store.config.collection_name = "my_memories"
+    m.config = mock_config
+    m._vector_store = MagicMock()
+
+    with patch("mem0.memory.main.VectorStoreFactory") as mock_factory, \
+         patch("mem0.memory.main._safe_deepcopy_config") as mock_deepcopy:
+        cloned_config = MagicMock()
+        mock_deepcopy.return_value = cloned_config
+        mock_factory.create.return_value = MagicMock()
+
+        _ = m.entity_store
+
+        assert cloned_config.collection_name == "my-memories-entities"
