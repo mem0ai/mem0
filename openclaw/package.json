@@ -1,6 +1,6 @@
 {
   "name": "@mem0/openclaw-mem0",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "type": "module",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
   "license": "Apache-2.0",
@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.47",
-    "mem0ai": "3.0.2"
+    "mem0ai": "3.0.6"
   },
   "openclaw": {
     "extensions": [
@@ -54,15 +54,21 @@
     }
   },
   "devDependencies": {
+    "@qdrant/js-client-rest": "^1.18.0",
     "@types/node": "^22.15.0",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.7",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
-    "vitest": "^4.0.18"
+    "vite": "^8.0.5",
+    "vitest": "^4.1.7"
   },
   "pnpm": {
     "overrides": {
-      "protobufjs@<7.5.5": "^7.5.5"
+      "protobufjs@<7.5.5": "^7.5.5",
+      "vite": "^8.0.5",
+      "langsmith@<0.6.0": "^0.6.0",
+      "picomatch@<2.3.2": "^2.3.2",
+      "@qdrant/js-client-rest": "^1.18.0"
     }
   }
 }

@@ -143,6 +143,42 @@ def test_search_handles_incomplete_payloads(mock_sqlite, mock_llm_factory, mock_
     assert result[0]["memory"] == "content"
 
 
+@patch('mem0.memory.main.extract_entities', return_value=[])
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_search_explain_includes_score_details(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, _mock_extract_entities
+):
+    mock_embedder = MagicMock()
+    mock_embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = mock_embedder
+
+    mock_vector_store = MagicMock()
+    mock_vector_store.search.return_value = [
+        MockVectorMemory("mem_1", {"data": "content", "user_id": "test"}, score=0.8)
+    ]
+    mock_vector_store.keyword_search.return_value = [
+        MockVectorMemory("mem_1", {"data": "content", "user_id": "test"}, score=5.0)
+    ]
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    result = memory.search("test query", filters={"user_id": "test"}, explain=True)
+
+    details = result["results"][0]["score_details"]
+    assert details["semantic_score"] == 0.8
+    assert details["bm25_score"] > 0
+    assert details["entity_boost"] == 0.0
+    assert details["final_score"] == result["results"][0]["score"]
+    assert details["threshold"] == 0.1
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -935,3 +971,79 @@ async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_
     )
     assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
 
+
+class TestHybridSearchWarning:
+    """Warn at init when vector store does not support keyword_search."""
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_warning_for_store_without_keyword_search(
+        self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
+    ):
+        from mem0.vector_stores.base import VectorStoreBase
+        import logging
+
+        class StoreWithoutKeywordSearch(VectorStoreBase):
+            def create_col(self, *a, **kw): pass
+            def insert(self, *a, **kw): pass
+            def search(self, *a, **kw): return []
+            def delete(self, *a, **kw): pass
+            def update(self, *a, **kw): pass
+            def get(self, *a, **kw): pass
+            def list_cols(self): return []
+            def delete_col(self): pass
+            def col_info(self): return {}
+            def list(self, *a, **kw): return []
+            def reset(self): pass
+
+        mock_vs_factory.return_value = StoreWithoutKeywordSearch()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.vector_store.provider = "chroma"
+
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+            Memory(config)
+
+        assert any("does not support keyword search" in r.message for r in caplog.records)
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_no_warning_for_store_with_keyword_search(
+        self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
+    ):
+        from mem0.vector_stores.base import VectorStoreBase
+        import logging
+
+        class StoreWithKeywordSearch(VectorStoreBase):
+            def keyword_search(self, query, top_k=5, filters=None):
+                return []
+            def create_col(self, *a, **kw): pass
+            def insert(self, *a, **kw): pass
+            def search(self, *a, **kw): return []
+            def delete(self, *a, **kw): pass
+            def update(self, *a, **kw): pass
+            def get(self, *a, **kw): pass
+            def list_cols(self): return []
+            def delete_col(self): pass
+            def col_info(self): return {}
+            def list(self, *a, **kw): return []
+            def reset(self): pass
+
+        mock_vs_factory.return_value = StoreWithKeywordSearch()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+            Memory(config)
+
+        assert not any("does not support keyword search" in r.message for r in caplog.records)

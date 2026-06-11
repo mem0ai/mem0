@@ -63,6 +63,7 @@ def score_and_rank(
     entity_boosts: Dict[str, float],
     threshold: float,
     top_k: int,
+    explain: bool = False,
 ) -> List[Dict[str, Any]]:
     """Score candidates additively and return top-k results.
 
@@ -78,6 +79,14 @@ def score_and_rank(
         - Semantic + BM25: max_possible = 2.0
         - Semantic + BM25 + entity: max_possible = 2.5
         - Semantic + entity (no BM25): max_possible = 1.5
+
+    Args:
+        semantic_results: Candidate memories from vector search.
+        bm25_scores: Normalized keyword scores keyed by memory ID.
+        entity_boosts: Entity-link boosts keyed by memory ID.
+        threshold: Minimum semantic score required before hybrid scoring.
+        top_k: Maximum number of results to return.
+        explain: Include score_details in each result when true.
 
     Returns:
         List of scored result dicts sorted by combined score descending.
@@ -109,13 +118,22 @@ def score_and_rank(
         raw_combined = semantic_score + bm25_score + entity_boost
         combined = min(raw_combined / max_possible, 1.0)
 
-        scored.append(
-            {
-                "id": mem_id_str,
-                "score": combined,
-                "payload": result.get("payload"),
+        scored_result = {
+            "id": mem_id_str,
+            "score": combined,
+            "payload": result.get("payload"),
+        }
+        if explain:
+            scored_result["score_details"] = {
+                "semantic_score": semantic_score,
+                "bm25_score": bm25_score,
+                "entity_boost": entity_boost,
+                "raw_score": raw_combined,
+                "max_possible_score": max_possible,
+                "final_score": combined,
+                "threshold": threshold,
             }
-        )
+        scored.append(scored_result)
 
     scored.sort(key=lambda x: x["score"], reverse=True)
     return scored[:top_k]

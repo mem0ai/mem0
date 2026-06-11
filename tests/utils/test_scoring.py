@@ -133,6 +133,28 @@ class TestScoreAndRank:
         scored = score_and_rank(results, bm25, entity, threshold=0.1, top_k=10)
         assert scored[0]["score"] <= 1.0
 
+    def test_explain_includes_score_details(self):
+        results = [{"id": "a", "score": 0.8, "payload": {"data": "mem a"}}]
+        bm25 = {"a": 0.6}
+        entity = {"a": 0.3}
+        scored = score_and_rank(results, bm25, entity, threshold=0.1, top_k=10, explain=True)
+
+        details = scored[0]["score_details"]
+        assert details == {
+            "semantic_score": 0.8,
+            "bm25_score": 0.6,
+            "entity_boost": 0.3,
+            "raw_score": pytest.approx(1.7),
+            "max_possible_score": 2.5,
+            "final_score": pytest.approx(0.68),
+            "threshold": 0.1,
+        }
+
+    def test_score_details_are_omitted_by_default(self):
+        results = [{"id": "a", "score": 0.8, "payload": {"data": "mem a"}}]
+        scored = score_and_rank(results, {}, {}, threshold=0.1, top_k=10)
+        assert "score_details" not in scored[0]
+
 
 class TestEntityBoostWeight:
     def test_weight_value(self):

@@ -21,7 +21,7 @@ DEFAULT_FIELDS = [
     {"name": "agent_id", "type": "tag"},
     {"name": "run_id", "type": "tag"},
     {"name": "user_id", "type": "tag"},
-    {"name": "memory", "type": "tag"},  # Using TAG instead of TEXT for Valkey compatibility
+    {"name": "memory", "type": "text"},  # TEXT for full-text search over memory content (see #5006)
     {"name": "metadata", "type": "tag"},  # Using TAG instead of TEXT for Valkey compatibility
     {"name": "created_at", "type": "numeric"},
     {"name": "updated_at", "type": "numeric"},
@@ -169,7 +169,7 @@ class ValkeyDB(VectorStoreBase):
             "user_id",
             "TAG",
             "memory",
-            "TAG",
+            "TEXT",
             "metadata",
             "TAG",
             "created_at",
@@ -388,8 +388,8 @@ class ValkeyDB(VectorStoreBase):
         """
         memory_results = []
         for doc in results.docs:
-            # Extract the score
-            score = float(doc.vector_score) if hasattr(doc, "vector_score") else None
+            raw_distance = float(doc.vector_score) if hasattr(doc, "vector_score") else None
+            score = max(0.0, 1.0 - raw_distance) if raw_distance is not None else None
 
             # Create the payload
             payload = {
