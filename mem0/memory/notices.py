@@ -15,6 +15,7 @@ NOTICE_ID = "first_run"
 TEMPORAL_FEATURE_NOTICE_ID = "temporal_stub"
 TEMPORAL_USAGE_NOTICE_ID = "temporal_usage"
 DECAY_FEATURE_NOTICE_ID = "decay_stub"
+DECAY_USAGE_NOTICE_ID = "decay_usage"
 SCALE_THRESHOLD_NOTICE_ID = "scale_threshold"
 NOTICE_EVENT = "mem0.notice_displayed"
 DISPLAYED_VARIANT = "displayed"
@@ -24,6 +25,10 @@ STATE_KEY = "first_run"
 TEMPORAL_USAGE_STATE_KEY = "temporal_usage"
 TEMPORAL_USAGE_CAP = 10
 TEMPORAL_USAGE_WINDOW = timedelta(days=7)
+DECAY_USAGE_STATE_KEY = "decay_usage"
+DECAY_USAGE_CAP = 10
+DECAY_USAGE_WINDOW = timedelta(days=7)
+DECAY_USAGE_DELETE_THRESHOLD = 5
 SCALE_THRESHOLD_STATE_KEY = "scale_threshold"
 SCALE_THRESHOLD_CAP = 10
 SCALE_THRESHOLD_WINDOW = timedelta(days=7)
@@ -226,6 +231,154 @@ async def display_temporal_usage_notice_async(
         trigger_function,
         trigger_source,
         trigger_reason,
+    )
+
+
+def detect_decay_usage_from_delete() -> Optional[Tuple[str, str, Optional[int], Optional[int]]]:
+    if not telemetry_module.MEM0_TELEMETRY:
+        return None
+
+    try:
+        with _state_lock:
+            config = _load_config()
+            decay_state = _get_notice_state(config, DECAY_USAGE_STATE_KEY)
+            delete_count = _coerce_nonnegative_int(decay_state.get("successful_delete_count"), 0) + 1
+            decay_state["successful_delete_count"] = delete_count
+
+            state = config.get(STATE_SECTION)
+            if not isinstance(state, dict):
+                state = {}
+            state[DECAY_USAGE_STATE_KEY] = decay_state
+            config[STATE_SECTION] = state
+            _write_config(config)
+
+            if delete_count >= DECAY_USAGE_DELETE_THRESHOLD:
+                return ("delete_count", "repeated_deletes", delete_count, None)
+    except Exception:
+        return None
+
+    return None
+
+
+def detect_decay_usage_from_delete_all(deleted_count: Any) -> Optional[Tuple[str, str, Optional[int], Optional[int]]]:
+    if not telemetry_module.MEM0_TELEMETRY:
+        return None
+
+    deleted_count_value = _coerce_nonnegative_int(deleted_count, 0)
+    if deleted_count_value <= 0:
+        return None
+
+    return ("delete_all", "bulk_delete", None, deleted_count_value)
+
+
+def display_decay_usage_notice(
+    memory_instance,
+    sync_type: str,
+    trigger_function: str,
+    trigger_source: str,
+    trigger_reason: str,
+    delete_count: Optional[int] = None,
+    deleted_count: Optional[int] = None,
+) -> None:
+    """Best-effort decay usage notice. Never raises or writes unless displayed."""
+    if not telemetry_module.MEM0_TELEMETRY:
+        return
+
+    if _decay_usage_at_capacity():
+        return
+
+    try:
+        telemetry = telemetry_module._get_oss_telemetry()
+        if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
+            return
+
+        flags = telemetry.posthog.evaluate_flags(telemetry.user_id, flag_keys=[FLAG_KEY])
+        variant = flags.get_flag(FLAG_KEY)
+        if variant in (None, False):
+            return
+
+        payload = _coerce_mapping(flags.get_flag_payload(FLAG_KEY))
+        notices = payload.get("notices", {})
+        notice_config = _coerce_mapping(
+            notices.get(DECAY_USAGE_NOTICE_ID) if isinstance(notices, dict) else {}
+        )
+        notice_config_found = bool(notice_config)
+
+        copy = notice_config.get("copy")
+        enabled = notice_config.get("enabled", True) if notice_config_found else False
+        notice_type = notice_config.get("notice_type", "log_line")
+
+        disabled_reason = None
+        bypass_reason = None
+        if not notice_config_found:
+            bypass_reason = "missing_notice_config"
+        elif not enabled:
+            disabled_reason = "payload_disabled"
+            bypass_reason = disabled_reason
+        elif not copy:
+            bypass_reason = "missing_copy"
+        elif variant != DISPLAYED_VARIANT:
+            bypass_reason = "holdout" if variant == HOLDOUT_VARIANT else "not_displayed"
+
+        displayed = variant == DISPLAYED_VARIANT and enabled and bool(copy)
+
+        if not _record_decay_usage_opportunity(
+            variant=variant,
+            sync_type=sync_type,
+            trigger_function=trigger_function,
+            trigger_source=trigger_source,
+            trigger_reason=trigger_reason,
+            delete_count=delete_count,
+            deleted_count=deleted_count,
+        ):
+            return
+
+        telemetry.capture_event(
+            NOTICE_EVENT,
+            {
+                "notice_id": DECAY_USAGE_NOTICE_ID,
+                "notice_type": notice_type,
+                "flag_key": FLAG_KEY,
+                "variant": variant,
+                "displayed": displayed,
+                "payload": copy,
+                "bypass_reason": bypass_reason,
+                "disabled_reason": disabled_reason,
+                "notice_config_found": notice_config_found,
+                "sync_type": sync_type,
+                "trigger_function": trigger_function,
+                "trigger_source": trigger_source,
+                "trigger_reason": trigger_reason,
+                "delete_count": delete_count,
+                "deleted_count": deleted_count,
+            },
+            flags=flags,
+        )
+
+        if displayed:
+            print(copy, file=sys.stderr)
+    except Exception:
+        return
+
+
+async def display_decay_usage_notice_async(
+    memory_instance,
+    sync_type: str,
+    trigger_function: str,
+    trigger_source: str,
+    trigger_reason: str,
+    delete_count: Optional[int] = None,
+    deleted_count: Optional[int] = None,
+) -> None:
+    await asyncio.to_thread(
+        display_decay_usage_notice,
+        memory_instance,
+        sync_type,
+        trigger_function,
+        trigger_source,
+        trigger_reason,
+        delete_count,
+        deleted_count,
     )
 
 
@@ -652,6 +805,87 @@ def _recent_temporal_usage_entries(config: Dict[str, Any], now: datetime):
         return []
 
     cutoff = now - TEMPORAL_USAGE_WINDOW
+    recent = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        evaluated_at = _parse_datetime(entry.get("evaluated_at"))
+        if evaluated_at is not None and evaluated_at >= cutoff:
+            recent.append(entry)
+    return recent
+
+
+def _decay_usage_at_capacity() -> bool:
+    try:
+        with _state_lock:
+            config = _load_config()
+            entries = _recent_decay_usage_entries(config, datetime.now(timezone.utc))
+            return len(entries) >= DECAY_USAGE_CAP
+    except Exception:
+        return True
+
+
+def _record_decay_usage_opportunity(
+    *,
+    variant: str,
+    sync_type: str,
+    trigger_function: str,
+    trigger_source: str,
+    trigger_reason: str,
+    delete_count: Optional[int],
+    deleted_count: Optional[int],
+) -> bool:
+    try:
+        with _state_lock:
+            now = datetime.now(timezone.utc)
+            config = _load_config()
+            entries = _recent_decay_usage_entries(config, now)
+            if len(entries) >= DECAY_USAGE_CAP:
+                return False
+
+            entry = {
+                "evaluated_at": now.isoformat(),
+                "variant": variant,
+                "sync_type": sync_type,
+                "trigger_function": trigger_function,
+                "trigger_source": trigger_source,
+                "trigger_reason": trigger_reason,
+            }
+            if delete_count is not None:
+                entry["delete_count"] = delete_count
+            if deleted_count is not None:
+                entry["deleted_count"] = deleted_count
+            entries.append(entry)
+
+            state = config.get(STATE_SECTION)
+            if not isinstance(state, dict):
+                state = {}
+            decay_state = state.get(DECAY_USAGE_STATE_KEY)
+            if not isinstance(decay_state, dict):
+                decay_state = {}
+            decay_state["events"] = entries
+            state[DECAY_USAGE_STATE_KEY] = decay_state
+            config[STATE_SECTION] = state
+            _write_config(config)
+            return True
+    except Exception:
+        return False
+
+
+def _recent_decay_usage_entries(config: Dict[str, Any], now: datetime):
+    state = config.get(STATE_SECTION)
+    if not isinstance(state, dict):
+        return []
+
+    decay_state = state.get(DECAY_USAGE_STATE_KEY)
+    if not isinstance(decay_state, dict):
+        return []
+
+    entries = decay_state.get("events")
+    if not isinstance(entries, list):
+        return []
+
+    cutoff = now - DECAY_USAGE_WINDOW
     recent = []
     for entry in entries:
         if not isinstance(entry, dict):

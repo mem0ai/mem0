@@ -114,6 +114,20 @@ def temporal_usage_payload(copy="Temporal usage CTA", enabled=True, notice_type=
     return payload
 
 
+def decay_usage_payload(copy="Decay usage CTA", enabled=True, notice_type="log_line"):
+    payload = {
+        "notices": {
+            "decay_usage": {
+                "enabled": enabled,
+                "notice_type": notice_type,
+            }
+        }
+    }
+    if copy is not None:
+        payload["notices"]["decay_usage"]["copy"] = copy
+    return payload
+
+
 def scale_payload(
     top_k_copy="Scale top {top_k}",
     memory_count_copy="Scale count {memory_count}",
@@ -669,6 +683,253 @@ def test_temporal_usage_props_do_not_include_raw_user_inputs(notice_harness):
     assert "what happened last week" not in str(props)
     assert "2025-04-09" not in str(props)
     assert date.today().isoformat() not in str(props)
+
+
+def test_decay_usage_delete_detection_reaches_threshold(notice_harness):
+    config, _ = notice_harness
+
+    for _ in range(notices.DECAY_USAGE_DELETE_THRESHOLD - 1):
+        assert notices.detect_decay_usage_from_delete() is None
+
+    assert config["notice_state"]["decay_usage"]["successful_delete_count"] == 4
+    assert notices.detect_decay_usage_from_delete() == (
+        "delete_count",
+        "repeated_deletes",
+        5,
+        None,
+    )
+    assert config["notice_state"]["decay_usage"]["successful_delete_count"] == 5
+
+
+def test_decay_usage_delete_detection_telemetry_disabled_does_not_write_state(monkeypatch, notice_harness):
+    config, _ = notice_harness
+    monkeypatch.setattr(notices.telemetry_module, "MEM0_TELEMETRY", False)
+
+    assert notices.detect_decay_usage_from_delete() is None
+
+    assert config == {}
+
+
+def test_decay_usage_delete_all_detection_requires_deleted_memory(notice_harness):
+    assert notices.detect_decay_usage_from_delete_all(0) is None
+    assert notices.detect_decay_usage_from_delete_all(None) is None
+    assert notices.detect_decay_usage_from_delete_all(3) == (
+        "delete_all",
+        "bulk_delete",
+        None,
+        3,
+    )
+
+
+def test_decay_usage_displayed_logs_and_captures_event(notice_harness, capsys):
+    config, telemetry = notice_harness
+    flags = configure_flag(telemetry, "displayed", decay_usage_payload())
+
+    notices.display_decay_usage_notice(
+        MagicMock(),
+        "sync",
+        "delete",
+        "delete_count",
+        "repeated_deletes",
+        delete_count=5,
+    )
+
+    assert capsys.readouterr().err == "Decay usage CTA\n"
+    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry.capture_event.assert_called_once()
+    event_name, props = telemetry.capture_event.call_args.args
+    assert event_name == notices.NOTICE_EVENT
+    assert props["notice_id"] == "decay_usage"
+    assert props["notice_type"] == "log_line"
+    assert props["variant"] == "displayed"
+    assert props["displayed"] is True
+    assert props["payload"] == "Decay usage CTA"
+    assert props["bypass_reason"] is None
+    assert props["disabled_reason"] is None
+    assert props["notice_config_found"] is True
+    assert props["sync_type"] == "sync"
+    assert props["trigger_function"] == "delete"
+    assert props["trigger_source"] == "delete_count"
+    assert props["trigger_reason"] == "repeated_deletes"
+    assert props["delete_count"] == 5
+    assert props["deleted_count"] is None
+    assert telemetry.capture_event.call_args.kwargs["flags"] is flags
+    assert len(config["notice_state"]["decay_usage"]["events"]) == 1
+
+
+def test_decay_usage_holdout_is_silent_but_captures_event(notice_harness, capsys):
+    _, telemetry = notice_harness
+    configure_flag(telemetry, "holdout", decay_usage_payload())
+
+    notices.display_decay_usage_notice(
+        MagicMock(),
+        "sync",
+        "delete_all",
+        "delete_all",
+        "bulk_delete",
+        deleted_count=3,
+    )
+
+    assert capsys.readouterr().err == ""
+    props = telemetry.capture_event.call_args.args[1]
+    assert props["displayed"] is False
+    assert props["bypass_reason"] == "holdout"
+    assert props["trigger_source"] == "delete_all"
+    assert props["trigger_reason"] == "bulk_delete"
+    assert props["delete_count"] is None
+    assert props["deleted_count"] == 3
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_reason", "expected_found"),
+    [
+        ({}, "missing_notice_config", False),
+        ({"notices": {}}, "missing_notice_config", False),
+        ({"notices": "not-an-object"}, "missing_notice_config", False),
+        (decay_usage_payload(copy=None), "missing_copy", True),
+        (decay_usage_payload(enabled=False, copy="hidden"), "payload_disabled", True),
+    ],
+)
+def test_decay_usage_bad_or_disabled_payload_is_silent_and_safe(
+    notice_harness, payload, expected_reason, expected_found, capsys
+):
+    _, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", payload)
+
+    notices.display_decay_usage_notice(
+        MagicMock(),
+        "sync",
+        "delete",
+        "delete_count",
+        "repeated_deletes",
+        delete_count=5,
+    )
+
+    assert capsys.readouterr().err == ""
+    props = telemetry.capture_event.call_args.args[1]
+    assert props["displayed"] is False
+    assert props["bypass_reason"] == expected_reason
+    assert props["notice_config_found"] is expected_found
+
+
+@pytest.mark.parametrize("variant", [None, False])
+def test_decay_usage_blunt_flag_disable_does_not_capture_or_consume(
+    notice_harness, variant, capsys
+):
+    config, telemetry = notice_harness
+    configure_flag(telemetry, variant, decay_usage_payload())
+
+    notices.display_decay_usage_notice(
+        MagicMock(),
+        "sync",
+        "delete",
+        "delete_count",
+        "repeated_deletes",
+        delete_count=5,
+    )
+
+    assert capsys.readouterr().err == ""
+    telemetry.capture_event.assert_not_called()
+    assert config.get("notice_state") is None
+
+
+def test_decay_usage_telemetry_disabled_does_not_touch_posthog_or_state(monkeypatch, capsys):
+    load_config = MagicMock(return_value={})
+    write_config = MagicMock()
+    get_telemetry = MagicMock()
+
+    monkeypatch.setattr(notices, "_load_config", load_config)
+    monkeypatch.setattr(notices, "_write_config", write_config)
+    monkeypatch.setattr(notices.telemetry_module, "MEM0_TELEMETRY", False)
+    monkeypatch.setattr(notices.telemetry_module, "_get_oss_telemetry", get_telemetry)
+
+    notices.display_decay_usage_notice(
+        MagicMock(),
+        "sync",
+        "delete",
+        "delete_count",
+        "repeated_deletes",
+        delete_count=5,
+    )
+
+    load_config.assert_not_called()
+    write_config.assert_not_called()
+    get_telemetry.assert_not_called()
+    assert capsys.readouterr().err == ""
+
+
+def test_decay_usage_posthog_failure_does_not_consume_cap(notice_harness, capsys):
+    config, telemetry = notice_harness
+    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("posthog down")
+
+    notices.display_decay_usage_notice(
+        MagicMock(),
+        "sync",
+        "delete",
+        "delete_count",
+        "repeated_deletes",
+        delete_count=5,
+    )
+
+    assert capsys.readouterr().err == ""
+    telemetry.capture_event.assert_not_called()
+    assert config.get("notice_state") is None
+
+
+def test_decay_usage_cap_blocks_before_posthog_eval(notice_harness, capsys):
+    config, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", decay_usage_payload())
+
+    for _ in range(notices.DECAY_USAGE_CAP):
+        notices.display_decay_usage_notice(
+            MagicMock(),
+            "sync",
+            "delete",
+            "delete_count",
+            "repeated_deletes",
+            delete_count=5,
+        )
+
+    notices.display_decay_usage_notice(
+        MagicMock(),
+        "sync",
+        "delete",
+        "delete_count",
+        "repeated_deletes",
+        delete_count=5,
+    )
+
+    assert capsys.readouterr().err == "Decay usage CTA\n" * notices.DECAY_USAGE_CAP
+    assert telemetry.posthog.evaluate_flags.call_count == notices.DECAY_USAGE_CAP
+    assert telemetry.capture_event.call_count == notices.DECAY_USAGE_CAP
+    assert len(config["notice_state"]["decay_usage"]["events"]) == notices.DECAY_USAGE_CAP
+
+
+def test_decay_usage_cap_ignores_old_entries(notice_harness, capsys):
+    config, telemetry = notice_harness
+    old_time = datetime.now(timezone.utc) - notices.DECAY_USAGE_WINDOW - timedelta(days=1)
+    config["notice_state"] = {
+        "decay_usage": {
+            "events": [
+                {"evaluated_at": old_time.isoformat(), "variant": "displayed"}
+                for _ in range(notices.DECAY_USAGE_CAP)
+            ]
+        }
+    }
+    configure_flag(telemetry, "displayed", decay_usage_payload())
+
+    notices.display_decay_usage_notice(
+        MagicMock(),
+        "sync",
+        "delete_all",
+        "delete_all",
+        "bulk_delete",
+        deleted_count=2,
+    )
+
+    assert capsys.readouterr().err == "Decay usage CTA\n"
+    assert telemetry.capture_event.call_count == 1
+    assert len(config["notice_state"]["decay_usage"]["events"]) == 1
 
 
 def test_scale_threshold_top_k_detection():

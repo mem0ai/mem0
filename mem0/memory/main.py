@@ -29,8 +29,12 @@ from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
     detect_scale_threshold_from_add_result,
     detect_scale_threshold_from_top_k,
+    detect_decay_usage_from_delete,
+    detect_decay_usage_from_delete_all,
     detect_temporal_usage_from_metadata,
     detect_temporal_usage_from_search,
+    display_decay_usage_notice,
+    display_decay_usage_notice_async,
     display_first_run_notice,
     display_first_run_notice_async,
     display_scale_threshold_notice,
@@ -1669,7 +1673,11 @@ class Memory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         self._delete_memory(memory_id, existing_memory)
-        display_first_run_notice(self, "sync", "delete")
+        decay_usage_notice = detect_decay_usage_from_delete()
+        if decay_usage_notice:
+            display_decay_usage_notice(self, "sync", "delete", *decay_usage_notice)
+        else:
+            display_first_run_notice(self, "sync", "delete")
         return {"message": "Memory deleted successfully!"}
 
     def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
@@ -1703,7 +1711,11 @@ class Memory(MemoryBase):
 
         logger.info(f"Deleted {len(memories)} memories")
 
-        display_first_run_notice(self, "sync", "delete_all")
+        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
+        if decay_usage_notice:
+            display_decay_usage_notice(self, "sync", "delete_all", *decay_usage_notice)
+        else:
+            display_first_run_notice(self, "sync", "delete_all")
         return {"message": "Memories deleted successfully!"}
 
     def history(self, memory_id):
@@ -3160,7 +3172,11 @@ class AsyncMemory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         await self._delete_memory(memory_id, existing_memory)
-        await display_first_run_notice_async(self, "async", "delete")
+        decay_usage_notice = detect_decay_usage_from_delete()
+        if decay_usage_notice:
+            await display_decay_usage_notice_async(self, "async", "delete", *decay_usage_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "delete")
         return {"message": "Memory deleted successfully!"}
 
     async def delete_all(self, user_id=None, agent_id=None, run_id=None):
@@ -3197,7 +3213,11 @@ class AsyncMemory(MemoryBase):
 
         logger.info(f"Deleted {len(memories[0])} memories")
 
-        await display_first_run_notice_async(self, "async", "delete_all")
+        decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
+        if decay_usage_notice:
+            await display_decay_usage_notice_async(self, "async", "delete_all", *decay_usage_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "delete_all")
         return {"message": "Memories deleted successfully!"}
 
     async def history(self, memory_id):
