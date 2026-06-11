@@ -90,14 +90,14 @@ git clone https://github.com/mem0ai/mem0.git ~/codex-plugins/mem0-source
 codex plugin marketplace add ~/codex-plugins/mem0-source
 ```
 
-This points Codex at the repo's `.agents/plugins/marketplace.json`, which references `mem0-plugin/` as the local source. Restart Codex, run `/plugins`, and install **Mem0** from the **Mem0 Plugins** marketplace.
+This points Codex at the repo's `.agents/plugins/marketplace.json`, which references `integrations/mem0-plugin/` as the local source. Restart Codex, run `/plugins`, and install **Mem0** from the **Mem0 Plugins** marketplace.
 
-> **Don't combine with Option A.** The plugin manifest auto-registers `mem0` as an MCP server via `mem0-plugin/.codex-mcp.json` — adding a manual `[mcp_servers.mem0]` block would duplicate the registration.
+> **Don't combine with Option A.** The plugin manifest auto-registers `mem0` as an MCP server via `integrations/mem0-plugin/.codex-mcp.json` — adding a manual `[mcp_servers.mem0]` block would duplicate the registration.
 
 **Optional — enable lifecycle hooks.** Codex doesn't auto-wire hooks from plugin manifests; it only reads `~/.codex/hooks.json` (or `<repo>/.codex/hooks.json`) ([docs](https://developers.openai.com/codex/hooks)). Run the bundled installer once to merge Mem0's entries:
 
 ```bash
-python3 ~/codex-plugins/mem0-source/mem0-plugin/scripts/install_codex_hooks.py
+python3 ~/codex-plugins/mem0-source/integrations/mem0-plugin/scripts/install_codex_hooks.py
 ```
 
 This merges three entries into `~/.codex/hooks.json` with absolute paths pointing into your clone:
@@ -190,7 +190,7 @@ See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for 
 
 ```bash
 # Install the plugin (MCP server, hooks, scripts)
-npx degit mem0ai/mem0/mem0-plugin ~/.gemini/config/plugins/mem0
+npx degit mem0ai/mem0/integrations/mem0-plugin ~/.gemini/config/plugins/mem0
 ```
 
 This installs the MCP server, lifecycle hooks, and shared scripts.
@@ -276,10 +276,10 @@ The background setup is idempotent and runs once per account (cached in `~/.mem0
 
 ```bash
 # Dry-run -- prints current vs proposed, no changes:
-python mem0-plugin/scripts/setup_coding_categories.py
+python integrations/mem0-plugin/scripts/setup_coding_categories.py
 
 # Write explicitly:
-python mem0-plugin/scripts/setup_coding_categories.py --apply
+python integrations/mem0-plugin/scripts/setup_coding_categories.py --apply
 ```
 
 Requires the `mem0ai` Python SDK (`pip install mem0ai`) and `MEM0_API_KEY` set. `project.update(custom_categories=[...])` always replaces the full list.

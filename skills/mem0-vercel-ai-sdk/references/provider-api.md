@@ -1,6 +1,6 @@
 # Provider API Reference
 
-Complete reference for the `@mem0/vercel-ai-provider` provider layer. Source: `vercel-ai-sdk/src/`.
+Complete reference for the `@mem0/vercel-ai-provider` provider layer. Source: `integrations/vercel-ai-sdk/src/`.
 
 ## `createMem0(options?)`
 
