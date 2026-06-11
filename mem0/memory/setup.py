@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import datetime, timezone
 from hashlib import sha256
 
 # Set up the directory path
@@ -44,10 +45,12 @@ def _write_config(config):
 def setup_config():
     """Ensure ~/.mem0/config.json exists with a top-level user_id.
 
-    Idempotent: backfills user_id for users whose config was written by the
-    CLI (which writes telemetry.anonymous_id but no top-level user_id).
-    Without this, OSS Python telemetry is silently dropped because
-    get_user_id() returns None when user_id is missing.
+    Called lazily from OSS Memory/AsyncMemory init (never at import time, so
+    platform-only MemoryClient usage mints no anon id). Idempotent: backfills
+    user_id for users whose config was written by the CLI (which writes
+    telemetry.anonymous_id but no top-level user_id). Without this, OSS Python
+    telemetry is silently dropped because get_user_id() returns None when
+    user_id is missing.
     """
     config = _load_config()
     if config.get("user_id"):
@@ -115,6 +118,31 @@ def mark_aliased(anon_id, email):
     if marker not in aliased_pairs:
         aliased_pairs.append(marker)
     telemetry["aliased_pairs"] = aliased_pairs
+    config["telemetry"] = telemetry
+    _write_config(config)
+
+
+def is_oss_used():
+    """Return whether OSS Memory has genuinely initialized on this machine.
+
+    Gates identity stitching: the top-level user_id is only a stitch candidate
+    when telemetry.oss_used_at is present, because bare user_id values were
+    historically minted at import time by platform-only clients.
+    """
+    config = _load_config()
+    telemetry = config.get("telemetry") if isinstance(config.get("telemetry"), dict) else {}
+    return bool(telemetry.get("oss_used_at"))
+
+
+def mark_oss_used():
+    """Persist telemetry.oss_used_at on first genuine OSS Memory init. Never raises."""
+    config = _load_config()
+    telemetry = config.get("telemetry")
+    if not isinstance(telemetry, dict):
+        telemetry = {}
+    if telemetry.get("oss_used_at"):
+        return
+    telemetry["oss_used_at"] = datetime.now(timezone.utc).isoformat()
     config["telemetry"] = telemetry
     _write_config(config)
 

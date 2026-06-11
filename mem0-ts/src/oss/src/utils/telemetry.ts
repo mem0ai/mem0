@@ -126,4 +126,8 @@ async function captureClientEvent(
   );
 }
 
-export { telemetry, captureClientEvent };
+function isTelemetryEnabled(): boolean {
+  return MEM0_TELEMETRY;
+}
+
+export { telemetry, captureClientEvent, isTelemetryEnabled };

@@ -39,7 +39,7 @@ import {
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
-import { captureClientEvent } from "../utils/telemetry";
+import { captureClientEvent, isTelemetryEnabled } from "../utils/telemetry";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
 import {
   extractEntities,
@@ -53,7 +53,7 @@ import {
   ScoredResult,
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
-import { getOrCreateMem0UserId } from "../../../client/config";
+import { getOrCreateMem0UserId, markMem0OssUsed } from "../../../client/config";
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
@@ -450,6 +450,12 @@ export class Memory {
   private async _initializeTelemetry() {
     try {
       await this._getTelemetryId();
+
+      // Record genuine OSS usage so the platform client may stitch this
+      // machine's anon id to a platform email later.
+      if (isTelemetryEnabled()) {
+        await markMem0OssUsed();
+      }
 
       // Capture initialization event
       await captureClientEvent("init", this, {
