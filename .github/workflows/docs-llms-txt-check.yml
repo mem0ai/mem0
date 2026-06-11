@@ -6,13 +6,10 @@ name: docs - llms.txt check
 #   python scripts/check-llms-txt-coverage.py           # read-only
 #   python scripts/check-llms-txt-coverage.py --write   # scaffold placeholders
 
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# manual runs remain standalone.
 on:
-  pull_request:
-    paths:
-      - 'docs/**/*.mdx'
-      - 'docs/llms.txt'
-      - 'scripts/check-llms-txt-coverage.py'
-      - 'scripts/llms-txt-ignore.txt'
+  workflow_call:
   workflow_dispatch: {}
 
 permissions:

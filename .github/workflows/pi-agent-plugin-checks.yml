@@ -1,5 +1,7 @@
 name: pi-agent-plugin checks
 
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
 on:
   workflow_dispatch:
   push:
@@ -7,10 +9,7 @@ on:
     paths:
       - 'pi-agent-plugin/**'
       - '.github/workflows/pi-agent-plugin-checks.yml'
-  pull_request:
-    paths:
-      - 'pi-agent-plugin/**'
-      - '.github/workflows/pi-agent-plugin-checks.yml'
+  workflow_call:
 
 jobs:
   lint:
