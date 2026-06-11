@@ -39,6 +39,15 @@ class TestParseVisionMessages:
         assert result[0]["content"] == "A photo of a cat"
         mock_llm.generate_response.assert_called_once()
 
+    def test_image_only_list_without_llm_is_skipped(self):
+        messages = [
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}},
+            ]},
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert result == []
+
     def test_plain_text_messages_pass_through(self):
         messages = [
             {"role": "system", "content": "You are helpful."},

@@ -184,6 +184,8 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
                     part["text"] for part in msg["content"]
                     if isinstance(part, dict) and part.get("type") == "text"
                 ]
+                if not text_parts:
+                    continue
                 returned_messages.append({"role": msg["role"], "content": " ".join(text_parts)})
             else:
                 description = get_image_description(msg, llm, vision_details)
