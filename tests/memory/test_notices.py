@@ -100,6 +100,20 @@ def temporal_usage_payload(copy="Temporal usage CTA", enabled=True, notice_type=
     return payload
 
 
+def performance_payload(copy="Performance CTA", enabled=True, notice_type="log_line"):
+    payload = {
+        "notices": {
+            "performance_slow_query": {
+                "enabled": enabled,
+                "notice_type": notice_type,
+            }
+        }
+    }
+    if copy is not None:
+        payload["notices"]["performance_slow_query"]["copy"] = copy
+    return payload
+
+
 def test_displayed_notice_logs_once_and_captures_event(notice_harness, capsys):
     config, telemetry, flags = display_notice(notice_harness)
 
@@ -511,3 +525,215 @@ def test_temporal_usage_props_do_not_include_raw_user_inputs(notice_harness):
     assert "what happened last week" not in str(props)
     assert "2025-04-09" not in str(props)
     assert date.today().isoformat() not in str(props)
+
+
+def test_performance_slow_query_displayed_logs_and_captures_event(notice_harness, capsys):
+    config, telemetry = notice_harness
+    flags = configure_flag(telemetry, "displayed", performance_payload())
+
+    notices.display_performance_slow_query_notice(
+        MagicMock(),
+        "sync",
+        "search",
+        elapsed_seconds=2.345,
+        top_k=20,
+        result_count=7,
+    )
+
+    assert capsys.readouterr().err == "Performance CTA\n"
+    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry.capture_event.assert_called_once()
+    event_name, props = telemetry.capture_event.call_args.args
+    assert event_name == notices.NOTICE_EVENT
+    assert props["notice_id"] == "performance_slow_query"
+    assert props["notice_type"] == "log_line"
+    assert props["variant"] == "displayed"
+    assert props["displayed"] is True
+    assert props["payload"] == "Performance CTA"
+    assert props["bypass_reason"] is None
+    assert props["disabled_reason"] is None
+    assert props["notice_config_found"] is True
+    assert props["sync_type"] == "sync"
+    assert props["trigger_function"] == "search"
+    assert props["trigger_reason"] == "slow_query"
+    assert props["elapsed_ms"] == 2345
+    assert props["threshold_ms"] == 2000
+    assert props["top_k"] == 20
+    assert props["result_count"] == 7
+    assert telemetry.capture_event.call_args.kwargs["flags"] is flags
+    assert len(config["notice_state"]["performance_slow_query"]["events"]) == 1
+
+
+def test_performance_slow_query_holdout_is_silent_but_captures_event(notice_harness, capsys):
+    _, telemetry = notice_harness
+    configure_flag(telemetry, "holdout", performance_payload())
+
+    notices.display_performance_slow_query_notice(
+        MagicMock(),
+        "sync",
+        "search",
+        elapsed_seconds=2.1,
+        top_k=10,
+        result_count=2,
+    )
+
+    assert capsys.readouterr().err == ""
+    props = telemetry.capture_event.call_args.args[1]
+    assert props["displayed"] is False
+    assert props["bypass_reason"] == "holdout"
+    assert props["trigger_reason"] == "slow_query"
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_reason", "expected_found"),
+    [
+        ({}, "missing_notice_config", False),
+        ({"notices": {}}, "missing_notice_config", False),
+        ({"notices": "not-an-object"}, "missing_notice_config", False),
+        (performance_payload(copy=None), "missing_copy", True),
+        (performance_payload(enabled=False, copy="hidden"), "payload_disabled", True),
+    ],
+)
+def test_performance_slow_query_bad_or_disabled_payload_is_silent_and_safe(
+    notice_harness, payload, expected_reason, expected_found, capsys
+):
+    _, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", payload)
+
+    notices.display_performance_slow_query_notice(
+        MagicMock(),
+        "sync",
+        "search",
+        elapsed_seconds=2.1,
+        top_k=10,
+        result_count=2,
+    )
+
+    assert capsys.readouterr().err == ""
+    props = telemetry.capture_event.call_args.args[1]
+    assert props["displayed"] is False
+    assert props["bypass_reason"] == expected_reason
+    assert props["notice_config_found"] is expected_found
+
+
+@pytest.mark.parametrize("variant", [None, False])
+def test_performance_slow_query_blunt_flag_disable_does_not_capture_or_consume(
+    notice_harness, variant, capsys
+):
+    config, telemetry = notice_harness
+    configure_flag(telemetry, variant, performance_payload())
+
+    notices.display_performance_slow_query_notice(
+        MagicMock(),
+        "sync",
+        "search",
+        elapsed_seconds=2.1,
+        top_k=10,
+        result_count=2,
+    )
+
+    assert capsys.readouterr().err == ""
+    telemetry.capture_event.assert_not_called()
+    assert config.get("notice_state") is None
+
+
+def test_performance_slow_query_telemetry_disabled_does_not_touch_posthog_or_state(
+    monkeypatch, capsys
+):
+    load_config = MagicMock(return_value={})
+    write_config = MagicMock()
+    get_telemetry = MagicMock()
+
+    monkeypatch.setattr(notices, "_load_config", load_config)
+    monkeypatch.setattr(notices, "_write_config", write_config)
+    monkeypatch.setattr(notices.telemetry_module, "MEM0_TELEMETRY", False)
+    monkeypatch.setattr(notices.telemetry_module, "_get_oss_telemetry", get_telemetry)
+
+    notices.display_performance_slow_query_notice(
+        MagicMock(),
+        "sync",
+        "search",
+        elapsed_seconds=2.1,
+        top_k=10,
+        result_count=2,
+    )
+
+    load_config.assert_not_called()
+    write_config.assert_not_called()
+    get_telemetry.assert_not_called()
+    assert capsys.readouterr().err == ""
+
+
+def test_performance_slow_query_cap_blocks_before_posthog_eval(notice_harness, capsys):
+    config, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", performance_payload())
+
+    for _ in range(notices.PERFORMANCE_SLOW_QUERY_CAP):
+        notices.display_performance_slow_query_notice(
+            MagicMock(),
+            "sync",
+            "search",
+            elapsed_seconds=2.1,
+            top_k=10,
+            result_count=2,
+        )
+
+    notices.display_performance_slow_query_notice(
+        MagicMock(),
+        "sync",
+        "search",
+        elapsed_seconds=2.1,
+        top_k=10,
+        result_count=2,
+    )
+
+    assert capsys.readouterr().err == "Performance CTA\n" * notices.PERFORMANCE_SLOW_QUERY_CAP
+    assert telemetry.posthog.evaluate_flags.call_count == notices.PERFORMANCE_SLOW_QUERY_CAP
+    assert telemetry.capture_event.call_count == notices.PERFORMANCE_SLOW_QUERY_CAP
+    assert len(config["notice_state"]["performance_slow_query"]["events"]) == notices.PERFORMANCE_SLOW_QUERY_CAP
+
+
+def test_performance_slow_query_cap_ignores_old_entries(notice_harness, capsys):
+    config, telemetry = notice_harness
+    old_time = datetime.now(timezone.utc) - notices.PERFORMANCE_SLOW_QUERY_WINDOW - timedelta(days=1)
+    config["notice_state"] = {
+        "performance_slow_query": {
+            "events": [
+                {"evaluated_at": old_time.isoformat(), "variant": "displayed"}
+                for _ in range(notices.PERFORMANCE_SLOW_QUERY_CAP)
+            ]
+        }
+    }
+    configure_flag(telemetry, "displayed", performance_payload())
+
+    notices.display_performance_slow_query_notice(
+        MagicMock(),
+        "sync",
+        "search",
+        elapsed_seconds=2.1,
+        top_k=10,
+        result_count=2,
+    )
+
+    assert capsys.readouterr().err == "Performance CTA\n"
+    assert telemetry.capture_event.call_count == 1
+    assert len(config["notice_state"]["performance_slow_query"]["events"]) == 1
+
+
+def test_performance_slow_query_props_do_not_include_raw_user_inputs(notice_harness):
+    _, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", performance_payload(copy="safe copy"))
+
+    notices.display_performance_slow_query_notice(
+        MagicMock(),
+        "sync",
+        "search",
+        elapsed_seconds=2.1,
+        top_k=10,
+        result_count=2,
+    )
+
+    props = telemetry.capture_event.call_args.args[1]
+    assert "favorite drink" not in str(props)
+    assert "user_id" not in str(props)
+    assert "green tea" not in str(props)

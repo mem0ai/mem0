@@ -14,6 +14,7 @@ FLAG_KEY = "mem0-oss-notices"
 NOTICE_ID = "first_run"
 TEMPORAL_FEATURE_NOTICE_ID = "temporal_stub"
 TEMPORAL_USAGE_NOTICE_ID = "temporal_usage"
+PERFORMANCE_SLOW_QUERY_NOTICE_ID = "performance_slow_query"
 NOTICE_EVENT = "mem0.notice_displayed"
 DISPLAYED_VARIANT = "displayed"
 HOLDOUT_VARIANT = "holdout"
@@ -22,6 +23,10 @@ STATE_KEY = "first_run"
 TEMPORAL_USAGE_STATE_KEY = "temporal_usage"
 TEMPORAL_USAGE_CAP = 10
 TEMPORAL_USAGE_WINDOW = timedelta(days=7)
+PERFORMANCE_SLOW_QUERY_STATE_KEY = "performance_slow_query"
+PERFORMANCE_SLOW_QUERY_CAP = 10
+PERFORMANCE_SLOW_QUERY_WINDOW = timedelta(days=7)
+PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS = 2.0
 TEMPORAL_FEATURE_ERROR_MESSAGES = {
     "timestamp": "The timestamp parameter is not supported by the OSS Memory SDK.",
     "reference_date": "The reference_date parameter is not supported by the OSS Memory SDK.",
@@ -221,6 +226,113 @@ async def display_temporal_usage_notice_async(
     )
 
 
+def display_performance_slow_query_notice(
+    memory_instance,
+    sync_type: str,
+    trigger_function: str,
+    elapsed_seconds: float,
+    top_k: int,
+    result_count: int,
+) -> None:
+    """Best-effort slow-query notice. Never raises or writes unless displayed."""
+    if not telemetry_module.MEM0_TELEMETRY:
+        return
+
+    if _performance_slow_query_at_capacity():
+        return
+
+    try:
+        telemetry = telemetry_module._get_oss_telemetry()
+        if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
+            return
+
+        flags = telemetry.posthog.evaluate_flags(telemetry.user_id, flag_keys=[FLAG_KEY])
+        variant = flags.get_flag(FLAG_KEY)
+        if variant in (None, False):
+            return
+
+        payload = _coerce_mapping(flags.get_flag_payload(FLAG_KEY))
+        notices = payload.get("notices", {})
+        notice_config = _coerce_mapping(
+            notices.get(PERFORMANCE_SLOW_QUERY_NOTICE_ID) if isinstance(notices, dict) else {}
+        )
+        notice_config_found = bool(notice_config)
+
+        copy = notice_config.get("copy")
+        enabled = notice_config.get("enabled", True) if notice_config_found else False
+        notice_type = notice_config.get("notice_type", "log_line")
+
+        disabled_reason = None
+        bypass_reason = None
+        if not notice_config_found:
+            bypass_reason = "missing_notice_config"
+        elif not enabled:
+            disabled_reason = "payload_disabled"
+            bypass_reason = disabled_reason
+        elif not copy:
+            bypass_reason = "missing_copy"
+        elif variant != DISPLAYED_VARIANT:
+            bypass_reason = "holdout" if variant == HOLDOUT_VARIANT else "not_displayed"
+
+        displayed = variant == DISPLAYED_VARIANT and enabled and bool(copy)
+        trigger_reason = "slow_query"
+
+        if not _record_performance_slow_query_opportunity(
+            variant=variant,
+            sync_type=sync_type,
+            trigger_function=trigger_function,
+            trigger_reason=trigger_reason,
+        ):
+            return
+
+        telemetry.capture_event(
+            NOTICE_EVENT,
+            {
+                "notice_id": PERFORMANCE_SLOW_QUERY_NOTICE_ID,
+                "notice_type": notice_type,
+                "flag_key": FLAG_KEY,
+                "variant": variant,
+                "displayed": displayed,
+                "payload": copy,
+                "bypass_reason": bypass_reason,
+                "disabled_reason": disabled_reason,
+                "notice_config_found": notice_config_found,
+                "sync_type": sync_type,
+                "trigger_function": trigger_function,
+                "trigger_reason": trigger_reason,
+                "elapsed_ms": round(elapsed_seconds * 1000),
+                "threshold_ms": round(PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS * 1000),
+                "top_k": top_k,
+                "result_count": result_count,
+            },
+            flags=flags,
+        )
+
+        if displayed:
+            print(copy, file=sys.stderr)
+    except Exception:
+        return
+
+
+async def display_performance_slow_query_notice_async(
+    memory_instance,
+    sync_type: str,
+    trigger_function: str,
+    elapsed_seconds: float,
+    top_k: int,
+    result_count: int,
+) -> None:
+    await asyncio.to_thread(
+        display_performance_slow_query_notice,
+        memory_instance,
+        sync_type,
+        trigger_function,
+        elapsed_seconds,
+        top_k,
+        result_count,
+    )
+
+
 def get_temporal_feature_error_message(sync_type: str, trigger_function: str, trigger_parameter: str) -> str:
     """Return the temporal feature error copy and capture event when available."""
     plain_error = TEMPORAL_FEATURE_ERROR_MESSAGES[trigger_parameter]
@@ -388,6 +500,16 @@ def _temporal_usage_at_capacity() -> bool:
         return True
 
 
+def _performance_slow_query_at_capacity() -> bool:
+    try:
+        with _state_lock:
+            config = _load_config()
+            entries = _recent_performance_slow_query_entries(config, datetime.now(timezone.utc))
+            return len(entries) >= PERFORMANCE_SLOW_QUERY_CAP
+    except Exception:
+        return True
+
+
 def _record_temporal_usage_opportunity(
     *,
     variant: str,
@@ -430,6 +552,46 @@ def _record_temporal_usage_opportunity(
         return False
 
 
+def _record_performance_slow_query_opportunity(
+    *,
+    variant: str,
+    sync_type: str,
+    trigger_function: str,
+    trigger_reason: str,
+) -> bool:
+    try:
+        with _state_lock:
+            now = datetime.now(timezone.utc)
+            config = _load_config()
+            entries = _recent_performance_slow_query_entries(config, now)
+            if len(entries) >= PERFORMANCE_SLOW_QUERY_CAP:
+                return False
+
+            entries.append(
+                {
+                    "evaluated_at": now.isoformat(),
+                    "variant": variant,
+                    "sync_type": sync_type,
+                    "trigger_function": trigger_function,
+                    "trigger_reason": trigger_reason,
+                }
+            )
+
+            state = config.get(STATE_SECTION)
+            if not isinstance(state, dict):
+                state = {}
+            performance_state = state.get(PERFORMANCE_SLOW_QUERY_STATE_KEY)
+            if not isinstance(performance_state, dict):
+                performance_state = {}
+            performance_state["events"] = entries
+            state[PERFORMANCE_SLOW_QUERY_STATE_KEY] = performance_state
+            config[STATE_SECTION] = state
+            _write_config(config)
+            return True
+    except Exception:
+        return False
+
+
 def _recent_temporal_usage_entries(config: Dict[str, Any], now: datetime):
     state = config.get(STATE_SECTION)
     if not isinstance(state, dict):
@@ -444,6 +606,30 @@ def _recent_temporal_usage_entries(config: Dict[str, Any], now: datetime):
         return []
 
     cutoff = now - TEMPORAL_USAGE_WINDOW
+    recent = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        evaluated_at = _parse_datetime(entry.get("evaluated_at"))
+        if evaluated_at is not None and evaluated_at >= cutoff:
+            recent.append(entry)
+    return recent
+
+
+def _recent_performance_slow_query_entries(config: Dict[str, Any], now: datetime):
+    state = config.get(STATE_SECTION)
+    if not isinstance(state, dict):
+        return []
+
+    performance_state = state.get(PERFORMANCE_SLOW_QUERY_STATE_KEY)
+    if not isinstance(performance_state, dict):
+        return []
+
+    entries = performance_state.get("events")
+    if not isinstance(entries, list):
+        return []
+
+    cutoff = now - PERFORMANCE_SLOW_QUERY_WINDOW
     recent = []
     for entry in entries:
         if not isinstance(entry, dict):
