@@ -22,18 +22,21 @@ jest.mock("../src/llms/openai", () => ({
       .fn()
       .mockImplementation(
         (messages: Array<{ role: string; content: string }>) => {
-          const hasSystemRole = messages.some((m) => m.role === "system");
-          if (hasSystemRole) {
-            return JSON.stringify({ facts: ["extracted fact from input"] });
-          }
+          // V3 pipeline: single LLM call with additive extraction prompt.
+          const userMsg = messages.find((m) => m.role === "user");
+          const content = userMsg?.content ?? "";
+          const newMsgMatch = content.match(
+            /## New Messages\n([\s\S]*?)(?=\n##|$)/,
+          );
+          const extracted = newMsgMatch
+            ? newMsgMatch[1].trim()
+            : "extracted fact from input";
           return JSON.stringify({
             memory: [
               {
-                id: "new",
-                event: "ADD",
-                text: "extracted fact from input",
-                old_memory: "",
-                new_memory: "extracted fact from input",
+                id: "0",
+                text: extracted,
+                attributed_to: "user",
               },
             ],
           });
@@ -42,9 +45,15 @@ jest.mock("../src/llms/openai", () => ({
   })),
 }));
 
+const mockEmbedding = new Array(1536).fill(0.1);
 jest.mock("../src/embeddings/openai", () => ({
   OpenAIEmbedder: jest.fn().mockImplementation(() => ({
-    embed: jest.fn().mockResolvedValue(new Array(1536).fill(0.1)),
+    embed: jest.fn().mockResolvedValue(mockEmbedding),
+    embedBatch: jest
+      .fn()
+      .mockImplementation((texts: string[]) =>
+        Promise.resolve(texts.map(() => mockEmbedding)),
+      ),
     embeddingDims: 1536,
   })),
 }));
@@ -66,7 +75,7 @@ function createMemory(overrides: Partial<MemoryConfig> = {}): Memory {
     },
     llm: {
       provider: "openai",
-      config: { apiKey: "test-key", model: "gpt-4-turbo-preview" },
+      config: { apiKey: "test-key", model: "gpt-5-mini" },
     },
     historyDbPath: ":memory:",
     ...overrides,
@@ -93,15 +102,16 @@ describe("Memory - add()", () => {
   });
 
   test("returns at least one result with an id", async () => {
-    const result: SearchResult = await memory.add("I am a software engineer", {
-      userId,
-    });
+    const result: SearchResult = await memory.add(
+      "I enjoy hiking in the mountains",
+      { userId },
+    );
     expect(result.results.length).toBeGreaterThan(0);
     expect(result.results[0].id).toBeDefined();
   });
 
   test("result item has a memory string field", async () => {
-    const result: SearchResult = await memory.add("I am a software engineer", {
+    const result: SearchResult = await memory.add("My favorite color is blue", {
       userId,
     });
     expect(typeof result.results[0].memory).toBe("string");
@@ -116,14 +126,14 @@ describe("Memory - add()", () => {
     expect(result.results.length).toBeGreaterThan(0);
   });
 
-  test("works with agentId filter instead of userId", async () => {
+  test("works with agentId instead of userId", async () => {
     const result: SearchResult = await memory.add("test", {
       agentId: "agent_1",
     });
     expect(result.results.length).toBeGreaterThan(0);
   });
 
-  test("works with runId filter instead of userId", async () => {
+  test("works with runId instead of userId", async () => {
     const result: SearchResult = await memory.add("test", { runId: "run_1" });
     expect(result.results.length).toBeGreaterThan(0);
   });

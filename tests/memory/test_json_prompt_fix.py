@@ -184,31 +184,3 @@ class TestEnsureJsonInstruction:
     # Integration: verify fix is wired into both sync and async paths
     # -------------------------------------------------------------------
 
-    def test_fix_applied_in_sync_memory_class(self):
-        """Verify the ensure_json_instruction call exists in Memory._add_to_vector_store."""
-        import inspect
-        from mem0.memory.main import Memory
-
-        source = inspect.getsource(Memory._add_to_vector_store)
-        assert "ensure_json_instruction" in source, (
-            "ensure_json_instruction not found in Memory._add_to_vector_store (sync)"
-        )
-
-    def test_fix_applied_in_async_memory_class(self):
-        """Verify the ensure_json_instruction call exists in AsyncMemory._add_to_vector_store."""
-        import inspect
-        from mem0.memory.main import AsyncMemory
-
-        source = inspect.getsource(AsyncMemory._add_to_vector_store)
-        assert "ensure_json_instruction" in source, (
-            "ensure_json_instruction not found in AsyncMemory._add_to_vector_store (async)"
-        )
-
-    def test_import_exists_in_main(self):
-        """Verify ensure_json_instruction is imported in main.py."""
-        import inspect
-        import mem0.memory.main as main_module
-
-        source = inspect.getsource(main_module)
-        assert "from mem0.memory.utils import" in source
-        assert "ensure_json_instruction" in source

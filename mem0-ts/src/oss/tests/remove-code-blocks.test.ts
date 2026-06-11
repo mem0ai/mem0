@@ -65,4 +65,23 @@ describe("removeCodeBlocks", () => {
     const input = '```json\r\n{"facts": ["hello"]}\r\n```';
     expect(removeCodeBlocks(input)).toBe('{"facts": ["hello"]}');
   });
+
+  it("strips <think> blocks from reasoning models", () => {
+    const input =
+      '<think>Let me analyze this conversation...</think>\n{"facts": ["Name is John"]}';
+    expect(removeCodeBlocks(input)).toBe('{"facts": ["Name is John"]}');
+  });
+
+  it("strips <think> blocks inside code fences", () => {
+    const input =
+      '```json\n<think>thinking about it</think>\n{"facts": ["test"]}\n```';
+    expect(removeCodeBlocks(input)).toBe('{"facts": ["test"]}');
+  });
+
+  it("strips multi-line <think> blocks", () => {
+    const input =
+      "<think>\nStep 1: Read the conversation\nStep 2: Extract facts\n</think>\n" +
+      '{"facts": ["Likes pizza"]}';
+    expect(removeCodeBlocks(input)).toBe('{"facts": ["Likes pizza"]}');
+  });
 });

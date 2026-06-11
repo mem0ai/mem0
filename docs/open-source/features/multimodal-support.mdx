@@ -81,7 +81,7 @@ const messages = [
   }
 ];
 
-await client.add(messages, { user_id: "alice" });
+await client.add(messages, { userId: "alice" });
 ```
 </CodeGroup>
 
@@ -148,7 +148,7 @@ const messages = [
   }
 ];
 
-await client.add(messages, { user_id: "alice" });
+await client.add(messages, { userId: "alice" });
 ```
 </CodeGroup>
 
@@ -264,7 +264,7 @@ try {
     }
   }];
 
-  await client.add(messages, { user_id: "user123" });
+  await client.add(messages, { userId: "user123" });
   console.log("Image processed successfully");
 } catch (error: any) {
   if (error.type === "invalid_image") {

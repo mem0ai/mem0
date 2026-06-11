@@ -134,7 +134,7 @@ const filters = {
 const responseWithInstructions = await client.createMemoryExport({
     schema: json_schema,
     filters: filters,
-    export_instructions: export_instructions
+    exportInstructions: export_instructions
 });
 
 console.log(responseWithInstructions);
@@ -176,10 +176,10 @@ print(response)
 
 ```javascript JavaScript
 // Retrieve using export ID
-const memory_export_id = "550e8400-e29b-41d4-a716-446655440000";
+const memoryExportId = "550e8400-e29b-41d4-a716-446655440000";
 
 const response = await client.getMemoryExport({
-    memory_export_id: memory_export_id
+    memoryExportId: memoryExportId
 });
 
 console.log(response);

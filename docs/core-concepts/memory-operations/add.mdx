@@ -21,20 +21,16 @@ Adding memory is how Mem0 captures useful details from a conversation so your ag
 - **Messages** – The ordered list of user/assistant turns you send to `add`.
 - **Infer** – Controls whether Mem0 extracts structured memories (`infer=True`, default) or stores raw messages.
 - **Metadata** – Optional filters (e.g., `{"category": "movie_recommendations"}`) that improve retrieval later.
-- **User / Session identifiers** – `user_id`, `session_id`, or `run_id` that scope the memory for future searches.
+- **User / Session identifiers** – `user_id`, `agent_id`, or `run_id` that scope the memory for future searches.
 
 ## How does it work?
 
 Mem0 offers two flows:
 
-- **Mem0 Platform** – Fully managed API with dashboard, scaling, and graph features.
+- **Mem0 Platform** – Fully managed API with dashboard and scaling.
 - **Mem0 Open Source** – Local SDK that you run in your own environment.
 
 Both flows take the same payload and pass it through the same pipeline.
-
-<Frame caption="Architecture diagram illustrating the process of adding memories.">
-  <img src="../../images/add_architecture.png" />
-</Frame>
 
 <Steps>
 <Step title="Information extraction">
@@ -44,7 +40,7 @@ Mem0 sends the messages through an LLM that pulls out key facts, decisions, or p
 Existing memories are checked for duplicates or contradictions so the latest truth wins.
 </Step>
 <Step title="Storage">
-The resulting memories land in managed vector storage (and optional graph storage) so future searches return them quickly.
+The resulting memories land in managed vector storage so future searches return them quickly.
 </Step>
 </Steps>
 
@@ -85,7 +81,6 @@ const messages = [
 
 await client.add(messages, {
   user_id: "alice",
-  version: "v2",
 });
 ```
 </CodeGroup>
@@ -173,13 +168,12 @@ For full list of supported fields, required formats, and advanced options, see t
 | Capability | Mem0 Platform | Mem0 OSS |
 | --- | --- | --- |
 | Conflict resolution | Automatic with dashboard visibility | SDK handles merges locally; you control storage |
-| Graph writes | Toggle per request (`enable_graph=True`) | Requires configuring a graph provider |
 | Rate limits | Managed quotas per workspace | Limited by your hardware and provider APIs |
 | Dashboard visibility | Yes — inspect memories visually | Inspect via CLI, logs, or custom UI |
 
 ## Put it into practice
 
-- Review the <Link href="/platform/advanced-memory-operations">Advanced Memory Operations</Link> guide to layer metadata, rerankers, and graph toggles.
+- Review the <Link href="/platform/advanced-memory-operations">Advanced Memory Operations</Link> guide to layer metadata and rerankers.
 - Explore the <Link href="/api-reference/memory/add-memories">Add Memories API reference</Link> for every request/response field.
 
 ## See it live

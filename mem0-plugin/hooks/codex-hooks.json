@@ -1,0 +1,104 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/block_memory_write.sh",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_file_read.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_session_start.sh",
+            "statusMessage": "Loading mem0 context..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_user_prompt.sh",
+            "statusMessage": "Checking memory relevance...",
+            "timeout": 12
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_post_tool_use.sh",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_bash_output.sh",
+            "timeout": 12
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_stop.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${PLUGIN_ROOT}/scripts/on_pre_compact.sh",
+            "statusMessage": "Preparing pre-compaction summary..."
+          }
+        ]
+      }
+    ]
+  }
+}

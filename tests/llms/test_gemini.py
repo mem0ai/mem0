@@ -117,3 +117,73 @@ def test_generate_response_with_tools(mock_gemini_client: Mock):
     assert len(response["tool_calls"]) == 1
     assert response["tool_calls"][0]["name"] == "add_memory"
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
+
+
+def test_parse_response_none_content_no_tools(mock_gemini_client: Mock):
+    """Gemini can return content=None when response is blocked by safety filters."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+
+    mock_candidate = Mock(content=None)
+    mock_response = Mock(candidates=[mock_candidate])
+
+    result = llm._parse_response(mock_response, tools=None)
+    assert result == ""
+
+
+def test_parse_response_none_content_with_tools(mock_gemini_client: Mock):
+    """Gemini can return content=None when response is blocked by safety filters (tools path)."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+
+    mock_candidate = Mock(content=None)
+    mock_response = Mock(candidates=[mock_candidate])
+
+    result = llm._parse_response(mock_response, tools=[{"function": {"name": "test"}}])
+    assert result == {"content": None, "tool_calls": []}
+
+
+def test_parse_response_empty_candidates(mock_gemini_client: Mock):
+    """Gemini can return an empty candidates list."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+
+    mock_response = Mock(candidates=[])
+    result = llm._parse_response(mock_response, tools=None)
+    assert result == ""
+
+
+def test_parse_response_none_candidates(mock_gemini_client: Mock):
+    """Gemini can return candidates=None."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+
+    mock_response = Mock(candidates=None)
+    result = llm._parse_response(mock_response, tools=None)
+    assert result == ""
+
+
+def test_parse_response_empty_parts_no_tools(mock_gemini_client: Mock):
+    """Gemini can return content with an empty parts list."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+
+    mock_content = Mock(parts=[])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+
+    result = llm._parse_response(mock_response, tools=None)
+    assert result == ""
+
+
+def test_parse_response_empty_parts_with_tools(mock_gemini_client: Mock):
+    """Gemini can return content with an empty parts list (tools path)."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+
+    mock_content = Mock(parts=[])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+
+    result = llm._parse_response(mock_response, tools=[{"function": {"name": "test"}}])
+    assert result == {"content": None, "tool_calls": []}

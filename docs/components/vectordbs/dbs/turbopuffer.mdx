@@ -1,0 +1,79 @@
+---
+title: "Turbopuffer"
+description: "Use Turbopuffer as a serverless vector database in Mem0 for low-latency search at scale with native metadata filtering."
+---
+[Turbopuffer](https://turbopuffer.com) is a serverless vector database optimized for low-latency search at scale. It offers cost-effective vector storage with native metadata filtering.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+os.environ["TURBOPUFFER_API_KEY"] = "tpuf_xxxxxxxxxxxx"
+
+config = {
+    "vector_store": {
+        "provider": "turbopuffer",
+        "config": {
+            "collection_name": "movie_preferences",
+            "embedding_model_dims": 1536,
+            "region": "gcp-us-central1",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thrillers but I love sci-fi."},
+    {"role": "assistant", "content": "Got it! I'll suggest sci-fi movies instead."}
+]
+
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+
+# Search memories
+results = m.search(query="sci-fi recommendations", filters={"user_id": "alice"})
+```
+
+### Config
+
+Here are the parameters available for configuring Turbopuffer:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | Name of the namespace/collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model (must match your chosen embedding model) | `1536` |
+| `api_key` | Turbopuffer API key | Environment variable: `TURBOPUFFER_API_KEY` |
+| `region` | Turbopuffer region | `gcp-us-central1` |
+| `distance_metric` | Distance metric for vector similarity (`cosine_distance` or `euclidean_squared`) | `cosine_distance` |
+| `batch_size` | Batch size for bulk operations | `100` |
+| `extra_params` | Additional parameters for the Turbopuffer client | `None` |
+
+### Regions
+
+| Region | Location |
+| --- | --- |
+| `gcp-us-central1` | Iowa, USA (Default) |
+| `aws-us-west-2` | Oregon, USA |
+
+### Config Example
+
+```python
+config = {
+    "vector_store": {
+        "provider": "turbopuffer",
+        "config": {
+            "collection_name": "my_memories",
+            "embedding_model_dims": 1536,
+            "api_key": "tpuf_xxxxxxxxxxxx",
+            "region": "aws-us-west-2",
+            "distance_metric": "cosine_distance",
+            "batch_size": 200,
+        }
+    }
+}
+```

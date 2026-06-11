@@ -91,6 +91,167 @@ def test_generate_response_with_tools(mock_openai_client):
     assert response["tool_calls"][0]["arguments"] == {"data": "Today is a sunny day."}
 
 
+def test_generate_response_with_response_format(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a memory extraction assistant."},
+        {"role": "user", "content": "I like hiking on weekends."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content='{"facts": ["User likes hiking on weekends"]}'))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages, response_format={"type": "json_object"})
+
+    mock_openai_client.chat.completions.create.assert_called_once_with(
+        model=MODEL,
+        messages=messages,
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+        response_format={"type": "json_object"},
+    )
+    assert response == '{"facts": ["User likes hiking on weekends"]}'
+
+
+def test_generate_response_without_response_format(mock_openai_client):
+    config = AzureOpenAIConfig(model=MODEL, temperature=TEMPERATURE, max_tokens=MAX_TOKENS, top_p=TOP_P)
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Tell me a joke."},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Why did the chicken cross the road?"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "response_format" not in call_kwargs
+    assert response == "Why did the chicken cross the road?"
+
+
+def test_reasoning_model_with_reasoning_effort(mock_openai_client):
+    """Test that reasoning_effort is passed to the API for Azure reasoning models."""
+    config = AzureOpenAIConfig(model="o3-mini", reasoning_effort="low")
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful ai."},
+        {"role": "user", "content": "Hello"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response from o3-mini"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    response = llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert call_kwargs[1]["reasoning_effort"] == "low"
+    assert "temperature" not in call_kwargs[1]
+    assert response == "Response from o3-mini"
+
+
+def test_azure_reasoning_effort_not_passed_when_none(mock_openai_client):
+    """Test that reasoning_effort is not passed when not configured on Azure."""
+    config = AzureOpenAIConfig(model="o3-mini")
+    llm = AzureOpenAILLM(config)
+    messages = [
+        {"role": "system", "content": "You are a helpful ai."},
+        {"role": "user", "content": "Hello"},
+    ]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args
+    assert "reasoning_effort" not in call_kwargs[1]
+
+
+def test_azure_config_accepts_reasoning_effort():
+    """Test that AzureOpenAIConfig accepts reasoning_effort without TypeError (issue #3651)."""
+    config = AzureOpenAIConfig(
+        model="o3-mini",
+        reasoning_effort="low",
+        azure_kwargs={"api_key": "test"},
+    )
+    assert config.reasoning_effort == "low"
+    assert config.model == "o3-mini"
+
+
+def test_is_reasoning_model_override_forces_reasoning_path(mock_openai_client):
+    """Versioned Azure gpt-5.x deployments can opt in via is_reasoning_model=True.
+
+    Regression test for https://github.com/mem0ai/mem0/issues/5296 — the
+    name-based heuristic does not recognize dated deployment names like
+    ``gpt-5.4-nano-2026-03-17``, so the call sent max_tokens and Azure replied
+    400. The explicit override forces the reasoning-model parameter set, which
+    drops max_tokens (and temperature).
+    """
+    config = AzureOpenAIConfig(
+        model="gpt-5.4-nano-2026-03-17",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        is_reasoning_model=True,
+    )
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "I have oily skin."}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert "max_tokens" not in call_kwargs
+    assert "temperature" not in call_kwargs
+
+
+def test_is_reasoning_model_override_false_keeps_standard_params(mock_openai_client):
+    """is_reasoning_model=False forces the standard param set even for o-series names."""
+    config = AzureOpenAIConfig(
+        model="o3-mini",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+        is_reasoning_model=False,
+    )
+    llm = AzureOpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs["max_tokens"] == MAX_TOKENS
+    assert call_kwargs["temperature"] == TEMPERATURE
+
+
+def test_is_reasoning_model_defaults_to_name_heuristic(mock_openai_client):
+    """When is_reasoning_model is None (default), classification stays name-based."""
+    config = AzureOpenAIConfig(
+        model="gpt-5.4-nano-2026-03-17",
+        temperature=TEMPERATURE,
+        max_tokens=MAX_TOKENS,
+        top_p=TOP_P,
+    )
+    llm = AzureOpenAILLM(config)
+    # Unrecognized versioned name -> heuristic says "not reasoning" (unchanged).
+    assert config.is_reasoning_model is None
+    assert llm._is_reasoning_model("gpt-5.4-nano-2026-03-17") is False
+
+
 @pytest.mark.parametrize(
     "default_headers",
     [None, {"Firstkey": "FirstVal", "SecondKey": "SecondVal"}],
@@ -191,8 +352,8 @@ def test_init_with_env_vars(monkeypatch):
             http_client=None,
             default_headers=None,
         )
-        # Should default to "gpt-4.1-nano-2025-04-14" if model is None
-        assert llm.config.model == "gpt-4.1-nano-2025-04-14"
+        # Should default to "gpt-5-mini" if model is None
+        assert llm.config.model == "gpt-5-mini"
 
 
 def test_init_with_default_azure_credential(monkeypatch):

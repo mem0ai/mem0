@@ -313,7 +313,7 @@ describe("Memory – auto-initialization", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     // Should have called embed("dimension probe") to detect dimension
     expect(mockEmbedder.embed).toHaveBeenCalledWith("dimension probe");
@@ -339,7 +339,7 @@ describe("Memory – auto-initialization", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     // embed should NOT have been called for probing
     expect(mockEmbedder.embed).not.toHaveBeenCalledWith("dimension probe");
@@ -365,7 +365,7 @@ describe("Memory – auto-initialization", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     // ConfigManager resolves dimension from embeddingDims → no probe needed
     expect(mockEmbedder.embed).not.toHaveBeenCalledWith("dimension probe");
@@ -403,9 +403,11 @@ describe("Memory – auto-initialization", () => {
     let searchDone = false;
     let getDone = false;
 
-    const getAllP = mem.getAll({ userId: "u" }).then(() => (getAllDone = true));
+    const getAllP = mem
+      .getAll({ filters: { user_id: "u" } })
+      .then(() => (getAllDone = true));
     const searchP = mem
-      .search("q", { userId: "u" })
+      .search("q", { filters: { user_id: "u" } })
       .then(() => (searchDone = true));
     const getP = mem.get("id").then(() => (getDone = true));
 
@@ -435,7 +437,7 @@ describe("Memory – auto-initialization", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
     expect(mockVectorStoreFactory.create).toHaveBeenCalledTimes(1);
 
     // Reset should re-create vector store
@@ -467,13 +469,13 @@ describe("Memory – auto-initialization", () => {
       },
       llm: {
         provider: "openai",
-        config: { apiKey: "sk-fake", model: "gpt-4-turbo-preview" },
+        config: { apiKey: "sk-fake", model: "gpt-5-mini" },
       },
       historyDbPath: ":memory:",
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
     expect(mockEmbedder.embed).not.toHaveBeenCalledWith("dimension probe");
   });
 
@@ -497,7 +499,7 @@ describe("Memory – auto-initialization", () => {
     });
 
     // getAll should reject with the init error
-    await expect(mem.getAll({ userId: "u1" })).rejects.toThrow(
+    await expect(mem.getAll({ filters: { user_id: "u1" } })).rejects.toThrow(
       "auto-detect embedding dimension",
     );
 

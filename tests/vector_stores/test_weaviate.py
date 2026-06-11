@@ -1,10 +1,10 @@
 import os
-import uuid
-import httpx
 import unittest
+import uuid
 from unittest.mock import MagicMock, patch
 
 import dotenv
+import httpx
 import weaviate
 from weaviate.exceptions import UnexpectedStatusCodeException
 
@@ -137,7 +137,7 @@ class TestWeaviateDB(unittest.TestCase):
         mock_hybrid.return_value = mock_response
 
         vectors = [[0.1] * 1536]
-        results = self.weaviate_db.search(query="", vectors=vectors, limit=5)
+        results = self.weaviate_db.search(query="", vectors=vectors, top_k=5)
 
         mock_hybrid.assert_called_once()
 
@@ -170,7 +170,7 @@ class TestWeaviateDB(unittest.TestCase):
         self.client_mock.collections.get.return_value.query.fetch_objects = mock_fetch
         mock_fetch.return_value = mock_response
 
-        results = self.weaviate_db.list(limit=10)
+        results = self.weaviate_db.list(top_k=10)
 
         mock_fetch.assert_called_once()
 

@@ -1,0 +1,303 @@
+---
+title: "OpenClaw"
+description: "Release notes for the OpenClaw plugin and agent harness."
+mode: "wide"
+---
+
+<Update label="2026-04-29" description="v1.0.11">
+
+**New Features:**
+- **Skills-mode auto-setup:** `enableSkillsConfig()` now runs automatically after onboarding — enables triage, recall (with reranking + keyword search), and dream consolidation with `tools.profile = "full"` and disables the built-in session-memory hook to avoid conflicts
+- **Memory runtime capability:** Plugin now exposes `runtime.getMemorySearchManager()` and `resolveMemoryBackendConfig()` on the registered memory capability, enabling OpenClaw gateway to query memory status and backend config directly
+- **Dimension-aware collections:** OSS wizard detects embedder dimension changes and creates a new collection (`mem0_<dims>d`) automatically, with a warning about old memories being inaccessible under the new embedder
+- **Tool documentation in skills:** Both `memory-triage` and `memory-dream` SKILL.md files now include full tool reference sections listing all available tools with parameters
+
+**Improvements:**
+- **Auto-capture and auto-recall default to enabled:** `autoCapture` and `autoRecall` now default to `true` (was `false`). Manifest descriptions updated accordingly. Ignored in skills mode
+- **`memory_update` over delete+add:** Skills now prefer `memory_update` for in-place edits — atomic and preserves edit history. Consolidation pattern updated: update best memory, delete redundant ones
+- **Search threshold lowered:** Default `searchThreshold` reduced from `0.5` to `0.1` for broader recall. Removed hardcoded `0.6` recall-specific override — all searches now use the configured threshold
+- **Embedder dimension propagation:** Vector store config auto-resolves dimensions from embedder config when not explicitly set. Syncs `dimension` and `embeddingModelDims` fields for Qdrant/PGVector compatibility
+- **Config file write safety:** `writeFullConfig()` now re-reads and deep-merges the `plugins` section before writing, preserving `installs` and `slots` written by the OpenClaw gateway
+- **Additional embedder models:** Added `mxbai-embed-large` (1024), `all-minilm` (384), and `snowflake-arctic-embed` (1024) to known embedder dimensions
+
+**Security:**
+- Bumped `protobufjs` to `>=7.5.5` via pnpm overrides (GHSA-xq3m-2v4x-88gg) ([#5012](https://github.com/mem0ai/mem0/pull/5012))
+
+**Fixes:**
+- Moved `bootstrapTelemetryFlag()` and removed `ensureInstallRecord()` from module-level side effects — both now run inside `register()` to avoid crashes when loaded outside OpenClaw gateway
+- Fixed OSS history DB path resolution: absolute paths no longer passed through `resolvePath()`, preventing double-prefix bugs
+- Manifest `providerAuthEnvVars` replaced with spec-compliant `setup.providers` format using `id` + `envVars`
+
+**Dependencies:**
+- Bumped `mem0ai` from `3.0.1` to `3.0.2`
+- Bumped `pluginApi` and `minGatewayVersion` compat to `>=2026.4.24`
+
+</Update>
+
+<Update label="2026-04-23" description="v1.0.10">
+
+**Security:**
+- Telemetry `distinct_id` now uses SHA-256 instead of MD5 — prevents rainbow-table reversal of API key hashes
+- User email is now SHA-256 hashed before sending as `distinct_id` — no PII in telemetry payloads
+- Declared PostHog telemetry endpoint (`us.i.posthog.com`) in `providerEndpoints`
+
+**Fixes:**
+- Fixed version-pinned install records preventing plugin updates. `ensureInstallRecord()` now detects semver-pinned specs (e.g. `@mem0/openclaw-mem0@1.0.7`) and rewrites them to `@latest` or `clawhub:` prefix so `openclaw plugins update` resolves to the newest release
+- Fixed `searchThreshold` default inconsistency: standardized to `0.3` across docs, README, and manifest
+- `PLUGIN_VERSION` now injected at build time via tsup `define` from `package.json` — no more hardcoded version strings
+
+**Manifest Compliance:**
+- Removed non-spec fields: `requiredEnvVars`, `dataLocations`, `privacy`, `setup` (with `externalEndpoints`, `providers`, `requiresRuntime`, `postInstallHint`)
+- Replaced `setup.externalEndpoints` with spec-compliant `providerEndpoints` using `endpointClass` + `hosts` format
+- Env var declarations now rely solely on `providerAuthEnvVars` (already spec-compliant)
+
+**Docs:**
+- Fixed `openclaw plugins update` command: uses plugin ID (`openclaw-mem0`), not npm package name (`@mem0/openclaw-mem0`)
+- Added update section to README
+- Removed redundant "Key Features" and "Conclusion" sections from integration docs
+
+</Update>
+
+<Update label="2026-04-22" description="v1.0.9">
+
+**Security & Compliance:**
+- Added top-level `requiredEnvVars` to plugin manifest, declaring env vars per mode (platform, OSS OpenAI, OSS Anthropic, OSS Ollama). Fixes ClaHub scanner "required env vars: none" mismatch
+- Added `sensitive: true` and descriptions to `apiKey` and `userEmail` in `configSchema` — previously only declared in `uiHints`
+- Added `default: false` with descriptions to `autoCapture` and `autoRecall` in `configSchema` so scanner can confirm opt-in defaults
+- Added `dataLocations` field to manifest declaring all persistence paths (config, vectorStore, historyDb, dreamState)
+- Added `privacy` field to manifest documenting data flow for platform vs open-source mode and credential storage guidance
+- Added `externalEndpoints` to `setup` section declaring api.mem0.ai and app.mem0.ai with purpose and requirement context
+
+**Tests:**
+- Replaced direct `process.env` access in `tests/cli-commands.test.ts` and `tests/fs-safe.test.ts` with `vi.stubEnv`/`vi.unstubAllEnvs`. Fixes ClaHub static analysis flag for "environment variable access combined with network send"
+- 421 tests across 15 test files
+
+</Update>
+
+<Update label="2026-04-21" description="v1.0.8">
+
+**New Features:**
+- **OSS Onboarding Wizard:** New guided 4-step interactive setup for open-source mode — walks through LLM provider, embedding provider, vector store, and user ID selection with prefilled defaults
+- **Agent-Friendly CLI:** Added `--json` flag to all 16 CLI commands for machine-readable output. Agents can call `openclaw mem0 help --json` to discover every command and flag
+- **Non-Interactive OSS Setup:** Added `--mode open-source` with `--oss-llm`, `--oss-embedder`, `--oss-vector` flags for fully automated OSS configuration without prompts
+- **JSON Helpers Module:** New `cli/json-helpers.ts` with `jsonOut`, `jsonErr`, and `redactSecrets` utilities for consistent structured output
+
+**Improvements:**
+- **Init Flow Redesigned:** Replaced 3-option flat menu with 2-level structure: Platform (email login or API key) and Open Source (guided wizard)
+- **Provider Selection:** LLM providers: OpenAI, Ollama, Anthropic. Embedding providers: OpenAI, Ollama. Vector stores: Qdrant, PGVector
+- **Input Prefill:** All prompts with defaults (base URL, user ID) now prefill the input field instead of showing defaults in brackets
+- **Smart Reuse:** When LLM and embedder use the same provider, API key and base URL are automatically reused from the LLM step
+- **Default Model:** Updated default LLM model to `gpt-5-mini`
+- **Manifest Compliance:** Removed undocumented fields, aligned env var declarations between SKILL.md and manifest, fixed `configSchema.required` for clean installs
+
+**Tests:**
+- 404 tests across 15 test files (+3 new: `json-helpers.test.ts`, `oss-wizard.test.ts`, `cli-commands.test.ts`)
+
+</Update>
+
+<Update label="2026-04-20" description="v1.0.7">
+
+**New Features:**
+- **Chat-Based Setup:** Added chat-based Platform setup flow — users can now configure the plugin conversationally instead of editing config files manually
+- **Installation Docs Rewrite:** Rewrote README and integration docs with chat-first setup, numbered manual steps.
+
+**Improvements:**
+- **SDK Upgrade:** Bumped `mem0ai` dependency to 3.0.1 for V3 API compatibility
+- **Config Cleanup:** Dropped deprecated `orgId`, `projectId`, `enableGraph` config options; updated CLI prompts ([#4734](https://github.com/mem0ai/mem0/pull/4734), [#4764](https://github.com/mem0ai/mem0/pull/4764))
+- **Noise Filtering:** Expanded noise patterns in memory add tool; handle leading text in JSON extraction
+
+</Update>
+
+<Update label="2026-04-11" description="v1.0.6">
+
+**Bug Fixes:**
+- **Telemetry:** Replaced shared `"anonymous-openclaw"` fallback with a persistent per-machine random hash (`openclaw-anon-<uuid>`), so anonymous plugin users are counted individually in PostHog ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Added PostHog `$identify` event on first authenticated run to stitch anonymous history onto the authenticated profile ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Fixed event loss on short-lived CLI invocations — added `beforeExit` handler to flush queued events before the process exits ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Added lazy `/v1/ping/` email resolution so users who configure API key outside `mem0 init` show as their email in PostHog, not an md5 hash ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+- **Telemetry:** Unified CLI event prefix from `openclaw.<cmd>` to `openclaw.cli.<cmd>` on the needsSetup branch to match the authenticated branch ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+
+**Improvements:**
+- **API:** Added `source: "OPENCLAW"` to all provider calls (`add`, `search`, `getAll`) across tools, CLI commands, recall, and the OSS backend adapter ([#4790](https://github.com/mem0ai/mem0/pull/4790))
+
+</Update>
+
+<Update label="2026-04-07" description="v1.0.5">
+
+**Bug Fixes:**
+- **Init interactive choice bug**: Fixed number selection in `openclaw mem0 init` — entering 1/2/3 now correctly selects the corresponding option (was broken by readline prefill concatenating with user input)
+- **OSS pgvector crash** ([#4727](https://github.com/mem0ai/mem0/issues/4727)): Fixed "Client has already been connected" cascade when using pgvector in OSS mode. The warmup call swallowed errors leaving a half-initialized pg client; concurrent recall/capture then all hit `client.connect()` on the same client. Fix: let warmup errors propagate (so `initPromise` resets and retries with a fresh Memory + fresh pg client) and build fresh config objects per attempt instead of mutating shared state.
+
+**Removed:**
+- **`orgId` / `projectId` config parameters**: Removed from config schema, CLI (`config show/get/set`), init display, and providers. The API key is project-scoped, so separate org/project IDs are unnecessary and could cause access errors if mismatched.
+- **`enableGraph` config parameter**: Removed from all config surfaces, providers, backend, and tools. Graph memory is being deprecated — removing the flag avoids unnecessary exposure.
+
+</Update>
+
+<Update label="2026-04-04" description="v1.0.4">
+
+**New Features:**
+- **Interactive init flow**: `openclaw mem0 init` with interactive menu (email verification or direct API key). Non-interactive modes: `--api-key`, `--email`, `--email --code`
+- **`memory_add` tool**: Replaces `memory_store` — name now matches `mem0` CLI and platform API
+- **`memory_delete` tool**: Unified delete — single ID, search-then-delete, bulk, entity cascade. Replaces `memory_forget` and `memory_delete_all`
+- **CLI subcommands**: `openclaw mem0 init`, `openclaw mem0 status`, `openclaw mem0 config show`, `openclaw mem0 config set`
+- **`import` CLI command**: Bulk-import memories from a JSON file with `--user-id` and `--agent-id` overrides
+- **`event list` / `event status` CLI commands**: Monitor background processing events
+- **`fs-safe.ts` module**: Isolated filesystem wrappers in a separate entry point
+- **`backend/` module**: `PlatformBackend` with direct HTTP API access for CLI commands
+- **Plugin manifest**: Added `contracts.tools`, `configSchema`, and `uiHints` to `openclaw.plugin.json`
+- **Test suite**: 329 tests across 10 test files
+
+**Changes:**
+- **Modular architecture**: Extracted tools into `tools/` directory (6 files) and CLI into `cli/commands.ts`
+- **Code splitting**: tsup builds with `splitting: true` and two entry points
+- **Skills updated**: All SKILL.md files reference new tool names (`memory_add`, `memory_delete`)
+- **Auto-recall timeout**: Recall wrapped in 8-second `Promise.race`
+- **Auto-capture fire-and-forget**: `provider.add()` runs in background via `.then()/.catch()`
+- **Auto-capture minimum content gate**: Skips extraction when total user content is fewer than 50 chars
+
+**Removed:**
+- `memory_store` tool — replaced by `memory_add`
+- `memory_forget` tool — replaced by `memory_delete`
+- `memory_delete_all` tool — merged into `memory_delete`
+- `memory_history` tool and `history` CLI command — deprecated
+
+</Update>
+
+<Update label="2026-04-03" description="v1.0.3">
+
+**Bug Fixes:**
+- **Security**: Added `safePath()` containment helper to `readSkillFile` and `readDomainOverlay` in `skill-loader.ts` — prevents directory traversal
+- **Noise filter**: Reverted incorrect `After-Compaction` regex rename back to `Post-Compaction`
+
+**Changes:**
+- **Supply-chain hardening**: Pinned `mem0ai` dependency to exact `2.3.0` (was `^2.3.0`)
+
+**Tests:**
+- 12 new tests covering `safePath`, `readSkillFile`, `readDomainOverlay`, and `loadSkill` with traversal inputs
+
+</Update>
+
+<Update label="2026-04-02" description="v1.0.2">
+
+**Bug Fixes:**
+- **Security**: Removed `resolveEnvVars()` and `resolveEnvVarsDeep()` from `config.ts` — plugin-side env resolution was redundant and triggered static analysis warnings ([#4676](https://github.com/mem0ai/mem0/pull/4676))
+
+</Update>
+
+<Update label="2026-04-02" description="v1.0.1">
+
+**New Features:**
+- **CD workflow**: Added continuous deployment workflow with OIDC trusted publishing ([#4672](https://github.com/mem0ai/mem0/pull/4672))
+- **Plugin configuration manifest**: Added `compat` and `build` metadata to `package.json` ([#4667](https://github.com/mem0ai/mem0/pull/4667))
+- **LICENSE**: Added Apache-2.0 license file ([#4667](https://github.com/mem0ai/mem0/pull/4667))
+
+**Bug Fixes:**
+- **Dream gate**: Fixed cheap-first ordering, session isolation, and verified completion ([#4666](https://github.com/mem0ai/mem0/pull/4666))
+- **Graceful startup**: Plugin now starts gracefully when no API key is configured ([#4669](https://github.com/mem0ai/mem0/pull/4669))
+
+</Update>
+
+<Update label="2026-04-01" description="v1.0.0">
+
+**New Features:**
+- **Skills-based memory architecture**: New skill-loader and skill-based extraction pipeline with batched extraction ([#4624](https://github.com/mem0ai/mem0/pull/4624))
+- **Dream gate**: Memory consolidation and dream-cycle processing during idle periods
+- **Enhanced recall**: New `recall.ts` module with improved recall logic and skill-aware retrieval
+- **Memory triage skill**: Domain-aware memory triage with companion domain support and recall protocol
+- **Memory dream skill**: Skill for memory consolidation during idle periods
+- **Plugin configuration**: Added `openclaw.plugin.json` manifest and `scripts/configure.py` setup helper
+
+**Changes:**
+- Extraction pipeline refactored to use skills-based architecture for more contextual and higher quality memory capture
+
+</Update>
+
+<Update label="2026-03-26" description="v0.4.1">
+
+**New Features:**
+- **Improved extraction quality**: Enhanced noise filtering, deduplication, and better extraction instructions
+
+**Bug Fixes:**
+- **Credential detection**: Improved detection of credentials, API keys, and secrets in extraction instructions (#4552)
+- **Standalone timestamps**: Prevented extraction of standalone timestamps as memories (#4550)
+
+</Update>
+
+<Update label="2026-03-16" description="v0.4.0">
+
+**New Features:**
+- **Non-interactive trigger filtering**: Skips recall and capture for `cron`, `heartbeat`, `automation`, and `schedule` triggers
+- **Subagent hallucination prevention**: Detects ephemeral subagent sessions and routes recall to parent namespace
+- **Dynamic recall thresholding**: Memories scoring less than 50% of top result are dropped
+- **SQLite resilience**: Init error recovery with automatic retry for OSS mode
+- **`disableHistory` config option**: New `oss.disableHistory` flag
+- 78 unit tests covering filtering, isolation, trigger filtering, subagent detection, and SQLite resilience
+
+**Changes:**
+- Auto-recall threshold raised from 0.5 to 0.6 for stricter precision
+- Recall candidate pool increased to `topK * 2` for better filtering headroom
+- Relaxed extraction instructions: related facts kept together to preserve context
+
+**Bug Fixes:**
+- **Concurrent session race condition**: Lifecycle hooks now use `ctx.sessionKey` directly instead of a shared mutable variable
+
+</Update>
+
+<Update label="2026-03-12" description="v0.3.1">
+
+**New Features:**
+- **Message filtering pipeline**: Multi-stage noise removal before extraction
+- **Broad recall for new sessions**: Short or new-session prompts trigger secondary broad search
+- **Client-side threshold filtering**: Safety net that drops low-relevance results
+- **Temporal anchoring**: Extraction instructions now include current date
+- 55 unit tests covering filtering and isolation helpers
+
+**Changes:**
+- Extraction window expanded from last 10 to last 20 messages
+- Rewritten custom extraction instructions for conciseness and deduplication
+- Refactored monolithic `index.ts` (1772 lines) into 6 focused modules
+
+</Update>
+
+<Update label="2026-03-10" description="v0.3.0">
+
+**Bug Fixes:**
+- Updated `mem0ai` dependency with sqlite3 to better-sqlite3 migration (#4270)
+
+</Update>
+
+<Update label="2026-03-09" description="v0.2.0">
+
+**New Features:**
+- Per-agent memory isolation for multi-agent setups via `agentId`
+- "Understanding userId" section in docs
+
+**Changes:**
+- Updated config examples to use concrete `userId` values instead of placeholders
+
+**Bug Fixes:**
+- Migrated platform search to Mem0 v2 API
+
+</Update>
+
+<Update label="2026-02-19" description="v0.1.2">
+
+**New Features:**
+- Source field for openclaw memory entries
+
+**Bug Fixes:**
+- Auto-recall injection and auto-capture message drop
+
+</Update>
+
+<Update label="2026-02-02" description="v0.1.0">
+
+**New Features:**
+- Initial release of the OpenClaw Mem0 plugin
+- Platform mode (Mem0 Cloud) and open-source mode support
+- Auto-recall: inject relevant memories before each turn
+- Auto-capture: store facts after each turn
+- Configurable `topK`, `threshold`, and `apiVersion` options
+
+</Update>

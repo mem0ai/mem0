@@ -32,22 +32,25 @@ class GeminiLLM(LLMBase):
         Returns:
             str or dict: The processed response.
         """
+        # Get parts safely — content can be None when Gemini blocks the response
+        candidate = response.candidates[0] if response.candidates else None
+        parts = candidate.content.parts if candidate and candidate.content else None
+
         if tools:
             processed_response = {
                 "content": None,
                 "tool_calls": [],
             }
 
-            # Extract content from the first candidate
-            if response.candidates and response.candidates[0].content.parts:
-                for part in response.candidates[0].content.parts:
+            if parts:
+                # Extract content from the first candidate
+                for part in parts:
                     if hasattr(part, "text") and part.text:
                         processed_response["content"] = part.text
                         break
 
-            # Extract function calls
-            if response.candidates and response.candidates[0].content.parts:
-                for part in response.candidates[0].content.parts:
+                # Extract function calls
+                for part in parts:
                     if hasattr(part, "function_call") and part.function_call:
                         fn = part.function_call
                         processed_response["tool_calls"].append(
@@ -59,8 +62,8 @@ class GeminiLLM(LLMBase):
 
             return processed_response
         else:
-            if response.candidates and response.candidates[0].content.parts:
-                for part in response.candidates[0].content.parts:
+            if parts:
+                for part in parts:
                     if hasattr(part, "text") and part.text:
                         return part.text
             return ""

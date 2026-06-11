@@ -20,7 +20,7 @@ client = MemoryClient(api_key="your-api-key")
 ```
 
 <Note>
-Your API key needs export permissions to download memory data. Check your project settings on the [dashboard](https://app.mem0.ai) if export operations fail with authentication errors.
+Your API key needs export permissions to download memory data. Check your project settings on the <a href="https://app.mem0.ai?utm_source=oss&utm_medium=cookbook-exporting-memories" rel="nofollow">dashboard</a> if export operations fail with authentication errors.
 </Note>
 
 Let's add some sample memories to work with:
@@ -280,8 +280,8 @@ This covers data portability, GDPR compliance, system migrations, and manual rev
 Use **`get_all()`** for bulk retrieval, **`search()`** for specific questions, and **`create_memory_export()`** for structured data exports with custom schemas. Remember exports expire after 7 days—download them locally for long-term archives.
 
 <CardGroup cols={2}>
-  <Card title="Expire Short-Term Data" icon="timer" href="/cookbooks/essentials/memory-expiration-short-and-long-term">
-    Keep exports lean by clearing session context before you archive it.
+  <Card title="Build a Mem0 Companion" icon="users" href="/cookbooks/essentials/building-ai-companion">
+    Learn core memory patterns including temporary vs permanent data handling.
   </Card>
   <Card title="Control Memory Ingestion" icon="filter" href="/cookbooks/essentials/controlling-memory-ingestion">
     Ensure only verified insights make it into your export pipeline.

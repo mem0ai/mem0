@@ -90,7 +90,7 @@ async def get_memory():
 
 async def safe_memory_usage():
     async with get_memory() as memory:
-        return await memory.search("test query", user_id="alice")
+        return await memory.search("test query", filters={"user_id": "alice"})
 ```
 
 <Tip>
@@ -145,7 +145,7 @@ async def robust_memory_search():
     memory = AsyncMemory()
 
     async def search_operation():
-        return await memory.search("test query", user_id="alice")
+        return await memory.search("test query", filters={"user_id": "alice"})
 
     return await with_timeout_and_retry(search_operation)
 ```
@@ -173,11 +173,11 @@ result = await memory.add(
 # Search memories
 results = await memory.search(
     query="Where am I travelling?",
-    user_id="alice"
+    filters={"user_id": "alice"}
 )
 
 # List memories
-all_memories = await memory.get_all(user_id="alice")
+all_memories = await memory.get_all(filters={"user_id": "alice"})
 
 # Get a specific memory
 specific_memory = await memory.get(memory_id="memory-id-here")
@@ -213,13 +213,11 @@ await memory.add(
     run_id="consultation-001"
 )
 
-all_user_memories = await memory.get_all(user_id="alice")
-agent_memories = await memory.get_all(user_id="alice", agent_id="diet-assistant")
-session_memories = await memory.get_all(user_id="alice", run_id="consultation-001")
+all_user_memories = await memory.get_all(filters={"user_id": "alice"})
+agent_memories = await memory.get_all(filters={"user_id": "alice", "agent_id": "diet-assistant"})
+session_memories = await memory.get_all(filters={"user_id": "alice", "run_id": "consultation-001"})
 specific_memories = await memory.get_all(
-    user_id="alice",
-    agent_id="diet-assistant",
-    run_id="consultation-001"
+    filters={"user_id": "alice", "agent_id": "diet-assistant", "run_id": "consultation-001"}
 )
 
 history = await memory.history(memory_id="memory-id-here")
@@ -240,7 +238,7 @@ async_openai_client = AsyncOpenAI()
 async_memory = AsyncMemory()
 
 async def chat_with_memories(message: str, user_id: str = "default_user") -> str:
-    search_result = await async_memory.search(query=message, user_id=user_id, limit=3)
+    search_result = await async_memory.search(query=message, filters={"user_id": user_id}, top_k=3)
     relevant_memories = search_result["results"]
     memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories)
 
@@ -255,7 +253,7 @@ async def chat_with_memories(message: str, user_id: str = "default_user") -> str
     ]
 
     response = await async_openai_client.chat.completions.create(
-        model="gpt-4.1-nano-2025-04-14",
+        model="gpt-5-mini",
         messages=messages
     )
 
@@ -280,7 +278,7 @@ async def handle_initialization_errors():
     try:
         config = MemoryConfig(
             vector_store={"provider": "chroma", "config": {"path": "./chroma_db"}},
-            llm={"provider": "openai", "config": {"model": "gpt-4.1-nano-2025-04-14"}}
+            llm={"provider": "openai", "config": {"model": "gpt-5-mini"}}
         )
         AsyncMemory(config=config)
         print("AsyncMemory initialized successfully")
@@ -297,7 +295,7 @@ async def handle_memory_operation_errors():
         print(f"Invalid memory ID: {err}")
 
     try:
-        await memory.search(query="", user_id="alice")
+        await memory.search(query="", filters={"user_id": "alice"})
     except ValueError as err:
         print(f"Invalid search query: {err}")
 ```
@@ -326,7 +324,7 @@ async def add_memory(messages: list, user_id: str):
 @app.get("/memories/search")
 async def search_memories(query: str, user_id: str, limit: int = 10):
     try:
-        result = await memory.search(query=query, user_id=user_id, limit=limit)
+        result = await memory.search(query=query, filters={"user_id": user_id}, top_k=limit)
         return {"status": "success", "data": result}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))

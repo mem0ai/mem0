@@ -1,7 +1,7 @@
-from mem0.configs.vector_stores.s3_vectors import S3VectorsConfig
 import pytest
 from botocore.exceptions import ClientError
 
+from mem0.configs.vector_stores.s3_vectors import S3VectorsConfig
 from mem0.memory.main import Memory
 from mem0.vector_stores.s3_vectors import S3Vectors
 
@@ -152,12 +152,12 @@ def test_search(mock_boto_client):
         embedding_model_dims=EMBEDDING_DIMS,
     )
     query_vector = [0.1, 0.2]
-    results = store.search(query="test", vectors=query_vector, limit=1)
+    results = store.search(query="test", vectors=query_vector, top_k=1)
 
     mock_boto_client.query_vectors.assert_called_once()
     assert len(results) == 1
     assert results[0].id == "id1"
-    assert results[0].score == 0.9
+    assert results[0].score == pytest.approx(0.1)
 
 
 def test_get(mock_boto_client):
@@ -223,3 +223,26 @@ def test_reset(mock_boto_client):
         vectorBucketName=BUCKET_NAME, indexName=INDEX_NAME
     )
     assert mock_boto_client.create_index.call_count == 2
+
+
+def test_list_filters_metadata_client_side(mock_boto_client):
+    """S3 list_vectors does not support metadata filters, so the store filters returned payloads locally."""
+    mock_paginator = mock_boto_client.get_paginator.return_value
+    mock_paginator.paginate.return_value = [
+        {
+            "vectors": [
+                {"key": "id1", "metadata": {"user_id": "alice", "category": "work"}},
+                {"key": "id2", "metadata": {"user_id": "bob", "category": "work"}},
+                {"key": "id3", "metadata": {"user_id": "alice", "category": "home"}},
+            ]
+        }
+    ]
+    store = S3Vectors(
+        vector_bucket_name=BUCKET_NAME,
+        collection_name=INDEX_NAME,
+        embedding_model_dims=EMBEDDING_DIMS,
+    )
+
+    [results] = store.list(filters={"user_id": "alice", "category": "work"})
+
+    assert [result.id for result in results] == ["id1"]

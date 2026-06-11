@@ -1,3 +1,7 @@
+---
+title: "LiteLLM"
+description: "Use LiteLLM as an LLM provider in Mem0 to access over 100 language models through a unified interface."
+---
 [Litellm](https://litellm.vercel.app/docs/) is compatible with over 100 large language models (LLMs), all using a standardized input/output format. You can explore the [available models](https://litellm.vercel.app/docs/providers) to use with Litellm. Ensure you set the `API_KEY` for the model you choose to use.
 
 ## Usage
@@ -12,7 +16,7 @@ config = {
     "llm": {
         "provider": "litellm",
         "config": {
-            "model": "gpt-4.1-nano-2025-04-14",
+            "model": "gpt-5-mini",
             "temperature": 0.2,
             "max_tokens": 2000,
         }

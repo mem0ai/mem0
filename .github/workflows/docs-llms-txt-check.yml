@@ -1,0 +1,45 @@
+name: docs - llms.txt check
+
+# Blocks PRs that introduce new .mdx pages without a matching entry in
+# docs/llms.txt, or that link to pages that no longer exist. Contributors
+# must update docs/llms.txt in the same PR. Run locally with:
+#   python scripts/check-llms-txt-coverage.py           # read-only
+#   python scripts/check-llms-txt-coverage.py --write   # scaffold placeholders
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**/*.mdx'
+      - 'docs/llms.txt'
+      - 'scripts/check-llms-txt-coverage.py'
+      - 'scripts/llms-txt-ignore.txt'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check-llms-txt:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify docs/llms.txt coverage
+        run: |
+          if ! python3 scripts/check-llms-txt-coverage.py; then
+            echo ""
+            echo "::error title=llms.txt out of sync::docs/llms.txt does not match docs/**/*.mdx."
+            echo ""
+            echo "To fix:"
+            echo "  1. Run locally:  python scripts/check-llms-txt-coverage.py --write"
+            echo "     This appends placeholder entries under '## Unclassified - needs triage'."
+            echo "  2. For each placeholder:"
+            echo "       - replace [TODO: Platform|OSS|Both] with the correct scope tag"
+            echo "       - rewrite the description as 'Use when ...'"
+            echo "       - move the entry into the appropriate section"
+            echo "       - delete the '## Unclassified - needs triage' heading once empty"
+            echo "  3. Resolve any stale URLs listed above by updating or removing the link."
+            echo "  4. Commit the updated docs/llms.txt to this PR."
+            exit 1
+          fi

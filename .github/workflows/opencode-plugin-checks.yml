@@ -1,0 +1,40 @@
+name: opencode-plugin checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mem0-plugin/.opencode-plugin/**'
+      - '.github/workflows/opencode-plugin-checks.yml'
+  pull_request:
+    paths:
+      - 'mem0-plugin/.opencode-plugin/**'
+      - '.github/workflows/opencode-plugin-checks.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mem0-plugin/.opencode-plugin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bun run type-check
+
+      - name: Build
+        run: bun run build
+
+      - name: Verify dist output exists
+        run: |
+          test -f dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)

@@ -127,6 +127,20 @@ describe("ConfigManager", () => {
       expect(config.llm.config.url).toBe("http://fallback:11434");
     });
 
+    it("should use url as baseURL fallback when no baseURL provided (issue #4715)", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: baseEmbedder,
+        vectorStore: baseVectorStore,
+        llm: {
+          provider: "ollama",
+          config: { model: "llama3.1:8b", url: "http://my-ollama-host:11434" },
+        },
+      });
+
+      expect(config.llm.config.baseURL).toBe("http://my-ollama-host:11434");
+      expect(config.llm.config.url).toBe("http://my-ollama-host:11434");
+    });
+
     it("should use default baseURL when no url or baseURL provided", () => {
       const config = ConfigManager.mergeConfig({
         embedder: baseEmbedder,
@@ -434,7 +448,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
       "lmstudio",
@@ -469,7 +483,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     expect(mockEmbedder.embed).toHaveBeenCalledWith("dimension probe");
     const vsCall = mockVectorStoreFactory.create.mock.calls[0];
@@ -497,7 +511,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
       disableHistory: true,
     });
 
-    await mem.getAll({ userId: "u1" });
+    await mem.getAll({ filters: { user_id: "u1" } });
 
     expect(mockEmbedderFactory.create).toHaveBeenCalledWith(
       "lmstudio",
@@ -550,7 +564,7 @@ describe("Memory – LM Studio end-to-end flow", () => {
     });
 
     const result = await mem.search("What does the user like?", {
-      userId: "u1",
+      filters: { user_id: "u1" },
     });
 
     expect(mockEmbedder.embed).toHaveBeenCalledWith("What does the user like?");

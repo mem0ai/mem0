@@ -2,6 +2,8 @@ from unittest.mock import Mock
 
 import pytest
 
+pytest.importorskip("langchain", reason="langchain not installed")
+
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.llms.langchain import LangchainLLM
 

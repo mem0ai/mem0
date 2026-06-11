@@ -1,9 +1,14 @@
 {
   "name": "@mem0/openclaw-mem0",
-  "version": "0.4.0",
+  "version": "1.0.12",
   "type": "module",
   "description": "Mem0 memory backend for OpenClaw — platform or self-hosted open-source",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "openclaw"
+  },
   "keywords": [
     "openclaw",
     "plugin",
@@ -21,7 +26,8 @@
   },
   "files": [
     "dist",
-    "openclaw.plugin.json"
+    "openclaw.plugin.json",
+    "skills"
   ],
   "scripts": {
     "build": "tsup",
@@ -29,18 +35,40 @@
   },
   "dependencies": {
     "@sinclair/typebox": "0.34.47",
-    "mem0ai": "^2.3.0"
+    "mem0ai": "3.0.6"
   },
   "openclaw": {
     "extensions": [
       "./dist/index.js"
-    ]
+    ],
+    "compat": {
+      "pluginApi": ">=2026.4.24",
+      "minGatewayVersion": ">=2026.4.24"
+    },
+    "build": {
+      "openclawVersion": "2026.4.24",
+      "pluginSdkVersion": "2026.4.24"
+    },
+    "install": {
+      "npmSpec": "@mem0/openclaw-mem0"
+    }
   },
   "devDependencies": {
+    "@qdrant/js-client-rest": "^1.18.0",
     "@types/node": "^22.15.0",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.7",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
-    "vitest": "^4.0.18"
+    "vite": "^8.0.5",
+    "vitest": "^4.1.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "protobufjs@<7.5.5": "^7.5.5",
+      "vite": "^8.0.5",
+      "langsmith@<0.6.0": "^0.6.0",
+      "picomatch@<2.3.2": "^2.3.2",
+      "@qdrant/js-client-rest": "^1.18.0"
+    }
   }
 }
