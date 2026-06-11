@@ -425,12 +425,12 @@ class PGVector(VectorStoreBase):
         """
         self._ensure_collection()
         with self._get_cursor(commit=True) as cur:
-            if vector:
+            if vector is not None:
                cur.execute(
                     sql.SQL("UPDATE {} SET vector = %s WHERE id = %s").format(self._col()),
                     (vector, vector_id),
                 )
-            if payload:
+            if payload is not None:
                 # Handle JSON serialization based on psycopg version
                 if PSYCOPG_VERSION == 3:
                     # psycopg3 uses psycopg.types.json.Json
