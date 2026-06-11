@@ -1,5 +1,7 @@
 name: openclaw checks
 
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main and manual runs remain standalone.
 on:
   workflow_dispatch:
   push:
@@ -7,10 +9,7 @@ on:
     paths:
       - 'openclaw/**'
       - '.github/workflows/openclaw-checks.yml'
-  pull_request:
-    paths:
-      - 'openclaw/**'
-      - '.github/workflows/openclaw-checks.yml'
+  workflow_call:
 
 jobs:
   lint:

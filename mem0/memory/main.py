@@ -47,6 +47,7 @@ from mem0.utils.scoring import (
     normalize_bm25,
     score_and_rank,
 )
+from mem0.vector_stores.base import VectorStoreBase
 
 # Suppress SWIG deprecation warnings globally
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
@@ -167,6 +168,21 @@ def _validate_search_params(threshold: Optional[float] = None, top_k: Optional[i
             raise ValueError(
                 f"Invalid top_k: {top_k}. Must be a non-negative integer."
             )
+
+
+def _validate_and_trim_search_query(query: str) -> str:
+    """
+    Validates and normalizes a search query before embedding/vector search.
+
+    Raises:
+        ValueError: If query is not a string or is empty/whitespace-only.
+    """
+    if not isinstance(query, str):
+        raise ValueError("Invalid query: must be a non-empty string.")
+    trimmed = query.strip()
+    if not trimmed:
+        raise ValueError("Invalid query: cannot be empty or whitespace-only.")
+    return trimmed
 
 
 def _is_sensitive_field(field_name: str) -> bool:
@@ -385,6 +401,15 @@ class Memory(MemoryBase):
             self._telemetry_vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, telemetry_config
             )
+        if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
+            logger.warning(
+                "The '%s' vector store does not support keyword search. "
+                "Hybrid (BM25) scoring will be disabled and search will use "
+                "semantic similarity only. To enable hybrid search, switch to a "
+                "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
+                self.config.vector_store.provider,
+            )
+
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @property
@@ -1178,6 +1203,7 @@ class Memory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        query = _validate_and_trim_search_query(query)
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -1855,6 +1881,15 @@ class AsyncMemory(MemoryBase):
                 telemetry_config.path = os.path.join(mem0_dir, provider_path)
                 os.makedirs(telemetry_config.path, exist_ok=True)
             self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
+
+        if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
+            logger.warning(
+                "The '%s' vector store does not support keyword search. "
+                "Hybrid (BM25) scoring will be disabled and search will use "
+                "semantic similarity only. To enable hybrid search, switch to a "
+                "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
+                self.config.vector_store.provider,
+            )
 
         capture_event("mem0.init", self, {"sync_type": "async"})
 
@@ -2620,6 +2655,7 @@ class AsyncMemory(MemoryBase):
 
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
+        query = _validate_and_trim_search_query(query)
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}

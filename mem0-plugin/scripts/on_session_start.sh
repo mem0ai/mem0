@@ -189,7 +189,9 @@ elif [ "$SOURCE" = "resume" ]; then
 
 elif [ "$SOURCE" = "compact" ]; then
   echo "Context compacted. Search mem0 for session_state and decision memories to recover context. Run 2 parallel searches."
-  printf '%s' "$INPUT" | python3 "$SCRIPT_DIR/capture_compact_summary.py" 2>/dev/null &
+  if [ "${MEM0_AUTO_SAVE:-true}" != "false" ]; then
+    printf '%s' "$INPUT" | python3 "$SCRIPT_DIR/capture_compact_summary.py" 2>/dev/null &
+  fi
 fi
 
 python3 "$SCRIPT_DIR/telemetry.py" session_start --source="$SOURCE" --memory_count="${MEM0_COUNT:-0}" 2>/dev/null &

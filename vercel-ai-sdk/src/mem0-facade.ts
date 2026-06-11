@@ -12,7 +12,7 @@ export class Mem0 {
     provider: 'openai',
   }) {
     this.baseURL =
-      withoutTrailingSlash(options.baseURL) ?? 'http://127.0.0.1:11434/api'
+      withoutTrailingSlash(options.baseURL) ?? 'https://api.openai.com'
 
     this.headers = options.headers
   }

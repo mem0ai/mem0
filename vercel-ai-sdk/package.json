@@ -1,6 +1,6 @@
 {
   "name": "@mem0/vercel-ai-provider",
-  "version": "2.0.6",
+  "version": "3.0.0",
   "description": "Vercel AI Provider for providing memory to LLMs",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -31,28 +31,28 @@
   "author": "Saket Aryan <saketaryan2002@gmail.com>",
   "license": "Apache-2.0",
   "dependencies": {
-    "@ai-sdk/anthropic": "2.0.0",
-    "@ai-sdk/cohere": "2.0.0",
-    "@ai-sdk/google": "2.0.1",
-    "@ai-sdk/groq": "2.0.1",
-    "@ai-sdk/openai": "2.0.2",
-    "@ai-sdk/provider": "2.0.0",
-    "@ai-sdk/provider-utils": "3.0.0",
-    "ai": "5.0.2",
-    "dotenv": "^16.4.5",
+    "@ai-sdk/anthropic": "^3.0.82",
+    "@ai-sdk/cohere": "^3.0.36",
+    "@ai-sdk/google": "^3.0.80",
+    "@ai-sdk/groq": "^3.0.39",
+    "@ai-sdk/openai": "^3.0.69",
+    "@ai-sdk/provider": "^3.0.10",
+    "@ai-sdk/provider-utils": "^4.0.27",
+    "ai": "^6.0.199",
+    "dotenv": "^16.6.1",
     "partial-json": "0.1.7",
-    "zod": "^3.25.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@edge-runtime/vm": "^3.2.0",
     "@types/jest": "^29.5.14",
-    "@types/node": "^18.19.46",
+    "@types/node": "^18.19.130",
     "jest": "^29.7.0",
-    "nodemon": "^3.1.7",
-    "ts-jest": "^29.2.5",
+    "nodemon": "^3.1.14",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
-    "tsup": "^8.3.0",
-    "typescript": "^5.5.4"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "zod": "^3.0.0"

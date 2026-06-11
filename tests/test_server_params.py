@@ -109,6 +109,32 @@ class TestSearchThreshold:
 
 
 # ===========================================================================
+# SearchRequest: explain parameter
+# ===========================================================================
+
+class TestSearchExplain:
+    """Verify that the explain parameter is accepted and forwarded."""
+
+    def test_explain_true_forwarded(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "explain": True})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["explain"] is True
+
+    def test_explain_false_forwarded(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "explain": False})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["explain"] is False
+
+    def test_explain_omitted_uses_memory_default(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "explain" not in kwargs
+
+
+# ===========================================================================
 # SearchRequest: top_k + threshold together
 # ===========================================================================
 
