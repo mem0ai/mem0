@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 import uuid
 import warnings
 from copy import deepcopy
@@ -27,6 +28,7 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
+    PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS,
     detect_scale_threshold_from_add_result,
     detect_scale_threshold_from_top_k,
     detect_decay_usage_from_delete,
@@ -37,6 +39,8 @@ from mem0.memory.notices import (
     display_decay_usage_notice_async,
     display_first_run_notice,
     display_first_run_notice_async,
+    display_performance_slow_query_notice,
+    display_performance_slow_query_notice_async,
     display_scale_threshold_notice,
     display_scale_threshold_notice_async,
     display_temporal_usage_notice,
@@ -1331,7 +1335,9 @@ class Memory(MemoryBase):
             },
         )
 
+        search_start = time.perf_counter()
         original_memories = self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
+        search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -1345,6 +1351,15 @@ class Memory(MemoryBase):
             display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
         elif scale_threshold_notice:
             display_scale_threshold_notice(self, "sync", "search", *scale_threshold_notice)
+        elif search_elapsed_seconds > PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS:
+            display_performance_slow_query_notice(
+                self,
+                "sync",
+                "search",
+                search_elapsed_seconds,
+                top_k,
+                len(original_memories),
+            )
         else:
             display_first_run_notice(self, "sync", "search")
         return {"results": original_memories}
@@ -2836,7 +2851,9 @@ class AsyncMemory(MemoryBase):
             },
         )
 
+        search_start = time.perf_counter()
         original_memories = await self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
+        search_elapsed_seconds = time.perf_counter() - search_start
 
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
@@ -2853,6 +2870,15 @@ class AsyncMemory(MemoryBase):
             await display_temporal_usage_notice_async(self, "async", "search", *temporal_usage_notice)
         elif scale_threshold_notice:
             await display_scale_threshold_notice_async(self, "async", "search", *scale_threshold_notice)
+        elif search_elapsed_seconds > PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS:
+            await display_performance_slow_query_notice_async(
+                self,
+                "async",
+                "search",
+                search_elapsed_seconds,
+                top_k,
+                len(original_memories),
+            )
         else:
             await display_first_run_notice_async(self, "async", "search")
         return {"results": original_memories}
