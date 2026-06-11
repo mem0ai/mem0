@@ -74,7 +74,8 @@ def score_and_rank(
     Threshold gates the semantic score BEFORE combining -- candidates
     below the threshold are excluded even if BM25/entity would boost them.
 
-    The divisor adapts based on which signals are active:
+    The divisor adapts per candidate based on which signals that
+    candidate actually received:
         - Semantic only: max_possible = 1.0
         - Semantic + BM25: max_possible = 2.0
         - Semantic + BM25 + entity: max_possible = 2.5
@@ -91,15 +92,6 @@ def score_and_rank(
     Returns:
         List of scored result dicts sorted by combined score descending.
     """
-    has_bm25 = bool(bm25_scores)
-    has_entity = bool(entity_boosts)
-
-    max_possible = 1.0
-    if has_bm25:
-        max_possible += 1.0
-    if has_entity:
-        max_possible += ENTITY_BOOST_WEIGHT
-
     scored: List[Dict[str, Any]] = []
 
     for result in semantic_results:
@@ -114,6 +106,12 @@ def score_and_rank(
         mem_id_str = str(mem_id)
         bm25_score = bm25_scores.get(mem_id_str, 0.0)
         entity_boost = entity_boosts.get(mem_id_str, 0.0)
+
+        max_possible = 1.0
+        if bm25_score > 0.0:
+            max_possible += 1.0
+        if entity_boost > 0.0:
+            max_possible += ENTITY_BOOST_WEIGHT
 
         raw_combined = semantic_score + bm25_score + entity_boost
         combined = min(raw_combined / max_possible, 1.0)

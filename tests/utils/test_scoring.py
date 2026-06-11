@@ -149,6 +149,45 @@ class TestScoreAndRank:
         assert "score_details" not in scored[0]
 
 
+    def test_per_candidate_divisor_no_penalty_for_missing_bm25(self):
+        results = [
+            {"id": "a", "score": 0.9, "payload": {"data": "mem a"}},
+            {"id": "b", "score": 0.7, "payload": {"data": "mem b"}},
+        ]
+        bm25 = {"b": 0.8}
+        scored = score_and_rank(results, bm25, {}, threshold=0.1, top_k=10)
+        # "a" has no BM25 hit -> max_possible=1.0 -> score=0.9
+        # "b" has BM25 hit -> max_possible=2.0 -> score=(0.7+0.8)/2.0=0.75
+        assert scored[0]["id"] == "a"
+        assert scored[0]["score"] == pytest.approx(0.9)
+        assert scored[1]["id"] == "b"
+        assert scored[1]["score"] == pytest.approx(0.75)
+
+    def test_per_candidate_divisor_entity_only_one_candidate(self):
+        results = [
+            {"id": "a", "score": 0.8, "payload": {"data": "mem a"}},
+            {"id": "b", "score": 0.7, "payload": {"data": "mem b"}},
+        ]
+        entity = {"a": 0.4}
+        scored = score_and_rank(results, {}, entity, threshold=0.1, top_k=10)
+        # "a": (0.8+0.4)/1.5=0.8
+        # "b": 0.7/1.0=0.7
+        assert scored[0]["id"] == "a"
+        assert scored[0]["score"] == pytest.approx(0.8)
+        assert scored[1]["id"] == "b"
+        assert scored[1]["score"] == pytest.approx(0.7)
+
+    def test_per_candidate_divisor_explain_shows_candidate_max(self):
+        results = [
+            {"id": "a", "score": 0.9, "payload": {"data": "mem a"}},
+            {"id": "b", "score": 0.7, "payload": {"data": "mem b"}},
+        ]
+        bm25 = {"b": 0.6}
+        scored = score_and_rank(results, bm25, {}, threshold=0.1, top_k=10, explain=True)
+        assert scored[0]["score_details"]["max_possible_score"] == 1.0
+        assert scored[1]["score_details"]["max_possible_score"] == 2.0
+
+
 class TestEntityBoostWeight:
     def test_weight_value(self):
         assert ENTITY_BOOST_WEIGHT == 0.5
