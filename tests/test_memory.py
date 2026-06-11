@@ -1129,6 +1129,40 @@ class TestPreserveCustomMetadata:
         assert payload["new_field"] == "value"
         assert payload["data"] == "Updated text"
 
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_update_preserves_actor_id_from_original(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_store = MagicMock()
+        mock_vector_factory.return_value = mock_vector_store
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        existing_payload = {
+            "data": "I am player #1",
+            "hash": "abc123",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "team",
+            "actor_id": "Alice",
+        }
+        mock_vector_store.get.return_value = MockVectorMemory("mem-1", existing_payload)
+
+        config = MemoryConfig()
+        memory = Memory(config)
+
+        memory._update_memory(
+            "mem-1", "Player #1 is great",
+            {"Player #1 is great": [0.1, 0.2, 0.3]},
+            metadata={"user_id": "team", "actor_id": "Bob"},
+        )
+
+        call_args = mock_vector_store.update.call_args
+        payload = call_args.kwargs.get("payload") or call_args[1].get("payload")
+        assert payload["actor_id"] == "Alice"
+
     @pytest.mark.asyncio
     @patch('mem0.utils.factory.EmbedderFactory.create')
     @patch('mem0.utils.factory.VectorStoreFactory.create')
