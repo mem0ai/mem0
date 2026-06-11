@@ -70,6 +70,10 @@ class TestTelemetryEnabled:
                 with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="test-user"):
                     at = telemetry_module.AnonymousTelemetry()
                     mock_posthog.assert_called_once()
+                    assert (
+                        mock_posthog.call_args.kwargs["feature_flags_request_timeout_seconds"]
+                        == telemetry_module.FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS
+                    )
                     assert at.posthog is not None
                     assert at.user_id == "test-user"
 

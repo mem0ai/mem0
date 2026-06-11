@@ -34,6 +34,7 @@ SCALE_THRESHOLD_STATE_KEY = "scale_threshold"
 SCALE_THRESHOLD_CAP = 10
 SCALE_THRESHOLD_WINDOW = timedelta(days=7)
 SCALE_MEMORY_COUNT_THRESHOLD = 2000
+SCALE_MEMORY_COUNT_CHECK_INTERVAL = 100
 SCALE_TOP_K_THRESHOLD = 50
 PERFORMANCE_SLOW_QUERY_STATE_KEY = "performance_slow_query"
 PERFORMANCE_SLOW_QUERY_CAP = 10
@@ -63,6 +64,11 @@ _RANGE_OPERATORS = {"gt", "gte", "lt", "lte"}
 
 _state_lock = threading.Lock()
 _first_run_claimed_in_process = False
+_decay_usage_successful_delete_count_in_process = 0
+_decay_usage_capacity_reached_in_process = False
+_scale_memory_count_adds_since_check = 0
+_scale_memory_count_checked_in_process = False
+_scale_memory_count_threshold_evaluated_in_process = False
 
 
 def display_first_run_notice(memory_instance, sync_type: str, trigger_function: str) -> None:
@@ -135,6 +141,8 @@ def display_first_run_notice(memory_instance, sync_type: str, trigger_function: 
 
 
 async def display_first_run_notice_async(memory_instance, sync_type: str, trigger_function: str) -> None:
+    if not telemetry_module.MEM0_TELEMETRY or _first_run_claimed_in_process:
+        return
     await asyncio.to_thread(display_first_run_notice, memory_instance, sync_type, trigger_function)
 
 
@@ -243,22 +251,16 @@ def detect_decay_usage_from_delete() -> Optional[Tuple[str, str, Optional[int], 
     if not telemetry_module.MEM0_TELEMETRY:
         return None
 
+    global _decay_usage_successful_delete_count_in_process
     try:
         with _state_lock:
-            config = _load_config()
-            decay_state = _get_notice_state(config, DECAY_USAGE_STATE_KEY)
-            delete_count = _coerce_nonnegative_int(decay_state.get("successful_delete_count"), 0) + 1
-            decay_state["successful_delete_count"] = delete_count
+            if _decay_usage_capacity_reached_in_process:
+                return None
+            _decay_usage_successful_delete_count_in_process += 1
+            delete_count = _decay_usage_successful_delete_count_in_process
 
-            state = config.get(STATE_SECTION)
-            if not isinstance(state, dict):
-                state = {}
-            state[DECAY_USAGE_STATE_KEY] = decay_state
-            config[STATE_SECTION] = state
-            _write_config(config)
-
-            if delete_count >= DECAY_USAGE_DELETE_THRESHOLD:
-                return ("delete_count", "repeated_deletes", delete_count, None)
+        if delete_count >= DECAY_USAGE_DELETE_THRESHOLD and not _decay_usage_at_capacity():
+            return ("delete_count", "repeated_deletes", delete_count, None)
     except Exception:
         return None
 
@@ -406,28 +408,51 @@ def detect_scale_threshold_from_add_result(
     if not telemetry_module.MEM0_TELEMETRY:
         return None
 
-    if _count_added_memories(add_result) == 0:
+    added_count = _count_added_memories(add_result)
+    if added_count == 0:
+        return None
+
+    global _scale_memory_count_adds_since_check
+    global _scale_memory_count_checked_in_process
+    global _scale_memory_count_threshold_evaluated_in_process
+    try:
+        with _state_lock:
+            if _scale_memory_count_threshold_evaluated_in_process:
+                return None
+
+            _scale_memory_count_adds_since_check += added_count
+            should_check = (
+                not _scale_memory_count_checked_in_process
+                or _scale_memory_count_adds_since_check >= SCALE_MEMORY_COUNT_CHECK_INTERVAL
+            )
+            if not should_check:
+                return None
+
+            _scale_memory_count_checked_in_process = True
+            _scale_memory_count_adds_since_check = 0
+
+            config = _load_config()
+            scale_state = _get_notice_state(config, SCALE_THRESHOLD_STATE_KEY)
+            if scale_state.get("memory_count_threshold_evaluated"):
+                _scale_memory_count_threshold_evaluated_in_process = True
+                return None
+    except Exception:
         return None
 
     provider_count = _get_provider_memory_count(memory_instance)
     if provider_count is None or provider_count < SCALE_MEMORY_COUNT_THRESHOLD:
         return None
 
-    try:
-        with _state_lock:
-            config = _load_config()
-            scale_state = _get_notice_state(config, SCALE_THRESHOLD_STATE_KEY)
-            if scale_state.get("memory_count_threshold_evaluated"):
-                return None
-            return (
-                "memory_count",
-                "memory_count_threshold",
-                None,
-                provider_count,
-                SCALE_MEMORY_COUNT_THRESHOLD,
-            )
-    except Exception:
+    if not _mark_scale_memory_count_threshold_evaluated():
         return None
+
+    return (
+        "memory_count",
+        "memory_count_threshold",
+        None,
+        provider_count,
+        SCALE_MEMORY_COUNT_THRESHOLD,
+    )
 
 
 def display_scale_threshold_notice(
@@ -776,15 +801,18 @@ def _get_feature_error_message(
 
 
 def detect_temporal_usage_from_metadata(metadata: Optional[Dict[str, Any]]) -> Optional[Tuple[str, str]]:
-    if not isinstance(metadata, dict):
-        return None
+    try:
+        if not isinstance(metadata, dict):
+            return None
 
-    for key, value in _walk_mapping(metadata):
-        temporal_key = _is_temporal_key(key)
-        if temporal_key and _looks_temporal_value(value, allow_epoch=True):
-            return ("metadata", "date_like_metadata")
-        if _looks_temporal_value(value, allow_epoch=False):
-            return ("metadata", "date_like_metadata")
+        for key, value in _walk_mapping(metadata):
+            temporal_key = _is_temporal_key(key)
+            if temporal_key and _looks_temporal_value(value, allow_epoch=True):
+                return ("metadata", "date_like_metadata")
+            if _looks_temporal_value(value, allow_epoch=False):
+                return ("metadata", "date_like_metadata")
+    except Exception:
+        return None
     return None
 
 
@@ -792,14 +820,17 @@ def detect_temporal_usage_from_search(
     query: Any,
     filters: Optional[Dict[str, Any]],
 ) -> Optional[Tuple[str, str]]:
-    if isinstance(query, str):
-        if _RELATIVE_TIME_RE.search(query):
-            return ("query", "relative_phrase")
-        if _ISO_DATE_RE.search(query):
-            return ("query", "date_like_query")
+    try:
+        if isinstance(query, str):
+            if _RELATIVE_TIME_RE.search(query):
+                return ("query", "relative_phrase")
+            if _ISO_DATE_RE.search(query):
+                return ("query", "date_like_query")
 
-    if _has_temporal_filter(filters):
-        return ("filter", "date_range_filter")
+        if _has_temporal_filter(filters):
+            return ("filter", "date_range_filter")
+    except Exception:
+        return None
     return None
 
 
@@ -928,11 +959,18 @@ def _recent_temporal_usage_entries(config: Dict[str, Any], now: datetime):
 
 
 def _decay_usage_at_capacity() -> bool:
+    global _decay_usage_capacity_reached_in_process
+    if _decay_usage_capacity_reached_in_process:
+        return True
+
     try:
         with _state_lock:
             config = _load_config()
             entries = _recent_decay_usage_entries(config, datetime.now(timezone.utc))
-            return len(entries) >= DECAY_USAGE_CAP
+            at_capacity = len(entries) >= DECAY_USAGE_CAP
+            if at_capacity:
+                _decay_usage_capacity_reached_in_process = True
+            return at_capacity
     except Exception:
         return True
 
@@ -947,12 +985,14 @@ def _record_decay_usage_opportunity(
     delete_count: Optional[int],
     deleted_count: Optional[int],
 ) -> bool:
+    global _decay_usage_capacity_reached_in_process
     try:
         with _state_lock:
             now = datetime.now(timezone.utc)
             config = _load_config()
             entries = _recent_decay_usage_entries(config, now)
             if len(entries) >= DECAY_USAGE_CAP:
+                _decay_usage_capacity_reached_in_process = True
                 return False
 
             entry = {
@@ -979,6 +1019,8 @@ def _record_decay_usage_opportunity(
             state[DECAY_USAGE_STATE_KEY] = decay_state
             config[STATE_SECTION] = state
             _write_config(config)
+            if len(entries) >= DECAY_USAGE_CAP:
+                _decay_usage_capacity_reached_in_process = True
             return True
     except Exception:
         return False
@@ -1065,6 +1107,31 @@ def _record_scale_threshold_opportunity(
             state[SCALE_THRESHOLD_STATE_KEY] = scale_state
             config[STATE_SECTION] = state
             _write_config(config)
+            return True
+    except Exception:
+        return False
+
+
+def _mark_scale_memory_count_threshold_evaluated() -> bool:
+    global _scale_memory_count_threshold_evaluated_in_process
+    try:
+        with _state_lock:
+            config = _load_config()
+            state = config.get(STATE_SECTION)
+            if not isinstance(state, dict):
+                state = {}
+            scale_state = state.get(SCALE_THRESHOLD_STATE_KEY)
+            if not isinstance(scale_state, dict):
+                scale_state = {}
+            if scale_state.get("memory_count_threshold_evaluated"):
+                _scale_memory_count_threshold_evaluated_in_process = True
+                return False
+
+            scale_state["memory_count_threshold_evaluated"] = True
+            state[SCALE_THRESHOLD_STATE_KEY] = scale_state
+            config[STATE_SECTION] = state
+            _write_config(config)
+            _scale_memory_count_threshold_evaluated_in_process = True
             return True
     except Exception:
         return False

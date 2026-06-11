@@ -1,12 +1,15 @@
 import asyncio
 from copy import deepcopy
 from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
+from mem0.memory import main as memory_main
 from mem0.memory import notices
 from mem0.memory import telemetry as telemetry_module
+from mem0.memory.main import Memory
 
 
 class FakeFlags:
@@ -26,8 +29,18 @@ class FakeFlags:
 @pytest.fixture(autouse=True)
 def reset_notice_process_state():
     notices._first_run_claimed_in_process = False
+    notices._decay_usage_successful_delete_count_in_process = 0
+    notices._decay_usage_capacity_reached_in_process = False
+    notices._scale_memory_count_adds_since_check = 0
+    notices._scale_memory_count_checked_in_process = False
+    notices._scale_memory_count_threshold_evaluated_in_process = False
     yield
     notices._first_run_claimed_in_process = False
+    notices._decay_usage_successful_delete_count_in_process = 0
+    notices._decay_usage_capacity_reached_in_process = False
+    notices._scale_memory_count_adds_since_check = 0
+    notices._scale_memory_count_checked_in_process = False
+    notices._scale_memory_count_threshold_evaluated_in_process = False
 
 
 @pytest.fixture
@@ -242,6 +255,32 @@ def test_posthog_failure_is_silent_and_consumes_first_run(notice_harness, capsys
     assert config["notice_state"]["first_run"]["consumed"] is True
 
 
+def test_public_add_succeeds_when_first_run_flag_eval_fails(notice_harness):
+    _, telemetry = notice_harness
+    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+    memory = Memory.__new__(Memory)
+    memory.config = SimpleNamespace(llm=SimpleNamespace(config={}))
+    memory._add_to_vector_store = MagicMock(return_value=[{"event": "ADD", "memory": "likes tea"}])
+
+    result = Memory.add(memory, "The user likes tea.", user_id="u1", infer=False)
+
+    assert result == {"results": [{"event": "ADD", "memory": "likes tea"}]}
+
+
+def test_public_search_succeeds_when_first_run_flag_eval_fails(notice_harness, monkeypatch):
+    _, telemetry = notice_harness
+    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+    monkeypatch.setattr(memory_main, "capture_event", MagicMock())
+    memory = Memory.__new__(Memory)
+    memory.api_version = "v1.1"
+    memory.reranker = None
+    memory._search_vector_store = MagicMock(return_value=[{"memory": "likes tea"}])
+
+    result = Memory.search(memory, "favorite drink", filters={"user_id": "u1"})
+
+    assert result == {"results": [{"memory": "likes tea"}]}
+
+
 def test_notice_event_bypasses_sampling():
     assert notices.NOTICE_EVENT in telemetry_module._LIFECYCLE_EVENTS
 
@@ -258,6 +297,16 @@ def test_async_notice_wrapper_uses_shared_helper(monkeypatch):
     asyncio.run(notices.display_first_run_notice_async(memory, "async", "search"))
 
     assert calls == [(memory, "async", "search")]
+
+
+def test_async_notice_wrapper_skips_thread_when_first_run_claimed(monkeypatch):
+    to_thread = MagicMock()
+    monkeypatch.setattr(notices.asyncio, "to_thread", to_thread)
+    notices._first_run_claimed_in_process = True
+
+    asyncio.run(notices.display_first_run_notice_async(MagicMock(), "async", "search"))
+
+    to_thread.assert_not_called()
 
 
 def test_temporal_feature_displayed_returns_payload_copy_and_captures_event(notice_harness, capsys):
@@ -531,6 +580,13 @@ def test_temporal_usage_metadata_detection():
     assert notices.detect_temporal_usage_from_metadata({"category": "planning"}) is None
 
 
+def test_temporal_usage_metadata_detection_never_raises_for_cyclic_input():
+    metadata = {}
+    metadata["self"] = metadata
+
+    assert notices.detect_temporal_usage_from_metadata(metadata) is None
+
+
 def test_temporal_usage_filter_detection():
     filters = {"AND": [{"user_id": "u1"}, {"created_at": {"gte": "2025-04-01"}}]}
     assert notices.detect_temporal_usage_from_search("favorite drink", filters) == (
@@ -538,6 +594,13 @@ def test_temporal_usage_filter_detection():
         "date_range_filter",
     )
     assert notices.detect_temporal_usage_from_search("favorite drink", {"score": {"gte": 0.5}}) is None
+
+
+def test_temporal_usage_search_detection_never_raises_for_cyclic_filters():
+    filters = {}
+    filters["AND"] = [filters]
+
+    assert notices.detect_temporal_usage_from_search("favorite drink", filters) is None
 
 
 def test_temporal_usage_displayed_logs_and_captures_event(notice_harness, capsys):
@@ -691,14 +754,25 @@ def test_decay_usage_delete_detection_reaches_threshold(notice_harness):
     for _ in range(notices.DECAY_USAGE_DELETE_THRESHOLD - 1):
         assert notices.detect_decay_usage_from_delete() is None
 
-    assert config["notice_state"]["decay_usage"]["successful_delete_count"] == 4
+    assert config == {}
     assert notices.detect_decay_usage_from_delete() == (
         "delete_count",
         "repeated_deletes",
         5,
         None,
     )
-    assert config["notice_state"]["decay_usage"]["successful_delete_count"] == 5
+    assert config == {}
+
+
+def test_decay_usage_delete_detection_does_not_write_before_threshold(monkeypatch, notice_harness):
+    _, _ = notice_harness
+    write_config = MagicMock()
+    monkeypatch.setattr(notices, "_write_config", write_config)
+
+    for _ in range(notices.DECAY_USAGE_DELETE_THRESHOLD - 1):
+        assert notices.detect_decay_usage_from_delete() is None
+
+    write_config.assert_not_called()
 
 
 def test_decay_usage_delete_detection_telemetry_disabled_does_not_write_state(monkeypatch, notice_harness):
@@ -902,6 +976,25 @@ def test_decay_usage_cap_blocks_before_posthog_eval(notice_harness, capsys):
     assert capsys.readouterr().err == "Decay usage CTA\n" * notices.DECAY_USAGE_CAP
     assert telemetry.posthog.evaluate_flags.call_count == notices.DECAY_USAGE_CAP
     assert telemetry.capture_event.call_count == notices.DECAY_USAGE_CAP
+    assert len(config["notice_state"]["decay_usage"]["events"]) == notices.DECAY_USAGE_CAP
+
+
+def test_decay_usage_delete_detection_stops_after_cap(notice_harness):
+    config, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", decay_usage_payload())
+
+    for _ in range(notices.DECAY_USAGE_CAP):
+        notices.display_decay_usage_notice(
+            MagicMock(),
+            "sync",
+            "delete",
+            "delete_count",
+            "repeated_deletes",
+            delete_count=5,
+        )
+
+    notices._decay_usage_successful_delete_count_in_process = notices.DECAY_USAGE_DELETE_THRESHOLD
+    assert notices.detect_decay_usage_from_delete() is None
     assert len(config["notice_state"]["decay_usage"]["events"]) == notices.DECAY_USAGE_CAP
 
 
@@ -1178,7 +1271,7 @@ def test_scale_threshold_memory_count_requires_add_result_and_provider_count(not
         notices.SCALE_MEMORY_COUNT_THRESHOLD,
         notices.SCALE_MEMORY_COUNT_THRESHOLD,
     )
-    assert config.get("notice_state") is None
+    assert config["notice_state"]["scale_threshold"]["memory_count_threshold_evaluated"] is True
 
 
 def test_scale_threshold_memory_count_ignores_under_threshold_provider_count(notice_harness):
@@ -1201,6 +1294,17 @@ def test_scale_threshold_memory_count_ignores_already_evaluated_threshold(notice
     notice = notices.detect_scale_threshold_from_add_result(memory, [{"event": "ADD"}])
 
     assert notice is None
+    memory.vector_store.count.assert_not_called()
+
+
+def test_scale_threshold_memory_count_is_throttled_under_threshold(notice_harness):
+    memory = MagicMock()
+    memory.vector_store.count.return_value = notices.SCALE_MEMORY_COUNT_THRESHOLD - 1
+
+    assert notices.detect_scale_threshold_from_add_result(memory, [{"event": "ADD"}]) is None
+    assert notices.detect_scale_threshold_from_add_result(memory, [{"event": "ADD"}]) is None
+
+    memory.vector_store.count.assert_called_once()
 
 
 def test_scale_threshold_memory_count_event_marks_threshold_evaluated(notice_harness, capsys):

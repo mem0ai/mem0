@@ -14,6 +14,7 @@ from mem0.memory.setup import get_or_create_user_id
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
 PROJECT_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 HOST = "https://us.i.posthog.com"
+FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS = 0.5
 
 if isinstance(MEM0_TELEMETRY, str):
     MEM0_TELEMETRY = MEM0_TELEMETRY.lower() in ("true", "1", "yes")
@@ -80,7 +81,12 @@ class AnonymousTelemetry:
             return
 
         try:
-            self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST, before_send=before_send)
+            self.posthog = Posthog(
+                project_api_key=PROJECT_API_KEY,
+                host=HOST,
+                before_send=before_send,
+                feature_flags_request_timeout_seconds=FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS,
+            )
         except TypeError:
             # posthog <4.5.0 does not accept before_send; fall back without sampling.
             _logger.debug("posthog.Posthog does not accept before_send; upgrade to >=4.5.0 for sampling")

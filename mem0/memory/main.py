@@ -2193,7 +2193,7 @@ class AsyncMemory(MemoryBase):
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
-            timestamp (Any, optional): Temporal reasoning parameter.
+            timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
@@ -2776,7 +2776,7 @@ class AsyncMemory(MemoryBase):
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
-            reference_date (Any, optional): Temporal reasoning parameter.
+            reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
