@@ -1719,6 +1719,8 @@ class Memory(MemoryBase):
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
             new_metadata.update(metadata)
+        if "actor_id" in existing_memory.payload:
+            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -3173,6 +3175,8 @@ class AsyncMemory(MemoryBase):
         new_metadata = deepcopy(existing_memory.payload)
         if metadata is not None:
             new_metadata.update(metadata)
+        if "actor_id" in existing_memory.payload:
+            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
