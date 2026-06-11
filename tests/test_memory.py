@@ -1529,3 +1529,77 @@ async def test_async_procedural_memory_langchain_strips_code_blocks(mock_llm_fac
     insert_call = memory.vector_store.insert.call_args
     stored_data = insert_call[1]["payloads"][0]["data"]
     assert "```" not in stored_data
+
+
+class TestEntityTypeMergeGate:
+    """Verify _upsert_entity refuses to merge entities with different entity_type."""
+
+    def _make_memory(self):
+        with patch.object(Memory, "__init__", return_value=None):
+            m = Memory()
+        m.embedding_model = MagicMock()
+        m.embedding_model.embed = MagicMock(return_value=[0.1, 0.2, 0.3])
+        m._entity_store = MagicMock()
+        m._existing_entities_by_text = MagicMock(return_value={})
+        return m
+
+    def test_same_type_merges(self):
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "entity_type": "language", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("python", "language", "mem-B", {})
+
+        m._entity_store.update.assert_called_once()
+        m._entity_store.insert.assert_not_called()
+
+    def test_different_type_creates_new(self):
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "entity_type": "language", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("python", "animal", "mem-B", {})
+
+        m._entity_store.update.assert_not_called()
+        m._entity_store.insert.assert_called_once()
+        inserted_payload = m._entity_store.insert.call_args[1]["payloads"][0]
+        assert inserted_payload["entity_type"] == "animal"
+
+    def test_no_type_on_existing_still_merges(self):
+        """When existing entity has no entity_type, merge is allowed (backward compat)."""
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("python", "language", "mem-B", {})
+
+        m._entity_store.update.assert_called_once()
+        updated_payload = m._entity_store.update.call_args[1]["payload"]
+        assert updated_payload["entity_type"] == "language"
+
+    def test_no_type_on_new_still_merges(self):
+        """When new entity has no entity_type, merge is allowed."""
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "python", "entity_type": "language", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m._entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("python", None, "mem-B", {})
+
+        m._entity_store.update.assert_called_once()
+        m._entity_store.insert.assert_not_called()

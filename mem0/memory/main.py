@@ -576,20 +576,26 @@ class Memory(MemoryBase):
 
             semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
             match = exact_match or semantic_match
+            matched = False
             if match:
-                # Update existing entity's linked_memory_ids
                 payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    self.entity_store.update(
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
-                    )
-            else:
-                # Create new entity
+                if entity_type and payload.get("entity_type") and payload["entity_type"] != entity_type:
+                    pass
+                else:
+                    matched = True
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        if entity_type and not payload.get("entity_type"):
+                            payload["entity_type"] = entity_type
+                        self.entity_store.update(
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+
+            if not matched:
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -2205,19 +2211,27 @@ class AsyncMemory(MemoryBase):
 
             semantic_match = existing[0] if existing and existing[0].score >= 0.95 else None
             match = exact_match or semantic_match
+            matched = False
             if match:
                 payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    await asyncio.to_thread(
-                        self.entity_store.update,
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
-                    )
-            else:
+                if entity_type and payload.get("entity_type") and payload["entity_type"] != entity_type:
+                    pass
+                else:
+                    matched = True
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        if entity_type and not payload.get("entity_type"):
+                            payload["entity_type"] = entity_type
+                        await asyncio.to_thread(
+                            self.entity_store.update,
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+
+            if not matched:
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
