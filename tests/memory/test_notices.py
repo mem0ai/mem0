@@ -71,6 +71,20 @@ def display_notice(notice_harness, variant="displayed", payload=None):
     return config, telemetry, flags
 
 
+def temporal_payload(copy="Temporal CTA", enabled=True, notice_type="error"):
+    payload = {
+        "notices": {
+            "temporal_stub": {
+                "enabled": enabled,
+                "notice_type": notice_type,
+            }
+        }
+    }
+    if copy is not None:
+        payload["notices"]["temporal_stub"]["copy"] = copy
+    return payload
+
+
 def test_displayed_notice_logs_once_and_captures_event(notice_harness, capsys):
     config, telemetry, flags = display_notice(notice_harness)
 
@@ -178,3 +192,125 @@ def test_async_notice_wrapper_uses_shared_helper(monkeypatch):
     asyncio.run(notices.display_first_run_notice_async(memory, "async", "search"))
 
     assert calls == [(memory, "async", "search")]
+
+
+def test_temporal_feature_displayed_returns_payload_copy_and_captures_event(notice_harness, capsys):
+    _, telemetry = notice_harness
+    flags = configure_flag(telemetry, "displayed", temporal_payload())
+
+    message = notices.get_temporal_feature_error_message("sync", "add", "timestamp")
+
+    assert message == "Temporal CTA"
+    assert capsys.readouterr().err == ""
+    telemetry.posthog.evaluate_flags.assert_called_once_with("oss-user", flag_keys=[notices.FLAG_KEY])
+    telemetry.capture_event.assert_called_once()
+    event_name, props = telemetry.capture_event.call_args.args
+    assert event_name == notices.NOTICE_EVENT
+    assert props["notice_id"] == "temporal_stub"
+    assert props["notice_type"] == "error"
+    assert props["variant"] == "displayed"
+    assert props["displayed"] is True
+    assert props["payload"] == "Temporal CTA"
+    assert props["bypass_reason"] is None
+    assert props["disabled_reason"] is None
+    assert props["notice_config_found"] is True
+    assert props["sync_type"] == "sync"
+    assert props["trigger_function"] == "add"
+    assert props["trigger_parameter"] == "timestamp"
+    assert telemetry.capture_event.call_args.kwargs["flags"] is flags
+
+
+def test_temporal_feature_holdout_returns_payload_copy_and_captures_event(notice_harness, capsys):
+    _, telemetry = notice_harness
+    configure_flag(telemetry, "holdout", temporal_payload())
+
+    message = notices.get_temporal_feature_error_message("sync", "search", "reference_date")
+
+    assert message == "Temporal CTA"
+    assert capsys.readouterr().err == ""
+    props = telemetry.capture_event.call_args.args[1]
+    assert props["displayed"] is True
+    assert props["bypass_reason"] is None
+    assert props["trigger_function"] == "search"
+    assert props["trigger_parameter"] == "reference_date"
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_reason", "expected_found"),
+    [
+        ({}, "missing_notice_config", False),
+        ({"notices": {}}, "missing_notice_config", False),
+        ({"notices": "not-an-object"}, "missing_notice_config", False),
+        (temporal_payload(copy=None), "missing_copy", True),
+        (temporal_payload(enabled=False, copy="hidden"), "payload_disabled", True),
+    ],
+)
+def test_temporal_feature_bad_or_disabled_payload_returns_plain_error(
+    notice_harness, payload, expected_reason, expected_found, capsys
+):
+    _, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", payload)
+
+    message = notices.get_temporal_feature_error_message("sync", "add", "timestamp")
+
+    assert message == notices.TEMPORAL_FEATURE_ERROR_MESSAGES["timestamp"]
+    assert capsys.readouterr().err == ""
+    props = telemetry.capture_event.call_args.args[1]
+    assert props["displayed"] is False
+    assert props["bypass_reason"] == expected_reason
+    assert props["notice_config_found"] is expected_found
+
+
+@pytest.mark.parametrize("variant", [None, False])
+def test_temporal_feature_blunt_flag_disable_returns_plain_error_without_event(
+    notice_harness, variant, capsys
+):
+    _, telemetry = notice_harness
+    configure_flag(telemetry, variant, temporal_payload())
+
+    message = notices.get_temporal_feature_error_message("sync", "add", "timestamp")
+
+    assert message == notices.TEMPORAL_FEATURE_ERROR_MESSAGES["timestamp"]
+    assert capsys.readouterr().err == ""
+    telemetry.capture_event.assert_not_called()
+
+
+def test_temporal_feature_telemetry_disabled_does_not_touch_posthog(monkeypatch, capsys):
+    get_telemetry = MagicMock()
+
+    monkeypatch.setattr(notices.telemetry_module, "MEM0_TELEMETRY", False)
+    monkeypatch.setattr(notices.telemetry_module, "_get_oss_telemetry", get_telemetry)
+
+    message = notices.get_temporal_feature_error_message("sync", "add", "timestamp")
+
+    assert message == notices.TEMPORAL_FEATURE_ERROR_MESSAGES["timestamp"]
+    get_telemetry.assert_not_called()
+    assert capsys.readouterr().err == ""
+
+
+def test_temporal_feature_posthog_failure_returns_plain_error(notice_harness, capsys):
+    _, telemetry = notice_harness
+    telemetry.posthog.evaluate_flags.side_effect = RuntimeError("network unavailable")
+
+    message = notices.get_temporal_feature_error_message("sync", "add", "timestamp")
+
+    assert message == notices.TEMPORAL_FEATURE_ERROR_MESSAGES["timestamp"]
+    telemetry.capture_event.assert_not_called()
+    assert capsys.readouterr().err == ""
+
+
+def test_async_temporal_feature_wrapper_uses_shared_helper(monkeypatch):
+    calls = []
+
+    def get_error(sync_type, trigger_function, trigger_parameter):
+        calls.append((sync_type, trigger_function, trigger_parameter))
+        return "blocked"
+
+    monkeypatch.setattr(notices, "get_temporal_feature_error_message", get_error)
+
+    message = asyncio.run(
+        notices.get_temporal_feature_error_message_async("async", "search", "reference_date")
+    )
+
+    assert message == "blocked"
+    assert calls == [("async", "search", "reference_date")]

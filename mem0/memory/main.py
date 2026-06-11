@@ -26,7 +26,12 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
-from mem0.memory.notices import display_first_run_notice, display_first_run_notice_async
+from mem0.memory.notices import (
+    display_first_run_notice,
+    display_first_run_notice_async,
+    get_temporal_feature_error_message,
+    get_temporal_feature_error_message_async,
+)
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -595,6 +600,7 @@ class Memory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        timestamp: Optional[Any] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -612,6 +618,7 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
+            timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
                 'messages' and decide whether to add, update, or delete related memories.
                 If False, 'messages' are added as raw memories directly.
@@ -634,6 +641,8 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
+        if timestamp is not None:
+            raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
 
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
@@ -1154,6 +1163,7 @@ class Memory(MemoryBase):
         threshold: float = 0.1,
         rerank: bool = False,
         explain: bool = False,
+        reference_date: Optional[Any] = None,
         **kwargs,
     ):
         """
@@ -1185,6 +1195,7 @@ class Memory(MemoryBase):
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
+            reference_date (Any, optional): Platform-only temporal parameter. Not supported in OSS.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -1194,6 +1205,9 @@ class Memory(MemoryBase):
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
                 or if threshold/top_k values are invalid.
         """
+        if reference_date is not None:
+            raise ValueError(get_temporal_feature_error_message("sync", "search", "reference_date"))
+
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
@@ -2065,6 +2079,7 @@ class AsyncMemory(MemoryBase):
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        timestamp: Optional[Any] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -2079,6 +2094,7 @@ class AsyncMemory(MemoryBase):
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
+            timestamp (Any, optional): Temporal reasoning parameter.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
@@ -2087,6 +2103,9 @@ class AsyncMemory(MemoryBase):
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
         """
+        if timestamp is not None:
+            raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
+
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
@@ -2609,6 +2628,7 @@ class AsyncMemory(MemoryBase):
         threshold: float = 0.1,
         rerank: bool = False,
         explain: bool = False,
+        reference_date: Optional[Any] = None,
         **kwargs,
     ):
         """
@@ -2640,6 +2660,7 @@ class AsyncMemory(MemoryBase):
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
+            reference_date (Any, optional): Temporal reasoning parameter.
 
         Returns:
             dict: A dictionary containing the search results under a "results" key.
@@ -2649,6 +2670,11 @@ class AsyncMemory(MemoryBase):
             ValueError: If filters doesn't contain at least one of user_id, agent_id, run_id,
                 or if threshold/top_k values are invalid.
         """
+        if reference_date is not None:
+            raise ValueError(
+                await get_temporal_feature_error_message_async("async", "search", "reference_date")
+            )
+
         # Reject top-level entity params - must use filters instead
         _reject_top_level_entity_params(kwargs, "search")
 
