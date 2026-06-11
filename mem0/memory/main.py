@@ -26,6 +26,7 @@ from mem0.memory.base import MemoryBase
 from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
+from mem0.memory.notices import display_first_run_notice, display_first_run_notice_async
 from mem0.memory.utils import (
     extract_json,
     parse_messages,
@@ -665,6 +666,7 @@ class Memory(MemoryBase):
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
+            display_first_run_notice(self, "sync", "add")
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -673,6 +675,7 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        display_first_run_notice(self, "sync", "add")
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
@@ -999,6 +1002,7 @@ class Memory(MemoryBase):
         capture_event("mem0.get", self, {"memory_id": memory_id, "sync_type": "sync"})
         memory = self.vector_store.get(vector_id=memory_id)
         if not memory:
+            display_first_run_notice(self, "sync", "get")
             return None
 
         promoted_payload_keys = [
@@ -1027,6 +1031,7 @@ class Memory(MemoryBase):
         if additional_metadata:
             result_item["metadata"] = additional_metadata
 
+        display_first_run_notice(self, "sync", "get")
         return result_item
 
     def get_all(
@@ -1090,6 +1095,7 @@ class Memory(MemoryBase):
 
         all_memories_result = self._get_all_from_vector_store(effective_filters, limit)
 
+        display_first_run_notice(self, "sync", "get_all")
         return {"results": all_memories_result}
 
     def _get_all_from_vector_store(self, filters, limit):
@@ -1254,6 +1260,7 @@ class Memory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
+        display_first_run_notice(self, "sync", "search")
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -1563,6 +1570,7 @@ class Memory(MemoryBase):
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
 
         self._update_memory(memory_id, data, existing_embeddings, metadata)
+        display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
 
     def delete(self, memory_id):
@@ -1579,6 +1587,7 @@ class Memory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         self._delete_memory(memory_id, existing_memory)
+        display_first_run_notice(self, "sync", "delete")
         return {"message": "Memory deleted successfully!"}
 
     def delete_all(self, user_id: Optional[str] = None, agent_id: Optional[str] = None, run_id: Optional[str] = None):
@@ -1612,6 +1621,7 @@ class Memory(MemoryBase):
 
         logger.info(f"Deleted {len(memories)} memories")
 
+        display_first_run_notice(self, "sync", "delete_all")
         return {"message": "Memories deleted successfully!"}
 
     def history(self, memory_id):
@@ -1625,7 +1635,9 @@ class Memory(MemoryBase):
             list: List of changes for the memory.
         """
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
-        return self.db.get_history(memory_id)
+        history = self.db.get_history(memory_id)
+        display_first_run_notice(self, "sync", "history")
+        return history
 
     def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
@@ -1825,6 +1837,7 @@ class Memory(MemoryBase):
             self._entity_store = None
 
         capture_event("mem0.reset", self, {"sync_type": "sync"})
+        display_first_run_notice(self, "sync", "reset")
 
     def close(self):
         """Release resources held by this Memory instance (SQLite connections, etc.)."""
@@ -2101,6 +2114,7 @@ class AsyncMemory(MemoryBase):
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
+            await display_first_run_notice_async(self, "async", "add")
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -2109,6 +2123,7 @@ class AsyncMemory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
+        await display_first_run_notice_async(self, "async", "add")
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2442,6 +2457,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.get", self, {"memory_id": memory_id, "sync_type": "async"})
         memory = await asyncio.to_thread(self.vector_store.get, vector_id=memory_id)
         if not memory:
+            await display_first_run_notice_async(self, "async", "get")
             return None
 
         promoted_payload_keys = [
@@ -2470,6 +2486,7 @@ class AsyncMemory(MemoryBase):
         if additional_metadata:
             result_item["metadata"] = additional_metadata
 
+        await display_first_run_notice_async(self, "async", "get")
         return result_item
 
     async def get_all(
@@ -2533,6 +2550,7 @@ class AsyncMemory(MemoryBase):
 
         all_memories_result = await self._get_all_from_vector_store(effective_filters, limit)
 
+        await display_first_run_notice_async(self, "async", "get_all")
         return {"results": all_memories_result}
 
     async def _get_all_from_vector_store(self, filters, limit):
@@ -2702,6 +2720,7 @@ class AsyncMemory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
+        await display_first_run_notice_async(self, "async", "search")
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -3002,6 +3021,7 @@ class AsyncMemory(MemoryBase):
         existing_embeddings = {data: embeddings}
 
         await self._update_memory(memory_id, data, existing_embeddings, metadata)
+        await display_first_run_notice_async(self, "async", "update")
         return {"message": "Memory updated successfully!"}
 
     async def delete(self, memory_id):
@@ -3018,6 +3038,7 @@ class AsyncMemory(MemoryBase):
             raise ValueError(f"Memory with id {memory_id} not found")
 
         await self._delete_memory(memory_id, existing_memory)
+        await display_first_run_notice_async(self, "async", "delete")
         return {"message": "Memory deleted successfully!"}
 
     async def delete_all(self, user_id=None, agent_id=None, run_id=None):
@@ -3054,6 +3075,7 @@ class AsyncMemory(MemoryBase):
 
         logger.info(f"Deleted {len(memories[0])} memories")
 
+        await display_first_run_notice_async(self, "async", "delete_all")
         return {"message": "Memories deleted successfully!"}
 
     async def history(self, memory_id):
@@ -3067,7 +3089,9 @@ class AsyncMemory(MemoryBase):
             list: List of changes for the memory.
         """
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "async"})
-        return await asyncio.to_thread(self.db.get_history, memory_id)
+        history = await asyncio.to_thread(self.db.get_history, memory_id)
+        await display_first_run_notice_async(self, "async", "history")
+        return history
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
@@ -3285,6 +3309,7 @@ class AsyncMemory(MemoryBase):
         )
 
         capture_event("mem0.reset", self, {"sync_type": "async"})
+        await display_first_run_notice_async(self, "async", "reset")
 
     def close(self):
         """Release resources held by this AsyncMemory instance."""

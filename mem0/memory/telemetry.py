@@ -49,7 +49,9 @@ MEM0_TELEMETRY_SAMPLE_RATE = _parse_sample_rate(os.environ.get("MEM0_TELEMETRY_S
 # Events that bypass sampling and always fire. Keep this set in sync with the
 # event names passed to capture_event() in mem0/memory/main.py.
 # $identify is included so PostHog person-merging is never lost to sampling.
-_LIFECYCLE_EVENTS = frozenset({"mem0.init", "mem0.reset", "mem0._create_procedural_memory", "$identify"})
+_LIFECYCLE_EVENTS = frozenset(
+    {"mem0.init", "mem0.reset", "mem0._create_procedural_memory", "mem0.notice_displayed", "$identify"}
+)
 
 
 def _sampling_before_send(msg):
@@ -85,7 +87,7 @@ class AnonymousTelemetry:
             self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
         self.user_id = get_or_create_user_id(vector_store)
 
-    def capture_event(self, event_name, properties=None, user_email=None):
+    def capture_event(self, event_name, properties=None, user_email=None, flags=None):
         if self.posthog is None:
             return
 
@@ -109,7 +111,10 @@ class AnonymousTelemetry:
             **properties,
         }
         try:
-            self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
+            capture_kwargs = {"distinct_id": distinct_id, "properties": properties}
+            if flags is not None:
+                capture_kwargs["flags"] = flags
+            self.posthog.capture(event_name, **capture_kwargs)
         except Exception as e:
             _logger.debug("Failed to capture telemetry event %r: %s", event_name, e)
 
