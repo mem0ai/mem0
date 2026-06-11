@@ -1,0 +1,6 @@
+packages:
+  - '.'
+
+overrides:
+  "postcss@<8.5.10": ">=8.5.10"
+  "prismjs@<1.30.0": ">=1.30.0"
