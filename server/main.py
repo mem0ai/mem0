@@ -453,6 +453,8 @@ def search_memories(search_req: SearchRequest, _auth=Depends(verify_auth)):
         return get_memory_instance().search(query=search_req.query, filters=filters, **params)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception:
         raise upstream_error()
 
