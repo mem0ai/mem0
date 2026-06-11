@@ -1,4 +1,4 @@
-import { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import { Mem0ConfigSettings } from './mem0-types';
 import { loadApiKey } from '@ai-sdk/provider-utils';
 interface MultimodalContent {
@@ -26,7 +26,7 @@ interface Message {
     content: string | MultimodalContent | Array<MultimodalContent>;
 }
 
-const flattenPrompt = (prompt: LanguageModelV2Prompt) => {
+const flattenPrompt = (prompt: LanguageModelV3Prompt) => {
     try {
         return prompt.map((part) => {
             if (part.role === "user") {
@@ -42,7 +42,6 @@ const flattenPrompt = (prompt: LanguageModelV2Prompt) => {
                     if (content.type === 'text' && content.text) {
                         return content.text;
                     } else if (content.type === 'file') {
-                        // For file content, we'll include a descriptive placeholder
                         if (content.mediaType === 'application/pdf') {
                             return '[PDF document]';
                         } else if (content.mediaType === 'text/markdown' || content.mediaType === 'application/mdx') {
@@ -54,8 +53,6 @@ const flattenPrompt = (prompt: LanguageModelV2Prompt) => {
                         }
                     }
                 }
-                // For non-text content (images, pdfs, mdx), we'll include a placeholder
-                // This helps maintain context for memory search while not breaking the text flow
                 return "[multimodal content]";
             }
             return "";
@@ -66,7 +63,7 @@ const flattenPrompt = (prompt: LanguageModelV2Prompt) => {
     }
 }
 
-const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
+const convertToMem0Format = (messages: LanguageModelV3Prompt) => {
     try {
         return messages.flatMap((message: any) => {
             try {
@@ -85,7 +82,6 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
                                     content: obj.text,
                                 };
                             } else if (obj.type === "file") {
-                                // Handle LanguageModelV2Prompt file format
                                 if (obj.mediaType === "application/pdf") {
                                     return {
                                         role: message.role,
@@ -155,7 +151,6 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
                         }
                     }).filter((item: null) => item !== null);
                 } else {
-                    // Handle single multimodal content object
                     const obj = message.content;
                     if (obj.type === "text") {
                         return {
@@ -163,7 +158,6 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
                             content: obj.text,
                         };
                     } else if (obj.type === "file") {
-                        // Handle LanguageModelV2Prompt file format
                         if (obj.mediaType === "application/pdf") {
                             return {
                                 role: message.role,
@@ -239,43 +233,45 @@ const convertToMem0Format = (messages: LanguageModelV2Prompt) => {
     }
 }
 
-const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings, top_k: number = 5) => {
+const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings, top_k: number = 10) => {
     try {
-        const filters: { OR: Array<{ [key: string]: string | undefined }> } = {
-            OR: [],
+        // v3: entity IDs go inside the filters object, not as top-level params
+        const filters: Record<string, any> = {
+            ...(config?.filters ?? {}),
         };
         if (config?.user_id) {
-            filters.OR.push({
-                user_id: config.user_id,
-            });
+            filters.user_id = config.user_id;
         }
         if (config?.app_id) {
-            filters.OR.push({
-                app_id: config.app_id,
-            });
+            filters.app_id = config.app_id;
         }
         if (config?.agent_id) {
-            filters.OR.push({
-                agent_id: config.agent_id,
-            });
+            filters.agent_id = config.agent_id;
         }
         if (config?.run_id) {
-            filters.OR.push({
-                run_id: config.run_id,
-            });
-        }
-        const org_project_filters = {
-            org_id: config&&config.org_id,
-            project_id: config&&config.project_id,
-            org_name: !config?.org_id ? config&&config.org_name : undefined,
-            project_name: !config?.org_id ? config&&config.project_name : undefined,
+            filters.run_id = config.run_id;
         }
 
         const apiKey = loadApiKey({
-            apiKey: (config&&config.mem0ApiKey),
+            apiKey: config?.mem0ApiKey,
             environmentVariableName: "MEM0_API_KEY",
             description: "Mem0",
         });
+
+        const body: Record<string, any> = {
+            query,
+            filters,
+            top_k: config?.top_k ?? top_k,
+        };
+        if (config?.threshold != null) {
+            body.threshold = config.threshold;
+        }
+        if (config?.rerank != null) {
+            body.rerank = config.rerank;
+        }
+        if (config?.metadata) {
+            body.metadata = config.metadata;
+        }
 
         const options = {
             method: 'POST',
@@ -283,19 +279,11 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
                 Authorization: `Token ${apiKey}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                query,
-                filters,
-                ...config,
-                top_k: config&&config.top_k || top_k,
-                version: "v2",
-                output_format: "v1.1",
-                ...org_project_filters
-            }),
+            body: JSON.stringify(body),
         };
 
         const baseUrl = config?.host || 'https://api.mem0.ai';
-        const response = await fetch(`${baseUrl}/v2/memories/search/`, options);
+        const response = await fetch(`${baseUrl}/v3/memories/search/`, options);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -307,7 +295,7 @@ const searchInternalMemories = async (query: string, config?: Mem0ConfigSettings
     }
 }
 
-const addMemories = async (messages: LanguageModelV2Prompt, config?: Mem0ConfigSettings) => {
+const addMemories = async (messages: LanguageModelV3Prompt, config?: Mem0ConfigSettings) => {
     try {
         let finalMessages: Array<Message> = [];
         if (typeof messages === "string") {
@@ -326,10 +314,18 @@ const addMemories = async (messages: LanguageModelV2Prompt, config?: Mem0ConfigS
 const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSettings) => {
     try {
         const apiKey = loadApiKey({
-            apiKey: (config&&config.mem0ApiKey),
+            apiKey: config?.mem0ApiKey,
             environmentVariableName: "MEM0_API_KEY",
             description: "Mem0",
         });
+
+        const body: Record<string, any> = { messages };
+        if (config?.user_id) body.user_id = config.user_id;
+        if (config?.app_id) body.app_id = config.app_id;
+        if (config?.agent_id) body.agent_id = config.agent_id;
+        if (config?.run_id) body.run_id = config.run_id;
+        if (config?.metadata) body.metadata = config.metadata;
+        if (config?.infer != null) body.infer = config.infer;
 
         const options = {
             method: 'POST',
@@ -337,11 +333,11 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
                 Authorization: `Token ${apiKey}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({messages, ...config, version: "v2"}),
+            body: JSON.stringify(body),
         };
 
         const baseUrl = config?.host || 'https://api.mem0.ai';
-        const response = await fetch(`${baseUrl}/v1/memories/`, options);
+        const response = await fetch(`${baseUrl}/v3/memories/add/`, options);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -353,58 +349,43 @@ const updateMemories = async (messages: Array<Message>, config?: Mem0ConfigSetti
     }
 }
 
-const retrieveMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
+const retrieveMemories = async (prompt: LanguageModelV3Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const systemPrompt = "These are the memories I have stored. Give more weightage to the question by users and try to answer that first. You have to modify your answer based on the memories I have provided. If the memories are irrelevant you can ignore them. Also don't reply to this section of the prompt, or the memories, they are only for your reference. The System prompt starts after text System Message: \n\n";
-        
-        const memories = await searchInternalMemories(message, config);
-        let memoriesText1 = "";
-        let memoriesText2 = "";
-        let graphPrompt = "";
 
-        try {
-            memoriesText1 = memories?.results?.map((memory: any) => {
-                return `Memory: ${memory.memory}\n\n`;
-            }).join("\n\n");
+        const data = await searchInternalMemories(message, config);
+        // The API response may be a flat array or an object with a results key
+        const memories: any[] = Array.isArray(data) ? data : (data?.results ?? []);
 
-            if (config?.enable_graph) {
-                memoriesText2 = memories?.relations?.map((memory: any) => {
-                    return `Relation: ${memory.source} -> ${memory.relationship} -> ${memory.target} \n\n`;
-                }).join("\n\n");
-                graphPrompt = `HERE ARE THE GRAPHS RELATIONS FOR THE PREFERENCES OF THE USER:\n\n ${memoriesText2}`;
-            }
-        } catch (error) {
-            console.error("Error while parsing memories:", error);
-        }
-
-        if (!memories || memories?.length === 0) {
+        if (memories.length === 0) {
             return "";
         }
 
-        return `System Message: ${systemPrompt} ${memoriesText1} ${graphPrompt}`;
+        const memoriesText = memories
+            .map((memory: any) => `Memory: ${memory.memory}\n\n`)
+            .join("\n\n");
+
+        return `System Message: ${systemPrompt} ${memoriesText}`;
     } catch (error) {
         console.error("Error in retrieveMemories:", error);
         throw error;
     }
 }
 
-const getMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
+const getMemories = async (prompt: LanguageModelV3Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
-        const memories = await searchInternalMemories(message, config);
-        
-        if (!config?.enable_graph) {
-            return memories?.results;
-        }
-        return memories;
+        const data = await searchInternalMemories(message, config);
+        // Normalize: always return a flat array regardless of API response shape
+        return Array.isArray(data) ? data : (data?.results ?? []);
     } catch (error) {
         console.error("Error in getMemories:", error);
         throw error;
     }
 }
 
-const searchMemories = async (prompt: LanguageModelV2Prompt | string, config?: Mem0ConfigSettings) => {
+const searchMemories = async (prompt: LanguageModelV3Prompt | string, config?: Mem0ConfigSettings) => {
     try {
         const message = typeof prompt === 'string' ? prompt : flattenPrompt(prompt);
         const memories = await searchInternalMemories(message, config);

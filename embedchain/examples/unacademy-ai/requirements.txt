@@ -1,3 +1,0 @@
-embedchain
-streamlit
-pysqlite3-binary

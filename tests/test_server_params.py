@@ -16,7 +16,6 @@ pytest.importorskip("fastapi", reason="fastapi not installed")
 
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -107,6 +106,32 @@ class TestSearchThreshold:
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
         assert "threshold" not in kwargs
+
+
+# ===========================================================================
+# SearchRequest: explain parameter
+# ===========================================================================
+
+class TestSearchExplain:
+    """Verify that the explain parameter is accepted and forwarded."""
+
+    def test_explain_true_forwarded(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "explain": True})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["explain"] is True
+
+    def test_explain_false_forwarded(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1", "explain": False})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["explain"] is False
+
+    def test_explain_omitted_uses_memory_default(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "explain" not in kwargs
 
 
 # ===========================================================================
@@ -306,9 +331,9 @@ class TestExistingParamsUnchanged:
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.search.call_args
-        assert kwargs["user_id"] == "u1"
-        assert kwargs["agent_id"] == "a1"
-        assert kwargs["filters"] == {"category": "food"}
+        assert kwargs["filters"]["user_id"] == "u1"
+        assert kwargs["filters"]["agent_id"] == "a1"
+        assert kwargs["filters"]["category"] == "food"
 
     def test_add_metadata_still_forwarded(self, client, mock_memory):
         resp = client.post("/memories", json={
@@ -465,11 +490,14 @@ class TestCallSignatureMatch:
             "top_k": 10, "threshold": 0.5,
         })
         assert resp.status_code == 200
-        # The handler passes query= as a keyword arg, so it appears in kwargs too
         _, kwargs = mock_memory.search.call_args
-        valid_params = {"query", "user_id", "agent_id", "run_id", "top_k", "filters", "threshold", "rerank"}
+        valid_params = {"query", "top_k", "filters", "threshold", "rerank"}
         for key in kwargs:
             assert key in valid_params, f"Unexpected kwarg '{key}' forwarded to Memory.search()"
+        assert kwargs["filters"]["user_id"] == "u1"
+        assert kwargs["filters"]["agent_id"] == "a1"
+        assert kwargs["filters"]["run_id"] == "r1"
+        assert kwargs["filters"]["k"] == "v"
 
     def test_add_kwargs_are_valid(self, client, mock_memory):
         """All kwargs forwarded to Memory.add() must be in its signature."""
@@ -588,3 +616,69 @@ class TestGetMemories:
         # 3. Verify the core logic: the param was mapped to the filters dict!
         _, kwargs = mock_memory.get_all.call_args
         assert kwargs["filters"] == {"user_id": "test_routing_user"}
+
+
+# ===========================================================================
+# SearchRequest: entity IDs mapped into filters (fix for server 502)
+# ===========================================================================
+
+class TestSearchEntityIdMapping:
+    """Verify that POST /search maps top-level user_id / agent_id / run_id
+    into the filters dict instead of forwarding them as kwargs, which would
+    cause Memory.search() to raise ValueError in v3."""
+
+    def test_user_id_mapped_to_filters(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "user_id": "u1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "user_id" not in kwargs
+        assert kwargs["filters"]["user_id"] == "u1"
+
+    def test_agent_id_mapped_to_filters(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "agent_id": "a1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "agent_id" not in kwargs
+        assert kwargs["filters"]["agent_id"] == "a1"
+
+    def test_run_id_mapped_to_filters(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food", "run_id": "r1"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert "run_id" not in kwargs
+        assert kwargs["filters"]["run_id"] == "r1"
+
+    def test_all_entity_ids_mapped(self, client, mock_memory):
+        resp = client.post("/search", json={
+            "query": "food", "user_id": "u1", "agent_id": "a1", "run_id": "r1",
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"] == {"user_id": "u1", "agent_id": "a1", "run_id": "r1"}
+
+    def test_entity_ids_merged_with_explicit_filters(self, client, mock_memory):
+        resp = client.post("/search", json={
+            "query": "food",
+            "user_id": "u1",
+            "filters": {"category": "food"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"]["user_id"] == "u1"
+        assert kwargs["filters"]["category"] == "food"
+
+    def test_no_entity_ids_no_filters(self, client, mock_memory):
+        resp = client.post("/search", json={"query": "food"})
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"] == {}
+
+    def test_only_filters_no_entity_ids(self, client, mock_memory):
+        resp = client.post("/search", json={
+            "query": "food",
+            "filters": {"user_id": "u1", "category": "food"},
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.search.call_args
+        assert kwargs["filters"]["user_id"] == "u1"
+        assert kwargs["filters"]["category"] == "food"

@@ -1,45 +1,55 @@
 #!/usr/bin/env bash
 # Hook: Stop
 #
-# Fires when Claude finishes responding.
-# Reminds Claude to store any unsaved learnings, then spawns a background
-# process to capture transcript state via the Mem0 REST API directly.
+# Captures a structured session summary when a Claude Code session ends.
+# Parses the transcript, extracts the last assistant message and files
+# touched, then stores via mem0 API with infer=True for AI extraction.
 #
-# Input:  JSON on stdin with stop_hook_active, transcript_path, cwd
-# Output: Text that becomes Claude's context (exit 0), or nothing
+# Guards:
+#   - Skips subagent sessions (agent_id present)
+#   - Skips if no API key
+#   - Skips if no transcript_path
+#   - Dedup via marker file
 #
-# IMPORTANT: Check stop_hook_active to avoid infinite loops.
+# Input:  JSON on stdin with transcript_path, session_id, agent_id, cwd
+# Output: Nothing to stdout (background capture). Always exits 0.
 
-set -euo pipefail
+set -uo pipefail
 
 if [ -n "${MEM0_DEBUG:-}" ]; then
   mkdir -p "$HOME/.mem0" && exec 2>>"$HOME/.mem0/hooks.log"
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
 INPUT=$(cat)
-STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
 
-if [ "$STOP_HOOK_ACTIVE" = "true" ]; then
+# Guard: skip subagent sessions
+AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // ""' 2>/dev/null || echo "")
+if [ -n "$AGENT_ID" ]; then
   exit 0
 fi
 
-cat <<'EOF'
-Before finishing, check if there are important learnings from this interaction that should be persisted using the mem0 `add_memory` tool:
+# Resolve identity if needed
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SCRIPT_DIR/_identity.sh" 2>/dev/null || true
 
-1. Were any significant decisions made? -> Store with metadata `{"type": "decision"}`
-2. Were any new patterns or strategies discovered? -> Store with metadata `{"type": "task_learning"}`
-3. Did any approach fail? -> Store with metadata `{"type": "anti_pattern"}`
-4. Did you learn anything about the user's preferences? -> Store with metadata `{"type": "user_preference"}`
-5. Were there environment/setup discoveries? -> Store with metadata `{"type": "environmental"}`
+# Honor auto_save=false in ~/.mem0/settings.json
+if [ "${MEM0_AUTO_SAVE:-true}" = "false" ]; then
+  exit 0
+fi
 
-Memories can be as detailed as needed — include full context, reasoning, code snippets, file paths, and examples. Longer, searchable memories are more valuable than vague one-liners.
+if [ -z "${MEM0_API_KEY:-}" ]; then
+  exit 0
+fi
 
-If nothing notable happened in this interaction, it's fine to skip. Only store genuinely useful learnings.
-EOF
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")
+if [ -z "$TRANSCRIPT_PATH" ]; then
+  exit 0
+fi
 
-# Capture transcript state in the background via Mem0 REST API
-echo "$INPUT" | python3 "$SCRIPT_DIR/on_pre_compact.py" --source=session-end 2>/dev/null &
+# Run capture in the background — fires every turn now, so avoid blocking
+echo "$INPUT" | python3 "$SCRIPT_DIR/capture_session_summary.py" 2>/dev/null &
+
+# Telemetry
+python3 "$SCRIPT_DIR/telemetry.py" session_stop 2>/dev/null &
 
 exit 0

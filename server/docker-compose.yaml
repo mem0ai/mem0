@@ -30,16 +30,16 @@ services:
       - MEM0_TELEMETRY=${MEM0_TELEMETRY:-true}
 
   postgres:
-      image: ankane/pgvector:v0.5.1
+      image: pgvector/pgvector:pg17
       restart: on-failure
       shm_size: "128mb"
       networks:
         - mem0_network
       environment:
-        - POSTGRES_USER=postgres
-        - POSTGRES_PASSWORD=postgres
+        - POSTGRES_USER=${POSTGRES_USER:-postgres}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       healthcheck:
-        test: ["CMD", "pg_isready", "-q", "-d", "postgres", "-U", "postgres"]
+        test: ["CMD-SHELL", "pg_isready -q -d postgres -U ${POSTGRES_USER:-postgres}"]
         interval: 5s
         timeout: 5s
         retries: 5

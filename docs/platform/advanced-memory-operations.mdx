@@ -64,7 +64,7 @@ const memory = new Memory({ apiKey: process.env.MEM0_API_KEY!, async: true });
   </Tab>
 </Tabs>
 
-## Add memories with metadata and graph context
+## Add memories with metadata
 
 <Tabs>
   <Tab title="Python">
@@ -109,7 +109,7 @@ const result = await memory.add(conversation, {
 </Tabs>
 
 <Info icon="check">
-  Successful calls return memories tagged with the metadata you passed. In the dashboard, confirm a graph edge between “Morgan” and “Tokyo” and verify the `trip=japan-2025` tag exists.
+  Successful calls return memories tagged with the metadata you passed. In the dashboard, verify the `trip=japan-2025` tag exists on the new memory.
 </Info>
 
 ## Retrieve and refine
@@ -201,7 +201,7 @@ await memory.deleteAll({ userId: "traveler-42", runId: "planning-call-1" });
   />
   <Card
     title="Explore Reranker Search"
-    description="See how rerankers boost accuracy after vector + graph retrieval."
+    description="See how rerankers boost accuracy after advanced retrieval."
     icon="sparkles"
     href="/open-source/features/reranker-search"
   />

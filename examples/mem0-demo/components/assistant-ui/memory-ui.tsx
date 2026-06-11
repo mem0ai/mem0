@@ -16,10 +16,10 @@ type RetrievedMemory = {
 
 type NewMemory = {
   id: string;
-  data: {
+  data?: {
     memory: string;
   };
-  event: "ADD" | "DELETE";
+  event: "ADD" | "UPDATE" | "DELETE" | "GET";
 };
 
 type NewMemoryAnnotation = {
@@ -47,14 +47,16 @@ const useMemories = (): Memory[] => {
     () =>
       annotations?.filter(isMemoryAnnotation).flatMap((a) => {
         if (a.type === "mem0-update") {
-          return a.memories.map(
-            (m): Memory => ({
-              event: m.event,
-              id: m.id,
-              memory: m.data.memory,
-              score: 1,
-            })
-          );
+          return a.memories
+            .filter((m): m is NewMemory & { data: { memory: string } } => m.data != null)
+            .map(
+              (m): Memory => ({
+                event: m.event,
+                id: m.id,
+                memory: m.data.memory,
+                score: 1,
+              })
+            );
         } else if (a.type === "mem0-get") {
           return a.memories.map((m) => ({
             event: "GET",
