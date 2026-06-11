@@ -95,5 +95,5 @@ jobs:
 
       - name: Verify dist output exists
         run: |
-          test -f openclaw/dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)
-          test -f openclaw/dist/index.d.ts || (echo "Build output missing: dist/index.d.ts" && exit 1)
+          test -f integrations/openclaw/dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)
+          test -f integrations/openclaw/dist/index.d.ts || (echo "Build output missing: dist/index.d.ts" && exit 1)
