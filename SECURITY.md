@@ -6,10 +6,10 @@ Please do not report security vulnerabilities through public GitHub issues.
 
 If you believe you have found a security vulnerability in mem0, please report it privately using one of the following options:
 
-1. GitHub Private Vulnerability Reporting, if enabled for this repository.
-2. Email the maintainers at founders@mem0.ai with the subject line:
+1. **GitHub Private Vulnerability Reporting** — open a [private security advisory](https://github.com/mem0ai/mem0/security/advisories/new) directly on this repository.
+2. **Email** the maintainers at founders@mem0.ai with the subject line:
 
-   SECURITY: mem0 vulnerability report
+   `SECURITY: mem0 vulnerability report`
 
 Please include the following information when possible:
 
@@ -19,7 +19,7 @@ Please include the following information when possible:
 - Security impact
 - Suggested fix or mitigation, if available
 
-The maintainers will review the report and follow up through a private channel.
+The maintainers will acknowledge receipt within 72 hours and follow up through a private channel.
 
 ## Public Disclosure
 
