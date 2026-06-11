@@ -108,6 +108,26 @@ const memoryPlugin = definePluginEntry({
     };
     const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
 
+    // OpenClaw's plugin loader calls register() twice: once with
+    // registrationMode "full" and once with "cli-metadata". Only
+    // CLI commands need to be available in the metadata pass —
+    // skip all heavy side effects (provider init, hooks, tools,
+    // service registration, telemetry).
+    if ((api as any).registrationMode === "cli-metadata") {
+      registerCliCommands(
+        api,
+        null as any,
+        null as any,
+        cfg,
+        () => cfg.userId,
+        (id: string) => `${cfg.userId}:agent:${id}`,
+        () => ({ user_id: cfg.userId, top_k: cfg.topK }),
+        () => undefined,
+        () => {},
+      );
+      return;
+    }
+
     // Telemetry context bound to this plugin instance's config
     const telemetryCtx = {
       apiKey: cfg.apiKey,
