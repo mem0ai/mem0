@@ -1,0 +1,144 @@
+---
+title: "TopK"
+description: "Use TopK as a vector database in Mem0 for high-performance semantic memory with native BM25 keyword search."
+---
+
+[TopK](https://topk.io) is a managed, high-performance vector database built to scale to billions of memories in large-scale production applications.
+It supports dense vector search, native BM25 keyword search, schemaless metadata filtering and comes with Python and TypeScript SDKs.
+
+### Prerequisites
+
+- Get your TopK API key from the [TopK Console](https://console.topk.io).
+- See [available regions](https://docs.topk.io/regions).
+
+### Installation
+
+<CodeGroup>
+```bash pip
+pip install topk-sdk
+```
+
+```bash npm
+npm install topk-js
+```
+</CodeGroup>
+
+### Usage
+
+<CodeGroup>
+```python Python
+import os
+from mem0 import Memory
+
+config = {
+    "vector_store": {
+        "provider": "topk",
+        "config": {
+            "api_key": os.environ["TOPK_API_KEY"],
+            "region": os.environ["TOPK_REGION"],
+            "collection_name": "agent_memory",
+            "embedding_model_dims": 1536,
+        }
+    }
+}
+
+m = Memory.from_config(config)
+
+m.add([{"role": "user", "content": "I love sci-fi movies."}], user_id="alice")
+
+results = m.search(query="movie preferences", filters={"user_id": "alice"})
+```
+
+```typescript TypeScript
+import { Memory } from "mem0ai/oss";
+
+const config = {
+  vectorStore: {
+    provider: "topk",
+    config: {
+      collectionName: "agent_memory",
+      embeddingModelDims: 1536,
+      apiKey: process.env.TOPK_API_KEY,
+      region: process.env.TOPK_REGION,
+    },
+  },
+};
+
+const memory = new Memory(config);
+
+await memory.add(
+  [{ role: "user", content: "I love sci-fi movies." }],
+  { userId: "alice" },
+);
+
+const results = await memory.search("movie preferences", {
+  filters: { user_id: "alice" },
+});
+```
+</CodeGroup>
+
+<Note>
+TopK queries return only explicitly selected memory fields.
+
+* Mem0's standard payload fields are always returned.
+* Custom metadata keys are returned in search results only when they are passed as filter keys.
+* Fetching a memory by ID always returns the full payload.
+* In TypeScript, `add()` accepts camelCase options (`userId`), but `search()` filters use snake_case (`user_id`).
+</Note>
+
+
+### Config
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `collection_name` | TopK collection name | *Required* |
+| `embedding_model_dims` | Embedding dimensions (must match your chosen embedding model) | `1536` |
+| `api_key` | TopK API key | Environment variable: `TOPK_API_KEY` |
+| `region` | TopK region (required if `TOPK_REGION` not set) | None |
+| `distance_metric` | Distance metric for vector similarity (`cosine`, `euclidean`, or `dot`) | `cosine` |
+| `batch_size` | Batch size for upsert operations | `100` |
+
+
+### Config Example
+
+<CodeGroup>
+```python Python
+config = {
+    "vector_store": {
+        "provider": "topk",
+        "config": {
+            "collection_name": "my_memories",
+            "embedding_model_dims": 1536,
+            "api_key": "your-topk-api-key",
+            "region": "aws-us-east-1-elastica",
+            "distance_metric": "cosine",
+            "batch_size": 200,
+        }
+    }
+}
+```
+
+```typescript TypeScript
+const config = {
+  vectorStore: {
+    provider: "topk",
+    config: {
+      collectionName: "my_memories",
+      embeddingModelDims: 1536,
+      apiKey: "your-topk-api-key",
+      region: "aws-us-east-1-elastica",
+      distanceMetric: "cosine",
+      batchSize: 200,
+    },
+  },
+};
+```
+</CodeGroup>
+
+### Documentation
+
+- See TopK's [documentation](https://docs.topk.io) for more details.
+
+### Pricing
+
+- See TopK's [pricing](https://topk.io/pricing) page for more details.

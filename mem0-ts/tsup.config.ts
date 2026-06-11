@@ -22,6 +22,7 @@ const external = [
   "@langchain/core",
   "compromise",
   "natural",
+  "topk-js",
 ];
 
 const define = {
