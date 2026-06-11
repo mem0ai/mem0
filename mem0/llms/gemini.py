@@ -12,6 +12,13 @@ from mem0.llms.base import LLMBase
 
 
 class GeminiLLM(LLMBase):
+    # Gemini honors a forced tool_choice and returns the standard
+    # {"content", "tool_calls"} dict, so the forced-structure extraction
+    # recovery can use it. Forcing a tool call also keeps Gemini's reasoning
+    # tokens out of the response, which is what corrupts the JSON in the
+    # leakage case (see issue #3918).
+    supports_tool_calls = True
+
     def __init__(self, config: Optional[BaseLlmConfig] = None):
         super().__init__(config)
 
@@ -140,6 +147,7 @@ class GeminiLLM(LLMBase):
         response_format=None,
         tools: Optional[List[Dict]] = None,
         tool_choice: str = "auto",
+        **kwargs,
     ):
         """
         Generate a response based on the given messages using Gemini.
@@ -149,6 +157,9 @@ class GeminiLLM(LLMBase):
             response_format (str or object, optional): Format for the response. Defaults to "text".
             tools (list, optional): List of tools that the model can call. Defaults to None.
             tool_choice (str, optional): Tool choice method. Defaults to "auto".
+            **kwargs: Additional parameters (e.g. ``max_tokens``) that override the
+                configured values for this one call. Accepted for parity with the
+                base ``generate_response`` contract and the other providers.
 
         Returns:
             str: The generated response.
@@ -164,6 +175,12 @@ class GeminiLLM(LLMBase):
             "top_p": self.config.top_p,
         }
 
+        # Per-call overrides take precedence over the configured values.
+        # Accepted kwargs: max_tokens. Anything else is ignored rather than
+        # forwarded, so unsupported OpenAI-style params cannot break the call.
+        if kwargs.get("max_tokens") is not None:
+            config_params["max_output_tokens"] = kwargs["max_tokens"]
+
         # Add system instruction to config if present
         if system_instruction:
             config_params["system_instruction"] = system_instruction
@@ -178,9 +195,15 @@ class GeminiLLM(LLMBase):
             config_params["tools"] = formatted_tools
 
             if tool_choice:
+                # "any" and "required" both mean "force a tool call" -> Gemini ANY
+                # mode. Previously "required" fell through to NONE, which silently
+                # disabled tool calling for any caller forcing a tool. They differ on
+                # restriction: "any" forces one of *these* tools (allowed_function_names
+                # set), "required" forces *some* tool with the model free to choose
+                # (allowed_function_names unset), matching LiteLLM's Gemini mapping.
                 if tool_choice == "auto":
                     mode = types.FunctionCallingConfigMode.AUTO
-                elif tool_choice == "any":
+                elif tool_choice in ("any", "required"):
                     mode = types.FunctionCallingConfigMode.ANY
                 else:
                     mode = types.FunctionCallingConfigMode.NONE

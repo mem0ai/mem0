@@ -187,3 +187,112 @@ def test_parse_response_empty_parts_with_tools(mock_gemini_client: Mock):
 
     result = llm._parse_response(mock_response, tools=[{"function": {"name": "test"}}])
     assert result == {"content": None, "tool_calls": []}
+
+
+# --- Forced tool_choice + per-call kwargs (provider bug fixes) ---
+
+_FORCE_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "save_memories",
+            "description": "Save extracted memories.",
+            "parameters": {"type": "object", "properties": {"memory": {"type": "array"}}, "required": ["memory"]},
+        },
+    }
+]
+
+
+def _tool_response():
+    call = Mock()
+    call.name = "save_memories"
+    call.args = {"memory": []}
+    part = Mock()
+    part.text = None
+    part.function_call = call
+    return Mock(candidates=[Mock(content=Mock(parts=[part]))])
+
+
+def test_tool_choice_required_forces_any_mode(mock_gemini_client: Mock):
+    """Regression: tool_choice='required' must map to ANY (force a tool), not
+    NONE (tools off). Previously 'required' fell through to NONE and silently
+    disabled tool calling. 'required' means the model must call *some* tool of
+    its choosing, so allowed_function_names stays unset (LiteLLM parity)."""
+    llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", max_tokens=100))
+    mock_gemini_client.models.generate_content.return_value = _tool_response()
+
+    llm.generate_response([{"role": "user", "content": "hi"}], tools=_FORCE_TOOLS, tool_choice="required")
+
+    cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert cfg.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.ANY
+    assert cfg.tool_config.function_calling_config.allowed_function_names is None
+
+
+def test_tool_choice_any_still_forces(mock_gemini_client: Mock):
+    """'any' restricts the forced call to the provided tools, so
+    allowed_function_names is set."""
+    llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", max_tokens=100))
+    mock_gemini_client.models.generate_content.return_value = _tool_response()
+
+    llm.generate_response([{"role": "user", "content": "hi"}], tools=_FORCE_TOOLS, tool_choice="any")
+
+    cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert cfg.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.ANY
+    assert cfg.tool_config.function_calling_config.allowed_function_names == ["save_memories"]
+
+
+def test_tool_choice_none_disables_tools(mock_gemini_client: Mock):
+    llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", max_tokens=100))
+    mock_gemini_client.models.generate_content.return_value = _tool_response()
+
+    llm.generate_response([{"role": "user", "content": "hi"}], tools=_FORCE_TOOLS, tool_choice="none")
+
+    cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert cfg.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.NONE
+
+
+def test_max_tokens_kwarg_overrides_config(mock_gemini_client: Mock):
+    """generate_response accepts **kwargs (base-class contract); a max_tokens
+    override is applied as max_output_tokens for that one call."""
+    llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", max_tokens=100))
+    mock_part = Mock()
+    mock_part.text = "ok"
+    mock_part.function_call = None
+    mock_gemini_client.models.generate_content.return_value = Mock(candidates=[Mock(content=Mock(parts=[mock_part]))])
+
+    llm.generate_response([{"role": "user", "content": "hi"}], max_tokens=8000)
+
+    cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert cfg.max_output_tokens == 8000
+
+
+# --- Forced-structure extraction recovery enablement (issue #3918) ---
+
+
+def test_gemini_declares_tool_call_support():
+    """Gemini opts into the forced-structure extraction recovery."""
+    assert GeminiLLM.supports_tool_calls is True
+
+
+def test_forced_structure_recovery_works_end_to_end_on_gemini(mock_gemini_client: Mock):
+    """A parse failure is recovered via a forced tool call on Gemini. Exercises
+    the recovery path + the forced tool_choice mapping + supports_tool_calls
+    together: the model returns a structured tool call (so leaked reasoning
+    tokens cannot corrupt the JSON), and the memories are recovered."""
+    from mem0.memory.utils import recover_extraction_via_tools
+
+    llm = GeminiLLM(BaseLlmConfig(model="gemini-2.0-flash", max_tokens=2000))
+    call = Mock()
+    call.name = "save_memories"
+    call.args = {"memory": [{"id": "0", "text": "User adopted a dog named Max"}]}
+    part = Mock()
+    part.text = None
+    part.function_call = call
+    mock_gemini_client.models.generate_content.return_value = Mock(candidates=[Mock(content=Mock(parts=[part]))])
+
+    recovered = recover_extraction_via_tools(llm, "system prompt", "user prompt")
+
+    assert recovered == [{"id": "0", "text": "User adopted a dog named Max"}]
+    # recovery forced a tool call (ANY mode), not free text
+    cfg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert cfg.tool_config.function_calling_config.mode == types.FunctionCallingConfigMode.ANY
