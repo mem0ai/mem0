@@ -27,8 +27,12 @@ from mem0.memory.setup import mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
+    detect_temporal_usage_from_metadata,
+    detect_temporal_usage_from_search,
     display_first_run_notice,
     display_first_run_notice_async,
+    display_temporal_usage_notice,
+    display_temporal_usage_notice_async,
     get_temporal_feature_error_message,
     get_temporal_feature_error_message_async,
 )
@@ -644,6 +648,7 @@ class Memory(MemoryBase):
         if timestamp is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
 
+        temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id,
             agent_id=agent_id,
@@ -675,7 +680,10 @@ class Memory(MemoryBase):
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
-            display_first_run_notice(self, "sync", "add")
+            if temporal_usage_notice:
+                display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+            else:
+                display_first_run_notice(self, "sync", "add")
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -684,7 +692,10 @@ class Memory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
-        display_first_run_notice(self, "sync", "add")
+        if temporal_usage_notice:
+            display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+        else:
+            display_first_run_notice(self, "sync", "add")
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
@@ -1214,6 +1225,7 @@ class Memory(MemoryBase):
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
         query = _validate_and_trim_search_query(query)
+        temporal_usage_notice = detect_temporal_usage_from_search(query, filters)
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -1274,7 +1286,10 @@ class Memory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
-        display_first_run_notice(self, "sync", "search")
+        if temporal_usage_notice:
+            display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
+        else:
+            display_first_run_notice(self, "sync", "search")
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -2106,6 +2121,7 @@ class AsyncMemory(MemoryBase):
         if timestamp is not None:
             raise ValueError(await get_temporal_feature_error_message_async("async", "add", "timestamp"))
 
+        temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
@@ -2133,7 +2149,10 @@ class AsyncMemory(MemoryBase):
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
-            await display_first_run_notice_async(self, "async", "add")
+            if temporal_usage_notice:
+                await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+            else:
+                await display_first_run_notice_async(self, "async", "add")
             return results
 
         if self.config.llm.config.get("enable_vision"):
@@ -2142,7 +2161,10 @@ class AsyncMemory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
-        await display_first_run_notice_async(self, "async", "add")
+        if temporal_usage_notice:
+            await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "add")
         return {"results": vector_store_result}
 
     async def _add_to_vector_store(
@@ -2681,6 +2703,7 @@ class AsyncMemory(MemoryBase):
         # Validate search parameters (before applying defaults)
         _validate_search_params(threshold=threshold, top_k=top_k)
         query = _validate_and_trim_search_query(query)
+        temporal_usage_notice = detect_temporal_usage_from_search(query, filters)
 
         # Validate and trim entity IDs in filters
         effective_filters = filters.copy() if filters else {}
@@ -2746,7 +2769,10 @@ class AsyncMemory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
-        await display_first_run_notice_async(self, "async", "search")
+        if temporal_usage_notice:
+            await display_temporal_usage_notice_async(self, "async", "search", *temporal_usage_notice)
+        else:
+            await display_first_run_notice_async(self, "async", "search")
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
