@@ -900,16 +900,15 @@ def test_scale_threshold_cap_ignores_old_entries(notice_harness, capsys):
     assert len(config["notice_state"]["scale_threshold"]["events"]) == 1
 
 
-def test_scale_threshold_add_counter_counts_only_add_events(notice_harness):
+def test_scale_threshold_memory_count_requires_add_result_and_provider_count(notice_harness):
     config, _ = notice_harness
-    config["notice_state"] = {"scale_threshold": {"local_add_count": 1999}}
     memory = MagicMock()
-    memory.vector_store = object()
+    memory.vector_store.count.return_value = notices.SCALE_MEMORY_COUNT_THRESHOLD
 
-    notice = notices.detect_scale_threshold_from_add_result(
-        memory,
-        [{"event": "UPDATE"}, {"event": "ADD"}, {"event": "DELETE"}],
-    )
+    assert notices.detect_scale_threshold_from_add_result(memory, [{"event": "UPDATE"}]) is None
+    assert config.get("notice_state") is None
+
+    notice = notices.detect_scale_threshold_from_add_result(memory, [{"event": "ADD"}])
 
     assert notice == (
         "memory_count",
@@ -918,7 +917,29 @@ def test_scale_threshold_add_counter_counts_only_add_events(notice_harness):
         notices.SCALE_MEMORY_COUNT_THRESHOLD,
         notices.SCALE_MEMORY_COUNT_THRESHOLD,
     )
-    assert config["notice_state"]["scale_threshold"]["local_add_count"] == 2000
+    assert config.get("notice_state") is None
+
+
+def test_scale_threshold_memory_count_ignores_under_threshold_provider_count(notice_harness):
+    config, _ = notice_harness
+    memory = MagicMock()
+    memory.vector_store.count.return_value = notices.SCALE_MEMORY_COUNT_THRESHOLD - 1
+
+    notice = notices.detect_scale_threshold_from_add_result(memory, [{"event": "ADD"}])
+
+    assert notice is None
+    assert config.get("notice_state") is None
+
+
+def test_scale_threshold_memory_count_ignores_already_evaluated_threshold(notice_harness):
+    config, _ = notice_harness
+    config["notice_state"] = {"scale_threshold": {"memory_count_threshold_evaluated": True}}
+    memory = MagicMock()
+    memory.vector_store.count.return_value = notices.SCALE_MEMORY_COUNT_THRESHOLD
+
+    notice = notices.detect_scale_threshold_from_add_result(memory, [{"event": "ADD"}])
+
+    assert notice is None
 
 
 def test_scale_threshold_memory_count_event_marks_threshold_evaluated(notice_harness, capsys):

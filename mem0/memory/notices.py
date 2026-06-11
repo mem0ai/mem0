@@ -248,48 +248,28 @@ def detect_scale_threshold_from_add_result(
     if not telemetry_module.MEM0_TELEMETRY:
         return None
 
-    added_count = _count_added_memories(add_result)
+    if _count_added_memories(add_result) == 0:
+        return None
+
     provider_count = _get_provider_memory_count(memory_instance)
+    if provider_count is None or provider_count < SCALE_MEMORY_COUNT_THRESHOLD:
+        return None
 
     try:
         with _state_lock:
             config = _load_config()
             scale_state = _get_notice_state(config, SCALE_THRESHOLD_STATE_KEY)
-            local_count = _coerce_nonnegative_int(scale_state.get("local_add_count"), 0)
-            if added_count > 0:
-                local_count += added_count
-                scale_state["local_add_count"] = local_count
-
-            if provider_count is not None:
-                memory_count = max(local_count, provider_count)
-            else:
-                memory_count = local_count
-
-            should_evaluate = (
-                memory_count >= SCALE_MEMORY_COUNT_THRESHOLD
-                and not scale_state.get("memory_count_threshold_evaluated")
+            if scale_state.get("memory_count_threshold_evaluated"):
+                return None
+            return (
+                "memory_count",
+                "memory_count_threshold",
+                None,
+                provider_count,
+                SCALE_MEMORY_COUNT_THRESHOLD,
             )
-
-            state = config.get(STATE_SECTION)
-            if not isinstance(state, dict):
-                state = {}
-            state[SCALE_THRESHOLD_STATE_KEY] = scale_state
-            config[STATE_SECTION] = state
-            if added_count > 0:
-                _write_config(config)
-
-            if should_evaluate:
-                return (
-                    "memory_count",
-                    "memory_count_threshold",
-                    None,
-                    memory_count,
-                    SCALE_MEMORY_COUNT_THRESHOLD,
-                )
     except Exception:
         return None
-
-    return None
 
 
 def display_scale_threshold_notice(
