@@ -15,6 +15,8 @@ overrides:
   minimatch@>=9.0.0 <9.0.7: ^9.0.7
   path-to-regexp@>=8.0.0 <8.4.0: ^8.4.0
   postcss@<8.5.10: '>=8.5.10'
+  uuid@<11.1.1: '>=11.1.1'
+  ws@>=8.0.0 <8.20.1: '>=8.20.1'
   rollup@>=4.0.0 <4.59.0: ^4.59.0
   tar-fs@>=2.0.0 <2.1.4: ^2.1.4
   glob@>=10.2.0 <10.5.0: ^10.5.0
@@ -88,8 +90,8 @@ importers:
         specifier: ^4.6.13
         version: 4.7.1
       uuid:
-        specifier: 9.0.1
-        version: 9.0.1
+        specifier: ^11.1.1
+        version: 11.1.1
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -2004,7 +2006,7 @@ packages:
       '@opentelemetry/exporter-trace-otlp-proto': '*'
       '@opentelemetry/sdk-trace-base': '*'
       openai: '*'
-      ws: '>=7'
+      ws: '>=8.20.1'
     peerDependenciesMeta:
       '@opentelemetry/api':
         optional: true
@@ -2288,7 +2290,7 @@ packages:
     resolution: {integrity: sha512-p99EFNsA/yX6UhVO93f5kJsDRLAg+CTA2RBqdHK4RtK8u5IJw32Hyb2dTGKbnnFmnuoBv5r7Z2CURI9sGZpSuA==}
     hasBin: true
     peerDependencies:
-      ws: ^8.18.0
+      ws: '>=8.20.1'
       zod: ^3.23.8
     peerDependenciesMeta:
       ws:
@@ -2934,13 +2936,12 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  uuid@13.0.2:
-    resolution: {integrity: sha512-vzi9uRZ926x4XV73S/4qQaTwPXM2JBj6/6lI/byHH1jOpCzb0zDbfytgA9LcN/hzb2l7WQSQnxITOVx5un/wGw==}
+  uuid@11.1.1:
+    resolution: {integrity: sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ==}
     hasBin: true
 
-  uuid@9.0.1:
-    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
-    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+  uuid@13.0.2:
+    resolution: {integrity: sha512-vzi9uRZ926x4XV73S/4qQaTwPXM2JBj6/6lI/byHH1jOpCzb0zDbfytgA9LcN/hzb2l7WQSQnxITOVx5un/wGw==}
     hasBin: true
 
   v8-compile-cache-lib@3.0.1:
@@ -6120,9 +6121,9 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  uuid@13.0.2: {}
+  uuid@11.1.1: {}
 
-  uuid@9.0.1: {}
+  uuid@13.0.2: {}
 
   v8-compile-cache-lib@3.0.1: {}
 
