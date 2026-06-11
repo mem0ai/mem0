@@ -1725,12 +1725,17 @@ class Memory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
-        # delete all vector memories and reset the collections
-        memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
-            self._delete_memory(memory.id)
 
-        logger.info(f"Deleted {len(memories)} memories")
+        total_deleted = 0
+        while True:
+            memories = self.vector_store.list(filters=filters)[0]
+            if not memories:
+                break
+            for memory in memories:
+                self._delete_memory(memory.id)
+            total_deleted += len(memories)
+
+        logger.info(f"Deleted {total_deleted} memories")
 
         decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
         if decay_usage_notice:
@@ -3235,15 +3240,18 @@ class AsyncMemory(MemoryBase):
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
-        memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
 
-        delete_tasks = []
-        for memory in memories[0]:
-            delete_tasks.append(self._delete_memory(memory.id))
+        total_deleted = 0
+        while True:
+            memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
+            batch = memories[0]
+            if not batch:
+                break
+            delete_tasks = [self._delete_memory(memory.id) for memory in batch]
+            await asyncio.gather(*delete_tasks)
+            total_deleted += len(batch)
 
-        await asyncio.gather(*delete_tasks)
-
-        logger.info(f"Deleted {len(memories[0])} memories")
+        logger.info(f"Deleted {total_deleted} memories")
 
         decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
         if decay_usage_notice:
