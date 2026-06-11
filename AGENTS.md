@@ -419,15 +419,21 @@ Agent/editor integrations live under `integrations/`. Each is a self-contained d
 
 ### CI Workflows (automated testing)
 
-| Workflow | File | Triggers | Tests |
-|----------|------|----------|-------|
-| Python SDK | `ci.yml` | Push to main, PRs on `mem0/`, `tests/`, `pyproject.toml` | Ruff lint + pytest on Python 3.10, 3.11, 3.12 |
-| TypeScript SDK | `ts-sdk-ci.yml` | Push to main, PRs on `mem0-ts/` | Prettier + build + jest on Node 20, 22 |
-| Python CLI | `cli-python-ci.yml` | Push to `cli/python/`, PRs, manual | Ruff lint + pytest + hatch build on Python 3.10, 3.11, 3.12 |
-| Node CLI | `cli-node-ci.yml` | Push to `cli/node/`, PRs, manual | Biome lint + tsc + vitest + tsup build on Node 20, 22 |
-| OpenClaw | `openclaw-checks.yml` | Push to `integrations/openclaw/`, PRs, manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
-| OpenCode Plugin | `opencode-plugin-checks.yml` | Push to `integrations/mem0-plugin/.opencode-plugin/`, PRs, manual | Bun: tsc type-check + build + dist artifact check |
-| Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to `integrations/pi-agent-plugin/`, PRs, manual | tsc + vitest + tsup build (dist artifact check) on Node 20, 22 |
+PR testing is orchestrated by a single entry point: **`ci-gate.yml` (CI Gate)** runs on every PR, detects which packages changed, and invokes only the relevant package workflows below as reusable workflows (`workflow_call`). Its final **`CI Gate`** job aggregates the results (skipped pipelines pass; failed or cancelled ones fail) and is the **only status check that needs to be required** in branch protection. Package workflows keep their own push-to-main and manual triggers; their `pull_request` triggers moved into the gate's path filters.
+
+| Workflow | File | Standalone Triggers | Tests |
+|----------|------|---------------------|-------|
+| CI Gate | `ci-gate.yml` | All PRs | Routes to and aggregates the workflows below |
+| Python SDK | `ci.yml` | Push to main | Ruff lint + pytest on Python 3.10, 3.11, 3.12 |
+| TypeScript SDK | `ts-sdk-ci.yml` | Push to main (on `mem0-ts/`) | Prettier + build + jest on Node 20, 22 |
+| Python CLI | `cli-python-ci.yml` | Push to main (on `cli/python/`), manual | Ruff lint + pytest + hatch build on Python 3.10, 3.11, 3.12 |
+| Node CLI | `cli-node-ci.yml` | Push to main (on `cli/node/`), manual | Biome lint + tsc + vitest + tsup build on Node 20, 22 |
+| OpenClaw | `openclaw-checks.yml` | Push to main (on `integrations/openclaw/`), manual | tsc + vitest (with Codecov) + tsup build on Node 20, 22 |
+| OpenCode Plugin | `opencode-plugin-checks.yml` | Push to main (on `integrations/mem0-plugin/.opencode-plugin/`), manual | Bun: tsc type-check + build + dist artifact check |
+| Pi Agent Plugin | `pi-agent-plugin-checks.yml` | Push to main (on `integrations/pi-agent-plugin/`), manual | tsc + vitest + tsup build (dist artifact check) on Node 20, 22 |
+| docs llms.txt | `docs-llms-txt-check.yml` | Manual | `docs/llms.txt` coverage check |
+
+When adding a new package CI workflow: give it `workflow_call` (plus `push`/`workflow_dispatch` as needed, but no `pull_request` trigger), then register it in `ci-gate.yml` — a path filter under the `changes` job, a call job, and an entry in the gate job's `needs` list.
 
 ### CD Workflows (automated publishing)
 
