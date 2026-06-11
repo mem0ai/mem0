@@ -449,21 +449,30 @@ class Memory(MemoryBase):
                 filters=search_filters,
             )
 
+            merge = False
             if existing and existing[0].score >= 0.95:
-                # Update existing entity's linked_memory_ids
                 match = existing[0]
                 payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    self.entity_store.update(
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
-                    )
-            else:
-                # Create new entity
+                # Scope gate: only merge if the existing entity belongs to the
+                # same scope.  Both sides must carry at least one scope key and
+                # all present scope keys must match exactly.  Unscoped entities
+                # are never merged so that legacy records without scope keys
+                # don't leak across tenants.
+                match_scope = {k: payload.get(k) for k in ("user_id", "agent_id", "run_id") if k in payload}
+                if match_scope and match_scope == search_filters:
+                    merge = True
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        self.entity_store.update(
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+
+            if not merge:
+                # Create new entity (no close match, scope mismatch, or unscoped)
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -937,25 +946,48 @@ class Memory(MemoryBase):
 
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    seen_scope_mismatch_keys = set()
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
 
                         if matches and matches[0].score >= 0.95:
-                            # Update existing entity
                             match = matches[0]
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                self.entity_store.update(
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
-                                )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
+                            # Scope gate (see _upsert_entity for rationale)
+                            match_scope = {k: payload.get(k) for k in ("user_id", "agent_id", "run_id") if k in payload}
+                            if match_scope and match_scope == search_filters:
+                                # Same scope — update existing entity
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                try:
+                                    self.entity_store.update(
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}': {e}")
+                            else:
+                                # Scope mismatch or unscoped — deduplicated new entity
+                                dedup_key = (entity_text.strip().lower(), tuple(sorted(search_filters.items())))
+                                if dedup_key not in seen_scope_mismatch_keys:
+                                    seen_scope_mismatch_keys.add(dedup_key)
+                                    to_insert_vectors.append(valid_vectors[j])
+                                    to_insert_ids.append(str(uuid.uuid4()))
+                                    to_insert_payloads.append({
+                                        "data": entity_text,
+                                        "entity_type": entity_type,
+                                        "linked_memory_ids": sorted(memory_ids),
+                                        **search_filters,
+                                    })
+                                else:
+                                    for p in to_insert_payloads:
+                                        if p.get("data", "").strip().lower() == entity_text.strip().lower() and p.get("entity_type") == entity_type:
+                                            existing_ids = set(p.get("linked_memory_ids", []))
+                                            p["linked_memory_ids"] = sorted(existing_ids | memory_ids)
+                                            break
                         else:
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
@@ -1930,20 +1962,27 @@ class AsyncMemory(MemoryBase):
                 filters=search_filters,
             )
 
+            merge = False
             if existing and existing[0].score >= 0.95:
                 match = existing[0]
                 payload = match.payload or {}
-                linked_ids = payload.get("linked_memory_ids", [])
-                if memory_id not in linked_ids:
-                    linked_ids.append(memory_id)
-                    payload["linked_memory_ids"] = linked_ids
-                    await asyncio.to_thread(
-                        self.entity_store.update,
-                        vector_id=match.id,
-                        vector=None,
-                        payload=payload,
-                    )
-            else:
+                # Scope gate: only merge if the existing entity belongs to the
+                # same scope (see _upsert_entity for rationale).
+                match_scope = {k: payload.get(k) for k in ("user_id", "agent_id", "run_id") if k in payload}
+                if match_scope and match_scope == search_filters:
+                    merge = True
+                    linked_ids = payload.get("linked_memory_ids", [])
+                    if memory_id not in linked_ids:
+                        linked_ids.append(memory_id)
+                        payload["linked_memory_ids"] = linked_ids
+                        await asyncio.to_thread(
+                            self.entity_store.update,
+                            vector_id=match.id,
+                            vector=None,
+                            payload=payload,
+                        )
+
+            if not merge:
                 entity_id = str(uuid.uuid4())
                 entity_payload = {
                     "data": entity_text,
@@ -2389,6 +2428,7 @@ class AsyncMemory(MemoryBase):
 
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    seen_scope_mismatch_keys = set()
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
@@ -2396,18 +2436,41 @@ class AsyncMemory(MemoryBase):
                         if matches and matches[0].score >= 0.95:
                             match = matches[0]
                             payload = match.payload or {}
-                            linked = set(payload.get("linked_memory_ids", []))
-                            linked |= memory_ids
-                            payload["linked_memory_ids"] = sorted(linked)
-                            try:
-                                await asyncio.to_thread(
-                                    self.entity_store.update,
-                                    vector_id=match.id,
-                                    vector=None,
-                                    payload=payload,
-                                )
-                            except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
+                            # Scope gate (see _upsert_entity for rationale)
+                            match_scope = {k: payload.get(k) for k in ("user_id", "agent_id", "run_id") if k in payload}
+                            if match_scope and match_scope == search_filters:
+                                # Same scope — update existing entity
+                                linked = set(payload.get("linked_memory_ids", []))
+                                linked |= memory_ids
+                                payload["linked_memory_ids"] = sorted(linked)
+                                try:
+                                    await asyncio.to_thread(
+                                        self.entity_store.update,
+                                        vector_id=match.id,
+                                        vector=None,
+                                        payload=payload,
+                                    )
+                                except Exception as e:
+                                    logger.debug(f"Entity update failed for '{entity_text}' (async): {e}")
+                            else:
+                                # Scope mismatch or unscoped — deduplicated new entity
+                                dedup_key = (entity_text.strip().lower(), tuple(sorted(search_filters.items())))
+                                if dedup_key not in seen_scope_mismatch_keys:
+                                    seen_scope_mismatch_keys.add(dedup_key)
+                                    to_insert_vectors.append(valid_vectors[j])
+                                    to_insert_ids.append(str(uuid.uuid4()))
+                                    to_insert_payloads.append({
+                                        "data": entity_text,
+                                        "entity_type": entity_type,
+                                        "linked_memory_ids": sorted(memory_ids),
+                                        **search_filters,
+                                    })
+                                else:
+                                    for p in to_insert_payloads:
+                                        if p.get("data", "").strip().lower() == entity_text.strip().lower() and p.get("entity_type") == entity_type:
+                                            existing_ids = set(p.get("linked_memory_ids", []))
+                                            p["linked_memory_ids"] = sorted(existing_ids | memory_ids)
+                                            break
                         else:
                             to_insert_vectors.append(valid_vectors[j])
                             to_insert_ids.append(str(uuid.uuid4()))
