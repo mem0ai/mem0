@@ -1731,9 +1731,6 @@ class Memory(MemoryBase):
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
@@ -3193,9 +3190,6 @@ class AsyncMemory(MemoryBase):
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
-        if "actor_id" in existing_memory.payload:
-            new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
         else:
