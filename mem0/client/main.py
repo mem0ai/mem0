@@ -19,8 +19,8 @@ from mem0.client.types import (
 from mem0.client.utils import api_error_handler
 
 # Exception classes are referenced in docstrings only
-from mem0.memory.setup import get_user_id, setup_config
-from mem0.memory.telemetry import capture_client_event
+from mem0.memory.setup import get_user_id, is_aliased, mark_aliased, read_anon_ids, setup_config
+from mem0.memory.telemetry import capture_client_event, client_telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,41 @@ setup_config()
 
 # Entity parameters that must be passed via filters, not top-level
 ENTITY_PARAMS = frozenset({"user_id", "agent_id", "app_id", "run_id"})
+
+
+def _validate_and_trim_search_query(query: str) -> str:
+    if not isinstance(query, str):
+        raise ValueError("Invalid query: must be a non-empty string.")
+    trimmed = query.strip()
+    if not trimmed:
+        raise ValueError("Invalid query: cannot be empty or whitespace-only.")
+    return trimmed
+
+
+def _maybe_alias_anon_to_email(user_email):
+    """Fire $identify per prior anon ID so PostHog merges them into email.
+
+    Idempotent via telemetry.aliased_pairs: only writes markers when
+    telemetry is actually enabled, so disabling/re-enabling MEM0_TELEMETRY still works.
+    Best-effort: never raises.
+    """
+    if client_telemetry.posthog is None:
+        return
+    if not user_email or "@" not in user_email:
+        return
+    try:
+        anon_ids = read_anon_ids()
+        seen = set()
+        for anon_id in (anon_ids.get("oss"), anon_ids.get("cli")):
+            if not anon_id or anon_id == user_email or anon_id in seen:
+                continue
+            seen.add(anon_id)
+            if is_aliased(anon_id, user_email):
+                continue
+            if client_telemetry.capture_identify(anon_id, user_email):
+                mark_aliased(anon_id, user_email)
+    except Exception as e:
+        logger.debug("Failed to alias anon telemetry to %r: %s", user_email, e)
 
 
 class MemoryClient:
@@ -108,6 +143,7 @@ class MemoryClient:
             user_email=self.user_email,
         )
 
+        _maybe_alias_anon_to_email(self.user_email)
         capture_client_event("client.init", self, {"sync_type": "sync"})
 
     def _validate_api_key(self):
@@ -279,6 +315,7 @@ class MemoryClient:
 
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
+        query = _validate_and_trim_search_query(query)
         payload = {"query": query, **params}
 
         response = self.client.post("/v3/memories/search/", json=payload)
@@ -333,11 +370,16 @@ class MemoryClient:
         return response.json()
 
     @api_error_handler
-    def delete(self, memory_id: str) -> Dict[str, Any]:
+    def delete(self, memory_id: str, delete_linked: bool = False) -> Dict[str, Any]:
         """Delete a specific memory by ID.
 
         Args:
             memory_id: The ID of the memory to delete.
+            delete_linked: When True, also delete the older memories this one
+                superseded (the v3 ``linked_memory_ids`` chain), transitively.
+                This is the delete-side counterpart of ``latest_only`` — it
+                stops a superseded memory from resurfacing after you delete the
+                current one. Defaults to False (only the given memory is deleted).
 
         Returns:
             A dictionary containing the API response.
@@ -350,10 +392,12 @@ class MemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        params = self._prepare_params()
+        params = self._prepare_params({"delete_linked": delete_linked or None})
         response = self.client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
-        capture_client_event("client.delete", self, {"memory_id": memory_id, "sync_type": "sync"})
+        capture_client_event(
+            "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "sync"}
+        )
         return response.json()
 
     @api_error_handler
@@ -985,6 +1029,7 @@ class AsyncMemoryClient:
             user_email=self.user_email,
         )
 
+        _maybe_alias_anon_to_email(self.user_email)
         capture_client_event("client.init", self, {"sync_type": "async"})
 
     def _validate_api_key(self):
@@ -1186,6 +1231,7 @@ class AsyncMemoryClient:
 
         kwargs = {**(options.model_dump(exclude_unset=True) if options else {}), **kwargs}
         params = self._prepare_params(kwargs)
+        query = _validate_and_trim_search_query(query)
         payload = {"query": query, **params}
 
         response = await self.async_client.post("/v3/memories/search/", json=payload)
@@ -1240,11 +1286,16 @@ class AsyncMemoryClient:
         return response.json()
 
     @api_error_handler
-    async def delete(self, memory_id: str) -> Dict[str, Any]:
+    async def delete(self, memory_id: str, delete_linked: bool = False) -> Dict[str, Any]:
         """Delete a specific memory by ID.
 
         Args:
             memory_id: The ID of the memory to delete.
+            delete_linked: When True, also delete the older memories this one
+                superseded (the v3 ``linked_memory_ids`` chain), transitively.
+                This is the delete-side counterpart of ``latest_only`` — it
+                stops a superseded memory from resurfacing after you delete the
+                current one. Defaults to False (only the given memory is deleted).
 
         Returns:
             A dictionary containing the API response.
@@ -1257,10 +1308,12 @@ class AsyncMemoryClient:
             NetworkError: If network connectivity issues occur.
             MemoryNotFoundError: If the memory doesn't exist (for updates/deletes).
         """
-        params = self._prepare_params()
+        params = self._prepare_params({"delete_linked": delete_linked or None})
         response = await self.async_client.delete(f"/v1/memories/{memory_id}/", params=params)
         response.raise_for_status()
-        capture_client_event("client.delete", self, {"memory_id": memory_id, "sync_type": "async"})
+        capture_client_event(
+            "client.delete", self, {"memory_id": memory_id, "delete_linked": delete_linked, "sync_type": "async"}
+        )
         return response.json()
 
     @api_error_handler

@@ -30,7 +30,7 @@ class PlatformBackend(Backend):
         )
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
-        from mem0_cli.state import is_agent_mode
+        from mem0_cli.state import capture_notice, is_agent_mode
 
         self._client.headers["X-Mem0-Caller-Type"] = "agent" if is_agent_mode() else "user"
         resp = self._client.request(method, path, **kwargs)
@@ -48,7 +48,26 @@ class PlatformBackend(Backend):
         resp.raise_for_status()
         if resp.status_code == 204:
             return {}
-        return resp.json()
+        data = resp.json()
+
+        # Pull the unclaimed-Agent-Mode notice out of the body (or the header
+        # fallback for endpoints that return non-dict / non-dict-leading
+        # payloads) and stash it for end-of-command surfacing.
+        notice = None
+        if isinstance(data, dict) and "mem0_notice" in data:
+            notice = data.pop("mem0_notice")
+        elif (
+            isinstance(data, list)
+            and data
+            and isinstance(data[0], dict)
+            and "mem0_notice" in data[0]
+        ):
+            notice = data[0].pop("mem0_notice")
+        if notice is None:
+            notice = resp.headers.get("X-Mem0-Notice-Message") or None
+        capture_notice(notice)
+
+        return data
 
     def add(
         self,
@@ -64,7 +83,6 @@ class PlatformBackend(Backend):
         infer: bool = True,
         expires: str | None = None,
         categories: list[str] | None = None,
-        enable_graph: bool = False,
     ) -> dict:
         payload: dict[str, Any] = {}
 
@@ -91,11 +109,9 @@ class PlatformBackend(Backend):
             payload["expiration_date"] = expires
         if categories:
             payload["categories"] = categories
-        if enable_graph:
-            payload["enable_graph"] = True
         payload["source"] = "CLI"
 
-        return self._request("POST", "/v1/memories/", json=payload)
+        return self._request("POST", "/v3/memories/add/", json=payload)
 
     def _build_filters(
         self,
@@ -106,7 +122,7 @@ class PlatformBackend(Backend):
         run_id: str | None = None,
         extra_filters: dict | None = None,
     ) -> dict | None:
-        """Build a filters dict for v2 API endpoints.
+        """Build a filters dict for v3 API endpoints.
 
         Entity IDs are ANDed (all provided IDs must match).
         Extra filters (date ranges, categories) are also ANDed.
@@ -152,7 +168,6 @@ class PlatformBackend(Backend):
         keyword: bool = False,
         filters: dict | None = None,
         fields: list[str] | None = None,
-        enable_graph: bool = False,
     ) -> list[dict]:
         payload: dict[str, Any] = {"query": query, "top_k": top_k, "threshold": threshold}
 
@@ -171,11 +186,9 @@ class PlatformBackend(Backend):
             payload["keyword_search"] = True
         if fields:
             payload["fields"] = fields
-        if enable_graph:
-            payload["enable_graph"] = True
         payload["source"] = "CLI"
 
-        result = self._request("POST", "/v2/memories/search/", json=payload)
+        result = self._request("POST", "/v3/memories/search/", json=payload)
         return (
             result
             if isinstance(result, list)
@@ -197,12 +210,11 @@ class PlatformBackend(Backend):
         category: str | None = None,
         after: str | None = None,
         before: str | None = None,
-        enable_graph: bool = False,
     ) -> list[dict]:
         payload: dict[str, Any] = {}
         params = {"page": str(page), "page_size": str(page_size)}
 
-        # Build filters for v2 API — entity IDs and date filters go inside "filters"
+        # Build filters — entity IDs and date filters go inside "filters"
         extra: dict[str, Any] = {}
         if category:
             extra["categories"] = {"contains": category}
@@ -220,11 +232,9 @@ class PlatformBackend(Backend):
         )
         if api_filters:
             payload["filters"] = api_filters
-        if enable_graph:
-            payload["enable_graph"] = True
         payload["source"] = "CLI"
 
-        result = self._request("POST", "/v2/memories/", json=payload, params=params)
+        result = self._request("POST", "/v3/memories/", json=payload, params=params)
         return (
             result
             if isinstance(result, list)

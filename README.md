@@ -39,7 +39,7 @@
 </p>
 
 <p align="center">
-  <a href="https://mem0.ai/research"><strong>📄 Building Production-Ready AI Agents with Scalable Long-Term Memory →</strong></a>
+  <a href="https://mem0.ai/research"><strong>📄 Benchmarking Mem0's token-efficient memory algorithm →</strong></a>
 </p>
 
 ## New Memory Algorithm (April 2026)
@@ -47,7 +47,7 @@
 | Benchmark | Old | New  | Tokens  | Latency p50  |
 | --- | --- | --- | --- | --- |
 | **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
-| **LongMemEval** | 67.8 | **93.4** | 6.8K  | 1.09s  |
+| **LongMemEval** | 67.8 | **94.8** | 6.8K  | 1.09s  |
 | **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
 | **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
 
@@ -58,12 +58,13 @@ All benchmarks run on the same production-representative model stack. Single-pas
 - **Agent-generated facts are first-class** -- when an agent confirms an action, that information is now stored with equal weight.
 - **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
 - **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
+- **Temporal Reasoning** -- time-aware retrieval that ranks the right dated instance for queries about current state, past events, and upcoming plans.
 
 See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
 
 ## Research Highlights
 - **91.6 on LoCoMo** -- +20 points over the previous algorithm
-- **93.4 on LongMemEval** -- +26 points, with +53.6 on assistant memory recall
+- **94.8 on LongMemEval** -- +27 points, with +53.6 on assistant memory recall
 - **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
 - [Read the full paper](https://mem0.ai/research)
 
@@ -85,18 +86,37 @@ See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgra
 
 ## 🚀 Quickstart Guide <a name="quickstart"></a>
 
-Choose between our hosted platform or self-hosted package:
+### Sign up as an agent
 
-### Hosted Platform
+AI agents can mint a working Mem0 API key in under five seconds — no email, no dashboard, no OTP. Four commands end-to-end:
 
-Get up and running in minutes with automatic updates, analytics, and enterprise security.
+```bash
+# 1. Install
+npm install -g @mem0/cli      # or: pip install mem0-cli
 
-1. Sign up on [Mem0 Platform](https://app.mem0.ai)
-2. Embed the memory layer via SDK or API keys
+# 2. Sign up as an agent (replace `claude-code` with your name)
+mem0 init --agent --agent-caller claude-code
 
-### Self-Hosted (Open Source)
+# 3. Add a memory
+mem0 add "I am using mem0"
 
-Install the sdk via pip:
+# 4. Search
+mem0 search "am I using mem0"
+```
+
+The human owner can claim the account later with `mem0 init --email <their-email>` — same key, memories preserved. Full guide: [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup).
+
+| | Library | Self-Hosted Server | Cloud Platform |
+|---|---------|-------------------|----------------|
+| **Best for** | Testing, prototyping | Teams running on their own infrastructure | Zero-ops production use |
+| **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=readme) |
+| **Dashboard** | -- | [Yes](https://docs.mem0.ai/open-source/setup) | Yes |
+| **Auth & API Keys** | -- | Yes | Yes |
+| **Advanced Features** | -- | Teasers | All included |
+
+Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? Cloud.
+
+### Library (pip / npm)
 
 ```bash
 pip install mem0ai
@@ -110,9 +130,30 @@ python -m spacy download en_core_web_sm
 ```
 
 Install sdk via npm:
+
 ```bash
 npm install mem0ai
 ```
+
+### Self-Hosted Server
+
+> **Note:** Self-hosted auth is on by default. Upgrading from a pre-auth build? Set `ADMIN_API_KEY`, register an admin through the wizard, or `AUTH_DISABLED=true` for local dev only. See [upgrade notes](https://docs.mem0.ai/open-source/setup#upgrade-notes).
+
+```bash
+# Recommended: one command — start the stack, create an admin, issue the first API key.
+cd server && make bootstrap
+
+# Manual: start the stack and finish setup via the browser wizard.
+cd server && docker compose up -d    # http://localhost:3000
+```
+
+See the [self-hosted docs](https://docs.mem0.ai/open-source/overview) for configuration.
+
+### Cloud Platform
+
+1. Sign up on [Mem0 Platform](https://app.mem0.ai?utm_source=oss&utm_medium=readme)
+2. Embed the memory layer via SDK or API keys
+3. Using hosted Qdrant vectors? See the [Platform migration guide](https://docs.mem0.ai/migration/oss-to-platform) to import them into Mem0 Platform.
 
 ### CLI
 
@@ -127,6 +168,27 @@ mem0 search "What does Alice prefer?" --user-id alice
 ```
 
 See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
+
+### Agent Skills
+
+Teach your AI coding assistant (Claude Code, Codex, Cursor, Windsurf, OpenCode, OpenClaw, and any tool that supports the skills standard) how to build with Mem0. Two categories:
+
+**Reference skills — always on** (SDK knowledge loaded into the assistant's context):
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-cli
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-vercel-ai-sdk
+```
+
+**Pipeline skills — run on demand** (execute an end-to-end workflow in an existing repo):
+
+```bash
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate
+npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
+```
+
+Use `/mem0-integrate` to wire Mem0 into an existing repo via a test-first pipeline, then `/mem0-test-integration` to verify. See the [skills catalog](./skills/) or [Vibecoding with Mem0](https://docs.mem0.ai/vibecoding) for the full picture.
 
 ### Basic Usage
 

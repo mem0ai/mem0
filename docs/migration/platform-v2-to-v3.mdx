@@ -42,7 +42,7 @@ Previously, when an agent said something like "I've booked your flight for March
 
 ### Retrieval is hybrid now
 
-Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, or entities that appear across multiple memories. The response shape is unchanged:
+Search now uses hybrid retrieval, which improves ranking quality — especially for queries involving exact keywords, proper nouns, entities that appear across multiple memories, and time-aware queries (via Temporal Reasoning). The response shape is unchanged:
 
 ```json
 {
@@ -58,7 +58,7 @@ Search now uses hybrid retrieval, which improves ranking quality — especially 
 }
 ```
 
-The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries.
+The top-level `score` remains a `[0, 1]` value. Relative ranking between results stays comparable to v2, but absolute numbers shift since the scoring method changed — retune any hard thresholds in your app against representative queries. Temporal signals are applied internally during ranking and are not returned as extra client-facing fields.
 
 ## API Changes
 
@@ -289,6 +289,7 @@ If your application previously read graph relations from the API response (`rela
 - **V1 and V2 endpoints continue to work.** There is no requirement to migrate to V3 endpoints immediately.
 - **Existing memories are preserved.** The new algorithm does not modify or re-process previously stored memories.
 - **Search response shape is unchanged.** The top-level `score` and `results[]` array are the same; existing code that reads `score` continues to work. What changed is the scoring method behind the number (multi-signal fusion instead of pure cosine), so the absolute values shift even when ranking stays comparable.
+- **Search remains backward-compatible at the top level.** Existing code that reads `results[]` and `score` continues to work. Temporal signals are applied internally during retrieval and do not change the client response shape.
 - **List response shape changed.** `get_all` now returns a paginated envelope (`{count, next, previous, results}`) instead of a bare `{results: [...]}`. Update code that reads `response["results"]` to continue working, or switch to the client SDKs which handle both shapes.
 
 ## Performance Improvements

@@ -26,7 +26,7 @@ npm install @mem0/vercel-ai-provider
 
 ### Setting Up Mem0
 
-1. Obtain your [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys) from the Mem0 dashboard.
+1. Obtain your [Mem0 API Key](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=vercel-ai-sdk-readme) from the Mem0 dashboard.
 
 2. Initialize the Mem0 Client:
 
@@ -71,7 +71,7 @@ const messages: LanguageModelV1Prompt = [
 await addMemories(messages, { user_id: "borat" });
 ```
 
-These memories are now stored in your profile. You can view and manage them on the [Mem0 Dashboard](https://app.mem0.ai/dashboard/users).
+These memories are now stored in your profile. You can view and manage them on the [Mem0 Dashboard](https://app.mem0.ai/dashboard/users?utm_source=oss&utm_medium=vercel-ai-sdk-readme).
 
 ### Note:
 

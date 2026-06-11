@@ -5,7 +5,7 @@ Get running with Mem0 in 2 minutes. No infrastructure to deploy -- just an API k
 ## Prerequisites
 
 - Python 3.10+ or Node.js 18+
-- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys))
+- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0-quickstart))
 
 ## Python Setup
 

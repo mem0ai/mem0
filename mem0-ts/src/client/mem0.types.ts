@@ -22,6 +22,7 @@ export interface SearchMemoryOptions {
   topK?: number;
   threshold?: number;
   rerank?: boolean;
+  latestOnly?: boolean;
   fields?: string[];
   categories?: string[];
 }
@@ -32,10 +33,20 @@ export interface GetAllMemoryOptions {
   pageSize?: number;
   startDate?: string;
   endDate?: string;
+  latestOnly?: boolean;
   categories?: string[];
 }
 
 export interface DeleteAllMemoryOptions extends EntityOptions {}
+
+export interface DeleteMemoryOptions {
+  /**
+   * When `true`, also delete the older memories this one superseded (the v3
+   * linked chain), transitively — the delete-side counterpart of `latestOnly`.
+   * Off by default. Serialized as `delete_linked`.
+   */
+  deleteLinked?: boolean;
+}
 
 // ─── Project Options ────────────────────────────────────────
 export interface ProjectOptions {
@@ -50,6 +61,13 @@ export interface PromptUpdatePayload {
   memoryDepth?: string | null;
   usecaseSetting?: string | number;
   multilingual?: boolean;
+  /**
+   * Toggle Memory Decay for this project. When `true`, search-time ranking
+   * boosts recently-used memories and gently dampens stale ones; when `false`,
+   * ranking is restored to the pre-decay behaviour. Off by default.
+   * See https://docs.mem0.ai/platform/features/memory-decay
+   */
+  decay?: boolean;
   [key: string]: any;
 }
 

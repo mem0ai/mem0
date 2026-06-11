@@ -1,6 +1,6 @@
 # Mem0 Skill for Claude
 
-Add persistent memory to any AI application in minutes using [Mem0 Platform](https://app.mem0.ai) or the open-source self-hosted SDK.
+Add persistent memory to any AI application in minutes using [Mem0 Platform](https://app.mem0.ai?utm_source=oss&utm_medium=skill-mem0-readme) or the open-source self-hosted SDK.
 
 > **Part of the Mem0 Skill Graph:** See also [mem0-cli](../mem0-cli/SKILL.md) (terminal) and [mem0-vercel-ai-sdk](../mem0-vercel-ai-sdk/SKILL.md) (Vercel AI SDK).
 
@@ -38,7 +38,7 @@ curl -X POST https://api.anthropic.com/v1/skills \
 
 ### Prerequisites
 
-- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys))
+- A Mem0 Platform API key ([Get one here](https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0-readme))
 - Python 3.10+ or Node.js 18+
 - Set the environment variable:
 
@@ -81,7 +81,7 @@ skills/mem0/
 
 ## Links
 
-- [Mem0 Platform Dashboard](https://app.mem0.ai)
+- [Mem0 Platform Dashboard](https://app.mem0.ai?utm_source=oss&utm_medium=skill-mem0-readme)
 - [Mem0 Documentation](https://docs.mem0.ai)
 - [Mem0 GitHub](https://github.com/mem0ai/mem0)
 - [API Reference](https://docs.mem0.ai/api-reference)

@@ -35,12 +35,16 @@ Interactive setup wizard. Configures API key and default user ID.
 | `--email <addr>` | string | - | Login via email verification code instead of API key. |
 | `--code <code>` | string | - | Verification code (use with `--email` for fully non-interactive login). |
 | `--force` | boolean | false | Overwrite existing config without confirmation. |
+| `--agent` | boolean | false | Bootstrap an Agent Mode account (no email required). |
+| `--agent-caller <name>` | string | - | Self-declared agent identity for Agent Mode (e.g. `claude-code`, `cursor`). |
+| `--source <channel>` | string | - | Channel attribution for signup analytics. |
 
 **Behavior:**
 
 - If `~/.mem0/config.json` already exists with an API key, warns and asks for confirmation (or errors in non-TTY unless `--force` is set).
 - **Email login flow** (`--email`): sends a 6-digit code to the email via `POST /api/v1/auth/email_code/`. If `--code` is also given, verifies immediately. On success, saves API key, org_id, and project_id. Cannot be combined with `--api-key`.
 - **API key flow**: if both `--api-key` and `--user-id` are given, runs fully non-interactively. Otherwise prompts for missing values.
+- **Agent Mode flow** (`--agent`): POSTs to `/api/v1/auth/agent_mode/`, mints a shadow API key in <5s with no email required. Pass `--agent-caller <your-name>` to attribute the signup to your AI agent identity. If omitted, run `mem0 identify <your-name>` afterward.
 - In non-TTY without sufficient flags, prints a usage hint and exits with error.
 
 **Examples:**
@@ -50,6 +54,30 @@ mem0 init --api-key m0-xxx --user-id alice
 mem0 init --api-key m0-xxx --user-id alice --force
 mem0 init --email alice@company.com
 mem0 init --email alice@company.com --code 482901
+mem0 init --agent --agent-caller claude-code   # AI agent self-identifies during bootstrap
+```
+
+---
+
+### `mem0 identify`
+
+Tag your active Agent Mode key with the AI agent that's using it. Run this once after `mem0 init --agent` if you didn't pass `--agent-caller`. Idempotent — re-running just overwrites the value.
+
+**Usage:** `mem0 identify <name>`
+
+**Argument:** `<name>` — the AI agent identity (e.g. `claude-code`, `cursor`, `codex`, `cline`, `aider`, or a custom string).
+
+**Behavior:**
+
+- PATCHes `/api/v1/auth/agent_mode/caller/` with `Authorization: Token <current-api-key>` and body `{agent_caller}`.
+- Only works on unclaimed agent-mode keys (`platform.agent_mode=true` in config).
+- Backend sanitizes the value: lowercases, drops anything outside `[a-z0-9._/-]`, truncates to 32 chars.
+
+**Examples:**
+```bash
+mem0 identify claude-code
+mem0 identify cursor
+mem0 identify my-custom-bot
 ```
 
 ---

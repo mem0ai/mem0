@@ -1,0 +1,119 @@
+---
+title: OpenCode
+description: "Add persistent memory to OpenCode with the Mem0 plugin — MCP server, lifecycle hooks, and slash commands."
+---
+
+Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. Your agent forgets everything between sessions — Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
+
+## Prerequisites
+
+1. A Mem0 API key (starts with `m0-`):
+   - <a href="https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=integration-opencode" rel="nofollow">Get your API key</a> (free sign-up at <a href="https://app.mem0.ai?utm_source=oss&utm_medium=integration-opencode" rel="nofollow">app.mem0.ai</a>)
+
+2. Add it to your shell profile so it persists across sessions:
+
+<CodeGroup>
+```bash zsh
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.zshrc && source ~/.zshrc
+```
+
+```bash bash
+echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
+```
+</CodeGroup>
+
+## Installation
+
+### Option A — Plugin Install (Recommended)
+
+```bash
+opencode plugin @mem0/opencode-plugin
+```
+
+
+Or using this command which does the same thing:
+
+
+```bash
+bunx @mem0/opencode-plugin@latest install
+```
+
+
+
+**Or let your agent do it** — paste this into OpenCode:
+
+```
+Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/mem0-plugin/.opencode-plugin/README.md
+```
+
+All commands auto-add the plugin and MCP server to your `~/.config/opencode/opencode.json`. Restart OpenCode — you get the MCP server, lifecycle hooks, and all `/mem0:` slash commands.
+
+### Option B — MCP Only
+
+If you only need the memory tools without hooks or skills, add this to your `opencode.json` (project-level or global at `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "mem0": {
+      "type": "remote",
+      "url": "https://mcp.mem0.ai/mcp/",
+      "headers": {
+        "Authorization": "Token {env:MEM0_API_KEY}"
+      },
+      "oauth": false
+    }
+  }
+}
+```
+
+## What's Included
+
+| Component | Plugin (A) | MCP Only (B) |
+|-----------|:----------:|:------------:|
+| MCP Server (9 memory tools) | Yes | Yes |
+| Lifecycle Hooks | Yes | No |
+| 16 Slash Commands | Yes | No |
+
+## Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `add_memory` | Save text or conversation history for a user/agent |
+| `search_memories` | Semantic search across memories with filters |
+| `get_memories` | List memories with filters and pagination |
+| `get_memory` | Retrieve a specific memory by ID |
+| `update_memory` | Overwrite a memory's text by ID |
+| `delete_memory` | Delete a single memory by ID |
+| `delete_all_memories` | Bulk delete all memories in scope |
+| `delete_entities` | Delete a user/agent/app/run entity and its memories |
+| `list_entities` | List users/agents/apps/runs stored in Mem0 |
+
+## Lifecycle Hooks
+
+The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SDK directly — pure TypeScript, no Python, no shell scripts.
+
+| OpenCode Event | Hook | What happens |
+|----------------|------|-------------|
+| `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
+| `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, injects `user_id`/`app_id` on mem0 tool calls |
+| `tool.execute.after` | **Post-tool** | Tracks stats, scans Bash errors and pre-fetches related error memories |
+| `experimental.chat.system.transform` | **System transform** | Injects memory context (session memories, search results, error lookups) into the system prompt |
+| `experimental.session.compacting` | **Compaction** | Stores session state memory, then injects prior memories into compaction context so nothing is lost |
+| `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to all shell executions |
+
+## Troubleshooting
+
+- **No tools appearing** — Restart OpenCode after installing
+- **"Connection failed"** — Verify your key is set: `echo $MEM0_API_KEY`
+- **Plugin not loading** — Run `opencode plugin @mem0/opencode-plugin` again, then restart
+- **Hooks not firing** — Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
+
+<CardGroup cols={2}>
+  <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">
+    Detailed MCP configuration for all clients
+  </Card>
+  <Card title="Antigravity Integration" icon="google" href="/integrations/antigravity">
+    Add Mem0 memory to Google Antigravity
+  </Card>
+</CardGroup>

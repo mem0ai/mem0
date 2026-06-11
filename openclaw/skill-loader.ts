@@ -192,21 +192,16 @@ function renderCategoriesBlock(
 }
 
 function renderTriageKnobs(config: SkillsConfig): string {
-  const triage = config.triage;
-  if (!triage) return "";
-
   const lines: string[] = [];
 
-  if (triage.importanceThreshold !== undefined) {
+  if (config.triage?.importanceThreshold !== undefined) {
     lines.push(
-      `- Only store facts with importance >= ${triage.importanceThreshold}`,
+      `- Only store facts with importance >= ${config.triage.importanceThreshold}`,
     );
   }
 
   const patterns = resolveCredentialPatterns(config);
-  if (config.triage?.credentialPatterns) {
-    lines.push(`- Credential patterns to scan: ${patterns.join(", ")}`);
-  }
+  lines.push(`- Credential patterns to scan: ${patterns.map((p) => `\`${p}\``).join(", ")}`);
 
   if (lines.length === 0) return "";
   return "\n## Active Configuration Overrides\n\n" + lines.join("\n");
@@ -265,8 +260,8 @@ export function loadSkill(
     parts.push(renderCategoriesBlock(mergedCats));
   }
 
-  // Inject triage knobs (maxFactsPerTurn, importanceThreshold, credentialPatterns)
-  if (skillName === "memory-triage") {
+  // Inject triage knobs (importanceThreshold, credentialPatterns)
+  if (skillName === "memory-triage" || skillName === "memory-dream") {
     const knobs = renderTriageKnobs(config);
     if (knobs) parts.push(knobs);
   }

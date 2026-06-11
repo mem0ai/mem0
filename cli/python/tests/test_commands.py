@@ -8,8 +8,8 @@ from io import StringIO
 from unittest.mock import patch
 
 import pytest
-from click.exceptions import Exit as ClickExit
 from rich.console import Console
+from typer import Exit as TyperExit
 
 from mem0_cli.commands.config_cmd import (
     cmd_config_get,
@@ -181,7 +181,7 @@ class TestAddCommand:
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
             patch("mem0_cli.commands.memory._stdin_is_piped", return_value=False),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_add(
                 mock_backend,
@@ -206,7 +206,7 @@ class TestAddCommand:
         with (
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_add(
                 mock_backend,
@@ -764,7 +764,7 @@ class TestImportCommand:
         with (
             patch("mem0_cli.commands.utils.console", console),
             patch("mem0_cli.commands.utils.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_import(mock_backend, "/nonexistent/file.json", user_id=None, agent_id=None)
 
@@ -801,7 +801,7 @@ class TestEntitiesListCommand:
         with (
             patch("mem0_cli.commands.entities.console", console),
             patch("mem0_cli.commands.entities.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_entities_list(mock_backend, "invalid", output="table")
 
@@ -944,7 +944,7 @@ class TestEntitiesDeleteCommand:
         with (
             patch("mem0_cli.commands.entities.console", console),
             patch("mem0_cli.commands.entities.err_console", err_console),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_entities_delete(
                 mock_backend,
@@ -995,85 +995,6 @@ class TestEntitiesDeleteCommand:
         output = buf.getvalue()
         assert "dry run" in output.lower()
         mock_backend.delete_entities.assert_not_called()
-
-
-class TestEnableGraph:
-    def test_add_with_graph(self, mock_backend):
-        console, _buf = _make_console()
-        err_console, _err_buf = _make_err_console()
-        with (
-            patch("mem0_cli.commands.memory.console", console),
-            patch("mem0_cli.commands.memory.err_console", err_console),
-        ):
-            cmd_add(
-                mock_backend,
-                "test",
-                user_id="alice",
-                agent_id=None,
-                app_id=None,
-                run_id=None,
-                messages=None,
-                file=None,
-                metadata=None,
-                immutable=False,
-                no_infer=False,
-                expires=None,
-                categories=None,
-                enable_graph=True,
-                output="text",
-            )
-        call_kwargs = mock_backend.add.call_args
-        assert call_kwargs.kwargs.get("enable_graph") is True
-
-    def test_search_with_graph(self, mock_backend):
-        console, _buf = _make_console()
-        err_console, _err_buf = _make_err_console()
-        with (
-            patch("mem0_cli.commands.memory.console", console),
-            patch("mem0_cli.commands.memory.err_console", err_console),
-        ):
-            cmd_search(
-                mock_backend,
-                "test",
-                user_id="alice",
-                agent_id=None,
-                app_id=None,
-                run_id=None,
-                top_k=10,
-                threshold=0.3,
-                rerank=False,
-                keyword=False,
-                filter_json=None,
-                fields=None,
-                enable_graph=True,
-                output="text",
-            )
-        call_kwargs = mock_backend.search.call_args
-        assert call_kwargs.kwargs.get("enable_graph") is True
-
-    def test_list_with_graph(self, mock_backend):
-        console, _buf = _make_console()
-        err_console, _err_buf = _make_err_console()
-        with (
-            patch("mem0_cli.commands.memory.console", console),
-            patch("mem0_cli.commands.memory.err_console", err_console),
-        ):
-            cmd_list(
-                mock_backend,
-                user_id="alice",
-                agent_id=None,
-                app_id=None,
-                run_id=None,
-                page=1,
-                page_size=100,
-                category=None,
-                after=None,
-                before=None,
-                enable_graph=True,
-                output="table",
-            )
-        call_kwargs = mock_backend.list_memories.call_args
-        assert call_kwargs.kwargs.get("enable_graph") is True
 
 
 class TestEventCommands:
@@ -1387,7 +1308,7 @@ class TestAgentMode:
             patch("mem0_cli.commands.memory.console", console),
             patch("mem0_cli.commands.memory.err_console", err_console),
             patch("sys.stdout", captured_stdout),
-            pytest.raises((SystemExit, ClickExit)),
+            pytest.raises((SystemExit, TyperExit)),
         ):
             cmd_get(mock_backend, "bad-id", output="text")
 

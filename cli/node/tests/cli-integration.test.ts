@@ -107,22 +107,22 @@ describe("CLI Integration — help and version", () => {
     expect(result.exitCode).toBe(0);
   });
 
-  it("add help has --graph flag", () => {
+  it("add help has --output flag", () => {
     const result = run(["add", "--help"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("--graph");
+    expect(result.stdout).toContain("--output");
   });
 
-  it("search help has --graph flag", () => {
+  it("search help has --rerank flag", () => {
     const result = run(["search", "--help"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("--graph");
+    expect(result.stdout).toContain("--rerank");
   });
 
-  it("list help has --graph flag", () => {
+  it("list help has --category flag", () => {
     const result = run(["list", "--help"]);
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("--graph");
+    expect(result.stdout).toContain("--category");
   });
 });
 

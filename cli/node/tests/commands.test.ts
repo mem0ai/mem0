@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Command } from "commander";
 import { createMockBackend } from "./setup.js";
 import type { Backend } from "../src/backend/base.js";
 import { setAgentMode } from "../src/state.js";
@@ -41,8 +42,6 @@ describe("cmdAdd", () => {
     await cmdAdd(mockBackend, "I prefer dark mode", {
       userId: "alice",
       immutable: false,
-      noInfer: false,
-      enableGraph: false,
       output: "text",
     });
     expect(mockBackend.add).toHaveBeenCalledOnce();
@@ -54,8 +53,6 @@ describe("cmdAdd", () => {
       userId: "alice",
       messages: JSON.stringify([{ role: "user", content: "I love Python" }]),
       immutable: false,
-      noInfer: false,
-      enableGraph: false,
       output: "text",
     });
     expect(mockBackend.add).toHaveBeenCalledOnce();
@@ -66,8 +63,6 @@ describe("cmdAdd", () => {
     await cmdAdd(mockBackend, "test", {
       userId: "alice",
       immutable: false,
-      noInfer: false,
-      enableGraph: false,
       output: "json",
     });
     expect(output).toContain("results");
@@ -78,11 +73,56 @@ describe("cmdAdd", () => {
     await cmdAdd(mockBackend, "test", {
       userId: "alice",
       immutable: false,
-      noInfer: false,
-      enableGraph: false,
       output: "quiet",
     });
     expect(output).not.toContain("dark mode");
+  });
+});
+
+describe("cmdAdd forwards --no-infer (regression for #5261)", () => {
+  it("forwards infer: false when --no-infer is set", async () => {
+    const { cmdAdd } = await import("../src/commands/memory.js");
+    // `infer: false` is the shape Commander produces for `--no-infer`.
+    await cmdAdd(mockBackend, "store me verbatim", {
+      userId: "alice",
+      immutable: false,
+      infer: false,
+      output: "text",
+    });
+    expect(mockBackend.add).toHaveBeenCalledWith(
+      "store me verbatim",
+      undefined,
+      expect.objectContaining({ infer: false }),
+    );
+  });
+
+  it("forwards infer: true by default (flag absent)", async () => {
+    const { cmdAdd } = await import("../src/commands/memory.js");
+    await cmdAdd(mockBackend, "infer me", {
+      userId: "alice",
+      immutable: false,
+      output: "text",
+    });
+    expect(mockBackend.add).toHaveBeenCalledWith(
+      "infer me",
+      undefined,
+      expect.objectContaining({ infer: true }),
+    );
+  });
+
+  it("Commander stores --no-infer as opts.infer, not opts.noInfer", () => {
+    // Pins the assumption the fix relies on: Commander's `--no-X` option
+    // populates the positive camelCase key (`infer`), never `noInfer`.
+    const withFlag = new Command();
+    withFlag.option("--no-infer", "Skip inference, store raw.").action(() => {});
+    withFlag.parse(["--no-infer"], { from: "user" });
+    expect(withFlag.opts().infer).toBe(false);
+    expect(withFlag.opts().noInfer).toBeUndefined();
+
+    const withoutFlag = new Command();
+    withoutFlag.option("--no-infer", "Skip inference, store raw.").action(() => {});
+    withoutFlag.parse([], { from: "user" });
+    expect(withoutFlag.opts().infer).toBe(true);
   });
 });
 
@@ -100,8 +140,6 @@ describe("cmdAdd deduplicates PENDING", () => {
     await cmdAdd(mockBackend, "test", {
       userId: "alice",
       immutable: false,
-      noInfer: false,
-      enableGraph: false,
       output: "text",
     });
     expect(output.match(/Queued/g)?.length).toBe(1);
@@ -113,8 +151,6 @@ describe("cmdAdd deduplicates PENDING", () => {
     await cmdAdd(mockBackend, "test", {
       userId: "alice",
       immutable: false,
-      noInfer: false,
-      enableGraph: false,
       output: "json",
     });
     const data = JSON.parse(output);
@@ -129,8 +165,6 @@ describe("cmdAdd deduplicates PENDING", () => {
     await cmdAdd(mockBackend, "test", {
       userId: "alice",
       immutable: false,
-      noInfer: false,
-      enableGraph: false,
       output: "agent",
     });
     const data = JSON.parse(output);
@@ -148,7 +182,7 @@ describe("cmdSearch", () => {
       threshold: 0.3,
       rerank: false,
       keyword: false,
-      enableGraph: false,
+
       output: "text",
     });
     expect(output).toContain("Found 2");
@@ -162,7 +196,7 @@ describe("cmdSearch", () => {
       threshold: 0.3,
       rerank: false,
       keyword: false,
-      enableGraph: false,
+
       output: "json",
     });
     expect(output).toContain("memory");
@@ -177,7 +211,7 @@ describe("cmdSearch", () => {
       threshold: 0.3,
       rerank: false,
       keyword: false,
-      enableGraph: false,
+
       output: "text",
     });
     expect(errOutput).toContain("No memories found");
@@ -205,7 +239,7 @@ describe("cmdList", () => {
       userId: "alice",
       page: 1,
       pageSize: 100,
-      enableGraph: false,
+
       output: "table",
     });
     expect(output).toContain("dark mode");
@@ -218,7 +252,7 @@ describe("cmdList", () => {
       userId: "alice",
       page: 1,
       pageSize: 100,
-      enableGraph: false,
+
       output: "text",
     });
     expect(errOutput).toContain("No memories found");
@@ -315,8 +349,6 @@ describe("agent mode", () => {
     await cmdAdd(mockBackend, "test preference", {
       userId: "alice",
       immutable: false,
-      noInfer: false,
-      enableGraph: false,
       output: "agent",
     });
     const parsed = JSON.parse(output.trim());
@@ -336,7 +368,7 @@ describe("agent mode", () => {
       threshold: 0.3,
       rerank: false,
       keyword: false,
-      enableGraph: false,
+
       output: "agent",
     });
     const parsed = JSON.parse(output.trim());
@@ -361,7 +393,7 @@ describe("agent mode", () => {
       userId: "alice",
       page: 1,
       pageSize: 100,
-      enableGraph: false,
+
       output: "agent",
     });
     const parsed = JSON.parse(output.trim());

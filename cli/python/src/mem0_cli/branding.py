@@ -87,10 +87,12 @@ def print_error(console: Console, message: str, hint: str | None = None) -> None
         }
         print(_json.dumps(envelope))
         return
+    from rich.markup import escape
+
     sym = _sym("✗", "[error]")
-    console.print(f"[{ERROR_COLOR}]{sym} Error:[/] {message}")
+    console.print(f"[{ERROR_COLOR}]{sym} Error:[/] {escape(str(message))}")
     if hint:
-        console.print(f"  [{DIM_COLOR}]{hint}[/]")
+        console.print(f"  [{DIM_COLOR}]{escape(str(hint))}[/]")
 
 
 def print_warning(console: Console, message: str) -> None:
@@ -146,7 +148,7 @@ def timed_status(console: Console, message: str):
             if "Authentication failed" in ctx.error_msg:
                 _err.print(
                     f"  [{DIM_COLOR}]Run [bold]mem0 init[/bold] to reconfigure your API key"
-                    f" · [bold]https://app.mem0.ai/dashboard/api-keys[/bold][/]"
+                    f" · [bold]https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-python[/bold][/]"
                 )
         raise
     else:

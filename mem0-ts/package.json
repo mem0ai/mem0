@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "3.0.1",
+  "version": "3.0.7",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -100,7 +100,7 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "axios": "1.13.6",
+    "axios": "^1.16.0",
     "openai": "^4.93.0",
     "uuid": "9.0.1",
     "zod": "^3.24.1"
@@ -110,10 +110,10 @@
     "@azure/identity": "^4.0.0",
     "@azure/search-documents": "^12.0.0",
     "@cloudflare/workers-types": "^4.20250504.0",
-    "@google/genai": "^1.2.0",
-    "@langchain/core": "^1.0.0",
+    "@google/genai": "^1.40.0",
+    "@langchain/core": "^1.1.47",
     "@mistralai/mistralai": "^1.5.2",
-    "@qdrant/js-client-rest": "1.13.0",
+    "@qdrant/js-client-rest": "^1.18.0",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
@@ -137,6 +137,19 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "better-sqlite3"
-    ]
+    ],
+    "overrides": {
+      "picomatch@<2.3.2": "^2.3.2",
+      "jws@4.0.0": "4.0.1",
+      "langsmith@<0.6.0": "^0.6.0",
+      "minimatch@<3.1.3": "^3.1.3",
+      "minimatch@>=5.0.0 <5.1.8": "^5.1.8",
+      "minimatch@>=9.0.0 <9.0.7": "^9.0.7",
+      "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
+      "rollup@>=4.0.0 <4.59.0": "^4.59.0",
+      "tar-fs@>=2.0.0 <2.1.4": "^2.1.4",
+      "glob@>=10.2.0 <10.5.0": "^10.5.0",
+      "@modelcontextprotocol/sdk": "^1.25.4"
+    }
   }
 }

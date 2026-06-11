@@ -119,7 +119,12 @@ describe("OSSProvider — disableHistory passthrough to Memory", () => {
     expect(capturedConfig!.disableHistory).toBe(true);
   });
 
-  it("does not set disableHistory when not configured", async () => {
+  it("does not set disableHistory when not configured and sqlite works", async () => {
+    // Mock better-sqlite3 so the proactive probe succeeds
+    vi.doMock("better-sqlite3", () => {
+      return { default: class { close() {} } };
+    });
+
     const { createProvider } = await import("./index.ts");
     const cfg = mem0ConfigSchema.parse({
       mode: "open-source",
@@ -248,6 +253,12 @@ describe("OSSProvider — graceful SQLite fallback", () => {
   });
 
   it("retries with disableHistory: true when initial construction fails", async () => {
+    // Mock better-sqlite3 so the proactive probe succeeds — tests the
+    // catch-retry fallback path for other constructor errors.
+    vi.doMock("better-sqlite3", () => {
+      return { default: class { close() {} } };
+    });
+
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { createProvider } = await import("./index.ts");
     const cfg = mem0ConfigSchema.parse({
@@ -272,6 +283,29 @@ describe("OSSProvider — graceful SQLite fallback", () => {
       expect.stringContaining("bindings file"),
     );
     warnSpy.mockRestore();
+  });
+
+  it("proactively disables history when better-sqlite3 binary is broken", async () => {
+    // Do NOT mock better-sqlite3 — let probe detect the real version mismatch
+    // (or force it to fail if native binary happens to work on this Node).
+    vi.doMock("better-sqlite3", () => {
+      return { default: class { constructor() { throw new Error("NODE_MODULE_VERSION mismatch"); } } };
+    });
+
+    const { createProvider } = await import("./index.ts");
+    const cfg = mem0ConfigSchema.parse({
+      mode: "open-source",
+      oss: {},
+    });
+    const api = { resolvePath: (p: string) => p } as any;
+    const provider = createProvider(cfg, api);
+
+    const results = await provider.search("test", { user_id: "u1" });
+    expect(results).toBeDefined();
+
+    // Only ONE constructor call — probe detected broken sqlite, skipped retry
+    expect(capturedConfigs).toHaveLength(1);
+    expect(capturedConfigs[0].disableHistory).toBe(true);
   });
 
   it("does not retry when disableHistory is already true", async () => {
@@ -409,7 +443,7 @@ describe("OSSProvider — _buildConfig branch coverage", () => {
       config: expect.objectContaining({ model: "gpt-4", apiKey: "sk-l" }),
     });
     expect(capturedConfig!.vectorStore).toEqual({ provider: "qdrant", config: { host: "localhost", port: 6333 } });
-    expect(capturedConfig!.historyDbPath).toBe("/resolved/tmp/history.db");
+    expect(capturedConfig!.historyDbPath).toBe("/tmp/history.db");
     expect(capturedConfig!.disableHistory).toBe(true);
   });
 
@@ -697,5 +731,59 @@ describe("OSSProvider — customInstructions passthrough", () => {
 
     expect(capturedConfig).toBeDefined();
     expect(capturedConfig!.customInstructions).toBe("Extract only user preferences.");
+  });
+
+  it("preserves absolute Unix historyDbPath without resolvePath mangling", async () => {
+    const { createProvider } = await import("./index.ts");
+    const cfg = mem0ConfigSchema.parse({
+      mode: "open-source",
+      oss: {
+        historyDbPath: "/home/user/.myapp/history.db",
+        disableHistory: true,
+      },
+    });
+    const api = { resolvePath: (p: string) => `/stateDir/${p}` } as any;
+    const provider = createProvider(cfg, api);
+
+    await provider.search("test", { user_id: "u1" });
+
+    expect(capturedConfig).toBeDefined();
+    expect(capturedConfig!.historyDbPath).toBe("/home/user/.myapp/history.db");
+  });
+
+  it("preserves absolute Windows historyDbPath without resolvePath mangling", async () => {
+    const { createProvider } = await import("./index.ts");
+    const cfg = mem0ConfigSchema.parse({
+      mode: "open-source",
+      oss: {
+        historyDbPath: "C:\\Users\\me\\history.db",
+        disableHistory: true,
+      },
+    });
+    const api = { resolvePath: (p: string) => `/stateDir/${p}` } as any;
+    const provider = createProvider(cfg, api);
+
+    await provider.search("test", { user_id: "u1" });
+
+    expect(capturedConfig).toBeDefined();
+    expect(capturedConfig!.historyDbPath).toBe("C:\\Users\\me\\history.db");
+  });
+
+  it("still resolves relative historyDbPath via resolvePath", async () => {
+    const { createProvider } = await import("./index.ts");
+    const cfg = mem0ConfigSchema.parse({
+      mode: "open-source",
+      oss: {
+        historyDbPath: "data/history.db",
+        disableHistory: true,
+      },
+    });
+    const api = { resolvePath: (p: string) => `/resolved/${p}` } as any;
+    const provider = createProvider(cfg, api);
+
+    await provider.search("test", { user_id: "u1" });
+
+    expect(capturedConfig).toBeDefined();
+    expect(capturedConfig!.historyDbPath).toBe("/resolved/data/history.db");
   });
 });

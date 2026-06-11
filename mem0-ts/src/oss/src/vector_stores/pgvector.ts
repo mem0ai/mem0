@@ -1,8 +1,159 @@
 import type { Client as ClientType } from "pg";
 import pkg from "pg";
-const { Client } = pkg;
+const { Client, escapeIdentifier } = pkg;
 import { VectorStore } from "./base";
 import { SearchFilters, VectorStoreConfig, VectorStoreResult } from "../types";
+
+const SAFE_IDENTIFIER_RE = /^[a-zA-Z_][a-zA-Z0-9_]{0,127}$/;
+
+function validateIdentifier(
+  name: string,
+  label: string = "identifier",
+): string {
+  if (!SAFE_IDENTIFIER_RE.test(name)) {
+    throw new Error(
+      `Invalid ${label} '${name}': only letters, digits, and underscores are allowed, ` +
+        `must start with a letter or underscore, and be at most 128 characters.`,
+    );
+  }
+  return name;
+}
+
+function escapeFilterKey(key: string): string {
+  if (!SAFE_IDENTIFIER_RE.test(key)) {
+    throw new Error(
+      `Invalid filter key '${key}': only letters, digits, and underscores are allowed.`,
+    );
+  }
+  return key;
+}
+
+interface FilterResult {
+  conditions: string[];
+  values: any[];
+  paramIndex: number;
+}
+
+const OPERATOR_SQL_MAP: Record<string, { template: string; numeric: boolean }> =
+  {
+    eq: { template: "payload->>'%KEY%' = $%IDX%", numeric: false },
+    ne: { template: "payload->>'%KEY%' != $%IDX%", numeric: false },
+    gt: { template: "(payload->>'%KEY%')::numeric > $%IDX%", numeric: true },
+    gte: { template: "(payload->>'%KEY%')::numeric >= $%IDX%", numeric: true },
+    lt: { template: "(payload->>'%KEY%')::numeric < $%IDX%", numeric: true },
+    lte: { template: "(payload->>'%KEY%')::numeric <= $%IDX%", numeric: true },
+    in: { template: "payload->>'%KEY%' = ANY($%IDX%::text[])", numeric: false },
+    nin: {
+      template: "NOT (payload->>'%KEY%' = ANY($%IDX%::text[]))",
+      numeric: false,
+    },
+    contains: {
+      template: "payload->>'%KEY%' LIKE $%IDX% ESCAPE '\\'",
+      numeric: false,
+    },
+    icontains: {
+      template: "payload->>'%KEY%' ILIKE $%IDX% ESCAPE '\\'",
+      numeric: false,
+    },
+  };
+
+export function buildFilterConditions(
+  filters: Record<string, any> | undefined,
+  startIndex: number,
+): FilterResult {
+  const conditions: string[] = [];
+  const values: any[] = [];
+  let paramIndex = startIndex;
+
+  if (!filters) {
+    return { conditions, values, paramIndex };
+  }
+
+  for (const [key, value] of Object.entries(filters)) {
+    if (key === "$or") {
+      const orGroups: string[] = [];
+      for (const orFilter of value as Record<string, any>[]) {
+        const sub = buildFilterConditions(orFilter, paramIndex);
+        if (sub.conditions.length > 0) {
+          orGroups.push("(" + sub.conditions.join(" AND ") + ")");
+          values.push(...sub.values);
+          paramIndex = sub.paramIndex;
+        }
+      }
+      if (orGroups.length > 0) {
+        conditions.push("(" + orGroups.join(" OR ") + ")");
+      }
+      continue;
+    }
+
+    if (key === "$not") {
+      const notGroups: string[] = [];
+      for (const notFilter of value as Record<string, any>[]) {
+        const sub = buildFilterConditions(notFilter, paramIndex);
+        if (sub.conditions.length > 0) {
+          notGroups.push("(" + sub.conditions.join(" AND ") + ")");
+          values.push(...sub.values);
+          paramIndex = sub.paramIndex;
+        }
+      }
+      if (notGroups.length > 0) {
+        conditions.push("NOT (" + notGroups.join(" OR ") + ")");
+      }
+      continue;
+    }
+
+    const safeKey = escapeFilterKey(key);
+
+    if (value === "*") {
+      conditions.push(`payload ? $${paramIndex}`);
+      values.push(key);
+      paramIndex++;
+      continue;
+    }
+
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      for (const [op, opValue] of Object.entries(value)) {
+        const mapping = OPERATOR_SQL_MAP[op];
+        if (!mapping) {
+          throw new Error(`Unsupported filter operator: ${op}`);
+        }
+        const clause = mapping.template
+          .replace("%KEY%", safeKey)
+          .replace("%IDX%", String(paramIndex));
+        conditions.push(clause);
+
+        if (op === "in" || op === "nin") {
+          values.push((opValue as any[]).map(String));
+        } else if (op === "contains" || op === "icontains") {
+          const escaped = String(opValue)
+            .replace(/\\/g, "\\\\")
+            .replace(/%/g, "\\%")
+            .replace(/_/g, "\\_");
+          values.push(`%${escaped}%`);
+        } else if (mapping.numeric) {
+          values.push(Number(opValue));
+        } else {
+          values.push(String(opValue));
+        }
+        paramIndex++;
+      }
+    } else if (Array.isArray(value)) {
+      conditions.push(`payload->>'${safeKey}' = ANY($${paramIndex}::text[])`);
+      values.push(value.map(String));
+      paramIndex++;
+    } else {
+      conditions.push(`payload->>'${safeKey}' = $${paramIndex}`);
+      if (typeof value === "boolean") {
+        values.push(JSON.stringify(value));
+      } else {
+        values.push(String(value));
+      }
+      paramIndex++;
+    }
+  }
+
+  return { conditions, values, paramIndex };
+}
 
 interface PGVectorConfig extends VectorStoreConfig {
   dbname?: string;
@@ -25,10 +176,13 @@ export class PGVector implements VectorStore {
   private _initPromise?: Promise<void>;
 
   constructor(config: PGVectorConfig) {
-    this.collectionName = config.collectionName || "memories";
+    this.collectionName = validateIdentifier(
+      config.collectionName || "memories",
+      "collectionName",
+    );
     this.useDiskann = config.diskann || false;
     this.useHnsw = config.hnsw || false;
-    this.dbName = config.dbname || "vector_store";
+    this.dbName = validateIdentifier(config.dbname || "vector_store", "dbname");
     this.config = config;
 
     this.client = new Client({
@@ -39,6 +193,10 @@ export class PGVector implements VectorStore {
       port: config.port,
     });
     this.initialize().catch(console.error);
+  }
+
+  private col(): string {
+    return escapeIdentifier(this.collectionName);
   }
 
   async initialize(): Promise<void> {
@@ -102,31 +260,28 @@ export class PGVector implements VectorStore {
   }
 
   private async createDatabase(dbName: string): Promise<void> {
-    // Create database (cannot be parameterized)
-    await this.client.query(`CREATE DATABASE ${dbName}`);
+    await this.client.query(`CREATE DATABASE ${escapeIdentifier(dbName)}`);
   }
 
   private async createCol(embeddingModelDims: number): Promise<void> {
-    // Create the table
+    const dims = Math.floor(embeddingModelDims);
     await this.client.query(`
-      CREATE TABLE IF NOT EXISTS ${this.collectionName} (
+      CREATE TABLE IF NOT EXISTS ${this.col()} (
         id UUID PRIMARY KEY,
-        vector vector(${embeddingModelDims}),
+        vector vector(${dims}),
         payload JSONB
       );
     `);
 
-    // Create indexes based on configuration
     if (this.useDiskann && embeddingModelDims < 2000) {
       try {
-        // Check if vectorscale extension is available
         const result = await this.client.query(
           "SELECT * FROM pg_extension WHERE extname = 'vectorscale'",
         );
         if (result.rows.length > 0) {
           await this.client.query(`
-            CREATE INDEX IF NOT EXISTS ${this.collectionName}_diskann_idx
-            ON ${this.collectionName}
+            CREATE INDEX IF NOT EXISTS ${escapeIdentifier(this.collectionName + "_diskann_idx")}
+            ON ${this.col()}
             USING diskann (vector);
           `);
         }
@@ -136,8 +291,8 @@ export class PGVector implements VectorStore {
     } else if (this.useHnsw) {
       try {
         await this.client.query(`
-          CREATE INDEX IF NOT EXISTS ${this.collectionName}_hnsw_idx
-          ON ${this.collectionName}
+          CREATE INDEX IF NOT EXISTS ${escapeIdentifier(this.collectionName + "_hnsw_idx")}
+          ON ${this.col()}
           USING hnsw (vector vector_cosine_ops);
         `);
       } catch (error) {
@@ -153,16 +308,15 @@ export class PGVector implements VectorStore {
   ): Promise<void> {
     const values = vectors.map((vector, i) => ({
       id: ids[i],
-      vector: `[${vector.join(",")}]`, // Format vector as string with square brackets
+      vector: `[${vector.join(",")}]`,
       payload: payloads[i],
     }));
 
     const query = `
-      INSERT INTO ${this.collectionName} (id, vector, payload)
+      INSERT INTO ${this.col()} (id, vector, payload)
       VALUES ($1, $2::vector, $3::jsonb)
     `;
 
-    // Execute inserts in parallel using Promise.all
     await Promise.all(
       values.map((value) =>
         this.client.query(query, [value.id, value.vector, value.payload]),
@@ -176,26 +330,19 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[] | null> {
     try {
-      const filterConditions: string[] = [];
-      const filterValues: any[] = [query, topK];
-      let filterIndex = 3;
-
-      if (filters) {
-        for (const [key, value] of Object.entries(filters)) {
-          filterConditions.push(`payload->>'${key}' = $${filterIndex}`);
-          filterValues.push(value);
-          filterIndex++;
-        }
-      }
+      const {
+        conditions,
+        values,
+        paramIndex: _,
+      } = buildFilterConditions(filters, 3);
+      const filterValues: any[] = [query, topK, ...values];
 
       const filterClause =
-        filterConditions.length > 0
-          ? "AND " + filterConditions.join(" AND ")
-          : "";
+        conditions.length > 0 ? "AND " + conditions.join(" AND ") : "";
 
       const searchQuery = `
         SELECT id, ts_rank_cd(to_tsvector('simple', payload->>'textLemmatized'), plainto_tsquery('simple', $1)) AS score, payload
-        FROM ${this.collectionName}
+        FROM ${this.col()}
         WHERE to_tsvector('simple', payload->>'textLemmatized') @@ plainto_tsquery('simple', $1)
         ${filterClause}
         ORDER BY score DESC
@@ -220,27 +367,20 @@ export class PGVector implements VectorStore {
     topK: number = 5,
     filters?: SearchFilters,
   ): Promise<VectorStoreResult[]> {
-    const filterConditions: string[] = [];
-    const queryVector = `[${query.join(",")}]`; // Format query vector as string with square brackets
-    const filterValues: any[] = [queryVector, topK];
-    let filterIndex = 3;
-
-    if (filters) {
-      for (const [key, value] of Object.entries(filters)) {
-        filterConditions.push(`payload->>'${key}' = $${filterIndex}`);
-        filterValues.push(value);
-        filterIndex++;
-      }
-    }
+    const queryVector = `[${query.join(",")}]`;
+    const {
+      conditions,
+      values,
+      paramIndex: _,
+    } = buildFilterConditions(filters, 3);
+    const filterValues: any[] = [queryVector, topK, ...values];
 
     const filterClause =
-      filterConditions.length > 0
-        ? "WHERE " + filterConditions.join(" AND ")
-        : "";
+      conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
     const searchQuery = `
       SELECT id, vector <=> $1::vector AS distance, payload
-      FROM ${this.collectionName}
+      FROM ${this.col()}
       ${filterClause}
       ORDER BY distance
       LIMIT $2
@@ -251,13 +391,13 @@ export class PGVector implements VectorStore {
     return result.rows.map((row) => ({
       id: row.id,
       payload: row.payload,
-      score: row.distance,
+      score: Math.max(0, Math.min(1, 1 - Number(row.distance))),
     }));
   }
 
   async get(vectorId: string): Promise<VectorStoreResult | null> {
     const result = await this.client.query(
-      `SELECT id, payload FROM ${this.collectionName} WHERE id = $1`,
+      `SELECT id, payload FROM ${this.col()} WHERE id = $1`,
       [vectorId],
     );
 
@@ -274,10 +414,10 @@ export class PGVector implements VectorStore {
     vector: number[],
     payload: Record<string, any>,
   ): Promise<void> {
-    const vectorStr = `[${vector.join(",")}]`; // Format vector as string with square brackets
+    const vectorStr = `[${vector.join(",")}]`;
     await this.client.query(
       `
-      UPDATE ${this.collectionName}
+      UPDATE ${this.col()}
       SET vector = $1::vector, payload = $2::jsonb
       WHERE id = $3
       `,
@@ -286,14 +426,13 @@ export class PGVector implements VectorStore {
   }
 
   async delete(vectorId: string): Promise<void> {
-    await this.client.query(
-      `DELETE FROM ${this.collectionName} WHERE id = $1`,
-      [vectorId],
-    );
+    await this.client.query(`DELETE FROM ${this.col()} WHERE id = $1`, [
+      vectorId,
+    ]);
   }
 
   async deleteCol(): Promise<void> {
-    await this.client.query(`DROP TABLE IF EXISTS ${this.collectionName}`);
+    await this.client.query(`DROP TABLE IF EXISTS ${this.col()}`);
   }
 
   private async listCols(): Promise<string[]> {
@@ -309,41 +448,33 @@ export class PGVector implements VectorStore {
     filters?: SearchFilters,
     topK: number = 100,
   ): Promise<[VectorStoreResult[], number]> {
-    const filterConditions: string[] = [];
-    const filterValues: any[] = [];
-    let paramIndex = 1;
-
-    if (filters) {
-      for (const [key, value] of Object.entries(filters)) {
-        filterConditions.push(`payload->>'${key}' = $${paramIndex}`);
-        filterValues.push(value);
-        paramIndex++;
-      }
-    }
+    const {
+      conditions,
+      values: filterValues,
+      paramIndex,
+    } = buildFilterConditions(filters, 1);
 
     const filterClause =
-      filterConditions.length > 0
-        ? "WHERE " + filterConditions.join(" AND ")
-        : "";
+      conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
 
     const listQuery = `
       SELECT id, payload
-      FROM ${this.collectionName}
+      FROM ${this.col()}
       ${filterClause}
       LIMIT $${paramIndex}
     `;
 
     const countQuery = `
       SELECT COUNT(*)
-      FROM ${this.collectionName}
+      FROM ${this.col()}
       ${filterClause}
     `;
 
-    filterValues.push(topK); // Add limit as the last parameter
+    const listValues = [...filterValues, topK];
 
     const [listResult, countResult] = await Promise.all([
-      this.client.query(listQuery, filterValues),
-      this.client.query(countQuery, filterValues.slice(0, -1)), // Remove limit parameter for count query
+      this.client.query(listQuery, listValues),
+      this.client.query(countQuery, filterValues),
     ]);
 
     const results = listResult.rows.map((row) => ({

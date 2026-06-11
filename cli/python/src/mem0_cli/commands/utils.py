@@ -77,7 +77,7 @@ def cmd_status(
                 f"  [{DIM_COLOR}]Run [bold]mem0 init[/bold] to reconfigure your API key[/]"
             )
             lines.append(
-                f"  [{DIM_COLOR}]Get a key at [bold]https://app.mem0.ai/dashboard/api-keys[/bold][/]"
+                f"  [{DIM_COLOR}]Get a key at [bold]https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=cli-python[/bold][/]"
             )
     lines.append(f"  [{DIM_COLOR}]Latency:[/]  {_elapsed:.2f}s")
 

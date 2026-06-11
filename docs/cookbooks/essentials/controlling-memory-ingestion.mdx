@@ -38,7 +38,7 @@ client = MemoryClient(api_key="your-api-key")
 ```
 
 <Note>
-Replace `your-api-key` with your actual Mem0 API key from the <a href="https://app.mem0.ai" rel="nofollow">dashboard</a>. Without proper API authentication, memory operations will fail.
+Replace `your-api-key` with your actual Mem0 API key from the <a href="https://app.mem0.ai?utm_source=oss&utm_medium=cookbook-memory-ingestion" rel="nofollow">dashboard</a>. Without proper API authentication, memory operations will fail.
 </Note>
 
 ---
@@ -322,10 +322,6 @@ Metadata: {'verified': True, 'updated_date': '2025-04-02'}
 <Warning>
 That “no duplicates” promise comes from the inference pipeline. Keep `infer=True` when you rely on automatic updates. Raw imports (`infer=False`) skip conflict checks, so mixing the two modes for the same fact will create duplicates.
 </Warning>
-
-**Maintains relationships:**
-
-- If using graph memory, connections to other entities persist
 
 ### Pick the right inference mode
 
