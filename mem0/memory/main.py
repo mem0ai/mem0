@@ -405,6 +405,48 @@ def _payload_is_expired(payload: Optional[Dict[str, Any]]) -> bool:
         return False
 
 
+def _reset_llm_usage(llm) -> None:
+    reset_usage = getattr(llm, "reset_last_usage", None)
+    if callable(reset_usage):
+        reset_usage()
+
+
+def _start_llm_usage_capture(llm, include_usage: bool) -> None:
+    if not include_usage:
+        return
+
+    start_capture = getattr(llm, "start_usage_capture", None)
+    if callable(start_capture):
+        start_capture()
+        return
+
+    _reset_llm_usage(llm)
+
+
+def _stop_llm_usage_capture(llm, include_usage: bool) -> None:
+    if not include_usage:
+        return
+
+    stop_capture = getattr(llm, "stop_usage_capture", None)
+    if callable(stop_capture):
+        stop_capture()
+
+
+def _attach_usage_if_requested(result: Dict[str, Any], llm, include_usage: bool) -> Dict[str, Any]:
+    if not include_usage:
+        return result
+
+    get_usage = getattr(llm, "get_last_usage", None)
+    if not callable(get_usage):
+        return result
+
+    usage = get_usage()
+    if usage:
+        result["usage"] = usage
+
+    return result
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -726,6 +768,7 @@ class Memory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        include_usage: bool = False,
     ):
         """
         Create a new memory.
@@ -751,6 +794,8 @@ class Memory(MemoryBase):
                 creating procedural memories (typically requires 'agent_id'). Otherwise, memories
                 are treated as general conversational/factual memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            include_usage (bool, optional): If True, include provider usage metadata in the
+                returned result when the underlying LLM exposes it. Defaults to False.
 
 
         Returns:
@@ -801,31 +846,37 @@ class Memory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
-            results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
-            scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
+        _start_llm_usage_capture(self.llm, include_usage)
+        try:
+            if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
+                results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
+                scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
+                if temporal_usage_notice:
+                    display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
+                elif scale_threshold_notice:
+                    display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
+                else:
+                    display_first_run_notice(self, "sync", "add")
+                return _attach_usage_if_requested(results, self.llm, include_usage)
+
+            if self.config.llm.config.get("enable_vision"):
+                messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
+            else:
+                messages = parse_vision_messages(messages)
+
+            vector_store_result = self._add_to_vector_store(
+                messages, processed_metadata, effective_filters, infer, prompt=prompt
+            )
+            scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
             if temporal_usage_notice:
                 display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
             elif scale_threshold_notice:
                 display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
             else:
                 display_first_run_notice(self, "sync", "add")
-            return results
-
-        if self.config.llm.config.get("enable_vision"):
-            messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
-        else:
-            messages = parse_vision_messages(messages)
-
-        vector_store_result = self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
-        scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
-        if temporal_usage_notice:
-            display_temporal_usage_notice(self, "sync", "add", *temporal_usage_notice)
-        elif scale_threshold_notice:
-            display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
-        else:
-            display_first_run_notice(self, "sync", "add")
-        return {"results": vector_store_result}
+            return _attach_usage_if_requested({"results": vector_store_result}, self.llm, include_usage)
+        finally:
+            _stop_llm_usage_capture(self.llm, include_usage)
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
         if not infer:
@@ -2362,6 +2413,7 @@ class AsyncMemory(MemoryBase):
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
+        include_usage: bool = False,
         llm=None,
     ):
         """
@@ -2380,6 +2432,8 @@ class AsyncMemory(MemoryBase):
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
             prompt (str, optional): Prompt to use for the memory creation. Defaults to None.
+            include_usage (bool, optional): If True, include provider usage metadata in the
+                returned result when the underlying LLM exposes it. Defaults to False.
             llm (BaseChatModel, optional): LLM class to use for generating procedural memories. Defaults to None. Useful when user is using LangChain ChatModel.
         Returns:
             dict: A dictionary containing the result of the memory addition operation.
@@ -2414,33 +2468,40 @@ class AsyncMemory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
-        if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
-            results = await self._create_procedural_memory(
-                messages, metadata=processed_metadata, prompt=prompt, llm=llm
+        active_llm = (llm or self.llm) if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value else self.llm
+        _start_llm_usage_capture(active_llm, include_usage)
+        try:
+            if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
+                results = await self._create_procedural_memory(
+                    messages, metadata=processed_metadata, prompt=prompt, llm=llm
+                )
+                scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
+                if temporal_usage_notice:
+                    await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
+                elif scale_threshold_notice:
+                    await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
+                else:
+                    await display_first_run_notice_async(self, "async", "add")
+                return _attach_usage_if_requested(results, active_llm, include_usage)
+
+            if self.config.llm.config.get("enable_vision"):
+                messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
+            else:
+                messages = parse_vision_messages(messages)
+
+            vector_store_result = await self._add_to_vector_store(
+                messages, processed_metadata, effective_filters, infer, prompt=prompt
             )
-            scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
+            scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
             if temporal_usage_notice:
                 await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
             elif scale_threshold_notice:
                 await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
             else:
                 await display_first_run_notice_async(self, "async", "add")
-            return results
-
-        if self.config.llm.config.get("enable_vision"):
-            messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
-        else:
-            messages = parse_vision_messages(messages)
-
-        vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
-        scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
-        if temporal_usage_notice:
-            await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
-        elif scale_threshold_notice:
-            await display_scale_threshold_notice_async(self, "async", "add", *scale_threshold_notice)
-        else:
-            await display_first_run_notice_async(self, "async", "add")
-        return {"results": vector_store_result}
+            return _attach_usage_if_requested({"results": vector_store_result}, active_llm, include_usage)
+        finally:
+            _stop_llm_usage_capture(active_llm, include_usage)
 
     async def _add_to_vector_store(
         self,
