@@ -191,8 +191,16 @@ function renderCategoriesBlock(
   return lines.join("\n");
 }
 
-function renderTriageKnobs(config: SkillsConfig): string {
+function renderTriageKnobs(
+  config: SkillsConfig,
+  options: {
+    includeCredentialPatterns?: boolean;
+    includeDefaultCredentialPatterns?: boolean;
+  } = {},
+): string {
   const lines: string[] = [];
+  const includeCredentialPatterns = options.includeCredentialPatterns ?? true;
+  const includeDefaultCredentialPatterns = options.includeDefaultCredentialPatterns ?? true;
 
   if (config.triage?.importanceThreshold !== undefined) {
     lines.push(
@@ -200,11 +208,80 @@ function renderTriageKnobs(config: SkillsConfig): string {
     );
   }
 
-  const patterns = resolveCredentialPatterns(config);
-  lines.push(`- Credential patterns to scan: ${patterns.map((p) => `\`${p}\``).join(", ")}`);
+  const hasCustomCredentialPatterns = config.triage?.credentialPatterns !== undefined;
+  if (includeCredentialPatterns && (includeDefaultCredentialPatterns || hasCustomCredentialPatterns)) {
+    const patterns = resolveCredentialPatterns(config);
+    lines.push(`- Credential patterns to scan: ${patterns.map((p) => `\`${p}\``).join(", ")}`);
+  }
 
   if (lines.length === 0) return "";
   return "\n## Active Configuration Overrides\n\n" + lines.join("\n");
+}
+
+const COMPACT_CUSTOM_RULE_CHAR_BUDGET = 280;
+const COMPACT_CUSTOM_RULE_PREVIEW_LIMIT = 2;
+
+function formatCategoryConfig(
+  name: string,
+  cat: CategoryConfig,
+): string {
+  const ttlLabel = cat.ttl ? `expires ${cat.ttl}` : "permanent";
+  const immLabel = cat.immutable ? ", immutable" : "";
+  return `${name} (importance ${cat.importance}, ${ttlLabel}${immLabel})`;
+}
+
+function renderCompactCategories(config: SkillsConfig): string[] {
+  if (!config.categories || Object.keys(config.categories).length === 0) {
+    return [];
+  }
+
+  const mergedCategories = resolveCategories(config);
+  return [
+    "## Active Category Overrides",
+    "",
+    ...Object.entries(config.categories).map(([name]) =>
+      `- ${formatCategoryConfig(name, mergedCategories[name]!)}`,
+    ),
+  ];
+}
+
+function renderCompactCustomRules(config: SkillsConfig): string[] {
+  const includeRules = config.customRules?.include ?? [];
+  const excludeRules = config.customRules?.exclude ?? [];
+  if (includeRules.length === 0 && excludeRules.length === 0) {
+    return [];
+  }
+
+  const formatRuleList = (label: string, rules: string[]) =>
+    `${label}: ${rules.map((rule) => `"${rule}"`).join("; ")}`;
+
+  const lines: string[] = [];
+  if (includeRules.length > 0) {
+    lines.push(formatRuleList("Include", includeRules));
+  }
+  if (excludeRules.length > 0) {
+    lines.push(formatRuleList("Exclude", excludeRules));
+  }
+
+  const combined = lines.join(" ");
+  if (combined.length <= COMPACT_CUSTOM_RULE_CHAR_BUDGET) {
+    return ["## Active Custom Rules", "", ...lines.map((line) => `- ${line}`)];
+  }
+
+  const preview = [
+    ...includeRules.slice(0, COMPACT_CUSTOM_RULE_PREVIEW_LIMIT).map((rule) => `include "${rule}"`),
+    ...excludeRules.slice(0, COMPACT_CUSTOM_RULE_PREVIEW_LIMIT).map((rule) => `exclude "${rule}"`),
+  ];
+
+  return [
+    "## Active Custom Rules",
+    "",
+    `- ${includeRules.length} include rule(s) and ${excludeRules.length} exclude rule(s) are configured.`,
+    `- Prompt kept compact, full rule text omitted because it exceeded ${COMPACT_CUSTOM_RULE_CHAR_BUDGET} characters.`,
+    ...(preview.length > 0
+      ? [`- Preview: ${preview.join("; ")}`]
+      : []),
+  ];
 }
 
 // ============================================================================
@@ -358,6 +435,11 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
           "- Before updating a memory, search to find the existing version.",
         );
         parts.push("");
+      } else if (strategy === "always") {
+        parts.push(
+          "Automatic recall runs for both long-term and session memory. Use manual searches only when you need more specific context.",
+        );
+        parts.push("");
       }
 
       parts.push(
@@ -449,6 +531,122 @@ export function loadTriagePrompt(config: SkillsConfig = {}): string {
       "When searching, rewrite queries for retrieval. Do not pass raw user messages.",
     );
   }
+  parts.push("</memory-system>");
+  return parts.join("\n");
+}
+
+/**
+ * Build a compact memory system prompt for skills mode turns.
+ *
+ * This keeps the required storage and search protocol, plus short config
+ * summaries, without inlining the full memory-triage skill body every turn.
+ * If the skill file cannot be read, delegate to loadTriagePrompt(), which has
+ * its own minimal inline fallback.
+ */
+export function loadCompactTriagePrompt(config: SkillsConfig = {}): string {
+  if (!readSkillFile("memory-triage")) {
+    return loadTriagePrompt(config);
+  }
+
+  const parts: string[] = [];
+  parts.push("<memory-system>");
+  parts.push(
+    "IMPORTANT: Use `memory_add` tool for ALL user facts. NEVER write user info to workspace files (USER.md, memory/).",
+  );
+  parts.push(
+    "After every response, evaluate whether a new agent would benefit from remembering this days later. Most turns should produce zero memory operations.",
+  );
+  parts.push(
+    "Only store durable, self-contained, third-person facts: identity, preferences with rationale, standing rules, decisions, projects, configurations, technical context, and relationships.",
+  );
+  parts.push(
+    "Never store credentials, tokens, webhook secrets, or raw tool output. If a secret was configured, store only that the credential was configured.",
+  );
+  parts.push(
+    "When a recalled fact materially changes, search for the existing memory and update it in place. Skip cosmetic rewording.",
+  );
+  parts.push("");
+  parts.push("## Tool Usage");
+  parts.push("");
+  parts.push(
+    "Batch facts by CATEGORY. All facts in one memory_add call must share the same category because category determines retention policy (TTL, immutability). If a turn has facts in different categories, make one call per category.",
+  );
+  parts.push(
+    'Format: memory_add(facts: ["User is Alex, backend engineer at Stripe, PST timezone"], category: "identity")',
+  );
+  parts.push(
+    'Mixed categories: memory_add(..., category: "identity") and memory_add(..., category: "decision") in separate calls.',
+  );
+  parts.push(
+    "Categories: identity, configuration, rule, preference, decision, technical, relationship, project.",
+  );
+
+  const categoryLines = renderCompactCategories(config);
+  if (categoryLines.length > 0) {
+    parts.push("");
+    parts.push(...categoryLines);
+  }
+
+  const knobLines = renderTriageKnobs(config, {
+    includeDefaultCredentialPatterns: false,
+  })
+    .split("\n")
+    .filter(Boolean);
+  if (knobLines.length > 0) {
+    parts.push("");
+    parts.push(...knobLines);
+  }
+
+  const customRuleLines = renderCompactCustomRules(config);
+  if (customRuleLines.length > 0) {
+    parts.push("");
+    parts.push(...customRuleLines);
+  }
+
+  if (config.recall?.enabled !== false) {
+    const strategy = config.recall?.strategy ?? "smart";
+    parts.push("");
+    parts.push("## Searching Memory");
+    parts.push("");
+
+    if (strategy === "manual") {
+      parts.push(
+        "No automatic recall happens in manual mode. Use memory_search proactively at conversation start, when context is missing, when topics shift, and before updating a memory.",
+      );
+    } else if (strategy === "always") {
+      parts.push(
+        "Automatic recall runs for both long-term and session memory. Use manual searches only when you need more specific context.",
+      );
+    } else {
+      parts.push(
+        "Automatic recall runs for long-term memory. Use manual searches when the injected context is not enough.",
+      );
+    }
+
+    parts.push(
+      "When calling memory_search, ALWAYS rewrite the query. NEVER pass the user's raw message.",
+    );
+    parts.push(
+      "Convert the request into 3-6 factual keywords that match stored memory language: user, decided, prefers, rule, configured, based in, plus the concrete nouns and names from the request.",
+    );
+    parts.push(
+      'WRONG: memory_search("Who was that nutritionist my wife recommended?")',
+    );
+    parts.push(
+      'RIGHT: memory_search("nutritionist wife recommended relationship")',
+    );
+    parts.push('WRONG: memory_search("What timezone am I in?")');
+    parts.push('RIGHT: memory_search("user timezone location based")');
+    // Intentionally omitted from the compact path: ENTITY SCOPING and SEARCH SCOPE.
+    // loadTriagePrompt() keeps the full explanatory sections for the non-compact path.
+    parts.push(
+      'Scope: use "long-term" for durable user context, "session" for this conversation, and "all" only when you truly need both.',
+    );
+    parts.push(
+      "When the request implies a time range or category, add filters or categories instead of broadening the query text.",
+    );
+  }
+
   parts.push("</memory-system>");
   return parts.join("\n");
 }
