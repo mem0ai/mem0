@@ -6,6 +6,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
+from mem0.memory.main import _entity_collection_name
 from mem0.memory.utils import normalize_facts
 
 
@@ -35,6 +36,14 @@ def test_create_memory(memory_client):
     data = "Name is John Doe."
     result = memory_client.add([{"role": "user", "content": data}], user_id="test_user")
     assert result["results"][0]["memory"] == data
+
+
+def test_entity_collection_name_uses_dash_for_s3_vectors():
+    assert _entity_collection_name("s3_vectors", "test-index") == "test-index-entities"
+
+
+def test_entity_collection_name_keeps_underscore_for_other_stores():
+    assert _entity_collection_name("qdrant", "mem0") == "mem0_entities"
 
 
 def test_get_memory(memory_client):
