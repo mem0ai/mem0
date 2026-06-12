@@ -665,7 +665,6 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
-<<<<<<< HEAD
 def _make_match(score, linked_memory_ids):
     return SimpleNamespace(score=score, payload={"linked_memory_ids": linked_memory_ids})
 
