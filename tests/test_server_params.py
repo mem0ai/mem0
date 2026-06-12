@@ -682,3 +682,22 @@ class TestSearchEntityIdMapping:
         _, kwargs = mock_memory.search.call_args
         assert kwargs["filters"]["user_id"] == "u1"
         assert kwargs["filters"]["category"] == "food"
+
+
+class TestSearchValidationErrors:
+    """Verify that ValueError from Memory.search() returns 400, not 502."""
+
+    def test_empty_filters_returns_400(self, client, mock_memory):
+        mock_memory.search.side_effect = ValueError(
+            "filters must contain at least one of: user_id, agent_id, run_id"
+        )
+        resp = client.post("/search", json={"query": "food", "filters": {}})
+        assert resp.status_code == 400
+        assert "filters must contain" in resp.json()["detail"]
+
+    def test_no_identifiers_returns_400(self, client, mock_memory):
+        mock_memory.search.side_effect = ValueError(
+            "filters must contain at least one of: user_id, agent_id, run_id"
+        )
+        resp = client.post("/search", json={"query": "food"})
+        assert resp.status_code == 400
