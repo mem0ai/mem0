@@ -1858,6 +1858,9 @@ class AsyncMemory(MemoryBase):
         # Serialize concurrent vector-store writes to prevent HNSW index
         # corruption when multiple add()/update()/delete() calls are in flight
         # simultaneously (e.g. in an async agent processing events in parallel).
+        # Note: Entity-store writes are not currently protected by this lock,
+        # as they target a separate collection. For multi-process deployments
+        # with high entity-linking concurrency, use server-mode Qdrant.
         self._write_lock = asyncio.Lock()
 
         # Initialize reranker if configured
@@ -3091,12 +3094,13 @@ class AsyncMemory(MemoryBase):
         new_metadata["updated_at"] = new_metadata["created_at"]
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
-        await asyncio.to_thread(
-            self.vector_store.insert,
-            vectors=[embeddings],
-            ids=[memory_id],
-            payloads=[new_metadata],
-        )
+        async with self._write_lock:
+            await asyncio.to_thread(
+                self.vector_store.insert,
+                vectors=[embeddings],
+                ids=[memory_id],
+                payloads=[new_metadata],
+            )
 
         await asyncio.to_thread(
             self.db.add_history,

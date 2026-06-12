@@ -665,6 +665,7 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     assert stored["actor_id"] == "Alice"
 
 
+<<<<<<< HEAD
 def _make_match(score, linked_memory_ids):
     return SimpleNamespace(score=score, payload={"linked_memory_ids": linked_memory_ids})
 
@@ -857,3 +858,74 @@ class TestEntityBoostParallelism:
         assert elapsed < 0.6, f"searches did not run concurrently (took {elapsed:.2f}s)"
         assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
         assert len(boosts) == 4
+
+
+@pytest.mark.asyncio
+async def test_async_memory_concurrent_write_serialization(mocker):
+    """
+    Regression test for #4892: concurrent AsyncMemory writes must be serialized.
+    
+    Verifies that multiple concurrent add() calls do not enter vector_store.insert 
+    simultaneously, preventing HNSW index corruption.
+    """
+    import asyncio
+    import threading
+    
+    # Track concurrent calls
+    active_calls = {"count": 0, "max_concurrent": 0, "lock": threading.Lock()}
+    
+    def mock_insert_with_tracking(*args, **kwargs):
+        with active_calls["lock"]:
+            active_calls["count"] += 1
+            active_calls["max_concurrent"] = max(active_calls["max_concurrent"], active_calls["count"])
+        
+        # Simulate some work
+        import time
+        time.sleep(0.01)
+        
+        with active_calls["lock"]:
+            active_calls["count"] -= 1
+    
+    # Setup mocks
+    mock_embedder = mocker.MagicMock()
+    mock_embedder.return_value.embed.return_value = [0.1, 0.2, 0.3]
+    mocker.patch("mem0.utils.factory.EmbedderFactory.create", mock_embedder)
+    
+    mock_vector_store = mocker.MagicMock()
+    mock_vector_store.return_value.search.return_value = []
+    mock_vector_store.return_value.insert.side_effect = mock_insert_with_tracking
+    mocker.patch(
+        "mem0.utils.factory.VectorStoreFactory.create", 
+        side_effect=[mock_vector_store.return_value, mocker.MagicMock()]
+    )
+    
+    mock_llm = mocker.MagicMock()
+    mock_llm.return_value.generate_response.return_value = '{"memory": "test"}'
+    mocker.patch("mem0.utils.factory.LlmFactory.create", mock_llm)
+    
+    mocker.patch("mem0.memory.storage.SQLiteManager", mocker.MagicMock())
+    
+    # Create AsyncMemory instance
+    memory = AsyncMemory()
+    memory.config.custom_instructions = None
+    memory.api_version = "v1.1"
+    memory.db.get_last_messages = MagicMock(return_value=[])
+    memory.db.save_messages = MagicMock()
+    memory.db.add_history = MagicMock()
+    
+    # Run 10 concurrent add() operations
+    tasks = [
+        memory.add(f"Test message {i}", user_id="test_user", infer=False)
+        for i in range(10)
+    ]
+    
+    await asyncio.gather(*tasks)
+    
+    # Assert: vector_store.insert was never entered by more than one thread at a time
+    assert active_calls["max_concurrent"] == 1, (
+        f"Expected max 1 concurrent insert, but saw {active_calls['max_concurrent']}. "
+        "The _write_lock is not preventing concurrent access."
+    )
+    
+    # Verify all calls completed
+    assert mock_vector_store.return_value.insert.call_count == 10
