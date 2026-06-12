@@ -303,7 +303,7 @@ describe("registerCommands", () => {
 
       expect(mem0.search).toHaveBeenCalledWith(
         "my preferences",
-        expect.objectContaining({ threshold: 0.3, topK: 10 }),
+        expect.objectContaining({ threshold: 0.3, topK: 10, rerank: true }),
       );
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ customType: "mem0-search" }),
@@ -494,12 +494,10 @@ describe("registerCommands", () => {
 
       await pi._invoke("mem0-dream", "", ctx);
 
-      // Protocol is sent hidden (display:false) but triggers a turn.
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ customType: "mem0-dream", display: false }),
         expect.objectContaining({ triggerTurn: true }),
       );
-      // User sees a visible "dreaming" status.
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           customType: "mem0-dream",

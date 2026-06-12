@@ -31,11 +31,11 @@ export function registerCommands(
       filters,
       threshold: config.searchThreshold,
       topK: SEARCH_TOP_K,
+      rerank: true,
     });
     return result.results ?? [];
   };
 
-  // ── /mem0-remember ──────────────────────────────────────────────────
   pi.registerCommand("mem0-remember", {
     description: "Store a memory verbatim (no inference)",
     handler: async (args, ctx) => {
@@ -63,7 +63,6 @@ export function registerCommands(
     },
   });
 
-  // ── /mem0-forget ────────────────────────────────────────────────────
   pi.registerCommand("mem0-forget", {
     description: "Delete memories matching a natural language query",
     handler: async (args, ctx) => {
@@ -118,7 +117,6 @@ export function registerCommands(
     },
   });
 
-  // ── /mem0-search ────────────────────────────────────────────────────
   pi.registerCommand("mem0-search", {
     description: "Semantic search across memories",
     handler: async (args, ctx) => {
@@ -147,7 +145,6 @@ export function registerCommands(
     },
   });
 
-  // ── /mem0-tour ──────────────────────────────────────────────────────
   pi.registerCommand("mem0-tour", {
     description: "Browse all memories grouped by category",
     handler: async (args, ctx) => {
@@ -187,7 +184,6 @@ export function registerCommands(
     },
   });
 
-  // ── /mem0-dream ─────────────────────────────────────────────────────
   pi.registerCommand("mem0-dream", {
     description: "Consolidate memories — merge duplicates, prune stale entries, resolve contradictions",
     handler: async (_args, ctx) => {
@@ -205,7 +201,6 @@ export function registerCommands(
     },
   });
 
-  // ── /mem0-pin ───────────────────────────────────────────────────────
   pi.registerCommand("mem0-pin", {
     description: "Pin a memory to protect it from dream pruning",
     handler: async (args, ctx) => {
@@ -273,7 +268,6 @@ export function registerCommands(
     },
   });
 
-  // ── /mem0-scope ─────────────────────────────────────────────────────
   pi.registerCommand("mem0-scope", {
     description: "Change default memory scope for this session (project, session, global)",
     handler: async (args, ctx) => {
@@ -308,7 +302,6 @@ export function registerCommands(
     },
   });
 
-  // ── /mem0-status ────────────────────────────────────────────────────
   pi.registerCommand("mem0-status", {
     description: "Show connection health, identity, project, and memory count",
     handler: async (_args, _ctx) => {
