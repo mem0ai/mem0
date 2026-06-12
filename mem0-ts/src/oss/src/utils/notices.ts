@@ -13,6 +13,7 @@ export const NOTICE_EVENT_NAME = "mem0.notice_displayed";
 export const NOTICE_STATE_SECTION = "notice_state";
 export const FIRST_RUN_NOTICE_ID = "first_run";
 export const TEMPORAL_FEATURE_NOTICE_ID = "temporal_stub";
+export const TEMPORAL_USAGE_NOTICE_ID = "temporal_usage";
 export const DECAY_FEATURE_NOTICE_ID = "decay_stub";
 export const DECAY_USAGE_NOTICE_ID = "decay_usage";
 export const NOTICE_CAP_LIMIT = 10;
@@ -29,6 +30,12 @@ const TEMPORAL_REFERENCE_DATE_PLAIN_ERROR =
 const DECAY_FEATURE_PLAIN_ERROR =
   "The decay parameter is not supported by the OSS Memory SDK.";
 const DECAY_USAGE_DELETE_THRESHOLD = 5;
+const MAX_TEMPORAL_DETECTION_DEPTH = 32;
+const ISO_DATE_RE =
+  /\b\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?\b/;
+const RELATIVE_TIME_RE =
+  /\b(today|yesterday|tomorrow|last\s+(?:night|week|month|year)|this\s+(?:week|month|year)|next\s+(?:week|month|year)|(?:past|last)\s+\d+\s+(?:day|days|week|weeks|month|months|year|years)|(?:since|before|after|until)\s+(?:today|yesterday|tomorrow|\d{4}-\d{2}-\d{2}|last\s+(?:week|month|year)))\b/i;
+const RANGE_OPERATORS = new Set(["gt", "gte", "lt", "lte"]);
 
 let firstRunConsumedInProcess = false;
 let firstRunClaimInProgress = false;
@@ -71,6 +78,16 @@ export interface DecayUsageTrigger {
 export interface TemporalFeatureErrorTrigger {
   triggerFunction: "add" | "search";
   triggerParameter: "timestamp" | "referenceDate";
+}
+
+export interface TemporalUsageTrigger {
+  triggerFunction: "add" | "search";
+  triggerSource: "metadata" | "query" | "filter";
+  triggerReason:
+    | "date_like_metadata"
+    | "relative_phrase"
+    | "date_like_query"
+    | "date_range_filter";
 }
 
 export function getMem0Dir(): string {
@@ -534,6 +551,248 @@ export function isDecayUsageDeleteEligible(deleteCount: number): boolean {
   return deleteCount >= DECAY_USAGE_DELETE_THRESHOLD;
 }
 
+function isRecord(value: unknown): value is Record<string, any> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    !(value instanceof Date)
+  );
+}
+
+function isTemporalKey(key: unknown): boolean {
+  const keyText = String(key).toLowerCase();
+  return (
+    [
+      "date",
+      "time",
+      "timestamp",
+      "datetime",
+      "event_date",
+      "reference_date",
+      "referencedate",
+      "created_at",
+      "createdat",
+      "updated_at",
+      "updatedat",
+      "started_at",
+      "startedat",
+      "ended_at",
+      "endedat",
+      "expires_at",
+      "expiresat",
+    ].includes(keyText) ||
+    keyText.endsWith("_date") ||
+    keyText.endsWith("_time") ||
+    keyText.endsWith("_at") ||
+    keyText.includes("timestamp")
+  );
+}
+
+function looksTemporalValue(value: unknown, allowEpoch: boolean): boolean {
+  if (value instanceof Date) return !Number.isNaN(value.getTime());
+  if (typeof value === "string") {
+    return ISO_DATE_RE.test(value) || RELATIVE_TIME_RE.test(value);
+  }
+  if (allowEpoch && typeof value === "number" && Number.isFinite(value)) {
+    return (
+      (value >= 946684800 && value <= 4102444800) ||
+      (value >= 946684800000 && value <= 4102444800000)
+    );
+  }
+  return false;
+}
+
+export function detectTemporalUsageFromMetadata(
+  metadata: unknown,
+): Pick<TemporalUsageTrigger, "triggerSource" | "triggerReason"> | null {
+  try {
+    if (!isRecord(metadata)) return null;
+
+    const visited = new WeakSet<object>();
+    const stack: Array<{ value: unknown; parentKey?: string; depth: number }> =
+      [{ value: metadata, depth: 0 }];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (current.depth > MAX_TEMPORAL_DETECTION_DEPTH) continue;
+
+      if (Array.isArray(current.value)) {
+        for (const child of current.value) {
+          if (looksTemporalValue(child, false)) {
+            return {
+              triggerSource: "metadata",
+              triggerReason: "date_like_metadata",
+            };
+          }
+          stack.push({
+            value: child,
+            parentKey: current.parentKey,
+            depth: current.depth + 1,
+          });
+        }
+        continue;
+      }
+
+      if (!isRecord(current.value)) continue;
+      if (visited.has(current.value)) continue;
+      visited.add(current.value);
+
+      for (const [key, value] of Object.entries(current.value)) {
+        const temporalKey = isTemporalKey(key);
+        if (
+          (temporalKey && looksTemporalValue(value, true)) ||
+          looksTemporalValue(value, false)
+        ) {
+          return {
+            triggerSource: "metadata",
+            triggerReason: "date_like_metadata",
+          };
+        }
+        if (isRecord(value) || Array.isArray(value)) {
+          stack.push({ value, parentKey: key, depth: current.depth + 1 });
+        }
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+function hasTemporalFilter(filters: unknown): boolean {
+  try {
+    if (!isRecord(filters)) return false;
+
+    const visited = new WeakSet<object>();
+    const stack: Array<{ value: unknown; depth: number }> = [
+      { value: filters, depth: 0 },
+    ];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (current.depth > MAX_TEMPORAL_DETECTION_DEPTH) continue;
+
+      if (Array.isArray(current.value)) {
+        for (const child of current.value) {
+          stack.push({ value: child, depth: current.depth + 1 });
+        }
+        continue;
+      }
+
+      if (!isRecord(current.value)) continue;
+      if (visited.has(current.value)) continue;
+      visited.add(current.value);
+
+      for (const [key, value] of Object.entries(current.value)) {
+        if (["AND", "OR", "NOT", "$and", "$or", "$not"].includes(key)) {
+          if (isRecord(value) || Array.isArray(value)) {
+            stack.push({ value, depth: current.depth + 1 });
+          }
+          continue;
+        }
+
+        const temporalKey = isTemporalKey(key);
+        if (isRecord(value)) {
+          const rangeValues = Object.entries(value)
+            .filter(([operator]) => RANGE_OPERATORS.has(operator))
+            .map(([, rangeValue]) => rangeValue);
+          if (
+            rangeValues.length > 0 &&
+            (temporalKey ||
+              rangeValues.some((rangeValue) =>
+                looksTemporalValue(rangeValue, temporalKey),
+              ))
+          ) {
+            return true;
+          }
+          stack.push({ value, depth: current.depth + 1 });
+        } else if (temporalKey && looksTemporalValue(value, true)) {
+          return true;
+        }
+      }
+    }
+  } catch {}
+
+  return false;
+}
+
+export function detectTemporalUsageFromSearch(
+  query: unknown,
+  filters: unknown,
+): Pick<TemporalUsageTrigger, "triggerSource" | "triggerReason"> | null {
+  try {
+    if (typeof query === "string") {
+      if (RELATIVE_TIME_RE.test(query)) {
+        return { triggerSource: "query", triggerReason: "relative_phrase" };
+      }
+      if (ISO_DATE_RE.test(query)) {
+        return { triggerSource: "query", triggerReason: "date_like_query" };
+      }
+    }
+
+    if (hasTemporalFilter(filters)) {
+      return { triggerSource: "filter", triggerReason: "date_range_filter" };
+    }
+  } catch {}
+
+  return null;
+}
+
+export async function displayTemporalUsageNotice(
+  instance: TelemetryInstance,
+  trigger: TemporalUsageTrigger,
+): Promise<void> {
+  if (!isTelemetryEnabled()) return;
+
+  try {
+    const config = loadMem0Config();
+    const state = getNoticeState(config, TEMPORAL_USAGE_NOTICE_ID);
+    if (!hasNoticeCapRoom(state)) return;
+
+    const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
+    if (!flagEvaluation) return;
+
+    const decision = getDisplayDecision(
+      TEMPORAL_USAGE_NOTICE_ID,
+      LOG_LINE_NOTICE_TYPE,
+      flagEvaluation.variant,
+      flagEvaluation.payload,
+    );
+
+    const opportunity = {
+      variant: flagEvaluation.variant,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_source: trigger.triggerSource,
+      trigger_reason: trigger.triggerReason,
+    };
+
+    if (!recordNoticeOpportunity(TEMPORAL_USAGE_NOTICE_ID, opportunity)) {
+      return;
+    }
+
+    await emitNoticeDisplayed(instance, {
+      notice_id: TEMPORAL_USAGE_NOTICE_ID,
+      notice_type: LOG_LINE_NOTICE_TYPE,
+      flag_key: NOTICE_FLAG_KEY,
+      variant: flagEvaluation.variant,
+      displayed: decision.displayed,
+      payload: decision.copy,
+      bypass_reason: decision.bypassReason,
+      disabled_reason: decision.disabledReason,
+      notice_config_found: decision.noticeConfigFound,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_source: trigger.triggerSource,
+      trigger_reason: trigger.triggerReason,
+    });
+
+    if (decision.displayed && decision.copy) {
+      process.stderr.write(`${decision.copy}\n`);
+    }
+  } catch {}
+}
+
 export async function displayDecayUsageNotice(
   instance: TelemetryInstance,
   trigger: DecayUsageTrigger,
@@ -672,6 +931,9 @@ export const __noticeTestHooks = {
   evaluateNoticeFlag,
   displayFirstRunNotice,
   displayDecayUsageNotice,
+  displayTemporalUsageNotice,
+  detectTemporalUsageFromMetadata,
+  detectTemporalUsageFromSearch,
   getDecayFeatureErrorMessage,
   getTemporalFeatureErrorMessage,
   getDecayUsageDeleteCountAfterSuccess,

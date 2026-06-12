@@ -42,8 +42,11 @@ import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
 import {
+  detectTemporalUsageFromMetadata,
+  detectTemporalUsageFromSearch,
   displayDecayUsageNotice,
   displayFirstRunNotice,
+  displayTemporalUsageNotice,
   getDecayFeatureErrorMessage,
   getDecayUsageDeleteCountAfterSuccess,
   getTemporalFeatureErrorMessage,
@@ -523,6 +526,21 @@ export class Memory {
     } catch {}
   }
 
+  private async _displayTemporalUsageNotice(trigger: {
+    triggerFunction: "add" | "search";
+    triggerSource: "metadata" | "query" | "filter";
+    triggerReason:
+      | "date_like_metadata"
+      | "relative_phrase"
+      | "date_like_query"
+      | "date_range_filter";
+  }) {
+    try {
+      await this._getTelemetryId();
+      await displayTemporalUsageNotice(this, trigger);
+    } catch {}
+  }
+
   private async _getNoticeTelemetryId() {
     try {
       if (
@@ -579,6 +597,10 @@ export class Memory {
       );
     }
 
+    const temporalUsageNotice = detectTemporalUsageFromMetadata(
+      config?.metadata,
+    );
+
     await this._ensureInitialized();
     await this._captureEvent("add", {
       message_count: Array.isArray(messages) ? messages.length : 1,
@@ -618,7 +640,15 @@ export class Memory {
       infer,
     );
 
-    await this._displayFirstRunNotice("add");
+    if (temporalUsageNotice) {
+      await this._displayTemporalUsageNotice({
+        triggerFunction: "add",
+        triggerSource: temporalUsageNotice.triggerSource,
+        triggerReason: temporalUsageNotice.triggerReason,
+      });
+    } else {
+      await this._displayFirstRunNotice("add");
+    }
 
     return {
       results: vectorStoreResult,
@@ -1119,6 +1149,11 @@ export class Memory {
       );
     }
 
+    const temporalUsageNotice = detectTemporalUsageFromSearch(
+      query,
+      config?.filters,
+    );
+
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "search");
 
@@ -1364,7 +1399,15 @@ export class Memory {
     const result = {
       results,
     };
-    await this._displayFirstRunNotice("search");
+    if (temporalUsageNotice) {
+      await this._displayTemporalUsageNotice({
+        triggerFunction: "search",
+        triggerSource: temporalUsageNotice.triggerSource,
+        triggerReason: temporalUsageNotice.triggerReason,
+      });
+    } else {
+      await this._displayFirstRunNotice("search");
+    }
     return result;
   }
 
