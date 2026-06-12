@@ -540,7 +540,7 @@ describe("Node OSS temporal usage notice", () => {
   });
 
   it("detects expected query, metadata, and filter cases conservatively", async () => {
-    const { __noticeTestHooks } = await import("../src");
+    const { __noticeTestHooks } = await import("../src/utils/notices");
 
     expect(
       __noticeTestHooks.detectTemporalUsageFromSearch("notes from today", null),
@@ -575,7 +575,7 @@ describe("Node OSS temporal usage notice", () => {
   });
 
   it("detectors never raise for cyclic metadata or filters", async () => {
-    const { __noticeTestHooks } = await import("../src");
+    const { __noticeTestHooks } = await import("../src/utils/notices");
     const metadata: Record<string, any> = {};
     metadata.self = metadata;
     const filters: Record<string, any> = {};

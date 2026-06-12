@@ -222,6 +222,28 @@ describe("Node OSS decay feature error notice", () => {
     expect(notices[0].properties.bypass_reason).toBeUndefined();
   });
 
+  it("uses plain error for unknown future variants and emits not_displayed", async () => {
+    const { fetchMock, calls } = createFetchMock({ variant: "silent" });
+    global.fetch = fetchMock as any;
+    const memory = await createMemory();
+
+    await expect(memory.updateProject({ decay: true })).rejects.toThrow(
+      PLAIN_DECAY_ERROR,
+    );
+
+    const notices = noticeEvents(calls);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "decay_stub",
+        variant: "silent",
+        displayed: false,
+        bypass_reason: "not_displayed",
+        payload: DECAY_COPY,
+      }),
+    );
+  });
+
   it("uses plain error for disabled payload and emits payload_disabled", async () => {
     const { fetchMock, calls } = createFetchMock({
       variant: "holdout",

@@ -2233,7 +2233,7 @@ class AsyncMemory(MemoryBase):
             results = await self._create_procedural_memory(
                 messages, metadata=processed_metadata, prompt=prompt, llm=llm
             )
-            scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
+            scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, results)
             if temporal_usage_notice:
                 await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
             elif scale_threshold_notice:
@@ -2248,7 +2248,7 @@ class AsyncMemory(MemoryBase):
             messages = parse_vision_messages(messages)
 
         vector_store_result = await self._add_to_vector_store(messages, processed_metadata, effective_filters, infer, prompt=prompt)
-        scale_threshold_notice = detect_scale_threshold_from_add_result(self, vector_store_result)
+        scale_threshold_notice = await asyncio.to_thread(detect_scale_threshold_from_add_result, self, vector_store_result)
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "add", *temporal_usage_notice)
         elif scale_threshold_notice:

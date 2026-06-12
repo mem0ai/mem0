@@ -265,6 +265,57 @@ describe("Node OSS temporal feature error notice", () => {
     },
   );
 
+  it("uses plain error for unknown future variants and emits not_displayed", async () => {
+    const { fetchMock, calls } = createFetchMock({ variant: "silent" });
+    global.fetch = fetchMock as any;
+    const memory = await createMemory();
+
+    await expect(
+      memory.add("Temporal add", {
+        userId: "temporal-user",
+        timestamp: 1778112000,
+      }),
+    ).rejects.toThrow(PLAIN_TIMESTAMP_ERROR);
+
+    const notices = noticeEvents(calls);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "temporal_stub",
+        variant: "silent",
+        displayed: false,
+        bypass_reason: "not_displayed",
+        payload: TEMPORAL_COPY,
+      }),
+    );
+  });
+
+  it("treats missing enabled as enabled for feature-error payloads", async () => {
+    const payload = temporalPayload();
+    delete (payload.notices.temporal_stub as Record<string, any>).enabled;
+    const { fetchMock, calls } = createFetchMock({
+      variant: "displayed",
+      payload: JSON.stringify(payload),
+    });
+    global.fetch = fetchMock as any;
+    const memory = await createMemory();
+
+    await expect(
+      memory.add("Temporal add", {
+        userId: "temporal-user",
+        timestamp: 1778112000,
+      }),
+    ).rejects.toThrow(TEMPORAL_COPY);
+
+    expect(noticeEvents(calls)[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "temporal_stub",
+        displayed: true,
+        payload: TEMPORAL_COPY,
+      }),
+    );
+  });
+
   it("uses timestamp plain error for disabled payload and emits payload_disabled", async () => {
     const { fetchMock, calls } = createFetchMock({
       variant: "displayed",

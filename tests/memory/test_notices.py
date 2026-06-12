@@ -34,6 +34,7 @@ def reset_notice_process_state():
     notices._decay_usage_capacity_reached_in_process = False
     notices._scale_threshold_capacity_reached_in_process = False
     notices._performance_slow_query_capacity_reached_in_process = False
+    notices._feature_error_capacity_reached_in_process.clear()
     notices._scale_memory_count_adds_since_check = 0
     notices._scale_memory_count_checked_in_process = False
     notices._scale_memory_count_threshold_evaluated_in_process = False
@@ -44,6 +45,7 @@ def reset_notice_process_state():
     notices._decay_usage_capacity_reached_in_process = False
     notices._scale_threshold_capacity_reached_in_process = False
     notices._performance_slow_query_capacity_reached_in_process = False
+    notices._feature_error_capacity_reached_in_process.clear()
     notices._scale_memory_count_adds_since_check = 0
     notices._scale_memory_count_checked_in_process = False
     notices._scale_memory_count_threshold_evaluated_in_process = False
@@ -420,6 +422,24 @@ def test_temporal_feature_posthog_failure_returns_plain_error(notice_harness, ca
     assert capsys.readouterr().err == ""
 
 
+def test_temporal_feature_cap_blocks_repeated_posthog_evaluation(notice_harness):
+    config, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", temporal_payload())
+
+    for _ in range(notices.FEATURE_ERROR_CAP):
+        assert notices.get_temporal_feature_error_message("sync", "add", "timestamp") == "Temporal CTA"
+
+    assert telemetry.posthog.evaluate_flags.call_count == notices.FEATURE_ERROR_CAP
+    assert telemetry.capture_event.call_count == notices.FEATURE_ERROR_CAP
+    assert len(config["notice_state"]["temporal_stub"]["events"]) == notices.FEATURE_ERROR_CAP
+
+    message = notices.get_temporal_feature_error_message("sync", "add", "timestamp")
+
+    assert message == notices.TEMPORAL_FEATURE_ERROR_MESSAGES["timestamp"]
+    assert telemetry.posthog.evaluate_flags.call_count == notices.FEATURE_ERROR_CAP
+    assert telemetry.capture_event.call_count == notices.FEATURE_ERROR_CAP
+
+
 def test_async_temporal_feature_wrapper_uses_shared_helper(monkeypatch):
     calls = []
 
@@ -541,6 +561,38 @@ def test_decay_feature_posthog_failure_returns_plain_error(notice_harness, capsy
     assert capsys.readouterr().err == ""
 
 
+def test_decay_feature_cap_is_independent_from_temporal_feature_cap(notice_harness):
+    config, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", temporal_payload())
+
+    for _ in range(notices.FEATURE_ERROR_CAP):
+        assert notices.get_temporal_feature_error_message("sync", "add", "timestamp") == "Temporal CTA"
+
+    configure_flag(telemetry, "displayed", decay_payload())
+    assert notices.get_decay_feature_error_message("sync", "project.update", "decay") == "Decay CTA"
+
+    assert len(config["notice_state"]["temporal_stub"]["events"]) == notices.FEATURE_ERROR_CAP
+    assert len(config["notice_state"]["decay_stub"]["events"]) == 1
+
+
+def test_decay_feature_cap_blocks_repeated_posthog_evaluation(notice_harness):
+    config, telemetry = notice_harness
+    configure_flag(telemetry, "displayed", decay_payload())
+
+    for _ in range(notices.FEATURE_ERROR_CAP):
+        assert notices.get_decay_feature_error_message("sync", "project.update", "decay") == "Decay CTA"
+
+    assert telemetry.posthog.evaluate_flags.call_count == notices.FEATURE_ERROR_CAP
+    assert telemetry.capture_event.call_count == notices.FEATURE_ERROR_CAP
+    assert len(config["notice_state"]["decay_stub"]["events"]) == notices.FEATURE_ERROR_CAP
+
+    message = notices.get_decay_feature_error_message("sync", "project.update", "decay")
+
+    assert message == notices.DECAY_FEATURE_ERROR_MESSAGE
+    assert telemetry.posthog.evaluate_flags.call_count == notices.FEATURE_ERROR_CAP
+    assert telemetry.capture_event.call_count == notices.FEATURE_ERROR_CAP
+
+
 def test_async_decay_feature_wrapper_uses_shared_helper(monkeypatch):
     calls = []
 
@@ -584,6 +636,8 @@ def test_temporal_usage_metadata_detection():
         "date_like_metadata",
     )
     assert notices.detect_temporal_usage_from_metadata({"category": "planning"}) is None
+    assert notices.detect_temporal_usage_from_metadata({"notes": "we met yesterday"}) is None
+    assert notices.detect_temporal_usage_from_metadata({"category": "2025-04-09"}) is None
 
 
 def test_temporal_usage_metadata_detection_never_raises_for_cyclic_input():

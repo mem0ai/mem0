@@ -204,13 +204,39 @@ describe("Node OSS first-run notice", () => {
       }),
     );
 
-    const { __noticeTestHooks } = await import("../src");
+    const { __noticeTestHooks } = await import("../src/utils/notices");
     const config = __noticeTestHooks.loadMem0Config();
     expect(config.notice_state.first_run).toEqual(
       expect.objectContaining({
         consumed: true,
         trigger_function: "add",
         variant: "displayed",
+      }),
+    );
+  });
+
+  it("treats missing enabled as enabled, matching Python payload semantics", async () => {
+    const payload = firstRunPayload();
+    delete (payload.notices.first_run as Record<string, any>).enabled;
+    const { fetchMock, calls } = createFetchMock({
+      variant: "displayed",
+      payload,
+    });
+    global.fetch = fetchMock as any;
+    const memory = await createMemory();
+
+    await memory.add("Missing enabled payload content", {
+      userId: "first-run-missing-enabled",
+      infer: false,
+    });
+
+    const stderrOutput = stderrSpy.mock.calls.flat().join("");
+    expect(stderrOutput).toContain(FIRST_RUN_COPY);
+    expect(noticeEvents(calls)[0].properties).toEqual(
+      expect.objectContaining({
+        notice_id: "first_run",
+        displayed: true,
+        payload: FIRST_RUN_COPY,
       }),
     );
   });
@@ -311,8 +337,14 @@ describe("Node OSS first-run notice", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(noticeEvents(calls)).toHaveLength(0);
-    const { __noticeTestHooks } = await import("../src");
+    const { __noticeTestHooks } = await import("../src/utils/notices");
     expect(__noticeTestHooks.loadMem0Config().notice_state).toBeUndefined();
+  });
+
+  it("does not export internal notice test hooks from the public OSS entrypoint", async () => {
+    const publicOssEntry = await import("../src");
+
+    expect(publicOssEntry).not.toHaveProperty("__noticeTestHooks");
   });
 
   it("treats uppercase False as telemetry off", async () => {
@@ -330,7 +362,7 @@ describe("Node OSS first-run notice", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(noticeEvents(calls)).toHaveLength(0);
-    const { __noticeTestHooks } = await import("../src");
+    const { __noticeTestHooks } = await import("../src/utils/notices");
     expect(__noticeTestHooks.loadMem0Config().notice_state).toBeUndefined();
   });
 

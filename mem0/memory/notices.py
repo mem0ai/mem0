@@ -40,6 +40,8 @@ PERFORMANCE_SLOW_QUERY_STATE_KEY = "performance_slow_query"
 PERFORMANCE_SLOW_QUERY_CAP = 10
 PERFORMANCE_SLOW_QUERY_WINDOW = timedelta(days=7)
 PERFORMANCE_SLOW_QUERY_THRESHOLD_SECONDS = 2.0
+FEATURE_ERROR_CAP = 10
+FEATURE_ERROR_WINDOW = timedelta(days=7)
 TEMPORAL_FEATURE_ERROR_MESSAGES = {
     "timestamp": "The timestamp parameter is not supported by the OSS Memory SDK.",
     "reference_date": "The reference_date parameter is not supported by the OSS Memory SDK.",
@@ -69,6 +71,7 @@ _temporal_usage_capacity_reached_in_process = False
 _decay_usage_capacity_reached_in_process = False
 _scale_threshold_capacity_reached_in_process = False
 _performance_slow_query_capacity_reached_in_process = False
+_feature_error_capacity_reached_in_process = set()
 _scale_memory_count_adds_since_check = 0
 _scale_memory_count_checked_in_process = False
 _scale_memory_count_threshold_evaluated_in_process = False
@@ -741,6 +744,9 @@ def _get_feature_error_message(
     if not telemetry_module.MEM0_TELEMETRY:
         return plain_error
 
+    if _feature_error_at_capacity(notice_id):
+        return plain_error
+
     try:
         telemetry = telemetry_module._get_oss_telemetry()
         if telemetry is None or telemetry.posthog is None or not telemetry.user_id:
@@ -775,6 +781,15 @@ def _get_feature_error_message(
             bypass_reason = "not_displayed"
 
         displayed = variant in (DISPLAYED_VARIANT, HOLDOUT_VARIANT) and enabled and bool(copy)
+
+        if not _record_feature_error_opportunity(
+            notice_id=notice_id,
+            variant=variant,
+            sync_type=sync_type,
+            trigger_function=trigger_function,
+            trigger_parameter=trigger_parameter,
+        ):
+            return plain_error
 
         telemetry.capture_event(
             NOTICE_EVENT,
@@ -811,8 +826,6 @@ def detect_temporal_usage_from_metadata(metadata: Optional[Dict[str, Any]]) -> O
         for key, value in _walk_mapping(metadata):
             temporal_key = _is_temporal_key(key)
             if temporal_key and _looks_temporal_value(value, allow_epoch=True):
-                return ("metadata", "date_like_metadata")
-            if _looks_temporal_value(value, allow_epoch=False):
                 return ("metadata", "date_like_metadata")
     except Exception:
         return None
@@ -883,6 +896,90 @@ def _update_first_run_variant(variant) -> None:
             _write_config(config)
     except Exception:
         return
+
+
+def _feature_error_at_capacity(notice_id: str) -> bool:
+    if notice_id in _feature_error_capacity_reached_in_process:
+        return True
+
+    try:
+        with _state_lock:
+            config = _load_config()
+            entries = _recent_feature_error_entries(config, notice_id, datetime.now(timezone.utc))
+            at_capacity = len(entries) >= FEATURE_ERROR_CAP
+            if at_capacity:
+                _feature_error_capacity_reached_in_process.add(notice_id)
+            return at_capacity
+    except Exception:
+        return True
+
+
+def _record_feature_error_opportunity(
+    *,
+    notice_id: str,
+    variant: str,
+    sync_type: str,
+    trigger_function: str,
+    trigger_parameter: str,
+) -> bool:
+    try:
+        with _state_lock:
+            now = datetime.now(timezone.utc)
+            config = _load_config()
+            entries = _recent_feature_error_entries(config, notice_id, now)
+            if len(entries) >= FEATURE_ERROR_CAP:
+                _feature_error_capacity_reached_in_process.add(notice_id)
+                return False
+
+            entries.append(
+                {
+                    "evaluated_at": now.isoformat(),
+                    "variant": variant,
+                    "sync_type": sync_type,
+                    "trigger_function": trigger_function,
+                    "trigger_parameter": trigger_parameter,
+                }
+            )
+
+            state = config.get(STATE_SECTION)
+            if not isinstance(state, dict):
+                state = {}
+            feature_state = state.get(notice_id)
+            if not isinstance(feature_state, dict):
+                feature_state = {}
+            feature_state["events"] = entries
+            state[notice_id] = feature_state
+            config[STATE_SECTION] = state
+            _write_config(config)
+            if len(entries) >= FEATURE_ERROR_CAP:
+                _feature_error_capacity_reached_in_process.add(notice_id)
+            return True
+    except Exception:
+        return False
+
+
+def _recent_feature_error_entries(config: Dict[str, Any], notice_id: str, now: datetime):
+    state = config.get(STATE_SECTION)
+    if not isinstance(state, dict):
+        return []
+
+    feature_state = state.get(notice_id)
+    if not isinstance(feature_state, dict):
+        return []
+
+    entries = feature_state.get("events")
+    if not isinstance(entries, list):
+        return []
+
+    cutoff = now - FEATURE_ERROR_WINDOW
+    recent = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        evaluated_at = _parse_datetime(entry.get("evaluated_at"))
+        if evaluated_at is not None and evaluated_at >= cutoff:
+            recent.append(entry)
+    return recent
 
 
 def _temporal_usage_at_capacity() -> bool:

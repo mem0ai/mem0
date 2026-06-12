@@ -23,6 +23,7 @@ export const NOTICE_CAP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const NOTICE_FLAG_TIMEOUT_MS = 500;
 export const POSTHOG_FLAGS_URL = "https://us.i.posthog.com/flags?v=2";
 const DISPLAYED_VARIANT = "displayed";
+const HOLDOUT_VARIANT = "holdout";
 const LOG_LINE_NOTICE_TYPE = "log_line";
 const ERROR_NOTICE_TYPE = "error";
 const TEMPORAL_TIMESTAMP_PLAIN_ERROR =
@@ -414,7 +415,7 @@ function getDisplayDecision(
   const copy =
     typeof parsed.config?.copy === "string" ? parsed.config.copy : undefined;
 
-  if (!parsed.found) {
+  if (!parsed.found || !parsed.config) {
     return {
       displayed: false,
       noticeConfigFound: false,
@@ -422,7 +423,8 @@ function getDisplayDecision(
     };
   }
 
-  if (parsed.config?.enabled !== true) {
+  const noticeConfig = parsed.config;
+  if (noticeConfig.enabled === false) {
     return {
       displayed: false,
       noticeConfigFound: true,
@@ -432,7 +434,7 @@ function getDisplayDecision(
     };
   }
 
-  if (parsed.config.notice_type !== expectedNoticeType) {
+  if (noticeConfig.notice_type !== expectedNoticeType) {
     return {
       displayed: false,
       noticeConfigFound: true,
@@ -492,7 +494,7 @@ function getScaleDisplayDecision(
     trigger.triggerSource === "memory_count" ? "memory_count" : "top_k";
   const copy = renderScaleCopy(copies[copyKey], trigger);
 
-  if (!parsed.found) {
+  if (!parsed.found || !parsed.config) {
     return {
       displayed: false,
       noticeConfigFound: false,
@@ -500,7 +502,8 @@ function getScaleDisplayDecision(
     };
   }
 
-  if (parsed.config?.enabled !== true) {
+  const noticeConfig = parsed.config;
+  if (noticeConfig.enabled === false) {
     return {
       displayed: false,
       noticeConfigFound: true,
@@ -510,7 +513,7 @@ function getScaleDisplayDecision(
     };
   }
 
-  if (parsed.config.notice_type !== LOG_LINE_NOTICE_TYPE) {
+  if (noticeConfig.notice_type !== LOG_LINE_NOTICE_TYPE) {
     return {
       displayed: false,
       noticeConfigFound: true,
@@ -546,13 +549,14 @@ function getScaleDisplayDecision(
 function getFeatureErrorDecision(
   noticeId: string,
   expectedNoticeType: string,
+  variant: string,
   payload: unknown,
 ): NoticeDisplayDecision {
   const parsed = getNoticeConfigFromPayload(payload, noticeId);
   const copy =
     typeof parsed.config?.copy === "string" ? parsed.config.copy : undefined;
 
-  if (!parsed.found) {
+  if (!parsed.found || !parsed.config) {
     return {
       displayed: false,
       noticeConfigFound: false,
@@ -560,7 +564,8 @@ function getFeatureErrorDecision(
     };
   }
 
-  if (parsed.config?.enabled !== true) {
+  const noticeConfig = parsed.config;
+  if (noticeConfig.enabled === false) {
     return {
       displayed: false,
       noticeConfigFound: true,
@@ -570,7 +575,7 @@ function getFeatureErrorDecision(
     };
   }
 
-  if (parsed.config.notice_type !== expectedNoticeType) {
+  if (noticeConfig.notice_type !== expectedNoticeType) {
     return {
       displayed: false,
       noticeConfigFound: true,
@@ -584,6 +589,15 @@ function getFeatureErrorDecision(
       displayed: false,
       noticeConfigFound: true,
       bypassReason: "missing_copy",
+    };
+  }
+
+  if (variant !== DISPLAYED_VARIANT && variant !== HOLDOUT_VARIANT) {
+    return {
+      displayed: false,
+      noticeConfigFound: true,
+      copy,
+      bypassReason: "not_displayed",
     };
   }
 
@@ -606,6 +620,7 @@ export async function getDecayFeatureErrorMessage(
     const decision = getFeatureErrorDecision(
       DECAY_FEATURE_NOTICE_ID,
       ERROR_NOTICE_TYPE,
+      flagEvaluation.variant,
       flagEvaluation.payload,
     );
 
@@ -650,6 +665,7 @@ export async function getTemporalFeatureErrorMessage(
     const decision = getFeatureErrorDecision(
       TEMPORAL_FEATURE_NOTICE_ID,
       ERROR_NOTICE_TYPE,
+      flagEvaluation.variant,
       flagEvaluation.payload,
     );
 

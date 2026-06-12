@@ -383,6 +383,32 @@ describe("Node OSS scale threshold notice", () => {
     });
   });
 
+  it("treats missing enabled as enabled for scale payloads", async () => {
+    consumeFirstRun();
+    const payload = scalePayload();
+    delete (payload.notices.scale_threshold as Record<string, any>).enabled;
+    const { fetchMock, calls } = createFetchMock({
+      variant: "displayed",
+      payload: JSON.stringify(payload),
+    });
+    global.fetch = fetchMock as any;
+    const memory = await createMemory();
+
+    await addSeed(memory);
+    stderrSpy.mockClear();
+    await memory.search("favorite drink", {
+      filters: { user_id: "scale-user" },
+      topK: 50,
+    });
+
+    expect(stderrSpy.mock.calls.flat().join("")).toContain("Scale top 50");
+    expect(scaleEvents(calls)[0].properties).toMatchObject({
+      notice_id: "scale_threshold",
+      displayed: true,
+      payload: "Scale top 50",
+    });
+  });
+
   it("caps evaluated scale opportunities at 10 per week", async () => {
     consumeFirstRun();
     const { fetchMock, calls } = createFetchMock({ variant: "displayed" });

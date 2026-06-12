@@ -80,17 +80,12 @@ class AnonymousTelemetry:
             self.user_id = None
             return
 
-        try:
-            self.posthog = Posthog(
-                project_api_key=PROJECT_API_KEY,
-                host=HOST,
-                before_send=before_send,
-                feature_flags_request_timeout_seconds=FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS,
-            )
-        except TypeError:
-            # posthog <4.5.0 does not accept before_send; fall back without sampling.
-            _logger.debug("posthog.Posthog does not accept before_send; upgrade to >=4.5.0 for sampling")
-            self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
+        self.posthog = Posthog(
+            project_api_key=PROJECT_API_KEY,
+            host=HOST,
+            before_send=before_send,
+            feature_flags_request_timeout_seconds=FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS,
+        )
         self.user_id = get_or_create_user_id(vector_store)
 
     def capture_event(self, event_name, properties=None, user_email=None, flags=None):

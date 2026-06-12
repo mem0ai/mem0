@@ -151,6 +151,41 @@ async def test_async_add_temporal_metadata_triggers_notice_after_success(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_async_add_runs_scale_detection_in_thread(monkeypatch):
+    memory = make_async_memory()
+    scale_detector = MagicMock(return_value=("memory_count", "memory_count_threshold", None, 2000, 2000))
+    scale_notice = AsyncMock()
+    first_run_notice = AsyncMock()
+    to_thread_calls = []
+
+    async def to_thread(fn, *args, **kwargs):
+        to_thread_calls.append((fn, args, kwargs))
+        return fn(*args, **kwargs)
+
+    monkeypatch.setattr(memory_main, "detect_scale_threshold_from_add_result", scale_detector)
+    monkeypatch.setattr(memory_main.asyncio, "to_thread", to_thread)
+    monkeypatch.setattr(memory_main, "display_scale_threshold_notice_async", scale_notice)
+    monkeypatch.setattr(memory_main, "display_first_run_notice_async", first_run_notice)
+
+    result = await AsyncMemory.add(memory, "The user likes tea.", user_id="u1", infer=False)
+
+    assert result == {"results": []}
+    assert to_thread_calls == [(scale_detector, (memory, []), {})]
+    scale_detector.assert_called_once_with(memory, [])
+    scale_notice.assert_awaited_once_with(
+        memory,
+        "async",
+        "add",
+        "memory_count",
+        "memory_count_threshold",
+        None,
+        2000,
+        2000,
+    )
+    first_run_notice.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_async_search_temporal_query_triggers_notice_after_success(monkeypatch):
     memory = make_async_memory()
     temporal_notice = AsyncMock()
