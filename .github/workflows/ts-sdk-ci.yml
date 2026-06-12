@@ -1,14 +1,14 @@
 name: TypeScript SDK CI
 
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main runs remain standalone.
 on:
   push:
     branches: [main]
     paths:
       - 'mem0-ts/**'
       - '.github/workflows/ts-sdk-ci.yml'
-  pull_request:
-    paths:
-      - 'mem0-ts/**'
+  workflow_call:
 
 jobs:
   check_changes:

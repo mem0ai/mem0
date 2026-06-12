@@ -47,6 +47,7 @@ from mem0.utils.scoring import (
     normalize_bm25,
     score_and_rank,
 )
+from mem0.vector_stores.base import VectorStoreBase
 
 # Suppress SWIG deprecation warnings globally
 warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*SwigPy.*")
@@ -340,6 +341,11 @@ def _build_session_scope(filters):
     return "&".join(parts)
 
 
+def _entity_collection_name(provider: str, collection_name: str) -> str:
+    separator = "-" if provider == "s3_vectors" else "_"
+    return f"{collection_name}{separator}entities"
+
+
 setup_config()
 logger = logging.getLogger(__name__)
 
@@ -400,6 +406,15 @@ class Memory(MemoryBase):
             self._telemetry_vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, telemetry_config
             )
+        if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
+            logger.warning(
+                "The '%s' vector store does not support keyword search. "
+                "Hybrid (BM25) scoring will be disabled and search will use "
+                "semantic similarity only. To enable hybrid search, switch to a "
+                "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
+                self.config.vector_store.provider,
+            )
+
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @property
@@ -407,7 +422,7 @@ class Memory(MemoryBase):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = f"{self.collection_name}_entities"
+            entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             # Set collection name on the cloned config
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection
@@ -550,20 +565,11 @@ class Memory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
-
-    @staticmethod
-    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
@@ -1872,6 +1878,15 @@ class AsyncMemory(MemoryBase):
                 os.makedirs(telemetry_config.path, exist_ok=True)
             self._telemetry_vector_store = VectorStoreFactory.create(self.config.vector_store.provider, telemetry_config)
 
+        if getattr(type(self.vector_store), "keyword_search", None) is VectorStoreBase.keyword_search:
+            logger.warning(
+                "The '%s' vector store does not support keyword search. "
+                "Hybrid (BM25) scoring will be disabled and search will use "
+                "semantic similarity only. To enable hybrid search, switch to a "
+                "store with keyword_search support (e.g. qdrant, elasticsearch, pgvector).",
+                self.config.vector_store.provider,
+            )
+
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @property
@@ -1879,7 +1894,7 @@ class AsyncMemory(MemoryBase):
         """Lazily initialize entity store on first use."""
         if self._entity_store is None:
             entity_config = _safe_deepcopy_config(self.config.vector_store.config)
-            entity_collection = f"{self.collection_name}_entities"
+            entity_collection = _entity_collection_name(self.config.vector_store.provider, self.collection_name)
             if hasattr(entity_config, 'collection_name'):
                 entity_config.collection_name = entity_collection
             elif isinstance(entity_config, dict):
@@ -2008,20 +2023,11 @@ class AsyncMemory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
-
-    @staticmethod
-    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
