@@ -46,6 +46,7 @@ import {
   displayFirstRunNotice,
   getDecayFeatureErrorMessage,
   getDecayUsageDeleteCountAfterSuccess,
+  getTemporalFeatureErrorMessage,
   isDecayUsageDeleteEligible,
 } from "../utils/notices";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
@@ -561,6 +562,16 @@ export class Memory {
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
+    if (config?.timestamp !== undefined) {
+      await this._getNoticeTelemetryId();
+      throw new Error(
+        await getTemporalFeatureErrorMessage(this, {
+          triggerFunction: "add",
+          triggerParameter: "timestamp",
+        }),
+      );
+    }
+
     // Validate messages input
     if (messages === undefined || messages === null) {
       throw new Error(
@@ -1098,6 +1109,16 @@ export class Memory {
     query: string,
     config: SearchMemoryOptions,
   ): Promise<SearchResult> {
+    if (config?.referenceDate !== undefined) {
+      await this._getNoticeTelemetryId();
+      throw new Error(
+        await getTemporalFeatureErrorMessage(this, {
+          triggerFunction: "search",
+          triggerParameter: "referenceDate",
+        }),
+      );
+    }
+
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "search");
 

@@ -12,6 +12,7 @@ export const NOTICE_FLAG_KEY = "mem0-oss-notices";
 export const NOTICE_EVENT_NAME = "mem0.notice_displayed";
 export const NOTICE_STATE_SECTION = "notice_state";
 export const FIRST_RUN_NOTICE_ID = "first_run";
+export const TEMPORAL_FEATURE_NOTICE_ID = "temporal_stub";
 export const DECAY_FEATURE_NOTICE_ID = "decay_stub";
 export const DECAY_USAGE_NOTICE_ID = "decay_usage";
 export const NOTICE_CAP_LIMIT = 10;
@@ -21,6 +22,10 @@ export const POSTHOG_FLAGS_URL = "https://us.i.posthog.com/flags?v=2";
 const DISPLAYED_VARIANT = "displayed";
 const LOG_LINE_NOTICE_TYPE = "log_line";
 const ERROR_NOTICE_TYPE = "error";
+const TEMPORAL_TIMESTAMP_PLAIN_ERROR =
+  "The timestamp parameter is not supported by the OSS Memory SDK.";
+const TEMPORAL_REFERENCE_DATE_PLAIN_ERROR =
+  "The referenceDate parameter is not supported by the OSS Memory SDK.";
 const DECAY_FEATURE_PLAIN_ERROR =
   "The decay parameter is not supported by the OSS Memory SDK.";
 const DECAY_USAGE_DELETE_THRESHOLD = 5;
@@ -61,6 +66,11 @@ export interface DecayUsageTrigger {
   triggerReason: "repeated_deletes" | "bulk_delete";
   deleteCount?: number;
   deletedCount?: number;
+}
+
+export interface TemporalFeatureErrorTrigger {
+  triggerFunction: "add" | "search";
+  triggerParameter: "timestamp" | "referenceDate";
 }
 
 export function getMem0Dir(): string {
@@ -470,6 +480,50 @@ export async function getDecayFeatureErrorMessage(
   return DECAY_FEATURE_PLAIN_ERROR;
 }
 
+export async function getTemporalFeatureErrorMessage(
+  instance: TelemetryInstance,
+  trigger: TemporalFeatureErrorTrigger,
+): Promise<string> {
+  const plainError =
+    trigger.triggerParameter === "timestamp"
+      ? TEMPORAL_TIMESTAMP_PLAIN_ERROR
+      : TEMPORAL_REFERENCE_DATE_PLAIN_ERROR;
+
+  if (!isTelemetryEnabled()) return plainError;
+
+  try {
+    const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
+    if (!flagEvaluation) return plainError;
+
+    const decision = getFeatureErrorDecision(
+      TEMPORAL_FEATURE_NOTICE_ID,
+      ERROR_NOTICE_TYPE,
+      flagEvaluation.payload,
+    );
+
+    await emitNoticeDisplayed(instance, {
+      notice_id: TEMPORAL_FEATURE_NOTICE_ID,
+      notice_type: ERROR_NOTICE_TYPE,
+      flag_key: NOTICE_FLAG_KEY,
+      variant: flagEvaluation.variant,
+      displayed: decision.displayed,
+      payload: decision.copy,
+      bypass_reason: decision.bypassReason,
+      disabled_reason: decision.disabledReason,
+      notice_config_found: decision.noticeConfigFound,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_parameter: trigger.triggerParameter,
+    });
+
+    if (decision.displayed && decision.copy) {
+      return decision.copy;
+    }
+  } catch {}
+
+  return plainError;
+}
+
 export function getDecayUsageDeleteCountAfterSuccess(): number {
   if (!isTelemetryEnabled()) return 0;
   decayUsageSuccessfulDeleteCount += 1;
@@ -619,6 +673,7 @@ export const __noticeTestHooks = {
   displayFirstRunNotice,
   displayDecayUsageNotice,
   getDecayFeatureErrorMessage,
+  getTemporalFeatureErrorMessage,
   getDecayUsageDeleteCountAfterSuccess,
   getMem0ConfigPath,
   getMem0Dir,
