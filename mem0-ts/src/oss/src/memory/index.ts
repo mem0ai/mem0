@@ -42,8 +42,11 @@ import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
 import {
+  displayDecayUsageNotice,
   displayFirstRunNotice,
   getDecayFeatureErrorMessage,
+  getDecayUsageDeleteCountAfterSuccess,
+  isDecayUsageDeleteEligible,
 } from "../utils/notices";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
 import {
@@ -503,6 +506,19 @@ export class Memory {
     try {
       await this._getTelemetryId();
       await displayFirstRunNotice(this, triggerFunction);
+    } catch {}
+  }
+
+  private async _displayDecayUsageNotice(trigger: {
+    triggerFunction: "delete" | "delete_all";
+    triggerSource: "delete_count" | "delete_all";
+    triggerReason: "repeated_deletes" | "bulk_delete";
+    deleteCount?: number;
+    deletedCount?: number;
+  }) {
+    try {
+      await this._getTelemetryId();
+      await displayDecayUsageNotice(this, trigger);
     } catch {}
   }
 
@@ -1346,7 +1362,17 @@ export class Memory {
     await this._captureEvent("delete", { memory_id: memoryId });
     await this.deleteMemory(memoryId);
     const result = { message: "Memory deleted successfully!" };
-    await this._displayFirstRunNotice("delete");
+    const deleteCount = getDecayUsageDeleteCountAfterSuccess();
+    if (isDecayUsageDeleteEligible(deleteCount)) {
+      await this._displayDecayUsageNotice({
+        triggerFunction: "delete",
+        triggerSource: "delete_count",
+        triggerReason: "repeated_deletes",
+        deleteCount,
+      });
+    } else {
+      await this._displayFirstRunNotice("delete");
+    }
     return result;
   }
 
@@ -1379,7 +1405,16 @@ export class Memory {
     }
 
     const result = { message: "Memories deleted successfully!" };
-    await this._displayFirstRunNotice("delete_all");
+    if (memories.length > 0) {
+      await this._displayDecayUsageNotice({
+        triggerFunction: "delete_all",
+        triggerSource: "delete_all",
+        triggerReason: "bulk_delete",
+        deletedCount: memories.length,
+      });
+    } else {
+      await this._displayFirstRunNotice("delete_all");
+    }
     return result;
   }
 

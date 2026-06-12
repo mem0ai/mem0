@@ -13,6 +13,7 @@ export const NOTICE_EVENT_NAME = "mem0.notice_displayed";
 export const NOTICE_STATE_SECTION = "notice_state";
 export const FIRST_RUN_NOTICE_ID = "first_run";
 export const DECAY_FEATURE_NOTICE_ID = "decay_stub";
+export const DECAY_USAGE_NOTICE_ID = "decay_usage";
 export const NOTICE_CAP_LIMIT = 10;
 export const NOTICE_CAP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const NOTICE_FLAG_TIMEOUT_MS = 500;
@@ -22,9 +23,11 @@ const LOG_LINE_NOTICE_TYPE = "log_line";
 const ERROR_NOTICE_TYPE = "error";
 const DECAY_FEATURE_PLAIN_ERROR =
   "The decay parameter is not supported by the OSS Memory SDK.";
+const DECAY_USAGE_DELETE_THRESHOLD = 5;
 
 let firstRunConsumedInProcess = false;
 let firstRunClaimInProgress = false;
+let decayUsageSuccessfulDeleteCount = 0;
 
 export interface NoticePayloadConfig {
   enabled?: boolean;
@@ -50,6 +53,14 @@ interface NoticeDisplayDecision {
   copy?: string;
   bypassReason?: string;
   disabledReason?: string;
+}
+
+export interface DecayUsageTrigger {
+  triggerFunction: "delete" | "delete_all";
+  triggerSource: "delete_count" | "delete_all";
+  triggerReason: "repeated_deletes" | "bulk_delete";
+  deleteCount?: number;
+  deletedCount?: number;
 }
 
 export function getMem0Dir(): string {
@@ -459,6 +470,83 @@ export async function getDecayFeatureErrorMessage(
   return DECAY_FEATURE_PLAIN_ERROR;
 }
 
+export function getDecayUsageDeleteCountAfterSuccess(): number {
+  if (!isTelemetryEnabled()) return 0;
+  decayUsageSuccessfulDeleteCount += 1;
+  return decayUsageSuccessfulDeleteCount;
+}
+
+export function isDecayUsageDeleteEligible(deleteCount: number): boolean {
+  return deleteCount >= DECAY_USAGE_DELETE_THRESHOLD;
+}
+
+export async function displayDecayUsageNotice(
+  instance: TelemetryInstance,
+  trigger: DecayUsageTrigger,
+): Promise<void> {
+  if (!isTelemetryEnabled()) return;
+
+  try {
+    const config = loadMem0Config();
+    const state = getNoticeState(config, DECAY_USAGE_NOTICE_ID);
+    if (!hasNoticeCapRoom(state)) return;
+
+    const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
+    if (!flagEvaluation) return;
+
+    const decision = getDisplayDecision(
+      DECAY_USAGE_NOTICE_ID,
+      LOG_LINE_NOTICE_TYPE,
+      flagEvaluation.variant,
+      flagEvaluation.payload,
+    );
+
+    const opportunity = {
+      variant: flagEvaluation.variant,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_source: trigger.triggerSource,
+      trigger_reason: trigger.triggerReason,
+      ...(trigger.deleteCount !== undefined && {
+        delete_count: trigger.deleteCount,
+      }),
+      ...(trigger.deletedCount !== undefined && {
+        deleted_count: trigger.deletedCount,
+      }),
+    };
+
+    if (!recordNoticeOpportunity(DECAY_USAGE_NOTICE_ID, opportunity)) {
+      return;
+    }
+
+    await emitNoticeDisplayed(instance, {
+      notice_id: DECAY_USAGE_NOTICE_ID,
+      notice_type: LOG_LINE_NOTICE_TYPE,
+      flag_key: NOTICE_FLAG_KEY,
+      variant: flagEvaluation.variant,
+      displayed: decision.displayed,
+      payload: decision.copy,
+      bypass_reason: decision.bypassReason,
+      disabled_reason: decision.disabledReason,
+      notice_config_found: decision.noticeConfigFound,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_source: trigger.triggerSource,
+      trigger_reason: trigger.triggerReason,
+      ...(trigger.deleteCount !== undefined && {
+        delete_count: trigger.deleteCount,
+      }),
+      ...(trigger.deletedCount !== undefined && {
+        deleted_count: trigger.deletedCount,
+      }),
+    });
+
+    if (decision.displayed && decision.copy) {
+      process.stderr.write(`${decision.copy}\n`);
+    }
+  } catch {}
+}
+
 export async function displayFirstRunNotice(
   instance: TelemetryInstance,
   triggerFunction: string,
@@ -529,12 +617,15 @@ export const __noticeTestHooks = {
   emitNoticeDisplayed,
   evaluateNoticeFlag,
   displayFirstRunNotice,
+  displayDecayUsageNotice,
   getDecayFeatureErrorMessage,
+  getDecayUsageDeleteCountAfterSuccess,
   getMem0ConfigPath,
   getMem0Dir,
   getNoticeConfigFromPayload,
   getNoticeState,
   hasNoticeCapRoom,
+  isDecayUsageDeleteEligible,
   loadMem0Config,
   recordNoticeOpportunity,
   setNoticeState,
