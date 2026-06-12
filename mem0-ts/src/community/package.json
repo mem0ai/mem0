@@ -75,8 +75,8 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "@langchain/community": "^0.3.36",
-    "@langchain/core": "^0.3.42",
+    "@langchain/community": "^1.1.18",
+    "@langchain/core": "^1.1.27",
     "axios": "^1.16.0",
     "mem0ai": "^2.1.8",
     "uuid": "^11.1.1",
