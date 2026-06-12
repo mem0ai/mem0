@@ -162,16 +162,22 @@ class TestBeforeSendWiring:
                     # before_send is None (default), not _sampling_before_send
                     assert kwargs.get("before_send") is None
 
-    def test_anonymous_telemetry_falls_back_when_posthog_rejects_before_send(self):
-        """If posthog (older version) rejects before_send, construction still succeeds."""
+    def test_anonymous_telemetry_constructs_posthog_with_current_kwargs(self):
+        """AnonymousTelemetry uses the supported PostHog constructor shape."""
         with patch.object(telemetry_module, "MEM0_TELEMETRY", True):
             with patch("mem0.memory.telemetry.Posthog") as mock_posthog_cls:
                 with patch("mem0.memory.telemetry.get_or_create_user_id", return_value="u"):
-                    # First call (with before_send) raises TypeError; second call succeeds.
-                    mock_posthog_cls.side_effect = [TypeError("unexpected kwarg before_send"), object()]
                     at = telemetry_module.AnonymousTelemetry(before_send=telemetry_module._sampling_before_send)
-                    # Constructor was called twice: once with before_send, once without
-                    assert mock_posthog_cls.call_count == 2
+                    mock_posthog_cls.assert_called_once()
+                    _, kwargs = mock_posthog_cls.call_args
+                    assert kwargs["project_api_key"] == telemetry_module.PROJECT_API_KEY
+                    assert kwargs["host"] == telemetry_module.HOST
+                    assert kwargs["before_send"] is telemetry_module._sampling_before_send
+                    assert (
+                        kwargs["feature_flags_request_timeout_seconds"]
+                        == telemetry_module.FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS
+                    )
+                    assert at.user_id == "u"
                     assert at.posthog is not None
 
 
