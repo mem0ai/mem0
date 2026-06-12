@@ -14,6 +14,7 @@ export interface Mem0Config {
   autoCapture: boolean;
   defaultScope: Scope;
   contextInjection: boolean;
+  searchThreshold: number;
   dream: DreamConfig;
 }
 
