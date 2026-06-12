@@ -64,5 +64,10 @@
   },
   "dependencies": {
     "mem0ai": "^3.0.6"
+  },
+  "pnpm": {
+    "overrides": {
+      "uuid@<11.1.1": ">=11.1.1"
+    }
   }
 }
