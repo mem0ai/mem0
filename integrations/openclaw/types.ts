@@ -36,7 +36,7 @@ export interface AddOptions {
   user_id: string;
   run_id?: string;
   custom_instructions?: string;
-  custom_categories?: Record<string, string>;
+  custom_categories?: Array<Record<string, string>>;
   source?: string;
   // Agentic harness additions
   infer?: boolean;
