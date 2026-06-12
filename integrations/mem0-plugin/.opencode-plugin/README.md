@@ -17,7 +17,7 @@ opencode plugin @mem0/opencode-plugin
 **Or let your agent do it** — paste this into OpenCode:
 
 ```
-Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/mem0-plugin/.opencode-plugin/README.md
+Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/mem0-plugin/.opencode-plugin/README.md
 ```
 
 All commands auto-add the plugin and MCP server to your `~/.config/opencode/opencode.json`. No manual config needed.

@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'pi-agent-plugin/**'
+      - 'integrations/pi-agent-plugin/**'
       - '.github/workflows/pi-agent-plugin-checks.yml'
   workflow_call:
 
@@ -27,13 +27,13 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
-          cache-dependency-path: pi-agent-plugin/pnpm-lock.yaml
+          cache-dependency-path: integrations/pi-agent-plugin/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: cd pi-agent-plugin && pnpm install --frozen-lockfile
+        run: cd integrations/pi-agent-plugin && pnpm install --frozen-lockfile
 
       - name: Type check
-        run: cd pi-agent-plugin && pnpm exec tsc --noEmit
+        run: cd integrations/pi-agent-plugin && pnpm exec tsc --noEmit
 
   test:
     runs-on: ubuntu-latest
@@ -53,13 +53,13 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
-          cache-dependency-path: pi-agent-plugin/pnpm-lock.yaml
+          cache-dependency-path: integrations/pi-agent-plugin/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: cd pi-agent-plugin && pnpm install --frozen-lockfile
+        run: cd integrations/pi-agent-plugin && pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: cd pi-agent-plugin && pnpm exec vitest run
+        run: cd integrations/pi-agent-plugin && pnpm exec vitest run
 
   build:
     runs-on: ubuntu-latest
@@ -76,17 +76,17 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
-          cache-dependency-path: pi-agent-plugin/pnpm-lock.yaml
+          cache-dependency-path: integrations/pi-agent-plugin/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: cd pi-agent-plugin && pnpm install --frozen-lockfile
+        run: cd integrations/pi-agent-plugin && pnpm install --frozen-lockfile
 
       - name: Build
-        run: cd pi-agent-plugin && pnpm build
+        run: cd integrations/pi-agent-plugin && pnpm build
 
       - name: Verify dist output exists
         run: |
-          test -f pi-agent-plugin/dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)
-          test -f pi-agent-plugin/dist/index.d.ts || (echo "Build output missing: dist/index.d.ts" && exit 1)
-          test -f pi-agent-plugin/dist/entry.js || (echo "Build output missing: dist/entry.js" && exit 1)
-          test -f pi-agent-plugin/dist/entry.d.ts || (echo "Build output missing: dist/entry.d.ts" && exit 1)
+          test -f integrations/pi-agent-plugin/dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)
+          test -f integrations/pi-agent-plugin/dist/index.d.ts || (echo "Build output missing: dist/index.d.ts" && exit 1)
+          test -f integrations/pi-agent-plugin/dist/entry.js || (echo "Build output missing: dist/entry.js" && exit 1)
+          test -f integrations/pi-agent-plugin/dist/entry.d.ts || (echo "Build output missing: dist/entry.d.ts" && exit 1)

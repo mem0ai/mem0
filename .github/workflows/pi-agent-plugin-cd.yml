@@ -25,7 +25,7 @@ jobs:
       id-token: write
     defaults:
       run:
-        working-directory: pi-agent-plugin
+        working-directory: integrations/pi-agent-plugin
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,7 +42,7 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
-          cache-dependency-path: pi-agent-plugin/pnpm-lock.yaml
+          cache-dependency-path: integrations/pi-agent-plugin/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
