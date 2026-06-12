@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from openai import OpenAI
 
@@ -35,6 +35,8 @@ class OpenAILLM(LLMBase):
             )
 
         super().__init__(config)
+        self._last_usage: Optional[Dict[str, Any]] = None
+        self._capture_usage = False
 
         if not self.config.model:
             self.config.model = "gpt-5-mini"
@@ -51,6 +53,65 @@ class OpenAILLM(LLMBase):
             base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
 
             self.client = OpenAI(api_key=api_key, base_url=base_url)
+
+    def _extract_usage(self, response) -> Optional[Dict[str, Any]]:
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return None
+
+        if hasattr(usage, "model_dump"):
+            usage_dict = usage.model_dump()
+        elif isinstance(usage, dict):
+            usage_dict = usage
+        elif hasattr(usage, "__dict__"):
+            usage_dict = {
+                key: value for key, value in vars(usage).items()
+                if not key.startswith("_")
+            }
+        else:
+            return None
+
+        return usage_dict or None
+
+    def reset_last_usage(self) -> None:
+        self._last_usage = None
+
+    def get_last_usage(self) -> Optional[Dict[str, Any]]:
+        if self._last_usage is None:
+            return None
+        return dict(self._last_usage)
+
+    def start_usage_capture(self) -> None:
+        self.reset_last_usage()
+        self._capture_usage = True
+
+    def stop_usage_capture(self) -> None:
+        self._capture_usage = False
+
+    def _merge_usage_values(self, current, incoming):
+        if isinstance(current, dict) and isinstance(incoming, dict):
+            merged = dict(current)
+            for key, value in incoming.items():
+                merged[key] = self._merge_usage_values(merged[key], value) if key in merged else value
+            return merged
+
+        if (
+            isinstance(current, (int, float))
+            and not isinstance(current, bool)
+            and isinstance(incoming, (int, float))
+            and not isinstance(incoming, bool)
+        ):
+            return current + incoming
+
+        return incoming
+
+    def _store_usage(self, usage: Optional[Dict[str, Any]]) -> None:
+        if not self._capture_usage:
+            self._last_usage = usage
+            return
+
+        if usage:
+            self._last_usage = self._merge_usage_values(self._last_usage or {}, usage)
 
     def _parse_response(self, response, tools):
         """
@@ -103,8 +164,10 @@ class OpenAILLM(LLMBase):
         Returns:
             json: The generated response.
         """
+        if not self._capture_usage:
+            self.reset_last_usage()
         params = self._get_supported_params(messages=messages, **kwargs)
-        
+
         params.update({
             "model": self.config.model,
             "messages": messages,
@@ -139,6 +202,7 @@ class OpenAILLM(LLMBase):
             params["tools"] = tools
             params["tool_choice"] = tool_choice
         response = self.client.chat.completions.create(**params)
+        self._store_usage(self._extract_usage(response))
         parsed_response = self._parse_response(response, tools)
         if self.config.response_callback:
             try:
