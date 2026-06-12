@@ -42,15 +42,19 @@ import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
 import {
+  detectScaleThresholdFromAddResult,
+  detectScaleThresholdFromTopK,
   detectTemporalUsageFromMetadata,
   detectTemporalUsageFromSearch,
   displayDecayUsageNotice,
   displayFirstRunNotice,
+  displayScaleThresholdNotice,
   displayTemporalUsageNotice,
   getDecayFeatureErrorMessage,
   getDecayUsageDeleteCountAfterSuccess,
   getTemporalFeatureErrorMessage,
   isDecayUsageDeleteEligible,
+  ScaleThresholdTrigger,
 } from "../utils/notices";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
 import {
@@ -541,6 +545,13 @@ export class Memory {
     } catch {}
   }
 
+  private async _displayScaleThresholdNotice(trigger: ScaleThresholdTrigger) {
+    try {
+      await this._getTelemetryId();
+      await displayScaleThresholdNotice(this, trigger);
+    } catch {}
+  }
+
   private async _getNoticeTelemetryId() {
     try {
       if (
@@ -647,7 +658,18 @@ export class Memory {
         triggerReason: temporalUsageNotice.triggerReason,
       });
     } else {
-      await this._displayFirstRunNotice("add");
+      const scaleThresholdNotice = await detectScaleThresholdFromAddResult(
+        this,
+        vectorStoreResult,
+      );
+      if (scaleThresholdNotice) {
+        await this._displayScaleThresholdNotice({
+          triggerFunction: "add",
+          ...scaleThresholdNotice,
+        });
+      } else {
+        await this._displayFirstRunNotice("add");
+      }
     }
 
     return {
@@ -1406,7 +1428,15 @@ export class Memory {
         triggerReason: temporalUsageNotice.triggerReason,
       });
     } else {
-      await this._displayFirstRunNotice("search");
+      const scaleThresholdNotice = detectScaleThresholdFromTopK(topK);
+      if (scaleThresholdNotice) {
+        await this._displayScaleThresholdNotice({
+          triggerFunction: "search",
+          ...scaleThresholdNotice,
+        });
+      } else {
+        await this._displayFirstRunNotice("search");
+      }
     }
     return result;
   }
@@ -1607,7 +1637,15 @@ export class Memory {
     }));
 
     const result = { results };
-    await this._displayFirstRunNotice("get_all");
+    const scaleThresholdNotice = detectScaleThresholdFromTopK(topK);
+    if (scaleThresholdNotice) {
+      await this._displayScaleThresholdNotice({
+        triggerFunction: "get_all",
+        ...scaleThresholdNotice,
+      });
+    } else {
+      await this._displayFirstRunNotice("get_all");
+    }
     return result;
   }
 

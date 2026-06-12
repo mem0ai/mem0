@@ -16,6 +16,7 @@ export const TEMPORAL_FEATURE_NOTICE_ID = "temporal_stub";
 export const TEMPORAL_USAGE_NOTICE_ID = "temporal_usage";
 export const DECAY_FEATURE_NOTICE_ID = "decay_stub";
 export const DECAY_USAGE_NOTICE_ID = "decay_usage";
+export const SCALE_THRESHOLD_NOTICE_ID = "scale_threshold";
 export const NOTICE_CAP_LIMIT = 10;
 export const NOTICE_CAP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const NOTICE_FLAG_TIMEOUT_MS = 500;
@@ -30,6 +31,9 @@ const TEMPORAL_REFERENCE_DATE_PLAIN_ERROR =
 const DECAY_FEATURE_PLAIN_ERROR =
   "The decay parameter is not supported by the OSS Memory SDK.";
 const DECAY_USAGE_DELETE_THRESHOLD = 5;
+export const SCALE_MEMORY_COUNT_THRESHOLD = 2000;
+export const SCALE_MEMORY_COUNT_CHECK_INTERVAL = 100;
+export const SCALE_TOP_K_THRESHOLD = 50;
 const MAX_TEMPORAL_DETECTION_DEPTH = 32;
 const ISO_DATE_RE =
   /\b\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?\b/;
@@ -40,6 +44,9 @@ const RANGE_OPERATORS = new Set(["gt", "gte", "lt", "lte"]);
 let firstRunConsumedInProcess = false;
 let firstRunClaimInProgress = false;
 let decayUsageSuccessfulDeleteCount = 0;
+let scaleMemoryCountAddsSinceCheck = 0;
+let scaleMemoryCountCheckedInProcess = false;
+let scaleMemoryCountThresholdEvaluatedInProcess = false;
 
 export interface NoticePayloadConfig {
   enabled?: boolean;
@@ -88,6 +95,15 @@ export interface TemporalUsageTrigger {
     | "relative_phrase"
     | "date_like_query"
     | "date_range_filter";
+}
+
+export interface ScaleThresholdTrigger {
+  triggerFunction: "add" | "search" | "get_all";
+  triggerSource: "top_k" | "memory_count";
+  triggerReason: "high_top_k" | "memory_count_threshold";
+  topK?: number;
+  memoryCount?: number;
+  threshold: number;
 }
 
 export function getMem0Dir(): string {
@@ -376,6 +392,84 @@ function getDisplayDecision(
   }
 
   if (parsed.config.notice_type !== expectedNoticeType) {
+    return {
+      displayed: false,
+      noticeConfigFound: true,
+      copy,
+      bypassReason: "invalid_notice_type",
+    };
+  }
+
+  if (!copy || copy.trim() === "") {
+    return {
+      displayed: false,
+      noticeConfigFound: true,
+      bypassReason: "missing_copy",
+    };
+  }
+
+  if (variant !== DISPLAYED_VARIANT) {
+    return {
+      displayed: false,
+      noticeConfigFound: true,
+      copy,
+      bypassReason: "holdout",
+    };
+  }
+
+  return {
+    displayed: true,
+    noticeConfigFound: true,
+    copy,
+  };
+}
+
+function renderScaleCopy(
+  template: unknown,
+  trigger: Pick<ScaleThresholdTrigger, "topK" | "memoryCount">,
+): string | undefined {
+  if (typeof template !== "string" || template.trim() === "") return undefined;
+  return template
+    .replace(/\{top_k\}/g, String(trigger.topK ?? ""))
+    .replace(/\{topK\}/g, String(trigger.topK ?? ""))
+    .replace(/\{memory_count\}/g, String(trigger.memoryCount ?? ""));
+}
+
+function getScaleDisplayDecision(
+  variant: string,
+  payload: unknown,
+  trigger: ScaleThresholdTrigger,
+): NoticeDisplayDecision {
+  const parsed = getNoticeConfigFromPayload(payload, SCALE_THRESHOLD_NOTICE_ID);
+  const copies =
+    parsed.config?.copies &&
+    typeof parsed.config.copies === "object" &&
+    !Array.isArray(parsed.config.copies)
+      ? (parsed.config.copies as Record<string, unknown>)
+      : {};
+  const copyKey =
+    trigger.triggerSource === "memory_count" ? "memory_count" : "top_k";
+  const copy = renderScaleCopy(copies[copyKey], trigger);
+
+  if (!parsed.found) {
+    return {
+      displayed: false,
+      noticeConfigFound: false,
+      bypassReason: "missing_notice_config",
+    };
+  }
+
+  if (parsed.config?.enabled !== true) {
+    return {
+      displayed: false,
+      noticeConfigFound: true,
+      copy,
+      bypassReason: "payload_disabled",
+      disabledReason: "payload_disabled",
+    };
+  }
+
+  if (parsed.config.notice_type !== LOG_LINE_NOTICE_TYPE) {
     return {
       displayed: false,
       noticeConfigFound: true,
@@ -738,6 +832,236 @@ export function detectTemporalUsageFromSearch(
   return null;
 }
 
+function coerceNonnegativeInteger(value: unknown): number | null {
+  if (typeof value === "boolean") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function countAddedMemories(addResult: unknown): number {
+  const results =
+    isRecord(addResult) && Array.isArray(addResult.results)
+      ? addResult.results
+      : addResult;
+
+  if (!Array.isArray(results)) return 0;
+
+  return results.filter((item) => {
+    if (!isRecord(item)) return false;
+    const metadata = item.metadata;
+    return isRecord(metadata) && metadata.event === "ADD";
+  }).length;
+}
+
+function extractProviderCount(info: unknown): number | null {
+  if (!info) return null;
+  if (typeof info === "number") return coerceNonnegativeInteger(info);
+
+  if (isRecord(info)) {
+    for (const key of [
+      "count",
+      "points_count",
+      "vectors_count",
+      "indexed_vectors_count",
+    ]) {
+      const value = coerceNonnegativeInteger(info[key]);
+      if (value !== null) return value;
+    }
+
+    const result = extractProviderCount(info.result);
+    if (result !== null) return result;
+  }
+
+  return null;
+}
+
+async function getProviderMemoryCount(
+  memoryInstance: unknown,
+): Promise<number | null> {
+  try {
+    const vectorStore = (memoryInstance as any)?.vectorStore;
+    if (!vectorStore) return null;
+
+    if (typeof vectorStore.count === "function") {
+      const value = extractProviderCount(await vectorStore.count());
+      if (value !== null) return value;
+    }
+
+    const collectionName = vectorStore.collectionName;
+    const client = vectorStore.client;
+
+    if (client && collectionName && typeof client.count === "function") {
+      const value = extractProviderCount(
+        await client.count(collectionName, { exact: true }),
+      );
+      if (value !== null) return value;
+    }
+
+    if (
+      client &&
+      collectionName &&
+      typeof client.getCollection === "function"
+    ) {
+      const value = extractProviderCount(
+        await client.getCollection(collectionName),
+      );
+      if (value !== null) return value;
+    }
+  } catch {}
+
+  return null;
+}
+
+function markScaleMemoryCountThresholdEvaluated(): boolean {
+  try {
+    const config = loadMem0Config();
+    const state = getNoticeState(config, SCALE_THRESHOLD_NOTICE_ID);
+    if (state.memory_count_threshold_evaluated === true) {
+      scaleMemoryCountThresholdEvaluatedInProcess = true;
+      return false;
+    }
+
+    const nextState = {
+      ...state,
+      memory_count_threshold_evaluated: true,
+    };
+    const written = writeMem0ConfigAtomic(
+      setNoticeState(config, SCALE_THRESHOLD_NOTICE_ID, nextState),
+    );
+    if (written) scaleMemoryCountThresholdEvaluatedInProcess = true;
+    return written;
+  } catch {
+    return false;
+  }
+}
+
+export function detectScaleThresholdFromTopK(
+  topK: unknown,
+): Omit<ScaleThresholdTrigger, "triggerFunction"> | null {
+  const topKValue = coerceNonnegativeInteger(topK);
+  if (topKValue === null || topKValue < SCALE_TOP_K_THRESHOLD) return null;
+
+  return {
+    triggerSource: "top_k",
+    triggerReason: "high_top_k",
+    topK: topKValue,
+    threshold: SCALE_TOP_K_THRESHOLD,
+  };
+}
+
+export async function detectScaleThresholdFromAddResult(
+  memoryInstance: unknown,
+  addResult: unknown,
+): Promise<Omit<ScaleThresholdTrigger, "triggerFunction"> | null> {
+  if (!isTelemetryEnabled()) return null;
+
+  const addedCount = countAddedMemories(addResult);
+  if (addedCount === 0) return null;
+
+  try {
+    if (scaleMemoryCountThresholdEvaluatedInProcess) return null;
+
+    scaleMemoryCountAddsSinceCheck += addedCount;
+    const shouldCheck =
+      !scaleMemoryCountCheckedInProcess ||
+      scaleMemoryCountAddsSinceCheck >= SCALE_MEMORY_COUNT_CHECK_INTERVAL;
+    if (!shouldCheck) return null;
+
+    scaleMemoryCountCheckedInProcess = true;
+    scaleMemoryCountAddsSinceCheck = 0;
+
+    const config = loadMem0Config();
+    const state = getNoticeState(config, SCALE_THRESHOLD_NOTICE_ID);
+    if (state.memory_count_threshold_evaluated === true) {
+      scaleMemoryCountThresholdEvaluatedInProcess = true;
+      return null;
+    }
+
+    if (!hasNoticeCapRoom(state)) return null;
+  } catch {
+    return null;
+  }
+
+  const providerCount = await getProviderMemoryCount(memoryInstance);
+  if (providerCount === null || providerCount < SCALE_MEMORY_COUNT_THRESHOLD) {
+    return null;
+  }
+
+  if (!markScaleMemoryCountThresholdEvaluated()) return null;
+
+  return {
+    triggerSource: "memory_count",
+    triggerReason: "memory_count_threshold",
+    memoryCount: providerCount,
+    threshold: SCALE_MEMORY_COUNT_THRESHOLD,
+  };
+}
+
+export async function displayScaleThresholdNotice(
+  instance: TelemetryInstance,
+  trigger: ScaleThresholdTrigger,
+): Promise<void> {
+  if (!isTelemetryEnabled()) return;
+
+  try {
+    const config = loadMem0Config();
+    const state = getNoticeState(config, SCALE_THRESHOLD_NOTICE_ID);
+    if (!hasNoticeCapRoom(state)) return;
+
+    const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
+    if (!flagEvaluation) return;
+
+    const decision = getScaleDisplayDecision(
+      flagEvaluation.variant,
+      flagEvaluation.payload,
+      trigger,
+    );
+
+    const opportunity = {
+      variant: flagEvaluation.variant,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_source: trigger.triggerSource,
+      trigger_reason: trigger.triggerReason,
+      ...(trigger.topK !== undefined && { top_k: trigger.topK }),
+      ...(trigger.memoryCount !== undefined && {
+        memory_count: trigger.memoryCount,
+      }),
+      threshold: trigger.threshold,
+    };
+
+    if (!recordNoticeOpportunity(SCALE_THRESHOLD_NOTICE_ID, opportunity)) {
+      return;
+    }
+
+    await emitNoticeDisplayed(instance, {
+      notice_id: SCALE_THRESHOLD_NOTICE_ID,
+      notice_type: LOG_LINE_NOTICE_TYPE,
+      flag_key: NOTICE_FLAG_KEY,
+      variant: flagEvaluation.variant,
+      displayed: decision.displayed,
+      payload: decision.copy,
+      bypass_reason: decision.bypassReason,
+      disabled_reason: decision.disabledReason,
+      notice_config_found: decision.noticeConfigFound,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_source: trigger.triggerSource,
+      trigger_reason: trigger.triggerReason,
+      top_k: trigger.topK,
+      memory_count: trigger.memoryCount,
+      threshold: trigger.threshold,
+    });
+
+    if (decision.displayed && decision.copy) {
+      process.stderr.write(`${decision.copy}\n`);
+    }
+  } catch {}
+}
+
 export async function displayTemporalUsageNotice(
   instance: TelemetryInstance,
   trigger: TemporalUsageTrigger,
@@ -932,6 +1256,9 @@ export const __noticeTestHooks = {
   displayFirstRunNotice,
   displayDecayUsageNotice,
   displayTemporalUsageNotice,
+  displayScaleThresholdNotice,
+  detectScaleThresholdFromAddResult,
+  detectScaleThresholdFromTopK,
   detectTemporalUsageFromMetadata,
   detectTemporalUsageFromSearch,
   getDecayFeatureErrorMessage,
