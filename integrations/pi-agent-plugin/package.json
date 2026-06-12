@@ -1,6 +1,6 @@
 {
   "name": "@mem0/pi-agent-plugin",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Mem0 memory extension for Pi Agent persistent, scoped, semantic memory across sessions and projects",
   "license": "Apache-2.0",
@@ -39,8 +39,12 @@
     "LICENSE"
   ],
   "pi": {
-    "extensions": ["./src/entry.ts"],
-    "skills": ["./skills"]
+    "extensions": [
+      "./src/entry.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
   },
   "scripts": {
     "build": "tsup",
@@ -49,8 +53,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
     "typebox": "*"
   },
   "devDependencies": {
@@ -63,6 +67,11 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
-    "mem0ai": "^3.0.6"
+    "mem0ai": "^3.0.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "uuid@<11.1.1": ">=11.1.1"
+    }
   }
 }

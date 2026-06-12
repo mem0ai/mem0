@@ -68,7 +68,8 @@
       "vite": "^8.0.5",
       "langsmith@<0.6.0": "^0.6.0",
       "picomatch@<2.3.2": "^2.3.2",
-      "@qdrant/js-client-rest": "^1.18.0"
+      "@qdrant/js-client-rest": "^1.18.0",
+      "uuid@<11.1.1": ">=11.1.1"
     }
   }
 }

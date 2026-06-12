@@ -13,23 +13,23 @@ SOURCE=$(echo "$INPUT" | jq -r '.source // "startup"' 2>/dev/null || echo "start
 
 if [ "$SOURCE" = "startup" ]; then
   python3 "$SCRIPT_DIR/session_stats.py" init 2>/dev/null || true
-  rm -f /tmp/mem0_recent_reads_${USER}_* 2>/dev/null || true
+  rm -f /tmp/mem0_recent_reads_${USER:-default}_* 2>/dev/null || true
 fi
 PYTHONPATH="$SCRIPT_DIR" python3 "$SCRIPT_DIR/load_settings.py" init 2>/dev/null || true
-rm -f "/tmp/mem0_rubric_injected_${USER}" 2>/dev/null || true
+rm -f "/tmp/mem0_rubric_injected_${USER:-default}" 2>/dev/null || true
 rm -f /tmp/mem0_rubric_* 2>/dev/null || true
 rm -f "/tmp/mem0_msg_count_${USER:-default}" 2>/dev/null || true
 MEM0_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 if [ -z "$MEM0_SESSION_ID" ]; then
   MEM0_SESSION_ID="ses_$(date +%s)_$$"
 fi
-printf '%s' "$MEM0_SESSION_ID" > "/tmp/mem0_session_id_${USER}"
+printf '%s' "$MEM0_SESSION_ID" > "/tmp/mem0_session_id_${USER:-default}"
 export MEM0_SESSION_ID
 
 # Persist identity to Claude's env so Bash tool calls, MCP config, and other hooks see them
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   echo "export MEM0_SESSION_ID=\"$MEM0_SESSION_ID\"" >> "$CLAUDE_ENV_FILE"
-  echo "export MEM0_RESOLVED_USER_ID=\"${MEM0_RESOLVED_USER_ID:-$USER}\"" >> "$CLAUDE_ENV_FILE"
+  echo "export MEM0_RESOLVED_USER_ID=\"${MEM0_RESOLVED_USER_ID:-${USER:-default}}\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_PROJECT_ID=\"${MEM0_PROJECT_ID:-unknown}\"" >> "$CLAUDE_ENV_FILE"
   echo "export MEM0_BRANCH=\"${MEM0_BRANCH:-unknown}\"" >> "$CLAUDE_ENV_FILE"
   if [ -n "${MEM0_API_KEY:-}" ]; then

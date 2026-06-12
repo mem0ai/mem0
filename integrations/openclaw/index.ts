@@ -111,6 +111,7 @@ const memoryPlugin = definePluginEntry({
       baseUrl: pluginAuth.baseUrl,
     };
     const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
+    const isMetadataRegistration = api.registrationMode === "cli-metadata";
 
     // Telemetry context bound to this plugin instance's config
     const telemetryCtx = {
@@ -125,6 +126,21 @@ const memoryPlugin = definePluginEntry({
         /* silently swallow */
       }
     };
+
+    if (isMetadataRegistration) {
+      registerCliCommands(
+        api,
+        null as any,
+        null as any,
+        cfg,
+        () => cfg.userId,
+        (id: string) => `${cfg.userId}:agent:${id}`,
+        () => ({ user_id: cfg.userId, top_k: cfg.topK }),
+        () => undefined,
+        (cmd: string) => _captureEvent(`openclaw.cli.${cmd}`, { command: cmd }),
+      );
+      return;
+    }
 
     if (cfg.needsSetup) {
       api.logger.warn(
