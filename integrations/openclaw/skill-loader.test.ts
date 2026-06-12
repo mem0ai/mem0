@@ -122,7 +122,7 @@ describe("loadCompactTriagePrompt", () => {
       },
     });
 
-    expect(prompt).toContain("travel (importance 0.7, expires 30d)");
+    expect(prompt).toContain("travel (importance 0.7, expires: 30d)");
     expect(prompt).toContain("include rule(s) and 2 exclude rule(s) are configured");
     expect(prompt).toContain("Prompt kept compact, full rule text omitted");
     expect(prompt).toContain('Preview: include "Always remember workshop venue requirements."');

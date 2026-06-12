@@ -225,7 +225,7 @@ function formatCategoryConfig(
   name: string,
   cat: CategoryConfig,
 ): string {
-  const ttlLabel = cat.ttl ? `expires ${cat.ttl}` : "permanent";
+  const ttlLabel = cat.ttl ? `expires: ${cat.ttl}` : "permanent";
   const immLabel = cat.immutable ? ", immutable" : "";
   return `${name} (importance ${cat.importance}, ${ttlLabel}${immLabel})`;
 }
