@@ -17,6 +17,7 @@ export const TEMPORAL_USAGE_NOTICE_ID = "temporal_usage";
 export const DECAY_FEATURE_NOTICE_ID = "decay_stub";
 export const DECAY_USAGE_NOTICE_ID = "decay_usage";
 export const SCALE_THRESHOLD_NOTICE_ID = "scale_threshold";
+export const PERFORMANCE_SLOW_QUERY_NOTICE_ID = "performance_slow_query";
 export const NOTICE_CAP_LIMIT = 10;
 export const NOTICE_CAP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const NOTICE_FLAG_TIMEOUT_MS = 500;
@@ -34,6 +35,7 @@ const DECAY_USAGE_DELETE_THRESHOLD = 5;
 export const SCALE_MEMORY_COUNT_THRESHOLD = 2000;
 export const SCALE_MEMORY_COUNT_CHECK_INTERVAL = 100;
 export const SCALE_TOP_K_THRESHOLD = 50;
+export const PERFORMANCE_SLOW_QUERY_THRESHOLD_MS = 2000;
 const MAX_TEMPORAL_DETECTION_DEPTH = 32;
 const ISO_DATE_RE =
   /\b\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?\b/;
@@ -104,6 +106,15 @@ export interface ScaleThresholdTrigger {
   topK?: number;
   memoryCount?: number;
   threshold: number;
+}
+
+export interface PerformanceSlowQueryTrigger {
+  triggerFunction: "search";
+  triggerReason: "slow_query";
+  elapsedMs: number;
+  thresholdMs: number;
+  topK: number;
+  resultCount: number;
 }
 
 export function getMem0Dir(): string {
@@ -1000,6 +1011,37 @@ export async function detectScaleThresholdFromAddResult(
   };
 }
 
+export function detectPerformanceSlowQuery(
+  elapsedMs: unknown,
+  topK: unknown,
+  resultCount: unknown,
+): Omit<
+  PerformanceSlowQueryTrigger,
+  "triggerFunction" | "triggerReason"
+> | null {
+  const elapsedMsValue = coerceNonnegativeInteger(
+    Math.round(Number(elapsedMs)),
+  );
+  const topKValue = coerceNonnegativeInteger(topK);
+  const resultCountValue = coerceNonnegativeInteger(resultCount);
+
+  if (
+    elapsedMsValue === null ||
+    topKValue === null ||
+    resultCountValue === null ||
+    elapsedMsValue <= PERFORMANCE_SLOW_QUERY_THRESHOLD_MS
+  ) {
+    return null;
+  }
+
+  return {
+    elapsedMs: elapsedMsValue,
+    thresholdMs: PERFORMANCE_SLOW_QUERY_THRESHOLD_MS,
+    topK: topKValue,
+    resultCount: resultCountValue,
+  };
+}
+
 export async function displayScaleThresholdNotice(
   instance: TelemetryInstance,
   trigger: ScaleThresholdTrigger,
@@ -1054,6 +1096,65 @@ export async function displayScaleThresholdNotice(
       top_k: trigger.topK,
       memory_count: trigger.memoryCount,
       threshold: trigger.threshold,
+    });
+
+    if (decision.displayed && decision.copy) {
+      process.stderr.write(`${decision.copy}\n`);
+    }
+  } catch {}
+}
+
+export async function displayPerformanceSlowQueryNotice(
+  instance: TelemetryInstance,
+  trigger: PerformanceSlowQueryTrigger,
+): Promise<void> {
+  if (!isTelemetryEnabled()) return;
+
+  try {
+    const config = loadMem0Config();
+    const state = getNoticeState(config, PERFORMANCE_SLOW_QUERY_NOTICE_ID);
+    if (!hasNoticeCapRoom(state)) return;
+
+    const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
+    if (!flagEvaluation) return;
+
+    const decision = getDisplayDecision(
+      PERFORMANCE_SLOW_QUERY_NOTICE_ID,
+      LOG_LINE_NOTICE_TYPE,
+      flagEvaluation.variant,
+      flagEvaluation.payload,
+    );
+
+    const opportunity = {
+      variant: flagEvaluation.variant,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_reason: trigger.triggerReason,
+    };
+
+    if (
+      !recordNoticeOpportunity(PERFORMANCE_SLOW_QUERY_NOTICE_ID, opportunity)
+    ) {
+      return;
+    }
+
+    await emitNoticeDisplayed(instance, {
+      notice_id: PERFORMANCE_SLOW_QUERY_NOTICE_ID,
+      notice_type: LOG_LINE_NOTICE_TYPE,
+      flag_key: NOTICE_FLAG_KEY,
+      variant: flagEvaluation.variant,
+      displayed: decision.displayed,
+      payload: decision.copy,
+      bypass_reason: decision.bypassReason,
+      disabled_reason: decision.disabledReason,
+      notice_config_found: decision.noticeConfigFound,
+      sync_type: "async",
+      trigger_function: trigger.triggerFunction,
+      trigger_reason: trigger.triggerReason,
+      elapsed_ms: trigger.elapsedMs,
+      threshold_ms: trigger.thresholdMs,
+      top_k: trigger.topK,
+      result_count: trigger.resultCount,
     });
 
     if (decision.displayed && decision.copy) {
@@ -1257,6 +1358,8 @@ export const __noticeTestHooks = {
   displayDecayUsageNotice,
   displayTemporalUsageNotice,
   displayScaleThresholdNotice,
+  displayPerformanceSlowQueryNotice,
+  detectPerformanceSlowQuery,
   detectScaleThresholdFromAddResult,
   detectScaleThresholdFromTopK,
   detectTemporalUsageFromMetadata,

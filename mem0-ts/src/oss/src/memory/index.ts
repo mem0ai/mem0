@@ -44,16 +44,19 @@ import { captureClientEvent } from "../utils/telemetry";
 import {
   detectScaleThresholdFromAddResult,
   detectScaleThresholdFromTopK,
+  detectPerformanceSlowQuery,
   detectTemporalUsageFromMetadata,
   detectTemporalUsageFromSearch,
   displayDecayUsageNotice,
   displayFirstRunNotice,
+  displayPerformanceSlowQueryNotice,
   displayScaleThresholdNotice,
   displayTemporalUsageNotice,
   getDecayFeatureErrorMessage,
   getDecayUsageDeleteCountAfterSuccess,
   getTemporalFeatureErrorMessage,
   isDecayUsageDeleteEligible,
+  PerformanceSlowQueryTrigger,
   ScaleThresholdTrigger,
 } from "../utils/notices";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
@@ -549,6 +552,15 @@ export class Memory {
     try {
       await this._getTelemetryId();
       await displayScaleThresholdNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _displayPerformanceSlowQueryNotice(
+    trigger: PerformanceSlowQueryTrigger,
+  ) {
+    try {
+      await this._getTelemetryId();
+      await displayPerformanceSlowQueryNotice(this, trigger);
     } catch {}
   }
 
@@ -1243,6 +1255,8 @@ export class Memory {
       );
     }
 
+    const searchStartMs = Date.now();
+
     // Step 1: Preprocess query
     const queryLemmatized = lemmatizeForBm25(query);
     const queryEntities = extractEntities(query);
@@ -1421,6 +1435,7 @@ export class Memory {
     const result = {
       results,
     };
+    const searchElapsedMs = Date.now() - searchStartMs;
     if (temporalUsageNotice) {
       await this._displayTemporalUsageNotice({
         triggerFunction: "search",
@@ -1435,7 +1450,20 @@ export class Memory {
           ...scaleThresholdNotice,
         });
       } else {
-        await this._displayFirstRunNotice("search");
+        const performanceSlowQueryNotice = detectPerformanceSlowQuery(
+          searchElapsedMs,
+          topK,
+          results.length,
+        );
+        if (performanceSlowQueryNotice) {
+          await this._displayPerformanceSlowQueryNotice({
+            triggerFunction: "search",
+            triggerReason: "slow_query",
+            ...performanceSlowQueryNotice,
+          });
+        } else {
+          await this._displayFirstRunNotice("search");
+        }
       }
     }
     return result;
