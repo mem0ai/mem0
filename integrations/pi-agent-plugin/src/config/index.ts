@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: Mem0Config = {
   autoCapture: true,
   defaultScope: "project",
   contextInjection: false,
-  searchThreshold: 0.2,
+  searchThreshold: 0.3,
   dream: DEFAULT_DREAM,
 };
 

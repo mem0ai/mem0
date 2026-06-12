@@ -9,6 +9,8 @@ import { acquireDreamLock } from "./dream/index.ts";
 import { CONFIG_DIR } from "./config/index.ts";
 import { captureCommandEvent } from "./telemetry.ts";
 
+const SEARCH_TOP_K = 10;
+
 export function registerCommands(
   pi: ExtensionAPI,
   mem0: MemoryClient,
@@ -16,45 +18,22 @@ export function registerCommands(
   getScopeCtx: () => ScopeContext,
   telemetryCtx?: { apiKey?: string },
 ): void {
-  // Show a visible, persistent result block in the conversation transcript.
-  // ctx.ui.notify(..., "info") renders as dim, collapsible status text that is
-  // easily missed; a displayed custom message renders a proper block (the same
-  // mechanism /mem0-search, /mem0-tour, /mem0-status use). Reserve ctx.ui.notify
-  // for "warning"/"error", which render prominently.
   const sendFeedback = (customType: string, content: string): void => {
     pi.sendMessage({ customType, content, display: true });
   };
 
-  // "1 memory" / "3 memories" — count with correct singular/plural noun.
   const pluralize = (n: number, one: string, many: string): string =>
     `${n} ${n === 1 ? one : many}`;
 
-  // mem0 ranks search results by similarity with no relevance floor, so even an
-  // unrelated query returns the closest (weak) memories. Plain cosine scores
-  // cluster too tightly (~0.2-0.3 for both real and irrelevant queries) for a
-  // flat threshold to separate, so the search-backed commands pass `rerank:true`
-  // — a cross-encoder pass that spreads scores apart (genuine matches high,
-  // noise low) so this floor can tell a real hit from the closest noise.
-  //
-  // Split on the public score client-side — mem0's recommended hard floor. We
-  // deliberately do NOT pass the API-side `threshold`: it is applied pre-decay
-  // and reshapes public scores, so combined with a client floor it over-filters
-  // and hides real matches. Memories without a score are treated as relevant.
-  const splitByRelevance = <T extends { score?: number }>(memories: T[]) => {
-    const strong: T[] = [];
-    const weak: T[] = [];
-    for (const m of memories) {
-      if ((m.score ?? 1) >= config.searchThreshold) strong.push(m);
-      else weak.push(m);
-    }
-    const bestWeak = weak.reduce((max, m) => Math.max(max, m.score ?? 0), 0);
-    return { strong, weak, bestWeak };
+  const searchMemories = async (query: string, scope: Scope) => {
+    const filters = resolveSearchFilters(scope, getScopeCtx());
+    const result = await mem0.search(query, {
+      filters,
+      threshold: config.searchThreshold,
+      topK: SEARCH_TOP_K,
+    });
+    return result.results ?? [];
   };
-
-  // Shown when the relevance floor hid matches, so results never silently vanish:
-  // names how many were hidden, the closest score, and how to surface them.
-  const hiddenHint = (weakCount: number, bestWeak: number): string =>
-    `_${pluralize(weakCount, "weaker match", "weaker matches")} hidden below the ${config.searchThreshold} relevance floor (closest ${bestWeak.toFixed(2)}). Lower \`searchThreshold\` in mem0-config.json to include ${weakCount === 1 ? "it" : "them"}._`;
 
   // ── /mem0-remember ──────────────────────────────────────────────────
   pi.registerCommand("mem0-remember", {
@@ -66,27 +45,20 @@ export function registerCommands(
         return;
       }
 
-      const scopeCtx = getScopeCtx();
-      const addParams = resolveAddParams(config.defaultScope, scopeCtx);
+      const addParams = resolveAddParams(config.defaultScope, getScopeCtx());
       const result = await mem0.add(
         [{ role: "user", content: text }],
         { ...addParams, customCategories: DEFAULT_CUSTOM_CATEGORIES, infer: false },
       );
       captureCommandEvent("mem0-remember", {}, telemetryCtx);
 
-      // Show exactly what was stored. With infer:false the API stores the text
-      // verbatim and may only return a status message, so fall back to the
-      // input text when the response carries no memory objects.
       const storedItems = (Array.isArray(result) ? result : [])
         .map((m) => (m as { memory?: string }).memory)
         .filter((m): m is string => Boolean(m));
       const items = storedItems.length > 0 ? storedItems : [text];
       sendFeedback(
         "mem0-remember",
-        [
-          `**Stored to ${config.defaultScope} memory**`,
-          ...items.map((m) => `- ${m}`),
-        ].join("\n"),
+        [`**Stored to ${config.defaultScope} memory**`, ...items.map((m) => `- ${m}`)].join("\n"),
       );
     },
   });
@@ -101,16 +73,11 @@ export function registerCommands(
         return;
       }
 
-      const scopeCtx = getScopeCtx();
-      const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters, rerank: true });
-      const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
+      const memories = await searchMemories(query, config.defaultScope);
 
       if (memories.length === 0) {
         captureCommandEvent("mem0-forget", { result_count: 0 }, telemetryCtx);
-        const lines = [`**No matches for "${query}"** — nothing to forget.`];
-        if (weak.length > 0) lines.push("", hiddenHint(weak.length, bestWeak));
-        sendFeedback("mem0-forget", lines.join("\n"));
+        sendFeedback("mem0-forget", `**No matches for "${query}"** — nothing to forget.`);
         return;
       }
 
@@ -161,32 +128,20 @@ export function registerCommands(
         return;
       }
 
-      const scopeCtx = getScopeCtx();
-      const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters, rerank: true });
-      const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
-
+      const memories = await searchMemories(query, config.defaultScope);
       captureCommandEvent("mem0-search", { result_count: memories.length }, telemetryCtx);
 
       if (memories.length === 0) {
-        const lines = [`**No matches for "${query}"** · ${config.defaultScope} scope`];
-        if (weak.length > 0) lines.push("", hiddenHint(weak.length, bestWeak));
-        sendFeedback("mem0-search", lines.join("\n"));
+        sendFeedback("mem0-search", `**No matches for "${query}"** · ${config.defaultScope} scope`);
         return;
       }
 
-      const list = memories
-        .map((m, i) => {
-          const score = typeof m.score === "number" ? ` — _relevance ${m.score.toFixed(2)}_` : "";
-          return `${i + 1}. ${formatMemoryCompact(m)}${score}`;
-        })
-        .join("\n");
       sendFeedback(
         "mem0-search",
         [
           `**${pluralize(memories.length, "match", "matches")} for "${query}"** · ${config.defaultScope} scope`,
           "",
-          list,
+          formatMemoryList(memories),
         ].join("\n"),
       );
     },
@@ -203,8 +158,7 @@ export function registerCommands(
         return;
       }
       const scope: Scope = (raw as Scope) || config.defaultScope;
-      const scopeCtx = getScopeCtx();
-      const filters = resolveSearchFilters(scope, scopeCtx);
+      const filters = resolveSearchFilters(scope, getScopeCtx());
       const result = await mem0.getAll({ filters });
       const memories = result.results ?? [];
 
@@ -243,8 +197,6 @@ export function registerCommands(
       }
 
       captureCommandEvent("mem0-dream", {}, telemetryCtx);
-      // Feed the protocol to the agent (display:false → hidden from the user but
-      // still part of the LLM context) and show a clean status line instead.
       pi.sendMessage({ customType: "mem0-dream", content: DREAM_PROTOCOL, display: false }, { triggerTurn: true });
       sendFeedback(
         "mem0-dream",
@@ -263,16 +215,11 @@ export function registerCommands(
         return;
       }
 
-      const scopeCtx = getScopeCtx();
-      const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters, rerank: true });
-      const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
+      const memories = await searchMemories(query, config.defaultScope);
 
       if (memories.length === 0) {
         captureCommandEvent("mem0-pin", { result_count: 0 }, telemetryCtx);
-        const lines = [`**No matches for "${query}"** — nothing to pin.`];
-        if (weak.length > 0) lines.push("", hiddenHint(weak.length, bestWeak));
-        sendFeedback("mem0-pin", lines.join("\n"));
+        sendFeedback("mem0-pin", `**No matches for "${query}"** — nothing to pin.`);
         return;
       }
 

@@ -55,7 +55,7 @@ const defaultConfig: Mem0Config = {
   autoCapture: false,
   defaultScope: "project",
   contextInjection: false,
-  searchThreshold: 0.2,
+  searchThreshold: 0.3,
   dream: { enabled: false, auto: false, minHours: 24, minSessions: 5, minMemories: 20 },
 };
 
@@ -102,19 +102,6 @@ describe("registerCommands", () => {
           content: expect.stringContaining('No matches for "old preference"'),
           display: true,
         }),
-      );
-    });
-
-    it("treats below-threshold results as no match (does not prompt to delete)", async () => {
-      const ctx = makeCtx();
-      mem0.search.mockResolvedValue({ results: [{ id: "id-1", memory: "barely related", score: 0.1 }] });
-
-      await pi._invoke("mem0-forget", "totally unrelated", ctx);
-
-      expect(ctx.ui.confirm).not.toHaveBeenCalled();
-      expect(mem0.delete).not.toHaveBeenCalled();
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ content: expect.stringContaining("nothing to forget") }),
       );
     });
 
@@ -308,18 +295,16 @@ describe("registerCommands", () => {
   });
 
   describe("/mem0-search", () => {
-    it("always performs semantic search", async () => {
+    it("performs server-side semantic search with a relevance threshold", async () => {
       const ctx = makeCtx();
       mem0.search.mockResolvedValue({ results: [{ id: "id-1", memory: "result" }] });
 
       await pi._invoke("mem0-search", "my preferences", ctx);
 
-      expect(mem0.search).toHaveBeenCalledWith("my preferences", expect.any(Object));
-      // Rerank on for relevance separation; the API-side threshold is intentionally
-      // not sent (it over-filters with the client-side floor).
-      const [, opts] = mem0.search.mock.calls[0];
-      expect(opts).toHaveProperty("rerank", true);
-      expect(opts).not.toHaveProperty("threshold");
+      expect(mem0.search).toHaveBeenCalledWith(
+        "my preferences",
+        expect.objectContaining({ threshold: 0.3, topK: 10 }),
+      );
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ customType: "mem0-search" }),
       );
@@ -363,60 +348,21 @@ describe("registerCommands", () => {
       );
     });
 
-    it("filters out matches below the relevance threshold", async () => {
+    it("shows all results the API returns (relevance gating is server-side)", async () => {
       const ctx = makeCtx();
       mem0.search.mockResolvedValue({
         results: [
-          { id: "id-1", memory: "strongly relevant", score: 0.62 },
-          { id: "id-2", memory: "weak noise", score: 0.12 },
+          { id: "id-1", memory: "first match", score: 0.62 },
+          { id: "id-2", memory: "second match", score: 0.31 },
         ],
       });
 
       await pi._invoke("mem0-search", "stuff", ctx);
 
       const call = pi.sendMessage.mock.calls.find(([m]: any[]) => m.customType === "mem0-search");
-      expect(call?.[0].content).toContain("strongly relevant");
-      expect(call?.[0].content).not.toContain("weak noise");
-      expect(call?.[0].content).toContain("1 match");
-    });
-
-    it("reports no matches when every result is below the threshold (irrelevant query)", async () => {
-      const ctx = makeCtx();
-      mem0.search.mockResolvedValue({
-        results: [
-          { id: "id-1", memory: "noise one", score: 0.12 },
-          { id: "id-2", memory: "noise two", score: 0.08 },
-        ],
-      });
-
-      await pi._invoke("mem0-search", "quantum chromodynamics tax law", ctx);
-
-      expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ content: expect.stringContaining("No matches") }),
-      );
-    });
-
-    it("explains hidden weak matches and how to surface them", async () => {
-      const ctx = makeCtx();
-      mem0.search.mockResolvedValue({ results: [{ id: "id-1", memory: "barely related", score: 0.18 }] });
-
-      await pi._invoke("mem0-search", "icecream", ctx);
-
-      const call = pi.sendMessage.mock.calls.find(([m]: any[]) => m.customType === "mem0-search");
-      expect(call?.[0].content).toContain("No matches");
-      expect(call?.[0].content).toContain("hidden");
-      expect(call?.[0].content).toContain("0.18");
-      expect(call?.[0].content).toContain("searchThreshold");
-    });
-
-    it("shows per-result relevance scores", async () => {
-      const ctx = makeCtx();
-      mem0.search.mockResolvedValue({ results: [{ id: "id-1", memory: "uses vim", score: 0.57 }] });
-
-      await pi._invoke("mem0-search", "editor", ctx);
-
-      const call = pi.sendMessage.mock.calls.find(([m]: any[]) => m.customType === "mem0-search");
-      expect(call?.[0].content).toContain("0.57");
+      expect(call?.[0].content).toContain("first match");
+      expect(call?.[0].content).toContain("second match");
+      expect(call?.[0].content).toContain("2 matches");
     });
   });
 
