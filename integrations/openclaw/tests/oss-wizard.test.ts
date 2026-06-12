@@ -35,8 +35,18 @@ describe("LLM_PROVIDERS", () => {
 });
 
 describe("EMBEDDER_PROVIDERS", () => {
-  it("has 2 providers", () => {
-    expect(EMBEDDER_PROVIDERS).toHaveLength(2);
+  it("has 3 providers", () => {
+    expect(EMBEDDER_PROVIDERS).toHaveLength(3);
+    expect(EMBEDDER_PROVIDERS.map((p) => p.id)).toEqual(["openai", "ollama", "voyageai"]);
+  });
+
+  it("voyageai requires an API key but no URL", () => {
+    const voyage = EMBEDDER_PROVIDERS.find((p) => p.id === "voyageai")!;
+    expect(voyage.needsApiKey).toBe(true);
+    expect(voyage.needsUrl).toBe(false);
+    expect(voyage.envVar).toBe("VOYAGE_API_KEY");
+    expect(voyage.defaultModel).toBe("voyage-3-large");
+    expect(voyage.defaultDims).toBe(1024);
   });
 });
 
@@ -44,6 +54,9 @@ describe("KNOWN_EMBEDDER_DIMS", () => {
   it("maps default models to dims", () => {
     expect(KNOWN_EMBEDDER_DIMS["text-embedding-3-small"]).toBe(1536);
     expect(KNOWN_EMBEDDER_DIMS["nomic-embed-text"]).toBe(768);
+    expect(KNOWN_EMBEDDER_DIMS["voyage-3-large"]).toBe(1024);
+    expect(KNOWN_EMBEDDER_DIMS["voyage-3-lite"]).toBe(512);
+    expect(KNOWN_EMBEDDER_DIMS["voyage-3"]).toBe(1024);
   });
 });
 
@@ -94,6 +107,20 @@ describe("buildOssEmbedderConfig", () => {
   it("falls back to provider default dims for custom model", () => {
     const result = buildOssEmbedderConfig("ollama", { model: "custom-embed" });
     expect(result.dims).toBe(768);
+  });
+
+  it("builds voyageai embedder with API key and default model", () => {
+    const result = buildOssEmbedderConfig("voyageai", { apiKey: "voyage-key" });
+    expect(result).toEqual({
+      provider: "voyageai",
+      config: { model: "voyage-3-large", apiKey: "voyage-key", embeddingDims: 1024 },
+      dims: 1024,
+    });
+  });
+
+  it("resolves dims for known voyage models", () => {
+    const result = buildOssEmbedderConfig("voyageai", { model: "voyage-3-lite" });
+    expect(result.dims).toBe(512);
   });
 });
 
