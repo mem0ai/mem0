@@ -49,6 +49,7 @@ def _run(
         if key.startswith("MEM0_"):
             del env[key]
     env.pop("FORCE_COLOR", None)
+    env["PYTHONIOENCODING"] = "utf-8"
     if home_dir:
         env["HOME"] = home_dir
     if env_override:
@@ -56,7 +57,7 @@ def _run(
     result = subprocess.run(
         [sys.executable, "-m", "mem0_cli", *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env,
     )
     return subprocess.CompletedProcess(
