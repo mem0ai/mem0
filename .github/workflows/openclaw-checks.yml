@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'openclaw/**'
+      - 'integrations/openclaw/**'
       - '.github/workflows/openclaw-checks.yml'
   workflow_call:
 
@@ -27,13 +27,13 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
-          cache-dependency-path: openclaw/pnpm-lock.yaml
+          cache-dependency-path: integrations/openclaw/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: cd openclaw && pnpm install --frozen-lockfile
+        run: cd integrations/openclaw && pnpm install --frozen-lockfile
 
       - name: Type check
-        run: cd openclaw && pnpm exec tsc --noEmit
+        run: cd integrations/openclaw && pnpm exec tsc --noEmit
 
   test:
     runs-on: ubuntu-latest
@@ -53,20 +53,20 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
-          cache-dependency-path: openclaw/pnpm-lock.yaml
+          cache-dependency-path: integrations/openclaw/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: cd openclaw && pnpm install --frozen-lockfile
+        run: cd integrations/openclaw && pnpm install --frozen-lockfile
 
       - name: Run tests with coverage
-        run: cd openclaw && pnpm exec vitest run --coverage
+        run: cd integrations/openclaw && pnpm exec vitest run --coverage
 
       - name: Upload coverage to Codecov
         if: matrix.node-version == 20
         uses: codecov/codecov-action@v4
         with:
           flags: openclaw
-          directory: openclaw/coverage
+          directory: integrations/openclaw/coverage
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
@@ -85,15 +85,15 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
-          cache-dependency-path: openclaw/pnpm-lock.yaml
+          cache-dependency-path: integrations/openclaw/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: cd openclaw && pnpm install --frozen-lockfile
+        run: cd integrations/openclaw && pnpm install --frozen-lockfile
 
       - name: Build
-        run: cd openclaw && pnpm build
+        run: cd integrations/openclaw && pnpm build
 
       - name: Verify dist output exists
         run: |
-          test -f openclaw/dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)
-          test -f openclaw/dist/index.d.ts || (echo "Build output missing: dist/index.d.ts" && exit 1)
+          test -f integrations/openclaw/dist/index.js || (echo "Build output missing: dist/index.js" && exit 1)
+          test -f integrations/openclaw/dist/index.d.ts || (echo "Build output missing: dist/index.d.ts" && exit 1)

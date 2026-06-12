@@ -2089,6 +2089,39 @@ class TestPGVector(unittest.TestCase):
         self.assertTrue(len(vector_update_calls) > 0)
         self.assertTrue(len(payload_update_calls) > 0)
 
+    @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
+    @patch('mem0.vector_stores.pgvector.ConnectionPool')
+    @patch.object(PGVector, '_get_cursor')
+    def test_update_empty_payload_still_persisted(self, mock_get_cursor, mock_connection_pool):
+        """Test that an empty dict payload is persisted (not skipped by truthiness)."""
+        mock_pool = MagicMock()
+        mock_connection_pool.return_value = mock_pool
+
+        mock_get_cursor.return_value.__enter__.return_value = self.mock_cursor
+        mock_get_cursor.return_value.__exit__.return_value = None
+
+        self.mock_cursor.fetchall.return_value = []
+
+        pgvector = PGVector(
+            dbname="test_db",
+            collection_name="test_collection",
+            embedding_model_dims=3,
+            user="test_user",
+            password="test_pass",
+            host="localhost",
+            port=5432,
+            diskann=False,
+            hnsw=False,
+            minconn=1,
+            maxconn=4
+        )
+
+        pgvector.update("test-id", payload={})
+
+        payload_update_calls = [call for call in self.mock_cursor.execute.call_args_list
+                               if "UPDATE" in str(call) and "SET payload" in str(call)]
+        self.assertTrue(len(payload_update_calls) > 0, "Empty payload {} should still trigger UPDATE")
+
     # Enhanced Tests for Connection String Handling
     @patch('mem0.vector_stores.pgvector.PSYCOPG_VERSION', 3)
     @patch('mem0.vector_stores.pgvector.ConnectionPool')

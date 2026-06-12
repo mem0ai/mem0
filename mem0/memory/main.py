@@ -560,20 +560,11 @@ class Memory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
-
-    @staticmethod
-    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:
@@ -2027,20 +2018,11 @@ class AsyncMemory(MemoryBase):
     @classmethod
     def from_config(cls, config_dict: Dict[str, Any]):
         try:
-            config = cls._process_config(config_dict)
             config = MemoryConfig(**config_dict)
         except ValidationError as e:
             logger.error(f"Configuration validation error: {e}")
             raise
         return cls(config)
-
-    @staticmethod
-    def _process_config(config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            return config_dict
-        except ValidationError as e:
-            logger.error(f"Configuration validation error: {e}")
-            raise
 
     def _should_use_agent_memory_extraction(self, messages, metadata):
         """Determine whether to use agent memory extraction based on the logic:

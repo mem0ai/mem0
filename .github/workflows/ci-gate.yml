@@ -68,15 +68,15 @@ jobs:
               - '.github/workflows/cli-node-ci.yml'
               - '.github/workflows/ci-gate.yml'
             openclaw:
-              - 'openclaw/**'
+              - 'integrations/openclaw/**'
               - '.github/workflows/openclaw-checks.yml'
               - '.github/workflows/ci-gate.yml'
             opencode_plugin:
-              - 'mem0-plugin/.opencode-plugin/**'
+              - 'integrations/mem0-plugin/.opencode-plugin/**'
               - '.github/workflows/opencode-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             pi_agent_plugin:
-              - 'pi-agent-plugin/**'
+              - 'integrations/pi-agent-plugin/**'
               - '.github/workflows/pi-agent-plugin-checks.yml'
               - '.github/workflows/ci-gate.yml'
             docs_llms_txt:
