@@ -40,6 +40,7 @@ import {
 import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
+import { displayFirstRunNotice } from "../utils/notices";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
 import {
   extractEntities,
@@ -494,6 +495,13 @@ export class Memory {
     }
   }
 
+  private async _displayFirstRunNotice(triggerFunction: string) {
+    try {
+      await this._getTelemetryId();
+      await displayFirstRunNotice(this, triggerFunction);
+    } catch {}
+  }
+
   static fromConfig(configDict: Record<string, any>): Memory {
     try {
       const config = MemoryConfigSchema.parse(configDict);
@@ -553,6 +561,8 @@ export class Memory {
       filters,
       infer,
     );
+
+    await this._displayFirstRunNotice("add");
 
     return {
       results: vectorStoreResult,
@@ -996,7 +1006,10 @@ export class Memory {
   async get(memoryId: string): Promise<MemoryItem | null> {
     await this._ensureInitialized();
     const memory = await this.vectorStore.get(memoryId);
-    if (!memory) return null;
+    if (!memory) {
+      await this._displayFirstRunNotice("get");
+      return null;
+    }
 
     const filters = {
       ...(memory.payload.user_id && { user_id: memory.payload.user_id }),
@@ -1031,7 +1044,9 @@ export class Memory {
       }
     }
 
-    return { ...memoryItem, ...filters };
+    const result = { ...memoryItem, ...filters };
+    await this._displayFirstRunNotice("get");
+    return result;
   }
 
   async search(
@@ -1280,9 +1295,11 @@ export class Memory {
         };
       });
 
-    return {
+    const result = {
       results,
     };
+    await this._displayFirstRunNotice("search");
+    return result;
   }
 
   async update(memoryId: string, data: string): Promise<{ message: string }> {
@@ -1290,14 +1307,18 @@ export class Memory {
     await this._captureEvent("update", { memory_id: memoryId });
     const embedding = await this.embedder.embed(data);
     await this.updateMemory(memoryId, data, { [data]: embedding });
-    return { message: "Memory updated successfully!" };
+    const result = { message: "Memory updated successfully!" };
+    await this._displayFirstRunNotice("update");
+    return result;
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
     await this._ensureInitialized();
     await this._captureEvent("delete", { memory_id: memoryId });
     await this.deleteMemory(memoryId);
-    return { message: "Memory deleted successfully!" };
+    const result = { message: "Memory deleted successfully!" };
+    await this._displayFirstRunNotice("delete");
+    return result;
   }
 
   async deleteAll(
@@ -1328,12 +1349,16 @@ export class Memory {
       await this.deleteMemory(memory.id);
     }
 
-    return { message: "Memories deleted successfully!" };
+    const result = { message: "Memories deleted successfully!" };
+    await this._displayFirstRunNotice("delete_all");
+    return result;
   }
 
   async history(memoryId: string): Promise<any[]> {
     await this._ensureInitialized();
-    return this.db.getHistory(memoryId);
+    const result = await this.db.getHistory(memoryId);
+    await this._displayFirstRunNotice("history");
+    return result;
   }
 
   async reset(): Promise<void> {
@@ -1385,6 +1410,7 @@ export class Memory {
       console.error(this._initError);
     });
     await this._initPromise;
+    await this._displayFirstRunNotice("reset");
   }
 
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
@@ -1452,7 +1478,9 @@ export class Memory {
       ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
     }));
 
-    return { results };
+    const result = { results };
+    await this._displayFirstRunNotice("get_all");
+    return result;
   }
 
   private async createMemory(
