@@ -30,11 +30,16 @@ export function registerCommands(
     `${n} ${n === 1 ? one : many}`;
 
   // mem0 ranks search results by similarity with no relevance floor, so even an
-  // unrelated query returns the closest (weak) memories. Split on the public
-  // score client-side — mem0's recommended hard floor. We deliberately do NOT
-  // pass the API-side `threshold`: it is applied pre-decay and reshapes public
-  // scores, so combined with a client floor it over-filters and hides real
-  // matches. Memories without a score are treated as relevant.
+  // unrelated query returns the closest (weak) memories. Plain cosine scores
+  // cluster too tightly (~0.2-0.3 for both real and irrelevant queries) for a
+  // flat threshold to separate, so the search-backed commands pass `rerank:true`
+  // — a cross-encoder pass that spreads scores apart (genuine matches high,
+  // noise low) so this floor can tell a real hit from the closest noise.
+  //
+  // Split on the public score client-side — mem0's recommended hard floor. We
+  // deliberately do NOT pass the API-side `threshold`: it is applied pre-decay
+  // and reshapes public scores, so combined with a client floor it over-filters
+  // and hides real matches. Memories without a score are treated as relevant.
   const splitByRelevance = <T extends { score?: number }>(memories: T[]) => {
     const strong: T[] = [];
     const weak: T[] = [];
@@ -98,7 +103,7 @@ export function registerCommands(
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters });
+      const result = await mem0.search(query, { filters, rerank: true });
       const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
 
       if (memories.length === 0) {
@@ -158,7 +163,7 @@ export function registerCommands(
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters });
+      const result = await mem0.search(query, { filters, rerank: true });
       const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
 
       captureCommandEvent("mem0-search", { result_count: memories.length }, telemetryCtx);
@@ -260,7 +265,7 @@ export function registerCommands(
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters });
+      const result = await mem0.search(query, { filters, rerank: true });
       const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
 
       if (memories.length === 0) {

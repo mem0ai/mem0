@@ -315,9 +315,10 @@ describe("registerCommands", () => {
       await pi._invoke("mem0-search", "my preferences", ctx);
 
       expect(mem0.search).toHaveBeenCalledWith("my preferences", expect.any(Object));
-      // The API-side threshold is intentionally not sent (it over-filters with the
-      // client-side floor); relevance is enforced client-side instead.
+      // Rerank on for relevance separation; the API-side threshold is intentionally
+      // not sent (it over-filters with the client-side floor).
       const [, opts] = mem0.search.mock.calls[0];
+      expect(opts).toHaveProperty("rerank", true);
       expect(opts).not.toHaveProperty("threshold");
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ customType: "mem0-search" }),

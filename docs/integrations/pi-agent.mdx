@@ -84,7 +84,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | `dream.minMemories` | `number` | `20` | Minimum memories before auto-dream triggers |
 
 <Info>
-  **Search relevance.** `/mem0-search`, `/mem0-forget`, and `/mem0-pin` filter out weak semantic matches below `searchThreshold` (client-side, on the public score). mem0 ranks search results by similarity with no relevance floor, so without this an unrelated query would still return the closest (weak) memories — and `/mem0-forget` would offer them for deletion. `/mem0-search` shows each result's relevance score, and when the floor hides matches it reports the closest hidden score and how to lower the threshold, so results never silently vanish. If a query you expect to match returns nothing, lower `searchThreshold`; raise it to be stricter.
+  **Search relevance.** `/mem0-search`, `/mem0-forget`, and `/mem0-pin` use mem0's reranking and filter out weak semantic matches below `searchThreshold` (client-side, on the public score). mem0 ranks search results by similarity with no relevance floor, so without this an unrelated query would still return the closest (weak) memories — and `/mem0-forget` would offer them for deletion. Reranking spreads scores apart so a genuinely irrelevant query falls below the floor and reports no match. `/mem0-search` shows each result's relevance score, and when the floor hides matches it reports the closest hidden score and how to lower the threshold, so results never silently vanish. If a query you expect to match returns nothing, lower `searchThreshold`; raise it to be stricter.
 </Info>
 
 ## What's Included
