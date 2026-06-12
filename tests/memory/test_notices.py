@@ -30,14 +30,20 @@ class FakeFlags:
 def reset_notice_process_state():
     notices._first_run_claimed_in_process = False
     notices._decay_usage_successful_delete_count_in_process = 0
+    notices._temporal_usage_capacity_reached_in_process = False
     notices._decay_usage_capacity_reached_in_process = False
+    notices._scale_threshold_capacity_reached_in_process = False
+    notices._performance_slow_query_capacity_reached_in_process = False
     notices._scale_memory_count_adds_since_check = 0
     notices._scale_memory_count_checked_in_process = False
     notices._scale_memory_count_threshold_evaluated_in_process = False
     yield
     notices._first_run_claimed_in_process = False
     notices._decay_usage_successful_delete_count_in_process = 0
+    notices._temporal_usage_capacity_reached_in_process = False
     notices._decay_usage_capacity_reached_in_process = False
+    notices._scale_threshold_capacity_reached_in_process = False
+    notices._performance_slow_query_capacity_reached_in_process = False
     notices._scale_memory_count_adds_since_check = 0
     notices._scale_memory_count_checked_in_process = False
     notices._scale_memory_count_threshold_evaluated_in_process = False

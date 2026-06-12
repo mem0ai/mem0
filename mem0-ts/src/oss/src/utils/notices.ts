@@ -46,6 +46,7 @@ const RANGE_OPERATORS = new Set(["gt", "gte", "lt", "lte"]);
 let firstRunConsumedInProcess = false;
 let firstRunClaimInProgress = false;
 let decayUsageSuccessfulDeleteCount = 0;
+const noticeCapacityReachedInProcess = new Set<string>();
 let scaleMemoryCountAddsSinceCheck = 0;
 let scaleMemoryCountCheckedInProcess = false;
 let scaleMemoryCountThresholdEvaluatedInProcess = false;
@@ -315,6 +316,24 @@ export function hasNoticeCapRoom(
   return eventsInWindow(state.events, now, windowMs).length < limit;
 }
 
+function isNoticeCapacityReachedInProcess(noticeId: string): boolean {
+  return noticeCapacityReachedInProcess.has(noticeId);
+}
+
+function markNoticeCapacityReachedInProcess(noticeId: string): void {
+  noticeCapacityReachedInProcess.add(noticeId);
+}
+
+function hasNoticeCapRoomForNotice(
+  noticeId: string,
+  state: Record<string, any>,
+  options: { now?: Date; limit?: number; windowMs?: number } = {},
+): boolean {
+  const hasRoom = hasNoticeCapRoom(state, options);
+  if (!hasRoom) markNoticeCapacityReachedInProcess(noticeId);
+  return hasRoom;
+}
+
 export function appendNoticeCapEvent(
   state: Record<string, any>,
   event: NoticeCapEvent,
@@ -344,12 +363,23 @@ export function recordNoticeOpportunity(
   options: { now?: Date; limit?: number; windowMs?: number } = {},
 ): boolean {
   if (!isTelemetryEnabled()) return false;
+  if (isNoticeCapacityReachedInProcess(noticeId)) return false;
 
   const config = loadMem0Config();
   const state = getNoticeState(config, noticeId);
   const nextState = appendNoticeCapEvent(state, event, options);
-  if (!nextState) return false;
-  return writeMem0ConfigAtomic(setNoticeState(config, noticeId, nextState));
+  if (!nextState) {
+    markNoticeCapacityReachedInProcess(noticeId);
+    return false;
+  }
+
+  const written = writeMem0ConfigAtomic(
+    setNoticeState(config, noticeId, nextState),
+  );
+  if (written && !hasNoticeCapRoom(nextState, options)) {
+    markNoticeCapacityReachedInProcess(noticeId);
+  }
+  return written;
 }
 
 function isFirstRunConsumed(config: Record<string, any>): boolean {
@@ -1047,11 +1077,12 @@ export async function displayScaleThresholdNotice(
   trigger: ScaleThresholdTrigger,
 ): Promise<void> {
   if (!isTelemetryEnabled()) return;
+  if (isNoticeCapacityReachedInProcess(SCALE_THRESHOLD_NOTICE_ID)) return;
 
   try {
     const config = loadMem0Config();
     const state = getNoticeState(config, SCALE_THRESHOLD_NOTICE_ID);
-    if (!hasNoticeCapRoom(state)) return;
+    if (!hasNoticeCapRoomForNotice(SCALE_THRESHOLD_NOTICE_ID, state)) return;
 
     const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
     if (!flagEvaluation) return;
@@ -1109,11 +1140,16 @@ export async function displayPerformanceSlowQueryNotice(
   trigger: PerformanceSlowQueryTrigger,
 ): Promise<void> {
   if (!isTelemetryEnabled()) return;
+  if (isNoticeCapacityReachedInProcess(PERFORMANCE_SLOW_QUERY_NOTICE_ID)) {
+    return;
+  }
 
   try {
     const config = loadMem0Config();
     const state = getNoticeState(config, PERFORMANCE_SLOW_QUERY_NOTICE_ID);
-    if (!hasNoticeCapRoom(state)) return;
+    if (!hasNoticeCapRoomForNotice(PERFORMANCE_SLOW_QUERY_NOTICE_ID, state)) {
+      return;
+    }
 
     const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
     if (!flagEvaluation) return;
@@ -1168,11 +1204,12 @@ export async function displayTemporalUsageNotice(
   trigger: TemporalUsageTrigger,
 ): Promise<void> {
   if (!isTelemetryEnabled()) return;
+  if (isNoticeCapacityReachedInProcess(TEMPORAL_USAGE_NOTICE_ID)) return;
 
   try {
     const config = loadMem0Config();
     const state = getNoticeState(config, TEMPORAL_USAGE_NOTICE_ID);
-    if (!hasNoticeCapRoom(state)) return;
+    if (!hasNoticeCapRoomForNotice(TEMPORAL_USAGE_NOTICE_ID, state)) return;
 
     const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
     if (!flagEvaluation) return;
@@ -1223,11 +1260,12 @@ export async function displayDecayUsageNotice(
   trigger: DecayUsageTrigger,
 ): Promise<void> {
   if (!isTelemetryEnabled()) return;
+  if (isNoticeCapacityReachedInProcess(DECAY_USAGE_NOTICE_ID)) return;
 
   try {
     const config = loadMem0Config();
     const state = getNoticeState(config, DECAY_USAGE_NOTICE_ID);
-    if (!hasNoticeCapRoom(state)) return;
+    if (!hasNoticeCapRoomForNotice(DECAY_USAGE_NOTICE_ID, state)) return;
 
     const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
     if (!flagEvaluation) return;
