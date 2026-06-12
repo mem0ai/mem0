@@ -1,0 +1,71 @@
+{
+  "name": "@mem0/opencode-plugin",
+  "version": "0.1.3",
+  "type": "module",
+  "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "mem0-opencode": "./cli.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "mem0",
+    "memory",
+    "mcp",
+    "ai-memory",
+    "persistent-memory"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "integrations/mem0-plugin/.opencode-plugin"
+  },
+  "files": [
+    "dist",
+    "cli.ts",
+    "opencode.json",
+    "LICENSE",
+    "opencode-skills"
+  ],
+  "scripts": {
+    "build": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] && tsc --emitDeclarationOnly --outDir dist --declaration",
+    "dev": "bun build opencode-mem0.ts --outdir dist --target bun --format esm --entry-naming index.[ext] --watch",
+    "type-check": "tsc --noEmit",
+    "prepack": "bun run build",
+    "postpack": ""
+  },
+  "opencode": {
+    "type": "plugin",
+    "hooks": [
+      "chat.message",
+      "tool.execute.before",
+      "tool.execute.after",
+      "experimental.chat.messages.transform",
+      "experimental.session.compacting",
+      "shell.env"
+    ]
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.0.162",
+    "mem0ai": "^3.0.5"
+  },
+  "devDependencies": {
+    "bun-types": ">=1.3.14",
+    "typescript": "^5.7.3"
+  },
+  "peerDependencies": {
+    "bun": ">=1.0.0"
+  }
+}

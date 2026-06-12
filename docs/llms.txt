@@ -259,6 +259,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Camel AI](https://docs.mem0.ai/integrations/camel-ai) [Both]: Use when the user is on Camel AI.
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Both]: Use when the user is on ChatDev.
 - [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
+- [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding persistent memory to Pi Agent with the Mem0 plugin.
 - [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Both]: Use when the user is on the OpenAI Agents SDK.
 - [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) [Both]: Use when the user is on Google's Agent Development Kit.
 - [Mastra](https://docs.mem0.ai/integrations/mastra) [Both]: Use when the user is on Mastra (TypeScript).
@@ -397,9 +398,9 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 ### Editor Plugin (shared glue)
 
-Source: https://github.com/mem0ai/mem0/tree/main/mem0-plugin
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/mem0-plugin
 
-The `mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, Codex, OpenCode, and Antigravity. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
+The `integrations/mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, Codex, OpenCode, and Antigravity. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 
