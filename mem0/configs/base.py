@@ -24,6 +24,7 @@ class MemoryItem(BaseModel):
     score: Optional[float] = Field(None, description="The score associated with the text data")
     created_at: Optional[str] = Field(None, description="The timestamp when the memory was created")
     updated_at: Optional[str] = Field(None, description="The timestamp when the memory was updated")
+    expiration_date: Optional[str] = Field(None, description="The timestamp when the memory expires")
 
 
 class MemoryConfig(BaseModel):

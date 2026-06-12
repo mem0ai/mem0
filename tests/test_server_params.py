@@ -244,24 +244,53 @@ class TestAddPrompt:
 
 
 # ===========================================================================
+# MemoryCreate: expiration_date parameter
+# ===========================================================================
+
+class TestAddExpirationDate:
+    """Verify that the expiration_date parameter is accepted and forwarded."""
+
+    def test_expiration_date_forwarded(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "Remember this until next week"}],
+            "user_id": "u1",
+            "expiration_date": "2026-07-15T09:30:00+02:00",
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert kwargs["expiration_date"] == "2026-07-15T09:30:00+02:00"
+
+    def test_expiration_date_omitted(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "hello"}],
+            "user_id": "u1",
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert "expiration_date" not in kwargs
+
+
+# ===========================================================================
 # MemoryCreate: all new params together
 # ===========================================================================
 
 class TestAddAllNewParams:
 
-    def test_infer_memory_type_and_prompt_together(self, client, mock_memory):
+    def test_infer_memory_type_prompt_and_expiration_date_together(self, client, mock_memory):
         resp = client.post("/memories", json={
             "messages": [{"role": "user", "content": "I like pizza"}],
             "user_id": "u1",
             "infer": False,
             "memory_type": "core",
             "prompt": "Custom extraction prompt.",
+            "expiration_date": "2026-07-15T09:30:00+02:00",
         })
         assert resp.status_code == 200
         _, kwargs = mock_memory.add.call_args
         assert kwargs["infer"] is False
         assert kwargs["memory_type"] == "core"
         assert kwargs["prompt"] == "Custom extraction prompt."
+        assert kwargs["expiration_date"] == "2026-07-15T09:30:00+02:00"
 
 
 # ===========================================================================
@@ -382,6 +411,11 @@ class TestOpenAPISchema:
         add_props = schema["components"]["schemas"]["MemoryCreate"]["properties"]
         assert "prompt" in add_props
 
+    def test_add_schema_includes_expiration_date(self, client):
+        schema = client.get("/openapi.json").json()
+        add_props = schema["components"]["schemas"]["MemoryCreate"]["properties"]
+        assert "expiration_date" in add_props
+
 
 # ===========================================================================
 # Pydantic type validation: invalid types return 422
@@ -473,6 +507,16 @@ class TestExplicitNull:
         _, kwargs = mock_memory.add.call_args
         assert "prompt" not in kwargs
 
+    def test_expiration_date_null_uses_memory_default(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "test"}],
+            "user_id": "u1",
+            "expiration_date": None,
+        })
+        assert resp.status_code == 200
+        _, kwargs = mock_memory.add.call_args
+        assert "expiration_date" not in kwargs
+
 
 # ===========================================================================
 # Verify exact call signatures match Memory method params
@@ -505,12 +549,12 @@ class TestCallSignatureMatch:
             "messages": [{"role": "user", "content": "hi"}],
             "user_id": "u1", "agent_id": "a1", "run_id": "r1",
             "metadata": {"k": "v"},
-            "infer": False, "memory_type": "core", "prompt": "custom",
+            "infer": False, "memory_type": "core", "prompt": "custom", "expiration_date": "2026-07-15T09:30:00+02:00",
         })
         assert resp.status_code == 200
         # The handler passes messages= as a keyword arg, so it appears in kwargs too
         _, kwargs = mock_memory.add.call_args
-        valid_params = {"messages", "user_id", "agent_id", "run_id", "metadata", "infer", "memory_type", "prompt"}
+        valid_params = {"messages", "user_id", "agent_id", "run_id", "metadata", "infer", "memory_type", "prompt", "expiration_date"}
         for key in kwargs:
             assert key in valid_params, f"Unexpected kwarg '{key}' forwarded to Memory.add()"
 
