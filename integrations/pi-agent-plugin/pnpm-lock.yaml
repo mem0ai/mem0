@@ -9,15 +9,15 @@ importers:
   .:
     dependencies:
       mem0ai:
-        specifier: ^3.0.6
-        version: 3.0.6(@anthropic-ai/sdk@0.91.1(zod@3.25.76))(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260609.1)(@google/genai@1.52.0)(@langchain/core@1.1.48(openai@6.26.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0))(@mistralai/mistralai@2.2.1)(@qdrant/js-client-rest@1.18.0(typescript@6.0.3))(@supabase/supabase-js@2.108.0)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.10.0)(cloudflare@4.5.0)(compromise@14.15.1)(groq-sdk@0.3.0)(natural@8.1.1)(ollama@0.5.18)(pg@8.21.0)(redis@5.12.1)(ws@8.21.0)
+        specifier: ^3.0.7
+        version: 3.0.7(@anthropic-ai/sdk@0.91.1(zod@4.4.3))(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260609.1)(@google/genai@1.52.0)(@langchain/core@1.1.48(openai@6.26.0(ws@8.21.0)(zod@4.4.3))(ws@8.21.0))(@mistralai/mistralai@2.2.1)(@qdrant/js-client-rest@1.18.0(typescript@6.0.3))(@supabase/supabase-js@2.108.0)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.10.0)(cloudflare@4.5.0)(compromise@14.15.1)(groq-sdk@0.3.0)(natural@8.1.1)(ollama@0.5.18)(pg@8.21.0)(redis@5.12.1)(ws@8.21.0)
     devDependencies:
       '@earendil-works/pi-ai':
         specifier: ^0.79.0
-        version: 0.79.0(ws@8.21.0)(zod@3.25.76)
+        version: 0.79.0(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-coding-agent':
         specifier: ^0.79.0
-        version: 0.79.0(ws@8.21.0)(zod@3.25.76)
+        version: 0.79.0(ws@8.21.0)(zod@4.4.3)
       '@types/node':
         specifier: ^25.9.2
         version: 25.9.2
@@ -1683,8 +1683,8 @@ packages:
   md5@2.3.0:
     resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
 
-  mem0ai@3.0.6:
-    resolution: {integrity: sha512-X1KbCVE5351qpJ6X2KXFhQJiW+dqoHj1otA66DSdXtIEO1uXuIdyeTKeURdAH+wjXtIcFa08ylL2meA1pBk9Iw==}
+  mem0ai@3.0.7:
+    resolution: {integrity: sha512-CUHzX7DyeKTHcI3aDsSqY9LXTD7GcFxf988796TuOa4yJgGuF2Xd2NROcBhVFRo3r9y8fVmbo3c5TF9jv1KlKw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@anthropic-ai/sdk': ^0.40.1
@@ -2486,11 +2486,11 @@ packages:
 
 snapshots:
 
-  '@anthropic-ai/sdk@0.91.1(zod@3.25.76)':
+  '@anthropic-ai/sdk@0.91.1(zod@4.4.3)':
     dependencies:
       json-schema-to-ts: 3.1.1
     optionalDependencies:
-      zod: 3.25.76
+      zod: 4.4.3
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
@@ -2836,9 +2836,9 @@ snapshots:
 
   '@cloudflare/workers-types@4.20260609.1': {}
 
-  '@earendil-works/pi-agent-core@0.79.0(ws@8.21.0)(zod@3.25.76)':
+  '@earendil-works/pi-agent-core@0.79.0(ws@8.21.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 0.79.0(ws@8.21.0)(zod@3.25.76)
+      '@earendil-works/pi-ai': 0.79.0(ws@8.21.0)(zod@4.4.3)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -2850,16 +2850,16 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.79.0(ws@8.21.0)(zod@3.25.76)':
+  '@earendil-works/pi-ai@0.79.0(ws@8.21.0)(zod@4.4.3)':
     dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@3.25.76)
+      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
       '@google/genai': 1.52.0
       '@mistralai/mistralai': 2.2.1
       '@smithy/node-http-handler': 4.7.3
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.6
-      openai: 6.26.0(ws@8.21.0)(zod@3.25.76)
+      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
       partial-json: 0.1.7
       typebox: 1.1.38
     transitivePeerDependencies:
@@ -2870,10 +2870,10 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@0.79.0(ws@8.21.0)(zod@3.25.76)':
+  '@earendil-works/pi-coding-agent@0.79.0(ws@8.21.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-agent-core': 0.79.0(ws@8.21.0)(zod@3.25.76)
-      '@earendil-works/pi-ai': 0.79.0(ws@8.21.0)(zod@3.25.76)
+      '@earendil-works/pi-agent-core': 0.79.0(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.79.0(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui': 0.79.0
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
@@ -3040,12 +3040,12 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@langchain/core@1.1.48(openai@6.26.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)':
+  '@langchain/core@1.1.48(openai@6.26.0(ws@8.21.0)(zod@4.4.3))(ws@8.21.0)':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
       js-tiktoken: 1.0.21
-      langsmith: 0.7.5(openai@6.26.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
+      langsmith: 0.7.5(openai@6.26.0(ws@8.21.0)(zod@4.4.3))(ws@8.21.0)
       mustache: 4.2.0
       p-queue: 6.6.2
       zod: 4.4.3
@@ -4089,11 +4089,11 @@ snapshots:
 
   kareem@3.3.0: {}
 
-  langsmith@0.7.5(openai@6.26.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0):
+  langsmith@0.7.5(openai@6.26.0(ws@8.21.0)(zod@4.4.3))(ws@8.21.0):
     dependencies:
       p-queue: 6.6.2
     optionalDependencies:
-      openai: 6.26.0(ws@8.21.0)(zod@3.25.76)
+      openai: 6.26.0(ws@8.21.0)(zod@4.4.3)
       ws: 8.21.0
 
   lightningcss-android-arm64@1.32.0:
@@ -4183,14 +4183,14 @@ snapshots:
       crypt: 0.0.2
       is-buffer: 1.1.6
 
-  mem0ai@3.0.6(@anthropic-ai/sdk@0.91.1(zod@3.25.76))(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260609.1)(@google/genai@1.52.0)(@langchain/core@1.1.48(openai@6.26.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0))(@mistralai/mistralai@2.2.1)(@qdrant/js-client-rest@1.18.0(typescript@6.0.3))(@supabase/supabase-js@2.108.0)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.10.0)(cloudflare@4.5.0)(compromise@14.15.1)(groq-sdk@0.3.0)(natural@8.1.1)(ollama@0.5.18)(pg@8.21.0)(redis@5.12.1)(ws@8.21.0):
+  mem0ai@3.0.7(@anthropic-ai/sdk@0.91.1(zod@4.4.3))(@azure/identity@4.13.1)(@azure/search-documents@12.2.0)(@cloudflare/workers-types@4.20260609.1)(@google/genai@1.52.0)(@langchain/core@1.1.48(openai@6.26.0(ws@8.21.0)(zod@4.4.3))(ws@8.21.0))(@mistralai/mistralai@2.2.1)(@qdrant/js-client-rest@1.18.0(typescript@6.0.3))(@supabase/supabase-js@2.108.0)(@types/jest@29.5.14)(@types/pg@8.11.0)(better-sqlite3@12.10.0)(cloudflare@4.5.0)(compromise@14.15.1)(groq-sdk@0.3.0)(natural@8.1.1)(ollama@0.5.18)(pg@8.21.0)(redis@5.12.1)(ws@8.21.0):
     dependencies:
-      '@anthropic-ai/sdk': 0.91.1(zod@3.25.76)
+      '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@azure/identity': 4.13.1
       '@azure/search-documents': 12.2.0
       '@cloudflare/workers-types': 4.20260609.1
       '@google/genai': 1.52.0
-      '@langchain/core': 1.1.48(openai@6.26.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
+      '@langchain/core': 1.1.48(openai@6.26.0(ws@8.21.0)(zod@4.4.3))(ws@8.21.0)
       '@mistralai/mistralai': 2.2.1
       '@qdrant/js-client-rest': 1.18.0(typescript@6.0.3)
       '@supabase/supabase-js': 2.108.0
@@ -4374,10 +4374,10 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  openai@6.26.0(ws@8.21.0)(zod@3.25.76):
+  openai@6.26.0(ws@8.21.0)(zod@4.4.3):
     optionalDependencies:
       ws: 8.21.0
-      zod: 3.25.76
+      zod: 4.4.3
 
   p-finally@1.0.0: {}
 
