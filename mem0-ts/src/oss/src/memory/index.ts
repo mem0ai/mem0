@@ -36,11 +36,15 @@ import {
   SearchMemoryOptions,
   DeleteAllMemoryOptions,
   GetAllMemoryOptions,
+  UpdateProjectOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
-import { displayFirstRunNotice } from "../utils/notices";
+import {
+  displayFirstRunNotice,
+  getDecayFeatureErrorMessage,
+} from "../utils/notices";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
 import {
   extractEntities,
@@ -502,6 +506,22 @@ export class Memory {
     } catch {}
   }
 
+  private async _getNoticeTelemetryId() {
+    try {
+      if (
+        !this.telemetryId ||
+        this.telemetryId === "anonymous" ||
+        this.telemetryId === "anonymous-supabase"
+      ) {
+        this.telemetryId = (await getOrCreateMem0UserId()) || "anonymous";
+      }
+      return this.telemetryId;
+    } catch {
+      this.telemetryId = "anonymous";
+      return this.telemetryId;
+    }
+  }
+
   static fromConfig(configDict: Record<string, any>): Memory {
     try {
       const config = MemoryConfigSchema.parse(configDict);
@@ -510,6 +530,15 @@ export class Memory {
       console.error("Configuration validation error:", e);
       throw e;
     }
+  }
+
+  async updateProject(options: UpdateProjectOptions = {}): Promise<never> {
+    if (options?.decay === true) {
+      await this._getNoticeTelemetryId();
+      throw new Error(await getDecayFeatureErrorMessage(this));
+    }
+
+    throw new Error("Project updates are not supported by the OSS Memory SDK.");
   }
 
   async add(

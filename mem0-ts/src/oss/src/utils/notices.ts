@@ -12,12 +12,16 @@ export const NOTICE_FLAG_KEY = "mem0-oss-notices";
 export const NOTICE_EVENT_NAME = "mem0.notice_displayed";
 export const NOTICE_STATE_SECTION = "notice_state";
 export const FIRST_RUN_NOTICE_ID = "first_run";
+export const DECAY_FEATURE_NOTICE_ID = "decay_stub";
 export const NOTICE_CAP_LIMIT = 10;
 export const NOTICE_CAP_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 export const NOTICE_FLAG_TIMEOUT_MS = 500;
 export const POSTHOG_FLAGS_URL = "https://us.i.posthog.com/flags?v=2";
 const DISPLAYED_VARIANT = "displayed";
 const LOG_LINE_NOTICE_TYPE = "log_line";
+const ERROR_NOTICE_TYPE = "error";
+const DECAY_FEATURE_PLAIN_ERROR =
+  "The decay parameter is not supported by the OSS Memory SDK.";
 
 let firstRunConsumedInProcess = false;
 let firstRunClaimInProgress = false;
@@ -366,6 +370,95 @@ function getDisplayDecision(
   };
 }
 
+function getFeatureErrorDecision(
+  noticeId: string,
+  expectedNoticeType: string,
+  payload: unknown,
+): NoticeDisplayDecision {
+  const parsed = getNoticeConfigFromPayload(payload, noticeId);
+  const copy =
+    typeof parsed.config?.copy === "string" ? parsed.config.copy : undefined;
+
+  if (!parsed.found) {
+    return {
+      displayed: false,
+      noticeConfigFound: false,
+      bypassReason: "missing_notice_config",
+    };
+  }
+
+  if (parsed.config?.enabled !== true) {
+    return {
+      displayed: false,
+      noticeConfigFound: true,
+      copy,
+      bypassReason: "payload_disabled",
+      disabledReason: "payload_disabled",
+    };
+  }
+
+  if (parsed.config.notice_type !== expectedNoticeType) {
+    return {
+      displayed: false,
+      noticeConfigFound: true,
+      copy,
+      bypassReason: "invalid_notice_type",
+    };
+  }
+
+  if (!copy || copy.trim() === "") {
+    return {
+      displayed: false,
+      noticeConfigFound: true,
+      bypassReason: "missing_copy",
+    };
+  }
+
+  return {
+    displayed: true,
+    noticeConfigFound: true,
+    copy,
+  };
+}
+
+export async function getDecayFeatureErrorMessage(
+  instance: TelemetryInstance,
+): Promise<string> {
+  if (!isTelemetryEnabled()) return DECAY_FEATURE_PLAIN_ERROR;
+
+  try {
+    const flagEvaluation = await evaluateNoticeFlag(instance.telemetryId);
+    if (!flagEvaluation) return DECAY_FEATURE_PLAIN_ERROR;
+
+    const decision = getFeatureErrorDecision(
+      DECAY_FEATURE_NOTICE_ID,
+      ERROR_NOTICE_TYPE,
+      flagEvaluation.payload,
+    );
+
+    await emitNoticeDisplayed(instance, {
+      notice_id: DECAY_FEATURE_NOTICE_ID,
+      notice_type: ERROR_NOTICE_TYPE,
+      flag_key: NOTICE_FLAG_KEY,
+      variant: flagEvaluation.variant,
+      displayed: decision.displayed,
+      payload: decision.copy,
+      bypass_reason: decision.bypassReason,
+      disabled_reason: decision.disabledReason,
+      notice_config_found: decision.noticeConfigFound,
+      sync_type: "async",
+      trigger_function: "update_project",
+      trigger_parameter: "decay",
+    });
+
+    if (decision.displayed && decision.copy) {
+      return decision.copy;
+    }
+  } catch {}
+
+  return DECAY_FEATURE_PLAIN_ERROR;
+}
+
 export async function displayFirstRunNotice(
   instance: TelemetryInstance,
   triggerFunction: string,
@@ -436,6 +529,7 @@ export const __noticeTestHooks = {
   emitNoticeDisplayed,
   evaluateNoticeFlag,
   displayFirstRunNotice,
+  getDecayFeatureErrorMessage,
   getMem0ConfigPath,
   getMem0Dir,
   getNoticeConfigFromPayload,

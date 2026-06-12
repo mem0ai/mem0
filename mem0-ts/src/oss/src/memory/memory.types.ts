@@ -26,3 +26,8 @@ export interface GetAllMemoryOptions {
 }
 
 export interface DeleteAllMemoryOptions extends Entity {}
+
+export interface UpdateProjectOptions {
+  decay?: boolean;
+  [key: string]: any;
+}
