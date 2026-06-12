@@ -55,7 +55,7 @@ const defaultConfig: Mem0Config = {
   autoCapture: false,
   defaultScope: "project",
   contextInjection: false,
-  searchThreshold: 0.3,
+  searchThreshold: 0.2,
   dream: { enabled: false, auto: false, minHours: 24, minSessions: 5, minMemories: 20 },
 };
 
@@ -314,10 +314,11 @@ describe("registerCommands", () => {
 
       await pi._invoke("mem0-search", "my preferences", ctx);
 
-      expect(mem0.search).toHaveBeenCalledWith(
-        "my preferences",
-        expect.objectContaining({ threshold: 0.3 }),
-      );
+      expect(mem0.search).toHaveBeenCalledWith("my preferences", expect.any(Object));
+      // The API-side threshold is intentionally not sent (it over-filters with the
+      // client-side floor); relevance is enforced client-side instead.
+      const [, opts] = mem0.search.mock.calls[0];
+      expect(opts).not.toHaveProperty("threshold");
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ customType: "mem0-search" }),
       );
@@ -392,6 +393,29 @@ describe("registerCommands", () => {
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ content: expect.stringContaining("No matches") }),
       );
+    });
+
+    it("explains hidden weak matches and how to surface them", async () => {
+      const ctx = makeCtx();
+      mem0.search.mockResolvedValue({ results: [{ id: "id-1", memory: "barely related", score: 0.18 }] });
+
+      await pi._invoke("mem0-search", "icecream", ctx);
+
+      const call = pi.sendMessage.mock.calls.find(([m]: any[]) => m.customType === "mem0-search");
+      expect(call?.[0].content).toContain("No matches");
+      expect(call?.[0].content).toContain("hidden");
+      expect(call?.[0].content).toContain("0.18");
+      expect(call?.[0].content).toContain("searchThreshold");
+    });
+
+    it("shows per-result relevance scores", async () => {
+      const ctx = makeCtx();
+      mem0.search.mockResolvedValue({ results: [{ id: "id-1", memory: "uses vim", score: 0.57 }] });
+
+      await pi._invoke("mem0-search", "editor", ctx);
+
+      const call = pi.sendMessage.mock.calls.find(([m]: any[]) => m.customType === "mem0-search");
+      expect(call?.[0].content).toContain("0.57");
     });
   });
 

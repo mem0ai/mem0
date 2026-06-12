@@ -29,12 +29,27 @@ export function registerCommands(
   const pluralize = (n: number, one: string, many: string): string =>
     `${n} ${n === 1 ? one : many}`;
 
-  // Drop weak semantic matches. mem0 search returns the closest memories ranked
-  // by similarity with no relevance floor, so even an unrelated query returns
-  // results; filter on the public score (mem0 recommends client-side filtering
-  // for a hard floor). Memories without a score are kept.
-  const relevant = <T extends { score?: number }>(memories: T[]): T[] =>
-    memories.filter((m) => (m.score ?? 1) >= config.searchThreshold);
+  // mem0 ranks search results by similarity with no relevance floor, so even an
+  // unrelated query returns the closest (weak) memories. Split on the public
+  // score client-side — mem0's recommended hard floor. We deliberately do NOT
+  // pass the API-side `threshold`: it is applied pre-decay and reshapes public
+  // scores, so combined with a client floor it over-filters and hides real
+  // matches. Memories without a score are treated as relevant.
+  const splitByRelevance = <T extends { score?: number }>(memories: T[]) => {
+    const strong: T[] = [];
+    const weak: T[] = [];
+    for (const m of memories) {
+      if ((m.score ?? 1) >= config.searchThreshold) strong.push(m);
+      else weak.push(m);
+    }
+    const bestWeak = weak.reduce((max, m) => Math.max(max, m.score ?? 0), 0);
+    return { strong, weak, bestWeak };
+  };
+
+  // Shown when the relevance floor hid matches, so results never silently vanish:
+  // names how many were hidden, the closest score, and how to surface them.
+  const hiddenHint = (weakCount: number, bestWeak: number): string =>
+    `_${pluralize(weakCount, "weaker match", "weaker matches")} hidden below the ${config.searchThreshold} relevance floor (closest ${bestWeak.toFixed(2)}). Lower \`searchThreshold\` in mem0-config.json to include ${weakCount === 1 ? "it" : "them"}._`;
 
   // ── /mem0-remember ──────────────────────────────────────────────────
   pi.registerCommand("mem0-remember", {
@@ -83,12 +98,14 @@ export function registerCommands(
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters, threshold: config.searchThreshold });
-      const memories = relevant(result.results ?? []);
+      const result = await mem0.search(query, { filters });
+      const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
 
       if (memories.length === 0) {
         captureCommandEvent("mem0-forget", { result_count: 0 }, telemetryCtx);
-        sendFeedback("mem0-forget", `**No matches for "${query}"** — nothing to forget.`);
+        const lines = [`**No matches for "${query}"** — nothing to forget.`];
+        if (weak.length > 0) lines.push("", hiddenHint(weak.length, bestWeak));
+        sendFeedback("mem0-forget", lines.join("\n"));
         return;
       }
 
@@ -141,22 +158,30 @@ export function registerCommands(
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters, threshold: config.searchThreshold });
-      const memories = relevant(result.results ?? []);
+      const result = await mem0.search(query, { filters });
+      const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
 
       captureCommandEvent("mem0-search", { result_count: memories.length }, telemetryCtx);
 
       if (memories.length === 0) {
-        sendFeedback("mem0-search", `**No matches for "${query}"** · ${config.defaultScope} scope`);
+        const lines = [`**No matches for "${query}"** · ${config.defaultScope} scope`];
+        if (weak.length > 0) lines.push("", hiddenHint(weak.length, bestWeak));
+        sendFeedback("mem0-search", lines.join("\n"));
         return;
       }
 
+      const list = memories
+        .map((m, i) => {
+          const score = typeof m.score === "number" ? ` — _relevance ${m.score.toFixed(2)}_` : "";
+          return `${i + 1}. ${formatMemoryCompact(m)}${score}`;
+        })
+        .join("\n");
       sendFeedback(
         "mem0-search",
         [
           `**${pluralize(memories.length, "match", "matches")} for "${query}"** · ${config.defaultScope} scope`,
           "",
-          formatMemoryList(memories),
+          list,
         ].join("\n"),
       );
     },
@@ -235,12 +260,14 @@ export function registerCommands(
 
       const scopeCtx = getScopeCtx();
       const filters = resolveSearchFilters(config.defaultScope, scopeCtx);
-      const result = await mem0.search(query, { filters, threshold: config.searchThreshold });
-      const memories = relevant(result.results ?? []);
+      const result = await mem0.search(query, { filters });
+      const { strong: memories, weak, bestWeak } = splitByRelevance(result.results ?? []);
 
       if (memories.length === 0) {
         captureCommandEvent("mem0-pin", { result_count: 0 }, telemetryCtx);
-        sendFeedback("mem0-pin", `**No matches for "${query}"** — nothing to pin.`);
+        const lines = [`**No matches for "${query}"** — nothing to pin.`];
+        if (weak.length > 0) lines.push("", hiddenHint(weak.length, bestWeak));
+        sendFeedback("mem0-pin", lines.join("\n"));
         return;
       }
 

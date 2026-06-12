@@ -14,6 +14,7 @@ export interface Mem0Config {
   autoCapture: boolean;
   defaultScope: Scope;
   contextInjection: boolean;
+  /** Minimum similarity score (0-1) a memory must reach to count as a match for /mem0-search, /mem0-forget, and /mem0-pin. Applied client-side. Default 0.2. */
   searchThreshold: number;
   dream: DreamConfig;
 }
