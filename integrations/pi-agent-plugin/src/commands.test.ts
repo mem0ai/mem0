@@ -55,6 +55,7 @@ const defaultConfig: Mem0Config = {
   autoCapture: false,
   defaultScope: "project",
   contextInjection: false,
+  searchThreshold: 0.3,
   dream: { enabled: false, auto: false, minHours: 24, minSessions: 5, minMemories: 20 },
 };
 
@@ -67,6 +68,7 @@ describe("registerCommands", () => {
   beforeEach(() => {
     pi = makePi();
     mem0 = makeMem0();
+    defaultConfig.defaultScope = "project";
     registerCommands(pi as any, mem0, defaultConfig, () => scopeCtx);
   });
 
@@ -90,11 +92,30 @@ describe("registerCommands", () => {
       expect(mem0.search).not.toHaveBeenCalled();
     });
 
-    it("notifies when no memories match", async () => {
+    it("sends a visible message naming the query when no memories match", async () => {
       const ctx = makeCtx();
       mem0.search.mockResolvedValue({ results: [] });
       await pi._invoke("mem0-forget", "old preference", ctx);
-      expect(ctx.ui.notify).toHaveBeenCalledWith("No matching memories found.", "info");
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-forget",
+          content: expect.stringContaining('No matches for "old preference"'),
+          display: true,
+        }),
+      );
+    });
+
+    it("treats below-threshold results as no match (does not prompt to delete)", async () => {
+      const ctx = makeCtx();
+      mem0.search.mockResolvedValue({ results: [{ id: "id-1", memory: "barely related", score: 0.1 }] });
+
+      await pi._invoke("mem0-forget", "totally unrelated", ctx);
+
+      expect(ctx.ui.confirm).not.toHaveBeenCalled();
+      expect(mem0.delete).not.toHaveBeenCalled();
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringContaining("nothing to forget") }),
+      );
     });
 
     it("asks for confirmation before deleting a single match", async () => {
@@ -111,6 +132,22 @@ describe("registerCommands", () => {
       expect(mem0.delete).toHaveBeenCalledWith("abc-123");
     });
 
+    it("sends a visible confirmation showing what was forgotten", async () => {
+      const ctx = makeCtx(true);
+      mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "test mem" }] });
+      mem0.delete.mockResolvedValue({ message: "Deleted" });
+
+      await pi._invoke("mem0-forget", "test", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-forget",
+          content: expect.stringContaining("Forgotten"),
+          display: true,
+        }),
+      );
+    });
+
     it("does not delete when user cancels confirmation", async () => {
       const ctx = makeCtx(false);
       mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "test mem" }] });
@@ -119,7 +156,9 @@ describe("registerCommands", () => {
 
       expect(ctx.ui.confirm).toHaveBeenCalled();
       expect(mem0.delete).not.toHaveBeenCalled();
-      expect(ctx.ui.notify).toHaveBeenCalledWith("Cancelled.", "info");
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringContaining("Cancelled"), display: true }),
+      );
     });
 
     it("uses select UI for multiple matches and deletes chosen memory", async () => {
@@ -136,13 +175,20 @@ describe("registerCommands", () => {
       await pi._invoke("mem0-forget", "test", ctx);
 
       expect(ctx.ui.select).toHaveBeenCalledWith(
-        "Which memory should I delete?",
+        expect.stringContaining("which should I delete"),
         expect.arrayContaining([
           expect.stringContaining("mem one"),
           expect.stringContaining("mem two"),
         ]),
       );
       expect(mem0.delete).toHaveBeenCalledWith("id-2");
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-forget",
+          content: expect.stringContaining("Forgotten"),
+          display: true,
+        }),
+      );
     });
 
     it("does not delete when user cancels select", async () => {
@@ -158,7 +204,9 @@ describe("registerCommands", () => {
       await pi._invoke("mem0-forget", "test", ctx);
 
       expect(mem0.delete).not.toHaveBeenCalled();
-      expect(ctx.ui.notify).toHaveBeenCalledWith("Cancelled.", "info");
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringContaining("Cancelled"), display: true }),
+      );
     });
   });
 
@@ -179,6 +227,22 @@ describe("registerCommands", () => {
       expect(mem0.delete).not.toHaveBeenCalled();
     });
 
+    it("sends a visible confirmation after pinning", async () => {
+      const ctx = makeCtx(true);
+      mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "important fact" }] });
+      mem0.update.mockResolvedValue([]);
+
+      await pi._invoke("mem0-pin", "important", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-pin",
+          content: expect.stringContaining("Pinned"),
+          display: true,
+        }),
+      );
+    });
+
     it("does not pin when user cancels", async () => {
       const ctx = makeCtx(false);
       mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "fact" }] });
@@ -188,7 +252,7 @@ describe("registerCommands", () => {
       expect(mem0.update).not.toHaveBeenCalled();
     });
 
-    it("skips already-pinned memories", async () => {
+    it("skips already-pinned memories with a visible message", async () => {
       const ctx = makeCtx();
       mem0.search.mockResolvedValue({ results: [{ id: "abc-123", memory: "[PINNED] fact" }] });
 
@@ -196,7 +260,9 @@ describe("registerCommands", () => {
 
       expect(ctx.ui.confirm).not.toHaveBeenCalled();
       expect(mem0.add).not.toHaveBeenCalled();
-      expect(ctx.ui.notify).toHaveBeenCalledWith("Already pinned.", "info");
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringContaining("Already pinned"), display: true }),
+      );
     });
 
     it("uses select UI for multiple matches and pins chosen memory", async () => {
@@ -213,7 +279,7 @@ describe("registerCommands", () => {
       await pi._invoke("mem0-pin", "fact", ctx);
 
       expect(ctx.ui.select).toHaveBeenCalledWith(
-        "Which memory should I pin?",
+        expect.stringContaining("which should I pin"),
         expect.arrayContaining([
           expect.stringContaining("fact one"),
           expect.stringContaining("fact two"),
@@ -235,7 +301,9 @@ describe("registerCommands", () => {
       await pi._invoke("mem0-pin", "fact", ctx);
 
       expect(mem0.update).not.toHaveBeenCalled();
-      expect(ctx.ui.notify).toHaveBeenCalledWith("Cancelled.", "info");
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringContaining("Cancelled"), display: true }),
+      );
     });
   });
 
@@ -246,7 +314,10 @@ describe("registerCommands", () => {
 
       await pi._invoke("mem0-search", "my preferences", ctx);
 
-      expect(mem0.search).toHaveBeenCalledWith("my preferences", expect.any(Object));
+      expect(mem0.search).toHaveBeenCalledWith(
+        "my preferences",
+        expect.objectContaining({ threshold: 0.3 }),
+      );
       expect(pi.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({ customType: "mem0-search" }),
       );
@@ -263,14 +334,63 @@ describe("registerCommands", () => {
       expect(mem0.get).not.toHaveBeenCalled();
     });
 
-    it("shows empty results message", async () => {
+    it("shows a no-matches message naming the query", async () => {
       const ctx = makeCtx();
       mem0.search.mockResolvedValue({ results: [] });
 
       await pi._invoke("mem0-search", "nonexistent", ctx);
 
       expect(pi.sendMessage).toHaveBeenCalledWith(
-        expect.objectContaining({ content: "No memories found." }),
+        expect.objectContaining({ content: expect.stringContaining("No matches") }),
+      );
+    });
+
+    it("shows a result count header when there are matches", async () => {
+      const ctx = makeCtx();
+      mem0.search.mockResolvedValue({
+        results: [
+          { id: "id-1", memory: "one" },
+          { id: "id-2", memory: "two" },
+        ],
+      });
+
+      await pi._invoke("mem0-search", "stuff", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringContaining("2 matches") }),
+      );
+    });
+
+    it("filters out matches below the relevance threshold", async () => {
+      const ctx = makeCtx();
+      mem0.search.mockResolvedValue({
+        results: [
+          { id: "id-1", memory: "strongly relevant", score: 0.62 },
+          { id: "id-2", memory: "weak noise", score: 0.12 },
+        ],
+      });
+
+      await pi._invoke("mem0-search", "stuff", ctx);
+
+      const call = pi.sendMessage.mock.calls.find(([m]: any[]) => m.customType === "mem0-search");
+      expect(call?.[0].content).toContain("strongly relevant");
+      expect(call?.[0].content).not.toContain("weak noise");
+      expect(call?.[0].content).toContain("1 match");
+    });
+
+    it("reports no matches when every result is below the threshold (irrelevant query)", async () => {
+      const ctx = makeCtx();
+      mem0.search.mockResolvedValue({
+        results: [
+          { id: "id-1", memory: "noise one", score: 0.12 },
+          { id: "id-2", memory: "noise two", score: 0.08 },
+        ],
+      });
+
+      await pi._invoke("mem0-search", "quantum chromodynamics tax law", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: expect.stringContaining("No matches") }),
       );
     });
   });
@@ -288,10 +408,134 @@ describe("registerCommands", () => {
       );
     });
 
+    it("shows the stored text in a visible confirmation (infer:false status response)", async () => {
+      const ctx = makeCtx();
+      mem0.add.mockResolvedValue({ message: "Memories stored successfully" });
+
+      await pi._invoke("mem0-remember", "I prefer dark mode", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-remember",
+          content: expect.stringContaining("I prefer dark mode"),
+          display: true,
+        }),
+      );
+    });
+
+    it("lists memory objects returned by the API when present", async () => {
+      const ctx = makeCtx();
+      mem0.add.mockResolvedValue([{ id: "m1", memory: "Uses dark mode", event: "ADD" }]);
+
+      await pi._invoke("mem0-remember", "I prefer dark mode", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-remember",
+          content: expect.stringContaining("Uses dark mode"),
+          display: true,
+        }),
+      );
+    });
+
     it("shows warning when no text provided", async () => {
       const ctx = makeCtx();
       await pi._invoke("mem0-remember", "  ", ctx);
       expect(ctx.ui.notify).toHaveBeenCalledWith("Usage: /mem0-remember <text>", "warning");
+    });
+  });
+
+  describe("/mem0-scope", () => {
+    it("sends a visible message showing the current scope when no arg is given", async () => {
+      const ctx = makeCtx();
+      await pi._invoke("mem0-scope", "", ctx);
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-scope",
+          content: expect.stringContaining("Current scope:"),
+          display: true,
+        }),
+      );
+    });
+
+    it("sends a visible confirmation after changing scope", async () => {
+      const ctx = makeCtx();
+      await pi._invoke("mem0-scope", "global", ctx);
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-scope",
+          content: expect.stringContaining("Scope changed to global"),
+          display: true,
+        }),
+      );
+    });
+
+    it("warns on an invalid scope", async () => {
+      const ctx = makeCtx();
+      await pi._invoke("mem0-scope", "bogus", ctx);
+      expect(ctx.ui.notify).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid scope "bogus"'),
+        "warning",
+      );
+    });
+  });
+
+  describe("/mem0-tour", () => {
+    it("shows an empty-state message when there are no memories", async () => {
+      const ctx = makeCtx();
+      mem0.getAll.mockResolvedValue({ results: [] });
+
+      await pi._invoke("mem0-tour", "", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-tour",
+          content: expect.stringContaining("No memories"),
+          display: true,
+        }),
+      );
+    });
+
+    it("groups memories by category with a count header", async () => {
+      const ctx = makeCtx();
+      mem0.getAll.mockResolvedValue({
+        results: [
+          { id: "id-1", memory: "likes tea", categories: ["preferences"] },
+          { id: "id-2", memory: "uses vim", categories: ["technical"] },
+        ],
+      });
+
+      await pi._invoke("mem0-tour", "", ctx);
+
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-tour",
+          content: expect.stringContaining("Memory tour"),
+          display: true,
+        }),
+      );
+    });
+  });
+
+  describe("/mem0-dream", () => {
+    it("feeds the protocol to the agent and shows a clean status line", async () => {
+      const ctx = makeCtx();
+
+      await pi._invoke("mem0-dream", "", ctx);
+
+      // Protocol is sent hidden (display:false) but triggers a turn.
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ customType: "mem0-dream", display: false }),
+        expect.objectContaining({ triggerTurn: true }),
+      );
+      // User sees a visible "dreaming" status.
+      expect(pi.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          customType: "mem0-dream",
+          content: expect.stringContaining("Dreaming"),
+          display: true,
+        }),
+      );
     });
   });
 });

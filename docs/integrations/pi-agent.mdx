@@ -59,6 +59,7 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
   "userId": "your-username",
   "autoCapture": true,
   "defaultScope": "project",
+  "searchThreshold": 0.3,
   "dream": {
     "enabled": true,
     "auto": true,
@@ -75,11 +76,16 @@ For advanced settings, create `~/.pi/agent/mem0-config.json`:
 | `userId` | `string` | `$MEM0_USER_ID` or `"default"` | User identity for memory scoping |
 | `autoCapture` | `boolean` | `true` | Store facts from conversations automatically |
 | `defaultScope` | `string` | `"project"` | Default memory scope: `project`, `session`, or `global` |
+| `searchThreshold` | `number` | `0.3` | Minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search`, `/mem0-forget`, and `/mem0-pin`. Raise it to be stricter; lower it if relevant results are missed. |
 | `dream.enabled` | `boolean` | `true` | Enable dream consolidation |
 | `dream.auto` | `boolean` | `true` | Auto-trigger dreams when thresholds are met |
 | `dream.minHours` | `number` | `24` | Minimum hours between auto-dreams |
 | `dream.minSessions` | `number` | `5` | Minimum sessions before first auto-dream |
 | `dream.minMemories` | `number` | `20` | Minimum memories before auto-dream triggers |
+
+<Info>
+  **Search relevance.** `/mem0-search`, `/mem0-forget`, and `/mem0-pin` filter out weak semantic matches below `searchThreshold`. mem0 ranks search results by similarity with no relevance floor, so without this an unrelated query would still return the closest (weak) memories — and `/mem0-forget` would offer them for deletion. If a query you expect to match returns nothing, lower `searchThreshold`; raise it to be stricter.
+</Info>
 
 ## What's Included
 

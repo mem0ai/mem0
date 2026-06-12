@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.2 (2026-06-12)
+
+### Fixed
+
+- **Visible command feedback** — `/mem0-remember`, `/mem0-forget`, `/mem0-pin`, and `/mem0-scope` now render their results as persistent message blocks (`pi.sendMessage({ display: true })`) instead of `ctx.ui.notify(..., "info")`. The Pi TUI draws `"info"` notifications as dim, collapsible status text that overwrites the previous line, so command results were easily missed (felt like "no feedback"). Warnings and errors still use `ctx.ui.notify`, which renders prominently.
+- **Relevance-filtered search** — `/mem0-search`, `/mem0-forget`, and `/mem0-pin` now filter out weak semantic matches below a similarity threshold (`searchThreshold`, default `0.3`; configurable in `mem0-config.json`). The threshold is passed to the search API and re-applied client-side as a hard floor (per mem0's guidance). mem0 ranks results by similarity with no relevance floor, so an unrelated query previously still returned the closest (weak) memories — including in `/mem0-forget`, which then offered those irrelevant memories for deletion. Now an irrelevant query reports no matches. The active threshold is shown in `/mem0-status`.
+
+### Improved
+
+- **Richer feedback across every command** — results now show what actually happened: an action heading plus the relevant scope, query, match count, and affected memories.
+  - `/mem0-remember` echoes the stored text and the scope it landed in, instead of a generic success line.
+  - `/mem0-search` adds an `N matches for "<query>"` header.
+  - `/mem0-forget` and `/mem0-pin` name the query when nothing matches, list the affected memory, and label the disambiguation dialog with the match count.
+  - `/mem0-scope` explains where new memories will be saved.
+- **Cleaner `/mem0-dream`** — the consolidation protocol is now sent to the agent hidden (`display: false`, still included in LLM context) behind a concise "Dreaming…" status line, instead of dumping the raw protocol into the transcript.
+
 ## 0.1.1 (2026-06-10)
 
 Maintenance release — no functional changes.
