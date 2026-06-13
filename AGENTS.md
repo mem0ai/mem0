@@ -33,8 +33,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `docs/` | Documentation site (Mintlify) |
 | `tests/` | Python SDK tests (pytest) |
 | `evaluation/` | Benchmarking framework — LOCOMO evals, experiment runner, score generation |
-| `examples/` | Sample projects — demo apps, Chrome extension, multi-agent patterns |
-| `cookbooks/` | Jupyter notebooks — customer support chatbot, AutoGen integration |
+| `examples/` | Sample projects & runnable demos — apps, Chrome extension, multi-agent patterns, and Jupyter notebooks (`notebooks/`) |
 | `pr-reviews/` | Pull request review materials |
 | `scripts/` | Repo-wide utility scripts (e.g., `check-llms-txt-coverage.py` for docs/llms.txt sync) |
 
