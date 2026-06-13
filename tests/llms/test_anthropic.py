@@ -24,6 +24,33 @@ def test_default_config_omits_top_p(mock_anthropic_client):
     assert config.temperature == 0.1
 
 
+def test_anthropic_llm_uses_config_base_url():
+    """AnthropicLLM should pass AnthropicConfig.anthropic_base_url to the SDK client."""
+    with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
+        config_base_url = "https://api.config.com"
+        config = AnthropicConfig(
+            model="claude-3-5-sonnet-20240620",
+            api_key="test-key",
+            anthropic_base_url=config_base_url,
+        )
+
+        AnthropicLLM(config)
+
+        mock_anthropic.Anthropic.assert_called_once_with(api_key="test-key", base_url=config_base_url)
+
+
+def test_anthropic_llm_uses_env_base_url_when_config_missing():
+    """AnthropicLLM should fall back to ANTHROPIC_BASE_URL when config has no base URL."""
+    with patch("mem0.llms.anthropic.anthropic") as mock_anthropic:
+        provider_base_url = "https://api.provider.com"
+        config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
+
+        with patch.dict("os.environ", {"ANTHROPIC_BASE_URL": provider_base_url}):
+            AnthropicLLM(config)
+
+        mock_anthropic.Anthropic.assert_called_once_with(api_key="test-key", base_url=provider_base_url)
+
+
 def test_generate_response_does_not_send_top_p_by_default(mock_anthropic_client):
     """Anthropic API rejects temperature and top_p together; top_p must be omitted by default."""
     config = AnthropicConfig(model="claude-3-5-sonnet-20240620", api_key="test-key")
