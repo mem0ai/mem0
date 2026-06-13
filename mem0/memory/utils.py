@@ -79,9 +79,24 @@ def parse_messages(messages):
 # of the conversation for retrieval.
 DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET = 24000
 
+# When the retrieval input exceeds the budget we keep BOTH ends of the
+# conversation rather than only the tail. The most-recent turns (the tail)
+# carry the current topic, but the earliest turns often establish the
+# entities/facts that an existing memory was stored against. Preserving a
+# slice of the head keeps those older, semantically-related memories
+# discoverable for dedup/update, instead of silently dropping them.
+# Split is recency-weighted: most of the budget goes to the tail, a smaller
+# portion to the head. Both constants are tunable.
+RETRIEVAL_EMBED_TAIL_RATIO = 0.7
+RETRIEVAL_EMBED_HEAD_RATIO = 1.0 - RETRIEVAL_EMBED_TAIL_RATIO
+# Marker inserted between the preserved head and tail so the embedding
+# (and any logging) makes the gap explicit. It counts against the budget,
+# so the crash-prevention invariant (result <= max_chars) always holds.
+RETRIEVAL_EMBED_TRUNCATION_MARKER = "\n[...older turns omitted...]\n"
+
 
 def cap_text_for_embedding(text, max_chars=DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET):
-    """Cap a long retrieval-embedding input by keeping the tail.
+    """Cap a long retrieval-embedding input while preserving both ends.
 
     During Memory.add(), the full parsed conversation is embedded once to
     search for existing related memories. On long multi-turn conversations
@@ -89,31 +104,60 @@ def cap_text_for_embedding(text, max_chars=DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET):
     tokens for OpenAI text-embedding-* models) and crash the entire add()
     call with HTTP 400, before any memory is extracted or stored.
 
-    To avoid that hard failure while preserving recency-biased recall, we
-    truncate from the front when the input exceeds the safe character
-    budget. The tail (most recent content) is the most relevant signal
-    for retrieving existing memories about what the user just said.
+    Naively keeping only the tail prevents the crash but biases retrieval
+    toward the most-recent turns, so older yet semantically-related
+    memories can be missed -> duplicate memories get created and stale
+    facts never get updated. To address that, when the input exceeds the
+    budget we build a recency-weighted head+tail window: a large slice of
+    the most-recent content (where the current topic lives) PLUS a smaller
+    slice of the earliest content (where entities/facts were first
+    introduced), joined by an explicit truncation marker. This keeps older
+    related memories surfaceable for dedup/update while still bounding the
+    input. A full hierarchical/summarized query is a reasonable larger
+    follow-up but out of scope for this crash fix.
+
+    The crash-prevention guarantee is exact: the returned string is never
+    longer than ``max_chars`` (the marker is charged against the budget).
 
     Args:
         text: The text to potentially truncate.
-        max_chars: Soft character budget. Defaults to a conservative value
+        max_chars: Hard character budget. Defaults to a conservative value
             chosen to stay well under common 8192-token embedding limits.
 
     Returns:
-        The original text if under budget; otherwise the trailing slice.
+        The original text if under budget; otherwise a head+tail window
+        bounded to ``max_chars`` (falling back to a tail-only slice when
+        the budget is too small to fit both ends plus the marker).
     """
     if not isinstance(text, str):
         return text
     if len(text) <= max_chars:
         return text
+
     logger.warning(
         "Embedding input length (%d chars) exceeds retrieval budget (%d chars); "
-        "truncating from the front to avoid embedding-provider token-limit errors. "
-        "Set a smaller-message conversation or pre-summarize for best recall.",
+        "keeping a head+tail window (oldest + most-recent turns) to bound the input "
+        "while preserving older context for memory dedup/update. "
+        "Pre-summarize long conversations for best recall.",
         len(text),
         max_chars,
     )
-    return text[-max_chars:]
+
+    marker = RETRIEVAL_EMBED_TRUNCATION_MARKER
+    # If the budget is too small to fit both ends plus the marker, fall
+    # back to the simplest safe behavior: keep the most-recent tail.
+    if len(marker) >= max_chars:
+        return text[-max_chars:]
+
+    content_budget = max_chars - len(marker)
+    tail_chars = int(content_budget * RETRIEVAL_EMBED_TAIL_RATIO)
+    head_chars = content_budget - tail_chars
+    head = text[:head_chars]
+    tail = text[-tail_chars:] if tail_chars else ""
+    capped = head + marker + tail
+    # Invariant: head_chars + len(marker) + tail_chars == max_chars, so this
+    # is always <= max_chars. Guard defensively regardless.
+    return capped[:max_chars]
 
 
 def format_entities(entities):
