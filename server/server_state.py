@@ -86,10 +86,34 @@ def initialize_state(default_config: Dict[str, Any]) -> None:
 def update_config(updates: Dict[str, Any]) -> Dict[str, Any]:
     global _current_config, _memory_instance
     with _state_lock:
+        overrides = _load_overrides()
+        
+        # Clear old config when switching providers to prevent deep merge conflicts
+        for component in ["vector_store", "llm", "embedder"]:
+            comp_update = updates.get(component)
+            if not isinstance(comp_update, dict):
+                continue
+            new_provider = comp_update.get("provider")
+            
+            current_comp = _current_config.get(component)
+            if not isinstance(current_comp, dict):
+                continue
+            current_provider = current_comp.get("provider")
+            
+            if new_provider and current_provider and new_provider != current_provider:
+                if "config" in _current_config[component]:
+                    _current_config[component]["config"] = {}
+                if (
+                    component in overrides
+                    and isinstance(overrides[component], dict)
+                    and "config" in overrides[component]
+                ):
+                    overrides[component]["config"] = {}
+
         next_config = _merge_config(_current_config, updates)
         _current_config = next_config
         _memory_instance = Memory.from_config(next_config)
-        overrides = _load_overrides()
+        
         overrides = _merge_config(overrides, updates)
         _save_overrides(overrides)
         return deepcopy(_current_config)

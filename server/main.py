@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import time
@@ -115,18 +116,32 @@ HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
 
+VECTOR_STORE_PROVIDER = os.environ.get("VECTOR_STORE_PROVIDER", "pgvector")
+VECTOR_STORE_CONFIG = os.environ.get("VECTOR_STORE_CONFIG")
+
+vector_store_config = {
+    "collection_name": POSTGRES_COLLECTION_NAME,
+}
+
+if VECTOR_STORE_CONFIG:
+    try:
+        vector_store_config.update(json.loads(VECTOR_STORE_CONFIG))
+    except Exception as e:
+        logging.error(f"Failed to parse VECTOR_STORE_CONFIG: {e}")
+elif VECTOR_STORE_PROVIDER == "pgvector":
+    vector_store_config.update({
+        "host": POSTGRES_HOST,
+        "port": int(POSTGRES_PORT),
+        "dbname": POSTGRES_DB,
+        "user": POSTGRES_USER,
+        "password": POSTGRES_PASSWORD,
+    })
+
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
-        "provider": "pgvector",
-        "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
+        "provider": VECTOR_STORE_PROVIDER,
+        "config": vector_store_config,
     },
     "llm": {
         "provider": "openai",
@@ -388,7 +403,7 @@ def _serialize_memory(row: Any) -> Dict[str, Any]:
 
 def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
     results = get_memory_instance().vector_store.list(top_k=limit)
-    rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
+    rows = results[0] if results and isinstance(results, (list, tuple)) and isinstance(results[0], (list, tuple)) else results or []
     return {"results": [_serialize_memory(row) for row in rows]}
 
 
