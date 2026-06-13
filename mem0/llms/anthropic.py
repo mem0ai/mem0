@@ -106,7 +106,20 @@ class AnthropicLLM(LLMBase):
 
         if tools:  # TODO: Remove tools if no issues found with new memory addition logic
             params["tools"] = tools
-            params["tool_choice"] = tool_choice
+            params["tool_choice"] = {"type": tool_choice}
 
         response = self.client.messages.create(**params)
+        return self._parse_response(response, tools)
+
+    def _parse_response(self, response, tools):
+        if tools:
+            result = {"content": None, "tool_calls": []}
+            for block in response.content:
+                if block.type == "text":
+                    result["content"] = block.text
+                elif block.type == "tool_use":
+                    result["tool_calls"].append(
+                        {"name": block.name, "arguments": block.input}
+                    )
+            return result
         return response.content[0].text
