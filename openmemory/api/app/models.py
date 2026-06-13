@@ -1,5 +1,6 @@
 import datetime
 import enum
+import os
 import uuid
 
 import sqlalchemy as sa
@@ -227,9 +228,17 @@ def categorize_memory(memory: Memory, db: Session) -> None:
         print(f"Error categorizing memory: {e}")
 
 
+# Categorization makes one LLM call per memory write. It can be disabled (e.g.
+# for bulk migrations that would exhaust the LLM provider's daily request quota)
+# via OPENMEMORY_DISABLE_CATEGORIZATION=true. Defaults to enabled.
+_CATEGORIZATION_DISABLED = os.environ.get("OPENMEMORY_DISABLE_CATEGORIZATION", "false").lower() == "true"
+
+
 @event.listens_for(Memory, 'after_insert')
 def after_memory_insert(mapper, connection, target):
     """Trigger categorization after a memory is inserted."""
+    if _CATEGORIZATION_DISABLED:
+        return
     db = Session(bind=connection)
     categorize_memory(target, db)
     db.close()
@@ -238,6 +247,8 @@ def after_memory_insert(mapper, connection, target):
 @event.listens_for(Memory, 'after_update')
 def after_memory_update(mapper, connection, target):
     """Trigger categorization after a memory is updated."""
+    if _CATEGORIZATION_DISABLED:
+        return
     db = Session(bind=connection)
     categorize_memory(target, db)
     db.close()
