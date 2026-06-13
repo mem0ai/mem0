@@ -198,7 +198,8 @@ class ChromaDB(VectorStoreBase):
             OutputData: Retrieved vector.
         """
         result = self.collection.get(ids=[vector_id])
-        return self._parse_output(result)[0]
+        parsed = self._parse_output(result)
+        return parsed[0] if parsed else None
 
     def list_cols(self) -> List[chromadb.Collection]:
         """
