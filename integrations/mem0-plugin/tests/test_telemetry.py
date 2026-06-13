@@ -89,7 +89,7 @@ def test_system_props_override_caller_props(monkeypatch):
     # System props must win
     assert props["source"] == "plugin"
     assert props["platform"] == telemetry.detect_platform()
-    assert props["plugin_version"] == telemetry.PLUGIN_VERSION
+    assert props["plugin_version"] == telemetry._load_plugin_version(telemetry.detect_platform())
     # Caller-only props still present
     assert props["memory_count"] == 42
 
@@ -176,6 +176,27 @@ def test_platform_antigravity(monkeypatch):
     monkeypatch.setenv("ANTIGRAVITY_PLUGIN_ROOT", "/ext")
     monkeypatch.setenv("CLAUDE_PLUGIN_ROOT", "/ext")  # antigravity sets both
     assert telemetry.detect_platform() == "antigravity"
+
+
+def test_plugin_version_is_per_editor(monkeypatch):
+    """Each editor reports the version from its OWN manifest. Antigravity is on
+    a 0.1.x line while Claude/Cursor/Codex are on 0.2.x, so they must not all
+    report the same shared version."""
+    import telemetry
+
+    plugin_dir = os.path.join(os.path.dirname(__file__), "..")
+    manifests = {
+        "antigravity": "plugin.json",
+        "claude-code": os.path.join(".claude-plugin", "plugin.json"),
+        "cursor": os.path.join(".cursor-plugin", "plugin.json"),
+        "codex": os.path.join(".codex-plugin", "plugin.json"),
+    }
+    for plat, rel in manifests.items():
+        monkeypatch.setenv("MEM0_PLATFORM", plat)
+        with open(os.path.join(plugin_dir, rel)) as f:
+            expected = json.load(f)["version"]
+        payload = telemetry.build_posthog_payload("plugin.test")
+        assert payload["properties"]["plugin_version"] == expected, f"{plat} should report {expected} from {rel}"
 
 
 def test_send_fails_silently(monkeypatch):

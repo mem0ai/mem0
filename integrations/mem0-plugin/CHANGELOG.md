@@ -9,6 +9,7 @@ All notable changes to the Mem0 plugin will be documented in this file.
 - **Antigravity counted as Claude Code:** `detect_platform()` (`scripts/telemetry.py`) now checks `ANTIGRAVITY_PLUGIN_ROOT` before the `CLAUDE_PLUGIN_ROOT` branch. Antigravity sets both env vars for compatibility, so every Antigravity session was previously attributed to `claude-code`. Telemetry now reports `platform: "antigravity"`.
 - **Codex fell back to the generic `plugin` bucket:** Codex installs standalone hooks with absolute paths via `install_codex_hooks.py`, so `PLUGIN_ROOT` is never set at runtime and platform auto-detection failed. Each command in `hooks/codex-hooks.json` now pins `MEM0_PLATFORM=codex` inline (Codex runs hook commands through a shell). Telemetry now reports `platform: "codex"`.
 - **Cursor attribution depended on the host env:** Cursor's `*_cursor.sh` wrappers delegate to the shared hook scripts, whose platform detection relied on Cursor exporting `CURSOR_PLUGIN_ROOT` to the subprocess. All five Cursor wrappers now `export MEM0_PLATFORM=cursor` before delegating.
+- **`plugin_version` was identical for every editor:** telemetry read `.claude-plugin/plugin.json` for all bash-hook editors, so Antigravity reported `0.2.10` instead of its real `0.1.2`. `_load_plugin_version()` now reads the manifest matching the detected platform, so each editor reports its own version.
 
 ### Added
 
