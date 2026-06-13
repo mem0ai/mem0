@@ -187,3 +187,47 @@ def test_parse_response_empty_parts_with_tools(mock_gemini_client: Mock):
 
     result = llm._parse_response(mock_response, tools=[{"function": {"name": "test"}}])
     assert result == {"content": None, "tool_calls": []}
+
+
+def test_none_config_values_omitted_from_generation_config(mock_gemini_client: Mock):
+    """When temperature/max_tokens/top_p are None (defaults), they must not
+    appear in the GenerateContentConfig to avoid Gemini API validation errors."""
+    config = BaseLlmConfig(model="gemini-2.0-flash")
+    llm = GeminiLLM(config)
+    llm.config.temperature = None
+    llm.config.max_tokens = None
+    llm.config.top_p = None
+
+    mock_part = Mock(text="ok")
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+    mock_gemini_client.models.generate_content.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "hi"}])
+
+    call_args = mock_gemini_client.models.generate_content.call_args
+    config_arg = call_args.kwargs["config"]
+    assert config_arg.temperature is None
+    assert config_arg.max_output_tokens is None
+    assert config_arg.top_p is None
+
+
+def test_explicit_config_values_passed_to_generation_config(mock_gemini_client: Mock):
+    """When temperature/max_tokens/top_p are explicitly set, they must appear."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.5, max_tokens=200, top_p=0.9)
+    llm = GeminiLLM(config)
+
+    mock_part = Mock(text="ok")
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_response = Mock(candidates=[mock_candidate])
+    mock_gemini_client.models.generate_content.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "hi"}])
+
+    call_args = mock_gemini_client.models.generate_content.call_args
+    config_arg = call_args.kwargs["config"]
+    assert config_arg.temperature == 0.5
+    assert config_arg.max_output_tokens == 200
+    assert config_arg.top_p == 0.9
