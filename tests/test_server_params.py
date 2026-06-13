@@ -701,3 +701,88 @@ class TestSearchValidationErrors:
         )
         resp = client.post("/search", json={"query": "food"})
         assert resp.status_code == 400
+
+
+# ===========================================================================
+# MemoryCreate.Message.content: multimodal content (image_url) — issue #5068
+# ===========================================================================
+
+class TestMultimodalContent:
+    """Verify the /memories endpoint accepts multimodal content (e.g. image_url
+    dicts and lists of parts), matching the format supported by Memory.add()
+    via parse_vision_messages(). Previously the Pydantic schema only allowed
+    `str`, which rejected the OpenAI-style multimodal payload with 422 before
+    Memory.add() was ever invoked. Regression guard for issue #5068.
+    """
+
+    def test_image_url_dict_content_accepted(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "image_url",
+                        "image_url": {"url": "https://example.com/receipt.jpg"},
+                    },
+                }
+            ],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 200, resp.text
+        _, kwargs = mock_memory.add.call_args
+        sent_messages = kwargs.get("messages") if "messages" in kwargs else mock_memory.add.call_args[0][0]
+        assert isinstance(sent_messages[0]["content"], dict)
+        assert sent_messages[0]["content"]["type"] == "image_url"
+
+    def test_list_of_parts_content_accepted(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "What is in this image?"},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": "https://example.com/a.jpg"},
+                        },
+                    ],
+                }
+            ],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 200, resp.text
+        _, kwargs = mock_memory.add.call_args
+        sent_messages = kwargs.get("messages") if "messages" in kwargs else mock_memory.add.call_args[0][0]
+        assert isinstance(sent_messages[0]["content"], list)
+        assert len(sent_messages[0]["content"]) == 2
+
+    def test_plain_string_content_still_accepted(self, client, mock_memory):
+        """Backward compatibility: plain string content must still work."""
+        resp = client.post("/memories", json={
+            "messages": [{"role": "user", "content": "I like pizza"}],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 200, resp.text
+        _, kwargs = mock_memory.add.call_args
+        sent_messages = kwargs.get("messages") if "messages" in kwargs else mock_memory.add.call_args[0][0]
+        assert sent_messages[0]["content"] == "I like pizza"
+
+    def test_mixed_text_and_image_messages_accepted(self, client, mock_memory):
+        resp = client.post("/memories", json={
+            "messages": [
+                {"role": "user", "content": "Here is the receipt"},
+                {
+                    "role": "user",
+                    "content": {
+                        "type": "image_url",
+                        "image_url": {"url": "https://example.com/r.jpg"},
+                    },
+                },
+            ],
+            "user_id": "alice",
+        })
+        assert resp.status_code == 200, resp.text
+        _, kwargs = mock_memory.add.call_args
+        sent_messages = kwargs.get("messages") if "messages" in kwargs else mock_memory.add.call_args[0][0]
+        assert sent_messages[0]["content"] == "Here is the receipt"
+        assert isinstance(sent_messages[1]["content"], dict)
