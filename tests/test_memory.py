@@ -762,6 +762,55 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
     datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
 
 
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """async delete_all must not abort when a single memory fails to delete.
+
+    Without return_exceptions=True, asyncio.gather raises on the first error
+    and cancels remaining tasks, leaving a partial deletion.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    mem1 = MagicMock()
+    mem1.id = "mem-1"
+    mem1.payload = {"data": "one", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+    mem2 = MagicMock()
+    mem2.id = "mem-2"
+    mem2.payload = {"data": "two", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+    mem3 = MagicMock()
+    mem3.id = "mem-3"
+    mem3.payload = {"data": "three", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+
+    mock_vector_store.list.return_value = ([mem1, mem2, mem3],)
+
+    def _get_side_effect(vector_id):
+        if vector_id == "mem-2":
+            raise RuntimeError("simulated store failure")
+        return {
+            "mem-1": mem1,
+            "mem-3": mem3,
+        }.get(vector_id)
+
+    mock_vector_store.get.side_effect = _get_side_effect
+
+    result = await memory.delete_all(user_id="test-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert mock_vector_store.delete.call_count == 2
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
