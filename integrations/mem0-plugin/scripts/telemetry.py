@@ -35,6 +35,7 @@ def _load_plugin_version() -> str:
     except (OSError, json.JSONDecodeError, KeyError):
         return "unknown"
 
+
 PLUGIN_VERSION = _load_plugin_version()
 
 POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
@@ -58,6 +59,11 @@ def _distinct_id() -> str:
 
 
 def detect_platform() -> str:
+    explicit = os.environ.get("MEM0_PLATFORM")
+    if explicit:
+        return explicit
+    if os.environ.get("ANTIGRAVITY_PLUGIN_ROOT"):
+        return "antigravity"
     if os.environ.get("PLUGIN_ROOT"):
         return "codex"
     if os.environ.get("CLAUDECODE") or os.environ.get("CLAUDE_PLUGIN_ROOT"):

@@ -2,6 +2,20 @@
 
 All notable changes to the Mem0 plugin will be documented in this file.
 
+## 0.2.10 — Accurate per-editor telemetry attribution
+
+### Fixed
+
+- **Antigravity counted as Claude Code:** `detect_platform()` (`scripts/telemetry.py`) now checks `ANTIGRAVITY_PLUGIN_ROOT` before the `CLAUDE_PLUGIN_ROOT` branch. Antigravity sets both env vars for compatibility, so every Antigravity session was previously attributed to `claude-code`. Telemetry now reports `platform: "antigravity"`.
+- **Codex fell back to the generic `plugin` bucket:** Codex installs standalone hooks with absolute paths via `install_codex_hooks.py`, so `PLUGIN_ROOT` is never set at runtime and platform auto-detection failed. Each command in `hooks/codex-hooks.json` now pins `MEM0_PLATFORM=codex` inline (Codex runs hook commands through a shell). Telemetry now reports `platform: "codex"`.
+- **Cursor attribution depended on the host env:** Cursor's `*_cursor.sh` wrappers delegate to the shared hook scripts, whose platform detection relied on Cursor exporting `CURSOR_PLUGIN_ROOT` to the subprocess. All five Cursor wrappers now `export MEM0_PLATFORM=cursor` before delegating.
+
+### Added
+
+- **`MEM0_PLATFORM` override in `detect_platform()`:** An explicit platform marker that wins over env-var auto-detection, letting each editor label its telemetry reliably. New tests in `tests/test_telemetry.py` cover the override, Antigravity attribution, and the Cursor/Codex platform-pinning contracts.
+
+> Attribution fixes apply to telemetry emitted after users upgrade to this version; PostHog does not backfill past events.
+
 ## 0.2.9 — File-context injection, session summaries & activity timeline
 
 ### Added

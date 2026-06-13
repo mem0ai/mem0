@@ -8,6 +8,9 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Pin platform so the shared script's telemetry is attributed to cursor.
+export MEM0_PLATFORM=cursor
+
 # Run the shared tracker (output is ignored)
 "$SCRIPT_DIR/on_post_tool_use.sh" 2>/dev/null || true
 
