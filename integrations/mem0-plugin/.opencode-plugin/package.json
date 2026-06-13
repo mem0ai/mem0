@@ -1,6 +1,6 @@
 {
   "name": "@mem0/opencode-plugin",
-  "version": "0.1.4",
+  "version": "0.1.3",
   "type": "module",
   "description": "Mem0 persistent memory plugin for OpenCode — add, search, and manage memories across sessions",
   "main": "dist/index.js",
@@ -59,7 +59,7 @@
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.0.162",
-    "mem0ai": "^3.0.5"
+    "mem0ai": "^3.0.7"
   },
   "devDependencies": {
     "bun-types": ">=1.3.14",
