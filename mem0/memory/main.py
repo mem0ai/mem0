@@ -1803,10 +1803,8 @@ class Memory(MemoryBase):
         """
         logger.warning("Resetting all memories")
 
-        if hasattr(self.db, "connection") and self.db.connection:
-            self.db.connection.execute("DROP TABLE IF EXISTS history")
-            self.db.connection.close()
-
+        self.db.reset()
+        self.db.close()
         self.db = SQLiteManager(self.config.history_db_path)
 
         if hasattr(self.vector_store, "reset"):
@@ -3275,10 +3273,8 @@ class AsyncMemory(MemoryBase):
         if hasattr(self.vector_store, "client") and hasattr(self.vector_store.client, "close"):
             await asyncio.to_thread(self.vector_store.client.close)
 
-        if hasattr(self.db, "connection") and self.db.connection:
-            await asyncio.to_thread(lambda: self.db.connection.execute("DROP TABLE IF EXISTS history"))
-            await asyncio.to_thread(self.db.connection.close)
-
+        await asyncio.to_thread(self.db.reset)
+        await asyncio.to_thread(self.db.close)
         self.db = SQLiteManager(self.config.history_db_path)
 
         self.vector_store = VectorStoreFactory.create(
