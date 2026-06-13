@@ -32,7 +32,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `skills/` | Claude Code skill definitions. Reference skills (SDK knowledge, always-on): `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/`. Pipeline skills (run on demand): `mem0-integrate/`, `mem0-test-integration/`, `mem0-oss-to-platform/` |
 | `docs/` | Documentation site (Mintlify) |
 | `tests/` | Python SDK tests (pytest) |
-| `evaluation/` | Symlink → [`mem0ai/memory-benchmarks`](https://github.com/mem0ai/memory-benchmarks) — benchmarking (LOCOMO, LongMemEval, BEAM) lives in that repo |
+| `evaluation/` | Submodule → [`mem0ai/memory-benchmarks`](https://github.com/mem0ai/memory-benchmarks) — benchmarking (LOCOMO, LongMemEval, BEAM) lives in that repo |
 | `examples/` | Sample projects & runnable demos — apps, Chrome extension, multi-agent patterns, and Jupyter notebooks (`notebooks/`) |
 | `pr-reviews/` | Pull request review materials |
 | `scripts/` | Repo-wide utility scripts (e.g., `check-llms-txt-coverage.py` for docs/llms.txt sync) |
@@ -248,7 +248,7 @@ make docs                          # or: cd docs && mintlify dev
 
 ### Evaluation / Benchmarking
 
-Benchmarking lives in the external [`mem0ai/memory-benchmarks`](https://github.com/mem0ai/memory-benchmarks) repo (LOCOMO + LongMemEval + BEAM). The in-repo `evaluation/` path is a symlink to a sibling checkout of that repo. The original arXiv/LOCOMO paper code — including the Zep/LangMem/OpenAI/RAG/full-context baselines — is kept as a frozen snapshot under `memory-benchmarks/legacy/`.
+Benchmarking lives in the external [`mem0ai/memory-benchmarks`](https://github.com/mem0ai/memory-benchmarks) repo (LOCOMO + LongMemEval + BEAM). The in-repo `evaluation/` path is a **git submodule** pinned to that repo's `main` — populate it with `git submodule update --init evaluation` (or clone mem0 with `--recurse-submodules`), or clone the benchmarks repo standalone:
 
 ```bash
 git clone https://github.com/mem0ai/memory-benchmarks.git
