@@ -239,6 +239,14 @@ def get_default_memory_config():
             "host": os.environ.get('CHROMA_HOST'),
             "port": int(os.environ.get('CHROMA_PORT'))
         })
+    elif os.environ.get('QDRANT_URL'):
+        # Qdrant Cloud (or any TLS endpoint): full HTTPS URL + API key.
+        vector_store_provider = "qdrant"
+        vector_store_config = {
+            "collection_name": "openmemory",
+            "url": os.environ.get('QDRANT_URL'),
+            "api_key": os.environ.get('QDRANT_API_KEY'),
+        }
     elif os.environ.get('QDRANT_HOST') and os.environ.get('QDRANT_PORT'):
         vector_store_provider = "qdrant"
         vector_store_config.update({
