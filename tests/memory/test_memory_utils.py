@@ -110,3 +110,100 @@ class TestRemoveSpacesFromEntities:
         f = remove_spaces_from_entities([dict(base)], sanitize_relationship=False)[0]["relationship"]
         assert t == sanitize_relationship_for_cypher("a/b")
         assert f == "a/b"
+
+
+class TestCapTextForEmbedding:
+    """Regression coverage for issue #5148 — protect existing-memory retrieval
+    from embedding-provider token-limit crashes on long conversations.
+
+    The helper bounds the retrieval-embedding input to a safe char budget so
+    embed() never receives more than the provider's token limit. To avoid
+    biasing retrieval toward only the newest turns (which would miss older
+    semantically-related memories — see PR #5281 review), it keeps BOTH a
+    slice of the head (oldest turns, where entities/facts were introduced)
+    and the tail (most-recent turns) within the budget.
+    """
+
+    def test_short_text_passes_through(self):
+        from mem0.memory.utils import cap_text_for_embedding
+
+        text = "hello world"
+        assert cap_text_for_embedding(text) == text
+
+    def test_long_text_is_truncated_to_budget(self):
+        """Crash-prevention invariant: result length never exceeds budget."""
+        from mem0.memory.utils import cap_text_for_embedding
+
+        max_chars = 100
+        long_text = "x" * (max_chars * 3)
+        out = cap_text_for_embedding(long_text, max_chars=max_chars)
+        assert len(out) <= max_chars
+
+    def test_long_text_preserves_both_head_and_tail(self):
+        """The fix for PR #5281's review: capping must keep BOTH the oldest
+        and the most-recent content so older related memories still surface
+        for dedup/update — not just the tail."""
+        from mem0.memory.utils import cap_text_for_embedding
+
+        head_marker = "HEAD-OLDEST-CONTENT-MARKER"
+        tail_marker = "TAIL-RECENT-CONTENT-MARKER"
+        # Long filler between the two distinctive sentinels.
+        long_text = head_marker + ("x" * 5000) + tail_marker
+        out = cap_text_for_embedding(long_text, max_chars=2000)
+
+        # Crash-prevention invariant still holds.
+        assert len(out) <= 2000
+        # BOTH ends survive — older context is preserved for retrieval.
+        assert head_marker in out, "oldest content must survive for older-memory recall"
+        assert tail_marker in out, "most-recent content must survive for recency"
+        # The newest content sits at the end of the embedding input.
+        assert out.endswith(tail_marker)
+
+    def test_recency_weighting_tail_gets_more_budget(self):
+        """Tail (recency) should receive the larger share of the budget."""
+        from mem0.memory.utils import (
+            RETRIEVAL_EMBED_TAIL_RATIO,
+            RETRIEVAL_EMBED_TRUNCATION_MARKER,
+            cap_text_for_embedding,
+        )
+
+        max_chars = 1000
+        long_text = "a" * 10000
+        out = cap_text_for_embedding(long_text, max_chars=max_chars)
+        assert len(out) <= max_chars
+        # Marker is present, charged against the budget.
+        assert RETRIEVAL_EMBED_TRUNCATION_MARKER in out
+        head, _, tail = out.partition(RETRIEVAL_EMBED_TRUNCATION_MARKER)
+        # Tail share should exceed head share (recency-weighted).
+        assert len(tail) > len(head)
+        assert RETRIEVAL_EMBED_TAIL_RATIO > 0.5
+
+    def test_tiny_budget_falls_back_to_tail(self):
+        """If the budget is smaller than the marker, fall back to a safe
+        tail-only slice; invariant still holds."""
+        from mem0.memory.utils import (
+            RETRIEVAL_EMBED_TRUNCATION_MARKER,
+            cap_text_for_embedding,
+        )
+
+        tiny = len(RETRIEVAL_EMBED_TRUNCATION_MARKER) - 1
+        long_text = "abcdefghij" * 100
+        out = cap_text_for_embedding(long_text, max_chars=tiny)
+        assert len(out) <= tiny
+        assert out == long_text[-tiny:]
+
+    def test_default_budget_under_8192_token_limit(self):
+        """The default budget must stay safely under common 8192-token
+        embedding limits even with worst-case ~3 chars/token packing."""
+        from mem0.memory.utils import DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET
+
+        # Worst-case token estimate (3 chars/token); must stay under 8192.
+        worst_case_tokens = DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET / 3
+        assert worst_case_tokens < 8192
+
+    def test_non_string_input_returned_unchanged(self):
+        """Defensive: callers may accidentally pass non-string input."""
+        from mem0.memory.utils import cap_text_for_embedding
+
+        assert cap_text_for_embedding(None) is None
+        assert cap_text_for_embedding(12345) == 12345
