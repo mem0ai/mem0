@@ -157,12 +157,15 @@ class GeminiLLM(LLMBase):
         # Extract system instruction and reformat messages
         system_instruction, contents = self._reformat_messages(messages)
 
-        # Prepare generation config
-        config_params = {
-            "temperature": self.config.temperature,
-            "max_output_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
-        }
+        # Prepare generation config — only include non-None values so the
+        # Gemini SDK uses its own defaults instead of rejecting None.
+        config_params = {}
+        if self.config.temperature is not None:
+            config_params["temperature"] = self.config.temperature
+        if self.config.max_tokens is not None:
+            config_params["max_output_tokens"] = self.config.max_tokens
+        if self.config.top_p is not None:
+            config_params["top_p"] = self.config.top_p
 
         # Add system instruction to config if present
         if system_instruction:
