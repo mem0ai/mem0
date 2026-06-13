@@ -22,8 +22,9 @@ Invoked as a slash command to execute a specific end-to-end workflow. These do r
 |-------|---------|---------|
 | [`mem0-integrate`](./mem0-integrate/) | `/mem0-integrate` — wire Mem0 into an existing repo via TDD | `npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate` |
 | [`mem0-test-integration`](./mem0-test-integration/) | `/mem0-test-integration` — verify what `/mem0-integrate` produced | `npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration` |
+| [`mem0-oss-to-platform`](./mem0-oss-to-platform/) | `/mem0-oss-to-platform` — migrate a project from Mem0 OSS to the hosted Platform SDK | `npx skills add https://github.com/mem0ai/mem0 --skill mem0-oss-to-platform` |
 
-The two pipeline skills are designed to run in sequence on the same workspace:
+The `mem0-integrate` and `mem0-test-integration` skills are designed to run in sequence on the same workspace:
 
 ```
 /mem0-integrate          →  mem0-integrate/<slug> branch + .mem0-integration/ artifacts
@@ -36,6 +37,7 @@ The two pipeline skills are designed to run in sequence on the same workspace:
 - **Using the terminal CLI?** → `mem0-cli`
 - **Building with `@ai-sdk/*`?** → `mem0-vercel-ai-sdk`
 - **Want the assistant to wire Mem0 into an existing repo for you?** → `mem0-integrate`, then `mem0-test-integration`
+- **Already using Mem0 OSS and want to move to the hosted Platform?** → `mem0-oss-to-platform`
 
 ## Links
 

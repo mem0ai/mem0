@@ -179,11 +179,20 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
 
         # Handle message content
         if isinstance(msg["content"], list):
-            # Multiple image URLs in content
-            description = get_image_description(msg, llm, vision_details)
-            returned_messages.append({"role": msg["role"], "content": description})
+            if llm is None:
+                text_parts = [
+                    part["text"] for part in msg["content"]
+                    if isinstance(part, dict) and part.get("type") == "text"
+                ]
+                if not text_parts:
+                    continue
+                returned_messages.append({"role": msg["role"], "content": " ".join(text_parts)})
+            else:
+                description = get_image_description(msg, llm, vision_details)
+                returned_messages.append({"role": msg["role"], "content": description})
         elif isinstance(msg["content"], dict) and msg["content"].get("type") == "image_url":
-            # Single image content
+            if llm is None:
+                continue
             image_url = msg["content"]["image_url"]["url"]
             try:
                 description = get_image_description(image_url, llm, vision_details)

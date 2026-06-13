@@ -1,5 +1,60 @@
 import pytest
-from mem0.memory.utils import remove_spaces_from_entities, sanitize_relationship_for_cypher
+from unittest.mock import Mock
+
+from mem0.memory.utils import parse_vision_messages, remove_spaces_from_entities, sanitize_relationship_for_cypher
+
+
+class TestParseVisionMessages:
+    def test_multimodal_list_without_llm_extracts_text(self):
+        messages = [
+            {"role": "user", "content": [
+                {"type": "text", "text": "What is this?"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}},
+            ]},
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert len(result) == 1
+        assert result[0]["role"] == "user"
+        assert result[0]["content"] == "What is this?"
+
+    def test_image_dict_without_llm_is_skipped(self):
+        messages = [
+            {"role": "user", "content": {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}}},
+            {"role": "user", "content": "hello"},
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert len(result) == 1
+        assert result[0]["content"] == "hello"
+
+    def test_multimodal_with_llm_calls_generate_response(self):
+        mock_llm = Mock()
+        mock_llm.generate_response.return_value = "A photo of a cat"
+        messages = [
+            {"role": "user", "content": [
+                {"type": "text", "text": "Describe this"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/cat.png"}},
+            ]},
+        ]
+        result = parse_vision_messages(messages, llm=mock_llm, vision_details="auto")
+        assert result[0]["content"] == "A photo of a cat"
+        mock_llm.generate_response.assert_called_once()
+
+    def test_image_only_list_without_llm_is_skipped(self):
+        messages = [
+            {"role": "user", "content": [
+                {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}},
+            ]},
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert result == []
+
+    def test_plain_text_messages_pass_through(self):
+        messages = [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Hello"},
+        ]
+        result = parse_vision_messages(messages, llm=None)
+        assert result == messages
 
 
 class TestRemoveSpacesFromEntities:

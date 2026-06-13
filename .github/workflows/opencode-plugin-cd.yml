@@ -25,7 +25,7 @@ jobs:
       id-token: write
     defaults:
       run:
-        working-directory: mem0-plugin/.opencode-plugin
+        working-directory: integrations/mem0-plugin/.opencode-plugin
     steps:
       - uses: actions/checkout@v4
         with:

@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -35,10 +36,21 @@ def _load_config():
 def _write_config(config):
     """Best-effort write of ~/.mem0/config.json. Never raises."""
     path = _config_path()
+    temp_path = None
     try:
-        with open(path, "w") as f:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with tempfile.NamedTemporaryFile("w", dir=os.path.dirname(path), delete=False) as f:
+            temp_path = f.name
             json.dump(config, f, indent=4)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, path)
     except Exception as e:
+        if temp_path:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
         _logger.debug("Failed to write mem0 config %s: %s", path, e)
 
 

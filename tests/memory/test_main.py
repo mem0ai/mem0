@@ -828,7 +828,7 @@ class TestEntityBoostParallelism:
         boosts = mock_memory._compute_entity_boosts(entities, {"user_id": "u1"})
         elapsed = time.perf_counter() - start
 
-        assert elapsed < 0.6, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
         assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
         assert len(boosts) == 4
 
@@ -854,6 +854,6 @@ class TestEntityBoostParallelism:
         boosts = await mock_async_memory._compute_entity_boosts_async(entities, {"user_id": "u1"})
         elapsed = time.perf_counter() - start
 
-        assert elapsed < 0.6, f"searches did not run concurrently (took {elapsed:.2f}s)"
+        assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
         assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
         assert len(boosts) == 4

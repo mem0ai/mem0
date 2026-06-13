@@ -13,10 +13,12 @@ let version =
 // Safely check for process.env in different environments
 let MEM0_TELEMETRY = true;
 try {
-  MEM0_TELEMETRY = process?.env?.MEM0_TELEMETRY === "false" ? false : true;
+  MEM0_TELEMETRY =
+    process?.env?.MEM0_TELEMETRY?.toLowerCase() === "false" ? false : true;
 } catch (error) {}
 const POSTHOG_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX";
 const POSTHOG_HOST = "https://us.i.posthog.com/i/v0/e/";
+const NOTICE_EVENT_NAME = "mem0.notice_displayed";
 
 // Default sampling rate for hot-path OSS events. Lifecycle events always fire at 100%.
 // Override via MEM0_TELEMETRY_SAMPLE_RATE env var. Mirrors mem0/memory/telemetry.py.
@@ -35,7 +37,11 @@ const MEM0_TELEMETRY_SAMPLE_RATE: number = ((): number => {
 })();
 
 // Events that bypass sampling. Keep in sync with _captureEvent call sites in memory/index.ts.
-const LIFECYCLE_EVENTS: ReadonlySet<string> = new Set(["init", "reset"]);
+const ALWAYS_SEND_EVENTS: ReadonlySet<string> = new Set([
+  "init",
+  "reset",
+  "notice_displayed",
+]);
 
 class UnifiedTelemetry implements TelemetryClient {
   private apiKey: string;
@@ -91,6 +97,10 @@ class UnifiedTelemetry implements TelemetryClient {
 
 const telemetry = new UnifiedTelemetry(POSTHOG_API_KEY, POSTHOG_HOST);
 
+function isTelemetryEnabled(): boolean {
+  return MEM0_TELEMETRY;
+}
+
 async function captureClientEvent(
   eventName: string,
   instance: TelemetryInstance,
@@ -102,8 +112,8 @@ async function captureClientEvent(
   }
 
   // >= so that rate=0 drops everything and rate=1 keeps everything (Math.random() ∈ [0, 1)).
-  const isLifecycle = LIFECYCLE_EVENTS.has(eventName);
-  if (!isLifecycle && Math.random() >= MEM0_TELEMETRY_SAMPLE_RATE) {
+  const alwaysSend = ALWAYS_SEND_EVENTS.has(eventName);
+  if (!alwaysSend && Math.random() >= MEM0_TELEMETRY_SAMPLE_RATE) {
     return;
   }
 
@@ -116,7 +126,7 @@ async function captureClientEvent(
     client_source: "nodejs",
     ...additionalData,
     // sample_rate set AFTER the spread so callers can never override it
-    sample_rate: isLifecycle ? 1.0 : MEM0_TELEMETRY_SAMPLE_RATE,
+    sample_rate: alwaysSend ? 1.0 : MEM0_TELEMETRY_SAMPLE_RATE,
   };
 
   await telemetry.captureEvent(
@@ -126,8 +136,36 @@ async function captureClientEvent(
   );
 }
 
-function isTelemetryEnabled(): boolean {
-  return MEM0_TELEMETRY;
+async function captureNoticeEvent(
+  instance: TelemetryInstance,
+  properties: Record<string, any> = {},
+) {
+  if (!instance.telemetryId) return;
+
+  const eventData: TelemetryEventData = {
+    function: `${instance.constructor.name}`,
+    method: "notice_displayed",
+    api_host: instance.host,
+    timestamp: new Date().toISOString(),
+    client_version: version,
+    client_source: "nodejs",
+    ...properties,
+    sample_rate: 1.0,
+  };
+
+  await telemetry.captureEvent(
+    instance.telemetryId,
+    NOTICE_EVENT_NAME,
+    eventData,
+  );
 }
 
-export { telemetry, captureClientEvent, isTelemetryEnabled };
+export {
+  POSTHOG_API_KEY,
+  POSTHOG_HOST,
+  NOTICE_EVENT_NAME,
+  telemetry,
+  captureClientEvent,
+  captureNoticeEvent,
+  isTelemetryEnabled,
+};

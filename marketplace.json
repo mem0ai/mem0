@@ -8,7 +8,7 @@
       "name": "mem0",
       "source": {
         "source": "local",
-        "path": "./mem0-plugin"
+        "path": "./integrations/mem0-plugin"
       },
       "policy": {
         "installation": "AVAILABLE",
