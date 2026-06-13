@@ -14,17 +14,15 @@ if not DATABASE_URL:
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 
 # SQLAlchemy engine & session.
-# For SQLite, set a long busy timeout so concurrent writers (multiple uvicorn
-# workers) wait for the lock instead of erroring with "database is locked".
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False, "timeout": 30} if _is_sqlite else {},
-)
-
 if _is_sqlite:
-    # WAL allows concurrent readers alongside a single writer (vs the default
-    # journal mode that locks the whole DB on write), which together with the
-    # busy_timeout eliminates the lock errors seen under --workers > 1.
+    # SQLite (dev/single-node fallback): long busy timeout + WAL so concurrent
+    # writers (multiple uvicorn workers) wait for the lock instead of erroring
+    # with "database is locked".
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False, "timeout": 30},
+    )
+
     @event.listens_for(engine, "connect")
     def _set_sqlite_pragmas(dbapi_conn, _connection_record):
         cursor = dbapi_conn.cursor()
@@ -32,6 +30,17 @@ if _is_sqlite:
         cursor.execute("PRAGMA busy_timeout=30000")
         cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
+else:
+    # PostgreSQL (production): bounded, validated connection pool. With multiple
+    # uvicorn workers each holding a pool, pool_pre_ping avoids serving stale
+    # connections (Railway recycles idle ones) and pool_recycle caps lifetime.
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+        pool_recycle=1800,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
