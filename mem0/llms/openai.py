@@ -82,6 +82,28 @@ class OpenAILLM(LLMBase):
         else:
             return response.choices[0].message.content
 
+    @staticmethod
+    def _requires_max_completion_tokens(model: str) -> bool:
+        """Whether the OpenAI Chat Completions API requires ``max_completion_tokens``.
+
+        The gpt-5 family rejects the legacy ``max_tokens`` parameter with a 400
+        ("Unsupported parameter: 'max_tokens' ... Use 'max_completion_tokens'
+        instead."). These models are NOT classified as reasoning models (so they
+        still accept ``temperature``/``top_p`` and never hit the param-stripping
+        path), which is exactly why the token cap reaches the request and must be
+        renamed here. See https://github.com/mem0ai/mem0/issues/5054
+
+        Args:
+            model: The configured model name (provider prefixes are tolerated).
+
+        Returns:
+            bool: True if ``max_tokens`` must be sent as ``max_completion_tokens``.
+        """
+        if not model:
+            return False
+        base_model = model.lower().rsplit("/", 1)[-1]
+        return base_model == "gpt-5" or base_model.startswith(("gpt-5-", "gpt-5."))
+
     def generate_response(
         self,
         messages: List[Dict[str, str]],
@@ -104,11 +126,16 @@ class OpenAILLM(LLMBase):
             json: The generated response.
         """
         params = self._get_supported_params(messages=messages, **kwargs)
-        
+
         params.update({
             "model": self.config.model,
             "messages": messages,
         })
+
+        # gpt-5.x chat models reject the legacy `max_tokens` and require
+        # `max_completion_tokens`; rename in place to avoid a 400 (issue #5054).
+        if "max_tokens" in params and self._requires_max_completion_tokens(self.config.model):
+            params["max_completion_tokens"] = params.pop("max_tokens")
 
         if os.getenv("OPENROUTER_API_KEY"):
             openrouter_params = {}
