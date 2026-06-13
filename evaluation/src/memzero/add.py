@@ -44,11 +44,7 @@ Generate personal memories that follow these guidelines:
 
 class MemoryADD:
     def __init__(self, data_path=None, batch_size=2, is_graph=False):
-        self.mem0_client = MemoryClient(
-            api_key=os.getenv("MEM0_API_KEY"),
-            org_id=os.getenv("MEM0_ORGANIZATION_ID"),
-            project_id=os.getenv("MEM0_PROJECT_ID"),
-        )
+        self.mem0_client = MemoryClient(api_key=os.getenv("MEM0_API_KEY"))
 
         self.mem0_client.update_project(custom_instructions=custom_instructions)
         self.batch_size = batch_size
