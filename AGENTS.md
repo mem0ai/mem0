@@ -12,7 +12,7 @@ This file provides context for AI coding assistants (Claude Code, Cursor, GitHub
 
 ## Repository Structure
 
-This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs, servers, plugins, documentation, and evaluation tooling.
+This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs, servers, plugins, and documentation.
 
 ### Key Directories
 
@@ -32,7 +32,7 @@ This is a **polyglot monorepo** containing Python and TypeScript packages, CLIs,
 | `skills/` | Claude Code skill definitions. Reference skills (SDK knowledge, always-on): `mem0/`, `mem0-cli/`, `mem0-vercel-ai-sdk/`. Pipeline skills (run on demand): `mem0-integrate/`, `mem0-test-integration/`, `mem0-oss-to-platform/` |
 | `docs/` | Documentation site (Mintlify) |
 | `tests/` | Python SDK tests (pytest) |
-| `evaluation/` | Benchmarking framework — LOCOMO evals, experiment runner, score generation |
+| `evaluation/` | Submodule → [`mem0ai/memory-benchmarks`](https://github.com/mem0ai/memory-benchmarks) — benchmarking (LOCOMO, LongMemEval, BEAM) lives in that repo |
 | `examples/` | Sample projects & runnable demos — apps, Chrome extension, multi-agent patterns, and Jupyter notebooks (`notebooks/`) |
 | `pr-reviews/` | Pull request review materials |
 | `scripts/` | Repo-wide utility scripts (e.g., `check-llms-txt-coverage.py` for docs/llms.txt sync) |
@@ -246,18 +246,19 @@ make docs                          # or: cd docs && mintlify dev
 - **API spec:** `docs/openapi.json`
 - **Structure:** `api-reference/`, `open-source/`, `platform/`, `integrations/`, `cookbooks/`, `core-concepts/`
 
-### Evaluation (`evaluation/`)
+### Evaluation / Benchmarking
+
+Benchmarking lives in the external [`mem0ai/memory-benchmarks`](https://github.com/mem0ai/memory-benchmarks) repo (LOCOMO + LongMemEval + BEAM). The in-repo `evaluation/` path is a **git submodule** pinned to that repo's `main` — populate it with `git submodule update --init evaluation` (or clone mem0 with `--recurse-submodules`), or clone the benchmarks repo standalone:
 
 ```bash
-cd evaluation
-make run-mem0-add                  # Run mem0 add experiments
-make run-mem0-search               # Run mem0 search experiments
-make run-mem0-plus-add             # With graph memory
-make run-mem0-plus-search          # With graph memory
-make run-rag                       # RAG baseline
-make run-full-context              # Full context baseline
-make run-langmem                   # LangMem comparison
-make run-openai                    # OpenAI comparison
+git clone https://github.com/mem0ai/memory-benchmarks.git
+cd memory-benchmarks
+pip install -r requirements.txt
+
+# Run a benchmark (Mem0 Cloud; use docker compose for OSS)
+python -m benchmarks.locomo.run --project-name my-test --backend cloud --mem0-api-key $MEM0_API_KEY
+python -m benchmarks.longmemeval.run --project-name my-test --backend cloud --mem0-api-key $MEM0_API_KEY --all-questions
+python -m benchmarks.beam.run --project-name my-test --backend cloud --mem0-api-key $MEM0_API_KEY --chat-sizes 100K --conversations 0-9
 ```
 
 ## Core APIs
