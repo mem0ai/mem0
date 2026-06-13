@@ -24,7 +24,7 @@ from mem0.configs.prompts import (
 )
 from mem0.exceptions import ValidationError as Mem0ValidationError
 from mem0.memory.base import MemoryBase
-from mem0.memory.setup import mem0_dir, setup_config
+from mem0.memory.setup import mark_oss_used, mem0_dir, setup_config
 from mem0.memory.storage import SQLiteManager
 from mem0.memory.telemetry import MEM0_TELEMETRY, capture_event
 from mem0.memory.notices import (
@@ -370,7 +370,6 @@ def _entity_collection_name(provider: str, collection_name: str) -> str:
     return f"{collection_name}{separator}entities"
 
 
-setup_config()
 logger = logging.getLogger(__name__)
 
 _PROJECT_UPDATE_UNSUPPORTED_ERROR = "Project updates are not supported by the OSS Memory SDK."
@@ -469,6 +468,13 @@ class Memory(MemoryBase):
                 self.config.vector_store.provider,
             )
 
+        # Mint the OSS anon id (and record genuine OSS usage) only on real OSS
+        # init, never at import time: platform-only clients must not create
+        # stitch candidates. Must run before the first capture_event so the
+        # telemetry singleton picks up the minted user_id.
+        if MEM0_TELEMETRY:
+            setup_config()
+            mark_oss_used()
         capture_event("mem0.init", self, {"sync_type": "sync"})
 
     @property
@@ -2009,6 +2015,9 @@ class AsyncMemory(MemoryBase):
                 self.config.vector_store.provider,
             )
 
+        if MEM0_TELEMETRY:
+            setup_config()
+            mark_oss_used()
         capture_event("mem0.init", self, {"sync_type": "async"})
 
     @property

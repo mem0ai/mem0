@@ -3,7 +3,9 @@
  *
  * Used to stitch PostHog identities: SDKs and CLIs persist anonymous
  * distinct_id values here, and the TS MemoryClient reads those on init to
- * fire $identify and merge them into the email identity.
+ * fire $identify and merge them into the email identity. The OSS user_id is
+ * only a stitch candidate when telemetry.oss_used_at proves OSS Memory
+ * actually ran here (the platform client never mints ids itself).
  *
  * Node-only. Browsers (no `process.versions.node`) no-op.
  */
@@ -11,6 +13,7 @@
 export interface Mem0AnonIds {
   oss?: string;
   cli?: string;
+  ossUsedAt?: string;
   aliasedPairs: string[];
 }
 
@@ -110,6 +113,10 @@ export async function readMem0AnonIds(): Promise<Mem0AnonIds | null> {
       typeof telemetry.anonymous_id === "string"
         ? telemetry.anonymous_id
         : undefined,
+    ossUsedAt:
+      typeof telemetry.oss_used_at === "string" && telemetry.oss_used_at
+        ? telemetry.oss_used_at
+        : undefined,
     aliasedPairs: Array.isArray(telemetry.aliased_pairs)
       ? telemetry.aliased_pairs.filter(
           (item: unknown) => typeof item === "string",
@@ -135,6 +142,26 @@ export async function isMem0Aliased(
     ? telemetry.aliased_pairs
     : [];
   return aliasedPairs.includes(aliasPairMarker(node, anonId, email));
+}
+
+export async function markMem0OssUsed(): Promise<void> {
+  const node = await getNodeFs();
+  if (!node) return;
+  try {
+    const config = loadConfig(node) ?? {};
+    const telemetry =
+      config.telemetry && typeof config.telemetry === "object"
+        ? config.telemetry
+        : {};
+    if (typeof telemetry.oss_used_at === "string" && telemetry.oss_used_at) {
+      return;
+    }
+    telemetry.oss_used_at = new Date().toISOString();
+    config.telemetry = telemetry;
+    writeConfig(node, config);
+  } catch {
+    // Best-effort: read-only filesystems and unwritable paths just skip.
+  }
 }
 
 export async function markMem0Aliased(
