@@ -843,8 +843,11 @@ class Memory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
+            # PATCH (openclaw): re-raise so callers can implement provider fallback.
+            # The original silent ``return []`` makes upstream callers unable to
+            # distinguish "LLM unavailable" from "LLM extracted no facts".
             logger.error(f"LLM extraction failed: {e}")
-            return []
+            raise
 
         # Parse response
         try:
@@ -2357,8 +2360,9 @@ class AsyncMemory(MemoryBase):
                 response_format={"type": "json_object"},
             )
         except Exception as e:
+            # PATCH (openclaw): re-raise so callers can implement provider fallback.
             logger.error(f"LLM extraction failed (async): {e}")
-            return []
+            raise
 
         # Parse response
         try:
