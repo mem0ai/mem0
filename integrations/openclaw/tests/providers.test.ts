@@ -145,7 +145,7 @@ describe("providerToBackend — search", () => {
 
     await backend.search("query");
 
-    // v3.0.0: keyword_search, reranking removed
+    // v3.0.0: keyword_search removed; rerank only forwarded when requested
     expect(provider.search).toHaveBeenCalledWith("query", {
       user_id: DEFAULT_USER,
       top_k: undefined,
@@ -153,6 +153,32 @@ describe("providerToBackend — search", () => {
       filters: undefined,
       source: "OPENCLAW",
     });
+  });
+
+  it("forwards rerank to provider.search when opts.rerank is true", async () => {
+    const provider = createMockProvider();
+    const backend = providerToBackend(provider as any, DEFAULT_USER);
+
+    await backend.search("hello", { topK: 5, rerank: true });
+
+    expect(provider.search).toHaveBeenCalledWith("hello", {
+      user_id: DEFAULT_USER,
+      top_k: 5,
+      threshold: undefined,
+      filters: undefined,
+      source: "OPENCLAW",
+      rerank: true,
+    });
+  });
+
+  it("omits rerank when opts.rerank is falsy", async () => {
+    const provider = createMockProvider();
+    const backend = providerToBackend(provider as any, DEFAULT_USER);
+
+    await backend.search("hello", { topK: 5, rerank: false });
+
+    const callArgs = (provider.search as any).mock.calls[0][1];
+    expect(callArgs).not.toHaveProperty("rerank");
   });
 });
 
