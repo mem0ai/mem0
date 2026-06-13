@@ -67,7 +67,7 @@ class LiteLLM(LLMBase):
         Returns:
             str: The generated response.
         """
-        if not litellm.supports_function_calling(self.config.model):
+        if tools and not litellm.supports_function_calling(self.config.model):
             raise ValueError(f"Model '{self.config.model}' in litellm does not support function calling.")
 
         params = {
