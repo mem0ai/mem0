@@ -2,6 +2,12 @@
 
 All notable changes to the `@mem0/opencode-plugin` will be documented in this file.
 
+## 0.1.4 — Anonymous usage telemetry
+
+### Added
+
+- **PostHog telemetry (`telemetry.ts`):** Anonymous, fire-and-forget usage events. Opt out with `MEM0_TELEMETRY=false`. Only fires when an API key is present; never sends memory content, prompts, or the API key — only an anonymized `sha256(apiKey)[:32]` identity plus event type, platform, and plugin version. Emits the same schema as the Mem0 editor plugin (`plugin.*` events, `source: "plugin"`, `platform: "opencode"`) so OpenCode appears as a `platform` in the shared plugin dashboard. Events: `plugin.session_start` (with memory count) and `plugin.tool_use` (`add` / `search` / `update` / `delete`).
+
 ## 0.1.3 — File-context injection, session summaries & activity timeline
 
 ### Added
