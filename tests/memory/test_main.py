@@ -857,3 +857,219 @@ class TestEntityBoostParallelism:
         assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
         assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
         assert len(boosts) == 4
+
+
+class TestCrossScopeEntityLinking:
+    """Tests for scope-aware entity merge gate (#5439).
+
+    When a matching entity belongs to a different scope (user_id, agent_id,
+    run_id), the system should create a new entity rather than merging
+    linked_memory_ids across scope boundaries.
+
+    The scope gate also prevents merging unscoped entities (those without any
+    scope keys in their payload) with scoped ones, and prevents merging two
+    unscoped entities ({} == {} is rejected because match_scope must be
+    non-empty).
+    """
+
+    @pytest.fixture
+    def mock_memory(self, mocker):
+        # config is mocked because _upsert_entity reads scope filters only from
+        # the ``filters`` argument, not from self.config, so a MagicMock config
+        # is sufficient.
+        _setup_mocks(mocker)
+        memory = Memory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    @pytest.fixture
+    def mock_async_memory(self, mocker):
+        _setup_mocks(mocker)
+        memory = AsyncMemory()
+        memory.config = mocker.MagicMock()
+        memory.config.custom_instructions = None
+        memory.config.custom_update_memory_prompt = None
+        memory.custom_instructions = None
+        memory.api_version = "v1.1"
+        memory.db.get_last_messages = MagicMock(return_value=[])
+        memory.db.save_messages = MagicMock()
+        return memory
+
+    def test_sync_upsert_entity_same_scope_merges(self, mock_memory):
+        """When a matching entity belongs to the same scope, merge as before."""
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(
+            return_value=[
+                SimpleNamespace(
+                    id="entity-1",
+                    score=0.97,
+                    payload={
+                        "data": "Apple",
+                        "entity_type": "PROPER",
+                        "linked_memory_ids": ["mem-1"],
+                        "user_id": "alice",
+                    },
+                )
+            ]
+        )
+        mock_memory._entity_store.update = Mock()
+
+        mock_memory._upsert_entity("Apple", "PROPER", "mem-2", {"user_id": "alice"})
+
+        # Should merge - same user_id
+        mock_memory._entity_store.update.assert_called_once()
+        linked_ids = mock_memory._entity_store.update.call_args.kwargs.get("payload", {}).get("linked_memory_ids")
+        assert "mem-2" in linked_ids
+        # Should NOT insert a new entity
+        mock_memory._entity_store.insert.assert_not_called()
+
+    def test_sync_upsert_entity_cross_scope_creates_new(self, mock_memory):
+        """When a matching entity belongs to a different scope, create a new entity."""
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(
+            return_value=[
+                SimpleNamespace(
+                    id="entity-1",
+                    score=0.97,
+                    payload={
+                        "data": "Apple",
+                        "entity_type": "PROPER",
+                        "linked_memory_ids": ["mem-1"],
+                        "user_id": "bob",
+                    },
+                )
+            ]
+        )
+        mock_memory._entity_store.insert = Mock()
+
+        mock_memory._upsert_entity("Apple", "PROPER", "mem-2", {"user_id": "alice"})
+
+        # Should NOT merge - different user_id
+        mock_memory._entity_store.update.assert_not_called()
+        # Should create a new entity instead
+        mock_memory._entity_store.insert.assert_called_once()
+        payload = mock_memory._entity_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["user_id"] == "alice"
+        assert payload["linked_memory_ids"] == ["mem-2"]
+
+    def test_sync_upsert_entity_unscoped_match_creates_new(self, mock_memory):
+        """When a matching entity has no scope keys but the caller provides a
+        scope, create a new entity (match_scope is empty, which fails the
+        non-empty check)."""
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(
+            return_value=[
+                SimpleNamespace(
+                    id="entity-1",
+                    score=0.97,
+                    payload={"data": "Apple", "entity_type": "PROPER", "linked_memory_ids": ["mem-1"]},
+                )
+            ]
+        )
+        mock_memory._entity_store.insert = Mock()
+
+        mock_memory._upsert_entity("Apple", "PROPER", "mem-2", {"user_id": "alice"})
+
+        # match_scope is {} (no scope keys in payload), search_filters is {"user_id": "alice"}
+        # {} is falsy, so gate fails - create new entity
+        mock_memory._entity_store.update.assert_not_called()
+        mock_memory._entity_store.insert.assert_called_once()
+
+    def test_sync_upsert_entity_both_unscoped_creates_new(self, mock_memory):
+        """When both the caller and the matched entity are unscoped, still
+        create a new entity. Unscoped entities must not merge because they
+        could belong to any context."""
+        mock_memory.embedding_model = Mock()
+        mock_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_memory._entity_store = Mock()
+        mock_memory._entity_store.search = Mock(
+            return_value=[
+                SimpleNamespace(
+                    id="entity-1",
+                    score=0.97,
+                    payload={"data": "Apple", "entity_type": "PROPER", "linked_memory_ids": ["mem-1"]},
+                )
+            ]
+        )
+        mock_memory._entity_store.insert = Mock()
+
+        # Empty filters - search_filters will be {}
+        mock_memory._upsert_entity("Apple", "PROPER", "mem-2", {})
+
+        # match_scope is {} and search_filters is {} - both empty.
+        # {} is falsy, so gate fails - create new entity (safe default).
+        mock_memory._entity_store.update.assert_not_called()
+        mock_memory._entity_store.insert.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_async_upsert_entity_same_scope_merges(self, mock_async_memory):
+        """When a matching entity belongs to the same scope, merge as before (async)."""
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(
+            return_value=[
+                SimpleNamespace(
+                    id="entity-1",
+                    score=0.97,
+                    payload={
+                        "data": "Apple",
+                        "entity_type": "PROPER",
+                        "linked_memory_ids": ["mem-1"],
+                        "user_id": "alice",
+                    },
+                )
+            ]
+        )
+        mock_async_memory._entity_store.update = Mock()
+
+        await mock_async_memory._upsert_entity_async("Apple", "PROPER", "mem-2", {"user_id": "alice"})
+
+        # Should merge - same user_id
+        mock_async_memory._entity_store.update.assert_called_once()
+        # Should NOT insert a new entity
+        mock_async_memory._entity_store.insert.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_upsert_entity_cross_scope_creates_new(self, mock_async_memory):
+        """When a matching entity belongs to a different scope, create a new entity (async)."""
+        mock_async_memory.embedding_model = Mock()
+        mock_async_memory.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+        mock_async_memory._entity_store = Mock()
+        mock_async_memory._entity_store.search = Mock(
+            return_value=[
+                SimpleNamespace(
+                    id="entity-1",
+                    score=0.97,
+                    payload={
+                        "data": "Apple",
+                        "entity_type": "PROPER",
+                        "linked_memory_ids": ["mem-1"],
+                        "user_id": "bob",
+                    },
+                )
+            ]
+        )
+        mock_async_memory._entity_store.insert = Mock()
+
+        await mock_async_memory._upsert_entity_async("Apple", "PROPER", "mem-2", {"user_id": "alice"})
+
+        # Should NOT merge - different user_id
+        mock_async_memory._entity_store.update.assert_not_called()
+        # Should create a new entity instead
+        mock_async_memory._entity_store.insert.assert_called_once()
+        payload = mock_async_memory._entity_store.insert.call_args.kwargs["payloads"][0]
+        assert payload["user_id"] == "alice"
+        assert payload["linked_memory_ids"] == ["mem-2"]
