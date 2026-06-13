@@ -10,6 +10,7 @@ Provides:
 from __future__ import annotations
 
 import math
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
@@ -55,6 +56,27 @@ def normalize_bm25(raw_score: float, midpoint: float, steepness: float) -> float
 
 
 ENTITY_BOOST_WEIGHT = 0.5
+
+
+def _memory_timestamp(payload: Optional[Dict[str, Any]]) -> float:
+    """Return a comparable memory timestamp for deterministic recency tie-breaks."""
+    if not payload:
+        return 0.0
+
+    for timestamp in (payload.get("updated_at"), payload.get("created_at")):
+        if not isinstance(timestamp, str):
+            continue
+
+        try:
+            parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.timestamp()
+
+    return 0.0
 
 
 def score_and_rank(
@@ -135,5 +157,5 @@ def score_and_rank(
             }
         scored.append(scored_result)
 
-    scored.sort(key=lambda x: x["score"], reverse=True)
+    scored.sort(key=lambda x: (x["score"], _memory_timestamp(x.get("payload"))), reverse=True)
     return scored[:top_k]
