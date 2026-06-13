@@ -5,6 +5,8 @@
 import readline from "node:readline";
 import { colors, printError, printInfo, printSuccess } from "../branding.js";
 import { type Mem0Config, saveConfig } from "../config.js";
+import { formatAgentEnvelope } from "../output.js";
+import { captureNotice, isAgentMode } from "../state.js";
 
 const { brand, dim } = colors;
 
@@ -133,6 +135,22 @@ export async function bootstrapViaBackend(
 	// Adopt the slug-derived user_id as the default scope for memory ops.
 	config.defaults.userId = envelope.default_user_id;
 	saveConfig(config);
+
+	if (isAgentMode()) {
+		captureNotice(envelope.mem0_notice);
+		formatAgentEnvelope({
+			command: "init",
+			data: {
+				api_key_saved: true,
+				agent_mode: true,
+				default_user_id: envelope.default_user_id,
+				agent_caller: agentCaller ?? "",
+				claim_command:
+					envelope.claim_command ?? "mem0 init --email <your-email>",
+			},
+		});
+		return;
+	}
 
 	printSuccess(
 		`Agent Mode active. Default user_id: ${envelope.default_user_id}`,

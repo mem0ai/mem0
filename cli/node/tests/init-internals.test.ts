@@ -17,6 +17,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { pingKey } from "../src/commands/init.js";
 import { updateClaudeSettings, updateShellRc } from "../src/plugin-sync.js";
+import { setAgentMode } from "../src/state.js";
 
 // ── pingKey ──────────────────────────────────────────────────────────────
 
@@ -55,6 +56,57 @@ describe("pingKey — network vs auth distinction", () => {
 	it("returns true on timeout (prefer reuse)", async () => {
 		globalThis.fetch = vi.fn().mockRejectedValue(new Error("aborted"));
 		await expect(pingKey("k", "http://x")).resolves.toBe(true);
+	});
+});
+
+describe("bootstrapViaBackend", () => {
+	const origFetch = globalThis.fetch;
+	const origLog = console.log;
+
+	afterEach(() => {
+		globalThis.fetch = origFetch;
+		console.log = origLog;
+		setAgentMode(false);
+		vi.restoreAllMocks();
+		vi.resetModules();
+	});
+
+	it("outputs a single JSON envelope in agent mode", async () => {
+		let output = "";
+		console.log = (...args: unknown[]) => {
+			output += `${args.map(String).join(" ")}\n`;
+		};
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			status: 200,
+			json: async () => ({
+				api_key: "m0-test",
+				default_user_id: "user_test",
+				org_id: "org_test",
+				project_id: "project_test",
+				claim_command: "mem0 init --email <your-email>",
+				mem0_notice: "Claim me later.",
+			}),
+		} as Response);
+		vi.doMock("../src/config.js", async (importOriginal) => {
+			const actual = await importOriginal<typeof import("../src/config.js")>();
+			return { ...actual, saveConfig: vi.fn() };
+		});
+
+		const { createDefaultConfig } = await import("../src/config.js");
+		const { bootstrapViaBackend } = await import("../src/commands/agent-mode.js");
+		const config = createDefaultConfig();
+		setAgentMode(true);
+
+		await bootstrapViaBackend(config, { agentCaller: "codex" });
+
+		const data = JSON.parse(output);
+		expect(data.status).toBe("success");
+		expect(data.command).toBe("init");
+		expect(data.data.agent_mode).toBe(true);
+		expect(data.data.default_user_id).toBe("user_test");
+		expect(data.mem0_notice).toBe("Claim me later.");
+		expect(output).not.toContain("🔔");
 	});
 });
 

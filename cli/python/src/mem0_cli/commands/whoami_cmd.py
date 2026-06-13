@@ -21,5 +21,17 @@ def run_whoami() -> None:
             "No default_user_id found. Run `mem0 init --agent` first.",
         )
         raise typer.Exit(1)
+    from mem0_cli.state import is_agent_mode
+
+    if is_agent_mode():
+        from mem0_cli.output import format_json_envelope
+
+        format_json_envelope(
+            console,
+            command="whoami",
+            data={"default_user_id": session_id},
+        )
+        return
+
     console.print(f"Your AGENTRUSH identifier:  [{BRAND_COLOR}]{session_id}[/{BRAND_COLOR}]")
     print_info(console, "Find your row at https://mem0.ai/agentrush")
