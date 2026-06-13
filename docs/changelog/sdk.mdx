@@ -7,6 +7,22 @@ mode: "wide"
 <Tabs>
 <Tab title="Python">
 
+<Update label="2026-06-13" description="v2.0.6">
+
+**New Features:**
+- **Memory:** Add a contextual OSS-to-Platform notices system that surfaces occasional, situation-aware messages (first run, scale/performance thresholds, slow queries, and when temporal/decay features are relevant) pointing to the corresponding Mem0 Platform capabilities; disable via `MEM0_TELEMETRY=false` ([#5494](https://github.com/mem0ai/mem0/pull/5494))
+
+**Bug Fixes:**
+- **Memory:** Prevent a crash in `parse_vision_messages` when vision support is disabled ([#5487](https://github.com/mem0ai/mem0/pull/5487))
+- **Vector Stores:** Expose the `https` option on the Qdrant vector store configuration so TLS endpoints can be targeted explicitly ([#5380](https://github.com/mem0ai/mem0/pull/5380))
+- **Vector Stores:** Use valid S3 Vectors entity index names, fixing index operations that failed on invalid names ([#5416](https://github.com/mem0ai/mem0/pull/5416))
+- **Vector Stores:** Fix `search()` crashing with a `TypeError` in the LangChain vector store when a result score is `None` ([#5072](https://github.com/mem0ai/mem0/pull/5072))
+- **Vector Stores:** Use `is not None` instead of a truthiness check for vector/payload in the PGVector `update()` path, so valid empty/zero values are no longer skipped ([#5488](https://github.com/mem0ai/mem0/pull/5488))
+- **Vector Stores:** Index the Valkey `memory` field as `TEXT` rather than `TAG` so full-text search behaves correctly ([#5443](https://github.com/mem0ai/mem0/pull/5443))
+- **Vector Stores:** Implement `$not` filter support in the ChromaDB vector store ([#5485](https://github.com/mem0ai/mem0/pull/5485))
+
+</Update>
+
 <Update label="2026-06-10" description="v2.0.5">
 
 **New Features:**
@@ -959,6 +975,17 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 </Tab>
 
 <Tab title="TypeScript">
+
+<Update label="2026-06-13" description="v3.0.8">
+
+**New Features:**
+- **Memory:** Add a contextual OSS-to-Platform notices system that surfaces occasional, situation-aware messages (first run, scale/performance thresholds, slow queries, and when temporal/decay features are relevant) pointing to the corresponding Mem0 Platform capabilities; disable via `MEM0_TELEMETRY=false` ([#5494](https://github.com/mem0ai/mem0/pull/5494))
+
+**Security:**
+- **Dependencies:** Upgrade `@langchain/community` to `^1.1.18` to remediate CVE-2026-27795 and CVE-2026-26019 ([#5510](https://github.com/mem0ai/mem0/pull/5510))
+- **Dependencies:** Resolve all open MEDIUM Dependabot alerts via pnpm overrides ([#5489](https://github.com/mem0ai/mem0/pull/5489))
+
+</Update>
 
 <Update label="2026-06-10" description="v3.0.7">
 
