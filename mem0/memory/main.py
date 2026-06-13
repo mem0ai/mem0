@@ -3285,6 +3285,13 @@ class AsyncMemory(MemoryBase):
             self.config.vector_store.provider, self.config.vector_store.config
         )
 
+        if self._entity_store is not None:
+            try:
+                await asyncio.to_thread(self._entity_store.reset)
+            except Exception as e:
+                logger.warning(f"Failed to reset entity store: {e}")
+            self._entity_store = None
+
         capture_event("mem0.reset", self, {"sync_type": "async"})
 
     def close(self):
