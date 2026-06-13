@@ -109,7 +109,7 @@ POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
 POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
 POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
+COLLECTION_NAME = os.environ.get("COLLECTION_NAME", os.environ.get("POSTGRES_COLLECTION_NAME", "memories"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
@@ -119,15 +119,15 @@ DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-emb
 VECTOR_STORE_PROVIDER = os.environ.get("VECTOR_STORE_PROVIDER", "pgvector")
 VECTOR_STORE_CONFIG = os.environ.get("VECTOR_STORE_CONFIG")
 
-vector_store_config = {
-    "collection_name": POSTGRES_COLLECTION_NAME,
+vector_store_config: Dict[str, Any] = {
+    "collection_name": COLLECTION_NAME,
 }
 
 if VECTOR_STORE_CONFIG:
     try:
         vector_store_config.update(json.loads(VECTOR_STORE_CONFIG))
-    except Exception as e:
-        logging.error(f"Failed to parse VECTOR_STORE_CONFIG: {e}")
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse VECTOR_STORE_CONFIG (invalid JSON): {e}")
 elif VECTOR_STORE_PROVIDER == "pgvector":
     vector_store_config.update({
         "host": POSTGRES_HOST,
@@ -136,6 +136,15 @@ elif VECTOR_STORE_PROVIDER == "pgvector":
         "user": POSTGRES_USER,
         "password": POSTGRES_PASSWORD,
     })
+else:
+    logging.warning(
+        "VECTOR_STORE_PROVIDER is set to '%s' but VECTOR_STORE_CONFIG is not provided. "
+        "The vector store will be initialized with only collection_name='%s'. "
+        "Set VECTOR_STORE_CONFIG to a JSON string with provider-specific settings "
+        "(e.g. VECTOR_STORE_CONFIG='{\"host\":\"qdrant\",\"port\":6333}').",
+        VECTOR_STORE_PROVIDER,
+        COLLECTION_NAME,
+    )
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
