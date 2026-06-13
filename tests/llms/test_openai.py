@@ -375,6 +375,58 @@ def test_is_reasoning_model_override_generates_correct_params(mock_openai_client
     assert "temperature" not in call_kwargs
 
 
+def test_gpt5_non_reasoning_uses_max_completion_tokens(mock_openai_client):
+    """gpt-5.x chat models reject `max_tokens` and require `max_completion_tokens`.
+
+    gpt-5.4-mini is correctly NOT classified as a reasoning model (see #4738/#4746),
+    so it flows through the common-params path and would otherwise be sent
+    `max_tokens`, which the OpenAI Chat Completions API rejects with a 400:
+    "Unsupported parameter: 'max_tokens' is not supported with this model.
+    Use 'max_completion_tokens' instead." This breaks every add()/search() call
+    for users on gpt-5.x models. Regression test for
+    https://github.com/mem0ai/mem0/issues/5054
+    """
+    config = OpenAIConfig(model="gpt-5.4-mini", temperature=0.1, max_tokens=123)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    # The token cap must be sent under the new key, carrying the configured value...
+    assert call_kwargs.get("max_completion_tokens") == 123
+    # ...and the legacy key must NOT be sent (it triggers the 400).
+    assert "max_tokens" not in call_kwargs
+    # gpt-5.x chat models still support temperature/top_p, so those remain.
+    assert call_kwargs.get("temperature") == 0.1
+
+
+def test_standard_model_still_uses_max_tokens(mock_openai_client):
+    """Non-gpt-5 OpenAI models (e.g. gpt-4.1) must keep `max_tokens` unchanged.
+
+    Guards against the #5054 fix over-reaching and renaming the param for models
+    that still accept `max_tokens`. Companion to
+    test_gpt5_non_reasoning_uses_max_completion_tokens.
+    """
+    config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.1, max_tokens=123)
+    llm = OpenAILLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Response"))]
+    mock_openai_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response(messages)
+
+    call_kwargs = mock_openai_client.chat.completions.create.call_args[1]
+    assert call_kwargs.get("max_tokens") == 123
+    assert "max_completion_tokens" not in call_kwargs
+
+
 def test_callback_with_tools(mock_openai_client):
     mock_callback = Mock()
     config = OpenAIConfig(model="gpt-4.1-nano-2025-04-14", response_callback=mock_callback)
