@@ -156,9 +156,12 @@ class TestCapTextForEmbedding:
     """Regression coverage for issue #5148 — protect existing-memory retrieval
     from embedding-provider token-limit crashes on long conversations.
 
-    The helper truncates from the front (keeps the tail) so the most-recent
-    content drives retrieval, matching the intent of the retrieval step in
-    Memory._add_to_vector_store Phase 1.
+    The helper bounds the retrieval-embedding input to a safe char budget so
+    embed() never receives more than the provider's token limit. To avoid
+    biasing retrieval toward only the newest turns (which would miss older
+    semantically-related memories — see PR #5281 review), it keeps BOTH a
+    slice of the head (oldest turns, where entities/facts were introduced)
+    and the tail (most-recent turns) within the budget.
     """
 
     def test_short_text_passes_through(self):
@@ -168,26 +171,66 @@ class TestCapTextForEmbedding:
         assert cap_text_for_embedding(text) == text
 
     def test_long_text_is_truncated_to_budget(self):
+        """Crash-prevention invariant: result length never exceeds budget."""
         from mem0.memory.utils import cap_text_for_embedding
 
         max_chars = 100
         long_text = "x" * (max_chars * 3)
         out = cap_text_for_embedding(long_text, max_chars=max_chars)
-        assert len(out) == max_chars
+        assert len(out) <= max_chars
 
-    def test_long_text_keeps_the_tail(self):
-        """Recency matters most for retrieval — the most recent content
-        (which the user just said) should be preserved when truncating."""
+    def test_long_text_preserves_both_head_and_tail(self):
+        """The fix for PR #5281's review: capping must keep BOTH the oldest
+        and the most-recent content so older related memories still surface
+        for dedup/update — not just the tail."""
         from mem0.memory.utils import cap_text_for_embedding
 
-        head = "OLD" * 100
-        tail = "RECENT-CONTENT-MARKER"
-        long_text = head + tail
-        out = cap_text_for_embedding(long_text, max_chars=len(tail) + 5)
-        # The recent marker must survive truncation
-        assert tail in out
-        # And the old content must be gone (or at least mostly gone)
-        assert out.endswith(tail)
+        head_marker = "HEAD-OLDEST-CONTENT-MARKER"
+        tail_marker = "TAIL-RECENT-CONTENT-MARKER"
+        # Long filler between the two distinctive sentinels.
+        long_text = head_marker + ("x" * 5000) + tail_marker
+        out = cap_text_for_embedding(long_text, max_chars=2000)
+
+        # Crash-prevention invariant still holds.
+        assert len(out) <= 2000
+        # BOTH ends survive — older context is preserved for retrieval.
+        assert head_marker in out, "oldest content must survive for older-memory recall"
+        assert tail_marker in out, "most-recent content must survive for recency"
+        # The newest content sits at the end of the embedding input.
+        assert out.endswith(tail_marker)
+
+    def test_recency_weighting_tail_gets_more_budget(self):
+        """Tail (recency) should receive the larger share of the budget."""
+        from mem0.memory.utils import (
+            RETRIEVAL_EMBED_TAIL_RATIO,
+            RETRIEVAL_EMBED_TRUNCATION_MARKER,
+            cap_text_for_embedding,
+        )
+
+        max_chars = 1000
+        long_text = "a" * 10000
+        out = cap_text_for_embedding(long_text, max_chars=max_chars)
+        assert len(out) <= max_chars
+        # Marker is present, charged against the budget.
+        assert RETRIEVAL_EMBED_TRUNCATION_MARKER in out
+        head, _, tail = out.partition(RETRIEVAL_EMBED_TRUNCATION_MARKER)
+        # Tail share should exceed head share (recency-weighted).
+        assert len(tail) > len(head)
+        assert RETRIEVAL_EMBED_TAIL_RATIO > 0.5
+
+    def test_tiny_budget_falls_back_to_tail(self):
+        """If the budget is smaller than the marker, fall back to a safe
+        tail-only slice; invariant still holds."""
+        from mem0.memory.utils import (
+            RETRIEVAL_EMBED_TRUNCATION_MARKER,
+            cap_text_for_embedding,
+        )
+
+        tiny = len(RETRIEVAL_EMBED_TRUNCATION_MARKER) - 1
+        long_text = "abcdefghij" * 100
+        out = cap_text_for_embedding(long_text, max_chars=tiny)
+        assert len(out) <= tiny
+        assert out == long_text[-tiny:]
 
     def test_default_budget_under_8192_token_limit(self):
         """The default budget must stay safely under common 8192-token

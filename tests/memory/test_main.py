@@ -1068,3 +1068,36 @@ class TestEmbeddingInputCapForLongConversations:
         # The whole short conversation should be present in the embed input.
         assert "I like pizza" in first_arg
         assert "Noted." in first_arg
+
+    def test_long_conversation_embed_input_preserves_head_and_tail(self, mock_memory):
+        """PR #5281 review fix: when capping a long conversation, the
+        retrieval-embedding input must preserve BOTH the oldest and the
+        most-recent content so older semantically-related memories still
+        surface for dedup/update — not just the recent tail.
+
+        Uses distinctive sentinels at the very start and very end of a long
+        conversation and asserts both survive in the bounded embed input.
+        """
+        from mem0.memory.utils import DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET
+
+        head_sentinel = "OLDEST_TURN_SENTINEL_ABC"
+        tail_sentinel = "NEWEST_TURN_SENTINEL_XYZ"
+        filler = "Discuss microservices and Postgres migrations. " * 1600
+        messages = [
+            {"role": "user", "content": head_sentinel + " " + filler},
+            {"role": "assistant", "content": filler + " " + tail_sentinel},
+        ]
+
+        mock_memory._add_to_vector_store(
+            messages=messages, metadata={}, filters={"user_id": "u1"}, infer=True
+        )
+
+        embed_calls = mock_memory.embedding_model.embed.call_args_list
+        assert len(embed_calls) >= 1
+        embed_input = embed_calls[0].args[0]
+        assert isinstance(embed_input, str)
+        # Crash-prevention invariant: never exceeds the budget.
+        assert len(embed_input) <= DEFAULT_RETRIEVAL_EMBED_CHAR_BUDGET
+        # Both ends preserved — the core fix for the reviewer's concern.
+        assert head_sentinel in embed_input, "oldest turn lost — older-memory recall broken"
+        assert tail_sentinel in embed_input, "newest turn lost — recency broken"
