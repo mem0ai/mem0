@@ -35,6 +35,7 @@ export interface EmbedderDef extends ProviderDef {
 export const EMBEDDER_PROVIDERS: EmbedderDef[] = [
   { id: "openai", label: "OpenAI (requires API key)", needsApiKey: true, needsUrl: false, envVar: "OPENAI_API_KEY", defaultModel: "text-embedding-3-small", defaultDims: 1536 },
   { id: "ollama", label: "Ollama (local, no API key)", needsApiKey: false, needsUrl: true, defaultModel: "nomic-embed-text", defaultUrl: "http://localhost:11434", defaultDims: 768 },
+  { id: "voyageai", label: "Voyage AI (requires API key)", needsApiKey: true, needsUrl: false, envVar: "VOYAGE_API_KEY", defaultModel: "voyage-3-large", defaultDims: 1024 },
 ];
 
 export interface VectorDef {
@@ -59,6 +60,9 @@ export const KNOWN_EMBEDDER_DIMS: Record<string, number> = {
   "mxbai-embed-large": 1024,
   "all-minilm": 384,
   "snowflake-arctic-embed": 1024,
+  "voyage-3-large": 1024,
+  "voyage-3": 1024,
+  "voyage-3-lite": 512,
 };
 
 export function collectionNameForDims(dims: number): string {
