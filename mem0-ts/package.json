@@ -85,6 +85,7 @@
   "author": "Deshraj Yadav",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.7.6",
     "@types/uuid": "^9.0.8",
@@ -119,12 +120,12 @@
     "@types/pg": "8.11.0",
     "better-sqlite3": "^12.6.2",
     "cloudflare": "^4.2.0",
+    "compromise": "^14.0.0",
     "groq-sdk": "0.3.0",
+    "natural": "^8.0.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
-    "redis": "^4.6.13",
-    "compromise": "^14.0.0",
-    "natural": "^8.0.1"
+    "redis": "^4.6.13"
   },
   "engines": {
     "node": ">=18"

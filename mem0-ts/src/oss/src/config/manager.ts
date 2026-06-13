@@ -65,7 +65,10 @@ export class ConfigManager {
           // dimension manually.
           const explicitDimension =
             userConf?.dimension ||
+            (userConf as Record<string, unknown>)?.embeddingModelDims ||
+            (userConf as Record<string, unknown>)?.embedding_model_dims ||
             userConfig.embedder?.config?.embeddingDims ||
+            (userConfig.embedder?.config as Record<string, unknown>)?.embedding_dims ||
             undefined;
 
           // Prioritize user-provided client instance
@@ -74,6 +77,7 @@ export class ConfigManager {
               client: userConf.client,
               collectionName: userConf.collectionName,
               dimension: explicitDimension,
+              embeddingModelDims: explicitDimension,
               ...userConf, // Include any other passthrough fields from user
             };
           } else {
@@ -82,6 +86,7 @@ export class ConfigManager {
               collectionName:
                 userConf?.collectionName || defaultConf.collectionName,
               dimension: explicitDimension,
+              embeddingModelDims: explicitDimension,
               // Ensure client is not carried over from defaults if not provided by user
               client: undefined,
               // Include other passthrough fields from userConf even if no client
