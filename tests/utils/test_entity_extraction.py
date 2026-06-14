@@ -99,3 +99,55 @@ class TestExtractEntitiesBatch:
         assert len(batch) == 1
         # Both should extract the same entities
         assert set(t for _, t in single) == set(t for _, t in batch[0])
+
+
+class TestNonLatinWarning:
+    """Entity extraction must warn (once) when the pipeline cannot help."""
+
+    def _reset_warn_flag(self):
+        import mem0.utils.entity_extraction as ee
+
+        ee._warned_non_latin_entities = False
+
+    def test_latin_input_does_not_warn(self, caplog):
+        import logging
+
+        self._reset_warn_flag()
+        from mem0.utils.entity_extraction import extract_entities
+
+        with caplog.at_level(logging.WARNING, logger="mem0.utils.entity_extraction"):
+            extract_entities("John Smith works at Google")
+        assert not any("non-Latin" in r.message for r in caplog.records)
+
+    def test_chinese_input_warns_once(self, caplog):
+        import logging
+
+        self._reset_warn_flag()
+        from mem0.utils.entity_extraction import extract_entities
+
+        with caplog.at_level(logging.WARNING, logger="mem0.utils.entity_extraction"):
+            extract_entities("阿宁住在苏州养了一只猫叫年糕")
+            extract_entities("東京で美味しいラーメンを食べた")
+        warnings = [r for r in caplog.records if "non-Latin" in r.message]
+        assert len(warnings) == 1
+
+    def test_batch_with_non_latin_warns_once(self, caplog):
+        import logging
+
+        self._reset_warn_flag()
+        from mem0.utils.entity_extraction import extract_entities_batch
+
+        with caplog.at_level(logging.WARNING, logger="mem0.utils.entity_extraction"):
+            extract_entities_batch(
+                ["John lives in Paris", "阿宁住在苏州", "東京で食べた"]
+            )
+        warnings = [r for r in caplog.records if "non-Latin" in r.message]
+        assert len(warnings) == 1
+
+    def test_non_latin_returns_empty_entities(self):
+        """Behaviour pin: current pipeline returns [] for pure non-Latin."""
+        self._reset_warn_flag()
+        from mem0.utils.entity_extraction import extract_entities
+
+        assert extract_entities("阿宁住在苏州") == []
+        assert extract_entities("東京で食べた") == []
