@@ -139,6 +139,28 @@ export class MemoryQuotaExceededError extends MemoryError {
   }
 }
 
+// Stable error codes for embedding failures (parallels the Python SDK).
+export const EMBED_ERROR_CODE = {
+  TRANSIENT: "EMBED_001", // provider blip (429, 5xx, network) — retry may work
+  VALIDATION: "EMBED_002", // bad input/vector (wrong dim, NaN) — retry won't help
+  AUTH: "EMBED_003", // auth/permission — needs operator action
+} as const;
+
+export type EmbedErrorCode =
+  (typeof EMBED_ERROR_CODE)[keyof typeof EMBED_ERROR_CODE];
+
+/** Raised when the embedding step fails. The TS parallel of Python's EmbeddingError. */
+export class EmbeddingError extends MemoryError {
+  constructor(
+    message: string,
+    errorCode: string = EMBED_ERROR_CODE.TRANSIENT,
+    options?: MemoryErrorOptions,
+  ) {
+    super(message, errorCode, options);
+    this.name = "EmbeddingError";
+  }
+}
+
 // ─── HTTP Status → Exception Mapping ─────────────────────
 
 type MemoryErrorConstructor = new (
