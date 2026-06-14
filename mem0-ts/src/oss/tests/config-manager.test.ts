@@ -84,6 +84,23 @@ describe("ConfigManager", () => {
 
       expect(config.vectorStore.config.dimension).toBe(768);
     });
+
+    it("should resolve explicit dimension from snake_case embedding_model_dims", () => {
+      const config = ConfigManager.mergeConfig({
+        embedder: {
+          provider: "ollama",
+          config: { model: "nomic-embed-text" },
+        },
+        vectorStore: {
+          provider: "qdrant",
+          config: { collectionName: "test", embedding_model_dims: 1024 } as any,
+        },
+        llm: baseLlm,
+      });
+
+      expect(config.vectorStore.config.dimension).toBe(1024);
+      expect(config.vectorStore.config.embeddingModelDims).toBe(1024);
+    });
   });
 
   describe("mergeConfig - LLM url passthrough for Ollama", () => {
