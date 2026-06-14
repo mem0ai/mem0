@@ -1,7 +1,7 @@
 import os
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from mem0.configs.rerankers.config import RerankerConfig
 from mem0.embeddings.configs import EmbedderConfig
@@ -55,6 +55,18 @@ class MemoryConfig(BaseModel):
         description="Custom instructions for fact extraction",
         default=None,
     )
+    on_search_hit: Optional[Any] = Field(
+        description="Optional callback invoked for each ranked search result.",
+        default=None,
+        exclude=True,
+    )
+
+    @field_validator("on_search_hit")
+    @classmethod
+    def validate_on_search_hit(cls, value):
+        if value is not None and not callable(value):
+            raise ValueError("on_search_hit must be callable")
+        return value
 
 
 class AzureConfig(BaseModel):
