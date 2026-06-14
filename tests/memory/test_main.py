@@ -857,3 +857,58 @@ class TestEntityBoostParallelism:
         assert elapsed < 0.75, f"searches did not run concurrently (took {elapsed:.2f}s)"
         assert concurrent_count["peak"] >= 2, "no overlap observed between entity searches"
         assert len(boosts) == 4
+
+
+def test_add_includes_usage_only_when_requested(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.config.llm.config = {}
+    memory.llm.reset_last_usage = Mock()
+    memory.llm.get_last_usage = Mock(
+        return_value={
+            "prompt_tokens": 11,
+            "completion_tokens": 7,
+            "total_tokens": 18,
+        }
+    )
+    memory._add_to_vector_store = Mock(return_value=[{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}])
+
+    default_result = memory.add("Likes pizza", user_id="alice")
+    usage_result = memory.add("Likes pizza", user_id="alice", include_usage=True)
+
+    assert "usage" not in default_result
+    assert usage_result["usage"] == {
+        "prompt_tokens": 11,
+        "completion_tokens": 7,
+        "total_tokens": 18,
+    }
+    memory.llm.start_usage_capture.assert_called_once()
+    memory.llm.stop_usage_capture.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_add_includes_usage_only_when_requested(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.config.llm.config = {}
+    memory.llm.reset_last_usage = Mock()
+    memory.llm.get_last_usage = Mock(
+        return_value={
+            "prompt_tokens": 5,
+            "completion_tokens": 3,
+            "total_tokens": 8,
+        }
+    )
+    memory._add_to_vector_store = mocker.AsyncMock(
+        return_value=[{"id": "mem-1", "memory": "Likes pizza", "event": "ADD"}]
+    )
+
+    default_result = await memory.add("Likes pizza", user_id="alice")
+    usage_result = await memory.add("Likes pizza", user_id="alice", include_usage=True)
+
+    assert "usage" not in default_result
+    assert usage_result["usage"] == {
+        "prompt_tokens": 5,
+        "completion_tokens": 3,
+        "total_tokens": 8,
+    }
+    memory.llm.start_usage_capture.assert_called_once()
+    memory.llm.stop_usage_capture.assert_called_once()
