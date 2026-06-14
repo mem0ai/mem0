@@ -224,11 +224,40 @@ def _create_embedder_config(provider, model, api_key, base_url, ollama_base_url,
     return config
 
 
+# NOTE: Reranking is intentionally NOT configured on the mem0 client. OpenMemory
+# owns reranking in app/utils/reranker.py (self-hostable FastEmbed cross-encoder
+# by default) and applies it in the search pipeline (app/utils/retrieval.py).
+# This keeps the default fully self-hostable and avoids a second reranking path.
+
+
+def _get_embedding_dims():
+    """Embedding dimensionality for the vector collection.
+
+    MUST match the embedder. openmemory historically left this unset, so the mem0
+    Qdrant config defaulted to 1536 (OpenAI text-embedding-3-small). When migrating
+    to a different embedder the collection MUST be created at the new model's dim,
+    or every upsert fails with a dimension mismatch. Examples:
+      text-embedding-3-small -> 1536 (default, back-compat)
+      snowflake/snowflake-arctic-embed-m / bge-base-en-v1.5 / nomic -> 768
+      bge-small-en-v1.5 -> 384 ;  bge-large / arctic-embed-l -> 1024
+    """
+    return int(os.environ.get("EMBEDDING_DIMS", "1536"))
+
+
+def _get_collection_name():
+    """Qdrant collection name. Make it env-configurable so an embedder migration
+    can write to a NEW collection (e.g. 'openmemory_arctic_m_768') and cut over
+    without clobbering the old 1536-dim collection."""
+    return os.environ.get("QDRANT_COLLECTION_NAME", "openmemory")
+
+
 def get_default_memory_config():
     """Get default memory client configuration with sensible defaults."""
+    collection_name = _get_collection_name()
+    embedding_dims = _get_embedding_dims()
     # Detect vector store based on environment variables
     vector_store_config = {
-        "collection_name": "openmemory",
+        "collection_name": collection_name,
         "host": "mem0_store",
     }
     
@@ -243,15 +272,17 @@ def get_default_memory_config():
         # Qdrant Cloud (or any TLS endpoint): full HTTPS URL + API key.
         vector_store_provider = "qdrant"
         vector_store_config = {
-            "collection_name": "openmemory",
+            "collection_name": collection_name,
             "url": os.environ.get('QDRANT_URL'),
             "api_key": os.environ.get('QDRANT_API_KEY'),
+            "embedding_model_dims": embedding_dims,
         }
     elif os.environ.get('QDRANT_HOST') and os.environ.get('QDRANT_PORT'):
         vector_store_provider = "qdrant"
         vector_store_config.update({
             "host": os.environ.get('QDRANT_HOST'),
-            "port": int(os.environ.get('QDRANT_PORT'))
+            "port": int(os.environ.get('QDRANT_PORT')),
+            "embedding_model_dims": embedding_dims,
         })
     elif os.environ.get('WEAVIATE_CLUSTER_URL') or (os.environ.get('WEAVIATE_HOST') and os.environ.get('WEAVIATE_PORT')):
         vector_store_provider = "weaviate"
@@ -331,6 +362,7 @@ def get_default_memory_config():
         vector_store_provider = "qdrant"
         vector_store_config.update({
             "port": 6333,
+            "embedding_model_dims": embedding_dims,
         })
     
     print(f"Auto-detected vector store: {vector_store_provider} with config: {vector_store_config}")
@@ -367,7 +399,7 @@ def get_default_memory_config():
     )
     print(f"Auto-detected embedder provider: {embedder_provider}")
 
-    return {
+    config = {
         "vector_store": {
             "provider": vector_store_provider,
             "config": vector_store_config
@@ -382,6 +414,8 @@ def get_default_memory_config():
         },
         "version": "v1.1"
     }
+
+    return config
 
 
 def _parse_environment_variables(config_dict):

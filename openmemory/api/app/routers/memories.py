@@ -1,11 +1,10 @@
 import logging
 from datetime import UTC, datetime
-from typing import List, Optional, Set
+from typing import List, Optional
 from uuid import UUID
 
 from app.database import get_db
 from app.models import (
-    AccessControl,
     App,
     Category,
     Memory,
@@ -15,8 +14,10 @@ from app.models import (
     User,
 )
 from app.schemas import MemoryResponse
+from app.utils.acl import make_memory_access_checker
+from app.utils.cache import get_search_cache
+from app.utils.categorization import schedule_categorization
 from app.utils.memory import get_memory_client
-from app.utils.permissions import check_memory_access_permissions
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate as sqlalchemy_paginate
@@ -57,44 +58,8 @@ def update_memory_state(db: Session, memory_id: UUID, new_state: MemoryState, us
     return memory
 
 
-def get_accessible_memory_ids(db: Session, app_id: UUID) -> Set[UUID]:
-    """
-    Get the set of memory IDs that the app has access to based on app-level ACL rules.
-    Returns all memory IDs if no specific restrictions are found.
-    """
-    # Get app-level access controls
-    app_access = db.query(AccessControl).filter(
-        AccessControl.subject_type == "app",
-        AccessControl.subject_id == app_id,
-        AccessControl.object_type == "memory"
-    ).all()
-
-    # If no app-level rules exist, return None to indicate all memories are accessible
-    if not app_access:
-        return None
-
-    # Initialize sets for allowed and denied memory IDs
-    allowed_memory_ids = set()
-    denied_memory_ids = set()
-
-    # Process app-level rules
-    for rule in app_access:
-        if rule.effect == "allow":
-            if rule.object_id:  # Specific memory access
-                allowed_memory_ids.add(rule.object_id)
-            else:  # All memories access
-                return None  # All memories allowed
-        elif rule.effect == "deny":
-            if rule.object_id:  # Specific memory denied
-                denied_memory_ids.add(rule.object_id)
-            else:  # All memories denied
-                return set()  # No memories accessible
-
-    # Remove denied memories from allowed set
-    if allowed_memory_ids:
-        allowed_memory_ids -= denied_memory_ids
-
-    return allowed_memory_ids
+# ACL resolution lives in app.utils.acl (get_accessible_memory_ids,
+# make_memory_access_checker). permissions.py imports it directly from there.
 
 
 # List all memories with filtering
@@ -164,6 +129,10 @@ async def list_memories(
         joinedload(Memory.categories)
     ).distinct(Memory.id)
 
+    # Resolve ACL once (app + access set), then check each item in O(1) — avoids
+    # the per-memory App/AccessControl re-query that made this an N+1.
+    access_checker = make_memory_access_checker(db, app_id)
+
     # Get paginated results with transformer
     return sqlalchemy_paginate(
         query,
@@ -180,7 +149,7 @@ async def list_memories(
                 metadata_=memory.metadata_
             )
             for memory in items
-            if check_memory_access_permissions(db, memory, app_id)
+            if access_checker(memory)
         ]
     )
 
@@ -314,7 +283,15 @@ async def create_memory(
                 db.commit()
                 for memory in created_memories:
                     db.refresh(memory)
-                
+
+                # Categorize off the request path (after commit) and drop the
+                # user's cached search results.
+                for memory in created_memories:
+                    schedule_categorization(memory.id, memory.content)
+                cache = get_search_cache()
+                if cache:
+                    cache.invalidate(request.user_id)
+
                 # Return the first memory (for API compatibility)
                 # but all memories are now saved to the database
                 return created_memories[0]
@@ -386,6 +363,10 @@ async def delete_memories(
             logging.warning(f"Failed to delete memory {memory_id} from vector store: {delete_error}")
 
         update_memory_state(db, memory_id, MemoryState.deleted, user.id)
+
+    cache = get_search_cache()
+    if cache:
+        cache.invalidate(request.user_id)
 
     return {"message": f"Successfully deleted {len(request.memory_ids)} memories"}
 
@@ -527,6 +508,13 @@ async def update_memory(
     memory.content = request.memory_content
     db.commit()
     db.refresh(memory)
+
+    # Content changed: re-categorize (off the request path) and drop cached results.
+    schedule_categorization(memory.id, memory.content)
+    cache = get_search_cache()
+    if cache:
+        cache.invalidate(request.user_id)
+
     return memory
 
 class FilterMemoriesRequest(BaseModel):

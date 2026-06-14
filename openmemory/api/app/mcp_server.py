@@ -19,15 +19,25 @@ import contextvars
 import datetime
 import json
 import logging
+import os
 import uuid
 
 import anyio
 
 from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
+from app.utils.acl import (
+    filter_results_by_acl,
+    filter_results_by_active_state,
+    make_memory_access_checker,
+    resolve_accessible_ids,
+)
+from app.utils.cache import get_search_cache
+from app.utils.categorization import schedule_categorization
 from app.utils.db import get_user_and_app
 from app.utils.memory import get_memory_client
-from app.utils.permissions import check_memory_access_permissions
+from app.utils.reranker import get_reranker
+from app.utils.retrieval import hybrid_search
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
@@ -41,6 +51,11 @@ load_dotenv()
 
 # Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
+
+# Final number of search results returned to the client. Candidates fetched
+# before fusion/rerank/ACL are a multiple of this (see search_memory).
+SEARCH_LIMIT = int(os.environ.get("OPENMEMORY_SEARCH_LIMIT", "10"))
+SEARCH_CANDIDATES = int(os.environ.get("OPENMEMORY_SEARCH_CANDIDATES", str(max(SEARCH_LIMIT * 3, 30))))
 
 # Don't initialize memory client at import time - do it lazily when needed
 def get_memory_client_safe():
@@ -95,6 +110,7 @@ async def add_memories(text: str, infer: bool = True) -> str:
                                          infer=infer)
 
             # Process the response and update database
+            categorize_ids = []
             if isinstance(response, dict) and 'results' in response:
                 for result in response['results']:
                     memory_id = uuid.UUID(result['id'])
@@ -113,6 +129,8 @@ async def add_memories(text: str, infer: bool = True) -> str:
                         else:
                             memory.state = MemoryState.active
                             memory.content = result['memory']
+
+                        categorize_ids.append((memory_id, result['memory']))
 
                         # Create history entry
                         history = MemoryStatusHistory(
@@ -137,6 +155,16 @@ async def add_memories(text: str, infer: bool = True) -> str:
                             db.add(history)
 
                 db.commit()
+
+                # Categorize off the request path, and only after commit so the
+                # background worker sees committed rows (avoids FK races).
+                for memory_id, content in categorize_ids:
+                    schedule_categorization(memory_id, content)
+
+            # The user's memory set changed: drop their cached search results.
+            cache = get_search_cache()
+            if cache:
+                cache.invalidate(uid)
 
             return json.dumps(response)
         finally:
@@ -166,43 +194,40 @@ async def search_memory(query: str) -> str:
             # Get or create user and app
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
-            # Get accessible memory IDs based on ACL
-            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            # Resolve the app's accessible set ONCE (no per-memory N+1).
+            #   None    -> all memories accessible (common case)
+            #   set()   -> none accessible (app paused or global deny)
+            #   {...}   -> exactly these ids
+            accessible_ids = resolve_accessible_ids(db, app)
+            if accessible_ids is not None and len(accessible_ids) == 0:
+                return json.dumps({"results": []}, indent=2)
 
-            filters = {
-                "user_id": uid
-            }
+            cache = get_search_cache()
 
-            embeddings = memory_client.embedding_model.embed(query, "search")
+            # Cache stores the RAW per-user candidate pool (Qdrant is filtered only
+            # by user_id, identical across this user's apps, and independent of
+            # mutable Postgres state). State + ACL are re-applied fresh on every
+            # call below, so a cached entry can never leak across apps nor surface
+            # a memory that was paused/archived/access-revoked after caching.
+            raw_results = cache.get(uid, query) if cache else None
+            if raw_results is None:
+                raw_results, _embedding = hybrid_search(
+                    memory_client,
+                    query,
+                    uid,
+                    candidate_k=SEARCH_CANDIDATES,
+                    reranker=get_reranker(),
+                )
+                if cache:
+                    cache.set(uid, query, raw_results, embedding=_embedding)
 
-            hits = memory_client.vector_store.search(
-                query=query,
-                vectors=embeddings,
-                top_k=10,
-                filters=filters,
-            )
+            # Live filters (NOT cached): active-state, then app ACL. Truncate last
+            # so ACL/state-restricted apps still get a full page.
+            results = filter_results_by_active_state(db, user.id, raw_results)
+            results = filter_results_by_acl(results, accessible_ids)[:SEARCH_LIMIT]
 
-            allowed = set(str(mid) for mid in accessible_memory_ids) if accessible_memory_ids else None
-
-            results = []
-            for h in hits:
-                # All vector db search functions return OutputData class
-                id, score, payload = h.id, h.score, h.payload
-                if allowed and (h.id is None or h.id not in allowed):
-                    continue
-                
-                results.append({
-                    "id": id, 
-                    "memory": payload.get("data"), 
-                    "hash": payload.get("hash"),
-                    "created_at": payload.get("created_at"), 
-                    "updated_at": payload.get("updated_at"), 
-                    "score": score,
-                })
-
-            for r in results: 
-                if r.get("id"): 
+            for r in results:
+                if r.get("id"):
                     access_log = MemoryAccessLog(
                         memory_id=uuid.UUID(r["id"]),
                         app_id=app.id,
@@ -248,9 +273,10 @@ async def list_memories() -> str:
             memories = memory_client.get_all(filters={"user_id": uid})
             filtered_memories = []
 
-            # Filter memories based on permissions
+            # Resolve ACL once, then O(1) checks (no per-memory N+1).
+            access_checker = make_memory_access_checker(db, app.id, app=app)
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            accessible_memory_ids = {m.id for m in user_memories if access_checker(m)}
             if isinstance(memories, dict) and 'results' in memories:
                 for memory_data in memories['results']:
                     if 'id' in memory_data:
@@ -272,7 +298,7 @@ async def list_memories() -> str:
                 for memory in memories:
                     memory_id = uuid.UUID(memory['id'])
                     memory_obj = db.query(Memory).filter(Memory.id == memory_id).first()
-                    if memory_obj and check_memory_access_permissions(db, memory_obj, app.id):
+                    if memory_obj and access_checker(memory_obj):
                         # Create access log entry
                         access_log = MemoryAccessLog(
                             memory_id=memory_id,
@@ -314,9 +340,10 @@ async def delete_memories(memory_ids: list[str]) -> str:
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
             # Convert string IDs to UUIDs and filter accessible ones
+            access_checker = make_memory_access_checker(db, app.id, app=app)
             requested_ids = [uuid.UUID(mid) for mid in memory_ids]
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            accessible_memory_ids = [m.id for m in user_memories if access_checker(m)]
 
             # Only delete memories that are both requested and accessible
             ids_to_delete = [mid for mid in requested_ids if mid in accessible_memory_ids]
@@ -359,6 +386,9 @@ async def delete_memories(memory_ids: list[str]) -> str:
                     db.add(access_log)
 
             db.commit()
+            cache = get_search_cache()
+            if cache:
+                cache.invalidate(uid)
             return f"Successfully deleted {len(ids_to_delete)} memories"
         finally:
             db.close()
@@ -387,8 +417,9 @@ async def delete_all_memories() -> str:
             # Get or create user and app
             user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
 
+            access_checker = make_memory_access_checker(db, app.id, app=app)
             user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+            accessible_memory_ids = [m.id for m in user_memories if access_checker(m)]
 
             # delete the accessible memories only
             for memory_id in accessible_memory_ids:
@@ -424,6 +455,9 @@ async def delete_all_memories() -> str:
                 db.add(access_log)
 
             db.commit()
+            cache = get_search_cache()
+            if cache:
+                cache.invalidate(uid)
             return "Successfully deleted all memories"
         finally:
             db.close()

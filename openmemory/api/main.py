@@ -1,4 +1,6 @@
 import datetime
+import hmac
+import os
 from uuid import uuid4
 
 from app.config import DEFAULT_APP_ID, USER_ID
@@ -9,13 +11,50 @@ from app.routers import apps_router, backup_router, config_router, memories_rout
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 app = FastAPI(title="OpenMemory API")
 
+# --- Optional API-key authentication ---------------------------------------
+# The MCP/REST endpoints derive user_id from the URL path / request body with no
+# identity check, so on a public URL anyone who guesses a user_id can read/write
+# that user's memories. Setting OPENMEMORY_API_KEY turns on a constant-time key
+# check on the data endpoints. It is OFF by default to avoid breaking existing
+# MCP clients; enabling it is strongly recommended for any internet-facing deploy.
+_API_KEY = os.environ.get("OPENMEMORY_API_KEY")
+_PROTECTED_PREFIXES = ("/mcp", "/api/")
+
+
+async def _api_key_dispatch(request, call_next):
+    if (
+        _API_KEY
+        and request.method != "OPTIONS"  # let CORS preflight through
+        and request.url.path.startswith(_PROTECTED_PREFIXES)
+    ):
+        provided = request.headers.get("x-api-key")
+        if not provided:
+            auth = request.headers.get("authorization", "")
+            if auth.lower().startswith("bearer "):
+                provided = auth[7:]
+        if not provided or not hmac.compare_digest(provided, _API_KEY):
+            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+    return await call_next(request)
+
+
+# Registered BEFORE CORS so CORS ends up the outer layer and even 401 responses
+# carry CORS headers.
+app.add_middleware(BaseHTTPMiddleware, dispatch=_api_key_dispatch)
+
+# --- CORS ------------------------------------------------------------------
+# Origins are env-configurable (comma-separated). Credentials are only allowed
+# with an explicit allowlist — the wildcard '*' + credentials combination is
+# invalid per the CORS spec and unsafe, so credentials are disabled for '*'.
+_cors_origins = [o.strip() for o in os.environ.get("OPENMEMORY_CORS_ORIGINS", "*").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

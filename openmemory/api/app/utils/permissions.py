@@ -42,7 +42,7 @@ def check_memory_access_permissions(
         return False
 
     # Check app-specific access controls
-    from app.routers.memories import get_accessible_memory_ids
+    from app.utils.acl import get_accessible_memory_ids
     accessible_memory_ids = get_accessible_memory_ids(db, app_id)
 
     # If accessible_memory_ids is None, all memories are accessible

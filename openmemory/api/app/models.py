@@ -1,11 +1,9 @@
 import datetime
 import enum
-import os
 import uuid
 
 import sqlalchemy as sa
 from app.database import Base
-from app.utils.categorization import get_categories_for_memory
 from sqlalchemy import (
     JSON,
     UUID,
@@ -18,9 +16,8 @@ from sqlalchemy import (
     Integer,
     String,
     Table,
-    event,
 )
-from sqlalchemy.orm import Session, relationship
+from sqlalchemy.orm import relationship
 
 
 def get_current_utc_time():
@@ -188,67 +185,9 @@ class MemoryAccessLog(Base):
         Index('idx_access_app_time', 'app_id', 'accessed_at'),
     )
 
-def categorize_memory(memory: Memory, db: Session) -> None:
-    """Categorize a memory using OpenAI and store the categories in the database."""
-    try:
-        # Get categories from OpenAI
-        categories = get_categories_for_memory(memory.content)
 
-        # Get or create categories in the database
-        for category_name in categories:
-            category = db.query(Category).filter(Category.name == category_name).first()
-            if not category:
-                category = Category(
-                    name=category_name,
-                    description=f"Automatically created category for {category_name}"
-                )
-                db.add(category)
-                db.flush()  # Flush to get the category ID
-
-            # Check if the memory-category association already exists
-            existing = db.execute(
-                memory_categories.select().where(
-                    (memory_categories.c.memory_id == memory.id) &
-                    (memory_categories.c.category_id == category.id)
-                )
-            ).first()
-
-            if not existing:
-                # Create the association
-                db.execute(
-                    memory_categories.insert().values(
-                        memory_id=memory.id,
-                        category_id=category.id
-                    )
-                )
-
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        print(f"Error categorizing memory: {e}")
-
-
-# Categorization makes one LLM call per memory write. It can be disabled (e.g.
-# for bulk migrations that would exhaust the LLM provider's daily request quota)
-# via OPENMEMORY_DISABLE_CATEGORIZATION=true. Defaults to enabled.
-_CATEGORIZATION_DISABLED = os.environ.get("OPENMEMORY_DISABLE_CATEGORIZATION", "false").lower() == "true"
-
-
-@event.listens_for(Memory, 'after_insert')
-def after_memory_insert(mapper, connection, target):
-    """Trigger categorization after a memory is inserted."""
-    if _CATEGORIZATION_DISABLED:
-        return
-    db = Session(bind=connection)
-    categorize_memory(target, db)
-    db.close()
-
-
-@event.listens_for(Memory, 'after_update')
-def after_memory_update(mapper, connection, target):
-    """Trigger categorization after a memory is updated."""
-    if _CATEGORIZATION_DISABLED:
-        return
-    db = Session(bind=connection)
-    categorize_memory(target, db)
-    db.close()
+# Categorization is no longer triggered by SQLAlchemy flush events. It ran an LLM
+# call inside the transaction on every insert AND every state change (delete /
+# archive / pause), blocking the request and wasting calls. Write sites now call
+# app.utils.categorization.schedule_categorization() explicitly, after commit and
+# off the request path. See that module for details.

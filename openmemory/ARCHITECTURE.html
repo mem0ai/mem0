@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OpenMemory — Production Architecture</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0e16; --bg2:#11151f; --card:#161b27; --card2:#1c2230; --line:#2a3346;
+    --txt:#e6e9f0; --muted:#9aa4b8; --accent:#7c9cff; --green:#3ecf8e; --amber:#f5c451;
+    --red:#ff6b6b; --purple:#b692ff; --cyan:#54d6e0; --pink:#ff8bc5;
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#161c2e 0%,var(--bg) 55%);
+    color:var(--txt);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:1180px;margin:0 auto;padding:48px 28px 120px}
+  h1{font-size:34px;margin:0 0 6px;letter-spacing:-.5px}
+  h2{font-size:23px;margin:54px 0 14px;padding-top:14px;border-top:1px solid var(--line);letter-spacing:-.3px}
+  h3{font-size:17px;margin:26px 0 10px;color:var(--accent)}
+  p{color:var(--txt)} .muted{color:var(--muted)}
+  code{font-family:var(--mono);background:#0d1119;border:1px solid var(--line);border-radius:5px;
+    padding:1px 6px;font-size:12.5px;color:var(--cyan)}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 8px}
+  .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;
+    border:1px solid var(--line);margin:2px 6px 2px 0;letter-spacing:.2px}
+  .pill.self{color:var(--green);border-color:#1f5e44;background:#0f2a20}
+  .pill.ext{color:var(--amber);border-color:#5e4d1f;background:#2a230f}
+  .pill.new{color:var(--purple);border-color:#43308a;background:#1c1535}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--card),var(--bg2));border:1px solid var(--line);
+    border-radius:14px;padding:18px 20px}
+  .card h4{margin:0 0 8px;font-size:15px} .card .k{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .diagram{background:#0d111a;border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0;overflow:auto}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:#0f1420;color:var(--accent);font-weight:600}
+  tr:nth-child(even) td{background:#0f131d}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0 0;font-size:12.5px;color:var(--muted)}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+  .tag{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .note{border-left:3px solid var(--accent);background:#0f1626;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0}
+  .warn{border-left-color:var(--amber);background:#241d0c}
+  .ok{border-left-color:var(--green);background:#0f2118}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:0}
+  .steps li{counter-increment:s;position:relative;padding:10px 0 10px 44px;border-bottom:1px dashed var(--line)}
+  .steps li:before{content:counter(s);position:absolute;left:0;top:8px;width:28px;height:28px;border-radius:8px;
+    background:#142036;border:1px solid #2f4673;color:var(--accent);font-weight:700;font-size:13px;
+    display:flex;align-items:center;justify-content:center}
+  .steps b{color:var(--txt)} .steps .f{font-family:var(--mono);font-size:11.5px;color:var(--cyan)}
+  header .meta{color:var(--muted);font-size:13px;margin-top:10px}
+  .kbd{font-family:var(--mono);font-size:12px;color:var(--green)}
+  footer{margin-top:60px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>OpenMemory — Production Architecture</h1>
+  <p class="sub">Self-hosted memory layer for AI agents · MCP server + RAG/CAG retrieval pipeline</p>
+  <div>
+    <span class="pill self">● self-hosted</span>
+    <span class="pill ext">● external (OpenAI)</span>
+    <span class="pill new">● planned migration</span>
+  </div>
+  <div class="meta">Stack: FastAPI · Qdrant (hybrid dense+BM25) · Postgres · FastEmbed ONNX reranker · Railway · <span class="tag">mem0-mcp.trybabble.io</span></div>
+</header>
+
+<!-- ============================ TOPOLOGY ============================ -->
+<h2>1 · Production topology (Railway)</h2>
+<p class="muted">Everything in the data plane is co-located and self-hosted on Railway. The only hops off-box today are to OpenAI for fact-extraction and embeddings — both targeted for in-infra replacement.</p>
+<div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  subgraph CLIENT[" AI clients "]
+    direction LR
+    C1["Claude / Cursor / Codex<br/>(MCP client)"]
+    C2["UI · Next.js<br/>(REST)"]
+  end
+
+  subgraph RW[" Railway — private network "]
+    direction TB
+    MW["API-key middleware + CORS<br/><i>main.py</i>"]
+    API["openmemory-mcp<br/>FastAPI · uvicorn x4<br/><i>mem0-mcp.trybabble.io</i>"]
+    subgraph DATA[" data plane (self-hosted) "]
+      direction LR
+      PG[("Postgres<br/>metadata · ACL · audit")]
+      PITR[("Postgres-PITR<br/>backups")]
+      QD[("Qdrant<br/>dense + BM25 sparse<br/>qdrant-volume")]
+    end
+    RR["FastEmbed cross-encoder<br/>(in-process, ONNX)"]
+    CACHE["CAG search cache<br/>(in-proc LRU / Redis)"]
+  end
+
+  OAI["OpenAI<br/>fact-extraction (gpt-4o-mini)<br/>embeddings (text-embedding-3-small)"]
+
+  C1 --> MW --> API
+  C2 --> MW
+  API --> PG
+  PG -. WAL .-> PITR
+  API --> QD
+  API --- RR
+  API --- CACHE
+  API -->|"add(): extract + embed"| OAI
+
+  classDef ext fill:#2a230f,stroke:#5e4d1f,color:#f5c451;
+  classDef self fill:#0f2a20,stroke:#1f5e44,color:#3ecf8e;
+  classDef svc fill:#161b27,stroke:#2a3346,color:#e6e9f0;
+  class OAI ext; class PG,QD,PITR,RR,CACHE self; class API,MW,C1,C2 svc;
+</pre>
+</div>
+<div class="legend">
+  <span><span class="dot" style="background:var(--green)"></span>self-hosted on Railway</span>
+  <span><span class="dot" style="background:var(--amber)"></span>external dependency</span>
+  <span><span class="dot" style="background:var(--accent)"></span>app / middleware</span>
+</div>
+
+<!-- ============================ WRITE PATH ============================ -->
+<h2>2 · Write path — <code>add_memories(text)</code></h2>
+<p class="muted">The only place an LLM does real reasoning: mem0 extracts atomic facts, deduplicates, embeds, and upserts. DB writes + categorization happen <b>after</b> the vector write; categorization is pushed off the request path.</p>
+<div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant Cl as MCP client
+  participant API as FastAPI (mcp_server)
+  participant M as mem0 Memory
+  participant L as gpt-4o-mini
+  participant E as Embedder
+  participant Q as Qdrant
+  participant P as Postgres
+  participant BG as Categorize (threadpool)
+  participant CA as CAG cache
+
+  Cl->>API: add_memories(text, infer)
+  API->>P: get_user_and_app · app.is_active?
+  API->>M: memory_client.add(text, user_id)
+  M->>L: extract facts (≈8.4k-token prompt)
+  L-->>M: [{memory, ...}]  (JSON)
+  M->>M: dedup (MD5, in Python)
+  M->>E: embed new facts
+  M->>Q: upsert dense + BM25 sparse (+ payload)
+  M-->>API: {results:[ADD/DELETE...]}
+  API->>P: upsert Memory rows + MemoryStatusHistory · commit
+  API->>BG: schedule_categorization (after commit)
+  BG->>L: categorize (gpt-4o-mini)
+  BG->>P: write categories (own session)
+  API->>CA: invalidate(user_id)
+  API-->>Cl: JSON results
+</pre>
+</div>
+<div class="note ok"><b>Fixed this session:</b> categorization no longer blocks the write (was a synchronous LLM call inside the SQLAlchemy flush, and re-fired on every state change). It now runs in a post-commit threadpool — <code>categorization.schedule_categorization()</code>.</div>
+
+<!-- ============================ READ PATH ============================ -->
+<h2>3 · Read path — <code>search_memory(query)</code> · the RAG/CAG pipeline</h2>
+<p class="muted">Called on essentially every user turn, so it is the hot path. ACL + active-state are resolved against Postgres and applied <b>live on every call</b> (even cache hits), so the cache can never leak paused/archived or cross-app data.</p>
+<div class="diagram">
+<pre class="mermaid">
+flowchart TB
+  Q0["search_memory(query)"] --> A1["get_user_and_app · Postgres"]
+  A1 --> A2{"resolve_accessible_ids<br/>app paused / global deny?"}
+  A2 -- "empty set" --> RET0["return []"]
+  A2 -- "ok" --> CK{"CAG cache hit?<br/>(user_id, query)"}
+
+  CK -- "HIT (raw pool)" --> SF
+  CK -- "MISS" --> H1
+
+  subgraph HS[" hybrid_search — retrieval.py "]
+    direction TB
+    H1["embed(query)"] --> H2["Qdrant dense search (top candidate_k)"]
+    H1 --> H3["Qdrant BM25 keyword_search<br/>(lemmatized query)"]
+    H2 --> RRF["Reciprocal Rank Fusion (k=60)"]
+    H3 --> RRF
+    RRF --> RKR["rerank — FastEmbed cross-encoder<br/>(local ONNX, whole pool)"]
+  end
+
+  RKR --> SET["cache.set(raw pool)"]
+  SET --> SF["filter_results_by_active_state<br/>(live · Postgres)"]
+  SF --> ACL["filter_results_by_acl<br/>(live · accessible set)"]
+  ACL --> TR["truncate → SEARCH_LIMIT"]
+  TR --> LOG["write MemoryAccessLog · Postgres"]
+  LOG --> RET["return results JSON"]
+
+  classDef self fill:#0f2a20,stroke:#1f5e44,color:#3ecf8e;
+  classDef ext fill:#2a230f,stroke:#5e4d1f,color:#f5c451;
+  classDef gate fill:#142036,stroke:#2f4673,color:#7c9cff;
+  class H2,H3,RRF,RKR,SF,ACL self; class H1 ext;
+  class A2,CK gate;
+</pre>
+</div>
+<div class="legend">
+  <span><span class="dot" style="background:var(--green)"></span>self-hosted compute</span>
+  <span><span class="dot" style="background:var(--amber)"></span>external (embed call — becomes self-hosted after migration)</span>
+  <span><span class="dot" style="background:var(--accent)"></span>policy gate</span>
+</div>
+
+<h3>What each stage does</h3>
+<ol class="steps">
+  <li><b>ACL resolve (once)</b> <span class="f">acl.resolve_accessible_ids</span> — one Postgres lookup. <code>None</code>=all, <code>set()</code>=none (paused app / global deny → early return), <code>{ids}</code>=scoped. Replaces the old per-memory N+1.</li>
+  <li><b>CAG cache</b> <span class="f">cache.get_search_cache</span> — exact (normalized) + optional embedding-similarity match. Stores the <i>raw</i> user-scoped pool only; invalidated on add/delete. Avoids the cross-region embed + Qdrant round-trips on repeat queries.</li>
+  <li><b>Dense retrieval</b> <span class="f">vector_store.search</span> — semantic kNN in Qdrant, filtered by payload <code>user_id</code>.</li>
+  <li><b>Sparse retrieval</b> <span class="f">vector_store.keyword_search</span> — BM25 over the lemmatized query (matches the lemmatized index). Degrades to dense-only if the collection lacks the bm25 slot.</li>
+  <li><b>RRF fusion</b> <span class="f">retrieval.reciprocal_rank_fusion</span> — rank-based merge (k=60); no score-scale normalization needed between cosine and BM25.</li>
+  <li><b>Rerank</b> <span class="f">reranker.FastEmbedReranker</span> — local ONNX cross-encoder (<code>Xenova/ms-marco-MiniLM-L-6-v2</code>) re-sorts the whole fused pool. The single biggest precision lever; fully self-hosted, no torch.</li>
+  <li><b>Active-state filter (live)</b> <span class="f">acl.filter_results_by_active_state</span> — drops paused/archived (their vectors still live in Qdrant). One indexed query scoped to candidate ids. <b>Applied even on cache hits.</b></li>
+  <li><b>ACL filter + truncate</b> — apply the accessible set, then cut to <code>SEARCH_LIMIT</code> (over-fetch preserved until here so restricted apps still get a full page).</li>
+  <li><b>Audit</b> — one <code>MemoryAccessLog</code> row per returned memory.</li>
+</ol>
+<div class="note ok"><b>Fixed this session (critical):</b> the rewritten search had dropped the per-memory <code>state==active</code> check, leaking paused/archived memories for any app without ACL rules. Restored via a live, candidate-scoped state filter — verified by regression tests in <code>tests/test_acl.py</code>.</div>
+
+<!-- ============================ CACHE ============================ -->
+<h2>4 · CAG cache semantics</h2>
+<div class="grid g3">
+  <div class="card"><h4>What's cached</h4><p class="muted">The <b>raw</b> user-scoped candidate pool (post-rerank, pre-policy). Identical across a user's apps because Qdrant is filtered only by <code>user_id</code>.</p></div>
+  <div class="card"><h4>Why it's safe</h4><p class="muted">State + ACL are re-applied <b>live</b> after every cache read. A memory paused/revoked after caching can never surface. No cross-app leak.</p></div>
+  <div class="card"><h4>Invalidation</h4><p class="muted">Only on <b>vector-set</b> change (add / delete / delete-all). Pause/archive need no invalidation — handled by the live state filter.</p></div>
+</div>
+<div class="grid g2" style="margin-top:16px">
+  <div class="card"><h4>Backend — default</h4><p class="muted">In-process LRU + TTL, per uvicorn worker. Zero infra. <span class="k">OPENMEMORY_CACHE_TTL · _MAX_ENTRIES · _SIM_THRESHOLD</span></p></div>
+  <div class="card"><h4>Backend — shared</h4><p class="muted">Set <code>REDIS_URL</code> → shared across all 4 workers, survives restarts. Use <code>rediss://</code> for TLS.</p></div>
+</div>
+
+<!-- ============================ DATA MODEL ============================ -->
+<h2>5 · Data model</h2>
+<div class="grid g2">
+  <div class="card">
+    <h4>Postgres — source of truth (metadata, ACL, audit)</h4>
+    <table>
+      <tr><th>Table</th><th>Role</th></tr>
+      <tr><td><code>users</code> / <code>apps</code></td><td>identities + per-client app, ownership</td></tr>
+      <tr><td><code>memories</code></td><td>id, content, <b>state</b> (active/paused/archived/deleted), timestamps. Id == Qdrant point id</td></tr>
+      <tr><td><code>categories</code> / <code>memory_categories</code></td><td>auto-categorization (async)</td></tr>
+      <tr><td><code>access_controls</code></td><td>app→memory allow/deny (ACL)</td></tr>
+      <tr><td><code>memory_status_history</code></td><td>state-change audit</td></tr>
+      <tr><td><code>memory_access_logs</code></td><td>every search/list/delete</td></tr>
+      <tr><td><code>configs</code></td><td>runtime mem0 config override (key=main)</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h4>Qdrant — vectors only</h4>
+    <table>
+      <tr><th>Field</th><th>Detail</th></tr>
+      <tr><td>point id</td><td>= Postgres memory id (UUID)</td></tr>
+      <tr><td>dense vector</td><td><b>1536</b> today → <b>768</b> after arctic-embed-m</td></tr>
+      <tr><td>sparse vector</td><td><code>bm25</code> slot (hybrid) — new collection only</td></tr>
+      <tr><td>payload.data</td><td>memory text</td></tr>
+      <tr><td>payload.user_id</td><td>filter key (string)</td></tr>
+      <tr><td>payload.hash</td><td>MD5 (dedup)</td></tr>
+      <tr><td>payload.text_lemmatized</td><td>BM25 index source</td></tr>
+    </table>
+    <p class="muted" style="margin-top:6px"><b>State lives only in Postgres</b> — Qdrant has no knowledge of it, which is exactly why the live state filter (stage 7) exists.</p>
+  </div>
+</div>
+
+<!-- ============================ SECURITY ============================ -->
+<h2>6 · Security layers</h2>
+<div class="grid g3">
+  <div class="card"><h4>API-key auth <span class="pill new">opt-in</span></h4><p class="muted">Constant-time check on <code>/mcp</code>+<code>/api/</code> when <code>OPENMEMORY_API_KEY</code> is set (Bearer or <code>X-API-Key</code>). Off by default to not break clients — <b>enable on the public endpoint</b>.</p></div>
+  <div class="card"><h4>CORS</h4><p class="muted">Env-driven <code>OPENMEMORY_CORS_ORIGINS</code>; credentials auto-disabled for <code>*</code> (the unsafe combo). Registered inside the auth layer so 401s still carry CORS headers.</p></div>
+  <div class="card"><h4>Network + data</h4><p class="muted">Railway private networking between API↔Postgres↔Qdrant. Postgres-PITR backups. Redis via <code>rediss://</code>. No secrets logged.</p></div>
+</div>
+
+<!-- ============================ SELF-HOST MATRIX ============================ -->
+<h2>7 · Self-hosted vs external — decisions</h2>
+<table>
+  <tr><th>Component</th><th>Today</th><th>Decision</th><th>Why</th></tr>
+  <tr><td>Vector store</td><td class="tag">Qdrant (Railway)</td><td><span class="pill self">self-hosted ✓</span></td><td>co-located, owns hybrid dense+BM25</td></tr>
+  <tr><td>Metadata / ACL / audit</td><td class="tag">Postgres (Railway)</td><td><span class="pill self">self-hosted ✓</span></td><td>source of truth + PITR backups</td></tr>
+  <tr><td>Reranker</td><td class="tag">FastEmbed ONNX cross-encoder</td><td><span class="pill self">self-hosted ✓</span></td><td>CPU-cheap, no torch; biggest precision lever</td></tr>
+  <tr><td>Search cache</td><td class="tag">in-proc / Redis</td><td><span class="pill self">self-hosted ✓</span></td><td>latency + cost; Redis optional</td></tr>
+  <tr><td>Embeddings</td><td class="tag">OpenAI text-embedding-3-small (1536)</td><td><span class="pill new">→ arctic-embed-m (768)</span></td><td><b>more accurate</b> (+3.8 MTEB) &amp; fast on CPU; re-embed migration</td></tr>
+  <tr><td>Reasoning LLM</td><td class="tag">OpenAI gpt-4o-mini</td><td><span class="pill ext">keep (for now)</span></td><td>see box below — CPU can't do both accurate &amp; fast</td></tr>
+  <tr><td>Categorization LLM</td><td class="tag">gpt-4o-mini (off-path)</td><td><span class="pill ext">keep / disable</span></td><td>strict structured output; <code>OPENMEMORY_DISABLE_CATEGORIZATION</code></td></tr>
+</table>
+
+<div class="note warn"><b>The LLM is the one piece that can't go fully self-hosted on CPU-only Railway.</b>
+mem0's <code>add()</code> is a single synchronous call carrying an ~8.4k-token prompt → <b>prefill-bound</b>.
+Accuracy parity with gpt-4o-mini needs a <b>14B</b> model (Qwen2.5-14B, IFEval 81.0 ≈ gpt-4o-mini 80.4); a 7B underperforms and risks silent memory loss on malformed JSON.
+A 14B on CPU ≈ <b>~6 min / write</b>; Railway has no GPU. Full self-host requires a <b>GPU sidecar</b> (Qwen2.5-14B-AWQ on vLLM, ~$600–800/mo or serverless) → ~1.7–4.6s/write. <b>Chosen: keep gpt-4o-mini</b> for reasoning until/unless a GPU host is added.</div>
+
+<!-- ============================ MIGRATION ============================ -->
+<h2>8 · Planned migration — embeddings → arctic-embed-m (zero-downtime)</h2>
+<div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  subgraph OLD[" live now "]
+    O1[("Qdrant: openmemory<br/>1536-dim · OpenAI")]
+  end
+  subgraph MIG[" one-time re-embed "]
+    direction TB
+    S1["scripts/reembed.py"] --> S2["read active memories<br/>(Postgres = source of truth)"]
+    S2 --> S3["embed w/ arctic-embed-m"]
+    S3 --> S4[("Qdrant: openmemory_arctic_m_768<br/>768-dim + BM25 slot")]
+  end
+  subgraph NEW[" cut over "]
+    N1["set QDRANT_COLLECTION_NAME<br/>+ EMBEDDING_DIMS=768 · redeploy"] --> N2["verify"] --> N3["delete old collection"]
+  end
+  O1 -. app keeps serving .-> MIG
+  S4 --> N1
+  classDef self fill:#0f2a20,stroke:#1f5e44,color:#3ecf8e;
+  classDef new fill:#1c1535,stroke:#43308a,color:#b692ff;
+  class O1 self; class S4 new;
+</pre>
+</div>
+<ol class="steps">
+  <li><b>Deploy new env</b> (app still on old collection): <span class="f">EMBEDDER_PROVIDER=fastembed · EMBEDDER_MODEL=snowflake/snowflake-arctic-embed-m · EMBEDDING_DIMS=768 · QDRANT_COLLECTION_NAME=openmemory_arctic_m_768</span></li>
+  <li><b>Re-embed</b> <span class="f">python -m scripts.reembed --dry-run</span> then without the flag. Idempotent; preserves memory ids; writes BM25 → <b>activates hybrid</b>.</li>
+  <li><b>Cut over</b> — point the app at the new collection, redeploy, verify counts, delete the old 1536-dim collection.</li>
+</ol>
+<div class="note"><b>Why a new collection?</b> Vectors are not cross-model compatible and the dim changes (1536→768). The code fix this session makes <code>embedding_model_dims</code> env-driven — without it mem0 defaulted to 1536 and every 768-dim upsert would have failed.</div>
+
+<!-- ============================ ENV ============================ -->
+<h2>9 · Environment reference</h2>
+<div class="grid g2">
+  <div class="card"><h4>Retrieval / rerank</h4>
+    <p class="k">RERANKER_PROVIDER=fastembed <span class="muted">(default; or none / cohere / llm)</span><br/>
+    RERANK_MODEL=Xenova/ms-marco-MiniLM-L-6-v2<br/>
+    OPENMEMORY_SEARCH_LIMIT=10<br/>
+    OPENMEMORY_SEARCH_CANDIDATES=30</p></div>
+  <div class="card"><h4>Embeddings (migration)</h4>
+    <p class="k">EMBEDDER_PROVIDER=fastembed<br/>
+    EMBEDDER_MODEL=snowflake/snowflake-arctic-embed-m<br/>
+    EMBEDDING_DIMS=768<br/>
+    QDRANT_COLLECTION_NAME=openmemory_arctic_m_768<br/>
+    FASTEMBED_CACHE_DIR=/data/fastembed_cache</p></div>
+  <div class="card"><h4>Cache</h4>
+    <p class="k">REDIS_URL=rediss://… <span class="muted">(optional, shared)</span><br/>
+    OPENMEMORY_CACHE_TTL=300<br/>
+    OPENMEMORY_CACHE_ENABLED=true</p></div>
+  <div class="card"><h4>Security / LLM</h4>
+    <p class="k">OPENMEMORY_API_KEY=… <span class="muted">(enable!)</span><br/>
+    OPENMEMORY_CORS_ORIGINS=https://app.…<br/>
+    LLM_PROVIDER=openai · LLM_MODEL=gpt-4o-mini<br/>
+    OPENMEMORY_DISABLE_CATEGORIZATION=false<br/>
+    DB_POOL_SIZE · DB_MAX_OVERFLOW · DB_POOL_RECYCLE</p></div>
+</div>
+
+<footer>
+  Generated for the openmemory self-hosted deployment · diagrams render via Mermaid (needs network on first load).
+  Source of truth = the code under <code>openmemory/api/app/</code>. Files referenced:
+  <code>mcp_server.py</code>, <code>utils/retrieval.py</code>, <code>utils/reranker.py</code>, <code>utils/acl.py</code>,
+  <code>utils/cache.py</code>, <code>utils/categorization.py</code>, <code>utils/memory.py</code>, <code>scripts/reembed.py</code>.
+</footer>
+
+</div>
+<script>
+  mermaid.initialize({startOnLoad:true, theme:'dark', themeVariables:{
+    fontSize:'13px', primaryColor:'#161b27', primaryBorderColor:'#2a3346',
+    primaryTextColor:'#e6e9f0', lineColor:'#54607a', clusterBkg:'#0f1420', clusterBorder:'#2a3346'
+  }});
+</script>
+</body>
+</html>

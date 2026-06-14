@@ -34,12 +34,16 @@ else:
     # PostgreSQL (production): bounded, validated connection pool. With multiple
     # uvicorn workers each holding a pool, pool_pre_ping avoids serving stale
     # connections (Railway recycles idle ones) and pool_recycle caps lifetime.
+    #
+    # Total connections to Postgres = (pool_size + max_overflow) * num_workers.
+    # Keep that under your Postgres max_connections (small/free tiers are low).
+    # All three are env-tunable so the pool can be sized to the deployment.
     engine = create_engine(
         DATABASE_URL,
         pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-        pool_recycle=1800,
+        pool_size=int(os.getenv("DB_POOL_SIZE", "5")),
+        max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "10")),
+        pool_recycle=int(os.getenv("DB_POOL_RECYCLE", "1800")),
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
