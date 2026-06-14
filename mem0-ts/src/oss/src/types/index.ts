@@ -143,3 +143,46 @@ export const MemoryConfigSchema = z.object({
     .optional(),
   disableHistory: z.boolean().optional(),
 });
+
+/**
+ * Normalizes snake_case config keys to camelCase for backward compatibility.
+ * Some integrations (e.g. OpenClaw wizard) write snake_case keys, but mem0ai-ts
+ * expects camelCase throughout. This helper transparently converts common aliases.
+ */
+export function normalizeMemoryConfig(config: any): any {
+  if (!config || typeof config !== 'object') return config;
+
+  const normalized = { ...config };
+
+  // Normalize embedder config
+  if (normalized.embedder?.config) {
+    const ec = { ...normalized.embedder.config };
+    if ('api_key' in ec && !('apiKey' in ec))          { ec.apiKey        = ec.api_key;        delete ec.api_key; }
+    if ('embedding_dims' in ec && !('embeddingDims' in ec)) { ec.embeddingDims = ec.embedding_dims; delete ec.embedding_dims; }
+    normalized.embedder = { ...normalized.embedder, config: ec };
+  }
+
+  // Normalize llm config
+  if (normalized.llm?.config) {
+    const lc = { ...normalized.llm.config };
+    if ('api_key' in lc && !('apiKey' in lc)) { lc.apiKey = lc.api_key; delete lc.api_key; }
+    normalized.llm = { ...normalized.llm, config: lc };
+  }
+
+  // Normalize vectorStore config
+  if (normalized.vectorStore?.config) {
+    const vc = { ...normalized.vectorStore.config };
+    if ('api_key' in vc && !('apiKey' in vc))                       { vc.apiKey         = vc.api_key;              delete vc.api_key; }
+    if ('collection_name' in vc && !('collectionName' in vc))       { vc.collectionName  = vc.collection_name;      delete vc.collection_name; }
+    if ('embedding_model_dims' in vc && !('dimension' in vc))       { vc.dimension       = vc.embedding_model_dims; delete vc.embedding_model_dims; }
+    // Force HTTP when host+port provided (avoids SSL errors on plain HTTP Qdrant)
+    if ('host' in vc && !('url' in vc)) {
+      vc.url = `http://${vc.host}:${vc.port || 6333}`;
+      delete vc.host;
+      delete vc.port;
+    }
+    normalized.vectorStore = { ...normalized.vectorStore, config: vc };
+  }
+
+  return normalized;
+}
