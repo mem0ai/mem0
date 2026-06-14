@@ -7,6 +7,21 @@ import httpx
 from mem0.configs.base import AzureConfig
 
 
+def _build_http_client(http_client_proxies: Optional[Union[Dict, str]]) -> Optional[httpx.Client]:
+    """Build an httpx.Client for the given proxy settings.
+
+    httpx >= 0.28 removed the ``proxies=`` argument: a single proxy is passed as
+    ``proxy=`` and per-scheme proxies via ``mounts=``.
+    """
+    if not http_client_proxies:
+        return None
+    if isinstance(http_client_proxies, dict):
+        return httpx.Client(
+            mounts={scheme: httpx.HTTPTransport(proxy=url) for scheme, url in http_client_proxies.items()}
+        )
+    return httpx.Client(proxy=http_client_proxies)
+
+
 class BaseEmbedderConfig(ABC):
     """
     Config for Embeddings.
@@ -80,7 +95,8 @@ class BaseEmbedderConfig(ABC):
         self.embedding_dims = embedding_dims
 
         # AzureOpenAI specific
-        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.http_client_proxies = http_client_proxies
+        self.http_client = _build_http_client(http_client_proxies)
 
         # Ollama specific
         self.ollama_base_url = ollama_base_url
