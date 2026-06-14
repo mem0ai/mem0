@@ -99,3 +99,44 @@ class TestExtractEntitiesBatch:
         assert len(batch) == 1
         # Both should extract the same entities
         assert set(t for _, t in single) == set(t for _, t in batch[0])
+
+
+class _NoNounChunksDoc:
+    """Proxy a real spaCy Doc but make ``noun_chunks`` raise.
+
+    spaCy does not implement the ``noun_chunks`` syntax iterator for every
+    language; ``zh``/``ja`` raise ``NotImplementedError`` ([E894]). This wrapper
+    reproduces that on a real English Doc so the rest of the pipeline runs
+    against genuine tokens.
+    """
+
+    def __init__(self, doc):
+        self._doc = doc
+
+    @property
+    def noun_chunks(self):
+        raise NotImplementedError(
+            "[E894] The 'noun_chunks' syntax iterator is not implemented for language 'zh'."
+        )
+
+    def __iter__(self):
+        return iter(self._doc)
+
+    def __getattr__(self, name):
+        return getattr(self._doc, name)
+
+
+class TestUnsupportedLanguage:
+    def test_noun_chunks_not_implemented_does_not_abort_extraction(self):
+        """A language without noun_chunks (#5285) must not crash extraction."""
+        import spacy
+
+        from mem0.utils.entity_extraction import _extract_entities_from_doc
+
+        doc = spacy.load("en_core_web_sm")("John Smith works at Google")
+
+        # Must not raise NotImplementedError, and the proper-noun strategy
+        # (which does not depend on noun_chunks) still yields entities.
+        entities = _extract_entities_from_doc(_NoNounChunksDoc(doc))
+        entity_texts = [e[1] for e in entities]
+        assert any("John" in t or "Google" in t for t in entity_texts), entities
