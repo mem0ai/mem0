@@ -1,7 +1,7 @@
-from typing import Optional, Literal
+from typing import Literal, Optional
 
-from mem0.embeddings.base import EmbeddingBase
 from mem0.configs.embeddings.base import BaseEmbedderConfig
+from mem0.embeddings.base import EmbeddingBase
 
 try:
     from fastembed import TextEmbedding
@@ -29,4 +29,11 @@ class FastEmbedEmbedding(EmbeddingBase):
         """
         text = text.replace("\n", " ")
         embeddings = list(self.dense_model.embed(text))
-        return embeddings[0]
+        return embeddings[0].tolist()
+
+    def embed_batch(self, texts, memory_action="add"):
+        """
+        Embed multiple texts in a single FastEmbed call.
+        """
+        texts = [text.replace("\n", " ") for text in texts]
+        return [emb.tolist() for emb in self.dense_model.embed(texts)]

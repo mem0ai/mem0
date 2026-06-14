@@ -159,3 +159,57 @@ def test_invalid_memory_action(mock_text_embedding_model, mock_config):
 
     with pytest.raises(ValueError):
         embedder.embed("Hello world", memory_action="invalid_action")
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingInput")
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch(mock_text_embedding_model, mock_text_embedding_input, mock_config):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    mock_embeddings = [Mock(values=[0.1, 0.2]), Mock(values=[0.3, 0.4])]
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = mock_embeddings
+
+    result = embedder.embed_batch(["first text", "second text"])
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.assert_called_once()
+    assert result == [[0.1, 0.2], [0.3, 0.4]]
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingInput")
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_uses_memory_action_embedding_type(mock_text_embedding_model, mock_text_embedding_input, mock_config):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+    mock_config.return_value.memory_search_embedding_type = "RETRIEVAL_QUERY"
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [Mock(values=[0.5, 0.6])]
+
+    embedder.embed_batch(["query text"], memory_action="search")
+
+    mock_text_embedding_input.assert_called_once_with(text="query text", task_type="RETRIEVAL_QUERY")
+
+
+@patch("mem0.embeddings.vertexai.TextEmbeddingInput")
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_chunks_at_250(mock_text_embedding_model, mock_text_embedding_input, mock_config):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.side_effect = [
+        [Mock(values=[float(i)]) for i in range(250)],
+        [Mock(values=[float(i)]) for i in range(10)],
+    ]
+
+    embedder.embed_batch([f"text {i}" for i in range(260)])
+
+    assert mock_text_embedding_model.from_pretrained.return_value.get_embeddings.call_count == 2

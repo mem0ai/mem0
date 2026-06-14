@@ -63,3 +63,14 @@ class OllamaEmbedding(EmbeddingBase):
         if not embeddings:
             raise ValueError(f"Ollama embed() returned no embeddings for model '{self.config.model}'")
         return embeddings[0]
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts in a single Ollama call.
+
+        Ollama's embed() accepts a list and returns one embedding per input.
+        """
+        response = self.client.embed(model=self.config.model, input=texts)
+        embeddings = response.get("embeddings") or []
+        if not embeddings:
+            raise ValueError(f"Ollama embed() returned no embeddings for model '{self.config.model}'")
+        return embeddings
