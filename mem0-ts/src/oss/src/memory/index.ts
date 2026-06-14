@@ -74,6 +74,18 @@ import {
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { getOrCreateMem0UserId } from "../../../client/config";
 
+/**
+ * Raised when embedding one or more memory texts fails during add(),
+ * which would otherwise cause those memories to be silently dropped.
+ * Mirrors the Python SDK `EmbeddingError` (see #5245 / #5509).
+ */
+export class EmbeddingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "EmbeddingError";
+  }
+}
+
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
   "user_id",
@@ -834,12 +846,22 @@ export class Memory {
       }
     } catch {
       // Fallback: embed individually
+      const failedTexts: string[] = [];
       for (const text of memTexts) {
         try {
           embedMap[text] = await this.embedder.embed(text);
         } catch (e) {
           console.warn(`Failed to embed memory text: ${e}`);
+          failedTexts.push(text);
         }
+      }
+      if (failedTexts.length > 0) {
+        // Surface the failure instead of silently discarding the extracted
+        // memories that could not be embedded (parity with Python #5249).
+        throw new EmbeddingError(
+          `Failed to embed ${failedTexts.length} memory text(s); ` +
+            `dropped memories: ${JSON.stringify(failedTexts)}`,
+        );
       }
     }
 
