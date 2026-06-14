@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import time
@@ -108,25 +109,48 @@ POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
 POSTGRES_DB = os.environ.get("POSTGRES_DB", "postgres")
 POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
+COLLECTION_NAME = os.environ.get("COLLECTION_NAME", os.environ.get("POSTGRES_COLLECTION_NAME", "memories"))
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
 
+VECTOR_STORE_PROVIDER = os.environ.get("VECTOR_STORE_PROVIDER", "pgvector")
+VECTOR_STORE_CONFIG = os.environ.get("VECTOR_STORE_CONFIG")
+
+vector_store_config: Dict[str, Any] = {
+    "collection_name": COLLECTION_NAME,
+}
+
+if VECTOR_STORE_CONFIG:
+    try:
+        vector_store_config.update(json.loads(VECTOR_STORE_CONFIG))
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to parse VECTOR_STORE_CONFIG (invalid JSON): {e}")
+elif VECTOR_STORE_PROVIDER == "pgvector":
+    vector_store_config.update({
+        "host": POSTGRES_HOST,
+        "port": int(POSTGRES_PORT),
+        "dbname": POSTGRES_DB,
+        "user": POSTGRES_USER,
+        "password": POSTGRES_PASSWORD,
+    })
+else:
+    logging.warning(
+        "VECTOR_STORE_PROVIDER is set to '%s' but VECTOR_STORE_CONFIG is not provided. "
+        "The vector store will be initialized with only collection_name='%s'. "
+        "Set VECTOR_STORE_CONFIG to a JSON string with provider-specific settings "
+        "(e.g. VECTOR_STORE_CONFIG='{\"host\":\"qdrant\",\"port\":6333}').",
+        VECTOR_STORE_PROVIDER,
+        COLLECTION_NAME,
+    )
+
 DEFAULT_CONFIG = {
     "version": "v1.1",
     "vector_store": {
-        "provider": "pgvector",
-        "config": {
-            "host": POSTGRES_HOST,
-            "port": int(POSTGRES_PORT),
-            "dbname": POSTGRES_DB,
-            "user": POSTGRES_USER,
-            "password": POSTGRES_PASSWORD,
-            "collection_name": POSTGRES_COLLECTION_NAME,
-        },
+        "provider": VECTOR_STORE_PROVIDER,
+        "config": vector_store_config,
     },
     "llm": {
         "provider": "openai",
@@ -388,7 +412,7 @@ def _serialize_memory(row: Any) -> Dict[str, Any]:
 
 def _list_all_memories(limit: int = ALL_MEMORIES_LIMIT) -> Dict[str, Any]:
     results = get_memory_instance().vector_store.list(top_k=limit)
-    rows = results[0] if results and isinstance(results, list) and isinstance(results[0], list) else results or []
+    rows = results[0] if results and isinstance(results, (list, tuple)) and isinstance(results[0], (list, tuple)) else results or []
     return {"results": [_serialize_memory(row) for row in rows]}
 
 
