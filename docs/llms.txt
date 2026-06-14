@@ -251,6 +251,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 ### Agent Frameworks
 - [LangChain](https://docs.mem0.ai/integrations/langchain) [Both]: Use when the user is on LangChain.
 - [LangGraph](https://docs.mem0.ai/integrations/langgraph) [Both]: Use when building stateful multi-actor LangGraph apps.
+- [NeMo Flow](https://docs.mem0.ai/integrations/nemo-flow) [Both]: Use when routing LLM calls through NeMo Flow for automatic Mem0 recall, capture, and observability.
 - [LangChain Tools](https://docs.mem0.ai/integrations/langchain-tools) [Both]: Use when Mem0 should be exposed as a LangChain tool.
 - [LlamaIndex](https://docs.mem0.ai/integrations/llama-index) [Both]: Use when layering memory on a LlamaIndex RAG app.
 - [CrewAI](https://docs.mem0.ai/integrations/crewai) [Both]: Use when building CrewAI multi-agent systems.
