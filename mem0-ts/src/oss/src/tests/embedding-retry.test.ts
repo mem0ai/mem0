@@ -129,7 +129,7 @@ describe("add() returns { results, failed } with labels", () => {
     expect(res.failed).toHaveLength(1);
     expect(res.failed![0]).toMatchObject({
       text: B,
-      errorClass: "internal",
+      errorClass: "internal_error",
       remediation: "escalate",
     });
     const all = await m.getAll({ filters: { user_id: "u1" } });
@@ -143,7 +143,7 @@ describe("add() returns { results, failed } with labels", () => {
     const res = await m.add([A, B].join(". "), { userId: "u2" });
     expect(res.failed![0]).toMatchObject({
       text: B,
-      errorClass: "provider",
+      errorClass: "provider_error",
       remediation: "retry",
     });
     expect(res.results).toHaveLength(1);
@@ -155,7 +155,7 @@ describe("add() returns { results, failed } with labels", () => {
     const res = await m.add([A, B].join(". "), { userId: "u3" });
     expect(res.failed![0]).toMatchObject({
       text: B,
-      errorClass: "validation",
+      errorClass: "validation_error",
       remediation: "reconfigure",
     });
   });
@@ -193,7 +193,7 @@ describe("memory.retryFailed() is label-driven", () => {
     const { m, embedder } = await ready(rules, [A, B]);
 
     const res = await m.add([A, B].join(". "), { userId: "u7" });
-    expect(res.failed![0].errorClass).toBe("provider");
+    expect(res.failed![0].errorClass).toBe("provider_error");
 
     // Provider recovers: B now embeds cleanly.
     rules.delete(B);
@@ -227,7 +227,7 @@ describe("memory.retryFailed() is label-driven", () => {
     const { m, embedder } = await ready(rules, [A, B]);
 
     const res = await m.add([A, B].join(". "), { userId: "u9" });
-    expect(res.failed![0]).toMatchObject({ errorClass: "internal" });
+    expect(res.failed![0]).toMatchObject({ errorClass: "internal_error" });
     const before = embedder.embedCalls;
 
     const retry = await m.retryFailed(res.failed!);
@@ -278,8 +278,8 @@ describe("hardening: insert failures, dedup, infer:false, short batch", () => {
     const res = await m.add([A, B].join(". "), { userId: "c1" });
     expect(res.results).toHaveLength(0);
     expect(res.failed!.map((f) => f.errorClass)).toEqual([
-      "provider",
-      "provider",
+      "provider_error",
+      "provider_error",
     ]);
   });
 
@@ -329,7 +329,7 @@ describe("classifier and validator units", () => {
     const err: any = new Error("invalid dimension nan");
     err.status = 503;
     expect(classifyEmbedError(err)).toMatchObject({
-      errorClass: "provider",
+      errorClass: "provider_error",
       remediation: "retry",
     });
   });
@@ -339,7 +339,7 @@ describe("classifier and validator units", () => {
     err.status = 429;
     err.retryAfter = 30;
     expect(classifyEmbedError(err)).toMatchObject({
-      errorClass: "provider",
+      errorClass: "provider_error",
       retryAfter: 30,
     });
   });
