@@ -1,0 +1,13 @@
+{
+  "plugins": {
+    "openclaw-mem0": {
+      "mode": "platform",
+      "apiKey": "${MEM0_API_KEY}",
+      "userId": "__MEM0_USER_ID__",
+      "autoCapture": true,
+      "autoRecall": true,
+      "searchThreshold": 0.5,
+      "topK": 5
+    }
+  }
+}
