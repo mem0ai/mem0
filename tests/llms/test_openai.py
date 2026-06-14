@@ -317,6 +317,10 @@ def test_is_reasoning_model_classification(mock_openai_client):
     assert llm._is_reasoning_model("o3-mini") is True
     assert llm._is_reasoning_model("o3") is True
     assert llm._is_reasoning_model("gpt-5") is True
+    assert llm._is_reasoning_model("gpt-5-mini") is True
+    assert llm._is_reasoning_model("gpt-5-nano") is True
+    assert llm._is_reasoning_model("gpt-5-mini-2025-08-07") is True
+    assert llm._is_reasoning_model("gpt-5-nano-2025-08-07") is True
     assert llm._is_reasoning_model("o1-preview") is True
     assert llm._is_reasoning_model("o1-2024-12-17") is True
     assert llm._is_reasoning_model("openai/o3-mini") is True
