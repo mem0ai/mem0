@@ -8,9 +8,10 @@ import os
 import time
 import uuid
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 
@@ -1754,6 +1755,133 @@ class Memory(MemoryBase):
         display_first_run_notice(self, "sync", "history")
         return history
 
+    def batch_add(
+        self,
+        inputs: List[Dict[str, Any]],
+        *,
+        max_workers: int = 4,
+    ) -> List[Dict[str, Any]]:
+        """
+        Add multiple memories in parallel.
+
+        Args:
+            inputs (list[dict]): List of dicts, each containing keyword arguments
+                accepted by :meth:`add` (``messages`` is required; ``user_id``,
+                ``agent_id``, ``run_id``, ``metadata``, ``infer``, ``memory_type``,
+                ``prompt``, and ``timestamp`` are optional).
+            max_workers (int): Maximum number of threads. Defaults to 4.
+
+        Returns:
+            list[dict]: Results from each :meth:`add` call, in the same order as
+            ``inputs``. On failure, the entry is ``{"error": "<message>"}``.
+
+        Example:
+            >>> results = m.batch_add([
+            ...     {"messages": "Alice likes hiking", "user_id": "alice"},
+            ...     {"messages": "Bob prefers chess", "user_id": "bob"},
+            ... ])
+        """
+        capture_event("mem0.batch_add", self, {"count": len(inputs), "sync_type": "sync"})
+
+        results: List[Optional[Dict[str, Any]]] = [None] * len(inputs)
+
+        def _run(idx: int, kwargs: Dict[str, Any]) -> tuple[int, Dict[str, Any]]:
+            try:
+                return idx, self.add(**kwargs)
+            except Exception as exc:
+                return idx, {"error": str(exc)}
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(_run, i, kw): i for i, kw in enumerate(inputs)}
+            for future in as_completed(futures):
+                idx, result = future.result()
+                results[idx] = result
+
+        return results
+
+    def batch_update(
+        self,
+        updates: List[Dict[str, Any]],
+        *,
+        max_workers: int = 4,
+    ) -> List[Dict[str, Any]]:
+        """
+        Update multiple memories in parallel.
+
+        Args:
+            updates (list[dict]): List of dicts, each with ``memory_id`` (str),
+                ``data`` (str), and optional ``metadata`` (dict).
+            max_workers (int): Maximum number of threads. Defaults to 4.
+
+        Returns:
+            list[dict]: Results from each :meth:`update` call, in the same order
+            as ``updates``. On failure, the entry is ``{"error": "<message>"}``.
+
+        Example:
+            >>> results = m.batch_update([
+            ...     {"memory_id": "abc123", "data": "Alice loves hiking"},
+            ...     {"memory_id": "def456", "data": "Bob prefers Go"},
+            ... ])
+        """
+        capture_event("mem0.batch_update", self, {"count": len(updates), "sync_type": "sync"})
+
+        results: List[Optional[Dict[str, Any]]] = [None] * len(updates)
+
+        def _run(idx: int, kwargs: Dict[str, Any]) -> tuple[int, Dict[str, Any]]:
+            try:
+                memory_id = kwargs["memory_id"]
+                data = kwargs["data"]
+                metadata = kwargs.get("metadata")
+                return idx, self.update(memory_id, data, metadata)
+            except Exception as exc:
+                return idx, {"error": str(exc)}
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(_run, i, kw): i for i, kw in enumerate(updates)}
+            for future in as_completed(futures):
+                idx, result = future.result()
+                results[idx] = result
+
+        return results
+
+    def batch_delete(
+        self,
+        memory_ids: List[str],
+        *,
+        max_workers: int = 4,
+    ) -> List[Dict[str, Any]]:
+        """
+        Delete multiple memories in parallel.
+
+        Args:
+            memory_ids (list[str]): List of memory IDs to delete.
+            max_workers (int): Maximum number of threads. Defaults to 4.
+
+        Returns:
+            list[dict]: Results from each :meth:`delete` call, in the same order
+            as ``memory_ids``. On failure, the entry is ``{"error": "<message>"}``.
+
+        Example:
+            >>> results = m.batch_delete(["abc123", "def456"])
+        """
+        capture_event("mem0.batch_delete", self, {"count": len(memory_ids), "sync_type": "sync"})
+
+        results: List[Optional[Dict[str, Any]]] = [None] * len(memory_ids)
+
+        def _run(idx: int, memory_id: str) -> tuple[int, Dict[str, Any]]:
+            try:
+                return idx, self.delete(memory_id)
+            except Exception as exc:
+                return idx, {"error": str(exc)}
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(_run, i, mid): i for i, mid in enumerate(memory_ids)}
+            for future in as_completed(futures):
+                idx, result = future.result()
+                results[idx] = result
+
+        return results
+
     def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
         if data in existing_embeddings:
@@ -3266,6 +3394,97 @@ class AsyncMemory(MemoryBase):
         history = await asyncio.to_thread(self.db.get_history, memory_id)
         await display_first_run_notice_async(self, "async", "history")
         return history
+
+    async def batch_add(
+        self,
+        inputs: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Add multiple memories concurrently.
+
+        Args:
+            inputs (list[dict]): List of dicts, each containing keyword arguments
+                accepted by :meth:`add` (``messages`` is required; ``user_id``,
+                ``agent_id``, ``run_id``, ``metadata``, ``infer``, ``memory_type``,
+                ``prompt``, and ``timestamp`` are optional).
+
+        Returns:
+            list[dict]: Results from each :meth:`add` call, in the same order as
+            ``inputs``. On failure, the entry is ``{"error": "<message>"}``.
+
+        Example:
+            >>> results = await m.batch_add([
+            ...     {"messages": "Alice likes hiking", "user_id": "alice"},
+            ...     {"messages": "Bob prefers chess", "user_id": "bob"},
+            ... ])
+        """
+        capture_event("mem0.batch_add", self, {"count": len(inputs), "sync_type": "async"})
+
+        async def _run(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+            try:
+                return await self.add(**kwargs)
+            except Exception as exc:
+                return {"error": str(exc)}
+
+        return list(await asyncio.gather(*[_run(kw) for kw in inputs]))
+
+    async def batch_update(
+        self,
+        updates: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """
+        Update multiple memories concurrently.
+
+        Args:
+            updates (list[dict]): List of dicts, each with ``memory_id`` (str),
+                ``data`` (str), and optional ``metadata`` (dict).
+
+        Returns:
+            list[dict]: Results from each :meth:`update` call, in the same order
+            as ``updates``. On failure, the entry is ``{"error": "<message>"}``.
+
+        Example:
+            >>> results = await m.batch_update([
+            ...     {"memory_id": "abc123", "data": "Alice loves hiking"},
+            ...     {"memory_id": "def456", "data": "Bob prefers Go"},
+            ... ])
+        """
+        capture_event("mem0.batch_update", self, {"count": len(updates), "sync_type": "async"})
+
+        async def _run(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+            try:
+                return await self.update(kwargs["memory_id"], kwargs["data"], kwargs.get("metadata"))
+            except Exception as exc:
+                return {"error": str(exc)}
+
+        return list(await asyncio.gather(*[_run(kw) for kw in updates]))
+
+    async def batch_delete(
+        self,
+        memory_ids: List[str],
+    ) -> List[Dict[str, Any]]:
+        """
+        Delete multiple memories concurrently.
+
+        Args:
+            memory_ids (list[str]): List of memory IDs to delete.
+
+        Returns:
+            list[dict]: Results from each :meth:`delete` call, in the same order
+            as ``memory_ids``. On failure, the entry is ``{"error": "<message>"}``.
+
+        Example:
+            >>> results = await m.batch_delete(["abc123", "def456"])
+        """
+        capture_event("mem0.batch_delete", self, {"count": len(memory_ids), "sync_type": "async"})
+
+        async def _run(memory_id: str) -> Dict[str, Any]:
+            try:
+                return await self.delete(memory_id)
+            except Exception as exc:
+                return {"error": str(exc)}
+
+        return list(await asyncio.gather(*[_run(mid) for mid in memory_ids]))
 
     async def _create_memory(self, data, existing_embeddings, metadata=None):
         logger.debug(f"Creating memory with {data=}")
