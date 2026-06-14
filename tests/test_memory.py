@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -936,6 +936,172 @@ def test_sync_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_factory
     assert "text_lemmatized" in payload[0], "Sync _create_memory must store text_lemmatized for BM25"
     assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
 
+
+class TestMemoryTTL:
+    """Tests for memory_ttl expiry filtering and cleanup."""
+
+    def _make_memory_obj(self, memory_id, created_at, data="some fact"):
+        mem = MagicMock()
+        mem.id = memory_id
+        mem.payload = {"data": data, "hash": "h", "created_at": created_at, "user_id": "u1"}
+        mem.score = 0.9
+        return mem
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_get_all_excludes_expired(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.memory_ttl = 3600
+        m = Memory(config)
+
+        now = datetime.now(timezone.utc)
+        fresh = self._make_memory_obj("m1", now.isoformat())
+        old = self._make_memory_obj("m2", (now - timedelta(hours=2)).isoformat())
+
+        m.vector_store.list.return_value = [fresh, old]
+
+        result = m._get_all_from_vector_store(filters={"user_id": "u1"}, limit=100)
+        ids = [r["id"] for r in result]
+        assert "m1" in ids
+        assert "m2" not in ids
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_get_all_returns_all_without_ttl(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        m = Memory(config)
+
+        now = datetime.now(timezone.utc)
+        old = self._make_memory_obj("m1", (now - timedelta(days=365)).isoformat())
+        m.vector_store.list.return_value = [old]
+
+        result = m._get_all_from_vector_store(filters={}, limit=100)
+        assert len(result) == 1
+        assert result[0]["id"] == "m1"
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_search_excludes_expired(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.memory_ttl = 3600
+        m = Memory(config)
+
+        now = datetime.now(timezone.utc)
+        fresh_payload = {"data": "fresh fact", "hash": "h", "created_at": now.isoformat(), "user_id": "u1"}
+        old_payload = {"data": "old fact", "hash": "h2", "created_at": (now - timedelta(hours=2)).isoformat(), "user_id": "u1"}
+
+        scored = [
+            {"id": "m1", "score": 0.9, "payload": fresh_payload},
+            {"id": "m2", "score": 0.8, "payload": old_payload},
+        ]
+
+        with patch("mem0.memory.main.score_and_rank", return_value=scored):
+            with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"):
+                with patch("mem0.memory.main.extract_entities", return_value=[]):
+                    m.embedding_model = MagicMock()
+                    m.embedding_model.embed.return_value = [0.1, 0.2]
+                    m.vector_store.search.return_value = []
+                    m.vector_store.keyword_search.return_value = None
+
+                    result = m._search_vector_store("test", {"user_id": "u1"}, 10)
+
+        ids = [r["id"] for r in result]
+        assert "m1" in ids
+        assert "m2" not in ids
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_cleanup_expired_deletes_old_memories(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.memory_ttl = 3600
+        m = Memory(config)
+
+        now = datetime.now(timezone.utc)
+        fresh = self._make_memory_obj("m1", now.isoformat())
+        old = self._make_memory_obj("m2", (now - timedelta(hours=2)).isoformat())
+
+        m.vector_store.list.return_value = [fresh, old]
+        m.vector_store.get.return_value = old
+        m._delete_memory = MagicMock()
+
+        result = m.cleanup_expired(filters={"user_id": "u1"})
+        assert result["deleted"] == 1
+        m._delete_memory.assert_called_once_with("m2", existing_memory=old)
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_cleanup_expired_raises_without_ttl(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        m = Memory(config)
+
+        with pytest.raises(ValueError, match="memory_ttl is not configured"):
+            m.cleanup_expired(filters={"user_id": "u1"})
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_cleanup_expired_raises_without_filters(self, mock_vs, mock_emb, mock_llm, mock_sqlite, _cap):
+        mock_vs.return_value = MagicMock()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.memory_ttl = 3600
+        m = Memory(config)
+
+        with pytest.raises(ValueError, match="At least one filter is required"):
+            m.cleanup_expired()
+
+    def test_is_expired_helper(self):
+        from mem0.memory.main import _is_expired
+
+        now = datetime.now(timezone.utc)
+        old_ts = (now - timedelta(hours=2)).isoformat()
+        fresh_ts = now.isoformat()
+
+        assert _is_expired({"created_at": old_ts}, 3600) is True
+        assert _is_expired({"created_at": fresh_ts}, 3600) is False
+        assert _is_expired({"created_at": None}, 3600) is False
+        assert _is_expired({}, 3600) is False
+        assert _is_expired({"created_at": "not-a-date"}, 3600) is False
+        assert _is_expired({"created_at": old_ts}, None) is False
 
 @pytest.mark.asyncio
 @patch('mem0.utils.factory.EmbedderFactory.create')
