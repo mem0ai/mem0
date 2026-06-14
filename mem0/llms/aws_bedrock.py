@@ -1,13 +1,17 @@
 import json
 import logging
 import re
+import time
 from typing import Any, Dict, List, Optional, Union
+from urllib.parse import quote
 
 try:
     import boto3
     from botocore.exceptions import ClientError, NoCredentialsError
 except ImportError:
     raise ImportError("The 'boto3' library is required. Please install it using 'pip install boto3'.")
+
+import requests as _requests
 
 from mem0.configs.llms.base import BaseLlmConfig
 from mem0.configs.llms.aws_bedrock import AWSBedrockConfig
@@ -21,6 +25,55 @@ PROVIDERS = [
     "deepseek", "gpt-oss", "perplexity", "snowflake", "titan", "command", "j2", "llama",
     "minimax",
 ]
+
+
+class _BearerTokenProvider:
+    """Generates and caches short-term Bedrock bearer tokens."""
+
+    def __init__(self, region: str):
+        self._region = region
+        self._token: Optional[str] = None
+        self._expires_at: float = 0
+
+    def get_token(self) -> str:
+        if self._token and time.time() < self._expires_at:
+            return self._token
+        from aws_bedrock_token_generator import provide_token
+        self._token = provide_token(region=self._region)
+        # Token is valid up to 12h; refresh after 11h to be safe
+        self._expires_at = time.time() + 11 * 3600
+        return self._token
+
+
+class _BedrockBearerClient:
+    """Drop-in replacement for boto3 bedrock-runtime client using bearer token auth."""
+
+    def __init__(self, region: str):
+        self._region = region
+        self._base_url = f"https://bedrock-runtime.{region}.amazonaws.com"
+        self._token_provider = _BearerTokenProvider(region)
+
+    def _headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self._token_provider.get_token()}",
+            "Content-Type": "application/json",
+        }
+
+    def converse(self, **kwargs) -> Dict[str, Any]:
+        model_id = kwargs.pop("modelId")
+        url = f"{self._base_url}/model/{quote(model_id, safe='')}/converse"
+        resp = _requests.post(url, headers=self._headers(), json=kwargs)
+        resp.raise_for_status()
+        return resp.json()
+
+    def invoke_model(self, **kwargs) -> Dict[str, Any]:
+        model_id = kwargs.pop("modelId")
+        body = kwargs.get("body")
+        url = f"{self._base_url}/model/{quote(model_id, safe='')}/invoke"
+        resp = _requests.post(url, headers=self._headers(), data=body)
+        resp.raise_for_status()
+        import io
+        return {"body": io.BytesIO(resp.content)}
 
 
 def extract_provider(model: str) -> str:
@@ -76,6 +129,11 @@ class AWSBedrockLLM(LLMBase):
 
     def _initialize_aws_client(self):
         """Initialize AWS Bedrock client with proper credentials."""
+        if getattr(self.config, "auth_mode", "sigv4") == "api_key":
+            self.client = _BedrockBearerClient(region=self.config.aws_region)
+            self.available_models = []
+            return
+
         try:
             aws_config = self.config.get_aws_config()
 
@@ -108,8 +166,13 @@ class AWSBedrockLLM(LLMBase):
             response = bedrock_client.list_foundation_models()
             self.available_models = [model["modelId"] for model in response["modelSummaries"]]
 
-            # Check if our model is available
-            if self.config.model not in self.available_models:
+            # Check if our model is available.
+            # Cross-region inference profile IDs have a regional prefix (e.g.
+            # "us.anthropic.claude-sonnet-4-6") that won't appear in the
+            # foundation model list. Strip the prefix before comparing.
+            model_id = self.config.model
+            base_model_id = re.sub(r"^(us|eu|ap)\.", "", model_id)
+            if model_id not in self.available_models and base_model_id not in self.available_models:
                 logger.warning(f"Model {self.config.model} may not be available in region {self.config.aws_region}")
                 logger.info(f"Available models: {', '.join(self.available_models[:5])}...")
 
