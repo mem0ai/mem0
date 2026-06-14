@@ -856,6 +856,7 @@ export class Memory {
             text,
             errorClass: c.errorClass,
             remediation: c.remediation,
+            errorCode: c.errorCode,
             retryAfter: c.retryAfter,
             error: e instanceof Error ? e.message : String(e),
             _memoryId: uuidv4(),
@@ -869,6 +870,7 @@ export class Memory {
             text,
             errorClass: c.errorClass,
             remediation: c.remediation,
+            errorCode: c.errorCode,
             error: `embedding validation failed: ${v.reason}`,
             _memoryId: uuidv4(),
           });
@@ -1014,6 +1016,7 @@ export class Memory {
         text,
         errorClass: c.errorClass,
         remediation: c.remediation,
+        errorCode: c.errorCode,
         retryAfter: c.retryAfter,
         error: errMsg,
         // Stable id so a retry overwrites instead of duplicating.

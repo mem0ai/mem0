@@ -13,8 +13,16 @@ import {
   classifyEmbedError,
   classifyValidation,
   makeVectorValidator,
+  toEmbeddingError,
+  projectError,
   EmbeddingFailure,
 } from "../memory/errorRetry";
+import {
+  RateLimitError,
+  NetworkError,
+  ValidationError,
+  AuthenticationError,
+} from "../../../common/exceptions";
 
 const DIM = 1536;
 
@@ -249,6 +257,7 @@ describe("memory.retryFailed() is label-driven", () => {
     const rehydrated: EmbeddingFailure[] = JSON.parse(
       JSON.stringify(res.failed),
     );
+    expect(rehydrated[0].errorCode).toBe(res.failed![0].errorCode);
     rules.delete(B);
     const retry = await m.retryFailed(rehydrated);
     expect(retry.results.map((r) => r.memory)).toContain(B);
@@ -350,18 +359,65 @@ describe("classifier and validator units", () => {
     expect(classifyValidation("non-finite")).toEqual({
       errorClass: "validation_error",
       remediation: "escalate",
+      errorCode: "EMBED_002",
     });
     expect(classifyValidation("empty")).toEqual({
       errorClass: "validation_error",
       remediation: "escalate",
+      errorCode: "EMBED_002",
     });
     expect(classifyValidation("undefined")).toEqual({
       errorClass: "validation_error",
       remediation: "escalate",
+      errorCode: "EMBED_002",
     });
     expect(classifyValidation("dimension-mismatch")).toEqual({
       errorClass: "validation_error",
       remediation: "reconfigure",
+      errorCode: "EMBED_002",
     });
+  });
+});
+
+describe("typed-exception parity (Python error_code shape)", () => {
+  it("maps raw errors to typed instances (toEmbeddingError)", () => {
+    expect(toEmbeddingError({ status: 429 })).toBeInstanceOf(RateLimitError);
+    expect(toEmbeddingError({ status: 503 })).toBeInstanceOf(NetworkError);
+    expect(toEmbeddingError({ status: 401 })).toBeInstanceOf(
+      AuthenticationError,
+    );
+    const typed = new RateLimitError("limit", "EMBED_001");
+    expect(toEmbeddingError(typed)).toBe(typed); // already typed, passed through
+  });
+
+  it("projects typed instances onto the wire Classification", () => {
+    expect(projectError(new RateLimitError("x", "EMBED_001"))).toMatchObject({
+      errorClass: "provider_error",
+      remediation: "retry",
+      errorCode: "EMBED_001",
+    });
+    expect(projectError(new NetworkError("x", "EMBED_001"))).toMatchObject({
+      errorClass: "provider_error",
+      remediation: "retry",
+    });
+    expect(
+      projectError(new AuthenticationError("x", "EMBED_003")),
+    ).toMatchObject({
+      errorClass: "provider_error",
+      remediation: "escalate",
+      errorCode: "EMBED_003",
+    });
+    expect(projectError(new ValidationError("x", "EMBED_002"))).toMatchObject({
+      errorClass: "validation_error",
+      remediation: "reconfigure",
+      errorCode: "EMBED_002",
+    });
+  });
+
+  it("a classified provider failure carries errorCode on failed[]", async () => {
+    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
+    const { m } = await ready(rules, [A, B]);
+    const res = await m.add([A, B].join(". "), { userId: "ec" });
+    expect(res.failed![0].errorCode).toBe("EMBED_001");
   });
 });

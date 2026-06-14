@@ -1,27 +1,37 @@
 // Label-driven, guardrailed handling of embedding failures in add().
 import type { MemoryItem } from "../types";
+import {
+  MemoryError,
+  RateLimitError,
+  NetworkError,
+  ValidationError,
+  AuthenticationError,
+  MemoryQuotaExceededError,
+  EmbeddingError,
+  EMBED_ERROR_CODE,
+  type EmbedErrorCode,
+} from "../../../common/exceptions";
 
-// Why an embed failed. Values match the Python error_code vocabulary (#5245).
+// Values match the Python error_code vocabulary (#5245).
 export type ErrorClass =
   | "provider_error"
   | "validation_error"
   | "internal_error";
 
-// What the caller should do about it.
 export type Remediation = "retry" | "reconfigure" | "escalate";
 
-// One dropped text. Plain data so it survives a JSON round-trip and can be retried later.
+// One dropped text. Plain data so it survives a JSON round-trip.
 export interface EmbeddingFailure {
   text: string;
   errorClass: ErrorClass;
   remediation: Remediation;
+  errorCode?: EmbedErrorCode;
   retryAfter?: number;
   error: string;
   readonly _payload?: Record<string, any>;
   readonly _memoryId?: string;
 }
 
-// What add() and retryFailed() both return.
 export interface AddResult {
   results: MemoryItem[];
   failed: EmbeddingFailure[];
@@ -30,6 +40,7 @@ export interface AddResult {
 export interface Classification {
   errorClass: ErrorClass;
   remediation: Remediation;
+  errorCode: EmbedErrorCode;
   retryAfter?: number;
 }
 
@@ -83,16 +94,24 @@ export function makeVectorValidator(seedDim: number | null = null) {
   };
 }
 
-// A structurally-bad vector caught by inspecting the embedder's output is a
-// validation_error regardless of how it's bad; remediation tells them what to do.
+// A structurally-bad returned vector is always validation_error; remediation differs.
 export function classifyValidation(reason: ValidationReason): Classification {
+  const errorCode = EMBED_ERROR_CODE.VALIDATION;
   switch (reason) {
     case "dimension-mismatch":
-      return { errorClass: "validation_error", remediation: "reconfigure" };
+      return {
+        errorClass: "validation_error",
+        remediation: "reconfigure",
+        errorCode,
+      };
     case "non-finite":
     case "empty":
     case "undefined":
-      return { errorClass: "validation_error", remediation: "escalate" };
+      return {
+        errorClass: "validation_error",
+        remediation: "escalate",
+        errorCode,
+      };
   }
 }
 
@@ -106,27 +125,31 @@ function parseRetryAfter(e: any): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
-// Status-first classifier for a thrown embed() error; message is only a fallback.
-export function classifyEmbedError(err: unknown): Classification {
+// Normalize a thrown embed() value into a typed MemoryError (status-first,
+// then node code, then message as a last resort). Mirrors the client SDK types.
+export function toEmbeddingError(err: unknown): MemoryError {
+  if (err instanceof MemoryError) return err;
+
   const e = err as any;
   const raw = e?.status ?? e?.statusCode ?? e?.response?.status;
   const status = typeof raw === "number" ? raw : Number(raw);
   const retryAfter = parseRetryAfter(e);
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  const debugInfo: Record<string, unknown> =
+    retryAfter !== undefined ? { retryAfter } : {};
+  const C = EMBED_ERROR_CODE;
 
   if (Number.isFinite(status)) {
     switch (true) {
       case status === 429:
+        return new RateLimitError(message, C.TRANSIENT, { debugInfo });
       case status >= 500 && status < 600:
-        return {
-          errorClass: "provider_error",
-          remediation: "retry",
-          retryAfter,
-        };
+        return new NetworkError(message, C.TRANSIENT, { debugInfo });
       case status === 401:
       case status === 403:
-        return { errorClass: "provider_error", remediation: "escalate" };
+        return new AuthenticationError(message, C.AUTH);
       case status >= 400 && status < 500:
-        return { errorClass: "validation_error", remediation: "reconfigure" };
+        return new ValidationError(message, C.VALIDATION);
     }
   }
 
@@ -137,30 +160,89 @@ export function classifyEmbedError(err: unknown): Classification {
     case "ENOTFOUND":
     case "EAI_AGAIN":
     case "EPIPE":
-      return { errorClass: "provider_error", remediation: "retry", retryAfter };
+      return new NetworkError(message, C.TRANSIENT, { debugInfo });
   }
 
-  const msg = (
-    err instanceof Error ? err.message : String(err ?? "")
-  ).toLowerCase();
-  if (
-    /rate.?limit|too many requests|timeout|timed out|socket hang up|temporarily unavailable|50[234]/.test(
+  const msg = message.toLowerCase();
+  switch (true) {
+    case /rate.?limit|too many requests/.test(msg):
+      return new RateLimitError(message, C.TRANSIENT, { debugInfo });
+    case /timeout|timed out|socket hang up|temporarily unavailable|50[234]/.test(
       msg,
-    )
-  ) {
-    return { errorClass: "provider_error", remediation: "retry", retryAfter };
-  }
-  if (/\bnan\b|infinity|non-?finite/.test(msg)) {
-    return { errorClass: "validation_error", remediation: "escalate" };
-  }
-  if (
-    /dimension|shape|expected .* got|wrong size|invalid|malformed|empty|length|validation/.test(
+    ):
+      return new NetworkError(message, C.TRANSIENT, { debugInfo });
+    case /\bnan\b|infinity|non-?finite/.test(msg):
+      return new ValidationError(message, C.VALIDATION, {
+        debugInfo: { surface: "escalate" },
+      });
+    case /dimension|shape|expected .* got|wrong size|invalid|malformed|empty|length|validation/.test(
       msg,
-    )
-  ) {
-    return { errorClass: "validation_error", remediation: "reconfigure" };
+    ):
+      return new ValidationError(message, C.VALIDATION);
   }
-  return { errorClass: "provider_error", remediation: "retry", retryAfter };
+
+  return new EmbeddingError(message, C.TRANSIENT, { debugInfo });
+}
+
+function isEmbedCode(c: string): c is EmbedErrorCode {
+  return (
+    c === EMBED_ERROR_CODE.TRANSIENT ||
+    c === EMBED_ERROR_CODE.VALIDATION ||
+    c === EMBED_ERROR_CODE.AUTH
+  );
+}
+
+// Collapse a typed error to the plain wire Classification. Order: specific first.
+export function projectError(err: MemoryError): Classification {
+  const retryAfter =
+    typeof err.debugInfo?.retryAfter === "number"
+      ? (err.debugInfo.retryAfter as number)
+      : undefined;
+  const errorCode: EmbedErrorCode = isEmbedCode(err.errorCode)
+    ? err.errorCode
+    : EMBED_ERROR_CODE.TRANSIENT;
+
+  switch (true) {
+    case err instanceof RateLimitError:
+    case err instanceof NetworkError:
+      return {
+        errorClass: "provider_error",
+        remediation: "retry",
+        errorCode,
+        retryAfter,
+      };
+    case err instanceof MemoryQuotaExceededError:
+    case err instanceof AuthenticationError:
+      return {
+        errorClass: "provider_error",
+        remediation: "escalate",
+        errorCode,
+      };
+    case err instanceof ValidationError:
+      return {
+        errorClass: "validation_error",
+        remediation:
+          err.debugInfo?.surface === "escalate" ? "escalate" : "reconfigure",
+        errorCode,
+      };
+    case err instanceof EmbeddingError:
+      return {
+        errorClass: "provider_error",
+        remediation: "retry",
+        errorCode,
+        retryAfter,
+      };
+    default:
+      return {
+        errorClass: "internal_error",
+        remediation: "escalate",
+        errorCode: EMBED_ERROR_CODE.TRANSIENT,
+      };
+  }
+}
+
+export function classifyEmbedError(err: unknown): Classification {
+  return projectError(toEmbeddingError(err));
 }
 
 // provider/retry: wait any retryAfter, re-embed, re-validate, persist if good.
