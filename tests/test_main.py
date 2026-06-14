@@ -90,6 +90,85 @@ def test_get(memory_instance):
     assert result["metadata"] == {"extra_field": "extra_value"}
 
 
+def test_get_shape_matches_get_all(memory_instance):
+    """`Memory.get(id)` and `Memory.get_all()[i]` should return the same key set
+    for the same underlying record. Today `get()` leaks a `score: None` field
+    that `get_all()` strips via `model_dump(exclude={"score"})`, so a caller that
+    iterates either result with the same code path sees a different shape.
+    """
+    payload = {
+        "data": "Test memory",
+        "user_id": "test_user",
+        "hash": "test_hash",
+        "created_at": "2023-01-01T00:00:00",
+        "updated_at": "2023-01-02T00:00:00",
+        "extra_field": "extra_value",
+    }
+    mock_memory = Mock(id="test_id", payload=payload)
+
+    memory_instance.vector_store.get = Mock(return_value=mock_memory)
+    memory_instance.vector_store.list = Mock(return_value=([mock_memory], None))
+
+    got = memory_instance.get("test_id")
+    got_all_item = memory_instance.get_all(filters={"user_id": "test_user"})["results"][0]
+
+    # Same record should produce the same key set across the two read APIs.
+    assert set(got.keys()) == set(got_all_item.keys()), (
+        f"get() vs get_all() shape mismatch: "
+        f"only-in-get={set(got) - set(got_all_item)}, "
+        f"only-in-get_all={set(got_all_item) - set(got)}"
+    )
+
+    # Specifically, the search-only `score` field must not leak into get().
+    assert "score" not in got, "Memory.get() must not include a score field"
+
+
+@pytest.mark.asyncio
+async def test_async_get_shape_matches_async_get_all():
+    """Async parity with `test_get_shape_matches_get_all` — `AsyncMemory.get(id)`
+    must not leak a `score` field that `AsyncMemory.get_all()` would have excluded.
+    """
+    from mem0.memory.main import AsyncMemory
+
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        amem = AsyncMemory(config)
+
+    payload = {
+        "data": "Test memory",
+        "user_id": "test_user",
+        "hash": "test_hash",
+        "created_at": "2023-01-01T00:00:00",
+        "updated_at": "2023-01-02T00:00:00",
+        "extra_field": "extra_value",
+    }
+    mock_memory = Mock(id="test_id", payload=payload)
+
+    amem.vector_store.get = Mock(return_value=mock_memory)
+    amem.vector_store.list = Mock(return_value=([mock_memory], None))
+
+    got = await amem.get("test_id")
+    got_all = await amem.get_all(filters={"user_id": "test_user"})
+    got_all_item = got_all["results"][0]
+
+    assert set(got.keys()) == set(got_all_item.keys()), (
+        f"async get() vs get_all() shape mismatch: "
+        f"only-in-get={set(got) - set(got_all_item)}, "
+        f"only-in-get_all={set(got_all_item) - set(got)}"
+    )
+    assert "score" not in got, "AsyncMemory.get() must not include a score field"
+
+
 def test_search(memory_instance):
     mock_memories = [
         Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"}, score=0.9),
