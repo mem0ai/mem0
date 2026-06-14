@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import telemetry
 from auth import ADMIN_API_KEY, AUTH_DISABLED, JWT_SECRET, require_admin, verify_auth
@@ -170,9 +170,12 @@ app.include_router(entities_router.router)
 app.include_router(requests_router.router)
 
 
+MessageContent = Union[str, Dict[str, Any], List[Dict[str, Any]]]
+
+
 class Message(BaseModel):
     role: str = Field(..., description="Role of the message (user or assistant).")
-    content: str = Field(..., description="Message content.")
+    content: MessageContent = Field(..., description="Message content.")
 
 
 class MemoryCreate(BaseModel):
