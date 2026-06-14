@@ -1,10 +1,10 @@
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory
+from mem0.memory.main import AsyncMemory, Memory
 
 
 @pytest.fixture(autouse=True)
@@ -159,6 +159,130 @@ def test_update_with_empty_metadata(memory_instance):
     memory_instance._update_memory.assert_called_once_with(
         "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}, {}
     )
+
+
+@pytest.fixture
+def async_memory_instance():
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        return AsyncMemory(config)
+
+
+_EXISTING_PAYLOAD_WITH_CUSTOM_METADATA = {
+    "data": "Original memory",
+    "hash": "old_hash",
+    "text_lemmatized": "original memory",
+    "created_at": "2023-01-01T00:00:00",
+    "updated_at": "2023-01-02T00:00:00",
+    "user_id": "test_user",
+    "agent_id": "test_agent",
+    "actor_id": "test_actor",
+    "role": "user",
+    "category": "sports",
+    "priority": "high",
+    "source": "chat",
+}
+
+
+def _assert_update_payload_preserves_custom_metadata(payload):
+    # Regression for #5160: custom fields stored at add()-time must survive
+    # a text-only update instead of being dropped by the old whitelist copy.
+    assert payload["category"] == "sports"
+    assert payload["priority"] == "high"
+    assert payload["source"] == "chat"
+    # Session identifiers must also survive.
+    assert payload["user_id"] == "test_user"
+    assert payload["agent_id"] == "test_agent"
+    assert payload["actor_id"] == "test_actor"
+    assert payload["role"] == "user"
+    # System fields must reflect the latest write.
+    assert payload["data"] == "Updated memory"
+    assert payload["hash"] != "old_hash"
+    assert payload["created_at"] == "2023-01-01T00:00:00"
+    assert payload["updated_at"] != "2023-01-02T00:00:00"
+
+
+def test_update_memory_preserves_custom_metadata(memory_instance):
+    """_update_memory() with no metadata argument must keep all custom fields (#5160)."""
+    from copy import deepcopy
+
+    existing_memory = Mock(payload=deepcopy(_EXISTING_PAYLOAD_WITH_CUSTOM_METADATA))
+    memory_instance.vector_store.get = Mock(return_value=existing_memory)
+    memory_instance.vector_store.update = Mock()
+    memory_instance.db.add_history = Mock()
+    memory_instance._remove_memory_from_entity_store = Mock()
+    memory_instance._link_entities_for_memory = Mock()
+
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="updated memory"):
+        memory_instance._update_memory(
+            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}
+        )
+
+    memory_instance.vector_store.update.assert_called_once()
+    payload = memory_instance.vector_store.update.call_args.kwargs["payload"]
+    _assert_update_payload_preserves_custom_metadata(payload)
+
+
+def test_update_memory_caller_metadata_overlays_existing(memory_instance):
+    """Caller-supplied metadata must update/add fields without dropping the rest."""
+    from copy import deepcopy
+
+    existing_memory = Mock(payload=deepcopy(_EXISTING_PAYLOAD_WITH_CUSTOM_METADATA))
+    memory_instance.vector_store.get = Mock(return_value=existing_memory)
+    memory_instance.vector_store.update = Mock()
+    memory_instance.db.add_history = Mock()
+    memory_instance._remove_memory_from_entity_store = Mock()
+    memory_instance._link_entities_for_memory = Mock()
+
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="updated memory"):
+        memory_instance._update_memory(
+            "test_id",
+            "Updated memory",
+            {"Updated memory": [0.1, 0.2, 0.3]},
+            metadata={"priority": "low", "new_field": "new_value"},
+        )
+
+    payload = memory_instance.vector_store.update.call_args.kwargs["payload"]
+    # Overlaid + added fields take effect...
+    assert payload["priority"] == "low"
+    assert payload["new_field"] == "new_value"
+    # ...while untouched custom and session fields survive.
+    assert payload["category"] == "sports"
+    assert payload["source"] == "chat"
+    assert payload["user_id"] == "test_user"
+    assert payload["actor_id"] == "test_actor"
+
+
+@pytest.mark.asyncio
+async def test_async_update_memory_preserves_custom_metadata(async_memory_instance):
+    """AsyncMemory._update_memory() must keep all custom fields on a text-only update (#5160)."""
+    from copy import deepcopy
+
+    existing_memory = Mock(payload=deepcopy(_EXISTING_PAYLOAD_WITH_CUSTOM_METADATA))
+    async_memory_instance.vector_store.get = Mock(return_value=existing_memory)
+    async_memory_instance.vector_store.update = Mock()
+    async_memory_instance.db.add_history = Mock()
+    async_memory_instance._remove_memory_from_entity_store = AsyncMock()
+    async_memory_instance._link_entities_for_memory = AsyncMock()
+
+    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="updated memory"):
+        await async_memory_instance._update_memory(
+            "test_id", "Updated memory", {"Updated memory": [0.1, 0.2, 0.3]}
+        )
+
+    async_memory_instance.vector_store.update.assert_called_once()
+    payload = async_memory_instance.vector_store.update.call_args.kwargs["payload"]
+    _assert_update_payload_preserves_custom_metadata(payload)
 
 
 def test_delete(memory_instance):
