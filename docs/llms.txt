@@ -445,6 +445,7 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [LiteLLM](https://docs.mem0.ai/components/llms/models/litellm) [OSS]: Use when multiplexing many providers behind LiteLLM.
 - [vLLM](https://docs.mem0.ai/components/llms/models/vllm) [OSS]: Use when self-hosting inference with vLLM.
 - [LangChain LLM](https://docs.mem0.ai/components/llms/models/langchain) [OSS]: Use when the LLM is wrapped behind a LangChain adapter.
+- [OrcaRouter](https://docs.mem0.ai/components/llms/models/orcarouter) [OSS]: Use when routing requests across multiple LLM providers via OrcaRouter.
 
 ### Embedding Providers [OSS]
 - [Embeddings Overview](https://docs.mem0.ai/components/embedders/overview) [OSS]: Use when choosing an embedding model.

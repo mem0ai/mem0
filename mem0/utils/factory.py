@@ -11,6 +11,7 @@ from mem0.configs.llms.lmstudio import LMStudioConfig
 from mem0.configs.llms.minimax import MinimaxConfig
 from mem0.configs.llms.ollama import OllamaConfig
 from mem0.configs.llms.openai import OpenAIConfig
+from mem0.configs.llms.orcarouter import OrcaRouterConfig
 from mem0.configs.llms.vllm import VllmConfig
 from mem0.configs.llms.xai import XAIConfig
 from mem0.configs.rerankers.base import BaseRerankerConfig
@@ -54,6 +55,7 @@ class LlmFactory:
         "lmstudio": ("mem0.llms.lmstudio.LMStudioLLM", LMStudioConfig),
         "vllm": ("mem0.llms.vllm.VllmLLM", VllmConfig),
         "langchain": ("mem0.llms.langchain.LangchainLLM", BaseLlmConfig),
+        "orcarouter": ("mem0.llms.orcarouter.OrcaRouterLLM", OrcaRouterConfig),
     }
 
     @classmethod

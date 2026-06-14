@@ -208,7 +208,8 @@
                               "components/llms/models/sarvam",
                               "components/llms/models/lmstudio",
                               "components/llms/models/langchain",
-                              "components/llms/models/vllm"
+                              "components/llms/models/vllm",
+                              "components/llms/models/orcarouter"
                             ]
                           }
                         ]
