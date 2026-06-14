@@ -1,0 +1,257 @@
+---
+title: "Oracle AI Database"
+description: "Use Oracle AI Database as a vector store in Mem0 with native AI Vector Search."
+---
+
+Oracle AI Database supports native vector storage and similarity search through AI Vector Search. The Mem0 Oracle provider stores embeddings in an Oracle `VECTOR` column and searches them with `VECTOR_DISTANCE`.
+
+<Note>
+  This provider is available in the Python implementation. It does not add TypeScript support.
+</Note>
+
+<Note>
+  The Oracle provider defaults are tuned for OCI-style deployments and prefer Oracle AI Vector Search capabilities first. By default, Mem0 uses approximate search with a provider-managed HNSW index. If that index cannot be created because the environment is too constrained, the provider falls back to exact search automatically.
+</Note>
+
+### Installation
+
+Install Mem0 with vector store dependencies, or install `oracledb` alongside Mem0.
+
+```bash
+pip install "mem0ai[vector_stores]"
+```
+
+```bash
+pip install oracledb
+```
+
+For OCI deployments with Oracle Autonomous AI Database, `python-oracledb` thin mode with an Oracle wallet is the recommended starting point.
+
+### Usage
+
+#### OCI / Autonomous AI Database recommended
+
+For OCI-backed Mem0 deployments, use the database service alias from your Oracle Autonomous AI Database wallet and keep Oracle AI Vector Search enabled for approximate retrieval.
+
+```python Python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "oracle",
+        "config": {
+            "dsn": "mem0aidb_high",
+            "user": "mem0",
+            "password": "password",
+            "config_dir": "/opt/oracle/wallet",
+            "wallet_location": "/opt/oracle/wallet",
+            "wallet_password": "wallet-password",
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "distance": "COSINE",
+            "search_mode": "approx",
+            "target_accuracy": 90,
+            "auto_create": True,
+            "index_fallback_to_exact": True,
+            "index": {
+                "create": True,
+                "type": "hnsw",
+                "target_accuracy": 90,
+                "neighbors": 40,
+                "efconstruction": 500,
+            },
+        },
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I prefer sci-fi movies and avoid thrillers."},
+    {"role": "assistant", "content": "I'll remember to recommend sci-fi instead of thrillers."},
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+This is the recommended production baseline for OCI with Oracle Autonomous AI Database:
+
+- Use the wallet service alias as `dsn`.
+- Use `wallet_password` for the password that was set when the wallet was downloaded. It is separate from the database user password.
+- Keep `search_mode="approx"` and `index.type="hnsw"` so Mem0 uses Oracle AI Vector Search by default.
+- Leave `index_fallback_to_exact=True` enabled so the same config still works in smaller test environments.
+- Keep `thick_mode=False` unless you specifically need Oracle Client features outside the default thin-mode path.
+
+If you want to validate the Oracle wallet, temporary collection creation, HNSW index creation, insert, and search before wiring a full `Memory.from_config(...)` flow, run `examples/misc/oracle_aidb_vector_store.py`.
+
+#### Local development / Oracle Free
+
+For local Oracle Free containers or smaller development environments, start with exact search if you want the most predictable setup.
+
+```python Python
+config = {
+    "vector_store": {
+        "provider": "oracle",
+        "config": {
+            "dsn": "localhost:1521/FREEPDB1",
+            "user": "mem0",
+            "password": "password",
+            "collection_name": "mem0",
+            "embedding_model_dims": 1536,
+            "distance": "COSINE",
+            "search_mode": "exact",
+            "auto_create": True,
+            "index": {
+                "create": False,
+            },
+        },
+    }
+}
+```
+
+If you want local development to stay closer to OCI, keep the OCI-style configuration and rely on `index_fallback_to_exact=True` to degrade gracefully when managed HNSW index creation is unavailable.
+
+### HNSW index
+
+HNSW is the default vector index type. It is a good fit for low-latency memory retrieval.
+
+```python
+"index": {
+    "create": True,
+    "type": "hnsw",
+    "target_accuracy": 90,
+    "neighbors": 40,
+    "efconstruction": 500,
+}
+```
+
+The provider creates an index similar to:
+
+```sql
+CREATE VECTOR INDEX MEM0_HNSW_IDX
+ON MEM0 (EMBEDDING)
+ORGANIZATION INMEMORY NEIGHBOR GRAPH
+DISTANCE COSINE
+WITH TARGET ACCURACY 90
+PARAMETERS (TYPE HNSW, NEIGHBORS 40, EFCONSTRUCTION 500);
+```
+
+### OCI recommended configuration
+
+For OCI or larger Oracle AI Database environments, the recommended configuration is to keep the defaults and let Mem0 create a provider-managed HNSW index for approximate search.
+
+```python
+"search_mode": "approx",
+"index_fallback_to_exact": True,
+"index": {
+    "create": True,
+    "type": "hnsw",
+    "target_accuracy": 90,
+    "neighbors": 40,
+    "efconstruction": 500,
+}
+```
+
+If the runtime environment cannot allocate enough vector memory for the managed vector index, Mem0 falls back to exact search automatically when `index_fallback_to_exact` is enabled.
+
+### IVF index
+
+Use IVF for large collections when partition-based approximate search is preferred.
+
+```python
+"index": {
+    "create": True,
+    "type": "ivf",
+    "target_accuracy": 90,
+    "neighbor_partitions": 100,
+}
+```
+
+The provider creates an index similar to:
+
+```sql
+CREATE VECTOR INDEX MEM0_IVF_IDX
+ON MEM0 (EMBEDDING)
+ORGANIZATION NEIGHBOR PARTITIONS
+DISTANCE COSINE
+WITH TARGET ACCURACY 90
+PARAMETERS (TYPE IVF, NEIGHBOR PARTITIONS 100);
+```
+
+### Exact and approximate search
+
+Approximate search uses the vector index and query-time target accuracy:
+
+```python
+"search_mode": "approx",
+"target_accuracy": 90,
+```
+
+Exact search bypasses approximate vector index search and returns exact nearest neighbors:
+
+```python
+"search_mode": "exact"
+```
+
+Use `auto` to omit the exact or approximate row limiting keyword and let Oracle choose the plan:
+
+```python
+"search_mode": "auto"
+```
+
+### Keyword and hybrid retrieval
+
+The Oracle provider creates a JSON search index on `PAYLOAD` so Mem0 can run Oracle Text keyword search against the `text_lemmatized` field.
+
+This enables Mem0 hybrid retrieval to combine:
+
+- Oracle AI Vector Search semantic retrieval
+- Oracle Text keyword retrieval
+- Mem0 entity-based boosting in the core ranking flow
+
+If the JSON search index cannot be created, vector search still works, but keyword and hybrid retrieval stay unavailable until the index is available.
+
+### Metadata filtering
+
+The provider stores `user_id`, `agent_id`, and `run_id` as relational columns in addition to storing the full payload as JSON. These common Mem0 filters are pushed down as regular SQL predicates.
+
+Other filter keys are pushed down with `JSON_VALUE` over the `PAYLOAD` column.
+
+```python
+filters = {
+    "user_id": "alice",
+    "category": "movies",
+}
+```
+
+### Config
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `dsn` | Oracle Database DSN | `None` |
+| `user` | Oracle Database user | `None` |
+| `password` | Oracle Database password | `None` |
+| `collection_name` | Oracle table name | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `vector_format` | Oracle VECTOR storage format: `FLOAT32` or `FLOAT64` | `FLOAT32` |
+| `distance` | VECTOR_DISTANCE metric | `COSINE` |
+| `search_mode` | Search mode: `approx`, `exact`, or `auto` | `approx` |
+| `target_accuracy` | Query-time target accuracy for approximate search | `90` |
+| `auto_create` | Create the table and indexes automatically | `True` |
+| `index` | HNSW or IVF vector index configuration | HNSW |
+| `index_fallback_to_exact` | Fall back to exact search if provider-managed vector index creation is unavailable | `True` |
+| `minconn` | Minimum number of pool connections | `1` |
+| `maxconn` | Maximum number of pool connections | `5` |
+| `increment` | Connection pool increment | `1` |
+| `connection_pool` | Existing `oracledb` connection pool | `None` |
+| `config_dir` | Oracle Net configuration directory | `None` |
+| `wallet_location` | Oracle wallet location | `None` |
+| `wallet_password` | Oracle wallet password | `None` |
+| `thick_mode` | Initialize python-oracledb in thick mode | `False` |
+| `lib_dir` | Oracle Client library directory for thick mode | `None` |
+| `pool_kwargs` | Additional `oracledb.create_pool` keyword arguments | `{}` |
+
+### Scope
+
+This provider focuses on Oracle AI Database as a native vector store for Mem0. It does not implement Oracle Graph, Oracle AI Agent Memory, Unified Memory Core, Hybrid Vector Index, in-database embedding generation, or Oracle Text keyword search.
