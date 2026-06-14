@@ -527,6 +527,68 @@ describe("Redis – backward compat with mocked client", () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// 4. PGVector — mock pg client, ensure constructor + explicit initialize is safe
+// ───────────────────────────────────────────────────────────────────────────
+describe("PGVector – backward compat with mocked pg client", () => {
+  let PGVector: any;
+  let clients: any[];
+  let ClientMock: any;
+
+  beforeEach(() => {
+    jest.resetModules();
+    clients = [];
+
+    ClientMock = jest.fn().mockImplementation(() => {
+      const client = {
+        connect: jest.fn().mockResolvedValue(undefined),
+        end: jest.fn().mockResolvedValue(undefined),
+        query: jest.fn().mockImplementation((sql: string) => {
+          if (sql.includes("SELECT 1 FROM pg_database"))
+            return Promise.resolve({ rows: [{ "?column?": 1 }] });
+          if (sql.includes("SELECT table_name FROM information_schema.tables"))
+            return Promise.resolve({
+              rows: [{ table_name: "test_collection" }],
+            });
+          return Promise.resolve({ rows: [] });
+        }),
+      };
+      clients.push(client);
+      return client;
+    });
+
+    jest.doMock("pg", () => ({
+      __esModule: true,
+      default: { Client: ClientMock },
+    }));
+
+    PGVector = require("../src/vector_stores/pgvector").PGVector;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.resetModules();
+  });
+
+  it("constructor + explicit initialize() doesn't run initialization twice", async () => {
+    const store = new PGVector({
+      collectionName: "test_collection",
+      embeddingModelDims: 768,
+      host: "localhost",
+      port: 5432,
+      user: "postgres",
+      password: "postgres",
+      dbname: "vector_store",
+    });
+
+    await store.initialize();
+
+    expect(ClientMock).toHaveBeenCalledTimes(2);
+    expect(clients[0].connect).toHaveBeenCalledTimes(1);
+    expect(clients[1].connect).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // 4. Supabase — mock Supabase client, test idempotent init
 // ───────────────────────────────────────────────────────────────────────────
 describe("Supabase – backward compat with mocked client", () => {
