@@ -1056,3 +1056,52 @@ class TestHybridSearchWarning:
             Memory(config)
 
         assert not any("does not support keyword search" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_delete_all_bulk_clears_entity_store(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """
+    Verify that async delete_all bulk-clears entity records before running
+    concurrent memory deletes, preventing the race condition where concurrent
+    _remove_memory_from_entity_store calls read stale snapshots of
+    linked_memory_ids and overwrite each other's writes.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    mock_vector_store = MagicMock()
+    mem_a = MagicMock()
+    mem_a.id = "mem-a"
+    mem_a.payload = {"data": "Alice likes Python", "user_id": "alice"}
+    mem_b = MagicMock()
+    mem_b.id = "mem-b"
+    mem_b.payload = {"data": "Alice works at Acme", "user_id": "alice"}
+    mock_vector_store.list.return_value = ([mem_a, mem_b],)
+    mock_vector_store.get.side_effect = lambda vector_id: {"mem-a": mem_a, "mem-b": mem_b}[vector_id]
+    mock_vector_factory.return_value = mock_vector_store
+
+    mock_entity_store = MagicMock()
+    entity_row = MagicMock()
+    entity_row.id = "entity-alice"
+    entity_row.payload = {
+        "data": "alice",
+        "user_id": "alice",
+        "linked_memory_ids": ["mem-a", "mem-b"],
+    }
+    mock_entity_store.list.return_value = ([entity_row],)
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+    memory._entity_store = mock_entity_store
+
+    await memory.delete_all(user_id="alice")
+
+    mock_entity_store.delete.assert_called_once_with(vector_id="entity-alice")
+
+    assert mock_vector_store.delete.call_count == 2
