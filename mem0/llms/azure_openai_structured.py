@@ -72,13 +72,8 @@ class AzureOpenAIStructuredLLM(LLMBase):
 
         messages[-1]["content"] = user_prompt
 
-        params = {
-            "model": self.config.model,
-            "messages": messages,
-            "temperature": self.config.temperature,
-            "max_tokens": self.config.max_tokens,
-            "top_p": self.config.top_p,
-        }
+        params = self._get_supported_params(messages=messages)
+        params["model"] = self.config.model
         if response_format:
             params["response_format"] = response_format
         if tools:
