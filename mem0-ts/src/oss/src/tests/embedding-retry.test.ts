@@ -340,6 +340,24 @@ describe("classifier and validator units", () => {
     });
   });
 
+  // A thrown error is always provider_error; the retry decision rides remediation.
+  it.each([
+    [503, "retry", false],
+    [502, "retry", false],
+    [429, "retry", true],
+    [401, "escalate", false],
+    [403, "escalate", false],
+    [400, "escalate", false],
+  ])("status %i -> provider_error/%s", (status, remediation, hasRetryAfter) => {
+    const err: any = new Error("provider call failed");
+    err.status = status;
+    if (status === 429) err.retryAfter = 30;
+    const c = classifyEmbedError(err);
+    expect(c.errorClass).toBe("provider_error");
+    expect(c.remediation).toBe(remediation);
+    expect(c.retryAfter !== undefined).toBe(hasRetryAfter);
+  });
+
   it("validator rejects empty, NaN, wrong-dim, undefined; accepts clean", () => {
     const g = makeVectorValidator(3);
     expect(g.validate([0.1, 0.2, 0.3]).ok).toBe(true);
