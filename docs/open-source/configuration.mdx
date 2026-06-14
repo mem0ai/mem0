@@ -147,6 +147,28 @@ memory = Memory.from_config_file("config.yaml")
   </Accordion>
 </AccordionGroup>
 
+## Track search hits
+
+Self-hosted deployments can attach an optional `on_search_hit` callback to the Python OSS config. Mem0 calls it once for each ranked memory returned by `search()`, after reranking and filtering. This lets lifecycle plugins update access counters, last-access timestamps, or retention metadata without changing every vector store backend.
+
+```python
+from mem0 import Memory
+
+
+def track_access(memory):
+    # Example: update access_count / last_accessed_at in your metadata layer.
+    print(f"accessed memory {memory['id']}")
+
+
+memory = Memory.from_config({
+    "on_search_hit": track_access,
+})
+```
+
+<Note>
+  Callback errors are logged and do not fail the search request. Use the callback for lightweight bookkeeping, then run expensive cleanup or decay jobs outside the search path.
+</Note>
+
 <Warning>
   Mixing managed and self-hosted components? Make sure every outbound provider call happens through a secure network path. Managed rerankers often require outbound internet even if your vector store is on-prem.
 </Warning>

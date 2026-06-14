@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from mem0.configs.base import MemoryConfig
-from mem0.memory.main import Memory
+from mem0.memory.main import AsyncMemory, Memory
 
 
 @pytest.fixture(autouse=True)
@@ -52,6 +52,23 @@ def memory_custom_instance():
         return Memory(config)
 
 
+@pytest.fixture
+def async_memory_instance():
+    with (
+        patch("mem0.utils.factory.EmbedderFactory") as mock_embedder,
+        patch("mem0.memory.main.VectorStoreFactory") as mock_vector_store,
+        patch("mem0.utils.factory.LlmFactory") as mock_llm,
+        patch("mem0.memory.telemetry.capture_event"),
+    ):
+        mock_embedder.create.return_value = Mock()
+        mock_vector_store.create.return_value = Mock()
+        mock_vector_store.create.return_value.search.return_value = []
+        mock_llm.create.return_value = Mock()
+
+        config = MemoryConfig(version="v1.1")
+        return AsyncMemory(config)
+
+
 def test_add(memory_instance):
     memory_instance._add_to_vector_store = Mock(return_value=[{"memory": "Test memory", "event": "ADD"}])
 
@@ -61,7 +78,11 @@ def test_add(memory_instance):
     assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True, prompt=None
+        [{"role": "user", "content": "Test message"}],
+        {"user_id": "test_user"},
+        {"user_id": "test_user"},
+        True,
+        prompt=None,
     )
 
 
@@ -99,8 +120,10 @@ def test_search(memory_instance):
     memory_instance.vector_store.keyword_search = Mock(return_value=None)  # No BM25
     memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-    with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"), \
-         patch("mem0.memory.main.extract_entities", return_value=[]):
+    with (
+        patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"),
+        patch("mem0.memory.main.extract_entities", return_value=[]),
+    ):
         result = memory_instance.search("test query", filters={"user_id": "test_user"})
 
     assert "results" in result
@@ -115,6 +138,72 @@ def test_search(memory_instance):
     memory_instance.vector_store.search.assert_called_once_with(
         query="test query", vectors=[0.1, 0.2, 0.3], top_k=80, filters={"user_id": "test_user"}
     )
+
+
+def test_search_invokes_on_search_hit_callback_for_ranked_results(memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"}, score=0.9),
+        Mock(id="2", payload={"data": "Memory 2", "user_id": "test_user"}, score=0.8),
+    ]
+    memory_instance.vector_store.search = Mock(return_value=mock_memories)
+    memory_instance.vector_store.keyword_search = Mock(return_value=None)
+    memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    memory_instance.reranker = Mock()
+    memory_instance.reranker.rerank = Mock(side_effect=lambda query, memories, limit: memories[:1])
+    on_search_hit = Mock()
+    memory_instance.config.on_search_hit = on_search_hit
+
+    with (
+        patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"),
+        patch("mem0.memory.main.extract_entities", return_value=[]),
+    ):
+        result = memory_instance.search("test query", filters={"user_id": "test_user"}, rerank=True)
+
+    assert len(result["results"]) == 1
+    assert on_search_hit.call_count == 1
+    on_search_hit.assert_any_call(result["results"][0])
+
+
+@pytest.mark.asyncio
+async def test_async_search_invokes_async_on_search_hit_callback(async_memory_instance):
+    mock_memories = [
+        Mock(id="1", payload={"data": "Memory 1", "user_id": "test_user"}, score=0.9),
+        Mock(id="2", payload={"data": "Memory 2", "user_id": "test_user"}, score=0.8),
+    ]
+    async_memory_instance.vector_store.search = Mock(return_value=mock_memories)
+    async_memory_instance.vector_store.keyword_search = Mock(return_value=None)
+    async_memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+    async_memory_instance.reranker = Mock()
+    async_memory_instance.reranker.rerank = Mock(side_effect=lambda query, memories, limit: memories[:1])
+    seen = []
+
+    async def on_search_hit(memory):
+        seen.append(memory)
+
+    async_memory_instance.config.on_search_hit = on_search_hit
+
+    with (
+        patch("mem0.memory.main.lemmatize_for_bm25", return_value="test query"),
+        patch("mem0.memory.main.extract_entities", return_value=[]),
+    ):
+        result = await async_memory_instance.search("test query", filters={"user_id": "test_user"}, rerank=True)
+
+    assert seen == result["results"]
+
+
+def test_on_search_hit_keeps_memory_config_serializable():
+    def on_search_hit(memory):
+        return None
+
+    config = MemoryConfig(on_search_hit=on_search_hit)
+
+    assert MemoryConfig.model_json_schema()
+    assert "on_search_hit" not in config.model_dump(exclude={"vector_store", "llm", "embedder", "reranker"})
+
+
+def test_on_search_hit_must_be_callable():
+    with pytest.raises(ValueError, match="on_search_hit must be callable"):
+        MemoryConfig(on_search_hit="not-callable")
 
 
 def test_update(memory_instance):
@@ -307,8 +396,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             memory_instance.search("  test  ", filters={"user_id": "test"})
 
         memory_instance.embedding_model.embed.assert_called_once_with("test", "search")
@@ -340,8 +431,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, threshold=0)
 
         assert "results" in result
@@ -353,8 +446,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, threshold=1.0)
 
         assert "results" in result
@@ -366,8 +461,10 @@ class TestSearchParamValidation:
         memory_instance.vector_store.keyword_search = Mock(return_value=None)
         memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
 
-        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
-             patch("mem0.memory.main.extract_entities", return_value=[]):
+        with (
+            patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"),
+            patch("mem0.memory.main.extract_entities", return_value=[]),
+        ):
             result = memory_instance.search("test", filters={"user_id": "test"}, top_k=0)
 
         assert "results" in result

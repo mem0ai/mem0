@@ -10,6 +10,7 @@ import uuid
 import warnings
 from copy import deepcopy
 from datetime import datetime, timezone
+from inspect import isawaitable
 from typing import Any, Dict, Optional
 
 from pydantic import ValidationError
@@ -1353,6 +1354,8 @@ class Memory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
+        self._notify_search_hits(original_memories)
+
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
         elif scale_threshold_notice:
@@ -1573,6 +1576,17 @@ class Memory(MemoryBase):
             original_memories.append(memory_item_dict)
 
         return original_memories
+
+    def _notify_search_hits(self, memories):
+        callback = self.config.on_search_hit
+        if callback is None:
+            return
+
+        for memory in memories:
+            try:
+                callback(memory)
+            except Exception as e:
+                logger.warning(f"Search hit callback failed for memory_id={memory.get('id')}: {e}")
 
     def _compute_entity_boosts(self, query_entities, filters):
         """Compute per-memory entity boosts from entity store search.
@@ -2872,6 +2886,8 @@ class AsyncMemory(MemoryBase):
             except Exception as e:
                 logger.warning(f"Reranking failed, using original results: {e}")
 
+        await self._notify_search_hits(original_memories)
+
         if temporal_usage_notice:
             await display_temporal_usage_notice_async(self, "async", "search", *temporal_usage_notice)
         elif scale_threshold_notice:
@@ -3090,6 +3106,19 @@ class AsyncMemory(MemoryBase):
             original_memories.append(memory_item_dict)
 
         return original_memories
+
+    async def _notify_search_hits(self, memories):
+        callback = self.config.on_search_hit
+        if callback is None:
+            return
+
+        for memory in memories:
+            try:
+                result = await asyncio.to_thread(callback, memory)
+                if isawaitable(result):
+                    await result
+            except Exception as e:
+                logger.warning(f"Search hit callback failed for memory_id={memory.get('id')}: {e}")
 
     async def _compute_entity_boosts_async(self, query_entities, filters):
         """Async version of entity boost computation."""
