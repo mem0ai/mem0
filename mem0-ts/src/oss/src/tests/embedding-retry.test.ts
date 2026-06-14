@@ -11,15 +11,14 @@ import path from "path";
 import { Memory } from "../memory";
 import {
   classifyEmbedError,
+  classifyValidation,
   makeVectorValidator,
-  sanitizeVector,
   EmbeddingFailure,
 } from "../memory/errorRetry";
 
 const DIM = 1536;
 
-// A distinct, dense-ish vector per text. Several non-zero components (not a
-// single one-hot) so that zeroing one NaN slot still leaves a healthy L2 norm.
+// A distinct vector per text.
 function vectorFor(text: string): number[] {
   let h = 0;
   for (const c of text) h = (h * 31 + c.charCodeAt(0)) | 0;
@@ -51,7 +50,7 @@ afterAll(() => {
 //   "dim"             -> returns a wrong-length vector (no throw)
 //   "empty"           -> returns []
 //   otherwise         -> a clean one-hot vector
-type Rule = "ok" | "nan" | "allnan" | "dim" | "empty" | { throwStatus: number };
+type Rule = "ok" | "nan" | "dim" | "empty" | { throwStatus: number };
 class RuleEmbedder {
   public embedCalls = 0;
   constructor(private rules: Map<string, Rule>) {}
@@ -67,7 +66,6 @@ class RuleEmbedder {
       throw err;
     }
     if (r === "nan") return vectorFor(text).map((x, i) => (i === 0 ? NaN : x));
-    if (r === "allnan") return new Array(DIM).fill(NaN);
     if (r === "dim") return new Array(DIM - 2).fill(0.1);
     if (r === "empty") return [];
     return vectorFor(text);
@@ -119,7 +117,7 @@ async function ready(rules: Map<string, Rule>, facts: string[]) {
 jest.setTimeout(30000);
 
 describe("add() returns { results, failed } with labels", () => {
-  it("flagship: good saved, NaN reported as internal/escalate, not persisted", async () => {
+  it("flagship: good saved, NaN reported as validation_error/escalate, not persisted", async () => {
     const rules = new Map<string, Rule>([[B, "nan"]]);
     const { m } = await ready(rules, [A, B, C]);
 
@@ -129,7 +127,7 @@ describe("add() returns { results, failed } with labels", () => {
     expect(res.failed).toHaveLength(1);
     expect(res.failed![0]).toMatchObject({
       text: B,
-      errorClass: "internal_error",
+      errorClass: "validation_error",
       remediation: "escalate",
     });
     const all = await m.getAll({ filters: { user_id: "u1" } });
@@ -205,11 +203,15 @@ describe("memory.retryFailed() is label-driven", () => {
     expect(all.results.map((r) => r.memory).sort()).toEqual([A, B].sort());
   });
 
-  it("refuses to blindly re-embed a reconfigure failure (no embed call)", async () => {
+  it("does not re-embed a validation failure (wrong dim), surfaces it instead", async () => {
     const rules = new Map<string, Rule>([[B, "dim"]]);
     const { m, embedder } = await ready(rules, [A, B]);
 
     const res = await m.add([A, B].join(". "), { userId: "u8" });
+    expect(res.failed![0]).toMatchObject({
+      errorClass: "validation_error",
+      remediation: "reconfigure",
+    });
     const before = embedder.embedCalls;
 
     const retry = await m.retryFailed(res.failed!);
@@ -217,40 +219,25 @@ describe("memory.retryFailed() is label-driven", () => {
     expect(embedder.embedCalls).toBe(before); // never re-embedded
     expect(retry.results).toHaveLength(0);
     expect(retry.failed).toHaveLength(1);
-    expect(retry.failed[0].error).toMatch(/reconfigur/i);
   });
 
-  it("sanitizes a localized-NaN vector and SAVES it without re-embedding", async () => {
-    // One NaN component in 1536 — localized poison. Retry coerces NaN->0
-    // (intent lives in the text, untouched) and persists, no wasted re-embed.
+  it("a NaN failure is surfaced on retry and never persisted (no sanitize)", async () => {
     const rules = new Map<string, Rule>([[B, "nan"]]);
     const { m, embedder } = await ready(rules, [A, B]);
 
     const res = await m.add([A, B].join(". "), { userId: "u9" });
-    expect(res.failed![0]).toMatchObject({ errorClass: "internal_error" });
+    expect(res.failed![0]).toMatchObject({
+      errorClass: "validation_error",
+      remediation: "escalate",
+    });
     const before = embedder.embedCalls;
 
     const retry = await m.retryFailed(res.failed!);
 
-    expect(embedder.embedCalls).toBe(before); // sanitized the preserved vector, no re-embed
-    expect(retry.results.map((r) => r.memory)).toContain(B);
-    expect(retry.failed).toHaveLength(0);
-    const all = await m.getAll({ filters: { user_id: "u9" } });
-    expect(all.results.map((r) => r.memory).sort()).toEqual([A, B].sort());
-  });
-
-  it("refuses to save a fully-degenerate (all-NaN) vector", async () => {
-    // Whole vector NaN -> sanitizing gives a zero-norm vector a cosine index
-    // would silently never return, so it must stay failed, not be stored.
-    const rules = new Map<string, Rule>([[B, "allnan"]]);
-    const { m } = await ready(rules, [A, B]);
-
-    const res = await m.add([A, B].join(". "), { userId: "u9b" });
-    const retry = await m.retryFailed(res.failed!);
-
+    expect(embedder.embedCalls).toBe(before); // no re-embed, no sanitize
     expect(retry.results).toHaveLength(0);
     expect(retry.failed).toHaveLength(1);
-    const all = await m.getAll({ filters: { user_id: "u9b" } });
+    const all = await m.getAll({ filters: { user_id: "u9" } });
     expect(all.results.map((r) => r.memory)).not.toContain(B);
   });
 
@@ -278,8 +265,8 @@ describe("hardening: insert failures, dedup, infer:false, short batch", () => {
     const res = await m.add([A, B].join(". "), { userId: "c1" });
     expect(res.results).toHaveLength(0);
     expect(res.failed!.map((f) => f.errorClass)).toEqual([
-      "provider_error",
-      "provider_error",
+      "internal_error",
+      "internal_error",
     ]);
   });
 
@@ -358,57 +345,23 @@ describe("classifier and validator units", () => {
     expect(g.validate([1, 2, 3, 4]).ok).toBe(true); // sets bar to 4
     expect(g.validate([1, 2, 3]).reason).toBe("dimension-mismatch");
   });
-});
 
-describe("sanitizeVector repairs only what is safe to store", () => {
-  it("coerces a localized NaN to 0 and keeps a healthy norm", () => {
-    const v = new Array(100).fill(0.5);
-    v[1] = NaN; // 1% poison, under the 5% threshold
-    const s = sanitizeVector(v, 100);
-    expect(s.ok).toBe(true);
-    expect(s.vector![1]).toBe(0);
-  });
-
-  it("keeps Inf as 'huge' (±1e19), float32- and square-safe, never zero", () => {
-    const v = new Array(100).fill(0.5);
-    v[10] = Infinity;
-    v[20] = -Infinity;
-    const s = sanitizeVector(v, 100);
-    expect(s.ok).toBe(true);
-    expect(s.vector!.every((x) => Number.isFinite(x))).toBe(true);
-    expect(s.vector![10]).toBe(1e19);
-    expect(s.vector![20]).toBe(-1e19);
-    // The sentinel must survive float32 storage and squaring (the MAX_VALUE bug).
-    expect(Number.isFinite(new Float32Array([s.vector![10]])[0])).toBe(true);
-    expect(Number.isFinite(new Float32Array([s.vector![10] ** 2])[0])).toBe(
-      true,
-    );
-  });
-
-  it("refuses an all-NaN vector (degenerate zero norm)", () => {
-    const s = sanitizeVector([NaN, NaN, NaN, NaN], 4);
-    expect(s.ok).toBe(false);
-    // >5% repaired trips the heavy-damage guard first; either way it refuses.
-    expect(["too-many-non-finite", "degenerate-zero-norm"]).toContain(s.reason);
-  });
-
-  it("refuses a wrong-dimension vector (cannot fabricate axes)", () => {
-    const s = sanitizeVector([0.5, 0.5], 4);
-    expect(s.ok).toBe(false);
-    expect(s.reason).toBe("dimension-mismatch");
-  });
-
-  it("refuses when too many components are non-finite (>5%)", () => {
-    const v = new Array(100).fill(0.5);
-    for (let i = 0; i < 10; i++) v[i] = NaN; // 10% poison
-    const s = sanitizeVector(v, 100);
-    expect(s.ok).toBe(false);
-    expect(s.reason).toBe("too-many-non-finite");
-  });
-
-  it("passes a clean vector through unchanged", () => {
-    const s = sanitizeVector([0.1, 0.2, 0.3], 3);
-    expect(s.ok).toBe(true);
-    expect(s.vector).toEqual([0.1, 0.2, 0.3]);
+  it("classifyValidation: same class (validation_error), remediation on the orthogonal axis", () => {
+    expect(classifyValidation("non-finite")).toEqual({
+      errorClass: "validation_error",
+      remediation: "escalate",
+    });
+    expect(classifyValidation("empty")).toEqual({
+      errorClass: "validation_error",
+      remediation: "escalate",
+    });
+    expect(classifyValidation("undefined")).toEqual({
+      errorClass: "validation_error",
+      remediation: "escalate",
+    });
+    expect(classifyValidation("dimension-mismatch")).toEqual({
+      errorClass: "validation_error",
+      remediation: "reconfigure",
+    });
   });
 });
