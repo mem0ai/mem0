@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Dict, Optional
 
@@ -143,23 +144,54 @@ class MilvusDB(VectorStoreBase):
         data = [_build_record(idx, embedding, metadata) for idx, embedding, metadata in zip(ids, vectors, payloads)]
         self.client.insert(collection_name=self.collection_name, data=data, **kwargs)
 
+    def _format_filter_value(self, value):
+        return json.dumps(value)
+
+    def _format_metadata_field(self, key: str):
+        return f"metadata[{json.dumps(key)}]"
+
+    def _build_filter_condition(self, key: str, value):
+        field = self._format_metadata_field(key)
+
+        if not isinstance(value, dict):
+            return f"({field} == {self._format_filter_value(value)})"
+
+        operator_map = {"eq": "==", "ne": "!=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
+        conditions = []
+
+        for operator, operand in value.items():
+            if operator in operator_map:
+                conditions.append(f"({field} {operator_map[operator]} {self._format_filter_value(operand)})")
+            else:
+                supported = set(operator_map)
+                raise ValueError(
+                    f"Unsupported Milvus metadata filter operator '{operator}' for field '{key}'. "
+                    f"Supported operators: {supported}"
+                )
+
+        return " and ".join(conditions)
+
     def _create_filter(self, filters: dict):
         """Prepare filters for efficient query.
 
         Args:
-            filters (dict): filters [user_id, agent_id, run_id]
+            filters (dict): Metadata filters, including enhanced filter syntax
+                with comparison operators.
 
         Returns:
-            str: formated filter.
+            str: formatted filter.
         """
-        operands = []
-        for key, value in filters.items():
-            if isinstance(value, str):
-                operands.append(f'(metadata["{key}"] == "{value}")')
-            else:
-                operands.append(f'(metadata["{key}"] == {value})')
+        if not filters:
+            return None
 
-        return " and ".join(operands)
+        operands = []
+
+        for key, value in filters.items():
+            condition = self._build_filter_condition(key, value)
+            if condition:
+                operands.append(condition)
+
+        return " and ".join(operands) if operands else None
 
     def _parse_output(self, data: list):
         """
