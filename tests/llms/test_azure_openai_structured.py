@@ -29,6 +29,7 @@ class DummyConfig:
         max_tokens=256,
         top_p=1.0,
         http_client=None,
+        reasoning_effort=None,
     ):
         self.model = model
         self.azure_kwargs = azure_kwargs or DummyAzureKwargs()
@@ -36,6 +37,7 @@ class DummyConfig:
         self.max_tokens = max_tokens
         self.top_p = top_p
         self.http_client = http_client
+        self.reasoning_effort = reasoning_effort
 
 
 @mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
@@ -171,3 +173,56 @@ def test_generate_response_with_tools_no_tool_calls(mock_azure_openai):
 
     assert response["content"] == "No tools needed."
     assert response["tool_calls"] == []
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_reasoning_model_drops_sampling_params(mock_azure_openai):
+    """Reasoning models (o1/o3/GPT-5) reject temperature/max_tokens/top_p."""
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(
+        model="o3-mini",
+        azure_kwargs=DummyAzureKwargs(api_key="real-key"),
+        reasoning_effort="low",
+    )
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "Hi"}])
+
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert "temperature" not in call_kwargs  # reasoning models reject these
+    assert "max_tokens" not in call_kwargs
+    assert "top_p" not in call_kwargs
+    assert call_kwargs["reasoning_effort"] == "low"
+    assert call_kwargs["model"] == "o3-mini"
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_regular_model_sends_sampling_params(mock_azure_openai):
+    """Regular models still receive the standard sampling params."""
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(
+        model="gpt-4o",
+        azure_kwargs=DummyAzureKwargs(api_key="real-key"),
+        temperature=0.3,
+    )
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="ok"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "Hi"}])
+
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert call_kwargs["temperature"] == 0.3
+    assert "max_tokens" in call_kwargs  # standard sampling params still forwarded
+    assert "top_p" in call_kwargs
+    assert call_kwargs["model"] == "gpt-4o"
