@@ -1,4 +1,10 @@
 export * from "./memory";
+export * from "./memory/errorRetry";
+export {
+  EmbeddingError,
+  EMBED_ERROR_CODE,
+  type EmbedErrorCode,
+} from "../../common/exceptions";
 export * from "./memory/memory.types";
 export * from "./types";
 export * from "./embeddings/base";
