@@ -26,6 +26,12 @@ import {
   generateAdditiveExtractionPrompt,
 } from "../prompts";
 import { DummyHistoryManager } from "../storage/DummyHistoryManager";
+import {
+  EmbeddingError,
+  EmbeddingErrorClass,
+  classifyEmbeddingError,
+  mergeEmbeddingErrorClass,
+} from "./errors";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { VectorStore } from "../vector_stores/base";
@@ -827,6 +833,9 @@ export class Memory {
       .map((m) => m.text ?? "")
       .filter((t) => t.length > 0);
     let embedMap: Record<string, number[]> = {};
+    // Track texts that fail to embed so we don't drop them silently.
+    const failedEmbedTexts: string[] = [];
+    let embedErrorClass: EmbeddingErrorClass = "unknown";
     try {
       const memEmbeddingsList = await this.embedder.embedBatch(memTexts);
       for (let i = 0; i < memTexts.length; i++) {
@@ -839,6 +848,11 @@ export class Memory {
           embedMap[text] = await this.embedder.embed(text);
         } catch (e) {
           console.warn(`Failed to embed memory text: ${e}`);
+          failedEmbedTexts.push(text);
+          embedErrorClass = mergeEmbeddingErrorClass(
+            embedErrorClass,
+            classifyEmbeddingError(e),
+          );
         }
       }
     }
@@ -906,6 +920,10 @@ export class Memory {
             sessionScope,
           );
         } catch {}
+      }
+      // Nothing persisted — if embeddings failed, surface it instead of a silent empty result.
+      if (failedEmbedTexts.length > 0) {
+        throw new EmbeddingError(failedEmbedTexts, 0, embedErrorClass);
       }
       return [];
     }
@@ -1116,11 +1134,22 @@ export class Memory {
       } catch {}
     }
 
-    return records.map((r) => ({
+    const result = records.map((r) => ({
       id: r.memoryId,
       memory: r.text,
       metadata: { event: "ADD" },
     }));
+
+    // Good memories are persisted above; now surface any that failed to embed.
+    if (failedEmbedTexts.length > 0) {
+      throw new EmbeddingError(
+        failedEmbedTexts,
+        result.length,
+        embedErrorClass,
+      );
+    }
+
+    return result;
   }
 
   async get(memoryId: string): Promise<MemoryItem | null> {
