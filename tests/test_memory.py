@@ -1056,3 +1056,66 @@ class TestHybridSearchWarning:
             Memory(config)
 
         assert not any("does not support keyword search" in r.message for r in caplog.records)
+
+
+class TestDeleteAllPagination:
+
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_delete_all_drains_multiple_pages(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_store = MagicMock()
+        mock_vector_factory.return_value = mock_vector_store
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        page1 = [MockVectorMemory(f"mem-{i}", {"data": f"d{i}"}) for i in range(100)]
+        page2 = [MockVectorMemory(f"mem-{i}", {"data": f"d{i}"}) for i in range(100, 150)]
+
+        mock_vector_store.list.side_effect = [
+            (page1, "next"),
+            (page2, "next"),
+            ([], None),
+        ]
+        mock_vector_store.get.return_value = MockVectorMemory("x", {"data": "x", "created_at": "2026-01-01T00:00:00+00:00"})
+
+        config = MemoryConfig()
+        memory = Memory(config)
+
+        memory.delete_all(user_id="test_user")
+
+        assert mock_vector_store.list.call_count == 3
+        assert mock_vector_store.delete.call_count == 150
+
+    @pytest.mark.asyncio
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    async def test_async_delete_all_drains_multiple_pages(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_store = MagicMock()
+        mock_vector_factory.return_value = mock_vector_store
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        page1 = [MockVectorMemory(f"mem-{i}", {"data": f"d{i}"}) for i in range(100)]
+        page2 = [MockVectorMemory(f"mem-{i}", {"data": f"d{i}"}) for i in range(100, 150)]
+
+        mock_vector_store.list.side_effect = [
+            (page1, "next"),
+            (page2, "next"),
+            ([], None),
+        ]
+        mock_vector_store.get.return_value = MockVectorMemory("x", {"data": "x", "created_at": "2026-01-01T00:00:00+00:00"})
+
+        from mem0.memory.main import AsyncMemory
+        config = MemoryConfig()
+        memory = AsyncMemory(config)
+
+        await memory.delete_all(user_id="test_user")
+
+        assert mock_vector_store.list.call_count == 3
+        assert mock_vector_store.delete.call_count == 150
