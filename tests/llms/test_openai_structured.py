@@ -30,6 +30,8 @@ def test_reasoning_model_drops_temperature(mock_openai_client):
 
     call_kwargs = mock_openai_client.beta.chat.completions.parse.call_args[1]
     assert "temperature" not in call_kwargs  # reasoning models don't accept temperature
+    assert "max_tokens" not in call_kwargs  # also dropped for reasoning models
+    assert "top_p" not in call_kwargs  # also dropped for reasoning models
     assert call_kwargs["reasoning_effort"] == "low"
     assert call_kwargs["model"] == "o3-mini"
 
@@ -44,4 +46,6 @@ def test_regular_model_sends_sampling_params(mock_openai_client):
 
     call_kwargs = mock_openai_client.beta.chat.completions.parse.call_args[1]
     assert call_kwargs["temperature"] == 0.3
+    assert "max_tokens" in call_kwargs  # standard sampling params still forwarded
+    assert "top_p" in call_kwargs
     assert call_kwargs["model"] == "gpt-4o"
