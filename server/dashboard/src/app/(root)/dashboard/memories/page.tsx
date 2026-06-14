@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -49,8 +49,18 @@ export default function MemoriesPage() {
     { errorToast: "Failed to load memories", initialData: [] },
   );
 
-  const totalPages = Math.ceil(memories.length / PAGE_SIZE);
-  const paginatedMemories = memories.slice(
+  const sortedMemories = useMemo(() => {
+    // The self-hosted API does not guarantee list ordering, so sort before
+    // pagination to keep the dashboard focused on the newest memories first.
+    return [...memories].sort((a, b) => {
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [memories]);
+
+  const totalPages = Math.ceil(sortedMemories.length / PAGE_SIZE);
+  const paginatedMemories = sortedMemories.slice(
     page * PAGE_SIZE,
     (page + 1) * PAGE_SIZE,
   );
