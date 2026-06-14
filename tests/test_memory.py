@@ -1056,3 +1056,62 @@ class TestHybridSearchWarning:
             Memory(config)
 
         assert not any("does not support keyword search" in r.message for r in caplog.records)
+
+
+class TestEntityScopeGuard:
+    """Verify _upsert_entity refuses to merge entities across different scopes."""
+
+    def _make_memory(self):
+        with patch.object(Memory, "__init__", return_value=None):
+            m = Memory()
+        m.embedding_model = MagicMock()
+        m.embedding_model.embed = MagicMock(return_value=[0.1, 0.2, 0.3])
+        m._entity_store = MagicMock()
+        return m
+
+    def test_same_scope_merges(self):
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "apple", "entity_type": "food", "linked_memory_ids": ["mem-A"], "user_id": "alice"},
+            score=0.99,
+        )
+        m.entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("apple", "food", "mem-B", {"user_id": "alice"})
+
+        m.entity_store.update.assert_called_once()
+        m.entity_store.insert.assert_not_called()
+        updated_payload = m.entity_store.update.call_args[1]["payload"]
+        assert "mem-B" in updated_payload["linked_memory_ids"]
+
+    def test_different_scope_creates_new(self):
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "apple", "entity_type": "food", "linked_memory_ids": ["mem-A"], "user_id": "alice"},
+            score=0.99,
+        )
+        m.entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("apple", "food", "mem-B", {"user_id": "bob"})
+
+        m.entity_store.update.assert_not_called()
+        m.entity_store.insert.assert_called_once()
+        inserted_payload = m.entity_store.insert.call_args[1]["payloads"][0]
+        assert inserted_payload["user_id"] == "bob"
+        assert "mem-B" in inserted_payload["linked_memory_ids"]
+
+    def test_missing_scope_in_payload_creates_new(self):
+        m = self._make_memory()
+        existing = MockVectorMemory(
+            "entity-1",
+            {"data": "apple", "entity_type": "food", "linked_memory_ids": ["mem-A"]},
+            score=0.99,
+        )
+        m.entity_store.search = MagicMock(return_value=[existing])
+
+        m._upsert_entity("apple", "food", "mem-B", {"user_id": "alice"})
+
+        m.entity_store.update.assert_not_called()
+        m.entity_store.insert.assert_called_once()
