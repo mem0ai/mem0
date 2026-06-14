@@ -1,0 +1,123 @@
+---
+title: GaussDB
+description: "Use Huawei Cloud GaussDB as a vector store in Mem0 for PostgreSQL-compatible vector similarity search with built-in vector types."
+---
+
+[GaussDB](https://www.huaweicloud.com/product/gaussdb.html) is Huawei Cloud's enterprise-grade distributed relational database, fully compatible with PostgreSQL. It features built-in vector data types (`floatvector`, `boolvector`) — no extensions required — making it ideal for AI applications deployed on Huawei Cloud.
+
+### Usage
+
+```python
+import os
+from mem0 import Memory
+
+os.environ["OPENAI_API_KEY"] = "sk-xx"
+
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "host": "127.0.0.1",
+            "port": 5432,
+            "user": "test",
+            "password": "123",
+            "dbname": "mem0_db",
+        }
+    }
+}
+
+m = Memory.from_config(config)
+messages = [
+    {"role": "user", "content": "I'm planning to watch a movie tonight. Any recommendations?"},
+    {"role": "assistant", "content": "How about thriller movies? They can be quite engaging."},
+    {"role": "user", "content": "I'm not a big fan of thriller movies but I love sci-fi movies."},
+    {"role": "assistant", "content": "Got it! I'll avoid thriller recommendations and suggest sci-fi movies in the future."}
+]
+m.add(messages, user_id="alice", metadata={"category": "movies"})
+```
+
+#### Using HNSW Index
+
+For faster approximate nearest neighbor search with sufficient memory:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "host": "127.0.0.1",
+            "port": 5432,
+            "user": "test",
+            "password": "123",
+            "dbname": "mem0_db",
+            "hnsw": True,
+        }
+    }
+}
+```
+
+#### Using DiskANN Index
+
+For large-scale datasets with disk-friendly approximate nearest neighbor search:
+
+```python
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "host": "127.0.0.1",
+            "port": 5432,
+            "user": "test",
+            "password": "123",
+            "dbname": "mem0_db",
+            "diskann": True,
+        }
+    }
+}
+```
+
+#### Using Connection String with SSL
+
+```python
+config = {
+    "vector_store": {
+        "provider": "gaussdb",
+        "config": {
+            "connection_string": "host=127.0.0.1 port=5432 user=test password=123 dbname=mem0_db",
+            "sslmode": "require",
+        }
+    }
+}
+```
+
+<Note>
+GaussDB has built-in vector types and does not require `CREATE EXTENSION vector` (unlike PostgreSQL with pgvector). The `gaussdb` Python driver and `gaussdb-pool` package are required: `pip install gaussdb gaussdb-pool`.
+</Note>
+
+### Config
+
+Here are the parameters available for configuring GaussDB:
+
+| Parameter | Description | Default Value |
+| --- | --- | --- |
+| `host` | GaussDB server host | `None` |
+| `port` | GaussDB server port | `5432` |
+| `user` | Database user | `None` |
+| `password` | Database password | `None` |
+| `dbname` | Database name | `None` |
+| `collection_name` | Table name used as collection | `mem0` |
+| `embedding_model_dims` | Dimensions of the embedding model | `1536` |
+| `diskann` | Whether to use DiskANN index for ANN search | `False` |
+| `hnsw` | Whether to use HNSW index for ANN search | `False` |
+| `sslmode` | SSL mode for connection (e.g., 'disable', 'require', 'verify-full') | `None` |
+| `minconn` | Minimum number of connections in the pool | `1` |
+| `maxconn` | Maximum number of connections in the pool | `5` |
+| `connection_string` | Full DSN connection string (overrides individual parameters) | `None` |
+| `connection_pool` | Pre-configured connection pool object | `None` |
+
+**Note**: When both `diskann` and `hnsw` are enabled, only DiskANN index is created.
+
+**Note**: The connection parameters have the following priority:
+1. `connection_pool` (highest priority)
+2. `connection_string`
+3. Individual connection parameters (`host`, `port`, `user`, `password`, `dbname`, `sslmode`)
