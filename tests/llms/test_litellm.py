@@ -12,15 +12,44 @@ def mock_litellm():
         yield mock_litellm
 
 
-def test_generate_response_with_unsupported_model(mock_litellm):
+def test_generate_response_with_unsupported_model_and_tools(mock_litellm):
+    """When tools are requested but the model can't function-call, raise."""
     config = BaseLlmConfig(model="unsupported-model", temperature=0.7, max_tokens=100, top_p=1)
     llm = litellm.LiteLLM(config)
     messages = [{"role": "user", "content": "Hello"}]
+    tools = [
+        {
+            "type": "function",
+            "function": {"name": "noop", "description": "x", "parameters": {"type": "object", "properties": {}}},
+        }
+    ]
 
     mock_litellm.supports_function_calling.return_value = False
 
     with pytest.raises(ValueError, match="Model 'unsupported-model' in litellm does not support function calling."):
-        llm.generate_response(messages)
+        llm.generate_response(messages, tools=tools)
+
+
+def test_generate_response_with_unsupported_model_no_tools(mock_litellm):
+    """Models that don't support function calling are still usable when no tools are passed.
+
+    Mem0's main code paths (fact extraction via response_format=json_object, procedural
+    memory) call ``generate_response`` without tools, so the function-calling check must
+    not fire in that case.
+    """
+    config = BaseLlmConfig(model="unsupported-model", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="hi"))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = False
+
+    response = llm.generate_response(messages)
+
+    assert response == "hi"
+    mock_litellm.supports_function_calling.assert_not_called()
 
 
 def test_generate_response_without_tools(mock_litellm):
@@ -82,7 +111,13 @@ def test_generate_response_with_tools(mock_litellm):
     response = llm.generate_response(messages, tools=tools)
 
     mock_litellm.completion.assert_called_once_with(
-        model="gpt-4.1-nano-2025-04-14", messages=messages, temperature=0.7, max_tokens=100, top_p=1, tools=tools, tool_choice="auto"
+        model="gpt-4.1-nano-2025-04-14",
+        messages=messages,
+        temperature=0.7,
+        max_tokens=100,
+        top_p=1,
+        tools=tools,
+        tool_choice="auto",
     )
 
     assert response["content"] == "I've added the memory for you."
