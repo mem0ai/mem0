@@ -62,7 +62,14 @@ export class OllamaEmbedder implements Embedder {
       )
     ) {
       logger.info(`Pulling model ${this.model}...`);
-      await this.ollama.pull({ model: this.model });
+      try {
+        await this.ollama.pull({ model: this.model });
+      } catch (err) {
+        logger.warn(
+          `Failed to pull model ${this.model}: ${err}. ` +
+            `If the model is already available, this error can be safely ignored.`,
+        );
+      }
     }
     this.initialized = true;
     return true;

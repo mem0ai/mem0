@@ -6,10 +6,12 @@ import { logger } from "../utils/logger";
 export class OllamaLLM implements LLM {
   private ollama: Ollama;
   private model: string;
+  private config: LLMConfig;
   // Using this variable to avoid calling the Ollama server multiple times
   private initialized: boolean = false;
 
   constructor(config: LLMConfig) {
+    this.config = config;
     this.ollama = new Ollama({
       host: config.url || config.baseURL || "http://localhost:11434",
     });
@@ -30,6 +32,7 @@ export class OllamaLLM implements LLM {
       logger.error(`Error ensuring model exists: ${err}`);
     }
 
+    const modelProps = this.config?.modelProperties ?? {};
     const completion = await this.ollama.chat({
       model: this.model,
       messages: messages.map((msg) => {
@@ -44,6 +47,7 @@ export class OllamaLLM implements LLM {
       }),
       ...(responseFormat?.type === "json_object" && { format: "json" }),
       ...(tools && { tools, tool_choice: "auto" }),
+      ...modelProps,
     });
 
     const response = completion.message;
@@ -96,7 +100,14 @@ export class OllamaLLM implements LLM {
     const local_models = await this.ollama.list();
     if (!local_models.models.find((m: any) => m.name === this.model)) {
       logger.info(`Pulling model ${this.model}...`);
-      await this.ollama.pull({ model: this.model });
+      try {
+        await this.ollama.pull({ model: this.model });
+      } catch (err) {
+        logger.warn(
+          `Failed to pull model ${this.model}: ${err}. ` +
+            `If the model is already available, this error can be safely ignored.`,
+        );
+      }
     }
     this.initialized = true;
     return true;
