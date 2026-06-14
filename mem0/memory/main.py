@@ -659,6 +659,7 @@ class Memory(MemoryBase):
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         timestamp: Optional[Any] = None,
+        expiration_date: Optional[str] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -677,6 +678,7 @@ class Memory(MemoryBase):
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            expiration_date (str, optional): ISO timestamp for per-memory expiry metadata. Defaults to None.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
                 'messages' and decide whether to add, update, or delete related memories.
                 If False, 'messages' are added as raw memories directly.
@@ -709,6 +711,8 @@ class Memory(MemoryBase):
             run_id=run_id,
             input_metadata=metadata,
         )
+        if expiration_date is not None:
+            processed_metadata["expiration_date"] = _normalize_iso_timestamp_to_utc(expiration_date)
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise Mem0ValidationError(
@@ -1093,7 +1097,7 @@ class Memory(MemoryBase):
             "role",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "expiration_date", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
         result_item = MemoryItem(
             id=memory.id,
@@ -1101,6 +1105,7 @@ class Memory(MemoryBase):
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
+            expiration_date=memory.payload.get("expiration_date"),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -1205,7 +1210,7 @@ class Memory(MemoryBase):
             "actor_id",
             "role",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "expiration_date", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
         formatted_memories = []
         for mem in actual_memories:
@@ -1215,6 +1220,7 @@ class Memory(MemoryBase):
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
+                expiration_date=mem.payload.get("expiration_date"),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -1540,7 +1546,7 @@ class Memory(MemoryBase):
             "actor_id",
             "role",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "expiration_date", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
         original_memories = []
         for scored in scored_results:
@@ -1555,6 +1561,7 @@ class Memory(MemoryBase):
                 hash=payload.get("hash"),
                 created_at=payload.get("created_at"),
                 updated_at=payload.get("updated_at"),
+                expiration_date=payload.get("expiration_date"),
                 score=scored["score"],
             ).model_dump()
 
@@ -1767,6 +1774,8 @@ class Memory(MemoryBase):
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
+        if "expiration_date" in new_metadata:
+            new_metadata["expiration_date"] = _normalize_iso_timestamp_to_utc(new_metadata.get("expiration_date"))
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
         self.vector_store.insert(
@@ -1846,6 +1855,10 @@ class Memory(MemoryBase):
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+        if "expiration_date" in new_metadata:
+            new_metadata["expiration_date"] = _normalize_iso_timestamp_to_utc(new_metadata.get("expiration_date"))
+        elif "expiration_date" in existing_memory.payload:
+            new_metadata["expiration_date"] = existing_memory.payload["expiration_date"]
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
@@ -2185,6 +2198,7 @@ class AsyncMemory(MemoryBase):
         run_id: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         timestamp: Optional[Any] = None,
+        expiration_date: Optional[str] = None,
         infer: bool = True,
         memory_type: Optional[str] = None,
         prompt: Optional[str] = None,
@@ -2200,6 +2214,7 @@ class AsyncMemory(MemoryBase):
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
+            expiration_date (str, optional): ISO timestamp for per-memory expiry metadata. Defaults to None.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
             memory_type (str, optional): Type of memory to create. Defaults to None.
                                          Pass "procedural_memory" to create procedural memories.
@@ -2215,6 +2230,8 @@ class AsyncMemory(MemoryBase):
         processed_metadata, effective_filters = _build_filters_and_metadata(
             user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
         )
+        if expiration_date is not None:
+            processed_metadata["expiration_date"] = _normalize_iso_timestamp_to_utc(expiration_date)
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
@@ -2605,7 +2622,7 @@ class AsyncMemory(MemoryBase):
             "role",
         ]
 
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "expiration_date", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
         result_item = MemoryItem(
             id=memory.id,
@@ -2613,6 +2630,7 @@ class AsyncMemory(MemoryBase):
             hash=memory.payload.get("hash"),
             created_at=memory.payload.get("created_at"),
             updated_at=memory.payload.get("updated_at"),
+            expiration_date=memory.payload.get("expiration_date"),
         ).model_dump()
 
         for key in promoted_payload_keys:
@@ -2717,7 +2735,7 @@ class AsyncMemory(MemoryBase):
             "actor_id",
             "role",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "expiration_date", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
         formatted_memories = []
         for mem in actual_memories:
@@ -2727,6 +2745,7 @@ class AsyncMemory(MemoryBase):
                 hash=mem.payload.get("hash"),
                 created_at=mem.payload.get("created_at"),
                 updated_at=mem.payload.get("updated_at"),
+                expiration_date=mem.payload.get("expiration_date"),
             ).model_dump(exclude={"score"})
 
             for key in promoted_payload_keys:
@@ -3058,7 +3077,7 @@ class AsyncMemory(MemoryBase):
             "actor_id",
             "role",
         ]
-        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
+        core_and_promoted_keys = {"data", "hash", "created_at", "updated_at", "expiration_date", "id", "text_lemmatized", "attributed_to", *promoted_payload_keys}
 
         original_memories = []
         for scored in scored_results:
@@ -3072,6 +3091,7 @@ class AsyncMemory(MemoryBase):
                 hash=payload.get("hash"),
                 created_at=payload.get("created_at"),
                 updated_at=payload.get("updated_at"),
+                expiration_date=payload.get("expiration_date"),
                 score=scored["score"],
             ).model_dump()
 
@@ -3281,6 +3301,8 @@ class AsyncMemory(MemoryBase):
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
+        if "expiration_date" in new_metadata:
+            new_metadata["expiration_date"] = _normalize_iso_timestamp_to_utc(new_metadata.get("expiration_date"))
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
 
         await asyncio.to_thread(
@@ -3378,6 +3400,10 @@ class AsyncMemory(MemoryBase):
         new_metadata["text_lemmatized"] = lemmatize_for_bm25(data)
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
+        if "expiration_date" in new_metadata:
+            new_metadata["expiration_date"] = _normalize_iso_timestamp_to_utc(new_metadata.get("expiration_date"))
+        elif "expiration_date" in existing_memory.payload:
+            new_metadata["expiration_date"] = existing_memory.payload["expiration_date"]
 
         # Preserve session identifiers from existing memory only if not provided in new metadata
         if "user_id" not in new_metadata and "user_id" in existing_memory.payload:

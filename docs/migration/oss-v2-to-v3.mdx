@@ -415,7 +415,7 @@ You always get semantic search. Hybrid search features layer on top when availab
 
 ## Removed Parameters Reference
 
-These parameters have been removed across all SDKs. Remove them from your code:
+These parameters were removed from the client SDKs, and from the OSS SDK unless noted below. Remove them from your code where applicable:
 
 ### Python Client SDK — Removed parameters
 
@@ -444,6 +444,8 @@ These parameters have been removed across all SDKs. Remove them from your code:
 **get_all():** `enable_graph` / `enableGraph`
 
 ### Python OSS — Removed/renamed parameters
+
+**add():** `expiration_date` remains supported for per-memory expiry metadata in OSS v3.
 
 **Config:** `custom_fact_extraction_prompt` → renamed to `custom_instructions`
 

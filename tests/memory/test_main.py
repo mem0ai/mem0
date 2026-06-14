@@ -8,6 +8,8 @@ import pytest
 
 from mem0.memory.main import AsyncMemory, Memory
 
+EXPIRATION_DATE = "2026-07-15T09:30:00+02:00"
+
 
 def _setup_mocks(mocker):
     """Helper to setup common mocks for both sync and async fixtures"""
@@ -62,7 +64,9 @@ class TestAddToVectorStoreErrors:
         # Verify — v3 single-pass pipeline makes 1 LLM call, returns [] on parse error
         assert mock_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     def test_empty_llm_response_memory_actions(self, mock_memory, caplog):
         """Test empty response from LLM during memory actions (v3: single-pass, 1 LLM call)"""
@@ -200,7 +204,9 @@ class TestAsyncAddToVectorStoreErrors:
             )
         assert mock_async_memory.llm.generate_response.call_count == 1
         assert result == []
-        assert any("Error parsing extraction response" in record.message for record in caplog.records), "Expected error message not found in logs"
+        assert any("Error parsing extraction response" in record.message for record in caplog.records), (
+            "Expected error message not found in logs"
+        )
 
     @pytest.mark.asyncio
     async def test_async_empty_llm_response_memory_actions(self, mock_async_memory, caplog, mocker):
@@ -268,6 +274,15 @@ def test_create_memory_preserves_existing_created_at(mocker):
     assert payload["updated_at"] == custom_ts
 
 
+def test_add_accepts_expiration_date_and_stores_it(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    result = memory.add("Temporary memory", user_id="alice", infer=False, expiration_date=EXPIRATION_DATE)
+
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert result["results"][0]["event"] == "ADD"
+    assert payload["expiration_date"] == "2026-07-15T07:30:00+00:00"
+
+
 def test_update_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, Memory)
     memory.vector_store.get.return_value = MagicMock(
@@ -312,6 +327,16 @@ async def test_async_create_memory_preserves_existing_created_at(mocker):
 
 
 @pytest.mark.asyncio
+async def test_async_add_accepts_expiration_date_and_stores_it(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    result = await memory.add("Temporary memory", user_id="alice", infer=False, expiration_date=EXPIRATION_DATE)
+
+    payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+    assert result["results"][0]["event"] == "ADD"
+    assert payload["expiration_date"] == "2026-07-15T07:30:00+00:00"
+
+
+@pytest.mark.asyncio
 async def test_async_update_memory_uses_utc_timestamps(mocker):
     memory = _build_memory_instance(mocker, AsyncMemory)
     memory.vector_store.get.return_value = MagicMock(
@@ -323,12 +348,64 @@ async def test_async_update_memory_uses_utc_timestamps(mocker):
     assert payload["updated_at"] is not None
 
 
+@pytest.mark.asyncio
+async def test_async_update_preserves_expiration_date(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.vector_store.get.return_value = MagicMock(
+        id="mem-1",
+        payload={
+            "data": "old memory",
+            "user_id": "alice",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "expiration_date": "2026-07-15T07:30:00+00:00",
+        },
+    )
+
+    await memory._update_memory("mem-1", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
+
+    updated_payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert updated_payload["expiration_date"] == "2026-07-15T07:30:00+00:00"
+
+
+@pytest.mark.asyncio
+async def test_async_get_search_and_get_all_promote_expiration_date(mocker):
+    memory = _build_memory_instance(mocker, AsyncMemory)
+    memory.embedding_model.embed.return_value = [0.1, 0.2, 0.3]
+    memory.vector_store.keyword_search.return_value = []
+
+    payload = {
+        "data": "Likes pizza",
+        "hash": "abc123",
+        "user_id": "alice",
+        "created_at": "2023-05-06T09:19:20+00:00",
+        "updated_at": "2026-03-23T10:00:00+00:00",
+        "expiration_date": "2026-07-15T07:30:00+00:00",
+    }
+    mem_result = MagicMock(id="mem-1", payload=payload, score=0.95)
+    memory.vector_store.get.return_value = mem_result
+    memory.vector_store.search.return_value = [mem_result]
+    memory.vector_store.list.return_value = [[mem_result]]
+
+    get_result = await memory.get("mem-1")
+    search_results = await memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10)
+    get_all_results = await memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
+
+    assert get_result["expiration_date"] == "2026-07-15T07:30:00+00:00"
+    assert search_results[0]["expiration_date"] == "2026-07-15T07:30:00+00:00"
+    assert get_all_results[0]["expiration_date"] == "2026-07-15T07:30:00+00:00"
+    assert not get_result.get("metadata") or "expiration_date" not in get_result["metadata"]
+
+
 def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     """Reproduces issue #3720: created_at must be identical in search() and get_all()."""
     memory = _build_memory_instance(mocker, Memory)
 
     # Step 1: Create a memory — capture the payload stored in the vector store
-    memory._create_memory("Likes pizza", {"Likes pizza": [0.1, 0.2, 0.3]}, metadata={"user_id": "alice"})
+    memory._create_memory(
+        "Likes pizza",
+        {"Likes pizza": [0.1, 0.2, 0.3]},
+        metadata={"user_id": "alice", "expiration_date": EXPIRATION_DATE},
+    )
     stored_payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
     stored_id = memory.vector_store.insert.call_args.kwargs["ids"][0]
 
@@ -343,12 +420,14 @@ def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     mem_result.payload = stored_payload
     mem_result.score = 0.95
 
+    memory.vector_store.get.return_value = mem_result
     memory.vector_store.search.return_value = [mem_result]
     memory.vector_store.list.return_value = [[mem_result]]
 
     # Step 3: Call search and get_all, compare timestamps
     search_results = memory._search_vector_store("pizza", filters={"user_id": "alice"}, limit=10)
     get_all_results = memory._get_all_from_vector_store(filters={"user_id": "alice"}, limit=100)
+    get_result = memory.get(stored_id)
 
     search_item = search_results[0]
     get_all_item = get_all_results[0]
@@ -366,6 +445,10 @@ def test_create_then_search_and_get_all_return_same_timestamps(mocker):
     assert search_item["updated_at"] is not None
     assert get_all_item["created_at"] is not None
     assert get_all_item["updated_at"] is not None
+    assert search_item["expiration_date"] == "2026-07-15T07:30:00+00:00"
+    assert get_all_item["expiration_date"] == "2026-07-15T07:30:00+00:00"
+    assert get_result["expiration_date"] == "2026-07-15T07:30:00+00:00"
+    assert not get_result.get("metadata") or "expiration_date" not in get_result["metadata"]
 
 
 def test_update_preserves_created_at_and_updates_updated_at(mocker):
@@ -391,6 +474,24 @@ def test_update_preserves_created_at_and_updates_updated_at(mocker):
     # updated_at must be set and different from creation time (or at least present)
     assert updated_payload["updated_at"] is not None
     _assert_utc_timestamp(updated_payload["updated_at"])
+
+
+def test_update_preserves_expiration_date(mocker):
+    memory = _build_memory_instance(mocker, Memory)
+    memory.vector_store.get.return_value = MagicMock(
+        id="mem-1",
+        payload={
+            "data": "old memory",
+            "user_id": "alice",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "expiration_date": "2026-07-15T07:30:00+00:00",
+        },
+    )
+
+    memory._update_memory("mem-1", "new memory", {"new memory": [0.1, 0.2, 0.3]}, metadata={})
+
+    updated_payload = memory.vector_store.update.call_args.kwargs["payload"]
+    assert updated_payload["expiration_date"] == "2026-07-15T07:30:00+00:00"
 
 
 def test_search_and_get_all_consistent_after_update(mocker):
@@ -503,6 +604,7 @@ class TestMetadataNotMutated:
         memory = _build_memory_instance(mocker, Memory)
         metadata = {"user_id": "test_user", "tags": ["important", "urgent"], "config": {"key": "val"}}
         import copy
+
         metadata_snapshot = copy.deepcopy(metadata)
 
         memory._create_memory("test data", {"test data": [0.1, 0.2, 0.3]}, metadata=metadata)
@@ -633,7 +735,8 @@ def test_update_preserves_actor_id_when_different_actor_updates(mocker):
     )
 
     memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
@@ -656,7 +759,8 @@ async def test_async_update_preserves_actor_id_when_different_actor_updates(mock
     )
 
     await memory._update_memory(
-        "mem-id", "Player #1 is a good person",
+        "mem-id",
+        "Player #1 is a good person",
         {"Player #1 is a good person": [0.1, 0.2, 0.3]},
         metadata={"user_id": "team", "actor_id": "Bob"},
     )
