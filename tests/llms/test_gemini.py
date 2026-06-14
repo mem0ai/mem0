@@ -187,3 +187,94 @@ def test_parse_response_empty_parts_with_tools(mock_gemini_client: Mock):
 
     result = llm._parse_response(mock_response, tools=[{"function": {"name": "test"}}])
     assert result == {"content": None, "tool_calls": []}
+
+
+# ---------------------------------------------------------------------------
+# tool_choice mapping and per-call kwargs (issue #5430)
+# ---------------------------------------------------------------------------
+
+
+def _add_memory_tool():
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "add_memory",
+                "description": "Add a memory",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"data": {"type": "string"}},
+                    "required": ["data"],
+                },
+            },
+        }
+    ]
+
+
+def _set_simple_response(mock_client: Mock):
+    """Give the mocked client a minimal, parseable response."""
+    mock_part = Mock(text="ok", function_call=None)
+    mock_content = Mock(parts=[mock_part])
+    mock_candidate = Mock(content=mock_content)
+    mock_client.models.generate_content.return_value = Mock(candidates=[mock_candidate])
+
+
+def _function_calling_config(mock_client: Mock):
+    config_arg = mock_client.models.generate_content.call_args.kwargs["config"]
+    return config_arg.tool_config.function_calling_config
+
+
+@pytest.mark.parametrize("choice", ["any", "required"])
+def test_tool_choice_forces_any_mode(mock_gemini_client: Mock, choice: str):
+    """Both 'any' and 'required' must force a tool call (ANY mode) with names set."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    _set_simple_response(mock_gemini_client)
+
+    llm.generate_response([{"role": "user", "content": "hi"}], tools=_add_memory_tool(), tool_choice=choice)
+
+    fcc = _function_calling_config(mock_gemini_client)
+    assert fcc.mode == types.FunctionCallingConfigMode.ANY
+    assert fcc.allowed_function_names == ["add_memory"]
+
+
+def test_tool_choice_none_disables_calls(mock_gemini_client: Mock):
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    _set_simple_response(mock_gemini_client)
+
+    llm.generate_response([{"role": "user", "content": "hi"}], tools=_add_memory_tool(), tool_choice="none")
+
+    fcc = _function_calling_config(mock_gemini_client)
+    assert fcc.mode == types.FunctionCallingConfigMode.NONE
+    assert fcc.allowed_function_names is None
+
+
+def test_tool_choice_unknown_defaults_to_auto(mock_gemini_client: Mock):
+    """An unrecognized tool_choice should fall back to AUTO, not silently disable tools."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    _set_simple_response(mock_gemini_client)
+
+    llm.generate_response([{"role": "user", "content": "hi"}], tools=_add_memory_tool(), tool_choice="bogus-value")
+
+    fcc = _function_calling_config(mock_gemini_client)
+    assert fcc.mode == types.FunctionCallingConfigMode.AUTO
+    assert fcc.allowed_function_names is None
+
+
+def test_generate_response_accepts_kwargs_and_overrides_max_tokens(mock_gemini_client: Mock):
+    """Extra kwargs must not raise, and max_tokens must override the configured default."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=0.7, max_tokens=100, top_p=1.0)
+    llm = GeminiLLM(config)
+    _set_simple_response(mock_gemini_client)
+
+    llm.generate_response(
+        [{"role": "user", "content": "hi"}],
+        max_tokens=4096,
+        unsupported_param="ignored",
+    )
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert config_arg.max_output_tokens == 4096
+    assert config_arg.temperature == 0.7
