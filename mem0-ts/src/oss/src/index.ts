@@ -1,4 +1,5 @@
 export * from "./memory";
+export * from "./memory/errors";
 export * from "./memory/memory.types";
 export * from "./types";
 export * from "./embeddings/base";
