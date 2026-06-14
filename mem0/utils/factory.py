@@ -185,6 +185,7 @@ class VectorStoreFactory:
         "supabase": "mem0.vector_stores.supabase.Supabase",
         "weaviate": "mem0.vector_stores.weaviate.Weaviate",
         "faiss": "mem0.vector_stores.faiss.FAISS",
+        "quantal": "mem0.vector_stores.quantal.Quantal",
         "langchain": "mem0.vector_stores.langchain.Langchain",
         "s3_vectors": "mem0.vector_stores.s3_vectors.S3Vectors",
         "baidu": "mem0.vector_stores.baidu.BaiduDB",

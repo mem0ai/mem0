@@ -32,6 +32,7 @@ class VectorStoreConfig(BaseModel):
         "supabase": "SupabaseConfig",
         "weaviate": "WeaviateConfig",
         "faiss": "FAISSConfig",
+        "quantal": "QuantalConfig",
         "langchain": "LangchainConfig",
         "s3_vectors": "S3VectorsConfig",
         "turbopuffer": "TurbopufferConfig",
