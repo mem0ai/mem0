@@ -60,3 +60,28 @@ def test_embed_empty_response_raises(mock_ollama_client):
 
     with pytest.raises(ValueError, match="returned no embeddings"):
         embedder.embed("some text")
+
+
+def test_embed_batch_single_call(mock_ollama_client):
+    """embed_batch should embed all texts in one Ollama call, preserving order."""
+    config = BaseEmbedderConfig(model="nomic-embed-text", embedding_dims=512)
+    embedder = OllamaEmbedding(config)
+
+    mock_ollama_client.embed.return_value = {"embeddings": [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]}
+
+    texts = ["first", "second", "third"]
+    result = embedder.embed_batch(texts)
+
+    mock_ollama_client.embed.assert_called_once_with(model="nomic-embed-text", input=texts)
+    assert result == [[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]
+
+
+def test_embed_batch_count_mismatch_raises(mock_ollama_client):
+    """A response with fewer embeddings than texts must raise, not silently misalign."""
+    config = BaseEmbedderConfig(model="nomic-embed-text", embedding_dims=512)
+    embedder = OllamaEmbedding(config)
+
+    mock_ollama_client.embed.return_value = {"embeddings": [[0.1, 0.2]]}  # only 1 for 2 texts
+
+    with pytest.raises(ValueError, match="returned 1 embeddings for 2 texts"):
+        embedder.embed_batch(["a", "b"])

@@ -63,3 +63,25 @@ class OllamaEmbedding(EmbeddingBase):
         if not embeddings:
             raise ValueError(f"Ollama embed() returned no embeddings for model '{self.config.model}'")
         return embeddings[0]
+
+    def embed_batch(self, texts, memory_action: Optional[Literal["add", "search", "update"]] = "add"):
+        """
+        Embed multiple texts in a single Ollama API call.
+
+        The Ollama SDK's embed() accepts a list for `input` and returns one embedding
+        per text in order, so N texts cost a single round-trip instead of N.
+
+        Args:
+            texts (list[str]): The texts to embed.
+            memory_action (optional): The type of embedding to use. Must be one of "add", "search", or "update".
+        Returns:
+            list: A list of embedding vectors, one per input text, in the same order.
+        """
+        response = self.client.embed(model=self.config.model, input=texts)
+        embeddings = response.get("embeddings") or []
+        if len(embeddings) != len(texts):
+            raise ValueError(
+                f"Ollama embed() returned {len(embeddings)} embeddings for {len(texts)} texts "
+                f"using model '{self.config.model}'"
+            )
+        return embeddings
