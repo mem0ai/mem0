@@ -81,6 +81,61 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 logger = logging.getLogger(__name__)
 
 
+def _resolve_linked_memory_ids(raw_links, uuid_mapping):
+    """Resolve LLM-output linked_memory_ids to real memory UUIDs.
+
+    The V3 extraction prompt instructs the LLM to emit a list of UUIDs drawn
+    from the "Existing Memories" context that is passed into the prompt. Older
+    prompt revisions (and some LLMs) may instead emit the sequential integer
+    indices ("0", "1", ...) that are used to identify memories inside the
+    prompt body. We accept either form and translate indices back to UUIDs
+    using ``uuid_mapping`` (built at extraction time).
+
+    Invalid / unknown / empty / non-list inputs are safely ignored so that a
+    malformed LLM response never blocks a memory ADD. The result is a stable,
+    deduplicated list of UUID strings (insertion order preserved).
+
+    Args:
+        raw_links: The ``linked_memory_ids`` field from a single extracted
+            memory, as produced by the LLM. Typically ``list[str]`` but may
+            be ``None`` or malformed.
+        uuid_mapping: Mapping from integer-index strings ("0", "1", ...) to
+            the real memory UUIDs that were shown to the LLM in this call.
+
+    Returns:
+        List of resolved UUID strings (may be empty).
+    """
+    if not raw_links or not isinstance(raw_links, list):
+        return []
+
+    valid_uuids = set(uuid_mapping.values()) if uuid_mapping else set()
+
+    resolved = []
+    seen = set()
+    for link in raw_links:
+        if not isinstance(link, str):
+            continue
+        link = link.strip()
+        if not link:
+            continue
+
+        # Case 1: LLM returned a sequential index -> translate via mapping.
+        if uuid_mapping and link in uuid_mapping:
+            candidate = uuid_mapping[link]
+        # Case 2: LLM returned a UUID that matches an existing memory.
+        elif link in valid_uuids:
+            candidate = link
+        else:
+            # Unknown reference — drop it silently (likely a hallucination).
+            continue
+
+        if candidate not in seen:
+            seen.add(candidate)
+            resolved.append(candidate)
+
+    return resolved
+
+
 # Fields that hold runtime auth/connection objects and must be preserved.
 # These are non-serializable objects (e.g. AWSV4SignerAuth, RequestsHttpConnection)
 # needed by clients like OpenSearch — not sensitive strings to redact.
@@ -913,6 +968,17 @@ class Memory(MemoryBase):
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+
+            # Persist LLM-asserted links to related existing memories.
+            # The extraction prompt instructs the LLM to output a list of UUIDs
+            # from the Existing Memories context, but older V3 builds also
+            # accepted sequential indices ("0", "1", ...). We accept both and
+            # translate indices back to UUIDs via uuid_mapping.
+            resolved_links = _resolve_linked_memory_ids(
+                mem.get("linked_memory_ids"), uuid_mapping
+            )
+            if resolved_links:
+                mem_metadata["linked_memory_ids"] = resolved_links
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
@@ -2424,6 +2490,13 @@ class AsyncMemory(MemoryBase):
             mem_metadata["updated_at"] = mem_metadata["created_at"]
             if mem.get("attributed_to"):
                 mem_metadata["attributed_to"] = mem["attributed_to"]
+
+            # Persist LLM-asserted links (see sync equivalent for rationale).
+            resolved_links = _resolve_linked_memory_ids(
+                mem.get("linked_memory_ids"), uuid_mapping
+            )
+            if resolved_links:
+                mem_metadata["linked_memory_ids"] = resolved_links
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
