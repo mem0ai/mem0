@@ -737,7 +737,7 @@ export class Memory {
     const results: MemoryItem[] = [];
     const stillFailed: EmbeddingFailure[] = [];
     for (const f of failed) {
-      const strategy = STRATEGIES[f.errorClass] ?? STRATEGIES.internal;
+      const strategy = STRATEGIES[f.errorClass] ?? STRATEGIES.internal_error;
       try {
         const out = await strategy.apply(f, ctx);
         if (out.kind === "persisted") results.push(out.item);
@@ -745,7 +745,7 @@ export class Memory {
       } catch (e) {
         stillFailed.push({
           ...f,
-          errorClass: "provider",
+          errorClass: "provider_error",
           remediation: "retry",
           error: e instanceof Error ? e.message : String(e),
         });
@@ -888,7 +888,7 @@ export class Memory {
       for (const t of insertFailedTexts) {
         failed.push({
           text: t,
-          errorClass: "provider",
+          errorClass: "provider_error",
           remediation: "retry",
           error: "vector store insert failed",
           _memoryId: uuidv4(),
@@ -1196,7 +1196,7 @@ export class Memory {
       if (!inserted.has(r.memoryId)) {
         failures.push({
           text: r.text,
-          errorClass: "provider",
+          errorClass: "provider_error",
           remediation: "retry",
           error: "vector store insert failed",
         });

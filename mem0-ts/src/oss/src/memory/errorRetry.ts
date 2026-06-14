@@ -1,8 +1,11 @@
 // Label-driven, guardrailed handling of embedding failures in add().
 import type { MemoryItem } from "../types";
 
-// Why an embed failed. "internal" = provider returned a poison vector without erroring.
-export type ErrorClass = "provider" | "validation" | "internal";
+// Why an embed failed. Values match the Python error_code vocabulary (#5245).
+export type ErrorClass =
+  | "provider_error"
+  | "validation_error"
+  | "internal_error";
 
 // What the caller should do about it.
 export type Remediation = "retry" | "reconfigure" | "escalate";
@@ -86,12 +89,12 @@ export function makeVectorValidator(seedDim: number | null = null) {
 export function classifyValidation(reason: ValidationReason): Classification {
   switch (reason) {
     case "dimension-mismatch":
-      return { errorClass: "validation", remediation: "reconfigure" };
+      return { errorClass: "validation_error", remediation: "reconfigure" };
     case "non-finite":
     case "empty":
     case "undefined":
       // No usable vector to store, and a retry can't conjure one — escalate.
-      return { errorClass: "internal", remediation: "escalate" };
+      return { errorClass: "internal_error", remediation: "escalate" };
   }
 }
 
@@ -206,12 +209,16 @@ export function classifyEmbedError(err: unknown): Classification {
     switch (true) {
       case status === 429:
       case status >= 500 && status < 600:
-        return { errorClass: "provider", remediation: "retry", retryAfter };
+        return {
+          errorClass: "provider_error",
+          remediation: "retry",
+          retryAfter,
+        };
       case status === 401:
       case status === 403:
-        return { errorClass: "provider", remediation: "escalate" };
+        return { errorClass: "provider_error", remediation: "escalate" };
       case status >= 400 && status < 500:
-        return { errorClass: "validation", remediation: "reconfigure" };
+        return { errorClass: "validation_error", remediation: "reconfigure" };
     }
   }
 
@@ -222,7 +229,7 @@ export function classifyEmbedError(err: unknown): Classification {
     case "ENOTFOUND":
     case "EAI_AGAIN":
     case "EPIPE":
-      return { errorClass: "provider", remediation: "retry", retryAfter };
+      return { errorClass: "provider_error", remediation: "retry", retryAfter };
   }
 
   const msg = (
@@ -233,23 +240,23 @@ export function classifyEmbedError(err: unknown): Classification {
       msg,
     )
   ) {
-    return { errorClass: "provider", remediation: "retry", retryAfter };
+    return { errorClass: "provider_error", remediation: "retry", retryAfter };
   }
   if (/dimension|shape|expected .* got|wrong size/.test(msg)) {
-    return { errorClass: "validation", remediation: "reconfigure" };
+    return { errorClass: "validation_error", remediation: "reconfigure" };
   }
   if (/\bnan\b|infinity|non-?finite/.test(msg)) {
-    return { errorClass: "internal", remediation: "escalate" };
+    return { errorClass: "internal_error", remediation: "escalate" };
   }
   if (/invalid|malformed|empty|length|validation/.test(msg)) {
-    return { errorClass: "validation", remediation: "reconfigure" };
+    return { errorClass: "validation_error", remediation: "reconfigure" };
   }
-  return { errorClass: "provider", remediation: "retry", retryAfter };
+  return { errorClass: "provider_error", remediation: "retry", retryAfter };
 }
 
 // provider/retry: wait any retryAfter, re-embed, re-validate, persist if good.
 export class ProviderRetryStrategy implements RemediationStrategy {
-  readonly errorClass = "provider" as const;
+  readonly errorClass = "provider_error" as const;
   async apply(f: EmbeddingFailure, ctx: RetryContext): Promise<RetryOutcome> {
     if (f.retryAfter && f.retryAfter > 0) await ctx.sleep(f.retryAfter * 1000);
     let vec: number[];
@@ -280,7 +287,7 @@ export class ProviderRetryStrategy implements RemediationStrategy {
 
 // validation/reconfigure: would fail identically on retry, so surface it unchanged.
 export class ValidationReconfigureStrategy implements RemediationStrategy {
-  readonly errorClass = "validation" as const;
+  readonly errorClass = "validation_error" as const;
   async apply(f: EmbeddingFailure): Promise<RetryOutcome> {
     return {
       kind: "stillFailed",
@@ -295,7 +302,7 @@ export class ValidationReconfigureStrategy implements RemediationStrategy {
 // internal/escalate: poison vector returned. Sanitize the preserved vector once
 // and persist if safe; never re-embed, never store a degenerate vector.
 export class InternalEscalateStrategy implements RemediationStrategy {
-  readonly errorClass = "internal" as const;
+  readonly errorClass = "internal_error" as const;
   async apply(f: EmbeddingFailure, ctx: RetryContext): Promise<RetryOutcome> {
     if (!f._vector) {
       return {
@@ -312,8 +319,8 @@ export class InternalEscalateStrategy implements RemediationStrategy {
     }
     const c: Classification =
       s.reason === "dimension-mismatch"
-        ? { errorClass: "validation", remediation: "reconfigure" }
-        : { errorClass: "internal", remediation: "escalate" };
+        ? { errorClass: "validation_error", remediation: "reconfigure" }
+        : { errorClass: "internal_error", remediation: "escalate" };
     return {
       kind: "stillFailed",
       failure: { ...f, ...c, error: s.detail ?? `unsanitizable: ${s.reason}` },
@@ -322,7 +329,7 @@ export class InternalEscalateStrategy implements RemediationStrategy {
 }
 
 export const STRATEGIES: Record<ErrorClass, RemediationStrategy> = {
-  provider: new ProviderRetryStrategy(),
-  validation: new ValidationReconfigureStrategy(),
-  internal: new InternalEscalateStrategy(),
+  provider_error: new ProviderRetryStrategy(),
+  validation_error: new ValidationReconfigureStrategy(),
+  internal_error: new InternalEscalateStrategy(),
 };
