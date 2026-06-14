@@ -139,6 +139,9 @@ export function toEmbeddingError(err: unknown): MemoryError {
     retryAfter !== undefined ? { retryAfter } : {};
   const C = EMBED_ERROR_CODE;
 
+  // A thrown error is always provider_error (the call failed, no vector to
+  // inspect); the transient/non-transient split rides remediation. A bad
+  // *returned* vector is the only validation_error, handled by classifyValidation.
   if (Number.isFinite(status)) {
     switch (true) {
       case status === 429:
@@ -149,7 +152,10 @@ export function toEmbeddingError(err: unknown): MemoryError {
       case status === 403:
         return new AuthenticationError(message, C.AUTH);
       case status >= 400 && status < 500:
-        return new ValidationError(message, C.VALIDATION);
+        // Other non-transient 4xx (bad request, quota): provider, not retry-safe.
+        return new EmbeddingError(message, C.AUTH, {
+          debugInfo: { surface: "escalate" },
+        });
     }
   }
 
@@ -163,6 +169,8 @@ export function toEmbeddingError(err: unknown): MemoryError {
       return new NetworkError(message, C.TRANSIENT, { debugInfo });
   }
 
+  // Message is a last resort and only nudges transient-vs-escalate; a thrown
+  // error is never validation_error (R2 — don't read structural words off prose).
   const msg = message.toLowerCase();
   switch (true) {
     case /rate.?limit|too many requests/.test(msg):
@@ -171,14 +179,6 @@ export function toEmbeddingError(err: unknown): MemoryError {
       msg,
     ):
       return new NetworkError(message, C.TRANSIENT, { debugInfo });
-    case /\bnan\b|infinity|non-?finite/.test(msg):
-      return new ValidationError(message, C.VALIDATION, {
-        debugInfo: { surface: "escalate" },
-      });
-    case /dimension|shape|expected .* got|wrong size|invalid|malformed|empty|length|validation/.test(
-      msg,
-    ):
-      return new ValidationError(message, C.VALIDATION);
   }
 
   return new EmbeddingError(message, C.TRANSIENT, { debugInfo });
@@ -228,7 +228,8 @@ export function projectError(err: MemoryError): Classification {
     case err instanceof EmbeddingError:
       return {
         errorClass: "provider_error",
-        remediation: "retry",
+        remediation:
+          err.debugInfo?.surface === "escalate" ? "escalate" : "retry",
         errorCode,
         retryAfter,
       };
