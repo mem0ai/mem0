@@ -30,8 +30,9 @@ class OpenAILLM(LLMBase):
                 enable_vision=config.enable_vision,
                 vision_details=config.vision_details,
                 reasoning_effort=getattr(config, 'reasoning_effort', None),
-                http_client_proxies=config.http_client,
+                http_client_proxies=getattr(config, 'http_client_proxies', None),
                 is_reasoning_model=getattr(config, 'is_reasoning_model', None),
+                ssl_verify=getattr(config, 'ssl_verify', None),
             )
 
         super().__init__(config)
@@ -45,12 +46,13 @@ class OpenAILLM(LLMBase):
                 base_url=self.config.openrouter_base_url
                 or os.getenv("OPENROUTER_API_BASE")
                 or "https://openrouter.ai/api/v1",
+                http_client=self.config.http_client,
             )
         else:
             api_key = self.config.api_key or os.getenv("OPENAI_API_KEY")
             base_url = self.config.openai_base_url or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
 
-            self.client = OpenAI(api_key=api_key, base_url=base_url)
+            self.client = OpenAI(api_key=api_key, base_url=base_url, http_client=self.config.http_client)
 
     def _parse_response(self, response, tools):
         """

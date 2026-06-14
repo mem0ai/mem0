@@ -388,6 +388,83 @@ def test_init_with_default_azure_credential(monkeypatch):
         )
 
 
+@pytest.mark.parametrize(
+    "ssl_verify,expected_client_kwargs",
+    [
+        (False, {"verify": False}),
+        ("/path/to/ca.pem", {"verify": "/path/to/ca.pem"}),
+    ],
+)
+def test_ssl_verify_builds_http_client(ssl_verify, expected_client_kwargs):
+    mock_http_client = Mock()
+    mock_http_client_instance = Mock()
+    mock_http_client.return_value = mock_http_client_instance
+
+    with (
+        patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
+        patch("httpx.Client", new=mock_http_client),
+    ):
+        config = AzureOpenAIConfig(
+            model=MODEL,
+            api_key="test",
+            azure_kwargs={"api_key": "test"},
+            ssl_verify=ssl_verify,
+        )
+        _ = AzureOpenAILLM(config)
+
+        mock_http_client.assert_called_once_with(**expected_client_kwargs)
+        mock_azure_openai.assert_called_once_with(
+            api_key="test",
+            http_client=mock_http_client_instance,
+            azure_deployment=None,
+            azure_endpoint=None,
+            azure_ad_token_provider=None,
+            api_version=None,
+            default_headers=None,
+        )
+
+
+def test_ssl_verify_with_proxies_builds_combined_http_client():
+    mock_http_client = Mock()
+    mock_http_client_instance = Mock()
+    mock_http_client.return_value = mock_http_client_instance
+
+    with (
+        patch("mem0.llms.azure_openai.AzureOpenAI"),
+        patch("httpx.Client", new=mock_http_client),
+    ):
+        config = AzureOpenAIConfig(
+            model=MODEL,
+            api_key="test",
+            azure_kwargs={"api_key": "test"},
+            http_client_proxies="http://proxy.example.com:8080",
+            ssl_verify=False,
+        )
+        _ = AzureOpenAILLM(config)
+
+        mock_http_client.assert_called_once_with(
+            proxies="http://proxy.example.com:8080",
+            verify=False,
+        )
+
+
+def test_no_ssl_or_proxy_http_client_is_none():
+    with (
+        patch("mem0.llms.azure_openai.AzureOpenAI") as mock_azure_openai,
+        patch("httpx.Client") as mock_http_client,
+    ):
+        config = AzureOpenAIConfig(
+            model=MODEL,
+            api_key="test",
+            azure_kwargs={"api_key": "test"},
+        )
+        _ = AzureOpenAILLM(config)
+
+        mock_http_client.assert_not_called()
+        call_kwargs = mock_azure_openai.call_args[1]
+        assert call_kwargs["http_client"] is None
+
+
 def test_init_with_placeholder_api_key(monkeypatch):
     # Placeholder API key should trigger DefaultAzureCredential
     config = AzureOpenAIConfig(model=MODEL)

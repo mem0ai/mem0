@@ -26,6 +26,7 @@ class BaseLlmConfig(ABC):
         reasoning_effort: Optional[str] = None,
         http_client_proxies: Optional[Union[Dict, str]] = None,
         is_reasoning_model: Optional[bool] = None,
+        ssl_verify: Optional[Union[bool, str]] = None,
     ):
         """
         Initialize a base configuration class instance for the LLM.
@@ -63,6 +64,7 @@ class BaseLlmConfig(ABC):
                 deployments with custom/versioned model names (e.g. Azure
                 "gpt-5.4-nano-2026-03-17") that the name-based heuristic cannot
                 recognize. Defaults to None
+            ssl_verify: SSL verification settings for HTTP client. Can be a boolean or a path to a CA bundle.
         """
         self.model = model
         self.temperature = temperature
@@ -74,4 +76,12 @@ class BaseLlmConfig(ABC):
         self.vision_details = vision_details
         self.reasoning_effort = reasoning_effort
         self.is_reasoning_model = is_reasoning_model
-        self.http_client = httpx.Client(proxies=http_client_proxies) if http_client_proxies else None
+        self.http_client_proxies = http_client_proxies
+        self.ssl_verify = ssl_verify
+
+        client_kwargs = {}
+        if http_client_proxies:
+            client_kwargs["proxies"] = http_client_proxies
+        if ssl_verify is not None:
+            client_kwargs["verify"] = ssl_verify
+        self.http_client = httpx.Client(**client_kwargs) if client_kwargs else None
