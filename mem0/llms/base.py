@@ -62,7 +62,7 @@ class LLMBase(ABC):
 
         reasoning_models = {
             "o1", "o1-preview", "o3-mini", "o3",
-            "gpt-5", "gpt-5o", "gpt-5o-mini", "gpt-5o-micro",
+            "gpt-5", "gpt-5-mini", "gpt-5-nano",
         }
 
         model_lower = model.lower()
