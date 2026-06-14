@@ -1,6 +1,38 @@
+import os
+import sys
 from typing import Dict, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+
+def _default_data_dir() -> str:
+    """Return a writable user-data directory suitable for embedded vector stores.
+
+    Resolution order:
+      1. ``MEM0_DATA_DIR`` environment variable (explicit override).
+      2. Platform convention:
+         - macOS: ``~/Library/Application Support/mem0``
+         - Windows: ``%LOCALAPPDATA%/mem0``
+         - Linux/BSD: ``$XDG_DATA_HOME/mem0`` or ``~/.local/share/mem0``
+
+    The previous default of ``/tmp/{provider}`` broke macOS LaunchAgents, systemd
+    services with ``noexec`` ``/tmp``, Windows (no ``/tmp``), and Docker (ephemeral
+    ``/tmp``). See #4279.
+    """
+    env_dir = os.environ.get("MEM0_DATA_DIR")
+    if env_dir:
+        return env_dir
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/Application Support/mem0")
+    if sys.platform == "win32":
+        return os.path.join(
+            os.environ.get("LOCALAPPDATA") or os.path.expanduser("~/AppData/Local"),
+            "mem0",
+        )
+    return os.path.join(
+        os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share"),
+        "mem0",
+    )
 
 
 class VectorStoreConfig(BaseModel):
@@ -61,7 +93,7 @@ class VectorStoreConfig(BaseModel):
 
         # also check if path in allowed kays for pydantic model, and whether config extra fields are allowed
         if "path" not in config and "path" in config_class.__annotations__:
-            config["path"] = f"/tmp/{provider}"
+            config["path"] = os.path.join(_default_data_dir(), provider)
 
         self.config = config_class(**config)
         return self
