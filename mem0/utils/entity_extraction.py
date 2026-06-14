@@ -231,7 +231,16 @@ def _extract_entities_from_doc(doc) -> List[Tuple[str, str]]:
             entities.append(("QUOTED", m.group(1).strip()))
 
     # === NOUN-NOUN COMPOUNDS ===
-    for chunk in doc.noun_chunks:
+    # ``doc.noun_chunks`` relies on a language-specific syntax iterator that
+    # spaCy does not implement for every language (e.g. ``zh``/``ja`` raise
+    # ``NotImplementedError`` [E894]). Degrade gracefully for those languages
+    # instead of aborting all entity extraction (issue #5285) -- the proper-noun,
+    # quoted-text and verb-head strategies still run.
+    try:
+        noun_chunks = list(doc.noun_chunks)
+    except NotImplementedError:
+        noun_chunks = []
+    for chunk in noun_chunks:
         chunk_tokens = list(chunk)
         split_indices: list = []
         poss_splits: list = []
