@@ -19,8 +19,6 @@ export interface EmbeddingFailure {
   error: string;
   readonly _payload?: Record<string, any>;
   readonly _memoryId?: string;
-  // The poison vector, kept so retry can sanitize it without re-fetching.
-  readonly _vector?: number[];
 }
 
 // What add() and retryFailed() both return.
@@ -51,7 +49,6 @@ export interface RetryContext {
   persist(f: EmbeddingFailure, vec: number[]): Promise<MemoryItem>;
   sleep(ms: number): Promise<void>;
   embed(text: string): Promise<number[]>;
-  expectedDim(): number | null;
 }
 
 export type RetryOutcome =
@@ -86,6 +83,8 @@ export function makeVectorValidator(seedDim: number | null = null) {
   };
 }
 
+// A structurally-bad vector caught by inspecting the embedder's output is a
+// validation_error regardless of how it's bad; remediation tells them what to do.
 export function classifyValidation(reason: ValidationReason): Classification {
   switch (reason) {
     case "dimension-mismatch":
@@ -93,99 +92,8 @@ export function classifyValidation(reason: ValidationReason): Classification {
     case "non-finite":
     case "empty":
     case "undefined":
-      // No usable vector to store, and a retry can't conjure one — escalate.
-      return { errorClass: "internal_error", remediation: "escalate" };
+      return { errorClass: "validation_error", remediation: "escalate" };
   }
-}
-
-// Keep Inf's "huge" meaning as ±1e19 — float32-safe and safe to square.
-export const POS_INF_SENTINEL = 1e19;
-export const NEG_INF_SENTINEL = -1e19;
-
-// --- Sanitizer ------------------------------------------------------------
-export type SanitizeReason =
-  | "undefined"
-  | "empty"
-  | "dimension-mismatch"
-  | "too-many-non-finite"
-  | "degenerate-zero-norm";
-
-export interface SanitizeResult {
-  ok: boolean;
-  vector?: number[];
-  reason?: SanitizeReason;
-  detail?: string;
-}
-
-const NORM_EPS = 1e-12;
-const MAX_REPAIR_FRACTION = 0.05;
-
-// NaN -> 0, ±Inf -> ±1e19 sentinel. Refuses on wrong dimension, too many repairs,
-// or a zero-norm result a cosine index would silently never return.
-export function sanitizeVector(
-  vec: number[] | undefined | null,
-  expectedDim: number | null,
-): SanitizeResult {
-  if (vec == null || !Array.isArray(vec))
-    return { ok: false, reason: "undefined" };
-  if (vec.length === 0) return { ok: false, reason: "empty" };
-  if (expectedDim !== null && vec.length !== expectedDim) {
-    return {
-      ok: false,
-      reason: "dimension-mismatch",
-      detail: `expected ${expectedDim} dims, got ${vec.length}`,
-    };
-  }
-
-  const out = new Array<number>(vec.length);
-  let repaired = 0;
-  let firstBad = -1;
-  for (let i = 0; i < vec.length; i++) {
-    const x = vec[i];
-    if (typeof x === "number" && Number.isFinite(x)) {
-      out[i] = x;
-      continue;
-    }
-    out[i] =
-      x === Infinity
-        ? POS_INF_SENTINEL
-        : x === -Infinity
-          ? NEG_INF_SENTINEL
-          : 0;
-    repaired++;
-    if (firstBad === -1) firstBad = i;
-  }
-
-  // Norm is measured on the vector we actually store.
-  let sumSq = 0;
-  for (let i = 0; i < out.length; i++) sumSq += out[i] * out[i];
-  const degenerate = Math.sqrt(sumSq) <= NORM_EPS;
-
-  if (repaired === 0) {
-    if (degenerate)
-      return {
-        ok: false,
-        reason: "degenerate-zero-norm",
-        detail: "all-zero vector",
-      };
-    return { ok: true, vector: out };
-  }
-
-  const bad = vec[firstBad] as number;
-  const label = Number.isNaN(bad)
-    ? "NaN"
-    : bad === Infinity
-      ? "Inf"
-      : bad === -Infinity
-        ? "-Inf"
-        : "non-number";
-  const detail = `non-finite: ${label} at index ${firstBad} (${repaired}/${vec.length} components)`;
-
-  if (repaired / vec.length > MAX_REPAIR_FRACTION) {
-    return { ok: false, reason: "too-many-non-finite", detail };
-  }
-  if (degenerate) return { ok: false, reason: "degenerate-zero-norm", detail };
-  return { ok: true, vector: out, detail };
 }
 
 function parseRetryAfter(e: any): number | undefined {
@@ -242,13 +150,14 @@ export function classifyEmbedError(err: unknown): Classification {
   ) {
     return { errorClass: "provider_error", remediation: "retry", retryAfter };
   }
-  if (/dimension|shape|expected .* got|wrong size/.test(msg)) {
-    return { errorClass: "validation_error", remediation: "reconfigure" };
-  }
   if (/\bnan\b|infinity|non-?finite/.test(msg)) {
-    return { errorClass: "internal_error", remediation: "escalate" };
+    return { errorClass: "validation_error", remediation: "escalate" };
   }
-  if (/invalid|malformed|empty|length|validation/.test(msg)) {
+  if (
+    /dimension|shape|expected .* got|wrong size|invalid|malformed|empty|length|validation/.test(
+      msg,
+    )
+  ) {
     return { errorClass: "validation_error", remediation: "reconfigure" };
   }
   return { errorClass: "provider_error", remediation: "retry", retryAfter };
@@ -285,51 +194,26 @@ export class ProviderRetryStrategy implements RemediationStrategy {
   }
 }
 
-// validation/reconfigure: would fail identically on retry, so surface it unchanged.
-export class ValidationReconfigureStrategy implements RemediationStrategy {
+// validation_error: a structurally-bad vector (wrong dim, NaN/Inf, empty).
+// A blind retry would reproduce it, so surface it unchanged for the caller to act on.
+export class ValidationSurfaceStrategy implements RemediationStrategy {
   readonly errorClass = "validation_error" as const;
   async apply(f: EmbeddingFailure): Promise<RetryOutcome> {
-    return {
-      kind: "stillFailed",
-      failure: {
-        ...f,
-        error: `${f.error} — not retried: requires reconfiguration (fix the embedder model or vectorStore dimension).`,
-      },
-    };
+    return { kind: "stillFailed", failure: f };
   }
 }
 
-// internal/escalate: poison vector returned. Sanitize the preserved vector once
-// and persist if safe; never re-embed, never store a degenerate vector.
-export class InternalEscalateStrategy implements RemediationStrategy {
+// internal_error: a mem0-side processing failure (store write, dedup, etc.).
+// Re-embedding won't help, so surface it unchanged.
+export class InternalSurfaceStrategy implements RemediationStrategy {
   readonly errorClass = "internal_error" as const;
-  async apply(f: EmbeddingFailure, ctx: RetryContext): Promise<RetryOutcome> {
-    if (!f._vector) {
-      return {
-        kind: "stillFailed",
-        failure: {
-          ...f,
-          error: `${f.error} — no vector preserved to sanitize`,
-        },
-      };
-    }
-    const s = sanitizeVector(f._vector, ctx.expectedDim());
-    if (s.ok && s.vector) {
-      return { kind: "persisted", item: await ctx.persist(f, s.vector) };
-    }
-    const c: Classification =
-      s.reason === "dimension-mismatch"
-        ? { errorClass: "validation_error", remediation: "reconfigure" }
-        : { errorClass: "internal_error", remediation: "escalate" };
-    return {
-      kind: "stillFailed",
-      failure: { ...f, ...c, error: s.detail ?? `unsanitizable: ${s.reason}` },
-    };
+  async apply(f: EmbeddingFailure): Promise<RetryOutcome> {
+    return { kind: "stillFailed", failure: f };
   }
 }
 
 export const STRATEGIES: Record<ErrorClass, RemediationStrategy> = {
   provider_error: new ProviderRetryStrategy(),
-  validation_error: new ValidationReconfigureStrategy(),
-  internal_error: new InternalEscalateStrategy(),
+  validation_error: new ValidationSurfaceStrategy(),
+  internal_error: new InternalSurfaceStrategy(),
 };

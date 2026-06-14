@@ -833,7 +833,7 @@ export class Memory {
   }
 
   // Retry memories that failed to embed during add(), per their errorClass.
-  // Skips LLM extraction; only embed/sanitize -> validate -> persist runs.
+  // Skips LLM extraction; provider errors re-embed, others surface unchanged.
   async retryFailed(failed: EmbeddingFailure[]): Promise<AddResult> {
     await this._ensureInitialized();
     const guard = makeVectorValidator(this._expectedDim());
@@ -841,7 +841,6 @@ export class Memory {
       embed: (t) => this.embedder.embed(t),
       validate: (v) => guard.validate(v),
       sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
-      expectedDim: () => this._expectedDim(),
       persist: async (f, vec) => {
         const id = f._memoryId ?? uuidv4();
         const payload = f._payload ?? {
@@ -872,8 +871,8 @@ export class Memory {
       } catch (e) {
         stillFailed.push({
           ...f,
-          errorClass: "provider_error",
-          remediation: "retry",
+          errorClass: "internal_error",
+          remediation: "escalate",
           error: e instanceof Error ? e.message : String(e),
         });
       }
@@ -1001,7 +1000,6 @@ export class Memory {
             remediation: c.remediation,
             error: `embedding validation failed: ${v.reason}`,
             _memoryId: uuidv4(),
-            ...(v.reason === "non-finite" ? { _vector: vec } : {}),
           });
           continue;
         }
@@ -1017,8 +1015,8 @@ export class Memory {
       for (const t of insertFailedTexts) {
         failed.push({
           text: t,
-          errorClass: "provider_error",
-          remediation: "retry",
+          errorClass: "internal_error",
+          remediation: "escalate",
           error: "vector store insert failed",
           _memoryId: uuidv4(),
         });
@@ -1146,12 +1144,7 @@ export class Memory {
     const embedMap: Record<string, number[]> = {};
     const failures: EmbeddingFailure[] = [];
     const guard = makeVectorValidator(this._expectedDim());
-    const recordFailure = (
-      text: string,
-      c: Classification,
-      errMsg: string,
-      vector?: number[],
-    ) =>
+    const recordFailure = (text: string, c: Classification, errMsg: string) =>
       failures.push({
         text,
         errorClass: c.errorClass,
@@ -1160,7 +1153,6 @@ export class Memory {
         error: errMsg,
         // Stable id so a retry overwrites instead of duplicating.
         _memoryId: uuidv4(),
-        ...(vector !== undefined ? { _vector: vector } : {}),
       });
 
     let batch: number[][] | undefined;
@@ -1180,7 +1172,6 @@ export class Memory {
             memTexts[i],
             classifyValidation(v.reason!),
             `embedding validation failed: ${v.reason}`,
-            batch[i],
           );
       }
     } else {
@@ -1195,10 +1186,8 @@ export class Memory {
               text,
               classifyValidation(v.reason!),
               `embedding validation failed: ${v.reason}`,
-              vec,
             );
         } catch (e) {
-          // A thrown error has no vector to preserve.
           recordFailure(
             text,
             classifyEmbedError(e),
@@ -1326,14 +1315,15 @@ export class Memory {
       }
     }
 
-    // Inserts that failed are not silent: report them as retryable failures.
+    // Inserts that failed are not silent: report them so the caller knows.
     for (const r of records) {
       if (!inserted.has(r.memoryId)) {
         failures.push({
           text: r.text,
-          errorClass: "provider_error",
-          remediation: "retry",
+          errorClass: "internal_error",
+          remediation: "escalate",
           error: "vector store insert failed",
+          _memoryId: r.memoryId,
         });
       }
     }
