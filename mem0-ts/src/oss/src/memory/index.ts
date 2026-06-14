@@ -619,6 +619,25 @@ export class Memory {
         "messages is required and cannot be undefined or null. Provide a string or array of messages.",
       );
     }
+    if (Array.isArray(messages)) {
+      if (messages.length === 0) {
+        throw new Error(
+          "messages array cannot be empty. Provide at least one message with non-empty content.",
+        );
+      }
+      const allBlank = messages.every(
+        (m) => typeof m.content === "string" && m.content.trim() === "",
+      );
+      if (allBlank) {
+        throw new Error(
+          "messages array cannot contain only blank content. Provide at least one message with non-empty content.",
+        );
+      }
+    } else if (messages.trim() === "") {
+      throw new Error(
+        "messages string cannot be empty. Provide non-empty content.",
+      );
+    }
 
     const temporalUsageNotice = detectTemporalUsageFromMetadata(
       config?.metadata,
