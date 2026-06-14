@@ -732,6 +732,25 @@ class Memory(MemoryBase):
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
             )
 
+        invalid_message_types = [
+            {"index": idx, "type": type(msg).__name__} for idx, msg in enumerate(messages) if not isinstance(msg, dict)
+        ]
+        if invalid_message_types:
+            raise Mem0ValidationError(
+                message="messages must be str, dict, or list[dict]",
+                error_code="VALIDATION_003",
+                details={"invalid_message_types": invalid_message_types, "valid_types": ["str", "dict", "list[dict]"]},
+                suggestion="Convert list items to dictionaries with role and content fields.",
+            )
+
+        if not messages or all(not str(msg.get("content") or "").strip() for msg in messages):
+            raise Mem0ValidationError(
+                message="messages must not be empty",
+                error_code="VALIDATION_004",
+                details={"provided_messages": messages},
+                suggestion="Provide at least one message with non-empty content.",
+            )
+
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
@@ -2233,6 +2252,25 @@ class AsyncMemory(MemoryBase):
                 error_code="VALIDATION_003",
                 details={"provided_type": type(messages).__name__, "valid_types": ["str", "dict", "list[dict]"]},
                 suggestion="Convert your input to a string, dictionary, or list of dictionaries."
+            )
+
+        invalid_message_types = [
+            {"index": idx, "type": type(msg).__name__} for idx, msg in enumerate(messages) if not isinstance(msg, dict)
+        ]
+        if invalid_message_types:
+            raise Mem0ValidationError(
+                message="messages must be str, dict, or list[dict]",
+                error_code="VALIDATION_003",
+                details={"invalid_message_types": invalid_message_types, "valid_types": ["str", "dict", "list[dict]"]},
+                suggestion="Convert list items to dictionaries with role and content fields.",
+            )
+
+        if not messages or all(not str(msg.get("content") or "").strip() for msg in messages):
+            raise Mem0ValidationError(
+                message="messages must not be empty",
+                error_code="VALIDATION_004",
+                details={"provided_messages": messages},
+                suggestion="Provide at least one message with non-empty content.",
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:

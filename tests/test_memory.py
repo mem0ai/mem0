@@ -371,6 +371,27 @@ def test_normalize_facts_filters_empty_strings():
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
+def test_add_rejects_empty_list(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that add() raises ValidationError when messages is an empty list."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        memory.add([], user_id="test_user")
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
 def test_delete_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Test that delete() raises ValueError when memory_id does not exist
@@ -431,6 +452,69 @@ async def test_async_delete_nonexistent_memory_raises_error(mock_sqlite, mock_ll
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
+def test_add_rejects_empty_content_messages(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that add() raises ValidationError when all messages have empty content."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        memory.add([{"role": "user", "content": ""}], user_id="test_user")
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_rejects_none_content_messages(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that add() raises ValidationError when all messages have None content."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        memory.add([{"role": "user", "content": None}], user_id="test_user")
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_rejects_non_dict_list_messages(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that add() raises ValidationError when list items are not dictionaries."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match=r"messages must be str, dict, or list\[dict\]"):
+        memory.add(["hello"], user_id="test_user")
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
 def test_update_nonexistent_memory_raises_error(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
     """
     Test that _update_memory() raises ValueError when memory_id does not exist.
@@ -483,6 +567,145 @@ async def test_async_update_nonexistent_memory_raises_error(mock_sqlite, mock_ll
         await memory._update_memory("non-existent-id", "new data", {"new data": [0.1, 0.2]})
 
     mock_vector_store.update.assert_not_called()
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_add_rejects_whitespace_only_content(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that add() raises ValidationError when all messages have whitespace-only content."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        memory.add([{"role": "user", "content": "   "}], user_id="test_user")
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_add_rejects_empty_list(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """Test that async add() raises ValidationError when messages is an empty list."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        await memory.add([], user_id="test_user")
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_add_rejects_empty_content_messages(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Test that async add() raises ValidationError when all messages have empty content."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        await memory.add([{"role": "user", "content": ""}], user_id="test_user")
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_add_rejects_none_content_messages(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Test that async add() raises ValidationError when all messages have None content."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        await memory.add([{"role": "user", "content": None}], user_id="test_user")
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_add_rejects_whitespace_only_content(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Test that async add() raises ValidationError when all messages have whitespace-only content."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        await memory.add([{"role": "user", "content": "   "}], user_id="test_user")
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_add_rejects_non_dict_list_messages(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Test that async add() raises ValidationError when list items are not dictionaries."""
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_factory.return_value = MagicMock()
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import AsyncMemory
+
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    with pytest.raises(Mem0ValidationError, match=r"messages must be str, dict, or list\[dict\]"):
+        await memory.add(["hello"], user_id="test_user")
 
 
 @patch('mem0.utils.factory.EmbedderFactory.create')
@@ -876,6 +1099,16 @@ def test_search_rejects_user_id_kwarg(mock_sqlite, mock_llm_factory, mock_vector
     mock_llm_factory.return_value = MagicMock()
     mock_sqlite.return_value = MagicMock()
 
+    from mem0.exceptions import ValidationError as Mem0ValidationError
+    from mem0.memory.main import Memory as MemoryClass
+
+    config = MemoryConfig()
+    memory = MemoryClass(config)
+
+    with pytest.raises(Mem0ValidationError, match="messages must not be empty"):
+        memory.add([{"role": "user", "content": "   "}], user_id="test_user")
+
+
     config = MemoryConfig()
     memory = Memory(config)
 
@@ -992,8 +1225,9 @@ class TestHybridSearchWarning:
     def test_warning_for_store_without_keyword_search(
         self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
     ):
-        from mem0.vector_stores.base import VectorStoreBase
         import logging
+
+        from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithoutKeywordSearch(VectorStoreBase):
             def create_col(self, *a, **kw): pass
@@ -1028,8 +1262,9 @@ class TestHybridSearchWarning:
     def test_no_warning_for_store_with_keyword_search(
         self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
     ):
-        from mem0.vector_stores.base import VectorStoreBase
         import logging
+
+        from mem0.vector_stores.base import VectorStoreBase
 
         class StoreWithKeywordSearch(VectorStoreBase):
             def keyword_search(self, query, top_k=5, filters=None):
