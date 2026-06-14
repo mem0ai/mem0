@@ -121,11 +121,13 @@ class AzureOpenAILLM(LLMBase):
             str: The generated response.
         """
 
-        user_prompt = messages[-1]["content"]
-
-        user_prompt = user_prompt.replace("assistant", "ai")
-
-        messages[-1]["content"] = user_prompt
+        # Only the last message's textual content is rewritten. Multimodal
+        # messages carry a list of content parts (e.g. text + image_url), which
+        # has no ``.replace`` method, so guard against non-string content to
+        # avoid an AttributeError on vision/multimodal requests.
+        last_content = messages[-1]["content"]
+        if isinstance(last_content, str):
+            messages[-1]["content"] = last_content.replace("assistant", "ai")
 
         params = self._get_supported_params(messages=messages, **kwargs)
         
