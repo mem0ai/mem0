@@ -1722,20 +1722,13 @@ export class Memory {
       existingEmbeddings[data] || (await this.embedder.embed(data));
 
     const newMetadata = {
+      ...existingMemory.payload,
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
+      textLemmatized: lemmatizeForBm25(data),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
-      ...(existingMemory.payload.user_id && {
-        user_id: existingMemory.payload.user_id,
-      }),
-      ...(existingMemory.payload.agent_id && {
-        agent_id: existingMemory.payload.agent_id,
-      }),
-      ...(existingMemory.payload.run_id && {
-        run_id: existingMemory.payload.run_id,
-      }),
     };
 
     await this.vectorStore.update(memoryId, embedding, newMetadata);
