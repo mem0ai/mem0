@@ -72,16 +72,26 @@ class AzureOpenAIStructuredLLM(LLMBase):
 
         messages[-1]["content"] = user_prompt
 
+        is_reasoning = self._is_reasoning_model(self.config.model)
         params = {
             "model": self.config.model,
             "messages": messages,
-            "temperature": self.config.temperature,
-            "top_p": self.config.top_p,
         }
-        if self._uses_max_completion_tokens(self.config.model):
+        # Reasoning models (o1/o3/GPT-5 series) reject temperature/top_p; only
+        # forward the sampling params for non-reasoning models. Mirrors the
+        # reasoning-aware handling of OpenAIStructuredLLM (#5458).
+        if not is_reasoning:
+            params["temperature"] = self.config.temperature
+            params["top_p"] = self.config.top_p
+        # Reasoning models require max_completion_tokens rather than max_tokens.
+        if is_reasoning or self._uses_max_completion_tokens(self.config.model):
             params["max_completion_tokens"] = self.config.max_tokens
         else:
             params["max_tokens"] = self.config.max_tokens
+        if is_reasoning:
+            reasoning_effort = getattr(self.config, "reasoning_effort", None)
+            if reasoning_effort:
+                params["reasoning_effort"] = reasoning_effort
         if response_format:
             params["response_format"] = response_format
         if tools:
