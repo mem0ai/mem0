@@ -916,9 +916,44 @@ class Memory(MemoryBase):
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
+        # Phase 5.5: Contradiction resolution
+        contradiction_events = []
+        for mem in extracted_memories:
+            contradict_ids = mem.get("contradicts_memory_ids", [])
+            if not contradict_ids:
+                continue
+            new_text = mem.get("text", "")
+            for ref_id in contradict_ids:
+                real_id = uuid_mapping.get(str(ref_id))
+                if not real_id:
+                    continue
+                try:
+                    old_mem = self.vector_store.get(vector_id=real_id)
+                    if not old_mem:
+                        continue
+                    old_payload = old_mem.payload if hasattr(old_mem, "payload") and old_mem.payload else {}
+                    old_text = old_payload.get("data", "")
+                    updated_payload = dict(old_payload)
+                    updated_payload["is_superseded"] = True
+                    updated_payload["superseded_at"] = datetime.now(timezone.utc).isoformat()
+                    updated_payload["updated_at"] = updated_payload["superseded_at"]
+                    self.vector_store.update(vector_id=real_id, vector=None, payload=updated_payload)
+                    self.db.add_history(
+                        real_id, old_text, None, "DELETE",
+                        created_at=updated_payload["superseded_at"], is_deleted=1,
+                    )
+                    contradiction_events.append({
+                        "id": real_id,
+                        "memory": old_text,
+                        "event": "CONTRADICTION_RESOLVED",
+                        "superseded_by": new_text,
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to resolve contradiction for {real_id}: {e}")
+
         if not records:
             self.db.save_messages(messages, session_scope)
-            return []
+            return contradiction_events
 
         # Phase 6: Batch persist
         all_vectors = [r[2] for r in records]
@@ -1060,6 +1095,7 @@ class Memory(MemoryBase):
             {"id": r[0], "memory": r[1], "event": "ADD"}
             for r in records
         ]
+        returned_memories.extend(contradiction_events)
 
         keys, encoded_ids = process_telemetry_filters(filters)
         capture_event(
@@ -1209,6 +1245,9 @@ class Memory(MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            if hasattr(mem, "payload") and mem.payload and mem.payload.get("is_superseded"):
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -1512,14 +1551,17 @@ class Memory(MemoryBase):
         if query_entities:
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
+        # Step 7: Build candidate set from semantic results (exclude superseded)
         candidates = []
         for mem in semantic_results:
+            payload = mem.payload if hasattr(mem, 'payload') else {}
+            if payload.get("is_superseded"):
+                continue
             mem_id = str(mem.id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
+                "payload": payload,
             })
 
         # Step 8: Score and rank
@@ -2421,9 +2463,47 @@ class AsyncMemory(MemoryBase):
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
+        # Phase 5.5: Contradiction resolution
+        contradiction_events = []
+        for mem in extracted_memories:
+            contradict_ids = mem.get("contradicts_memory_ids", [])
+            if not contradict_ids:
+                continue
+            new_text = mem.get("text", "")
+            for ref_id in contradict_ids:
+                real_id = uuid_mapping.get(str(ref_id))
+                if not real_id:
+                    continue
+                try:
+                    old_mem = await asyncio.to_thread(self.vector_store.get, vector_id=real_id)
+                    if not old_mem:
+                        continue
+                    old_payload = old_mem.payload if hasattr(old_mem, "payload") and old_mem.payload else {}
+                    old_text = old_payload.get("data", "")
+                    updated_payload = dict(old_payload)
+                    updated_payload["is_superseded"] = True
+                    updated_payload["superseded_at"] = datetime.now(timezone.utc).isoformat()
+                    updated_payload["updated_at"] = updated_payload["superseded_at"]
+                    await asyncio.to_thread(
+                        self.vector_store.update, vector_id=real_id, vector=None, payload=updated_payload,
+                    )
+                    await asyncio.to_thread(
+                        self.db.add_history,
+                        real_id, old_text, None, "DELETE",
+                        created_at=updated_payload["superseded_at"], is_deleted=1,
+                    )
+                    contradiction_events.append({
+                        "id": real_id,
+                        "memory": old_text,
+                        "event": "CONTRADICTION_RESOLVED",
+                        "superseded_by": new_text,
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to resolve contradiction for {real_id}: {e}")
+
         if not records:
             await asyncio.to_thread(self.db.save_messages, messages, session_scope)
-            return []
+            return contradiction_events
 
         # Phase 6: Batch persist
         all_vectors = [r[2] for r in records]
@@ -2566,6 +2646,7 @@ class AsyncMemory(MemoryBase):
             {"id": r[0], "memory": r[1], "event": "ADD"}
             for r in records
         ]
+        returned_memories.extend(contradiction_events)
 
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
@@ -2715,6 +2796,9 @@ class AsyncMemory(MemoryBase):
 
         formatted_memories = []
         for mem in actual_memories:
+            if hasattr(mem, "payload") and mem.payload and mem.payload.get("is_superseded"):
+                continue
+
             memory_item_dict = MemoryItem(
                 id=mem.id,
                 memory=mem.payload.get("data", ""),
@@ -3024,14 +3108,17 @@ class AsyncMemory(MemoryBase):
         if query_entities:
             entity_boosts = await self._compute_entity_boosts_async(query_entities, filters)
 
-        # Step 7: Build candidate set from semantic results
+        # Step 7: Build candidate set from semantic results (exclude superseded)
         candidates = []
         for mem in semantic_results:
+            payload = mem.payload if hasattr(mem, 'payload') else {}
+            if payload.get("is_superseded"):
+                continue
             mem_id = str(mem.id)
             candidates.append({
                 "id": mem_id,
                 "score": mem.score,
-                "payload": mem.payload if hasattr(mem, 'payload') else {},
+                "payload": payload,
             })
 
         # Step 8: Score and rank

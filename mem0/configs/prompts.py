@@ -696,9 +696,23 @@ When extracting a new memory, check if it relates to any Existing Memory. Add re
 - **Same entity/topic**: New fact about a person, place, or thing already mentioned
 - **Updated preference**: A changed or evolved opinion on something previously captured
 - **Continuation**: Follow-up event or next step in a previously captured narrative
-- **Contradiction**: New information that conflicts with an existing memory
 
-Do NOT link memories that merely share a vague theme. Links should be specific and meaningful — the linked memories should be about the same specific entity, event, or topic. If no existing memories are related, omit linked_memory_ids or pass an empty array.
+Do NOT link memories that merely share a vague theme. Links should be specific and meaningful -- the linked memories should be about the same specific entity, event, or topic. If no existing memories are related, omit linked_memory_ids or pass an empty array.
+
+
+## Contradiction Detection
+
+When a new memory CONTRADICTS an existing memory -- meaning the new fact replaces, invalidates, or
+reverses the old one so the old memory is no longer true -- put the existing memory's ID in
+"contradicts_memory_ids" (NOT in "linked_memory_ids"). The system will automatically supersede the old memory.
+
+Examples of contradictions:
+- Old: "User is vegetarian" + New: "User had steak for dinner" -> contradiction (diet changed)
+- Old: "User works at Google" + New: "User just started at Meta" -> contradiction (employer changed)
+
+Examples that are NOT contradictions (use linked_memory_ids instead):
+- Old: "User likes hiking" + New: "User went on a camping trip" -> continuation, not contradiction
+- Old: "User has a dog named Max" + New: "Max had a vet checkup" -> same entity, not contradiction
 
 
 # EXAMPLES
@@ -904,6 +918,24 @@ Output:
 Three key lessons: (1) The existing memory "John has a dog named Max" does NOT mean all Max-related information is captured — the camping trip is a new event with specific activities (hiking, swimming) and must be extracted and linked. (2) Maria is a named speaker in the "assistant" role but shares a genuine personal fact (new cat Bailey) — this MUST be extracted with the same rigor as user facts. Her echo ("that sounds amazing", "camping is soul-nourishing") is correctly skipped, but her personal fact is not. (3) Sara's name and the birthday trip are separate factual details that each deserve their own extraction.
 
 
+## Example 13: Contradiction Detection
+
+Summary: ""
+Recently Extracted: []
+Existing Memories: [{"id": "f1a2b3c4-0000-0000-0000-000000000001", "text": "User is a strict vegetarian and never eats meat"}, {"id": "f1a2b3c4-0000-0000-0000-000000000002", "text": "User works at Google as a software engineer"}]
+New Messages:
+[{"role": "user", "content": "I had an amazing steak dinner last night! Also, I just started my new job at Meta -- really excited about the change."}]
+Observation Date: 2025-09-15
+
+Output:
+{"memory": [
+  {"id": "0", "text": "User had a steak dinner around September 14, 2025 and described it as amazing", "attributed_to": "user", "contradicts_memory_ids": ["f1a2b3c4-0000-0000-0000-000000000001"]},
+  {"id": "1", "text": "User started a new job at Meta around September 2025 and is excited about the change", "attributed_to": "user", "contradicts_memory_ids": ["f1a2b3c4-0000-0000-0000-000000000002"]}
+]}
+
+Key lessons: (1) "Had steak dinner" contradicts "strict vegetarian" -- the old diet fact is no longer true, so we use contradicts_memory_ids, not linked_memory_ids. (2) "Started at Meta" contradicts "works at Google" -- employer changed, old memory is outdated. (3) Both contradicted memories are referenced by their existing memory IDs so the system can supersede them.
+
+
 # CRITICAL: Exhaustive Extraction Checklist
 
 Before producing output, mentally scan the ENTIRE conversation — every single message — and verify:
@@ -924,7 +956,8 @@ Return ONLY valid JSON parsable by json.loads(). No text, reasoning, explanation
 {
   "memory": [
     {"id": "0", "text": "First extracted memory", "attributed_to": "user", "linked_memory_ids": ["uuid-of-related-existing-memory"]},
-    {"id": "1", "text": "Second extracted memory", "attributed_to": "assistant"}
+    {"id": "1", "text": "Second extracted memory", "attributed_to": "assistant"},
+    {"id": "2", "text": "Third memory that contradicts existing", "attributed_to": "user", "contradicts_memory_ids": ["uuid-of-contradicted-existing-memory"]}
   ]
 }
 
@@ -934,6 +967,7 @@ Return ONLY valid JSON parsable by json.loads(). No text, reasoning, explanation
 - **text** (string, required): A contextually rich, self-contained factual statement (15-80 words).
 - **attributed_to** (string, required): Who this memory is about. Use "user" for facts stated by or about the user (preferences, plans, personal facts). Use "assistant" for information provided by the assistant (recommendations, confirmations, plans created, information researched).
 - **linked_memory_ids** (array of strings, optional): IDs of Existing Memories that this new memory relates to. Use the exact IDs from the Existing Memories list. Omit or pass [] if no existing memories are related.
+- **contradicts_memory_ids** (array of strings, optional): IDs of Existing Memories that this new memory contradicts and supersedes. The old memory is no longer true given the new information.
 
 ## Rules
 
