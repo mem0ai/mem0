@@ -44,6 +44,40 @@ def test_generate_response_without_tools(mock_litellm):
     assert response == "I'm doing well, thank you for asking!"
 
 
+def test_generate_response_gpt5_uses_max_completion_tokens(mock_litellm):
+    config = BaseLlmConfig(model="gpt-5.4-mini", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = True
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["max_completion_tokens"] == 100
+    assert "max_tokens" not in kwargs
+
+
+def test_generate_response_legacy_model_uses_max_tokens(mock_litellm):
+    config = BaseLlmConfig(model="gpt-4.1", temperature=0.7, max_tokens=100, top_p=1)
+    llm = litellm.LiteLLM(config)
+    messages = [{"role": "user", "content": "Hello"}]
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_litellm.completion.return_value = mock_response
+    mock_litellm.supports_function_calling.return_value = True
+
+    llm.generate_response(messages)
+
+    _, kwargs = mock_litellm.completion.call_args
+    assert kwargs["max_tokens"] == 100
+    assert "max_completion_tokens" not in kwargs
+
+
 def test_generate_response_with_tools(mock_litellm):
     config = BaseLlmConfig(model="gpt-4.1-nano-2025-04-14", temperature=0.7, max_tokens=100, top_p=1)
     llm = litellm.LiteLLM(config)
