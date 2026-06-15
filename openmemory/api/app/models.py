@@ -69,6 +69,23 @@ class WriteQueue(Base):
     )
 
 
+class Project(Base):
+    """Internal project catalog auto-managed by the memory.
+
+    Spaces represent the company's projects (see ADR-002) and are auto-created
+    and auto-cataloged on the first write of each project -- there is no manual
+    administration. Each row is keyed by the project ``name`` and is materialized
+    via the idempotent ``upsert_project`` helper (``app.utils.projects``), which
+    the background worker (task_06) calls on the first write it processes for a
+    given project.
+    """
+    __tablename__ = "projects"
+    name = Column(String, primary_key=True)
+    created_at = Column(DateTime, default=get_current_utc_time, index=True)
+    first_seen_hostname = Column(String, nullable=True)
+    memory_count = Column(Integer, nullable=True, default=0)
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
