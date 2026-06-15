@@ -17,6 +17,7 @@ from sqlalchemy import (
     Integer,
     String,
     Table,
+    Text,
     event,
 )
 from sqlalchemy.orm import Session, relationship
@@ -32,6 +33,40 @@ class MemoryState(enum.Enum):
     paused = "paused"
     archived = "archived"
     deleted = "deleted"
+
+
+class WriteQueueStatus(enum.Enum):
+    queued = "queued"
+    processing = "processing"
+    done = "done"
+    failed = "failed"
+
+
+class WriteQueue(Base):
+    """Persistent write queue that decouples the MCP agent from LLM extraction.
+
+    Each row represents a write job enqueued by ``add_memories`` and consumed by
+    the background worker. Being SQLite-backed, jobs survive process restarts.
+    """
+    __tablename__ = "write_queue"
+    id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
+    project = Column(String, nullable=False, index=True)
+    hostname = Column(String, nullable=False, index=True)
+    client_name = Column(String, nullable=True)
+    text = Column(Text, nullable=False)
+    status = Column(Enum(WriteQueueStatus),
+                    default=WriteQueueStatus.queued,
+                    nullable=False,
+                    index=True)
+    error = Column(String, nullable=True)
+    created_at = Column(DateTime, default=get_current_utc_time, index=True)
+    updated_at = Column(DateTime,
+                        default=get_current_utc_time,
+                        onupdate=get_current_utc_time)
+
+    __table_args__ = (
+        Index('idx_write_queue_status_created', 'status', 'created_at'),
+    )
 
 
 class User(Base):
