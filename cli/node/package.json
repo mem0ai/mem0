@@ -44,5 +44,10 @@
     "vitest": "^4.1.0",
     "@biomejs/biome": "^1.7.0",
     "@types/node": "^20.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "esbuild": ">=0.28.1"
+    }
   }
 }
