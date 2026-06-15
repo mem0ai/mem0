@@ -189,10 +189,16 @@ class TestMilvusDB:
         ]
         
         result = milvus_db.get(vector_id)
-        
+
         assert result.id == vector_id
         assert result.payload == {"user_id": "alice"}
         assert result.score is None
+
+    def test_get_missing_returns_none(self, milvus_db, mock_milvus_client):
+        """get() must return None (not raise IndexError) for an unknown id."""
+        mock_milvus_client.get.return_value = []
+
+        assert milvus_db.get("missing") is None
 
     def test_list_with_filters(self, milvus_db, mock_milvus_client):
         """Test listing memories with filters."""
