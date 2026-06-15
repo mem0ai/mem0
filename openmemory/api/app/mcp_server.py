@@ -26,8 +26,10 @@ import anyio
 from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
+from app.utils.identity import resolve_hostname
 from app.utils.memory import get_memory_client
 from app.utils.permissions import check_memory_access_permissions
+from app.utils.write_queue import WriteJob, write_queue
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
@@ -60,95 +62,61 @@ client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_na
 DEFAULT_SEARCH_TOP_K = 20
 DEFAULT_LIST_TOP_K = 20
 
+# Write-path default (task_07): the MCP route always provides a client_name, but
+# a direct tool call may not — fall back to an explicit sentinel for attribution.
+DEFAULT_CLIENT_NAME = "unknown-client"
+
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp")
 
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to False to store the memory verbatim without LLM fact extraction.")
-async def add_memories(text: str, infer: bool = True) -> str:
-    uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
+@mcp.tool(description="Enqueue content for asynchronous memory extraction in a project. Call this whenever the user shares durable facts or preferences, or asks you to remember something. `project` is REQUIRED and scopes the memory (memories are shared across all machines on the local network). Returns immediately with a job id — the LLM fact extraction runs in the background, so this call does not block.")
+async def add_memories(text: str, project: str) -> str:
+    # task_07 / ADR-004: non-blocking write. We validate the input, enqueue the
+    # job and return an immediate ack with a job_id. The slow LLM extraction and
+    # persistence are performed out of band by the background worker (task_06),
+    # so the LLM/memory client is intentionally NOT touched on this request path.
+    #
+    # The hostname (from the user_id slot) is attribution only (ADR-003); it is
+    # carried on the job and never used as a read filter. client_name records the
+    # originating MCP client/agent.
+    hostname = resolve_hostname(user_id_var.get(None))
+    client_name = client_name_var.get(None) or DEFAULT_CLIENT_NAME
 
-    if not uid:
-        return "Error: user_id not provided"
-    if not client_name:
-        return "Error: client_name not provided"
+    if not text or not text.strip():
+        return "Error: text not provided"
+    if not project or not project.strip():
+        return "Error: project not provided"
 
-    # Get memory client safely
-    memory_client = get_memory_client_safe()
-    if not memory_client:
-        return "Error: Memory system is currently unavailable. Please try again later."
+    project = project.strip()
 
     try:
-        db = SessionLocal()
-        try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
-
-            # Check if app is active
-            if not app.is_active:
-                return f"Error: App {app.name} is currently paused on OpenMemory. Cannot create new memories."
-
-            response = memory_client.add(text,
-                                         user_id=uid,
-                                         metadata={
-                                            "source_app": "openmemory",
-                                            "mcp_client": client_name,
-                                         },
-                                         infer=infer)
-
-            # Process the response and update database
-            if isinstance(response, dict) and 'results' in response:
-                for result in response['results']:
-                    memory_id = uuid.UUID(result['id'])
-                    memory = db.query(Memory).filter(Memory.id == memory_id).first()
-
-                    if result['event'] == 'ADD':
-                        if not memory:
-                            memory = Memory(
-                                id=memory_id,
-                                user_id=user.id,
-                                app_id=app.id,
-                                content=result['memory'],
-                                state=MemoryState.active
-                            )
-                            db.add(memory)
-                        else:
-                            memory.state = MemoryState.active
-                            memory.content = result['memory']
-
-                        # Create history entry
-                        history = MemoryStatusHistory(
-                            memory_id=memory_id,
-                            changed_by=user.id,
-                            old_state=MemoryState.deleted if memory else None,
-                            new_state=MemoryState.active
-                        )
-                        db.add(history)
-
-                    elif result['event'] == 'DELETE':
-                        if memory:
-                            memory.state = MemoryState.deleted
-                            memory.deleted_at = datetime.datetime.now(datetime.UTC)
-                            # Create history entry
-                            history = MemoryStatusHistory(
-                                memory_id=memory_id,
-                                changed_by=user.id,
-                                old_state=MemoryState.active,
-                                new_state=MemoryState.deleted
-                            )
-                            db.add(history)
-
-                db.commit()
-
-            return json.dumps(response)
-        finally:
-            db.close()
+        job_id = write_queue.enqueue(
+            WriteJob(
+                id="",
+                project=project,
+                hostname=hostname,
+                client_name=client_name,
+                text=text,
+                created_at="",
+            )
+        )
     except Exception as e:
-        logging.exception(f"Error adding to memory: {e}")
-        return f"Error adding to memory: {e}"
+        logging.exception(f"Error enqueuing memory write: {e}")
+        return f"Error enqueuing memory write: {e}"
+
+    # Structured attribution/audit log of the write request (TechSpec → logs by
+    # job_id/project/hostname). The job row itself is the durable audit record.
+    logging.info(
+        "write enqueued job_id=%s project=%s hostname=%s client=%s",
+        job_id,
+        project,
+        hostname,
+        client_name,
+    )
+    return json.dumps({"status": "queued", "job_id": job_id})
 
 
 @mcp.tool(description="Search through stored memories scoped by project (shared across all machines). This method is called EVERYTIME the user asks anything.")
