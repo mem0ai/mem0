@@ -133,6 +133,36 @@ def reset_memory_client():
     _config_hash = None
 
 
+# --- Install-time Ollama model detection (see app.utils.model_detection / ADR-006) ---
+
+def detect_ollama_models(ollama_base_url=None, client=None):
+    """Detect locally installed Ollama models for the install-time setup step.
+
+    Thin wrapper around :func:`app.utils.model_detection.detect_ollama_models`.
+    Returns a list of model names; raises ``OllamaUnavailableError`` when Ollama
+    is unavailable so the caller can fall back to manual entry.
+    """
+    from app.utils.model_detection import detect_ollama_models as _detect
+
+    return _detect(ollama_base_url=ollama_base_url, client=client)
+
+
+def build_ollama_runtime_config(llm_model, embedder_model, ollama_base_url=None):
+    """Build a mem0 runtime config (providers ``ollama``) from chosen models.
+
+    Thin wrapper around
+    :func:`app.utils.model_detection.build_ollama_runtime_config`.  The result is
+    consumable by ``Memory.from_config``.
+    """
+    from app.utils.model_detection import build_ollama_runtime_config as _build
+
+    return _build(
+        llm_model=llm_model,
+        embedder_model=embedder_model,
+        ollama_base_url=ollama_base_url,
+    )
+
+
 # --- LLM provider config factories ---
 
 def _build_ollama_llm_config(model, api_key, base_url, ollama_base_url):
