@@ -382,6 +382,7 @@
                       "cookbooks/frameworks/llamaindex-react",
                       "cookbooks/frameworks/llamaindex-multiagent",
                       "cookbooks/frameworks/multimodal-retrieval",
+                      "cookbooks/frameworks/audio-transcription-funasr",
                       "cookbooks/frameworks/eliza-os-character",
                       "cookbooks/frameworks/gemini-3-with-mem0-mcp"
                     ]

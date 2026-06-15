@@ -1,0 +1,81 @@
+---
+title: Audio Transcription with FunASR
+description: "Transcribe audio offline with FunASR and store speaker-aware memories."
+---
+
+
+Turn meeting recordings, voice notes, and call logs into long-term memory. Mem0 ships an optional helper that transcribes audio with [FunASR](https://github.com/modelscope/FunASR) and feeds the resulting transcript into the existing `Memory.add()` pipeline. Speaker turns (who said what) are preserved as metadata, so you can recall not just *what* was said but *who* said it.
+
+> FunASR runs locally. No audio leaves your machine, which makes this recipe a good fit for privacy-sensitive transcripts.
+
+## Features
+
+- **Offline Transcription**: FunASR runs on-device with no API calls for the audio step
+- **Speaker Turns as Metadata**: Each utterance is tagged with a stable `speaker_*` label
+- **Existing Memory Path**: The transcript flows straight into `Memory.add()` — no new API to learn
+- **Optional Dependency**: `funasr` and `torch` install only when you opt in
+
+## Installation
+
+The audio stack is an optional extra so the core install stays lean:
+
+```bash
+pip install "mem0ai[audio]"
+```
+
+If you call the helper without `funasr` installed, it raises a clear `ImportError` with this exact install hint.
+
+## How It Works
+
+1. **Load the model**: FunASR's `AutoModel` is imported lazily and built with ASR + VAD + punctuation + speaker models
+2. **Transcribe**: The audio file is decoded into a transcript with per-utterance `sentence_info`
+3. **Extract turns**: Each utterance becomes a `{"speaker", "text", "start", "end"}` turn
+4. **Store**: The transcript text plus speaker turns (as metadata) are written via `Memory.add()`
+
+## Usage
+
+```python
+from mem0 import Memory
+from mem0.utils.audio import transcribe_audio_to_memory
+
+memory = Memory()
+
+result = transcribe_audio_to_memory(
+    "meeting.wav",
+    memory=memory,
+    user_id="alice",
+    metadata={"source": "weekly-standup"},
+)
+
+print(result["transcript"])
+for turn in result["speaker_turns"]:
+    print(f"{turn['speaker']}: {turn['text']}")
+```
+
+The stored memory carries the speaker turns under `metadata["speaker_turns"]` and the original file under `metadata["audio_source"]`, alongside any caller-supplied metadata.
+
+## Customizing the Pipeline
+
+Override any FunASR model, or disable speaker diarization by passing `spk_model=None`:
+
+```python
+transcribe_audio_to_memory(
+    "interview.wav",
+    memory=memory,
+    user_id="bob",
+    model="paraformer-zh",       # ASR model
+    spk_model="cam++",           # speaker model (set None to disable turns)
+    generate_kwargs={"batch_size_s": 300},
+)
+```
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Visual Memory Retrieval" icon="image" href="/cookbooks/frameworks/multimodal-retrieval">
+    Store and recall visual context alongside text conversations.
+  </Card>
+  <Card title="Voice Companion with OpenAI" icon="microphone" href="/cookbooks/companions/voice-companion-openai">
+    Build voice-first companions that remember conversations.
+  </Card>
+</CardGroup>
