@@ -35,7 +35,7 @@ export MEM0_API_KEY="m0-xxx"
 export OPENAI_API_KEY="sk-xxx"   # or ANTHROPIC_API_KEY, GOOGLE_API_KEY, etc.
 ```
 
-Get a Mem0 API key at: https://app.mem0.ai/dashboard/api-keys
+Get a Mem0 API key at: https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=skill-mem0-vercel-ai-sdk
 
 ## Pattern 1: Wrapped Model
 

@@ -31,6 +31,7 @@ class ElasticsearchDB(VectorStoreBase):
                 cloud_id=config.cloud_id,
                 api_key=config.api_key,
                 verify_certs=config.verify_certs,
+                ca_certs=config.ca_certs,
                 headers= config.headers or {},
             )
         else:
@@ -38,6 +39,7 @@ class ElasticsearchDB(VectorStoreBase):
                 hosts=[f"{config.host}" if config.port is None else f"{config.host}:{config.port}"],
                 basic_auth=(config.user, config.password) if (config.user and config.password) else None,
                 verify_certs=config.verify_certs,
+                ca_certs=config.ca_certs,
                 headers= config.headers or {},
             )
 

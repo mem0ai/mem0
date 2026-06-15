@@ -14,6 +14,7 @@ from mem0.memory.setup import get_or_create_user_id
 MEM0_TELEMETRY = os.environ.get("MEM0_TELEMETRY", "True")
 PROJECT_API_KEY = "phc_hgJkUVJFYtmaJqrvf6CYN67TIQ8yhXAkWzUn9AMU4yX"
 HOST = "https://us.i.posthog.com"
+FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS = 0.5
 
 if isinstance(MEM0_TELEMETRY, str):
     MEM0_TELEMETRY = MEM0_TELEMETRY.lower() in ("true", "1", "yes")
@@ -48,7 +49,10 @@ MEM0_TELEMETRY_SAMPLE_RATE = _parse_sample_rate(os.environ.get("MEM0_TELEMETRY_S
 
 # Events that bypass sampling and always fire. Keep this set in sync with the
 # event names passed to capture_event() in mem0/memory/main.py.
-_LIFECYCLE_EVENTS = frozenset({"mem0.init", "mem0.reset", "mem0._create_procedural_memory"})
+# $identify is included so PostHog person-merging is never lost to sampling.
+_LIFECYCLE_EVENTS = frozenset(
+    {"mem0.init", "mem0.reset", "mem0._create_procedural_memory", "mem0.notice_displayed", "$identify"}
+)
 
 
 def _sampling_before_send(msg):
@@ -76,15 +80,15 @@ class AnonymousTelemetry:
             self.user_id = None
             return
 
-        try:
-            self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST, before_send=before_send)
-        except TypeError:
-            # posthog <4.5.0 does not accept before_send; fall back without sampling.
-            _logger.debug("posthog.Posthog does not accept before_send; upgrade to >=4.5.0 for sampling")
-            self.posthog = Posthog(project_api_key=PROJECT_API_KEY, host=HOST)
+        self.posthog = Posthog(
+            project_api_key=PROJECT_API_KEY,
+            host=HOST,
+            before_send=before_send,
+            feature_flags_request_timeout_seconds=FEATURE_FLAGS_REQUEST_TIMEOUT_SECONDS,
+        )
         self.user_id = get_or_create_user_id(vector_store)
 
-    def capture_event(self, event_name, properties=None, user_email=None):
+    def capture_event(self, event_name, properties=None, user_email=None, flags=None):
         if self.posthog is None:
             return
 
@@ -108,9 +112,29 @@ class AnonymousTelemetry:
             **properties,
         }
         try:
-            self.posthog.capture(distinct_id=distinct_id, event=event_name, properties=properties)
+            capture_kwargs = {"distinct_id": distinct_id, "properties": properties}
+            if flags is not None:
+                capture_kwargs["flags"] = flags
+            self.posthog.capture(event_name, **capture_kwargs)
         except Exception as e:
             _logger.debug("Failed to capture telemetry event %r: %s", event_name, e)
+
+    def capture_identify(self, anon_id, email):
+        """Fire $identify with $anon_distinct_id so PostHog merges anon_id into email."""
+        if self.posthog is None:
+            return False
+        if not anon_id or not email or anon_id == email:
+            return False
+        try:
+            self.posthog.capture(
+                distinct_id=email,
+                event="$identify",
+                properties={"$anon_distinct_id": anon_id, "client_source": "python"},
+            )
+            return True
+        except Exception as e:
+            _logger.debug("Failed to capture $identify for %r: %s", email, e)
+            return False
 
     def close(self):
         if self.posthog is not None:

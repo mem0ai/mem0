@@ -61,7 +61,7 @@ def test_add(memory_instance):
     assert result["results"] == [{"memory": "Test memory", "event": "ADD"}]
 
     memory_instance._add_to_vector_store.assert_called_once_with(
-        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True
+        [{"role": "user", "content": "Test message"}], {"user_id": "test_user"}, {"user_id": "test_user"}, True, prompt=None
     )
 
 
@@ -289,6 +289,29 @@ class TestEntityIdValidation:
 
 class TestSearchParamValidation:
     """Tests for search parameter validation (threshold and top_k)."""
+
+    @pytest.mark.parametrize("query", ["", "   ", "\n\t"])
+    def test_search_rejects_empty_query(self, memory_instance, query):
+        """Search should reject empty or whitespace-only queries before retrieval work."""
+        memory_instance.embedding_model.embed = Mock()
+
+        with pytest.raises(ValueError, match="Invalid query.*empty or whitespace-only"):
+            memory_instance.search(query, filters={"user_id": "test"})
+
+        memory_instance.embedding_model.embed.assert_not_called()
+
+    def test_search_trims_query_before_embedding(self, memory_instance):
+        """Search should normalize leading/trailing whitespace before embedding."""
+        mock_memories = []
+        memory_instance.vector_store.search = Mock(return_value=mock_memories)
+        memory_instance.vector_store.keyword_search = Mock(return_value=None)
+        memory_instance.embedding_model.embed = Mock(return_value=[0.1, 0.2, 0.3])
+
+        with patch("mem0.memory.main.lemmatize_for_bm25", return_value="test"), \
+             patch("mem0.memory.main.extract_entities", return_value=[]):
+            memory_instance.search("  test  ", filters={"user_id": "test"})
+
+        memory_instance.embedding_model.embed.assert_called_once_with("test", "search")
 
     def test_search_rejects_threshold_above_1(self, memory_instance):
         """Search should reject threshold > 1."""

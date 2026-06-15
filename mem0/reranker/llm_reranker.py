@@ -58,24 +58,35 @@ class LLMReranker(BaseReranker):
         # Initialize LLM using the factory
         self.llm = LlmFactory.create(llm_provider, llm_config)
 
-        # Default scoring prompt
-        self.scoring_prompt = getattr(self.config, 'scoring_prompt', None) or self._get_default_prompt()
-        
-    def _get_default_prompt(self) -> str:
-        """Get the default scoring prompt template."""
-        return """You are a relevance scoring assistant. Given a query and a document, you need to score how relevant the document is to the query.
+        # Honor custom scoring_prompt from config if provided
+        custom_prompt = getattr(self.config, 'scoring_prompt', None)
+        if custom_prompt:
+            import warnings
+            warnings.warn(
+                "LLMRerankerConfig.scoring_prompt is deprecated and will be removed in a future version. "
+                "The prompt is now used as the system message.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self._system_prompt = custom_prompt
+        else:
+            self._system_prompt = self._SYSTEM_PROMPT
 
-Score the relevance on a scale from 0.0 to 1.0, where:
-- 1.0 = Perfectly relevant and directly answers the query
-- 0.8-0.9 = Highly relevant with good information
-- 0.6-0.7 = Moderately relevant with some useful information  
-- 0.4-0.5 = Slightly relevant with limited useful information
-- 0.0-0.3 = Not relevant or no useful information
+    _SYSTEM_PROMPT = (
+        "You are a relevance scoring assistant. "
+        "Given a query and a document, score how relevant the document is to the query.\n\n"
+        "Score the relevance on a scale from 0.0 to 1.0, where:\n"
+        "- 1.0 = Perfectly relevant and directly answers the query\n"
+        "- 0.8-0.9 = Highly relevant with good information\n"
+        "- 0.6-0.7 = Moderately relevant with some useful information\n"
+        "- 0.4-0.5 = Slightly relevant with limited useful information\n"
+        "- 0.0-0.3 = Not relevant or no useful information\n\n"
+        "Respond with only a single numerical score between 0.0 and 1.0. "
+        "Do not include any explanation or additional text."
+    )
 
-Query: "{query}"
-Document: "{document}"
-
-Provide only a single numerical score between 0.0 and 1.0. Do not include any explanation or additional text."""
+    # Maximum character length for query and document inputs to prevent prompt flooding.
+    _MAX_INPUT_LEN = 4000
 
     def _extract_score(self, response_text: str) -> float:
         """Extract numerical score from LLM response."""
@@ -119,12 +130,17 @@ Provide only a single numerical score between 0.0 and 1.0. Do not include any ex
                 doc_text = str(doc)
             
             try:
-                # Generate scoring prompt
-                prompt = self.scoring_prompt.format(query=query, document=doc_text)
-                
-                # Get LLM response
+                # Truncate inputs to prevent prompt flooding, then send as separate
+                # system/user messages so instructions cannot be overridden by user data.
+                safe_query = query[: self._MAX_INPUT_LEN]
+                safe_doc = doc_text[: self._MAX_INPUT_LEN]
+                user_message = f"Query: {safe_query}\n\nDocument: {safe_doc}"
+
                 response = self.llm.generate_response(
-                    messages=[{"role": "user", "content": prompt}]
+                    messages=[
+                        {"role": "system", "content": self._system_prompt},
+                        {"role": "user", "content": user_message},
+                    ]
                 )
                 
                 # Extract score from response

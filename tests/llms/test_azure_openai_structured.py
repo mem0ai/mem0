@@ -120,6 +120,44 @@ def test_generate_response_without_tools(mock_azure_openai):
 
 
 @mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_gpt5_uses_max_completion_tokens(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="gpt-5.4-mini", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "Hi"}])
+
+    _, kwargs = mock_client.chat.completions.create.call_args
+    assert kwargs["max_completion_tokens"] == 256
+    assert "max_tokens" not in kwargs
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
+def test_generate_response_legacy_model_uses_max_tokens(mock_azure_openai):
+    mock_client = Mock()
+    mock_azure_openai.return_value = mock_client
+
+    config = DummyConfig(model="gpt-4.1", azure_kwargs=DummyAzureKwargs(api_key="real-key"))
+    llm = AzureOpenAIStructuredLLM(config)
+
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Hi"))]
+    mock_client.chat.completions.create.return_value = mock_response
+
+    llm.generate_response([{"role": "user", "content": "Hi"}])
+
+    _, kwargs = mock_client.chat.completions.create.call_args
+    assert kwargs["max_tokens"] == 256
+    assert "max_completion_tokens" not in kwargs
+
+
+@mock.patch("mem0.llms.azure_openai_structured.AzureOpenAI")
 def test_generate_response_with_tools(mock_azure_openai):
     mock_client = Mock()
     mock_azure_openai.return_value = mock_client

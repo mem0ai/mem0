@@ -1,0 +1,58 @@
+name: Publish @mem0/opencode-plugin 📦 to npm
+
+# Dispatched by release.yml (Release Router) when a release tagged
+# opencode-v* is published. Can also be dispatched manually to re-publish
+# a tag.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build and publish (e.g. opencode-v0.2.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Publish under the version preid dist-tag instead of latest'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-n-publish:
+    name: Build and publish @mem0/opencode-plugin 📦 to npm
+    if: startsWith(inputs.tag, 'opencode-v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: integrations/mem0-plugin/.opencode-plugin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Publish to npm
+        run: |
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            PREID=$(node -p "require('./package.json').version.split('-')[1].split('.')[0]")
+            npx npm@latest publish --provenance --access public --tag "$PREID"
+          else
+            npx npm@latest publish --provenance --access public
+          fi

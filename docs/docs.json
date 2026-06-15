@@ -40,6 +40,7 @@
                     "icon": "rocket",
                     "pages": [
                       "platform/overview",
+                      "platform/agent-signup",
                       "vibecoding",
                       "platform/mem0-mcp",
                       "platform/cli",
@@ -72,7 +73,8 @@
                           "platform/features/entity-scoped-memory",
                           "platform/features/async-client",
                           "platform/features/multimodal-support",
-                          "platform/features/custom-categories"
+                          "platform/features/custom-categories",
+                          "platform/features/temporal-reasoning"
                         ]
                       },
                       {
@@ -83,7 +85,8 @@
                           "platform/advanced-memory-operations",
                           "platform/features/criteria-retrieval",
                           "platform/features/contextual-add",
-                          "platform/features/custom-instructions"
+                          "platform/features/custom-instructions",
+                          "platform/features/memory-decay"
                         ]
                       },
                       {
@@ -140,7 +143,8 @@
                     "icon": "robot",
                     "pages": [
                       "integrations/openclaw",
-                      "integrations/hermes"
+                      "integrations/hermes",
+                      "integrations/pi-agent"
                     ]
                   }
                 ]
@@ -153,6 +157,7 @@
                     "icon": "rocket",
                     "pages": [
                       "open-source/overview",
+                      "open-source/setup",
                       "vibecoding",
                       "open-source/python-quickstart",
                       "open-source/node-quickstart"
@@ -241,6 +246,7 @@
                               "components/vectordbs/dbs/cassandra",
                               "components/vectordbs/dbs/s3_vectors",
                               "components/vectordbs/dbs/databricks",
+                              "components/vectordbs/dbs/neon",
                               "components/vectordbs/dbs/neptune_analytics",
                               "components/vectordbs/dbs/turbopuffer"
                             ]
@@ -298,7 +304,8 @@
                     "group": "Migration",
                     "icon": "arrow-right",
                     "pages": [
-                      "migration/oss-v2-to-v3"
+                      "migration/oss-v2-to-v3",
+                      "migration/server-pgvector-upgrade"
                     ]
                   },
                   {
@@ -448,7 +455,9 @@
                     "pages": [
                       "integrations/claude-code",
                       "integrations/cursor",
-                      "integrations/codex"
+                      "integrations/codex",
+                      "integrations/opencode",
+                      "integrations/antigravity"
                     ]
                   },
                   {
@@ -456,7 +465,8 @@
                     "icon": "robot",
                     "pages": [
                       "integrations/openclaw",
-                      "integrations/hermes"
+                      "integrations/hermes",
+                      "integrations/pi-agent"
                     ]
                   }
                 ]
@@ -578,7 +588,7 @@
     "primary": {
       "type": "button",
       "label": "Your Dashboard",
-      "href": "https://app.mem0.ai"
+      "href": "https://app.mem0.ai?utm_source=oss&utm_medium=docs-nav"
     }
   },
   "footer": {
@@ -608,7 +618,7 @@
         "title": "Try in Playground",
         "description": "Open this example in the interactive Mem0 playground",
         "icon": "play",
-        "href": "https://app.mem0.ai/playground"
+        "href": "https://app.mem0.ai/playground?utm_source=oss&utm_medium=docs-nav"
       }
     ]
   },
