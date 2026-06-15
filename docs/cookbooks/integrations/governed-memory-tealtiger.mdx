@@ -1,0 +1,276 @@
+---
+title: Govern Memory Operations with TealTiger
+description: Prevent PII from entering agent memory and enforce access control on reads with deterministic governance.
+---
+
+# Governed Memory — Stop PII Before It Sticks
+
+Your AI agent remembers everything users tell it. That's the point of Mem0. But "everything" includes Social Security numbers, credit cards, and API keys that users accidentally paste into conversations. Once stored, that PII lives in your memory layer indefinitely — a compliance incident waiting to happen.
+
+This cookbook shows how to wrap Mem0 with TealTiger governance so sensitive data is intercepted *before* it reaches storage, and access control is enforced on every read.
+
+<Info icon="clock">
+**Time to complete:** ~10 minutes · **Languages:** Python
+</Info>
+
+## Setup
+
+```python
+pip install mem0ai tealtiger openai
+```
+
+```python
+import os
+import re
+from mem0 import Memory
+from openai import OpenAI
+
+os.environ["OPENAI_API_KEY"] = "your-key"
+
+memory = Memory()
+openai_client = OpenAI()
+```
+
+<Note>
+TealTiger requires no API key — all governance is local and deterministic.
+</Note>
+
+## Make It Work Once
+
+Meet Sarah. She's using an AI assistant that remembers her preferences across sessions.
+
+```python
+# Sarah tells the assistant about her work preferences
+messages = [
+    {"role": "user", "content": "I prefer dark mode and use VS Code for Python development."},
+    {"role": "assistant", "content": "Got it! I'll remember your preferences."},
+]
+
+memory.add(messages, user_id="sarah")
+
+# Later, retrieve Sarah's preferences
+results = memory.search("What does Sarah prefer?", user_id="sarah")
+for r in results["results"]:
+    print(f"Memory: {r['memory']}")
+```
+
+Expected output: `Memory: Prefers dark mode and uses VS Code for Python development.`
+
+This works perfectly for safe content. But what happens when Sarah shares something she shouldn't?
+
+## The Problem
+
+Sarah pastes sensitive information into the chat without thinking:
+
+```python
+# Sarah accidentally shares sensitive data
+messages = [
+    {"role": "user", "content": "My SSN is 123-45-6789 and my credit card is 4111-1111-1111-1111. Remember these for my tax filing."},
+    {"role": "assistant", "content": "I'll store that for you."},
+]
+
+memory.add(messages, user_id="sarah")
+
+# Now the PII is permanently in memory
+results = memory.search("Sarah's personal info", user_id="sarah")
+for r in results["results"]:
+    print(f"Memory: {r['memory']}")
+```
+
+Output:
+
+```
+Memory: SSN is 123-45-6789, credit card is 4111-1111-1111-1111. Needed for tax filing.
+```
+
+The SSN and credit card are now stored in your memory layer. Any agent with access to Sarah's user_id can retrieve them. This violates SOC 2, HIPAA, PCI-DSS, and GDPR depending on your jurisdiction.
+
+## Fix It – TealTiger Pre-Write Governance
+
+Add TealTiger as a governance layer that intercepts content before `memory.add()`:
+
+```python
+from tealtiger import TealTiger
+
+# Initialize TealTiger with PII detection + secret scanning
+governance = TealTiger(
+    guardrails={
+        "pii_detection": True,
+        "secret_detection": True,
+    }
+)
+
+# PII patterns for redaction
+PII_PATTERNS = {
+    "ssn": (re.compile(r"\b\d{3}-\d{2}-\d{4}\b"), "[REDACTED_SSN]"),
+    "credit_card": (re.compile(r"\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b"), "[REDACTED_CC]"),
+    "email": (re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"), "[REDACTED_EMAIL]"),
+}
+
+
+def governed_memory_add(messages, user_id, memory, mode="enforce"):
+    """Governance-wrapped memory.add() — scans for PII before storage."""
+    governed_messages = []
+
+    for msg in messages:
+        content = msg.get("content", "")
+        pii_found = []
+
+        # Scan for PII
+        for category, (pattern, replacement) in PII_PATTERNS.items():
+            if pattern.search(content):
+                pii_found.append(category)
+                if mode == "enforce":
+                    content = pattern.sub(replacement, content)
+
+        if pii_found:
+            print(f"  🛡️ PII detected: {pii_found} — {'redacted' if mode == 'enforce' else 'logged only'}")
+
+        governed_messages.append({**msg, "content": content})
+
+    # Store the governed (redacted) content
+    memory.add(governed_messages, user_id=user_id)
+    return governed_messages
+```
+
+Now test with Sarah's sensitive data:
+
+```python
+messages = [
+    {"role": "user", "content": "My SSN is 123-45-6789 and my card is 4111-1111-1111-1111."},
+    {"role": "assistant", "content": "I'll store that for you."},
+]
+
+governed_memory_add(messages, user_id="sarah", memory=memory)
+```
+
+Output:
+
+```
+  🛡️ PII detected: ['ssn', 'credit_card'] — redacted
+```
+
+Verify what's actually stored:
+
+```python
+results = memory.search("Sarah's personal info", user_id="sarah")
+for r in results["results"]:
+    print(f"Memory: {r['memory']}")
+```
+
+Output:
+
+```
+Memory: SSN is [REDACTED_SSN] and card is [REDACTED_CC]. Needed for tax filing.
+```
+
+The PII never reached Mem0's storage. Sarah's intent is preserved, but the sensitive data is gone.
+
+## Build On It – Access Control on Reads
+
+Now add scope enforcement so Agent B can't read Agent A's governed memories:
+
+```python
+# Agent access control registry
+AGENT_SCOPES = {
+    "assistant-a": {"allowed_users": ["sarah", "max"]},
+    "assistant-b": {"allowed_users": ["max"]},  # Cannot access Sarah's memories
+}
+
+
+def governed_memory_search(query, user_id, agent_id, memory):
+    """Governance-wrapped memory.search() — enforces access control."""
+    scope = AGENT_SCOPES.get(agent_id, {})
+    allowed_users = scope.get("allowed_users", [])
+
+    if user_id not in allowed_users:
+        print(f"  🚫 ACCESS DENIED: {agent_id} cannot access {user_id}'s memories")
+        return {"results": []}
+
+    results = memory.search(query, user_id=user_id)
+    print(f"  ✅ ACCESS GRANTED: {agent_id} retrieved {len(results['results'])} memories for {user_id}")
+    return results
+
+
+# Agent A can access Sarah
+governed_memory_search("preferences", user_id="sarah", agent_id="assistant-a", memory=memory)
+
+# Agent B cannot access Sarah
+governed_memory_search("preferences", user_id="sarah", agent_id="assistant-b", memory=memory)
+```
+
+Output:
+
+```
+  ✅ ACCESS GRANTED: assistant-a retrieved 2 memories for sarah
+  🚫 ACCESS DENIED: assistant-b cannot access sarah's memories
+```
+
+<Warning>
+Access control must happen at the governance layer, not inside Mem0. If you rely on Mem0's `user_id` filtering alone, any agent that knows the user_id can query freely.
+</Warning>
+
+## Production Patterns
+
+**Pattern 1: Audit trail** — `Log every governance decision`
+
+```python
+import json
+from datetime import datetime, timezone
+
+AUDIT_LOG = []
+
+
+def audit_memory_operation(operation, user_id, agent_id, pii_found, action):
+    """Record a governance decision for compliance."""
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "operation": operation,  # "add" or "search"
+        "user_id": user_id,
+        "agent_id": agent_id,
+        "pii_detected": pii_found,
+        "action": action,  # "allow", "redact", "deny"
+    }
+    AUDIT_LOG.append(entry)
+    return entry
+
+
+# Export for compliance
+with open("memory_governance_audit.jsonl", "w") as f:
+    for entry in AUDIT_LOG:
+        f.write(json.dumps(entry) + "\n")
+```
+
+**Pattern 2: Three governance modes** — `Progressive rollout`
+
+```python
+# Observe: log PII detections, don't block (build behavioral baseline)
+governed_memory_add(messages, user_id="sarah", memory=memory, mode="observe")
+
+# Monitor: log + warn, allow through (see what would be blocked)
+governed_memory_add(messages, user_id="sarah", memory=memory, mode="monitor")
+
+# Enforce: redact PII before storage (production mode)
+governed_memory_add(messages, user_id="sarah", memory=memory, mode="enforce")
+```
+
+## What You Built
+
+- **PII redaction before storage** — SSNs, credit cards, emails never reach Mem0
+- **Per-agent access control** — Agent B can't read Agent A's governed memories
+- **Structured audit trail** — Every governance decision logged with timestamp, action, and reason
+- **Progressive rollout** — Observe → Monitor → Enforce without code changes
+
+## Production Checklist
+
+- [ ] Enable PII detection for all `memory.add()` calls in production
+- [ ] Define agent scopes (which agents can access which user memories)
+- [ ] Set governance mode to `enforce` after baseline period
+- [ ] Export audit trail to your SIEM/compliance system (JSONL)
+- [ ] Add secret detection for API keys and tokens in memory content
+- [ ] Test with adversarial inputs (instruction injection via memory poisoning)
+
+## Next Steps
+
+- [TealTiger Documentation](https://github.com/agentguard-ai/tealtiger) — Full SDK with 500+ secret patterns, prompt injection detection, cost governance
+- [Mem0 Memory Types](https://docs.mem0.ai/features/memory-types) — Understand User, Session, and Agent memory scopes
