@@ -27,7 +27,7 @@ dependencies = [
 nlp = [
     "spacy>=3.7.0",
 ]
-vector_stores = [
+vector-stores = [
     "vecs>=0.4.0",
     "chromadb>=0.4.24",
     "cassandra-driver>=3.29.0",
@@ -103,7 +103,7 @@ only-include = ["mem0"]
 python = "3.10"
 features = [
   "test",
-  "vector_stores",
+  "vector-stores",
   "llms",
   "extras",
 ]
@@ -112,7 +112,7 @@ features = [
 python = "3.11"
 features = [
   "test",
-  "vector_stores",
+  "vector-stores",
   "llms",
   "extras",
 ]
@@ -121,7 +121,7 @@ features = [
 python = "3.12"
 features = [
   "test",
-  "vector_stores",
+  "vector-stores",
   "llms",
   "extras",
 ]
