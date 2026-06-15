@@ -274,6 +274,7 @@ def _build_filters_and_metadata(
     user_id: Optional[str] = None,
     agent_id: Optional[str] = None,
     run_id: Optional[str] = None,
+    project: Optional[str] = None,
     actor_id: Optional[str] = None,  # For query-time filtering
     input_metadata: Optional[Dict[str, Any]] = None,
     input_filters: Optional[Dict[str, Any]] = None,
@@ -298,6 +299,10 @@ def _build_filters_and_metadata(
         user_id (Optional[str]): User identifier, for session scoping.
         agent_id (Optional[str]): Agent identifier, for session scoping.
         run_id (Optional[str]): Run identifier, for session scoping.
+        project (Optional[str]): Project identifier, for logical project segmentation. When
+            provided, it is persisted in the storage metadata and applied as a query filter,
+            analogous to the session identifiers. It does not satisfy the requirement that at
+            least one session identifier be provided.
         actor_id (Optional[str]): Explicit actor identifier, used as a potential source for
             actor-specific filtering. See actor resolution precedence in the main description.
         input_metadata (Optional[Dict[str, Any]]): Base dictionary to be augmented with
@@ -346,6 +351,12 @@ def _build_filters_and_metadata(
             details={"provided_ids": {"user_id": user_id, "agent_id": agent_id, "run_id": run_id}},
             suggestion="Please provide at least one identifier to scope the memory operation."
         )
+
+    # ---------- optional project scope ----------
+    project = _validate_and_trim_entity_id(project, "project")
+    if project:
+        base_metadata_template["project"] = project
+        effective_query_filters["project"] = project
 
     # ---------- optional actor filter ----------
     resolved_actor_id = actor_id or effective_query_filters.get("actor_id")
@@ -657,6 +668,7 @@ class Memory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        project: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         timestamp: Optional[Any] = None,
         infer: bool = True,
@@ -675,6 +687,9 @@ class Memory(MemoryBase):
             user_id (str, optional): ID of the user creating the memory. Defaults to None.
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            project (str, optional): Project scope for the memory. When provided, it is persisted
+                into the memory payload metadata so memories can later be filtered by project.
+                Defaults to None (no project scoping; behavior unchanged).
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             infer (bool, optional): If True (default), an LLM is used to extract key facts from
@@ -707,6 +722,7 @@ class Memory(MemoryBase):
             user_id=user_id,
             agent_id=agent_id,
             run_id=run_id,
+            project=project,
             input_metadata=metadata,
         )
 
@@ -1089,6 +1105,7 @@ class Memory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
+            "project",
             "actor_id",
             "role",
         ]
@@ -1118,6 +1135,7 @@ class Memory(MemoryBase):
         self,
         *,
         filters: Optional[Dict[str, Any]] = None,
+        project: Optional[str] = None,
         top_k: int = 20,
         **kwargs,
     ):
@@ -1128,6 +1146,9 @@ class Memory(MemoryBase):
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
+            project (str, optional): Project scope. When provided, it is applied as a `project`
+                filter so only memories belonging to that project are returned. Defaults to None
+                (no project filter; behavior unchanged).
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
@@ -1158,6 +1179,11 @@ class Memory(MemoryBase):
             effective_filters["run_id"] = _validate_and_trim_entity_id(
                 effective_filters["run_id"], "run_id"
             )
+
+        # Apply optional project filter (logical project segmentation, ADR-003)
+        project = _validate_and_trim_entity_id(project, "project")
+        if project:
+            effective_filters["project"] = project
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
@@ -1202,6 +1228,7 @@ class Memory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
+            "project",
             "actor_id",
             "role",
         ]
@@ -1235,6 +1262,7 @@ class Memory(MemoryBase):
         *,
         top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
+        project: Optional[str] = None,
         threshold: float = 0.1,
         rerank: bool = False,
         explain: bool = False,
@@ -1267,6 +1295,9 @@ class Memory(MemoryBase):
                 - {"AND": [filter1, filter2]} - logical AND
                 - {"OR": [filter1, filter2]} - logical OR
                 - {"NOT": [filter1]} - logical NOT
+            project (str, optional): Project scope. When provided, it is applied as a `project`
+                filter so only memories belonging to that project are returned. Defaults to None
+                (no project filter; behavior unchanged).
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
@@ -1305,6 +1336,12 @@ class Memory(MemoryBase):
             effective_filters["run_id"] = _validate_and_trim_entity_id(
                 effective_filters["run_id"], "run_id"
             )
+
+        # Apply optional project filter (logical project segmentation, ADR-003)
+        project = _validate_and_trim_entity_id(project, "project")
+        if project:
+            effective_filters["project"] = project
+
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
             raise ValueError(
                 "filters must contain at least one of: user_id, agent_id, run_id. "
@@ -1537,6 +1574,7 @@ class Memory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
+            "project",
             "actor_id",
             "role",
         ]
@@ -2177,6 +2215,7 @@ class AsyncMemory(MemoryBase):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         run_id: Optional[str] = None,
+        project: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         timestamp: Optional[Any] = None,
         infer: bool = True,
@@ -2192,6 +2231,9 @@ class AsyncMemory(MemoryBase):
             user_id (str, optional): ID of the user creating the memory.
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            project (str, optional): Project scope for the memory. When provided, it is persisted
+                into the memory payload metadata so memories can later be filtered by project.
+                Defaults to None (no project scoping; behavior unchanged).
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             timestamp (Any, optional): Platform-only temporal parameter. Not supported in OSS.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
@@ -2207,7 +2249,7 @@ class AsyncMemory(MemoryBase):
 
         temporal_usage_notice = detect_temporal_usage_from_metadata(metadata)
         processed_metadata, effective_filters = _build_filters_and_metadata(
-            user_id=user_id, agent_id=agent_id, run_id=run_id, input_metadata=metadata
+            user_id=user_id, agent_id=agent_id, run_id=run_id, project=project, input_metadata=metadata
         )
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
@@ -2595,6 +2637,7 @@ class AsyncMemory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
+            "project",
             "actor_id",
             "role",
         ]
@@ -2624,6 +2667,7 @@ class AsyncMemory(MemoryBase):
         self,
         *,
         filters: Optional[Dict[str, Any]] = None,
+        project: Optional[str] = None,
         top_k: int = 20,
         **kwargs,
     ):
@@ -2634,6 +2678,9 @@ class AsyncMemory(MemoryBase):
             filters (dict): Filter dict containing entity IDs and optional metadata filters.
                 Must contain at least one of: user_id, agent_id, run_id.
                 Example: filters={"user_id": "u1", "agent_id": "a1"}
+            project (str, optional): Project scope. When provided, it is applied as a `project`
+                filter so only memories belonging to that project are returned. Defaults to None
+                (no project filter; behavior unchanged).
             top_k (int, optional): The maximum number of memories to return. Defaults to 20.
 
         Returns:
@@ -2664,6 +2711,11 @@ class AsyncMemory(MemoryBase):
             effective_filters["run_id"] = _validate_and_trim_entity_id(
                 effective_filters["run_id"], "run_id"
             )
+
+        # Apply optional project filter (logical project segmentation, ADR-003)
+        project = _validate_and_trim_entity_id(project, "project")
+        if project:
+            effective_filters["project"] = project
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
@@ -2708,6 +2760,7 @@ class AsyncMemory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
+            "project",
             "actor_id",
             "role",
         ]
@@ -2741,6 +2794,7 @@ class AsyncMemory(MemoryBase):
         *,
         top_k: int = 20,
         filters: Optional[Dict[str, Any]] = None,
+        project: Optional[str] = None,
         threshold: float = 0.1,
         rerank: bool = False,
         explain: bool = False,
@@ -2773,6 +2827,9 @@ class AsyncMemory(MemoryBase):
                 - {"AND": [filter1, filter2]} - logical AND
                 - {"OR": [filter1, filter2]} - logical OR
                 - {"NOT": [filter1]} - logical NOT
+            project (str, optional): Project scope. When provided, it is applied as a `project`
+                filter so only memories belonging to that project are returned. Defaults to None
+                (no project filter; behavior unchanged).
             threshold (float, optional): Minimum score for a memory to be included. Defaults to 0.1.
             rerank (bool, optional): Whether to rerank results. Defaults to False.
             explain (bool, optional): Whether to include score_details for each result. Defaults to False.
@@ -2813,6 +2870,11 @@ class AsyncMemory(MemoryBase):
             effective_filters["run_id"] = _validate_and_trim_entity_id(
                 effective_filters["run_id"], "run_id"
             )
+
+        # Apply optional project filter (logical project segmentation, ADR-003)
+        project = _validate_and_trim_entity_id(project, "project")
+        if project:
+            effective_filters["project"] = project
 
         # Validate filters contains at least one entity ID
         if not any(key in effective_filters for key in ("user_id", "agent_id", "run_id")):
@@ -3049,6 +3111,7 @@ class AsyncMemory(MemoryBase):
             "user_id",
             "agent_id",
             "run_id",
+            "project",
             "actor_id",
             "role",
         ]
