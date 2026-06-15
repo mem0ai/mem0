@@ -40,6 +40,39 @@ beforeEach(() => {
 });
 
 describe("Qdrant URL port extraction (qdrant/qdrant-js#59 workaround)", () => {
+  it("uses embeddingModelDims when dimension is omitted", async () => {
+    const createCollection = jest.fn().mockResolvedValue(undefined);
+    (
+      require("@qdrant/js-client-rest").QdrantClient as jest.Mock
+    ).mockImplementation(() => ({
+      createCollection,
+      getCollection: jest.fn().mockResolvedValue({
+        config: { params: { vectors: { size: 1024 } } },
+      }),
+      scroll: jest.fn().mockResolvedValue({ points: [] }),
+      upsert: jest.fn().mockResolvedValue(undefined),
+      retrieve: jest.fn().mockResolvedValue([]),
+      search: jest.fn().mockResolvedValue([]),
+      delete: jest.fn().mockResolvedValue(undefined),
+      deleteCollection: jest.fn().mockResolvedValue(undefined),
+    }));
+
+    const store = new Qdrant({
+      url: "http://qdrant:6333",
+      collectionName: "mem0",
+      embeddingModelDims: 1024,
+    });
+
+    await store.initialize();
+
+    expect(createCollection).toHaveBeenCalledWith(
+      "mem0",
+      expect.objectContaining({
+        vectors: expect.objectContaining({ size: 1024 }),
+      }),
+    );
+  });
+
   it("extracts port from HTTPS URL with explicit port", () => {
     new Qdrant({
       url: "https://my-cluster.us-west-1-0.aws.cloud.qdrant.io:6333",

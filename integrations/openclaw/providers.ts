@@ -268,6 +268,9 @@ class OSSProvider implements Mem0Provider {
         ec.url = ec.host;
         delete ec.host;
       }
+      if (ec.embedding_dims != null && ec.embeddingDims == null) {
+        ec.embeddingDims = ec.embedding_dims;
+      }
       config.embedder = {
         provider: this.ossConfig.embedder.provider || defaultEmbedder.provider,
         config: { ...defaultEmbedder.config, ...ec },
@@ -294,7 +297,9 @@ class OSSProvider implements Mem0Provider {
       const vs = { ...this.ossConfig.vectorStore } as Record<string, unknown>;
       const vsCfg = (vs.config ?? {}) as Record<string, unknown>;
       // Resolve dims from embedder config if vector store doesn't have them
-      const embedderDims = (config.embedder as any)?.config?.embeddingDims;
+      const embedderConfig = (config.embedder as any)?.config ?? {};
+      const embedderDims =
+        embedderConfig.embeddingDims ?? embedderConfig.embedding_dims;
       if (!vsCfg.dimension && embedderDims) {
         vsCfg.dimension = embedderDims;
       }
