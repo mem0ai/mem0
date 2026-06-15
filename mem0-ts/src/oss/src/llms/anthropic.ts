@@ -56,10 +56,7 @@ export class AnthropicLLM implements LLM {
         }
       }
 
-      if (toolCalls.length > 0) {
-        return { content, role: "assistant", toolCalls };
-      }
-      return content;
+      return { content, role: "assistant", toolCalls };
     }
 
     const firstBlock = response.content[0];

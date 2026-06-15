@@ -180,7 +180,7 @@ describe("AnthropicLLM (unit)", () => {
     expect(JSON.parse(response.toolCalls[0].arguments)).toEqual(inputObj);
   });
 
-  it("returns text when tools are provided but the model returns only a text block", async () => {
+  it("returns a structured response when tools are provided but the model returns only a text block", async () => {
     mockCreate.mockResolvedValueOnce({
       content: [{ type: "text", text: "Just a text response" }],
     });
@@ -200,8 +200,10 @@ describe("AnthropicLLM (unit)", () => {
       tools,
     );
 
-    // Should return a plain string, not an object with toolCalls
-    expect(typeof result).toBe("string");
-    expect(result).toBe("Just a text response");
+    expect(result).toEqual({
+      content: "Just a text response",
+      role: "assistant",
+      toolCalls: [],
+    });
   });
 });
