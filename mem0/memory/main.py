@@ -3252,7 +3252,7 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
         memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
 
-        if self._entity_store is not None:
+        if getattr(self, "_entity_store", None) is not None:
             await self._bulk_clear_entity_store(filters)
 
         delete_tasks = []

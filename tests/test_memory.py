@@ -1107,7 +1107,6 @@ class TestHybridSearchWarning:
         assert not any("does not support keyword search" in r.message for r in caplog.records)
 
 
-<<<<<<< HEAD
 class TestPreserveCustomMetadata:
 
     @patch('mem0.utils.factory.EmbedderFactory.create')
