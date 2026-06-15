@@ -18,7 +18,8 @@ export class AnthropicLLM implements LLM {
   async generateResponse(
     messages: Message[],
     responseFormat?: { type: string },
-  ): Promise<string> {
+    tools?: any[],
+  ): Promise<string | LLMResponse> {
     // Extract system message if present
     const systemMessage = messages.find((msg) => msg.role === "system");
     const otherMessages = messages.filter((msg) => msg.role !== "system");
@@ -37,7 +38,29 @@ export class AnthropicLLM implements LLM {
           ? systemMessage.content
           : undefined,
       max_tokens: 4096,
+      ...(tools && { tools, tool_choice: { type: "auto" } }),
     });
+
+    if (tools) {
+      let content = "";
+      const toolCalls: Array<{ name: string; arguments: string }> = [];
+
+      for (const block of response.content) {
+        if (block.type === "text") {
+          content = block.text;
+        } else if (block.type === "tool_use") {
+          toolCalls.push({
+            name: block.name,
+            arguments: JSON.stringify(block.input),
+          });
+        }
+      }
+
+      if (toolCalls.length > 0) {
+        return { content, role: "assistant", toolCalls };
+      }
+      return content;
+    }
 
     const firstBlock = response.content[0];
     if (firstBlock.type === "text") {
@@ -49,9 +72,9 @@ export class AnthropicLLM implements LLM {
 
   async generateChat(messages: Message[]): Promise<LLMResponse> {
     const response = await this.generateResponse(messages);
-    return {
-      content: response,
-      role: "assistant",
-    };
+    if (typeof response === "string") {
+      return { content: response, role: "assistant" };
+    }
+    return response;
   }
 }
