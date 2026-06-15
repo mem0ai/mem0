@@ -13,7 +13,9 @@ A minimal FastAPI app mounting only the discovery router is used (no DB / client
 initialization needed).
 """
 
+import importlib.util
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -21,7 +23,15 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.routers import discovery_router
+# Load the discovery router directly from its file. The module only depends on
+# fastapi + os (no app imports), so this keeps the test a true unit test and
+# avoids importing the routers package __init__ (which pulls in heavy siblings
+# like fastapi_pagination / the OpenAI-initializing categorization module).
+_DISCOVERY_PATH = Path(__file__).resolve().parents[1] / "app" / "routers" / "discovery.py"
+_spec = importlib.util.spec_from_file_location("discovery_under_test", _DISCOVERY_PATH)
+_discovery = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_discovery)
+discovery_router = _discovery.router
 
 
 @pytest.fixture

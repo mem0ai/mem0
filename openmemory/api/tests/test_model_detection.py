@@ -62,6 +62,34 @@ def test_detect_empty_list_returns_empty(two_model_client):
     assert detect_ollama_models(client=two_model_client) == []
 
 
+def test_detect_supports_object_style_model_entries():
+    """Newer ollama clients return objects (with .name/.model), not dicts."""
+    client = Mock()
+    entry = Mock(spec=["name", "model"])
+    entry.name = "llama3.1:latest"
+    entry.model = None
+    client.list.return_value = {"models": [entry]}
+
+    assert detect_ollama_models(client=client) == ["llama3.1:latest"]
+
+
+def test_detect_supports_object_style_response():
+    """The whole list() response may be an object exposing .models."""
+    client = Mock()
+    response = Mock(spec=["models"])
+    response.models = [{"name": "phi3:latest"}]
+    client.list.return_value = response
+
+    assert detect_ollama_models(client=client) == ["phi3:latest"]
+
+
+def test_detect_client_construction_error_raises_unavailable():
+    """If building the Ollama client raises, surface OllamaUnavailableError."""
+    with patch.object(model_detection, "Client", side_effect=RuntimeError("boom")):
+        with pytest.raises(OllamaUnavailableError):
+            detect_ollama_models(ollama_base_url="http://example:11434")
+
+
 def test_detect_uses_constructed_client_with_base_url():
     """When no client is injected, one is built against the resolved base URL."""
     fake_client = Mock()

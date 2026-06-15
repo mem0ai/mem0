@@ -31,6 +31,7 @@ from app import mcp_server
 from app.mcp_server import add_memories
 from app.models import WriteQueue as WriteQueueModel
 from app.models import WriteQueueStatus
+from app.mcp_server import DEFAULT_CLIENT_NAME
 from app.utils.identity import DEFAULT_HOSTNAME
 from app.utils.write_queue import SqlWriteQueue
 
@@ -96,6 +97,14 @@ class TestEnqueueAck:
         mcp_server.client_name_var.set("cursor")
         await add_memories("x", project="alpha")
         assert fake_queue.jobs[0].hostname == DEFAULT_HOSTNAME
+
+    @pytest.mark.asyncio
+    async def test_missing_client_name_uses_default(self, fake_queue):
+        # No client_name in context -> falls back to the sentinel.
+        mcp_server.user_id_var.set("maqA")
+        mcp_server.client_name_var.set("")
+        await add_memories("x", project="alpha")
+        assert fake_queue.jobs[0].client_name == DEFAULT_CLIENT_NAME
 
 
 # --------------------------------------------------------------------------- #

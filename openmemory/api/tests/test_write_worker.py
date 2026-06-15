@@ -27,7 +27,7 @@ import os
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine
@@ -384,3 +384,54 @@ class TestMarkFailedIsolation:
         # Should not raise despite both add and mark_failed failing.
         processed = await worker.process_once()
         assert processed == 1
+
+
+# --------------------------------------------------------------------------- #
+# Async-def client.add path + default client provider + cancellation
+# --------------------------------------------------------------------------- #
+class TestAsyncAddPath:
+    @pytest.mark.asyncio
+    async def test_true_coroutine_function_add_is_awaited(self, queue, db_path):
+        # A real `async def` add (iscoroutinefunction is True) is awaited
+        # directly rather than offloaded to a thread.
+        captured = {}
+
+        async def real_add(text, **kwargs):
+            captured["text"] = text
+            captured["project"] = kwargs.get("project")
+            return {"results": []}
+
+        client = MagicMock()
+        client.add = real_add  # not wrapped: a genuine coroutine function
+
+        worker = WriteWorker(queue=queue, client_provider=lambda: client,
+                             upsert_project=lambda *a, **k: None)
+        job_id = queue.enqueue(_job(text="async path", project="alpha"))
+
+        assert await worker.process_once() == 1
+        assert captured == {"text": "async path", "project": "alpha"}
+        assert _status(db_path, job_id).status == WriteQueueStatus.done
+
+
+class TestDefaultClientProvider:
+    def test_default_client_provider_delegates_to_mcp_server(self):
+        from app import mcp_server
+        from app.workers.write_worker import _default_client_provider
+
+        sentinel = object()
+        with patch.object(mcp_server, "get_memory_client_safe", return_value=sentinel):
+            assert _default_client_provider() is sentinel
+
+
+class TestStopCancellation:
+    @pytest.mark.asyncio
+    async def test_stop_swallows_cancelled_task(self, queue):
+        # If the background task is cancelled, stop() must swallow the
+        # CancelledError and clear the task reference without raising.
+        worker = WriteWorker(queue=queue, client_provider=lambda: _async_client(),
+                             upsert_project=lambda *a, **k: None, idle_sleep=10)
+        worker.start()
+        worker._task.cancel()
+
+        await worker.stop()  # must not raise
+        assert worker._task is None
