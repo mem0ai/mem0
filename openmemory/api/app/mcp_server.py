@@ -55,6 +55,11 @@ def get_memory_client_safe():
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
 client_name_var: contextvars.ContextVar[str] = contextvars.ContextVar("client_name")
 
+# Read-path defaults (task_03 / ADR-003): keep top_k bounded and rerank off by
+# default so project-scoped reads stay low-latency on the single shared collection.
+DEFAULT_SEARCH_TOP_K = 20
+DEFAULT_LIST_TOP_K = 20
+
 # Create a router for MCP endpoints
 mcp_router = APIRouter(prefix="/mcp")
 
@@ -146,148 +151,105 @@ async def add_memories(text: str, infer: bool = True) -> str:
         return f"Error adding to memory: {e}"
 
 
-@mcp.tool(description="Search through stored memories. This method is called EVERYTIME the user asks anything.")
-async def search_memory(query: str) -> str:
-    uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    if not uid:
-        return "Error: user_id not provided"
-    if not client_name:
-        return "Error: client_name not provided"
+@mcp.tool(description="Search through stored memories scoped by project (shared across all machines). This method is called EVERYTIME the user asks anything.")
+async def search_memory(query: str, project: str, rerank: bool = False) -> str:
+    # NOTE (task_03 / ADR-003): reads are scoped by `project` and are SHARED
+    # across all machines on the local network. We intentionally do NOT filter
+    # by `user_id` (the hostname only serves attribution on the write path).
+    # The read path is direct/async against the vector store and bypasses the
+    # write queue, reusing the memory client (no per-call reconnect).
+    if not project:
+        return "Error: project not provided"
 
-    # Get memory client safely
+    # Get memory client safely (singleton/reused; no reconnect per call)
     memory_client = get_memory_client_safe()
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
     try:
-        db = SessionLocal()
-        try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+        # Project-only filter: shared read across hosts (no user_id restriction).
+        filters = {
+            "project": project,
+        }
 
-            # Get accessible memory IDs based on ACL
-            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
+        embeddings = memory_client.embedding_model.embed(query, "search")
 
-            filters = {
-                "user_id": uid
-            }
+        hits = memory_client.vector_store.search(
+            query=query,
+            vectors=embeddings,
+            limit=DEFAULT_SEARCH_TOP_K,
+            filters=filters,
+        )
 
-            embeddings = memory_client.embedding_model.embed(query, "search")
+        results = []
+        for h in hits:
+            # All vector db search functions return OutputData class
+            id, score, payload = h.id, h.score, h.payload
+            results.append({
+                "id": id,
+                "memory": payload.get("data"),
+                "hash": payload.get("hash"),
+                "created_at": payload.get("created_at"),
+                "updated_at": payload.get("updated_at"),
+                "project": payload.get("project"),
+                "score": score,
+            })
 
-            hits = memory_client.vector_store.search(
-                query=query, 
-                vectors=embeddings, 
-                limit=10, 
-                filters=filters,
-            )
+        # Rerank is disabled by default to prioritize latency; it can be enabled
+        # per-call. When enabled and supported, sort hits by descending score.
+        if rerank:
+            results.sort(key=lambda r: (r.get("score") is not None, r.get("score")), reverse=True)
 
-            allowed = set(str(mid) for mid in accessible_memory_ids) if accessible_memory_ids else None
-
-            results = []
-            for h in hits:
-                # All vector db search functions return OutputData class
-                id, score, payload = h.id, h.score, h.payload
-                if allowed and (h.id is None or h.id not in allowed):
-                    continue
-                
-                results.append({
-                    "id": id, 
-                    "memory": payload.get("data"), 
-                    "hash": payload.get("hash"),
-                    "created_at": payload.get("created_at"), 
-                    "updated_at": payload.get("updated_at"), 
-                    "score": score,
-                })
-
-            for r in results: 
-                if r.get("id"): 
-                    access_log = MemoryAccessLog(
-                        memory_id=uuid.UUID(r["id"]),
-                        app_id=app.id,
-                        access_type="search",
-                        metadata_={
-                            "query": query,
-                            "score": r.get("score"),
-                            "hash": r.get("hash"),
-                        },
-                    )
-                    db.add(access_log)
-            db.commit()
-
-            return json.dumps({"results": results}, indent=2)
-        finally:
-            db.close()
+        return json.dumps({"results": results}, indent=2)
     except Exception as e:
         logging.exception(e)
         return f"Error searching memory: {e}"
 
 
-@mcp.tool(description="List all memories in the user's memory")
-async def list_memories() -> str:
-    uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    if not uid:
-        return "Error: user_id not provided"
-    if not client_name:
-        return "Error: client_name not provided"
+@mcp.tool(description="List stored memories scoped by project (shared across all machines).")
+async def list_memories(project: str) -> str:
+    # NOTE (task_03 / ADR-003): listing is scoped by `project` and SHARED across
+    # all machines on the local network. We do NOT filter by `user_id`. The read
+    # path is direct against the vector store (no write queue) and reuses the
+    # memory client (no per-call reconnect).
+    if not project:
+        return "Error: project not provided"
 
-    # Get memory client safely
+    # Get memory client safely (singleton/reused; no reconnect per call)
     memory_client = get_memory_client_safe()
     if not memory_client:
         return "Error: Memory system is currently unavailable. Please try again later."
 
     try:
-        db = SessionLocal()
-        try:
-            # Get or create user and app
-            user, app = get_user_and_app(db, user_id=uid, app_id=client_name)
+        # Project-only filter: shared read across hosts (no user_id restriction).
+        filters = {
+            "project": project,
+        }
 
-            # Get all memories
-            memories = memory_client.get_all(user_id=uid)
-            filtered_memories = []
+        raw = memory_client.vector_store.list(
+            filters=filters,
+            top_k=DEFAULT_LIST_TOP_K,
+        )
 
-            # Filter memories based on permissions
-            user_memories = db.query(Memory).filter(Memory.user_id == user.id).all()
-            accessible_memory_ids = [memory.id for memory in user_memories if check_memory_access_permissions(db, memory, app.id)]
-            if isinstance(memories, dict) and 'results' in memories:
-                for memory_data in memories['results']:
-                    if 'id' in memory_data:
-                        memory_id = uuid.UUID(memory_data['id'])
-                        if memory_id in accessible_memory_ids:
-                            # Create access log entry
-                            access_log = MemoryAccessLog(
-                                memory_id=memory_id,
-                                app_id=app.id,
-                                access_type="list",
-                                metadata_={
-                                    "hash": memory_data.get('hash')
-                                }
-                            )
-                            db.add(access_log)
-                            filtered_memories.append(memory_data)
-                db.commit()
-            else:
-                for memory in memories:
-                    memory_id = uuid.UUID(memory['id'])
-                    memory_obj = db.query(Memory).filter(Memory.id == memory_id).first()
-                    if memory_obj and check_memory_access_permissions(db, memory_obj, app.id):
-                        # Create access log entry
-                        access_log = MemoryAccessLog(
-                            memory_id=memory_id,
-                            app_id=app.id,
-                            access_type="list",
-                            metadata_={
-                                "hash": memory.get('hash')
-                            }
-                        )
-                        db.add(access_log)
-                        filtered_memories.append(memory)
-                db.commit()
-            return json.dumps(filtered_memories, indent=2)
-        finally:
-            db.close()
+        # vector_store.list may return a (points, next_page_offset) tuple or a
+        # flat list depending on the backend; unwrap one level if needed.
+        points = raw
+        if isinstance(raw, (tuple, list)) and len(raw) > 0 and isinstance(raw[0], (list, tuple)):
+            points = raw[0]
+
+        results = []
+        for p in points:
+            payload = getattr(p, "payload", {}) or {}
+            results.append({
+                "id": getattr(p, "id", None),
+                "memory": payload.get("data"),
+                "hash": payload.get("hash"),
+                "created_at": payload.get("created_at"),
+                "updated_at": payload.get("updated_at"),
+                "project": payload.get("project"),
+            })
+
+        return json.dumps({"results": results}, indent=2)
     except Exception as e:
         logging.exception(f"Error getting memories: {e}")
         return f"Error getting memories: {e}"
