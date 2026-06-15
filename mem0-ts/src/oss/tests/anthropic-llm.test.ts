@@ -206,4 +206,58 @@ describe("AnthropicLLM (unit)", () => {
       toolCalls: [],
     });
   });
+
+  // Parity with the Python provider's AnthropicConfig defaults:
+  // model claude-sonnet-4-6, max_tokens 2000, temperature 0.1, top_p omitted.
+  it("sends Python-parity defaults (model, max_tokens, temperature)", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "ok" }],
+    });
+
+    const llm = new AnthropicLLM({ apiKey: "test-key" });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    expect(callArgs.model).toBe("claude-sonnet-4-6");
+    expect(callArgs.max_tokens).toBe(2000);
+    expect(callArgs.temperature).toBe(0.1);
+    expect(callArgs.top_p).toBeUndefined();
+  });
+
+  it("forwards maxTokens, temperature, and model from config", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "ok" }],
+    });
+
+    const llm = new AnthropicLLM({
+      apiKey: "test-key",
+      model: "claude-opus-4-8",
+      maxTokens: 1024,
+      temperature: 0.7,
+    });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    expect(callArgs.model).toBe("claude-opus-4-8");
+    expect(callArgs.max_tokens).toBe(1024);
+    expect(callArgs.temperature).toBe(0.7);
+  });
+
+  // Anthropic rejects requests with both temperature and top_p set.
+  it("never sends both temperature and top_p (prefers temperature)", async () => {
+    mockCreate.mockResolvedValueOnce({
+      content: [{ type: "text", text: "ok" }],
+    });
+
+    const llm = new AnthropicLLM({
+      apiKey: "test-key",
+      temperature: 0.5,
+      topP: 0.9,
+    });
+    await llm.generateResponse([{ role: "user", content: "Hi" }]);
+
+    const callArgs = mockCreate.mock.calls[0][0];
+    expect(callArgs.temperature).toBe(0.5);
+    expect(callArgs.top_p).toBeUndefined();
+  });
 });

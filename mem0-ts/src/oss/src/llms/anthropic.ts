@@ -5,6 +5,9 @@ import { LLMConfig, Message } from "../types";
 export class AnthropicLLM implements LLM {
   private client: Anthropic;
   private model: string;
+  private maxTokens: number;
+  private temperature?: number;
+  private topP?: number;
 
   constructor(config: LLMConfig) {
     const apiKey = config.apiKey || process.env.ANTHROPIC_API_KEY;
@@ -12,7 +15,12 @@ export class AnthropicLLM implements LLM {
       throw new Error("Anthropic API key is required");
     }
     this.client = new Anthropic({ apiKey });
-    this.model = config.model || "claude-3-sonnet-20240229";
+    this.model = config.model || "claude-sonnet-4-6";
+    // Defaults mirror the Python provider's AnthropicConfig
+    // (max_tokens=2000, temperature=0.1, top_p omitted).
+    this.maxTokens = config.maxTokens ?? 2000;
+    this.temperature = config.temperature ?? 0.1;
+    this.topP = config.topP;
   }
 
   async generateResponse(
@@ -24,7 +32,7 @@ export class AnthropicLLM implements LLM {
     const systemMessage = messages.find((msg) => msg.role === "system");
     const otherMessages = messages.filter((msg) => msg.role !== "system");
 
-    const response = await this.client.messages.create({
+    const params: Anthropic.MessageCreateParamsNonStreaming = {
       model: this.model,
       messages: otherMessages.map((msg) => ({
         role: msg.role as "user" | "assistant",
@@ -37,9 +45,23 @@ export class AnthropicLLM implements LLM {
         typeof systemMessage?.content === "string"
           ? systemMessage.content
           : undefined,
-      max_tokens: 4096,
-      ...(tools && { tools, tool_choice: { type: "auto" } }),
-    });
+      max_tokens: this.maxTokens,
+    };
+
+    // Anthropic rejects requests that include both temperature and top_p;
+    // prefer temperature, matching the Python provider's _get_common_params.
+    if (this.temperature !== undefined) {
+      params.temperature = this.temperature;
+    } else if (this.topP !== undefined) {
+      params.top_p = this.topP;
+    }
+
+    if (tools) {
+      params.tools = tools;
+      params.tool_choice = { type: "auto" };
+    }
+
+    const response = await this.client.messages.create(params);
 
     if (tools) {
       let content = "";

@@ -112,6 +112,13 @@ export class ConfigManager {
               | undefined) ??
             userConf?.url ??
             defaultConf.baseURL;
+          const llmRaw = userConf as Record<string, unknown> | undefined;
+          const temperature =
+            userConf?.temperature ??
+            (llmRaw?.temperature as number | undefined);
+          const topP = userConf?.topP ?? (llmRaw?.top_p as number | undefined);
+          const maxTokens =
+            userConf?.maxTokens ?? (llmRaw?.max_tokens as number | undefined);
 
           return {
             baseURL: llmBaseURL,
@@ -125,6 +132,9 @@ export class ConfigManager {
               userConf?.modelProperties !== undefined
                 ? userConf.modelProperties
                 : defaultConf.modelProperties,
+            temperature,
+            topP,
+            maxTokens,
           };
         })(),
       },
