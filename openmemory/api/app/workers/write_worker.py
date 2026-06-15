@@ -195,7 +195,10 @@ class WriteWorker:
             self._max_concurrency,
             self._batch_size,
         )
-        self._stopped.clear()
+        # NOTE: the stop event is (re)cleared in start() *before* the task is
+        # scheduled — never here. Clearing it inside run() races with stop():
+        # if stop() runs before this coroutine body executes, it would wipe the
+        # stop signal and the loop would never terminate (the task hangs).
         while not self._stopped.is_set():
             try:
                 processed = await self.process_once()
@@ -215,6 +218,9 @@ class WriteWorker:
     def start(self) -> asyncio.Task:
         """Schedule :meth:`run` as a background task on the running loop."""
         if self._task is None or self._task.done():
+            # Reset the stop signal here, before scheduling the task, so a
+            # stop() issued right after start() cannot be erased by run().
+            self._stopped.clear()
             self._task = asyncio.create_task(self.run())
         return self._task
 
