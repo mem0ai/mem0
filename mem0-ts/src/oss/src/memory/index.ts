@@ -1721,21 +1721,20 @@ export class Memory {
     const embedding =
       existingEmbeddings[data] || (await this.embedder.embed(data));
 
-    const newMetadata = {
+    // Start from the full existing payload so no custom metadata
+    // (category, priority, source, etc.) is lost when the vector store
+    // replaces the whole payload on update. Caller-supplied metadata is
+    // overlaid on top, then the system fields are stamped last so they
+    // always reflect the latest update. Session identifiers carry over
+    // automatically as part of the existing payload.
+    const newMetadata: Record<string, any> = {
+      ...existingMemory.payload,
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
+      textLemmatized: lemmatizeForBm25(data),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
-      ...(existingMemory.payload.user_id && {
-        user_id: existingMemory.payload.user_id,
-      }),
-      ...(existingMemory.payload.agent_id && {
-        agent_id: existingMemory.payload.agent_id,
-      }),
-      ...(existingMemory.payload.run_id && {
-        run_id: existingMemory.payload.run_id,
-      }),
     };
 
     await this.vectorStore.update(memoryId, embedding, newMetadata);

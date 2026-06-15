@@ -191,6 +191,27 @@ describe("Memory - update()", () => {
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.hash).not.toBe(before!.hash);
   });
+
+  // Regression test for #5479: a text-only update must not drop custom
+  // metadata stored at add() time (parity with the Python fix in #5179).
+  test("preserves custom metadata on a text-only update", async () => {
+    const addResult: SearchResult = await memory.add("Metadata original", {
+      userId,
+      infer: false,
+      metadata: { category: "work", priority: "high", source: "slack" },
+    });
+    const id = addResult.results[0].id;
+
+    await memory.update(id, "Metadata updated");
+    const after: MemoryItem | null = await memory.get(id);
+
+    expect(after!.memory).toBe("Metadata updated");
+    expect(after!.metadata).toMatchObject({
+      category: "work",
+      priority: "high",
+      source: "slack",
+    });
+  });
 });
 
 // ─── delete() ────────────────────────────────────────────
