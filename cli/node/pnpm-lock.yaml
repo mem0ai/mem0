@@ -5,6 +5,11 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  jws@4.0.0: 4.0.1
+  langsmith@<0.6.0: ^0.6.0
+  tar-fs@>=2.0.0 <2.1.4: ^2.1.4
+  picomatch@<2.3.2: ^2.3.2
+  postcss@<8.5.10: '>=8.5.10'
   esbuild: '>=0.28.1'
 
 importers:
@@ -690,7 +695,7 @@ packages:
     engines: {node: '>= 18'}
     peerDependencies:
       jiti: '>=1.21.0'
-      postcss: '>=8.0.9'
+      postcss: '>=8.5.10'
       tsx: ^4.8.1
       yaml: ^2.4.2
     peerDependenciesMeta:
@@ -816,7 +821,7 @@ packages:
     peerDependencies:
       '@microsoft/api-extractor': ^7.36.0
       '@swc/core': ^1
-      postcss: ^8.4.12
+      postcss: '>=8.5.10'
       typescript: '>=4.5.0'
     peerDependenciesMeta:
       '@microsoft/api-extractor':
