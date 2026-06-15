@@ -1726,6 +1726,7 @@ export class Memory {
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
+      textLemmatized: lemmatizeForBm25(data),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
     };
