@@ -149,15 +149,33 @@ export const EMBED_ERROR_CODE = {
 export type EmbedErrorCode =
   (typeof EMBED_ERROR_CODE)[keyof typeof EMBED_ERROR_CODE];
 
-/** Raised when the embedding step fails. The TS parallel of Python's EmbeddingError. */
+/**
+ * Raised when one or more texts fail to embed during `add()`. The TypeScript
+ * parallel of Python's `EmbeddingError`.
+ *
+ * Successfully-embedded memories are persisted before this is thrown, so a
+ * caller catching it can retry only the dropped texts via `failedTexts` rather
+ * than re-adding the whole batch.
+ */
 export class EmbeddingError extends MemoryError {
+  /** Texts that failed to embed and were not persisted. */
+  readonly failedTexts: string[];
+  /** Number of memories persisted by the call before this was thrown. */
+  readonly persistedCount: number;
+
   constructor(
     message: string,
     errorCode: string = EMBED_ERROR_CODE.TRANSIENT,
-    options?: MemoryErrorOptions,
+    options: MemoryErrorOptions & {
+      failedTexts?: string[];
+      persistedCount?: number;
+    } = {},
   ) {
-    super(message, errorCode, options);
+    const { failedTexts = [], persistedCount = 0, ...rest } = options;
+    super(message, errorCode, rest);
     this.name = "EmbeddingError";
+    this.failedTexts = failedTexts;
+    this.persistedCount = persistedCount;
   }
 }
 

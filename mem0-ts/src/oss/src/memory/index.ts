@@ -38,6 +38,7 @@ import {
   classifyValidation,
   classifyEmbedError,
 } from "./errorRetry";
+import { EmbeddingError, EMBED_ERROR_CODE } from "../../../common/exceptions";
 import { Embedder } from "../embeddings/base";
 import { LLM } from "../llms/base";
 import { Reranker } from "../rerankers/base";
@@ -763,7 +764,11 @@ export class Memory {
       has_filters: !!config.filters,
       infer: config.infer,
     });
-    const { filters = {}, infer = true } = config;
+    const {
+      filters = {},
+      infer = true,
+      raiseOnPartialFailure = false,
+    } = config;
     const metadata = stripIdentityKeys(config.metadata);
 
     // Validate and trim entity IDs
@@ -824,6 +829,22 @@ export class Memory {
       } else {
         await this._displayFirstRunNotice("add");
       }
+    }
+
+    // Opt-in strict mode: the good memories are already persisted above; now
+    // raise so callers who prefer exceptions (and Python parity) get one.
+    if (raiseOnPartialFailure && addResult.failed.length > 0) {
+      throw new EmbeddingError(
+        `Failed to embed ${addResult.failed.length} of ${
+          addResult.failed.length + vectorStoreResult.length
+        } memory text(s); ${vectorStoreResult.length} persisted.`,
+        EMBED_ERROR_CODE.TRANSIENT,
+        {
+          failedTexts: addResult.failed.map((f) => f.text),
+          persistedCount: vectorStoreResult.length,
+          details: { failed: addResult.failed },
+        },
+      );
     }
 
     return {
