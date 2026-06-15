@@ -19,8 +19,10 @@ def test_generate_response_with_unsupported_model(mock_litellm):
 
     mock_litellm.supports_function_calling.return_value = False
 
+    tools = [{"type": "function", "function": {"name": "test", "parameters": {}}}]
+
     with pytest.raises(ValueError, match="Model 'unsupported-model' in litellm does not support function calling."):
-        llm.generate_response(messages)
+        llm.generate_response(messages, tools=tools)
 
 
 def test_generate_response_without_tools(mock_litellm):
