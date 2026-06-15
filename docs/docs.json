@@ -143,7 +143,8 @@
                     "icon": "robot",
                     "pages": [
                       "integrations/openclaw",
-                      "integrations/hermes"
+                      "integrations/hermes",
+                      "integrations/pi-agent"
                     ]
                   }
                 ]
@@ -245,6 +246,7 @@
                               "components/vectordbs/dbs/cassandra",
                               "components/vectordbs/dbs/s3_vectors",
                               "components/vectordbs/dbs/databricks",
+                              "components/vectordbs/dbs/neon",
                               "components/vectordbs/dbs/neptune_analytics",
                               "components/vectordbs/dbs/turbopuffer"
                             ]
@@ -303,7 +305,8 @@
                     "group": "Migration",
                     "icon": "arrow-right",
                     "pages": [
-                      "migration/oss-v2-to-v3"
+                      "migration/oss-v2-to-v3",
+                      "migration/server-pgvector-upgrade"
                     ]
                   },
                   {
@@ -463,7 +466,8 @@
                     "icon": "robot",
                     "pages": [
                       "integrations/openclaw",
-                      "integrations/hermes"
+                      "integrations/hermes",
+                      "integrations/pi-agent"
                     ]
                   }
                 ]

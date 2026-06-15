@@ -45,7 +45,7 @@ def test_search_vectors(chromadb_instance, mock_chromadb_client):
 
     assert len(results) == 2
     assert results[0].id == "id1"
-    assert results[0].score == 0.1
+    assert results[0].score == pytest.approx(1.0 / 1.1)
     assert results[0].payload == {"name": "vector1"}
 
 
@@ -150,8 +150,18 @@ def test_get_vector(chromadb_instance):
     chromadb_instance.collection.get.assert_called_once_with(ids=["id1"])
 
     assert result.id == "id1"
-    assert result.score == 0.1
+    assert result.score == pytest.approx(1.0 / 1.1)
     assert result.payload == {"name": "vector1"}
+
+
+def test_get_missing_vector_returns_none(chromadb_instance):
+    # Chroma returns empty lists for an unknown id; get() must return None
+    # rather than raising IndexError (parity with qdrant/pgvector/faiss).
+    chromadb_instance.collection.get.return_value = {"ids": [], "metadatas": []}
+
+    result = chromadb_instance.get(vector_id="does-not-exist")
+
+    assert result is None
 
 
 def test_list_vectors(chromadb_instance):
@@ -250,6 +260,48 @@ def test_generate_where_clause_non_string_values():
     # ChromaDB accepts non-string values in filters
     expected = {"$and": [{"user_id": {"$eq": "alice"}}, {"count": {"$eq": 5}}, {"active": {"$eq": True}}]}
     assert result == expected
+
+
+def test_generate_where_clause_not_single_equality():
+    """Test $not with a single equality condition."""
+    filters = {"$not": [{"status": "archived"}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"status": {"$ne": "archived"}}
+
+
+def test_generate_where_clause_not_multiple_conditions():
+    """Test $not with multiple conditions (OR semantics, negated to AND)."""
+    filters = {"$not": [{"status": "archived"}, {"type": "draft"}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"$and": [{"status": {"$ne": "archived"}}, {"type": {"$ne": "draft"}}]}
+
+
+def test_generate_where_clause_not_with_operators():
+    """Test $not negates comparison operators correctly."""
+    filters = {"$not": [{"count": {"gt": 5}}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"count": {"$lte": 5}}
+
+
+def test_generate_where_clause_not_in_to_nin():
+    """Test $not converts 'in' to $nin."""
+    filters = {"$not": [{"status": {"in": ["archived", "deleted"]}}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"status": {"$nin": ["archived", "deleted"]}}
+
+
+def test_generate_where_clause_not_multi_field_condition():
+    """Test $not with multi-field condition uses De Morgan's (AND -> OR)."""
+    filters = {"$not": [{"status": "archived", "type": "draft"}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"$or": [{"status": {"$ne": "archived"}}, {"type": {"$ne": "draft"}}]}
+
+
+def test_generate_where_clause_not_combined_with_other_filters():
+    """Test $not combined with regular filters."""
+    filters = {"user_id": "alice", "$not": [{"status": "archived"}]}
+    result = ChromaDB._generate_where_clause(filters)
+    assert result == {"$and": [{"user_id": {"$eq": "alice"}}, {"status": {"$ne": "archived"}}]}
 
 
 def test_chroma_config_accepts_default_tmp_path():

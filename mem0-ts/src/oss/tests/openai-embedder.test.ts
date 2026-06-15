@@ -2,7 +2,8 @@
 /**
  * OpenAI Embedder — unit tests (mocked OpenAI client).
  * Verifies that the `dimensions` parameter is only passed to the API
- * when the user explicitly configures `embeddingDims`.
+ * when the user explicitly configures `embeddingDims`, and that
+ * embeddings are requested as floats for OpenAI-compatible proxies.
  */
 
 const mockEmbeddingsCreate = jest.fn();
@@ -42,6 +43,7 @@ describe("OpenAIEmbedder (unit)", () => {
       expect(callArgs).toEqual({
         model: "text-embedding-3-small",
         input: "hello",
+        encoding_format: "float",
       });
     });
 
@@ -58,6 +60,7 @@ describe("OpenAIEmbedder (unit)", () => {
       expect(callArgs).toEqual({
         model: "text-embedding-3-small",
         input: "hello",
+        encoding_format: "float",
         dimensions: 1024,
       });
     });
@@ -87,6 +90,7 @@ describe("OpenAIEmbedder (unit)", () => {
 
       const callArgs = mockEmbeddingsCreate.mock.calls[0][0];
       expect(callArgs).not.toHaveProperty("dimensions");
+      expect(callArgs).toHaveProperty("encoding_format", "float");
     });
 
     it("passes dimensions in embedBatch when embeddingDims is explicitly set", async () => {
@@ -105,6 +109,7 @@ describe("OpenAIEmbedder (unit)", () => {
       expect(callArgs).toEqual({
         model: "text-embedding-3-small",
         input: ["hello", "world"],
+        encoding_format: "float",
         dimensions: 512,
       });
     });

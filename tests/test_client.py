@@ -26,6 +26,28 @@ def mock_memory_client():
 class TestSearchEntityParamRejection:
     """Tests that top-level entity params are rejected in search()."""
 
+    @pytest.mark.parametrize("query", ["", "   ", "\n\t"])
+    def test_search_rejects_empty_query(self, mock_memory_client, query):
+        """search() should reject empty or whitespace-only queries before API calls."""
+        with pytest.raises(ValueError, match="Invalid query.*empty or whitespace-only"):
+            mock_memory_client.search(query, filters={"user_id": "u1"})
+
+        mock_memory_client.client.post.assert_not_called()
+
+    def test_search_trims_query_before_api_call(self, mock_memory_client):
+        """search() should send the normalized query to the API."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"results": []}
+        mock_response.raise_for_status.return_value = None
+        mock_memory_client.client.post.return_value = mock_response
+
+        mock_memory_client.search("  test query  ", filters={"user_id": "u1"})
+
+        mock_memory_client.client.post.assert_called_once_with(
+            "/v3/memories/search/",
+            json={"query": "test query", "filters": {"user_id": "u1"}},
+        )
+
     def test_search_rejects_user_id_kwarg(self, mock_memory_client):
         """search() should reject user_id as top-level kwarg."""
         with pytest.raises(ValueError, match=r"user_id"):

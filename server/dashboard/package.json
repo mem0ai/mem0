@@ -2,6 +2,7 @@
   "name": "mem0-dashboard",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.2",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -36,7 +37,7 @@
     "@radix-ui/react-tooltip": "^1.0.7",
     "@reduxjs/toolkit": "^2.3.0",
     "@tanstack/react-table": "^8.17.3",
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.0",
     "cmdk": "^1.0.0",
@@ -59,7 +60,7 @@
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
     "use-debounce": "^10.0.4",
-    "uuid": "^9.0.1",
+    "uuid": "^11.1.1",
     "vaul": "^0.9.1",
     "zod": "^3.23.8"
   },
