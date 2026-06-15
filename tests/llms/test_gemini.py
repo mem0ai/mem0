@@ -190,13 +190,10 @@ def test_parse_response_empty_parts_with_tools(mock_gemini_client: Mock):
 
 
 def test_none_config_values_omitted_from_generation_config(mock_gemini_client: Mock):
-    """When temperature/max_tokens/top_p are None (defaults), they must not
-    appear in the GenerateContentConfig kwargs."""
-    config = BaseLlmConfig(model="gemini-2.0-flash")
+    """When temperature/max_tokens/top_p are None, they must not be passed
+    to GenerateContentConfig (verified via model_fields_set)."""
+    config = BaseLlmConfig(model="gemini-2.0-flash", temperature=None, max_tokens=None, top_p=None)
     llm = GeminiLLM(config)
-    llm.config.temperature = None
-    llm.config.max_tokens = None
-    llm.config.top_p = None
 
     mock_part = Mock(text="ok")
     mock_content = Mock(parts=[mock_part])
@@ -204,12 +201,12 @@ def test_none_config_values_omitted_from_generation_config(mock_gemini_client: M
     mock_response = Mock(candidates=[mock_candidate])
     mock_gemini_client.models.generate_content.return_value = mock_response
 
-    with patch("mem0.llms.gemini.types.GenerateContentConfig", wraps=types.GenerateContentConfig) as mock_cfg:
-        llm.generate_response([{"role": "user", "content": "hi"}])
-        kwargs = mock_cfg.call_args.kwargs
-        assert "temperature" not in kwargs
-        assert "max_output_tokens" not in kwargs
-        assert "top_p" not in kwargs
+    llm.generate_response([{"role": "user", "content": "hi"}])
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert "temperature" not in config_arg.model_fields_set
+    assert "max_output_tokens" not in config_arg.model_fields_set
+    assert "top_p" not in config_arg.model_fields_set
 
 
 def test_explicit_config_values_passed_to_generation_config(mock_gemini_client: Mock):
@@ -223,9 +220,12 @@ def test_explicit_config_values_passed_to_generation_config(mock_gemini_client: 
     mock_response = Mock(candidates=[mock_candidate])
     mock_gemini_client.models.generate_content.return_value = mock_response
 
-    with patch("mem0.llms.gemini.types.GenerateContentConfig", wraps=types.GenerateContentConfig) as mock_cfg:
-        llm.generate_response([{"role": "user", "content": "hi"}])
-        kwargs = mock_cfg.call_args.kwargs
-        assert kwargs["temperature"] == 0.5
-        assert kwargs["max_output_tokens"] == 200
-        assert kwargs["top_p"] == 0.9
+    llm.generate_response([{"role": "user", "content": "hi"}])
+
+    config_arg = mock_gemini_client.models.generate_content.call_args.kwargs["config"]
+    assert "temperature" in config_arg.model_fields_set
+    assert config_arg.temperature == 0.5
+    assert "max_output_tokens" in config_arg.model_fields_set
+    assert config_arg.max_output_tokens == 200
+    assert "top_p" in config_arg.model_fields_set
+    assert config_arg.top_p == 0.9
