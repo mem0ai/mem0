@@ -22,6 +22,7 @@ import {
   NetworkError,
   ValidationError,
   AuthenticationError,
+  EmbeddingError,
 } from "../../../common/exceptions";
 
 const DIM = 1536;
@@ -190,6 +191,48 @@ describe("add() returns { results, failed } with labels", () => {
     const res = await m.add([A, B, C].join(". "), { userId: "u6" });
     expect(res.results).toHaveLength(3);
     expect(res.failed).toBeUndefined();
+  });
+});
+
+describe("raiseOnPartialFailure: opt-in strict mode (preserve-then-raise)", () => {
+  it("raises EmbeddingError with failedTexts/persistedCount, good ones still persisted", async () => {
+    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
+    const { m } = await ready(rules, [A, B, C]);
+
+    let err: EmbeddingError | undefined;
+    try {
+      await m.add([A, B, C].join(". "), {
+        userId: "rp1",
+        raiseOnPartialFailure: true,
+      });
+    } catch (e) {
+      err = e as EmbeddingError;
+    }
+
+    expect(err).toBeInstanceOf(EmbeddingError);
+    expect(err!.failedTexts).toEqual([B]);
+    expect(err!.persistedCount).toBe(2);
+
+    // Preserve-then-raise: the good ones are in the store despite the throw.
+    const all = await m.getAll({ filters: { user_id: "rp1" } });
+    expect(all.results.map((r) => r.memory).sort()).toEqual([A, C].sort());
+  });
+
+  it("default (flag off) returns { results, failed } and does not throw", async () => {
+    const rules = new Map<string, Rule>([[B, { throwStatus: 503 }]]);
+    const { m } = await ready(rules, [A, B]);
+    const res = await m.add([A, B].join(". "), { userId: "rp2" });
+    expect(res.results).toHaveLength(1);
+    expect(res.failed).toHaveLength(1);
+  });
+
+  it("flag on but nothing fails: does not throw", async () => {
+    const { m } = await ready(new Map(), [A, B]);
+    const res = await m.add([A, B].join(". "), {
+      userId: "rp3",
+      raiseOnPartialFailure: true,
+    });
+    expect(res.results).toHaveLength(2);
   });
 });
 
