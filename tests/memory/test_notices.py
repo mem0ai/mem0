@@ -272,7 +272,7 @@ def test_public_add_succeeds_when_first_run_flag_eval_fails(notice_harness):
 
     result = Memory.add(memory, "The user likes tea.", user_id="u1", infer=False)
 
-    assert result == {"results": [{"event": "ADD", "memory": "likes tea"}]}
+    assert result == {"results": [{"event": "ADD", "memory": "likes tea"}], "failed": []}
 
 
 def test_public_search_succeeds_when_first_run_flag_eval_fails(notice_harness, monkeypatch):

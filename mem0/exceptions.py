@@ -343,6 +343,23 @@ class EmbeddingError(MemoryError):
         super().__init__(message, error_code, details, suggestion, debug_info)
 
 
+class EmbeddingErrorClass:
+    """Controlled vocabulary for the embedding-failure taxonomy.
+
+    Carried on ``EmbeddingError.error_code`` and on each ``failed[]`` entry's
+    ``error_class`` field. The class is assigned at the point of detection
+    (provider call failure vs. inspecting the returned vector), never
+    re-derived from a stringified error.
+    """
+
+    #: The embed call failed (transport / HTTP / timeout). Transient subset is retry-safe.
+    PROVIDER = "provider_error"
+    #: The returned vector is structurally invalid (NaN/Inf, wrong dimension, empty). Not retry-safe.
+    VALIDATION = "validation_error"
+    #: Any other failure in the processing path. Catch-all.
+    INTERNAL = "internal_error"
+
+
 class LLMError(MemoryError):
     """Raised when LLM operations fail.
     
