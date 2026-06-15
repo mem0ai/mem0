@@ -6,6 +6,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
+from mem0.memory.main import _entity_collection_name
 from mem0.memory.utils import normalize_facts
 
 
@@ -35,6 +36,14 @@ def test_create_memory(memory_client):
     data = "Name is John Doe."
     result = memory_client.add([{"role": "user", "content": data}], user_id="test_user")
     assert result["results"][0]["memory"] == data
+
+
+def test_entity_collection_name_uses_dash_for_s3_vectors():
+    assert _entity_collection_name("s3_vectors", "test-index") == "test-index-entities"
+
+
+def test_entity_collection_name_keeps_underscore_for_other_stores():
+    assert _entity_collection_name("qdrant", "mem0") == "mem0_entities"
 
 
 def test_get_memory(memory_client):
@@ -970,3 +979,80 @@ async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_
         "AsyncMemory._create_memory must store text_lemmatized for BM25 keyword search"
     )
     assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
+
+
+class TestHybridSearchWarning:
+    """Warn at init when vector store does not support keyword_search."""
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_warning_for_store_without_keyword_search(
+        self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
+    ):
+        from mem0.vector_stores.base import VectorStoreBase
+        import logging
+
+        class StoreWithoutKeywordSearch(VectorStoreBase):
+            def create_col(self, *a, **kw): pass
+            def insert(self, *a, **kw): pass
+            def search(self, *a, **kw): return []
+            def delete(self, *a, **kw): pass
+            def update(self, *a, **kw): pass
+            def get(self, *a, **kw): pass
+            def list_cols(self): return []
+            def delete_col(self): pass
+            def col_info(self): return {}
+            def list(self, *a, **kw): return []
+            def reset(self): pass
+
+        mock_vs_factory.return_value = StoreWithoutKeywordSearch()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.vector_store.provider = "chroma"
+
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+            Memory(config)
+
+        assert any("does not support keyword search" in r.message for r in caplog.records)
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_no_warning_for_store_with_keyword_search(
+        self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
+    ):
+        from mem0.vector_stores.base import VectorStoreBase
+        import logging
+
+        class StoreWithKeywordSearch(VectorStoreBase):
+            def keyword_search(self, query, top_k=5, filters=None):
+                return []
+            def create_col(self, *a, **kw): pass
+            def insert(self, *a, **kw): pass
+            def search(self, *a, **kw): return []
+            def delete(self, *a, **kw): pass
+            def update(self, *a, **kw): pass
+            def get(self, *a, **kw): pass
+            def list_cols(self): return []
+            def delete_col(self): pass
+            def col_info(self): return {}
+            def list(self, *a, **kw): return []
+            def reset(self): pass
+
+        mock_vs_factory.return_value = StoreWithKeywordSearch()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+            Memory(config)
+
+        assert not any("does not support keyword search" in r.message for r in caplog.records)
