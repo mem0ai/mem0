@@ -1142,7 +1142,7 @@ class TestPreserveCustomMetadata:
     @patch('mem0.utils.factory.VectorStoreFactory.create')
     @patch('mem0.utils.factory.LlmFactory.create')
     @patch('mem0.memory.storage.SQLiteManager')
-    def test_update_allows_actor_id_override(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    def test_update_preserves_actor_id_from_original(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
         mock_embedder_factory.return_value = MagicMock()
         mock_vector_store = MagicMock()
         mock_vector_factory.return_value = mock_vector_store
@@ -1170,7 +1170,7 @@ class TestPreserveCustomMetadata:
 
         call_args = mock_vector_store.update.call_args
         payload = call_args.kwargs.get("payload") or call_args[1].get("payload")
-        assert payload["actor_id"] == "Bob"
+        assert payload["actor_id"] == "Alice"
 
     @pytest.mark.asyncio
     @patch('mem0.utils.factory.EmbedderFactory.create')
