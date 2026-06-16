@@ -64,10 +64,11 @@ fi
 
 echo ""
 echo "=== Ready ==="
-echo "Dashboard:  $DASHBOARD_URL"
 echo "Email:      $EMAIL"
 echo "Password:   $PASSWORD"
 echo "API Key:    $API_KEY"
+echo ""
+echo "Open your dashboard at $DASHBOARD_URL to see and manage your memories in your browser."
 echo ""
 
 if ! grep -qE '^(OPENAI|ANTHROPIC|GOOGLE)_API_KEY=.' .env 2>/dev/null; then

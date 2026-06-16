@@ -30,19 +30,17 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 opencode plugin @mem0/opencode-plugin
 ```
 
-Add `--global` to install for all projects instead of the current one.
+**Or let your agent do it** — paste this into OpenCode:
 
-This installs the plugin with native memory tools, lifecycle hooks, and all `/mem0:` slash commands — registered by the plugin via the `mem0ai` SDK, with no MCP server to configure. Restart OpenCode to activate.
+```
+Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/mem0-plugin/.opencode-plugin/README.md
+```
+
+This adds the plugin to your `~/.config/opencode/opencode.json`. Restart OpenCode — you get the native memory tools, lifecycle hooks, and all `/mem0:` slash commands. The memory tools are registered by the plugin itself via the `mem0ai` SDK — no MCP server to configure.
 
 ### Option B — Standalone MCP Server
 
-If you only need the memory tools without the plugin's hooks or skills, point OpenCode at Mem0's hosted MCP server directly — use OpenCode's built-in MCP configurator:
-
-```bash
-opencode mcp add
-```
-
-Or manually add this to your `opencode.json` (project-level or global at `~/.config/opencode/opencode.json`):
+If you only need the memory tools without the plugin's hooks or skills, point OpenCode at Mem0's hosted MCP server directly. Add this to your `opencode.json` (project-level or global at `~/.config/opencode/opencode.json`):
 
 ```json
 {

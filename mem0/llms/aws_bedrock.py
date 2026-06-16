@@ -409,7 +409,7 @@ class AWSBedrockLLM(LLMBase):
             elif self.provider == "cohere":
                 return response_json.get("generations", [{"text": ""}])[0].get("text", "")
             elif self.provider == "ai21":
-                return response_json.get("completions", [{"data", {"text": ""}}])[0].get("data", {}).get("text", "")
+                return response_json.get("completions", [{"data": {"text": ""}}])[0].get("data", {}).get("text", "")
             else:
                 # Generic parsing - try common response fields
                 for field in ["content", "text", "completion", "generation"]:

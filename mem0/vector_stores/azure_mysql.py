@@ -313,13 +313,10 @@ class AzureMySQL(VectorStoreBase):
 
         for row in results:
             vec = np.array(json.loads(row['vector']))
-            # Cosine similarity
-            similarity = np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec))
-            distance = 1 - similarity
-            scored_results.append((row['id'], distance, row['payload']))
+            similarity = float(np.dot(query_vec, vec) / (np.linalg.norm(query_vec) * np.linalg.norm(vec)))
+            scored_results.append((row['id'], similarity, row['payload']))
 
-        # Sort by distance and apply limit
-        scored_results.sort(key=lambda x: x[1])
+        scored_results.sort(key=lambda x: x[1], reverse=True)
         scored_results = scored_results[:top_k]
 
         return [

@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_session_start_cursor.sh",
+        "matcher": "startup|resume|compact"
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/block_memory_write_cursor.sh",
+        "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/enforce_metadata_defaults.sh",
+        "matcher": "mcp__mem0__add_memory|mcp__plugin_mem0_mem0__add_memory|mcp__mem0__search_memories|mcp__plugin_mem0_mem0__search_memories|mcp__mem0__get_memories|mcp__plugin_mem0_mem0__get_memories|mcp__mem0__delete_all_memories|mcp__plugin_mem0_mem0__delete_all_memories",
+        "timeout": 3
+      },
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_file_read_cursor.sh",
+        "matcher": "Read",
+        "timeout": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_post_tool_use_cursor.sh",
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
+        "timeout": 3
+      },
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_bash_output.sh",
+        "matcher": "Bash",
+        "timeout": 12
+      }
+    ],
+    "stop": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_stop_cursor.sh",
+        "timeout": 30
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_pre_compact_cursor.sh"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "${CURSOR_PLUGIN_ROOT}/scripts/on_user_prompt_cursor.sh",
+        "timeout": 12
+      }
+    ]
+  }
+}

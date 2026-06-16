@@ -4,6 +4,39 @@ description: "Release notes for the OpenClaw plugin and agent harness."
 mode: "wide"
 ---
 
+<Update label="2026-06-12" description="v1.0.13">
+
+**Fixes:**
+- **Custom categories payload:** `customCategories` (a `Record<string, string>` map) is now converted via the new `customCategoryMapToList()` helper into the `Array<Record<string, string>>` shape the Mem0 SDK expects on `add` calls — previously the raw object was passed as `custom_categories` and silently ignored ([#5345](https://github.com/mem0ai/mem0/pull/5345))
+- **Skip runtime setup during metadata registration:** `register()` now detects `registrationMode === "cli-metadata"`, registers only the CLI commands, and returns early — avoiding backend initialization, service/tool registration, and hook installation during OpenClaw's metadata-only registration pass ([#5383](https://github.com/mem0ai/mem0/pull/5383))
+
+**Security:**
+- Bumped `mem0ai` from `3.0.3` to `3.0.7` (latest Node SDK) — includes the transitive axios CVE remediation shipped in `3.0.6` ([#5460](https://github.com/mem0ai/mem0/pull/5460))
+- Added pnpm override `uuid@<11.1.1` → `>=11.1.1` to resolve an open MEDIUM Dependabot alert ([#5489](https://github.com/mem0ai/mem0/pull/5489))
+
+**Improvements:**
+- **Repo consolidation:** Plugin moved from repo-root `openclaw/` to `integrations/openclaw/`; `package.json` `repository.directory` updated to match so npm provenance links to the correct subdirectory ([#5491](https://github.com/mem0ai/mem0/pull/5491))
+
+**Tests:**
+- Added `customCategoryMapToList` unit tests and a `PlatformProvider` test asserting `custom_categories` is passed to the Mem0 SDK as a list ([#5345](https://github.com/mem0ai/mem0/pull/5345))
+- Added a regression test asserting `cli-metadata` registration registers only CLI commands and triggers no runtime side effects ([#5383](https://github.com/mem0ai/mem0/pull/5383))
+
+</Update>
+
+<Update label="2026-06-02" description="v1.0.12">
+
+**Docs:**
+- **Agent Mode onboarding:** README now documents an autonomous setup path for AI agents — `mem0 init --agent --json` mints an evaluation Mem0 API key with no email, OTP, or browser and exports it as `MEM0_API_KEY` for `openclaw mem0 init`; a human owner can later run `mem0 init --email <email>` to claim ownership without disrupting the agent ([#5123](https://github.com/mem0ai/mem0/pull/5123))
+
+**Security:**
+- Added pnpm overrides to remediate advisories in transitive dependencies: `langsmith@<0.6.0` → `^0.6.0`, `picomatch@<2.3.2` → `^2.3.2`, `vite` → `^8.0.5`, and `@qdrant/js-client-rest` → `^1.18.0` ([#5294](https://github.com/mem0ai/mem0/pull/5294))
+
+**Dependencies:**
+- Bumped `mem0ai` from `3.0.2` to `3.0.3` ([#5212](https://github.com/mem0ai/mem0/pull/5212))
+- Bumped dev dependencies `@vitest/coverage-v8` and `vitest` from `^4.0.18` to `^4.1.7`; added `vite@^8.0.5` and `@qdrant/js-client-rest@^1.18.0` ([#5294](https://github.com/mem0ai/mem0/pull/5294))
+
+</Update>
+
 <Update label="2026-04-29" description="v1.0.11">
 
 **New Features:**
