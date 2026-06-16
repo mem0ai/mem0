@@ -8,7 +8,7 @@ import {MemoryClient} from "mem0ai";
 import {userInfo} from "os";
 import {basename, resolve, dirname} from "path";
 import {randomBytes} from "crypto";
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from "fs";
+import {existsSync, mkdirSync, readFileSync, writeFileSync, cpSync} from "fs";
 import {homedir} from "os";
 import {join} from "path";
 import {createHash} from "crypto";
@@ -304,6 +304,41 @@ const Mem0Plugin: Plugin = async (ctx) => {
   Promise.resolve().then(() => autoSetupCategories(mem0, apiKey)).catch(() => {
   });
 
+  function pluginVersion(pluginDir: string): string {
+    try {
+      const pkg = JSON.parse(readFileSync(join(pluginDir, "package.json"), "utf8"));
+      return pkg.version ?? "0";
+    } catch {
+      return "0";
+    }
+  }
+
+  // Install bundled skills into OpenCode's global skills dir
+  // (~/.config/opencode/skills) so OpenCode natively discovers and lazy-loads
+  // them via its `skill` tool. Version-gated: copies once per plugin version,
+  // then no-ops on subsequent startups. (OpenCode has no `skills.paths` config
+  // field — discovery is directory-based, so the skills must live there.)
+  function installSkills(srcSkills: string, pluginDir: string): void {
+    if (!existsSync(srcSkills)) return;
+    const cfgHome = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
+    const destSkills = join(cfgHome, "opencode", "skills");
+    const marker = join(destSkills, ".mem0-plugin-version");
+    const version = pluginVersion(pluginDir);
+    try {
+      if (existsSync(marker) && readFileSync(marker, "utf8").trim() === version) return;
+    } catch {
+    }
+    try {
+      mkdirSync(destSkills, {recursive: true});
+      for (const entry of readdirSync(srcSkills, {withFileTypes: true})) {
+        if (!entry.isDirectory()) continue;
+        cpSync(resolve(srcSkills, entry.name), join(destSkills, entry.name), {recursive: true});
+      }
+      writeFileSync(marker, version);
+    } catch {
+    }
+  }
+
   function registerCommands(skillsDir: string, opencodeConfig: any) {
     const skillEntries = readdirSync(skillsDir, {withFileTypes: true});
     for (const entry of skillEntries) {
@@ -320,8 +355,8 @@ const Mem0Plugin: Plugin = async (ctx) => {
       }
 
       opencodeConfig.command ??= {};
-      opencodeConfig.command[`mem0:${entry.name}`] = {
-        template: `Load and execute the \`mem0:${entry.name}\` skill.
+      opencodeConfig.command[entry.name] = {
+        template: `Load and execute the \`${entry.name}\` skill.
 
 Use the mem0 memory tools (add_memory, search_memories, get_memories, get_memory, update_memory, delete_memory, delete_all_memories, delete_entities, list_entities, get_event_status) as instructed by the skill.
 
@@ -359,14 +394,9 @@ Identity context (resolved at plugin startup):
       const pluginDir = dirname(dirname(import.meta.filename));
       const skillsDir = resolve(pluginDir, "opencode-skills");
 
-      if (existsSync(skillsDir)) {
-        opencodeConfig.skills ??= {};
-        opencodeConfig.skills.paths ??= [];
-        if (!opencodeConfig.skills.paths.includes(skillsDir)) {
-          opencodeConfig.skills.paths.push(skillsDir);
-        }
-      }
-
+      // Make skills discoverable by OpenCode (global skills dir, version-gated),
+      // then register the matching /mem0-* slash commands.
+      installSkills(skillsDir, pluginDir);
       registerCommands(skillsDir, opencodeConfig);
     },
 

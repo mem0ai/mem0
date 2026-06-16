@@ -1,5 +1,5 @@
 ---
-name: pin
+name: mem0-pin
 description: Pins or unpins a memory to protect it from pruning during dream consolidation. Use when a memory is critical and must never be removed, such as architecture decisions, security constraints, or immutable team conventions.
 ---
 

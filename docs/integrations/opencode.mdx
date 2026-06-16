@@ -36,7 +36,7 @@ opencode plugin @mem0/opencode-plugin
 Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/mem0-plugin/.opencode-plugin/README.md
 ```
 
-This adds the plugin to your `~/.config/opencode/opencode.json`. Restart OpenCode — you get the native memory tools, lifecycle hooks, and all `/mem0:` slash commands. The memory tools are registered by the plugin itself via the `mem0ai` SDK — no MCP server to configure.
+This adds the plugin to your `~/.config/opencode/opencode.json`. Restart OpenCode — you get the native memory tools, lifecycle hooks, and all `/mem0-*` slash commands. The memory tools are registered by the plugin itself via the `mem0ai` SDK — no MCP server to configure.
 
 ### Option B — Standalone MCP Server
 
@@ -97,7 +97,7 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 
 | OpenCode Event | Hook | What happens |
 |----------------|------|-------------|
-| `config` | **Config** | Registers the bundled skills (`skills.paths`) and `/mem0:*` slash commands at startup |
+| `config` | **Config** | Installs skills into `~/.config/opencode/skills/` (version-gated) so OpenCode natively discovers + lazy-loads them, and registers `/mem0-*` slash commands |
 | `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
 | `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
 | `tool.execute.after` | **Post-tool** | Scans Bash errors and pre-fetches related error memories |

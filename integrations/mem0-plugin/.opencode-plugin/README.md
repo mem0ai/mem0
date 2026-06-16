@@ -30,7 +30,7 @@ Restart OpenCode.
 |-----------|-------------|
 | **9 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `update_memory`, `delete_memory`, and more — registered as OpenCode tools, backed by the `mem0ai` SDK (no MCP server required) |
 | **Lifecycle Hooks** | Auto-search on session start and every prompt, error memory lookup, compaction context, secret redaction |
-| **8 Skills** | `/mem0:remember`, `/mem0:tour`, `/mem0:peek`, `/mem0:health`, `/mem0:dream`, `/mem0:forget`, `/mem0:pin`, `/mem0:context-loader` |
+| **8 Skills** | `/mem0-remember`, `/mem0-tour`, `/mem0-peek`, `/mem0-health`, `/mem0-dream`, `/mem0-forget`, `/mem0-pin`, `/mem0-context-loader` — installed to OpenCode's global skills dir and auto-discovered |
 
 ## Hooks
 
@@ -38,7 +38,7 @@ Pure TypeScript — no Python, no shell scripts. Memory operations are native Op
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| **Config** | `config` | Registers the bundled skills (`skills.paths`) and `/mem0:*` slash commands at startup |
+| **Config** | `config` | Installs skills into `~/.config/opencode/skills/` (version-gated) so OpenCode natively discovers + lazy-loads them, and registers `/mem0-*` slash commands |
 | **Chat message** | `chat.message` | Loads prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
 | **Pre-tool** | `tool.execute.before` | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
 | **Post-tool** | `tool.execute.after` | Scans bash errors and pre-fetches related memories |
