@@ -520,15 +520,17 @@ def test_add_infer_false_embeds_once(mock_sqlite, mock_llm_factory, mock_vector_
     mock_vector_store.insert.assert_called_once()
 
 
+@patch('mem0.memory.main.extract_entities_batch')
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
-def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, mock_extract_entities):
     """
     Regression test for issue #3723 (infer=True path): when the LLM rewrites a fact during the
     ADD action, the embedding should be computed once and cached, not computed again inside _create_memory.
     """
+    mock_extract_entities.return_value = [[]]
     embedder = MagicMock()
     embedder.embed.return_value = [0.1, 0.2, 0.3]
     embedder.config = MagicMock(embedding_dims=3)
@@ -565,15 +567,17 @@ def test_add_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_fa
     mock_vector_store.insert.assert_called_once()
 
 
+@patch('mem0.memory.main.extract_entities_batch')
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
 @patch('mem0.memory.storage.SQLiteManager')
-def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+def test_update_infer_true_caches_embedding_on_llm_rewrite(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory, mock_extract_entities):
     """
     Regression test for issue #3723 (infer=True path): V3 is ADD-only, so this test verifies
     that the single-call extraction pipeline embeds via embed_batch, not individual embed calls.
     """
+    mock_extract_entities.return_value = [[]]
     embedder = MagicMock()
     embedder.embed.return_value = [0.1, 0.2, 0.3]
     embedder.config = MagicMock(embedding_dims=3)

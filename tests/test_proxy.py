@@ -37,9 +37,10 @@ def mock_litellm():
 
 
 def test_mem0_initialization_with_api_key(mock_openai_embedding_client, mock_openai_llm_client):
-    mem0 = Mem0()
-    assert isinstance(mem0.mem0_client, Memory)
-    assert isinstance(mem0.chat, Chat)
+    with patch("mem0.proxy.main.MemoryClient") as mock_client:
+        mem0 = Mem0(api_key="test-api-key")
+        assert mem0.mem0_client == mock_client.return_value
+        assert isinstance(mem0.chat, Chat)
 
 
 def test_mem0_initialization_with_config():
@@ -51,9 +52,10 @@ def test_mem0_initialization_with_config():
 
 
 def test_mem0_initialization_without_params(mock_openai_embedding_client, mock_openai_llm_client):
-    mem0 = Mem0()
-    assert isinstance(mem0.mem0_client, Memory)
-    assert isinstance(mem0.chat, Chat)
+    with patch("mem0.proxy.main.Memory") as mock_memory:
+        mem0 = Mem0()
+        assert mem0.mem0_client == mock_memory.return_value
+        assert isinstance(mem0.chat, Chat)
 
 
 def test_chat_initialization(mock_memory_client):
