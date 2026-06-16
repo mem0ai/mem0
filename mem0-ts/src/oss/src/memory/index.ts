@@ -73,6 +73,7 @@ import {
 } from "../utils/scoring";
 import { getDefaultVectorStoreDbPath } from "../utils/sqlite";
 import { getOrCreateMem0UserId } from "../../../client/config";
+import { logger, clearMeta } from "../utils/logger";
 
 // Entity params that must be passed via filters - check both snake_case and camelCase
 const ENTITY_PARAMS = [
@@ -203,7 +204,7 @@ export class Memory {
     this._initPromise = this._autoInitialize().catch((error) => {
       this._initError =
         error instanceof Error ? error : new Error(String(error));
-      console.error(this._initError);
+      logger.error("Memory initialization failed", { error: String(error) });
     });
   }
 
@@ -252,7 +253,7 @@ export class Memory {
       this._initPromise = this._autoInitialize().catch((error) => {
         this._initError =
           error instanceof Error ? error : new Error(String(error));
-        console.error(this._initError);
+        logger.error("Memory initialization retry failed", { error: String(error) });
       });
       await this._initPromise;
       if (this._initError) {
@@ -656,12 +657,16 @@ export class Memory {
     const final_parsedMessages = await parse_vision_messages(parsedMessages);
 
     // Add to vector store
+    logger.info("add() called | messages=%d userId=%s infer=%s", Array.isArray(messages) ? messages.length : 1, userId ?? null, infer);
+    const addStart = Date.now();
     const vectorStoreResult = await this.addToVectorStore(
       final_parsedMessages,
       metadata,
       filters,
       infer,
     );
+    const addElapsed = Date.now() - addStart;
+    logger.info("add() complete | results=%d elapsed_ms=%d", vectorStoreResult.length, addElapsed);
 
     if (temporalUsageNotice) {
       await this._displayTemporalUsageNotice({
@@ -684,6 +689,7 @@ export class Memory {
       }
     }
 
+    clearMeta();
     return {
       results: vectorStoreResult,
     };
@@ -696,9 +702,11 @@ export class Memory {
     infer: boolean,
   ): Promise<MemoryItem[]> {
     if (!infer) {
+      logger.info("addToVectorStore() → raw mode (infer=false) | messages=%d", messages.length);
       const returnedMemories: MemoryItem[] = [];
       for (const message of messages) {
         if (message.content === "system") {
+          logger.debug("addToVectorStore() → skipping system message");
           continue;
         }
         const memoryId = await this.createMemory(
@@ -712,6 +720,7 @@ export class Memory {
           metadata: { event: "ADD" },
         });
       }
+      logger.info("addToVectorStore() raw complete | created=%d", returnedMemories.length);
       return returnedMemories;
     }
 
@@ -767,7 +776,9 @@ export class Memory {
       customInstructions: this.customInstructions,
     });
 
+    logger.info("Phase 2: LLM extraction | existing_memories=%d messages=%d", existingMemories.length, parsedMessages.length);
     let response: string;
+    const llmStart = Date.now();
     try {
       response = (await this.llm.generateResponse(
         [
@@ -776,12 +787,16 @@ export class Memory {
         ],
         { type: "json_object" },
       )) as string;
+      const llmElapsed = Date.now() - llmStart;
+      logger.info("Phase 2: LLM response received | elapsed_ms=%d response_len=%d", llmElapsed, response?.length ?? 0);
     } catch (e) {
-      console.error("LLM extraction failed:", e);
+      const llmElapsed = Date.now() - llmStart;
+      logger.error("Phase 2: LLM extraction failed | elapsed_ms=%d", llmElapsed, { error: String(e) });
       return [];
     }
 
     // Parse response
+    logger.info("Phase 2: Parsing extraction response");
     let extractedMemories: Array<{
       id?: string;
       text?: string;
@@ -796,13 +811,18 @@ export class Memory {
             JSON.parse(cleanResponse),
           );
           extractedMemories = parsed.memory;
+          logger.info("Phase 2: Extraction successful | extracted=%d", extractedMemories.length);
         } catch {
           const fallbackJson = extractJson(cleanResponse);
           extractedMemories = JSON.parse(fallbackJson)?.memory ?? [];
+          logger.info("Phase 2: Extraction fallback successful | extracted=%d", extractedMemories.length);
         }
+      } else {
+        extractedMemories = [];
+        logger.info("Phase 2: Extraction skipped | reason=empty_response");
       }
     } catch (e) {
-      console.error("Error parsing extraction response:", e);
+      logger.error("Phase 2: Error parsing extraction response | error=%s", String(e));
       extractedMemories = [];
     }
 
@@ -822,25 +842,30 @@ export class Memory {
       return [];
     }
 
-    // Phase 3: Batch embed all extracted memory texts
+     // Phase 3: Batch embed all extracted memory texts
     const memTexts = extractedMemories
       .map((m) => m.text ?? "")
       .filter((t) => t.length > 0);
+    logger.info("Phase 3: Batch embedding | texts=%d", memTexts.length);
     let embedMap: Record<string, number[]> = {};
+    const embedStart = Date.now();
     try {
       const memEmbeddingsList = await this.embedder.embedBatch(memTexts);
       for (let i = 0; i < memTexts.length; i++) {
         embedMap[memTexts[i]] = memEmbeddingsList[i];
       }
+      logger.info("Phase 3: Batch embed success | count=%d elapsed_ms=%d", memTexts.length, Date.now() - embedStart);
     } catch {
       // Fallback: embed individually
+      logger.warn("Phase 3: Batch embed failed, falling back to individual");
       for (const text of memTexts) {
         try {
           embedMap[text] = await this.embedder.embed(text);
         } catch (e) {
-          console.warn(`Failed to embed memory text: ${e}`);
+          logger.warn("Phase 3: Failed to embed individual text", { error: String(e) });
         }
       }
+      logger.info("Phase 3: Individual embed complete | elapsed_ms=%d", Date.now() - embedStart);
     }
 
     // Phase 4-5: CPU processing + hash dedup
@@ -916,9 +941,14 @@ export class Memory {
     const allPayloads = records.map((r) => r.payload);
 
     try {
+      logger.info("Phase 6: Batch persist to vector store | count=%d", allIds.length);
       await this.vectorStore.insert(allVectors, allIds, allPayloads);
+      logger.info("Phase 6: Batch persist success");
     } catch {
+      logger.warn("Phase 6: Batch persist failed, falling back to individual inserts");
       // Fallback: insert one by one
+      let successCount = 0;
+      let failCount = 0;
       for (let i = 0; i < allIds.length; i++) {
         try {
           await this.vectorStore.insert(
@@ -926,10 +956,13 @@ export class Memory {
             [allIds[i]],
             [allPayloads[i]],
           );
+          successCount++;
         } catch (e) {
-          console.error(`Failed to insert memory ${allIds[i]}: ${e}`);
+          logger.error("Phase 6: Failed to insert individual memory | id=%s", { id: allIds[i], error: String(e) });
+          failCount++;
         }
       }
+      logger.info("Phase 6: Individual persist complete | success=%d failed=%d", successCount, failCount);
     }
 
     // Batch history
@@ -943,10 +976,13 @@ export class Memory {
       isDeleted: 0,
     }));
 
+    logger.info("Phase 6: Batch history to SQLite | count=%d", historyRecords.length);
     if (typeof this.db.batchAddHistory === "function") {
       try {
         await this.db.batchAddHistory(historyRecords);
+        logger.info("Phase 6: Batch history success");
       } catch {
+        logger.warn("Phase 6: Batch history failed, falling back to individual inserts");
         // Fallback: add one by one
         for (const hr of historyRecords) {
           try {
@@ -958,7 +994,7 @@ export class Memory {
               hr.createdAt,
             );
           } catch (e) {
-            console.error(`Failed to add history for ${hr.memoryId}: ${e}`);
+            logger.error("Phase 6: Failed to add history | memory_id=%s", { memory_id: hr.memoryId, error: String(e) });
           }
         }
       }
@@ -973,15 +1009,18 @@ export class Memory {
             hr.createdAt,
           );
         } catch (e) {
-          console.error(`Failed to add history for ${hr.memoryId}: ${e}`);
+          logger.error("Phase 6: Failed to add history | memory_id=%s", { memory_id: hr.memoryId, error: String(e) });
         }
       }
     }
 
     // Phase 7: Batch entity linking
+    logger.info("Phase 7: Batch entity linking | records=%d", records.length);
     try {
       const allTexts = records.map((r) => r.text);
       const allEntities = extractEntitiesBatch(allTexts);
+      const totalEntities = allEntities.reduce((sum, entities) => sum + entities.length, 0);
+      logger.info("Phase 7: Entity extraction complete | total_entities=%d", totalEntities);
 
       // 7a: Global dedup — collect unique entities across all memories
       const globalEntities: Record<
@@ -1011,12 +1050,15 @@ export class Memory {
           (k) => globalEntities[k].entityText,
         );
 
-        // 7b: Single batch embed for all unique entities
+         // 7b: Single batch embed for all unique entities
+        logger.info("Phase 7: Embedding entities | count=%d", entityTexts.length);
         let entityEmbeddings: (number[] | null)[];
         try {
           entityEmbeddings = await this.embedder.embedBatch(entityTexts);
+          logger.info("Phase 7: Entity embed success | count=%d", entityEmbeddings.length);
         } catch {
           // Fallback: embed individually
+          logger.warn("Phase 7: Batch entity embed failed, falling back");
           entityEmbeddings = [];
           for (const t of entityTexts) {
             try {
@@ -1066,7 +1108,7 @@ export class Memory {
               try {
                 await entityStore.update(match.id, entityVec, payload);
               } catch (e) {
-                console.debug(`Entity update failed for '${entityText}': ${e}`);
+                logger.debug("Phase 7: Entity update failed", { entity: entityText, error: String(e) });
               }
             } else {
               // New entity — collect for batch insert
@@ -1085,22 +1127,25 @@ export class Memory {
             }
           }
 
-          // 7e: Single batch insert for all new entities
+           // 7e: Single batch insert for all new entities
           if (toInsertVectors.length > 0) {
+            logger.info("Phase 7: Inserting entities | count=%d", toInsertVectors.length);
             try {
               await entityStore.insert(
                 toInsertVectors,
                 toInsertIds,
                 toInsertPayloads,
               );
+              logger.info("Phase 7: Entity batch insert success");
             } catch (e) {
-              console.warn(`Batch entity insert failed: ${e}`);
+              logger.warn("Phase 7: Entity batch insert failed", { error: String(e) });
             }
           }
         }
       }
+      logger.info("Phase 7: Batch entity linking complete");
     } catch (e) {
-      console.warn(`Batch entity linking failed: ${e}`);
+      logger.warn("Phase 7: Batch entity linking failed", { error: String(e) });
     }
 
     // Phase 8: Save messages + return

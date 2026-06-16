@@ -65,6 +65,12 @@ from mem0.utils.factory import (
     VectorStoreFactory,
 )
 from mem0.utils.lemmatization import lemmatize_for_bm25
+from mem0.utils.logger import (
+    clear_op_ctx,
+    op_context,
+    op_logger,
+    set_op_ctx,
+)
 from mem0.utils.scoring import (
     ENTITY_BOOST_WEIGHT,
     get_bm25_params,
@@ -79,6 +85,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*swigva
 
 # Initialize logger early for util functions
 logger = logging.getLogger(__name__)
+_op_logger = op_logger(__name__, "main")
 
 
 # Fields that hold runtime auth/connection objects and must be preserved.
@@ -418,17 +425,32 @@ class _AsyncOSSProject:
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
+        init_start = time.perf_counter()
+
+        logger.info(
+            "Initializing Memory | provider=%s dimension=%s",
+            config.embedder.provider,
+            getattr(config.embedder.config, "model_name", getattr(config.embedder.config, "dimension", "auto")),
+        )
 
         self.embedding_model = EmbedderFactory.create(
             self.config.embedder.provider,
             self.config.embedder.config,
             self.config.vector_store.config,
         )
+        logger.info("Embedder created | provider=%s", config.embedder.provider)
+
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
+        logger.info("Vector store created | provider=%s collection=%s", config.vector_store.provider, self.collection_name if hasattr(self, 'collection_name') else config.vector_store.config.collection_name)
+
         self.llm = LlmFactory.create(self.config.llm.provider, self.config.llm.config)
+        logger.info("LLM created | provider=%s", config.llm.provider)
+
         self.db = SQLiteManager(self.config.history_db_path)
+        logger.info("SQLite history manager initialized | path=%s", self.config.history_db_path)
+
         self.collection_name = self.config.vector_store.config.collection_name
         self.api_version = self.config.version
         self.custom_instructions = self.config.custom_instructions
@@ -440,9 +462,13 @@ class Memory(MemoryBase):
                 config.reranker.provider,
                 config.reranker.config
             )
+            logger.info("Reranker created | provider=%s", config.reranker.provider)
 
         # Entity store is initialized lazily on first use
         self._entity_store = None
+
+        elapsed_ms = (time.perf_counter() - init_start) * 1000
+        logger.info("Memory initialization complete | elapsed_ms=%.1f", elapsed_ms)
 
         if MEM0_TELEMETRY:
             # Create telemetry config manually to avoid deepcopy issues with thread locks
@@ -714,6 +740,21 @@ class Memory(MemoryBase):
             LLMError: If LLM operations fail.
             DatabaseError: If database operations fail.
         """
+        overall_start = time.perf_counter()
+
+        with op_context(
+            operation="add",
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            infer=str(infer),
+        ):
+            logger.info(
+                "add() called | messages=%d user_id=%s agent_id=%s run_id=%s infer=%s",
+                1 if isinstance(messages, str) else len(messages),
+                user_id, agent_id, run_id, infer,
+            )
+
         if timestamp is not None:
             raise ValueError(get_temporal_feature_error_message("sync", "add", "timestamp"))
 
@@ -724,6 +765,12 @@ class Memory(MemoryBase):
             run_id=run_id,
             project=project,
             input_metadata=metadata,
+        )
+        set_op_ctx(
+            user_id=user_id,
+            agent_id=agent_id,
+            run_id=run_id,
+            project=project,
         )
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
@@ -749,6 +796,7 @@ class Memory(MemoryBase):
             )
 
         if agent_id is not None and memory_type == MemoryType.PROCEDURAL.value:
+            logger.info("add() → procedural memory path | agent_id=%s", agent_id)
             results = self._create_procedural_memory(messages, metadata=processed_metadata, prompt=prompt)
             scale_threshold_notice = detect_scale_threshold_from_add_result(self, results)
             if temporal_usage_notice:
@@ -757,10 +805,14 @@ class Memory(MemoryBase):
                 display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
             else:
                 display_first_run_notice(self, "sync", "add")
+            elapsed_ms = (time.perf_counter() - overall_start) * 1000
+            logger.info("add() complete (procedural) | elapsed_ms=%.1f result_count=%d", elapsed_ms, len(results.get("results", [])))
+            clear_op_ctx()
             return results
 
         if self.config.llm.config.get("enable_vision"):
             messages = parse_vision_messages(messages, self.llm, self.config.llm.config.get("vision_details"))
+            logger.info("add() → vision mode enabled")
         else:
             messages = parse_vision_messages(messages)
 
@@ -772,10 +824,21 @@ class Memory(MemoryBase):
             display_scale_threshold_notice(self, "sync", "add", *scale_threshold_notice)
         else:
             display_first_run_notice(self, "sync", "add")
+
+        elapsed_ms = (time.perf_counter() - overall_start) * 1000
+        logger.info(
+            "add() complete | elapsed_ms=%.1f results=%d",
+            elapsed_ms,
+            len(vector_store_result),
+        )
+        clear_op_ctx()
         return {"results": vector_store_result}
 
     def _add_to_vector_store(self, messages, metadata, filters, infer, prompt=None):
+        pipeline_start = time.perf_counter()
+
         if not infer:
+            logger.info("add() → raw mode (infer=False) | msg_count=%d", len(messages))
             returned_memories = []
             for message_dict in messages:
                 if (
@@ -783,10 +846,11 @@ class Memory(MemoryBase):
                     or message_dict.get("role") is None
                     or message_dict.get("content") is None
                 ):
-                    logger.warning(f"Skipping invalid message format: {message_dict}")
+                    logger.warning("Skipping invalid message format: %s", message_dict)
                     continue
 
                 if message_dict["role"] == "system":
+                    logger.debug("Skipping system message")
                     continue
 
                 per_msg_meta = deepcopy(metadata)
@@ -809,16 +873,23 @@ class Memory(MemoryBase):
                         "role": message_dict["role"],
                     }
                 )
+            logger.info("add() raw complete | created=%d", len(returned_memories))
             return returned_memories
 
         # === V3 PHASED BATCH PIPELINE ===
 
         # Phase 0: Context gathering
+        logger.info("Phase 0: Context gathering | filters=%s", dict(filters))
         session_scope = _build_session_scope(filters)
         last_messages = self.db.get_last_messages(session_scope, limit=10)
         parsed_messages = parse_messages(messages)
+        logger.info(
+            "Phase 0 complete | last_messages_count=%d parsed_len=%d elapsed_ms=%.1f",
+            len(last_messages), len(parsed_messages), (time.perf_counter() - pipeline_start) * 1000,
+        )
 
         # Phase 1: Existing memory retrieval
+        logger.info("Phase 1: Existing memory retrieval")
         search_filters = {k: v for k, v in filters.items() if k in ("user_id", "agent_id", "run_id") and v}
         query_embedding = self.embedding_model.embed(parsed_messages, "search")
         existing_results = self.vector_store.search(
@@ -834,6 +905,10 @@ class Memory(MemoryBase):
         for idx, mem in enumerate(existing_results):
             uuid_mapping[str(idx)] = mem.id
             existing_memories.append({"id": str(idx), "text": mem.payload.get("data", "")})
+        logger.info(
+            "Phase 1 complete | existing_memories_found=%d elapsed_ms=%.1f",
+            len(existing_results), (time.perf_counter() - pipeline_start) * 1000,
+        )
 
         # Phase 2: LLM extraction (single call)
         is_agent_scoped = bool(filters.get("agent_id")) and not filters.get("user_id")
@@ -850,6 +925,9 @@ class Memory(MemoryBase):
             custom_instructions=custom_instr,
         )
 
+        logger.info("Phase 2: LLM extraction | existing_memories=%d new_messages=%d agent_scoped=%s", len(existing_memories), len(parsed_messages), is_agent_scoped)
+        llm_start = time.perf_counter()
+
         try:
             response = self.llm.generate_response(
                 messages=[
@@ -858,24 +936,33 @@ class Memory(MemoryBase):
                 ],
                 response_format={"type": "json_object"},
             )
+            llm_elapsed_ms = (time.perf_counter() - llm_start) * 1000
+            logger.info("Phase 2: LLM response received | elapsed_ms=%.1f response_len=%d", llm_elapsed_ms, len(response) if response else 0)
         except Exception as e:
-            logger.error(f"LLM extraction failed: {e}")
+            logger.error("LLM extraction failed | elapsed_ms=%.1f error=%s", (time.perf_counter() - llm_start) * 1000, e)
             return []
 
         # Parse response
+        parse_start = time.perf_counter()
         try:
             response = remove_code_blocks(response)
             if not response or not response.strip():
                 extracted_memories = []
+                logger.info("Phase 2 complete | extracted=0 reason=empty_response elapsed_ms=%.1f", (time.perf_counter() - parse_start) * 1000)
             else:
                 try:
                     extracted_memories = json.loads(response, strict=False).get("memory", [])
                 except json.JSONDecodeError:
                     extracted_json = extract_json(response)
                     extracted_memories = json.loads(extracted_json, strict=False).get("memory", [])
+            logger.info(
+                "Phase 2 complete | extracted=%d parse_elapsed_ms=%.1f",
+                len(extracted_memories), (time.perf_counter() - parse_start) * 1000,
+            )
         except Exception as e:
-            logger.error(f"Error parsing extraction response: {e}")
+            logger.error("Error parsing extraction response | error=%s", e)
             extracted_memories = []
+            logger.info("Phase 2 complete | extracted=0 reason=parse_error elapsed_ms=%.1f", (time.perf_counter() - llm_start) * 1000)
 
         if not extracted_memories:
             # Save messages even if nothing extracted
@@ -884,17 +971,27 @@ class Memory(MemoryBase):
 
         # Phase 3: Batch embed all extracted memory texts
         mem_texts = [m.get("text", "") for m in extracted_memories if m.get("text")]
+        logger.info("Phase 3: Batch embedding | texts_count=%d", len(mem_texts))
+        embed_start = time.perf_counter()
         try:
             mem_embeddings_list = self.embedding_model.embed_batch(mem_texts, "add")
             embed_map = dict(zip(mem_texts, mem_embeddings_list))
+            logger.info("Phase 3 complete | batch_success=%d elapsed_ms=%.1f", len(mem_embeddings_list), (time.perf_counter() - embed_start) * 1000)
         except Exception:
             # Fallback: embed individually
+            logger.warning("Phase 3 batch embed failed, falling back to individual embeddings")
             embed_map = {}
+            fallback_count = 0
             for text in mem_texts:
                 try:
                     embed_map[text] = self.embedding_model.embed(text, "add")
+                    fallback_count += 1
                 except Exception as e:
-                    logger.warning(f"Failed to embed memory text: {e}")
+                    logger.warning("Failed to embed memory text: %s", e)
+            logger.info(
+                "Phase 3 complete | method=fallback success=%d total=%d elapsed_ms=%.1f",
+                fallback_count, len(mem_texts), (time.perf_counter() - embed_start) * 1000,
+            )
 
         # Phase 4: Per-memory CPU processing + Phase 5: Hash dedup
         # Build set of existing hashes for dedup
@@ -906,6 +1003,7 @@ class Memory(MemoryBase):
 
         records = []  # (memory_id, text, embedding, payload)
         seen_hashes = set()  # dedup within the current batch
+        duplicates_skipped = 0
         for mem in extracted_memories:
             text = mem.get("text")
             if not text or text not in embed_map:
@@ -913,7 +1011,8 @@ class Memory(MemoryBase):
 
             mem_hash = hashlib.md5(text.encode()).hexdigest()
             if mem_hash in existing_hashes or mem_hash in seen_hashes:
-                logger.debug(f"Skipping duplicate memory (hash match): {text[:50]}")
+                duplicates_skipped += 1
+                logger.debug("Skipping duplicate memory (hash match): %s", text[:50])
                 continue
             seen_hashes.add(mem_hash)
 
@@ -932,11 +1031,18 @@ class Memory(MemoryBase):
 
             records.append((memory_id, text, embed_map[text], mem_metadata))
 
+        logger.info(
+            "Phase 4-5 complete | extracted=%d records=%d duplicates_skipped=%d existing_hashes=%d",
+            len(extracted_memories), len(records), duplicates_skipped, len(existing_hashes),
+        )
+
         if not records:
             self.db.save_messages(messages, session_scope)
             return []
 
         # Phase 6: Batch persist
+        logger.info("Phase 6: Batch persist to vector store | records=%d", len(records))
+        persist_start = time.perf_counter()
         all_vectors = [r[2] for r in records]
         all_ids = [r[0] for r in records]
         all_payloads = [r[3] for r in records]
@@ -947,13 +1053,23 @@ class Memory(MemoryBase):
                 ids=all_ids,
                 payloads=all_payloads,
             )
+            logger.info("Phase 6 complete | batch_insert_success=%d elapsed_ms=%.1f", len(records), (time.perf_counter() - persist_start) * 1000)
         except Exception:
             # Fallback: insert one by one
+            logger.warning("Phase 6 batch insert failed, falling back to individual inserts")
+            success_count = 0
+            fail_count = 0
             for mid, vec, pay in zip(all_ids, all_vectors, all_payloads):
                 try:
                     self.vector_store.insert(vectors=[vec], ids=[mid], payloads=[pay])
+                    success_count += 1
                 except Exception as e:
-                    logger.error(f"Failed to insert memory {mid}: {e}")
+                    logger.error("Failed to insert memory %s: %s", mid, e)
+                    fail_count += 1
+            logger.info(
+                "Phase 6 complete | method=fallback success=%d failed=%d total=%d elapsed_ms=%.1f",
+                success_count, fail_count, len(records), (time.perf_counter() - persist_start) * 1000,
+            )
 
         # Batch history
         history_records = [
@@ -967,20 +1083,30 @@ class Memory(MemoryBase):
             }
             for r in records
         ]
+        logger.info("Phase 6: Batch history to SQLite | records=%d", len(history_records))
+        history_start = time.perf_counter()
         try:
             self.db.batch_add_history(history_records)
+            logger.info("Phase 6 history complete | elapsed_ms=%.1f", (time.perf_counter() - history_start) * 1000)
         except Exception:
-            # Fallback: add one by one
+            logger.warning("Phase 6 batch history failed, falling back to individual inserts")
+            success_count = 0
             for hr in history_records:
                 try:
                     self.db.add_history(hr["memory_id"], None, hr["new_memory"], "ADD", created_at=hr.get("created_at"))
+                    success_count += 1
                 except Exception as e:
-                    logger.error(f"Failed to add history for {hr['memory_id']}: {e}")
+                    logger.error("Failed to add history for %s: %s", hr["memory_id"], e)
+            logger.info("Phase 6 history complete | method=fallback success=%d total=%d", success_count, len(history_records))
 
         # Phase 7: Batch entity linking
+        logger.info("Phase 7: Batch entity linking | records=%d", len(records))
+        entity_start = time.perf_counter()
         try:
             all_texts = [r[1] for r in records]
             all_entities = extract_entities_batch(all_texts)
+            total_entities = sum(len(entities) for entities in all_entities)
+            logger.info("Phase 7: Entity extraction complete | total_entities=%d", total_entities)
 
             # 7a: Global dedup — collect unique entities across all memories
             global_entities = {}  # normalized_key -> (entity_type, entity_text, set of memory_ids)
@@ -996,12 +1122,21 @@ class Memory(MemoryBase):
             if global_entities:
                 ordered_keys = list(global_entities.keys())
                 entity_texts = [global_entities[k][1] for k in ordered_keys]
+                unique_entities_count = len(entity_texts)
+                logger.info(
+                    "Phase 7: Global dedup complete | unique_entities=%d total_extracted=%d",
+                    unique_entities_count, total_entities,
+                )
 
                 # 7b: Single batch embed for all unique entities
+                entity_embed_start = time.perf_counter()
                 try:
                     entity_embeddings = self.embedding_model.embed_batch(entity_texts, "add")
+                    entity_embed_elapsed = (time.perf_counter() - entity_embed_start) * 1000
+                    logger.info("Phase 7: Entity embedding complete | count=%d elapsed_ms=%.1f", len(entity_embeddings), entity_embed_elapsed)
                 except Exception:
                     # Fallback: embed individually, use None for failures
+                    logger.warning("Phase 7 batch entity embed failed, falling back")
                     entity_embeddings = []
                     for t in entity_texts:
                         try:
@@ -1011,6 +1146,7 @@ class Memory(MemoryBase):
 
                 # Filter out entities with failed embeddings
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
+                entity_insert_start = time.perf_counter()
                 if valid:
                     valid_indices, valid_keys = zip(*valid)
                     valid_vectors = [entity_embeddings[i] for i in valid_indices]
@@ -1023,9 +1159,15 @@ class Memory(MemoryBase):
                         top_k=1,
                         filters=search_filters,
                     )
+                    logger.info(
+                        "Phase 7: Entity search complete | unique_entities=%d",
+                        len(valid_keys),
+                    )
 
                     # 7d: Separate into inserts vs updates
                     to_insert_vectors, to_insert_ids, to_insert_payloads = [], [], []
+                    entities_updated = 0
+                    entities_inserted = 0
                     for j, key in enumerate(valid_keys):
                         entity_type, entity_text, memory_ids = global_entities[key]
                         matches = existing_matches[j] if j < len(existing_matches) else []
@@ -1043,8 +1185,9 @@ class Memory(MemoryBase):
                                     vector=None,
                                     payload=payload,
                                 )
+                                entities_updated += 1
                             except Exception as e:
-                                logger.debug(f"Entity update failed for '{entity_text}': {e}")
+                                logger.debug("Entity update failed for '%s': %s", entity_text, e)
                         else:
                             # New entity — collect for batch insert
                             to_insert_vectors.append(valid_vectors[j])
@@ -1055,6 +1198,12 @@ class Memory(MemoryBase):
                                 "linked_memory_ids": sorted(memory_ids),
                                 **search_filters,
                             })
+                            entities_inserted += 1
+
+                    logger.info(
+                        "Phase 7: Entity classify complete | updated=%d new=%d",
+                        entities_updated, entities_inserted,
+                    )
 
                     # 7e: Single batch insert for all new entities
                     if to_insert_vectors:
@@ -1064,12 +1213,17 @@ class Memory(MemoryBase):
                                 ids=to_insert_ids,
                                 payloads=to_insert_payloads,
                             )
+                            logger.info("Phase 7: Entity batch insert complete | count=%d elapsed_ms=%.1f", len(to_insert_vectors), (time.perf_counter() - entity_insert_start) * 1000)
                         except Exception as e:
-                            logger.warning(f"Batch entity insert failed: {e}")
+                            logger.warning("Batch entity insert failed: %s", e)
+
+                elapsed_ms = (time.perf_counter() - entity_start) * 1000
+                logger.info("Phase 7 complete | elapsed_ms=%.1f", elapsed_ms)
         except Exception as e:
-            logger.warning(f"Batch entity linking failed: {e}")
+            logger.warning("Batch entity linking failed: %s", e)
 
         # Phase 8: Save messages + return
+        logger.info("Phase 8: Saving session messages to SQLite")
         self.db.save_messages(messages, session_scope)
 
         returned_memories = [
@@ -1095,11 +1249,19 @@ class Memory(MemoryBase):
         Returns:
             dict: Retrieved memory.
         """
+        start = time.perf_counter()
+        logger.info("get() called | memory_id=%s", memory_id)
+
         capture_event("mem0.get", self, {"memory_id": memory_id, "sync_type": "sync"})
         memory = self.vector_store.get(vector_id=memory_id)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+
         if not memory:
+            logger.info("get() not found | memory_id=%s elapsed_ms=%.1f", memory_id, elapsed_ms)
             display_first_run_notice(self, "sync", "get")
             return None
+
+        logger.info("get() found | memory_id=%s elapsed_ms=%.1f", memory_id, elapsed_ms)
 
         promoted_payload_keys = [
             "user_id",
@@ -1195,12 +1357,17 @@ class Memory(MemoryBase):
         limit = top_k
         scale_threshold_notice = detect_scale_threshold_from_top_k(top_k)
 
+        logger.info("get_all() called | filters=%s top_k=%d", dict(effective_filters), top_k)
+        start = time.perf_counter()
+
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.get_all", self, {"limit": limit, "keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"}
         )
 
         all_memories_result = self._get_all_from_vector_store(effective_filters, limit)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("get_all() complete | results=%d elapsed_ms=%.1f", len(all_memories_result), elapsed_ms)
 
         if scale_threshold_notice:
             display_scale_threshold_notice(self, "sync", "get_all", *scale_threshold_notice)
@@ -1362,6 +1529,20 @@ class Memory(MemoryBase):
                     effective_filters.pop(fk, None)
             effective_filters.update(processed_filters)
 
+        with op_context(
+            operation="search",
+            user_id=effective_filters.get("user_id"),
+            agent_id=effective_filters.get("agent_id"),
+            run_id=effective_filters.get("run_id"),
+            query=query[:50] if len(query) > 50 else query,
+            top_k=str(top_k),
+            threshold=str(threshold),
+        ):
+            logger.info(
+                "search() called | query_len=%d top_k=%d threshold=%s filters=%s",
+                len(query), top_k, threshold, dict(effective_filters),
+            )
+
         keys, encoded_ids = process_telemetry_filters(effective_filters)
         capture_event(
             "mem0.search",
@@ -1379,16 +1560,28 @@ class Memory(MemoryBase):
         )
 
         search_start = time.perf_counter()
+        logger.info("search() → vector store query | query_len=%d", len(query))
         original_memories = self._search_vector_store(query, effective_filters, limit, threshold, explain=explain)
         search_elapsed_seconds = time.perf_counter() - search_start
 
+        logger.info(
+            "search() complete | query_len=%d results=%d elapsed_s=%.3f threshold=%s",
+            len(query), len(original_memories), search_elapsed_seconds, threshold,
+        )
+
         # Apply reranking if enabled and reranker is available
         if rerank and self.reranker and original_memories:
+            logger.info("search() → reranking enabled | input_results=%d", len(original_memories))
+            rerank_start = time.perf_counter()
             try:
                 reranked_memories = self.reranker.rerank(query, original_memories, limit)
                 original_memories = reranked_memories
+                logger.info(
+                    "search() rerank complete | elapsed_ms=%.1f final_results=%d",
+                    (time.perf_counter() - rerank_start) * 1000, len(original_memories),
+                )
             except Exception as e:
-                logger.warning(f"Reranking failed, using original results: {e}")
+                logger.warning("Reranking failed, using original results: %s", e)
 
         if temporal_usage_notice:
             display_temporal_usage_notice(self, "sync", "search", *temporal_usage_notice)
@@ -1405,6 +1598,8 @@ class Memory(MemoryBase):
             )
         else:
             display_first_run_notice(self, "sync", "search")
+
+        clear_op_ctx()
         return {"results": original_memories}
 
     def _process_metadata_filters(self, metadata_filters: Dict[str, Any]) -> Dict[str, Any]:
@@ -1516,9 +1711,15 @@ class Memory(MemoryBase):
         if threshold is None:
             threshold = 0.1
 
+        search_pipeline_start = time.perf_counter()
+
         # Step 1: Preprocess query
         query_lemmatized = lemmatize_for_bm25(query)
         query_entities = extract_entities(query)
+        logger.info(
+            "_search_vector_store | query_len=%d entities=%d internal_limit=%d threshold=%s",
+            len(query), len(query_entities), max(limit * 4, 60), threshold,
+        )
 
         # Step 2: Embed query
         embeddings = self.embedding_model.embed(query, "search")
@@ -1527,6 +1728,11 @@ class Memory(MemoryBase):
         internal_limit = max(limit * 4, 60)
         semantic_results = self.vector_store.search(
             query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+        )
+        logger.info(
+            "_search_vector_store | semantic_results=%d keyword_support=%s",
+            len(semantic_results),
+            "yes" if hasattr(self.vector_store, 'keyword_search') and self.vector_store.keyword_search is not VectorStoreBase.keyword_search else "no",
         )
 
         # Step 4: Keyword search (if store supports it)
@@ -1543,11 +1749,13 @@ class Memory(MemoryBase):
                 raw_score = mem.score if hasattr(mem, 'score') else mem.get('score', 0)
                 if raw_score and raw_score > 0:
                     bm25_scores[mem_id] = normalize_bm25(raw_score, midpoint, steepness)
+            logger.info("_search_vector_store | bm25_scored=%d", len(bm25_scores))
 
         # Step 6: Compute entity boosts
         entity_boosts = {}
         if query_entities:
             entity_boosts = self._compute_entity_boosts(query_entities, filters)
+            logger.info("_search_vector_store | entity_boosts=%d", len(entity_boosts))
 
         # Step 7: Build candidate set from semantic results
         candidates = []
@@ -1710,11 +1918,18 @@ class Memory(MemoryBase):
             >>> m.update(memory_id="mem_123", data="Likes to play tennis on weekends")
             {'message': 'Memory updated successfully!'}
         """
+        start = time.perf_counter()
+        logger.info("update() called | memory_id=%s data_len=%d", memory_id, len(data))
+
         capture_event("mem0.update", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         existing_embeddings = {data: self.embedding_model.embed(data, "update")}
+        logger.info("update() embed complete | memory_id=%s", memory_id)
 
         self._update_memory(memory_id, data, existing_embeddings, metadata)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("update() complete | memory_id=%s elapsed_ms=%.1f", memory_id, elapsed_ms)
+
         display_first_run_notice(self, "sync", "update")
         return {"message": "Memory updated successfully!"}
 
@@ -1725,13 +1940,20 @@ class Memory(MemoryBase):
         Args:
             memory_id (str): ID of the memory to delete.
         """
+        start = time.perf_counter()
+        logger.info("delete() called | memory_id=%s", memory_id)
+
         capture_event("mem0.delete", self, {"memory_id": memory_id, "sync_type": "sync"})
 
         existing_memory = self.vector_store.get(vector_id=memory_id)
         if existing_memory is None:
+            logger.warning("delete() memory not found | memory_id=%s", memory_id)
             raise ValueError(f"Memory with id {memory_id} not found")
 
         self._delete_memory(memory_id, existing_memory)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("delete() complete | memory_id=%s elapsed_ms=%.1f", memory_id, elapsed_ms)
+
         decay_usage_notice = detect_decay_usage_from_delete()
         if decay_usage_notice:
             display_decay_usage_notice(self, "sync", "delete", *decay_usage_notice)
@@ -1748,6 +1970,9 @@ class Memory(MemoryBase):
             agent_id (str, optional): ID of the agent to delete memories for. Defaults to None.
             run_id (str, optional): ID of the run to delete memories for. Defaults to None.
         """
+        start = time.perf_counter()
+        logger.info("delete_all() called | user_id=%s agent_id=%s run_id=%s", user_id, agent_id, run_id)
+
         filters: Dict[str, Any] = {}
         if user_id:
             filters["user_id"] = user_id
@@ -1765,10 +1990,14 @@ class Memory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "sync"})
         # delete all vector memories and reset the collections
         memories = self.vector_store.list(filters=filters)[0]
-        for memory in memories:
+        logger.info("delete_all() found %d memories for deletion", len(memories))
+        for i, memory in enumerate(memories):
             self._delete_memory(memory.id)
+            if (i + 1) % 100 == 0:
+                logger.info("delete_all() progress | deleted=%d/%d", i + 1, len(memories))
 
-        logger.info(f"Deleted {len(memories)} memories")
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("delete_all() complete | deleted=%d elapsed_ms=%.1f", len(memories), elapsed_ms)
 
         decay_usage_notice = detect_decay_usage_from_delete_all(len(memories))
         if decay_usage_notice:
@@ -1787,8 +2016,14 @@ class Memory(MemoryBase):
         Returns:
             list: List of changes for the memory.
         """
+        start = time.perf_counter()
+        logger.info("history() called | memory_id=%s", memory_id)
+
         capture_event("mem0.history", self, {"memory_id": memory_id, "sync_type": "sync"})
         history = self.db.get_history(memory_id)
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info("history() complete | memory_id=%s records=%d elapsed_ms=%.1f", memory_id, len(history), elapsed_ms)
+
         display_first_run_notice(self, "sync", "history")
         return history
 
@@ -1959,32 +2194,48 @@ class Memory(MemoryBase):
             Resets the database
             Recreates the vector store with a new client
         """
-        logger.warning("Resetting all memories")
+        logger.warning("reset() called | clearing all memory")
+        start = time.perf_counter()
 
         if hasattr(self.db, "connection") and self.db.connection:
+            logger.info("reset() clearing SQLite history")
             self.db.connection.execute("DROP TABLE IF EXISTS history")
             self.db.connection.close()
 
         self.db = SQLiteManager(self.config.history_db_path)
+        logger.info("reset() SQLite recreated")
 
         if hasattr(self.vector_store, "reset"):
+            logger.info("reset() using vector store reset() method")
             self.vector_store = VectorStoreFactory.reset(self.vector_store)
         else:
-            logger.warning("Vector store does not support reset. Skipping.")
+            logger.warning("Vector store does not support reset. Deleting collection and recreating.")
             self.vector_store.delete_col()
             self.vector_store = VectorStoreFactory.create(
                 self.config.vector_store.provider, self.config.vector_store.config
             )
         # Reset entity store if initialized
         if self._entity_store is not None:
+            logger.info("reset() clearing entity store")
             try:
                 self._entity_store.reset()
             except Exception as e:
-                logger.warning(f"Failed to reset entity store: {e}")
+                logger.warning("Failed to reset entity store: %s", e)
             self._entity_store = None
+
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.warning("reset() complete | elapsed_ms=%.1f", elapsed_ms)
 
         capture_event("mem0.reset", self, {"sync_type": "sync"})
         display_first_run_notice(self, "sync", "reset")
+
+    def close(self):
+        """Release resources held by this Memory instance (SQLite connections, etc.)."""
+        logger.info("close() called")
+        if hasattr(self, "db") and self.db is not None:
+            self.db.close()
+            self.db = None
+        logger.info("close() complete")
 
     def close(self):
         """Release resources held by this Memory instance (SQLite connections, etc.)."""
