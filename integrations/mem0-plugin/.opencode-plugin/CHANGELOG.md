@@ -19,6 +19,7 @@ All notable changes to the `@mem0/opencode-plugin` will be documented in this fi
 ### Fixed
 
 - **Skill loading now actually works (and is efficient).** OpenCode has no `skills.paths` config field, so the previous `config`-hook approach was a no-op — skills were never discovered. The plugin now installs its skills into OpenCode's global skills directory (`~/.config/opencode/skills/`, version-gated so it copies once per version), where OpenCode natively discovers and lazy-loads them via its `skill` tool. Skills use valid OpenCode names (`mem0-<skill>`, matching `^[a-z0-9]+(-[a-z0-9]+)*$` and the directory name); slash commands are `/mem0-<skill>`.
+- **Skills install for both OpenCode config dirs.** The installer targets the XDG dir (`~/.config/opencode/skills/`) **and** the legacy `~/.opencode/skills/` — some OpenCode installs read the legacy dir, where skills previously never appeared. (XDG always; `~/.opencode` only when it exists.)
 - **Error-pattern lookup** in `tool.execute.after` no longer issues two identical `mem0.search()` calls; it now performs a single `topK: 6` search.
 - Corrected the documented system-prompt hook name from `experimental.chat.system.transform` to the actual `experimental.chat.messages.transform`.
 

@@ -25,6 +25,7 @@ import {
   DREAM_PROTOCOL,
 } from "./dream";
 import {asScope, scopeSearchFilters, scopeWriteParams, SCOPE_GUIDANCE} from "./scope";
+import {resolveSkillInstallDirs} from "./paths";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -313,29 +314,30 @@ const Mem0Plugin: Plugin = async (ctx) => {
     }
   }
 
-  // Install bundled skills into OpenCode's global skills dir
-  // (~/.config/opencode/skills) so OpenCode natively discovers and lazy-loads
-  // them via its `skill` tool. Version-gated: copies once per plugin version,
-  // then no-ops on subsequent startups. (OpenCode has no `skills.paths` config
-  // field — discovery is directory-based, so the skills must live there.)
+  // Install bundled skills into OpenCode's global skills dir(s) so OpenCode
+  // natively discovers and lazy-loads them via its `skill` tool. Targets both
+  // the XDG dir (~/.config/opencode) and the legacy ~/.opencode, since
+  // OpenCode's config home differs by version. Version-gated per dir: copies
+  // once per plugin version, then no-ops on subsequent startups. (OpenCode has
+  // no `skills.paths` config field — discovery is directory-based.)
   function installSkills(srcSkills: string, pluginDir: string): void {
     if (!existsSync(srcSkills)) return;
-    const cfgHome = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
-    const destSkills = join(cfgHome, "opencode", "skills");
-    const marker = join(destSkills, ".mem0-plugin-version");
     const version = pluginVersion(pluginDir);
-    try {
-      if (existsSync(marker) && readFileSync(marker, "utf8").trim() === version) return;
-    } catch {
-    }
-    try {
-      mkdirSync(destSkills, {recursive: true});
-      for (const entry of readdirSync(srcSkills, {withFileTypes: true})) {
-        if (!entry.isDirectory()) continue;
-        cpSync(resolve(srcSkills, entry.name), join(destSkills, entry.name), {recursive: true});
+    for (const destSkills of resolveSkillInstallDirs()) {
+      const marker = join(destSkills, ".mem0-plugin-version");
+      try {
+        if (existsSync(marker) && readFileSync(marker, "utf8").trim() === version) continue;
+      } catch {
       }
-      writeFileSync(marker, version);
-    } catch {
+      try {
+        mkdirSync(destSkills, {recursive: true});
+        for (const entry of readdirSync(srcSkills, {withFileTypes: true})) {
+          if (!entry.isDirectory()) continue;
+          cpSync(resolve(srcSkills, entry.name), join(destSkills, entry.name), {recursive: true});
+        }
+        writeFileSync(marker, version);
+      } catch {
+      }
     }
   }
 
