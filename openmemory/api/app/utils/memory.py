@@ -36,11 +36,13 @@ from urllib.parse import urlsplit
 
 from app.database import SessionLocal
 from app.models import Config as ConfigModel
+from app.utils.env import is_local_only
 
 from mem0 import Memory
 
 _memory_client = None
 _config_hash = None
+_client_is_local_only = None  # is_local_only() state when _memory_client was last built
 
 
 def _get_config_hash(config_dict):
@@ -147,13 +149,6 @@ def reset_memory_client():
 # (mis)configured for OpenAI/Anthropic/etc.
 
 
-def is_local_only() -> bool:
-    """True when the team fail-closed mode is active (``MEM0_LOCAL_ONLY``)."""
-    return (os.environ.get("MEM0_LOCAL_ONLY") or "").strip().lower() in (
-        "1", "true", "yes", "on",
-    )
-
-
 def _host_of(url):
     """Extract the lowercase hostname from a URL (empty string on failure)."""
     if not url:
@@ -184,8 +179,14 @@ def _is_private_host(host: str) -> bool:
     except ValueError:
         pass
     # Bare single-label hostname (no dots) -> Docker/compose service name.
+    # Explicitly block known cloud provider names that happen to have no dots
+    # (e.g. a typo like "openai" would otherwise pass as a "service name").
+    _CLOUD_BARE_NAMES = frozenset({
+        "openai", "anthropic", "gemini", "groq", "together", "azure",
+        "cohere", "mistral", "replicate", "huggingface",
+    })
     if "." not in host:
-        return True
+        return host not in _CLOUD_BARE_NAMES
     return False
 
 
@@ -610,7 +611,19 @@ def get_memory_client(custom_instructions: str = None):
     Raises:
         Exception: If required API keys are not set or critical configuration is missing.
     """
-    global _memory_client, _config_hash
+    global _memory_client, _config_hash, _client_is_local_only
+
+    # Fast path: skip DB I/O when the client is cached and neither a
+    # custom_instructions override nor a change to MEM0_LOCAL_ONLY requires a
+    # re-evaluation. Comparing the local-only flag state at build time catches
+    # the "flag set after startup" eviction case without re-reading the DB.
+    if (
+        custom_instructions is None
+        and _memory_client is not None
+        and _client_is_local_only is not None
+        and is_local_only() == _client_is_local_only
+    ):
+        return _memory_client
 
     try:
         # Start with default configuration
@@ -697,6 +710,7 @@ def get_memory_client(custom_instructions: str = None):
             try:
                 _memory_client = Memory.from_config(config_dict=config)
                 _config_hash = current_config_hash
+                _client_is_local_only = is_local_only()
                 print("Memory client initialized successfully")
             except Exception as init_error:
                 print(f"Warning: Failed to initialize memory client: {init_error}")
@@ -710,6 +724,16 @@ def get_memory_client(custom_instructions: str = None):
     except Exception as e:
         print(f"Warning: Exception occurred while initializing memory client: {e}")
         print("Server will continue running with limited memory functionality")
+        return None
+
+
+def get_memory_client_safe(custom_instructions: str = None):
+    """Wrapper around get_memory_client() that returns None instead of raising."""
+    try:
+        return get_memory_client(custom_instructions)
+    except Exception as e:
+        import logging
+        logging.warning("Failed to get memory client: %s", e)
         return None
 
 

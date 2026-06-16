@@ -71,13 +71,22 @@ fi
 
 MEM0_COUNT="?"
 if command -v python3 >/dev/null 2>&1; then
-  MEM0_COUNT=$(python3 -c "
-import json, os, urllib.request, urllib.error
+  MEM0_COUNT=$(PYTHONPATH="$SCRIPT_DIR" python3 -c "
+import json, os, sys, urllib.request, urllib.error
 api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
 global_search = os.environ.get('MEM0_GLOBAL_SEARCH', 'false') == 'true'
 api_base = os.environ.get('MEM0_API_BASE', '').rstrip('/')
+
+# Fail-closed egress guard: skip the call when local-only mode blocks this host.
+try:
+    from _endpoints import egress_allowed
+    if api_base and not egress_allowed(api_base + '/'):
+        print(0)
+        sys.exit(0)
+except Exception:
+    pass  # _endpoints unavailable: non-team install, proceed normally
 
 def get_count(filters):
     if not api_base:
