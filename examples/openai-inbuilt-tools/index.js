@@ -4,7 +4,7 @@ import { zodResponsesFunction } from "openai/helpers/zod";
 import { z } from "zod";
 
 const mem0Config = {
-    apiKey: process.env.MEM0_API_KEY, // GET THIS API KEY FROM MEM0 (https://app.mem0.ai/dashboard/api-keys)
+    apiKey: process.env.MEM0_API_KEY, // GET THIS API KEY FROM MEM0 (https://app.mem0.ai/dashboard/api-keys?utm_source=oss&utm_medium=example-openai-inbuilt-tools)
     user_id: "sample-user",
 };
 

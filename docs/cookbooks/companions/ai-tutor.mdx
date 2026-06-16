@@ -60,7 +60,7 @@ class PersonalAITutor:
         """
         # Start a streaming response request to the AI
         response = self.client.responses.create(
-            model="gpt-4.1-nano-2025-04-14",
+            model="gpt-5-mini",
             instructions="You are a personal AI Tutor.",
             input=question,
             stream=True
@@ -81,7 +81,7 @@ class PersonalAITutor:
         :param user_id: Optional user ID to filter memories.
         :return: List of memories.
         """
-        return self.memory.get_all(user_id=user_id)
+        return self.memory.get_all(filters={"user_id": user_id})
 
 # Instantiate the PersonalAITutor
 ai_tutor = PersonalAITutor()

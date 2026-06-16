@@ -31,12 +31,21 @@ class OllamaEmbedding(EmbeddingBase):
         self.client = Client(host=self.config.ollama_base_url)
         self._ensure_model_exists()
 
+    @staticmethod
+    def _normalize_model_name(name: str) -> str:
+        return name if ":" in name else f"{name}:latest"
+
     def _ensure_model_exists(self):
         """
         Ensure the specified model exists locally. If not, pull it from Ollama.
         """
         local_models = self.client.list()["models"]
-        if not any(model.get("name") == self.config.model or model.get("model") == self.config.model for model in local_models):
+        target = self._normalize_model_name(self.config.model)
+        if not any(
+            self._normalize_model_name(model.get("name", "")) == target
+            or self._normalize_model_name(model.get("model", "")) == target
+            for model in local_models
+        ):
             self.client.pull(self.config.model)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
@@ -49,5 +58,8 @@ class OllamaEmbedding(EmbeddingBase):
         Returns:
             list: The embedding vector.
         """
-        response = self.client.embeddings(model=self.config.model, prompt=text)
-        return response["embedding"]
+        response = self.client.embed(model=self.config.model, input=text)
+        embeddings = response.get("embeddings") or []
+        if not embeddings:
+            raise ValueError(f"Ollama embed() returned no embeddings for model '{self.config.model}'")
+        return embeddings[0]

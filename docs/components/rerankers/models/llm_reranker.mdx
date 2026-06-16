@@ -18,13 +18,9 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-openai-api-key"
-                }
-            }
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "api_key": "your-openai-api-key"
         }
     }
 }
@@ -36,11 +32,14 @@ m = Memory.from_config(config)
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `llm` | dict | Required | LLM configuration object |
-| `top_k` | int | 10 | Number of results to rerank |
+| `provider` | str | `"openai"` | LLM provider (openai, anthropic, etc.) |
+| `model` | str | `"gpt-4o-mini"` | LLM model to use for reranking |
+| `api_key` | str | None | API key for the LLM provider |
+| `top_k` | int | None | Number of top documents to return after reranking |
 | `temperature` | float | 0.0 | LLM temperature for consistency |
-| `custom_prompt` | str | None | Custom reranking prompt |
-| `score_range` | tuple | (0, 10) | Score range for relevance |
+| `max_tokens` | int | 100 | Maximum tokens for LLM response |
+| `scoring_prompt` | str | None | Custom prompt template for scoring documents |
+| `llm` | dict | None | Optional nested LLM config for provider-specific fields (e.g., `ollama_base_url`, `azure_endpoint`). Overrides top-level `provider`/`model`/`api_key` when provided. |
 
 ### Advanced Configuration
 
@@ -49,20 +48,19 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "anthropic",
-                "config": {
-                    "model": "claude-3-sonnet-20240229",
-                    "api_key": "your-anthropic-api-key"
-                }
-            },
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-20250514",
+            "api_key": "your-anthropic-api-key",
             "top_k": 15,
             "temperature": 0.0,
-            "score_range": (1, 5),
-            "custom_prompt": """
-            Rate the relevance of each memory to the query on a scale of 1-5.
+            "scoring_prompt": """
+            Rate the relevance of each memory to the query on a scale of 0.0-1.0.
             Consider semantic similarity, context, and practical utility.
             Only provide the numeric score.
+
+            Query: "{query}"
+            Document: "{document}"
+            Score:
             """
         }
     }
@@ -78,14 +76,10 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-openai-api-key",
-                    "temperature": 0.0
-                }
-            }
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "api_key": "your-openai-api-key",
+            "temperature": 0.0
         }
     }
 }
@@ -98,13 +92,9 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "anthropic",
-                "config": {
-                    "model": "claude-3-sonnet-20240229",
-                    "api_key": "your-anthropic-api-key"
-                }
-            }
+            "provider": "anthropic",
+            "model": "claude-sonnet-4-20250514",
+            "api_key": "your-anthropic-api-key"
         }
     }
 }
@@ -117,10 +107,12 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
+            "provider": "ollama",
+            "model": "llama3.2",
             "llm": {
                 "provider": "ollama",
                 "config": {
-                    "model": "llama2",
+                    "model": "llama3.2",
                     "ollama_base_url": "http://localhost:11434"
                 }
             }
@@ -129,6 +121,10 @@ config = {
 }
 ```
 
+<Note>
+  For providers like Ollama that need extra fields (e.g., `ollama_base_url`), use the optional nested `llm` key to pass provider-specific configuration. The nested `llm` config overrides top-level `provider`/`model`/`api_key` when provided.
+</Note>
+
 ### Azure OpenAI
 
 ```python
@@ -136,13 +132,16 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
+            "provider": "azure_openai",
+            "model": "gpt-4o-mini",
+            "api_key": "your-azure-api-key",
             "llm": {
                 "provider": "azure_openai",
                 "config": {
-                    "model": "gpt-4",
+                    "model": "gpt-4o-mini",
                     "api_key": "your-azure-api-key",
                     "azure_endpoint": "https://your-resource.openai.azure.com/",
-                    "azure_deployment": "gpt-4-deployment"
+                    "azure_deployment": "gpt-4o-mini-deployment"
                 }
             }
         }
@@ -154,16 +153,22 @@ config = {
 
 ### Default Prompt Behavior
 
-The default prompt asks the LLM to score relevance on a 0-10 scale:
+The default prompt asks the LLM to score relevance on a 0.0-1.0 scale:
 
 ```
-Given a query and a memory, rate how relevant the memory is to answering the query.
-Score from 0 (completely irrelevant) to 10 (perfectly relevant).
-Only provide the numeric score.
+You are a relevance scoring assistant. Given a query and a document, you need to score how relevant the document is to the query.
 
-Query: {query}
-Memory: {memory}
-Score:
+Score the relevance on a scale from 0.0 to 1.0, where:
+- 1.0 = Perfectly relevant and directly answers the query
+- 0.8-0.9 = Highly relevant with good information
+- 0.6-0.7 = Moderately relevant with some useful information
+- 0.4-0.5 = Slightly relevant with limited useful information
+- 0.0-0.3 = Not relevant or no useful information
+
+Query: "{query}"
+Document: "{document}"
+
+Provide only a single numerical score between 0.0 and 1.0. Do not include any explanation or additional text.
 ```
 
 ### Custom Prompt Examples
@@ -174,14 +179,14 @@ Score:
 custom_prompt = """
 You are a medical information specialist. Rate how relevant each memory is for answering the medical query.
 Consider clinical accuracy, specificity, and practical applicability.
-Rate from 1-10 where:
-- 1-3: Irrelevant or potentially harmful
-- 4-6: Somewhat relevant but incomplete
-- 7-8: Relevant and helpful
-- 9-10: Highly relevant and clinically useful
+Rate from 0.0 to 1.0 where:
+- 0.0-0.3: Irrelevant or potentially harmful
+- 0.4-0.6: Somewhat relevant but incomplete
+- 0.7-0.8: Relevant and helpful
+- 0.9-1.0: Highly relevant and clinically useful
 
-Query: {query}
-Memory: {memory}
+Query: "{query}"
+Document: "{document}"
 Score:
 """
 
@@ -189,14 +194,10 @@ config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-api-key"
-                }
-            },
-            "custom_prompt": custom_prompt
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "api_key": "your-api-key",
+            "scoring_prompt": custom_prompt
         }
     }
 }
@@ -213,15 +214,15 @@ Consider:
 - Recency and accuracy
 - Practical usefulness
 
-Rate 1-5:
-1 = Not relevant
-2 = Slightly relevant
-3 = Moderately relevant
-4 = Very relevant
-5 = Perfectly answers the question
+Rate 0.0-1.0:
+0.0 = Not relevant
+0.25 = Slightly relevant
+0.5 = Moderately relevant
+0.75 = Very relevant
+1.0 = Perfectly answers the question
 
-Query: {query}
-Memory: {memory}
+Query: "{query}"
+Document: "{document}"
 Score:
 """
 ```
@@ -239,12 +240,16 @@ Consider:
 - Factual accuracy
 - Conversation flow
 
-Rate 0-10:
-Query: {query}
-Memory: {memory}
+Rate 0.0-1.0:
+Query: "{query}"
+Document: "{document}"
 Score:
 """
 ```
+
+<Note>
+  Custom prompts must include `{query}` and `{document}` placeholders. The LLM response should contain a numerical score which is automatically extracted.
+</Note>
 
 ## Usage Examples
 
@@ -278,12 +283,12 @@ for result in results["results"]:
 def safe_llm_rerank_search(query, user_id, max_retries=3):
     for attempt in range(max_retries):
         try:
-            return m.search(query, user_id=user_id, rerank=True)
+            return m.search(query, filters={"user_id": user_id}, rerank=True)
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {e}")
             if attempt == max_retries - 1:
                 # Fall back to vector search
-                return m.search(query, user_id=user_id, rerank=False)
+                return m.search(query, filters={"user_id": user_id}, rerank=False)
 
 # Use the safe function
 results = safe_llm_rerank_search("What are my preferences?", "alice")
@@ -295,9 +300,9 @@ results = safe_llm_rerank_search("What are my preferences?", "alice")
 
 | Model Type | Speed | Quality | Cost | Best For |
 |------------|-------|---------|------|----------|
-| GPT-3.5 Turbo | Fast | Good | Low | High-volume applications |
-| GPT-4 | Medium | Excellent | Medium | Quality-critical applications |
-| Claude 3 Sonnet | Medium | Excellent | Medium | Balanced performance |
+| GPT-4o mini | Fast | Good | Low | High-volume applications |
+| GPT-4o | Medium | Excellent | Medium | Quality-critical applications |
+| Claude Sonnet | Medium | Excellent | Medium | Balanced performance |
 | Ollama Local | Variable | Good | Free | Privacy-sensitive applications |
 
 ### Optimization Strategies
@@ -308,14 +313,10 @@ fast_config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-3.5-turbo",
-                    "api_key": "your-api-key"
-                }
-            },
-            "top_k": 5,  # Limit candidates
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "api_key": "your-api-key",
+            "top_k": 5,
             "temperature": 0.0
         }
     }
@@ -326,13 +327,9 @@ quality_config = {
     "reranker": {
         "provider": "llm_reranker",
         "config": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4",
-                    "api_key": "your-api-key"
-                }
-            },
+            "provider": "openai",
+            "model": "gpt-4o",
+            "api_key": "your-api-key",
             "top_k": 15,
             "temperature": 0.0
         }
@@ -353,10 +350,10 @@ Evaluate this memory's relevance using multi-step reasoning:
 3. How directly does the memory address the query?
 4. What additional context might be needed?
 
-Based on this analysis, rate relevance 1-10:
+Based on this analysis, rate relevance 0.0-1.0:
 
-Query: {query}
-Memory: {memory}
+Query: "{query}"
+Document: "{document}"
 
 Analysis:
 Step 1 (Intent):
@@ -364,42 +361,6 @@ Step 2 (Information):
 Step 3 (Directness):
 Step 4 (Context):
 Final Score:
-"""
-```
-
-### Comparative Ranking
-
-```python
-comparative_prompt = """
-You will see a query and multiple memories. Rank them in order of relevance.
-Consider which memories best answer the question and would be most helpful.
-
-Query: {query}
-
-Memories to rank:
-{memories}
-
-Provide scores 1-10 for each memory, considering their relative usefulness.
-"""
-```
-
-### Emotional Intelligence
-
-```python
-emotional_prompt = """
-Consider both factual relevance and emotional appropriateness.
-Rate how suitable this memory is for responding to the user's query.
-
-Factors to consider:
-- Factual accuracy and relevance
-- Emotional tone and sensitivity
-- User's likely emotional state
-- Appropriateness of response
-
-Query: {query}
-Memory: {memory}
-Emotional Context: {context}
-Score (1-10):
 """
 ```
 
@@ -415,32 +376,40 @@ class RobustLLMReranker:
         # Try primary LLM reranker
         for attempt in range(max_retries):
             try:
-                return self.primary.search(query, user_id=user_id, rerank=True)
+                return self.primary.search(query, filters={"user_id": user_id}, rerank=True)
             except Exception as e:
                 print(f"Primary reranker attempt {attempt + 1} failed: {e}")
 
         # Try fallback reranker
         if self.fallback:
             try:
-                return self.fallback.search(query, user_id=user_id, rerank=True)
+                return self.fallback.search(query, filters={"user_id": user_id}, rerank=True)
             except Exception as e:
                 print(f"Fallback reranker failed: {e}")
 
         # Final fallback: vector search only
-        return self.primary.search(query, user_id=user_id, rerank=False)
+        return self.primary.search(query, filters={"user_id": user_id}, rerank=False)
 
 # Usage
 primary_config = {
     "reranker": {
         "provider": "llm_reranker",
-        "config": {"llm": {"provider": "openai", "config": {"model": "gpt-4"}}}
+        "config": {
+            "provider": "openai",
+            "model": "gpt-4o",
+            "api_key": "your-api-key"
+        }
     }
 }
 
 fallback_config = {
     "reranker": {
         "provider": "llm_reranker",
-        "config": {"llm": {"provider": "openai", "config": {"model": "gpt-3.5-turbo"}}}
+        "config": {
+            "provider": "openai",
+            "model": "gpt-4o-mini",
+            "api_key": "your-api-key"
+        }
     }
 }
 

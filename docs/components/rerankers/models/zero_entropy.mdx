@@ -1,6 +1,6 @@
 ---
 title: Zero Entropy
-description: 'Neural reranking with Zero Entropy'
+description: "Configure Zero Entropy neural reranking models in Mem0 with zerank-1 and zerank-1-small support."
 ---
 
 [Zero Entropy](https://www.zeroentropy.dev) provides neural reranking models that significantly improve search relevance with fast performance.
@@ -86,7 +86,7 @@ messages = [
 memory.add(messages, user_id="alice")
 
 # Search with reranking
-results = memory.search("What Italian food does the user like?", user_id="alice")
+results = memory.search("What Italian food does the user like?", filters={"user_id": "alice"})
 
 for result in results['results']:
     print(f"Memory: {result['memory']}")

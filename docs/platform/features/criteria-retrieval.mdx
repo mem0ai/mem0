@@ -1,5 +1,6 @@
 ---
 title: Criteria Retrieval
+description: "Rank and retrieve memories based on custom-defined criteria like emotional tone, intent, and behavioral signals."
 ---
 
 Mem0's Criteria Retrieval feature allows you to retrieve memories based on your defined criteria. It goes beyond generic semantic relevance and ranks memories based on what matters to your application: emotional tone, intent, behavioral signals, or other custom traits.
@@ -37,11 +38,7 @@ Before defining any criteria, make sure to initialize the `MemoryClient` with yo
 ```python
 from mem0 import MemoryClient
 
-client = MemoryClient(
-    api_key="your_mem0_api_key",
-    org_id="your_organization_id",
-    project_id="your_project_id"
-)
+client = MemoryClient(api_key="your_mem0_api_key")
 ```
 
 ### Define Your Criteria

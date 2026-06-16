@@ -1,12 +1,10 @@
 import os
-import uuid
-import httpx
 import unittest
+import uuid
 from unittest.mock import MagicMock, patch
 
 import dotenv
 import weaviate
-from weaviate.exceptions import UnexpectedStatusCodeException
 
 from mem0.vector_stores.weaviate import Weaviate
 
@@ -112,11 +110,13 @@ class TestWeaviateDB(unittest.TestCase):
         assert result.payload == expected_payload
 
     def test_get_not_found(self):
-        mock_response = httpx.Response(status_code=404, json={"error": "Not found"})
+        # fetch_object_by_id returns None for an unknown id; get() must return
+        # None rather than raising AttributeError on response.properties.
+        self.client_mock.collections.get.return_value.query.fetch_object_by_id.return_value = None
 
-        self.client_mock.collections.get.return_value.data.get_by_id.side_effect = UnexpectedStatusCodeException(
-            "Not found", mock_response
-        )
+        result = self.weaviate_db.get(vector_id=str(uuid.uuid4()))
+
+        assert result is None
 
     def test_search(self):
         mock_objects = [{"uuid": "id1", "properties": {"key1": "value1"}, "metadata": {"distance": 0.2}}]
@@ -137,7 +137,7 @@ class TestWeaviateDB(unittest.TestCase):
         mock_hybrid.return_value = mock_response
 
         vectors = [[0.1] * 1536]
-        results = self.weaviate_db.search(query="", vectors=vectors, limit=5)
+        results = self.weaviate_db.search(query="", vectors=vectors, top_k=5)
 
         mock_hybrid.assert_called_once()
 
@@ -170,7 +170,7 @@ class TestWeaviateDB(unittest.TestCase):
         self.client_mock.collections.get.return_value.query.fetch_objects = mock_fetch
         mock_fetch.return_value = mock_response
 
-        results = self.weaviate_db.list(limit=10)
+        results = self.weaviate_db.list(top_k=10)
 
         mock_fetch.assert_called_once()
 

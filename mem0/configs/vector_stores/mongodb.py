@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class MongoDBConfig(BaseModel):
@@ -23,3 +23,5 @@ class MongoDBConfig(BaseModel):
                 f"Please provide only the following fields: {', '.join(allowed_fields)}."
             )
         return values
+
+    model_config = ConfigDict(arbitrary_types_allowed=False)

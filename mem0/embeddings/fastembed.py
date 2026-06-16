@@ -13,7 +13,10 @@ class FastEmbedEmbedding(EmbeddingBase):
         super().__init__(config)
 
         self.config.model = self.config.model or "thenlper/gte-large"
-        self.dense_model = TextEmbedding(model_name = self.config.model)
+        self.dense_model = TextEmbedding(model_name=self.config.model)
+
+        if not self.config.embedding_dims:
+            self.config.embedding_dims = self.dense_model.embedding_size
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """

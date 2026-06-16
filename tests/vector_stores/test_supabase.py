@@ -67,7 +67,7 @@ def test_search_vectors(supabase_instance, mock_collection):
 
     vectors = [[0.1, 0.2, 0.3]]
     filters = {"category": "test"}
-    results = supabase_instance.search(query="", vectors=vectors, limit=2, filters=filters)
+    results = supabase_instance.search(query="", vectors=vectors, top_k=2, filters=filters)
 
     mock_collection.query.assert_called_once_with(
         data=vectors, limit=2, filters={"category": {"$eq": "test"}}, include_metadata=True, include_value=True
@@ -75,7 +75,7 @@ def test_search_vectors(supabase_instance, mock_collection):
 
     assert len(results) == 2
     assert results[0].id == "id1"
-    assert results[0].score == 0.9
+    assert results[0].score == pytest.approx(0.1)
     assert results[0].payload == {"name": "vector1"}
 
 
@@ -111,6 +111,13 @@ def test_get_vector(supabase_instance, mock_collection):
     assert result.payload == {"name": "vector1"}
 
 
+def test_get_missing_returns_none(supabase_instance, mock_collection):
+    # An unknown id yields an empty fetch; get() must return None (not []).
+    mock_collection.fetch.return_value = []
+
+    assert supabase_instance.get(vector_id="missing") is None
+
+
 def test_list_vectors(supabase_instance, mock_collection):
     mock_query_results = [("id1", 0.9, {}), ("id2", 0.8, {})]
     mock_fetch_results = [("id1", [0.1, 0.2, 0.3], {"name": "vector1"}), ("id2", [0.4, 0.5, 0.6], {"name": "vector2"})]
@@ -118,7 +125,7 @@ def test_list_vectors(supabase_instance, mock_collection):
     mock_collection.query.return_value = mock_query_results
     mock_collection.fetch.return_value = mock_fetch_results
 
-    results = supabase_instance.list(limit=2, filters={"category": "test"})
+    results = supabase_instance.list(top_k=2, filters={"category": "test"})
 
     assert len(results[0]) == 2
     assert results[0][0].id == "id1"

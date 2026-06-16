@@ -60,7 +60,7 @@ def test_search_vectors(upstash_instance, mock_index):
     results = upstash_instance.search(
         query="hello world",
         vectors=vectors,
-        limit=2,
+        top_k=2,
         filters={"age": 30, "name": "John"},
     )
 
@@ -69,11 +69,11 @@ def test_search_vectors(upstash_instance, mock_index):
             {
                 "vector": vectors[0],
                 "top_k": 2,
-                "namespace": "ns",
                 "include_metadata": True,
                 "filter": 'age = 30 AND name = "John"',
             }
-        ]
+        ],
+        namespace="ns",
     )
 
     assert len(results) == 2
@@ -132,7 +132,7 @@ def test_list_vectors(upstash_instance):
 
     filters = {"age": 30, "name": "John"}
     print("filters", filters)
-    [results] = upstash_instance.list(filters=filters, limit=15)
+    [results] = upstash_instance.list(filters=filters, top_k=15)
 
     upstash_instance.client.info.return_value = {
         "dimension": 10,
@@ -193,7 +193,7 @@ def test_search_vectors_with_embeddings(upstash_instance_with_embeddings, mock_i
     results = upstash_instance_with_embeddings.search(
         query="hello world",
         vectors=[],
-        limit=2,
+        top_k=2,
         filters={"age": 30, "name": "John"},
     )
 
@@ -302,7 +302,7 @@ def test_search_vectors_empty_filters(upstash_instance):
     results = upstash_instance.search(
         query="hello world",
         vectors=vectors,
-        limit=1,
+        top_k=1,
         filters=None,
     )
 
@@ -311,11 +311,11 @@ def test_search_vectors_empty_filters(upstash_instance):
             {
                 "vector": vectors[0],
                 "top_k": 1,
-                "namespace": "ns",
                 "include_metadata": True,
                 "filter": "",
             }
-        ]
+        ],
+        namespace="ns",
     )
 
     assert len(results) == 1
@@ -350,3 +350,46 @@ def test_insert_vectors_no_ids(upstash_instance):
         ],
         namespace="ns",
     )
+
+
+def test_search_vectors_multi_query_namespace_at_top_level(upstash_instance):
+    """Regression test for #4207.
+
+    The Upstash client's `query_many` takes `namespace` as a top-level kwarg
+    and the per-query `QueryRequest` TypedDict has no `namespace` field. If we
+    pass `namespace` inside each query dict it is silently dropped (multi-query
+    branch) or causes `TypeError: got multiple values for keyword argument
+    'namespace'` (single-query branch, where `query_many` internally calls
+    `self.query(**query, namespace=namespace)`). This test locks in that
+    `namespace` is forwarded only at the top level and that multi-query
+    results are flattened across all per-query response lists.
+    """
+    mock_results = [
+        [QueryResult(id="id1", score=0.9, vector=None, metadata={"name": "vector1"}, data=None)],
+        [
+            QueryResult(id="id2", score=0.8, vector=None, metadata={"name": "vector2"}, data=None),
+            QueryResult(id="id3", score=0.7, vector=None, metadata={"name": "vector3"}, data=None),
+        ],
+    ]
+    upstash_instance.client.query_many.return_value = mock_results
+
+    vectors = [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    results = upstash_instance.search(query="hello world", vectors=vectors, top_k=5, filters=None)
+
+    upstash_instance.client.query_many.assert_called_once_with(
+        queries=[
+            {"vector": vectors[0], "top_k": 5, "include_metadata": True, "filter": ""},
+            {"vector": vectors[1], "top_k": 5, "include_metadata": True, "filter": ""},
+        ],
+        namespace="ns",
+    )
+
+    # No per-query dict should carry a `namespace` key.
+    sent_queries = upstash_instance.client.query_many.call_args.kwargs["queries"]
+    for q in sent_queries:
+        assert "namespace" not in q
+
+    # Results must be flattened across both per-query response lists.
+    assert [r.id for r in results] == ["id1", "id2", "id3"]
+    assert results[0].score == 0.9
+    assert results[1].payload == {"name": "vector2"}

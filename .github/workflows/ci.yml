@@ -1,28 +1,58 @@
 name: ci
 
+# On PRs this is invoked by ci-gate.yml (the single required check);
+# push-to-main runs remain standalone.
 on:
   push:
     branches: [main]
-    paths:
-      - 'mem0/**'
-      - 'tests/**'
-      - 'embedchain/**'
-      - '.github/workflows/**'
-      - 'pyproject.toml'
-  pull_request:
-    paths:
-      - 'mem0/**'
-      - 'tests/**'
-      - 'embedchain/**'
+  workflow_call:
 
 jobs:
+  changelog_check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require CHANGELOG entry when Python SDK version changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          extract_version() {
+            python3 -c "import sys, re; m = re.search(r'^\s*version\s*=\s*\"([^\"]+)\"', sys.stdin.read(), re.M); print(m.group(1) if m else '')"
+          }
+
+          base_version=$(git show "$BASE_SHA:pyproject.toml" 2>/dev/null | extract_version || echo "")
+          head_version=$(extract_version < pyproject.toml)
+
+          echo "Base version: ${base_version:-<unknown>}"
+          echo "Head version: $head_version"
+
+          if [ -z "$base_version" ] || [ "$base_version" = "$head_version" ]; then
+            echo "pyproject.toml version unchanged — no CHANGELOG entry required."
+            exit 0
+          fi
+
+          echo "Detected version bump ${base_version} -> ${head_version}. Checking docs/changelog/sdk.mdx…"
+
+          if git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- docs/changelog/sdk.mdx | grep -q .; then
+            echo "Changelog update present in docs/changelog/sdk.mdx ✅"
+          else
+            echo "::error file=pyproject.toml::pyproject.toml version changed from ${base_version} to ${head_version} but docs/changelog/sdk.mdx was not updated in this PR. Add a new <Update> entry under the Python tab for v${head_version}."
+            exit 1
+          fi
+
   check_changes:
     runs-on: ubuntu-latest
     outputs:
       mem0_changed: ${{ steps.filter.outputs.mem0 }}
-      embedchain_changed: ${{ steps.filter.outputs.embedchain }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: dorny/paths-filter@v2
       id: filter
       with:
@@ -30,25 +60,28 @@ jobs:
           mem0:
             - 'mem0/**'
             - 'tests/**'
-            - '.github/workflows/**'
+            - '.github/workflows/ci.yml'
             - 'pyproject.toml'
-          embedchain:
-            - 'embedchain/**'
 
   build_mem0:
     needs: check_changes
-    if: needs.check_changes.outputs.mem0_changed == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v3
+      - name: Skip — no relevant changes
+        if: needs.check_changes.outputs.mem0_changed != 'true'
+        run: echo "No changes in mem0/, tests/, pyproject.toml, or ci.yml — skipping"
+      - uses: actions/checkout@v4
+        if: needs.check_changes.outputs.mem0_changed == 'true'
       - name: Set up Python ${{ matrix.python-version }}
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Clean up disk space
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: |
           df -h
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
@@ -56,61 +89,27 @@ jobs:
           sudo docker builder prune -a
           df -h
       - name: Install Hatch
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: pip install hatch
       - name: Load cached venv
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         id: cached-hatch-dependencies
         uses: actions/cache@v3
         with:
           path: .venv
           key: venv-mem0-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
       - name: Install GEOS Libraries
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: sudo apt-get update && sudo apt-get install -y libgeos-dev
       - name: Install dependencies
+        if: needs.check_changes.outputs.mem0_changed == 'true' && steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
         run: |
           pip install --upgrade pip
           pip install -e ".[test,graph,vector_stores,llms,extras]"
           pip install ruff
-        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
       - name: Run Linting
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: make lint
       - name: Run tests and generate coverage report
+        if: needs.check_changes.outputs.mem0_changed == 'true'
         run: make test
-
-  build_embedchain:
-    needs: check_changes
-    if: needs.check_changes.outputs.embedchain_changed == 'true'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install Hatch
-        run: pip install hatch
-      - name: Load cached venv
-        id: cached-hatch-dependencies
-        uses: actions/cache@v3
-        with:
-          path: .venv
-          key: venv-embedchain-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
-      - name: Install dependencies
-        run: cd embedchain && make install_all
-        if: steps.cached-hatch-dependencies.outputs.cache-hit != 'true'
-      - name: Run Formatting
-        run: |
-          mkdir -p embedchain/.ruff_cache && chmod -R 777 embedchain/.ruff_cache
-          cd embedchain && hatch run format
-      - name: Lint with ruff
-        run: cd embedchain && make lint
-      - name: Run tests and generate coverage report
-        run: cd embedchain && make coverage
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: coverage.xml
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

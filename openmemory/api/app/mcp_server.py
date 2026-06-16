@@ -21,6 +21,8 @@ import json
 import logging
 import uuid
 
+import anyio
+
 from app.database import SessionLocal
 from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
 from app.utils.db import get_user_and_app
@@ -31,6 +33,8 @@ from fastapi import FastAPI, Request
 from fastapi.routing import APIRouter
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
+from mcp.server.streamable_http import StreamableHTTPServerTransport
+from starlette.responses import Response
 
 # Load environment variables
 load_dotenv()
@@ -57,8 +61,8 @@ mcp_router = APIRouter(prefix="/mcp")
 # Initialize SSE transport
 sse = SseServerTransport("/mcp/messages/")
 
-@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something.")
-async def add_memories(text: str) -> str:
+@mcp.tool(description="Add a new memory. This method is called everytime the user informs anything about themselves, their preferences, or anything that has any relevant information which can be useful in the future conversation. This can also be called when the user asks you to remember something. Set infer to False to store the memory verbatim without LLM fact extraction.")
+async def add_memories(text: str, infer: bool = True) -> str:
     uid = user_id_var.get(None)
     client_name = client_name_var.get(None)
 
@@ -87,7 +91,8 @@ async def add_memories(text: str) -> str:
                                          metadata={
                                             "source_app": "openmemory",
                                             "mcp_client": client_name,
-                                        })
+                                         },
+                                         infer=infer)
 
             # Process the response and update database
             if isinstance(response, dict) and 'results' in response:
@@ -184,7 +189,7 @@ async def search_memory(query: str) -> str:
             for h in hits:
                 # All vector db search functions return OutputData class
                 id, score, payload = h.id, h.score, h.payload
-                if allowed and h.id is None or h.id not in allowed: 
+                if allowed and (h.id is None or h.id not in allowed):
                     continue
                 
                 results.append({
@@ -437,7 +442,10 @@ async def handle_sse(request: Request):
     client_token = client_name_var.set(client_name or "")
 
     try:
-        # Handle SSE connection
+        # NOTE: request._send is the raw ASGI `send` callable. Starlette does not
+        # expose it publicly, but the MCP SDK transports require the raw ASGI
+        # interface (scope, receive, send). This is the standard pattern from the
+        # MCP Python SDK examples.
         async with sse.connect_sse(
             request.scope,
             request.receive,
@@ -483,6 +491,80 @@ async def handle_post_message(request: Request):
         return {"status": "ok"}
     finally:
         pass
+
+
+@mcp_router.api_route("/{client_name}/http/{user_id}", methods=["POST", "GET", "DELETE"])
+async def handle_streamable_http(request: Request):
+    """Handle Streamable HTTP connections for a specific user and client.
+
+    Uses the Streamable HTTP transport (MCP spec 2025-03-26+) which replaces
+    the deprecated SSE transport. Runs in stateless mode — each request is
+    handled independently with no persistent session.
+
+    The transport writes its response directly to the ASGI ``send`` callable.
+    We intercept it via ``capture_send`` so we can return a proper ``Response``
+    to FastAPI — otherwise FastAPI would also try to send its own response,
+    causing a "double-response" bug.
+    """
+    uid = request.path_params.get("user_id")
+    user_token = user_id_var.set(uid or "")
+    client_name = request.path_params.get("client_name")
+    client_token = client_name_var.set(client_name or "")
+
+    # Intercept the ASGI messages the transport sends so we can return them
+    # as a single Response to FastAPI.  Without this, FastAPI would attempt to
+    # write its own response after the transport already wrote one.
+    response_started = False
+    response_status = 200
+    response_headers: list[tuple[bytes, bytes]] = []
+    response_body = bytearray()
+
+    async def capture_send(message):
+        nonlocal response_started, response_status
+        if message["type"] == "http.response.start":
+            response_started = True
+            response_status = message["status"]
+            response_headers.extend(message.get("headers", []))
+        elif message["type"] == "http.response.body":
+            response_body.extend(message.get("body", b""))
+
+    try:
+        transport = StreamableHTTPServerTransport(
+            mcp_session_id=None,
+            is_json_response_enabled=True,
+        )
+
+        async with anyio.create_task_group() as tg:
+
+            async def run_server(*, task_status=anyio.TASK_STATUS_IGNORED):
+                async with transport.connect() as (read_stream, write_stream):
+                    task_status.started()
+                    await mcp._mcp_server.run(
+                        read_stream,
+                        write_stream,
+                        mcp._mcp_server.create_initialization_options(),
+                        stateless=True,
+                    )
+
+            await tg.start(run_server)
+            await transport.handle_request(request.scope, request.receive, capture_send)
+            await transport.terminate()
+            tg.cancel_scope.cancel()
+    finally:
+        user_id_var.reset(user_token)
+        client_name_var.reset(client_token)
+
+    if not response_started:
+        return Response(status_code=500, content=b"Transport did not produce a response")
+
+    # Header dict conversion is safe here: the MCP transport in stateless JSON
+    # mode only emits single-valued headers (Content-Type, Content-Length).
+    return Response(
+        content=bytes(response_body),
+        status_code=response_status,
+        headers={k.decode(): v.decode() for k, v in response_headers},
+    )
+
 
 def setup_mcp_server(app: FastAPI):
     """Setup MCP server with the FastAPI application"""

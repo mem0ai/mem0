@@ -6,7 +6,7 @@ from mem0.configs.rerankers.base import BaseRerankerConfig
 from mem0.configs.rerankers.sentence_transformer import SentenceTransformerRerankerConfig
 
 try:
-    from sentence_transformers import SentenceTransformer
+    from sentence_transformers import CrossEncoder
     SENTENCE_TRANSFORMERS_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
@@ -41,7 +41,7 @@ class SentenceTransformerReranker(BaseReranker):
             )
 
         self.config = config
-        self.model = SentenceTransformer(self.config.model, device=self.config.device)
+        self.model = CrossEncoder(self.config.model, device=self.config.device)
         
     def rerank(self, query: str, documents: List[Dict[str, Any]], top_k: int = None) -> List[Dict[str, Any]]:
         """
@@ -74,8 +74,11 @@ class SentenceTransformerReranker(BaseReranker):
             # Create query-document pairs
             pairs = [[query, doc_text] for doc_text in doc_texts]
             
-            # Get similarity scores
-            scores = self.model.predict(pairs)
+            scores = self.model.predict(
+                pairs,
+                batch_size=self.config.batch_size,
+                show_progress_bar=self.config.show_progress_bar,
+            )
             if isinstance(scores, np.ndarray):
                 scores = scores.tolist()
             

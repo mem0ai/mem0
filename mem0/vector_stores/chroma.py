@@ -97,9 +97,11 @@ class ChromaDB(VectorStoreBase):
 
         result = []
         for i in range(max_length):
+            raw_distance = distances[i] if isinstance(distances, list) and distances and i < len(distances) else None
+            score = 1.0 / (1.0 + raw_distance) if raw_distance is not None else None
             entry = OutputData(
                 id=ids[i] if isinstance(ids, list) and ids and i < len(ids) else None,
-                score=(distances[i] if isinstance(distances, list) and distances and i < len(distances) else None),
+                score=score,
                 payload=(metadatas[i] if isinstance(metadatas, list) and metadatas and i < len(metadatas) else None),
             )
             result.append(entry)
@@ -141,7 +143,7 @@ class ChromaDB(VectorStoreBase):
         self.collection.add(ids=ids, embeddings=vectors, metadatas=payloads)
 
     def search(
-        self, query: str, vectors: List[list], limit: int = 5, filters: Optional[Dict] = None
+        self, query: str, vectors: List[list], top_k: int = 5, filters: Optional[Dict] = None
     ) -> List[OutputData]:
         """
         Search for similar vectors.
@@ -149,14 +151,14 @@ class ChromaDB(VectorStoreBase):
         Args:
             query (str): Query.
             vectors (List[list]): List of vectors to search.
-            limit (int, optional): Number of results to return. Defaults to 5.
+            top_k (int, optional): Number of results to return. Defaults to 5.
             filters (Optional[Dict], optional): Filters to apply to the search. Defaults to None.
 
         Returns:
             List[OutputData]: Search results.
         """
         where_clause = self._generate_where_clause(filters) if filters else None
-        results = self.collection.query(query_embeddings=vectors, where=where_clause, n_results=limit)
+        results = self.collection.query(query_embeddings=vectors, where=where_clause, n_results=top_k)
         final_results = self._parse_output(results)
         return final_results
 
@@ -185,7 +187,7 @@ class ChromaDB(VectorStoreBase):
         """
         self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
 
-    def get(self, vector_id: str) -> OutputData:
+    def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -193,10 +195,11 @@ class ChromaDB(VectorStoreBase):
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            OutputData: Retrieved vector.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         result = self.collection.get(ids=[vector_id])
-        return self._parse_output(result)[0]
+        parsed = self._parse_output(result)
+        return parsed[0] if parsed else None
 
     def list_cols(self) -> List[chromadb.Collection]:
         """
@@ -222,19 +225,19 @@ class ChromaDB(VectorStoreBase):
         """
         return self.client.get_collection(name=self.collection_name)
 
-    def list(self, filters: Optional[Dict] = None, limit: int = 100) -> List[OutputData]:
+    def list(self, filters: Optional[Dict] = None, top_k: int = 100) -> List[OutputData]:
         """
         List all vectors in a collection.
 
         Args:
             filters (Optional[Dict], optional): Filters to apply to the list. Defaults to None.
-            limit (int, optional): Number of vectors to return. Defaults to 100.
+            top_k (int, optional): Number of vectors to return. Defaults to 100.
 
         Returns:
             List[OutputData]: List of vectors.
         """
         where_clause = self._generate_where_clause(filters) if filters else None
-        results = self.collection.get(where=where_clause, limit=limit)
+        results = self.collection.get(where=where_clause, limit=top_k)
         return [self._parse_output(results)]
 
     def reset(self):
@@ -314,8 +317,32 @@ class ChromaDB(VectorStoreBase):
                     processed_filters.append(or_conditions[0])
             
             elif key == "$not":
-                # Handle NOT conditions - ChromaDB doesn't have direct NOT, so we'll skip for now
-                continue
+                negate_op = {
+                    "eq": "$ne", "ne": "$eq",
+                    "gt": "$lte", "gte": "$lt",
+                    "lt": "$gte", "lte": "$gt",
+                    "in": "$nin", "nin": "$in",
+                }
+                negated_per_group = []
+                for condition in value:
+                    negated_fields = []
+                    for sub_key, sub_value in condition.items():
+                        if isinstance(sub_value, dict):
+                            for op, val in sub_value.items():
+                                neg = negate_op.get(op)
+                                if neg:
+                                    negated_fields.append({sub_key: {neg: val}})
+                        else:
+                            negated_fields.append({sub_key: {"$ne": sub_value}})
+                    if len(negated_fields) > 1:
+                        negated_per_group.append({"$or": negated_fields})
+                    elif len(negated_fields) == 1:
+                        negated_per_group.append(negated_fields[0])
+
+                if len(negated_per_group) > 1:
+                    processed_filters.append({"$and": negated_per_group})
+                elif len(negated_per_group) == 1:
+                    processed_filters.append(negated_per_group[0])
                 
             else:
                 # Regular condition

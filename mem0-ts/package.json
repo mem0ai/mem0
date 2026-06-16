@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "2.2.2",
+  "version": "3.0.8",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -37,6 +37,9 @@
     "start": "pnpm run example memory",
     "example": "ts-node src/oss/examples/vector-stores/index.ts",
     "test": "jest",
+    "test:ci": "jest --coverage --ci",
+    "test:unit": "jest --coverage --ci --testPathIgnorePatterns='/node_modules/' '/dist/' 'integration'",
+    "test:integration": "jest --config jest.integration.config.js --forceExit",
     "test:ts": "jest --config jest.config.js",
     "test:watch": "jest --config jest.config.js --watch",
     "format": "npm run clean && prettier --write .",
@@ -65,6 +68,11 @@
       "!src/community/**"
     ]
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mem0ai/mem0",
+    "directory": "mem0-ts"
+  },
   "keywords": [
     "mem0",
     "api",
@@ -77,6 +85,7 @@
   "author": "Deshraj Yadav",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.7.6",
     "@types/uuid": "^9.0.8",
     "dotenv": "^16.4.5",
@@ -91,9 +100,9 @@
     "typescript": "5.5.4"
   },
   "dependencies": {
-    "axios": "1.7.7",
+    "axios": "^1.16.0",
     "openai": "^4.93.0",
-    "uuid": "9.0.1",
+    "uuid": "^11.1.1",
     "zod": "^3.24.1"
   },
   "peerDependencies": {
@@ -101,21 +110,21 @@
     "@azure/identity": "^4.0.0",
     "@azure/search-documents": "^12.0.0",
     "@cloudflare/workers-types": "^4.20250504.0",
-    "@google/genai": "^1.2.0",
-    "@langchain/core": "^0.3.44",
+    "@google/genai": "^1.40.0",
+    "@langchain/core": "^1.1.47",
     "@mistralai/mistralai": "^1.5.2",
-    "@qdrant/js-client-rest": "1.13.0",
+    "@qdrant/js-client-rest": "^1.18.0",
     "@supabase/supabase-js": "^2.49.1",
     "@types/jest": "29.5.14",
     "@types/pg": "8.11.0",
-    "@types/sqlite3": "3.1.11",
+    "better-sqlite3": "^12.6.2",
     "cloudflare": "^4.2.0",
     "groq-sdk": "0.3.0",
-    "neo4j-driver": "^5.28.1",
     "ollama": "^0.5.14",
     "pg": "8.11.3",
     "redis": "^4.6.13",
-    "sqlite3": "5.1.7"
+    "compromise": "^14.0.0",
+    "natural": "^8.0.1"
   },
   "engines": {
     "node": ">=18"
@@ -127,7 +136,26 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "sqlite3"
-    ]
+      "better-sqlite3"
+    ],
+    "overrides": {
+      "picomatch@<2.3.2": "^2.3.2",
+      "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
+      "jws@4.0.0": "4.0.1",
+      "js-yaml@<3.14.2": ">=3.14.2",
+      "langsmith@<0.6.0": "^0.6.0",
+      "minimatch@<3.1.3": "^3.1.3",
+      "minimatch@>=5.0.0 <5.1.8": "^5.1.8",
+      "minimatch@>=9.0.0 <9.0.7": "^9.0.7",
+      "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
+      "postcss@<8.5.10": ">=8.5.10",
+      "uuid@<11.1.1": ">=11.1.1",
+      "ws@>=8.0.0 <8.20.1": ">=8.20.1",
+      "rollup@>=4.0.0 <4.59.0": "^4.59.0",
+      "tar-fs@>=2.0.0 <2.1.4": "^2.1.4",
+      "glob@>=10.2.0 <10.5.0": "^10.5.0",
+      "@modelcontextprotocol/sdk": "^1.25.4",
+      "esbuild": ">=0.28.1"
+    }
   }
 }

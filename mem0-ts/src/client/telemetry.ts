@@ -1,7 +1,11 @@
 // @ts-nocheck
 import type { TelemetryClient, TelemetryOptions } from "./telemetry.types";
 
-let version = "2.1.36";
+// __MEM0_SDK_VERSION__ is inlined by tsup/esbuild's `define` at build time from
+// package.json. In unbundled environments (ts-jest, jest globalSetup) the
+// identifier is not defined, so guard with typeof to fall back safely.
+let version =
+  typeof __MEM0_SDK_VERSION__ !== "undefined" ? __MEM0_SDK_VERSION__ : "dev";
 
 // Safely check for process.env in different environments
 let MEM0_TELEMETRY = true;
@@ -28,8 +32,12 @@ class UnifiedTelemetry implements TelemetryClient {
     this.host = host;
   }
 
-  async captureEvent(distinctId: string, eventName: string, properties = {}) {
-    if (!MEM0_TELEMETRY) return;
+  async captureEvent(
+    distinctId: string,
+    eventName: string,
+    properties = {},
+  ): Promise<boolean> {
+    if (!MEM0_TELEMETRY) return false;
 
     const eventProperties = {
       client_version: version,
@@ -57,15 +65,60 @@ class UnifiedTelemetry implements TelemetryClient {
 
       if (!response.ok) {
         console.error("Telemetry event capture failed:", await response.text());
+        return false;
       }
+      return true;
     } catch (error) {
       console.error("Telemetry event capture failed:", error);
+      return false;
+    }
+  }
+
+  async captureIdentify(anonId: string, email: string): Promise<boolean> {
+    if (!MEM0_TELEMETRY) return false;
+    if (!anonId || !email || anonId === email) return false;
+
+    const payload = {
+      api_key: this.apiKey,
+      distinct_id: email,
+      event: "$identify",
+      properties: {
+        $anon_distinct_id: anonId,
+        client_source: "typescript",
+        $lib: "posthog-node",
+      },
+    };
+
+    try {
+      const response = await fetch(this.host, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        console.error(
+          "Telemetry identify capture failed:",
+          await response.text(),
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Telemetry identify capture failed:", error);
+      return false;
     }
   }
 
   async shutdown() {
     // No shutdown needed for direct API calls
   }
+}
+
+function isTelemetryEnabled(): boolean {
+  return MEM0_TELEMETRY;
 }
 
 const telemetry = new UnifiedTelemetry(POSTHOG_API_KEY, POSTHOG_HOST);
@@ -97,4 +150,4 @@ async function captureClientEvent(
   );
 }
 
-export { telemetry, captureClientEvent, generateHash };
+export { telemetry, captureClientEvent, generateHash, isTelemetryEnabled };

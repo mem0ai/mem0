@@ -39,16 +39,16 @@
     "@radix-ui/react-tooltip": "^1.1.6",
     "@reduxjs/toolkit": "^2.7.0",
     "autoprefixer": "^10.4.20",
-    "axios": "^1.8.4",
+    "axios": "^1.16.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
-    "lodash": "^4.17.21",
+    "lodash": "^4.18.1",
     "lucide-react": "^0.454.0",
-    "next": "15.2.4",
+    "next": "15.5.18",
     "next-themes": "^0.4.4",
     "react": "^19",
     "react-day-picker": "8.10.1",
@@ -79,6 +79,14 @@
     "onlyBuiltDependencies": [
       "@parcel/watcher",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "immutable@>=5.0.0 <5.1.5": "^5.1.5",
+      "picomatch@<2.3.2": "^2.3.2",
+      "minimatch@>=9.0.0 <9.0.7": "^9.0.7",
+      "glob@>=10.2.0 <10.5.0": "^10.5.0",
+      "postcss@<8.5.10": ">=8.5.10",
+      "yaml@>=2.0.0 <2.8.3": ">=2.8.3"
+    }
   }
 }
