@@ -3235,9 +3235,15 @@ class AsyncMemory(MemoryBase):
         for memory in memories[0]:
             delete_tasks.append(self._delete_memory(memory.id))
 
-        await asyncio.gather(*delete_tasks)
+        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
 
-        logger.info(f"Deleted {len(memories[0])} memories")
+        errors = [r for r in results if isinstance(r, BaseException)]
+        if errors:
+            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+            for err in errors:
+                logger.warning("Delete error: %s", err)
+
+        logger.info(f"Deleted {len(results) - len(errors)} memories")
 
         decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
         if decay_usage_notice:
