@@ -508,12 +508,12 @@ class TestAsyncAddPath:
 
 
 class TestDefaultClientProvider:
-    def test_default_client_provider_delegates_to_mcp_server(self):
-        from app import mcp_server
+    def test_default_client_provider_delegates_to_utils_memory(self):
+        import app.utils.memory as memory_mod
         from app.workers.write_worker import _default_client_provider
 
         sentinel = object()
-        with patch.object(mcp_server, "get_memory_client_safe", return_value=sentinel):
+        with patch.object(memory_mod, "get_memory_client_safe", return_value=sentinel):
             assert _default_client_provider() is sentinel
 
 

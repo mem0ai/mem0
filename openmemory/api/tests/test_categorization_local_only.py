@@ -53,11 +53,13 @@ def test_no_credentials_returns_empty(monkeypatch):
 
 
 def test_local_only_flag_parsing(monkeypatch):
+    # is_local_only is now the canonical function imported from app.utils.env;
+    # it's still accessible via categorization.is_local_only after the refactor.
     for truthy in ("1", "true", "YES", "on"):
         monkeypatch.setenv("MEM0_LOCAL_ONLY", truthy)
-        assert categorization._is_local_only() is True
+        assert categorization.is_local_only() is True
     for falsy in ("0", "false", ""):
         monkeypatch.setenv("MEM0_LOCAL_ONLY", falsy)
-        assert categorization._is_local_only() is False
+        assert categorization.is_local_only() is False
     monkeypatch.delenv("MEM0_LOCAL_ONLY", raising=False)
-    assert categorization._is_local_only() is False
+    assert categorization.is_local_only() is False

@@ -52,11 +52,10 @@ DEFAULT_IDLE_SLEEP = 1.0
 def _default_client_provider():
     """Lazily import the memory client accessor.
 
-    Imported lazily (and from ``mcp_server``, which owns ``get_memory_client_safe``)
-    so that importing this module never triggers client/Ollama initialization and
-    so file ownership boundaries are respected.
+    Imported lazily from ``app.utils.memory`` (the infrastructure layer) so that
+    importing this module never triggers client/Ollama initialization.
     """
-    from app.mcp_server import get_memory_client_safe
+    from app.utils.memory import get_memory_client_safe
 
     return get_memory_client_safe()
 

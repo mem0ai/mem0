@@ -17,7 +17,13 @@ from pathlib import Path
 # module (and its parent packages) so we can path-load the router WITHOUT
 # importing app.routers.__init__, which pulls heavy deps (fastapi_pagination,
 # an import-time OpenAI() client) that aren't installed outside Docker.
-for _name in ("app", "app.utils", "app.utils.memory"):
+#
+# Save originals so the stubs are torn down after compat_v3 is loaded; without
+# this, later test files that import app.utils.memory get the bare stub instead
+# of the real module and fail with "cannot import name …".
+_stub_names = ("app", "app.utils", "app.utils.memory")
+_saved_modules = {n: sys.modules.get(n) for n in _stub_names}
+for _name in _stub_names:
     sys.modules.setdefault(_name, types.ModuleType(_name))
 sys.modules["app.utils.memory"].get_memory_client = lambda: None
 
@@ -25,6 +31,15 @@ _PATH = Path(__file__).resolve().parents[1] / "app" / "routers" / "compat_v3.py"
 _spec = importlib.util.spec_from_file_location("compat_v3_under_test", _PATH)
 compat_v3 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(compat_v3)
+
+# Restore sys.modules: remove stubs that were not present before this block.
+for _name in _stub_names:
+    _prior = _saved_modules[_name]
+    if _prior is None:
+        sys.modules.pop(_name, None)
+    else:
+        sys.modules[_name] = _prior
+del _stub_names, _saved_modules, _name, _prior
 
 import pytest
 import pytest_asyncio

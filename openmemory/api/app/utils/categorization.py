@@ -1,7 +1,7 @@
 import logging
-import os
 from typing import List
 
+from app.utils.env import is_local_only
 from app.utils.prompts import MEMORY_CATEGORIZATION_PROMPT
 from dotenv import load_dotenv
 from openai import OpenAI, OpenAIError
@@ -14,17 +14,6 @@ load_dotenv()
 # module must NEVER require OpenAI credentials, otherwise the whole API crashes
 # at startup in local-first installs that have no OPENAI_API_KEY.
 _openai_client = None
-
-
-def _is_local_only() -> bool:
-    """True when the team fail-closed mode is active (``MEM0_LOCAL_ONLY``).
-
-    Mirrors ``app.utils.memory.is_local_only``; kept inline so this lightweight
-    module does not import the heavy memory module at app-startup import time.
-    """
-    return (os.environ.get("MEM0_LOCAL_ONLY") or "").strip().lower() in (
-        "1", "true", "yes", "on",
-    )
 
 
 def _get_openai_client():
@@ -53,7 +42,7 @@ def get_categories_for_memory(memory: str) -> List[str]:
     # must not egress memory content, so categorization is skipped (no
     # categories) — the memory itself is still saved. Same when no client is
     # available (missing credentials).
-    if _is_local_only():
+    if is_local_only():
         return []
     client = _get_openai_client()
     if client is None:

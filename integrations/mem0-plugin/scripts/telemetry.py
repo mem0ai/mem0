@@ -96,7 +96,7 @@ def is_enabled() -> bool:
         if not egress_allowed(POSTHOG_HOST):
             return False
     except Exception:
-        pass
+        return False
     return True
 
 
@@ -129,7 +129,7 @@ def send(payload: dict) -> None:
         if not egress_allowed(POSTHOG_HOST):
             return
     except Exception:
-        pass
+        return
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         POSTHOG_HOST,

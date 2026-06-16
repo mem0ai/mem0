@@ -130,6 +130,29 @@ class WriteQueue:
             job_id, WriteQueueStatus.queued, error=error, attempts=attempts
         )
 
+    def get_job(self, job_id: str) -> Optional[dict]:
+        """Return status info for a job by id, or None if not found."""
+        db = self._session()
+        try:
+            row = (
+                db.query(WriteQueueModel)
+                .filter(WriteQueueModel.id == uuid.UUID(str(job_id)))
+                .first()
+            )
+            if row is None:
+                return None
+            return {
+                "job_id": str(row.id),
+                "status": row.status.value,
+                "project": row.project,
+                "hostname": row.hostname,
+                "attempts": row.attempts or 0,
+                "error": row.error,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+        finally:
+            db.close()
+
     def depth(self) -> int:
         """Return the number of pending (``queued`` or ``processing``) jobs."""
         db = self._session()

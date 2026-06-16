@@ -33,7 +33,7 @@ from app.models import (
 )
 from app.utils.db import get_user_and_app
 from app.utils.identity import resolve_hostname
-from app.utils.memory import get_memory_client
+from app.utils.memory import get_memory_client, get_memory_client_safe
 from app.utils.permissions import check_memory_access_permissions
 from app.utils.write_queue import WriteJob, write_queue
 from dotenv import load_dotenv
@@ -50,14 +50,7 @@ load_dotenv()
 # Initialize MCP
 mcp = FastMCP("mem0-mcp-server")
 
-# Don't initialize memory client at import time - do it lazily when needed
-def get_memory_client_safe():
-    """Get memory client with error handling. Returns None if client cannot be initialized."""
-    try:
-        return get_memory_client()
-    except Exception as e:
-        logging.warning(f"Failed to get memory client: {e}")
-        return None
+# get_memory_client_safe is imported from app.utils.memory (canonical location).
 
 # Context variables for user_id and client_name
 user_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("user_id")
@@ -131,6 +124,19 @@ async def add_memories(text: str, project: str) -> str:
     return json.dumps({"status": "queued", "job_id": job_id})
 
 
+@mcp.tool(description="Check the processing status of a previously enqueued write job. Returns status (queued/processing/done/failed), attempt count, and any error details. Use this after add_memories to confirm a write completed.")
+async def get_job_status(job_id: str) -> str:
+    if not job_id or not job_id.strip():
+        return "Error: job_id not provided"
+    try:
+        info = write_queue.get_job(job_id.strip())
+    except Exception as e:
+        return f"Error: invalid job_id — {e}"
+    if info is None:
+        return json.dumps({"error": "job not found", "job_id": job_id})
+    return json.dumps(info)
+
+
 def _record_write_audit(*, job_id, project, hostname, client_name):
     """Persist a write-attribution audit row; never raise to the caller."""
     db = SessionLocal()
@@ -173,13 +179,17 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
             "project": project,
         }
 
-        embeddings = memory_client.embedding_model.embed(query, "search")
+        embeddings = await anyio.to_thread.run_sync(
+            lambda: memory_client.embedding_model.embed(query, "search")
+        )
 
-        hits = memory_client.vector_store.search(
-            query=query,
-            vectors=embeddings,
-            limit=DEFAULT_SEARCH_TOP_K,
-            filters=filters,
+        hits = await anyio.to_thread.run_sync(
+            lambda: memory_client.vector_store.search(
+                query=query,
+                vectors=embeddings,
+                limit=DEFAULT_SEARCH_TOP_K,
+                filters=filters,
+            )
         )
 
         results = []
@@ -201,7 +211,7 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
         if rerank:
             results.sort(key=lambda r: (r.get("score") is not None, r.get("score")), reverse=True)
 
-        return json.dumps({"results": results}, indent=2)
+        return json.dumps({"results": results})
     except Exception as e:
         logging.exception(e)
         return f"Error searching memory: {e}"
@@ -227,9 +237,11 @@ async def list_memories(project: str) -> str:
             "project": project,
         }
 
-        raw = memory_client.vector_store.list(
-            filters=filters,
-            top_k=DEFAULT_LIST_TOP_K,
+        raw = await anyio.to_thread.run_sync(
+            lambda: memory_client.vector_store.list(
+                filters=filters,
+                top_k=DEFAULT_LIST_TOP_K,
+            )
         )
 
         # vector_store.list may return a (points, next_page_offset) tuple or a
@@ -250,7 +262,7 @@ async def list_memories(project: str) -> str:
                 "project": payload.get("project"),
             })
 
-        return json.dumps({"results": results}, indent=2)
+        return json.dumps({"results": results})
     except Exception as e:
         logging.exception(f"Error getting memories: {e}")
         return f"Error getting memories: {e}"
@@ -258,12 +270,8 @@ async def list_memories(project: str) -> str:
 
 @mcp.tool(description="Delete specific memories by their IDs")
 async def delete_memories(memory_ids: list[str]) -> str:
-    uid = user_id_var.get(None)
-    client_name = client_name_var.get(None)
-    if not uid:
-        return "Error: user_id not provided"
-    if not client_name:
-        return "Error: client_name not provided"
+    uid = resolve_hostname(user_id_var.get(None))
+    client_name = client_name_var.get(None) or DEFAULT_CLIENT_NAME
 
     # Get memory client safely
     memory_client = get_memory_client_safe()
