@@ -1,0 +1,112 @@
+---
+title: Screenpipe as a Memory Source
+description: "Sync local Screenpipe OCR and audio transcripts into Mem0 for ambient agent memory."
+---
+
+Screenpipe records local screen context, accessibility text, OCR fallback text, and audio transcripts into a SQLite database on your machine. Mem0 can turn that timeline into searchable long-term memory for agents that need context about what a user saw, heard, or worked on.
+
+This cookbook uses the example script in `examples/screenpipe-memory-source/sync_screenpipe.py` to map Screenpipe rows into Mem0 memories with source metadata.
+
+## When to Use This
+
+Use this pattern when an assistant needs local ambient context, such as:
+
+- recalling what was discussed in a meeting transcript
+- finding which app or document was open during a task
+- giving a coding or research agent context from recent desktop activity
+
+## Prerequisites
+
+Install Mem0 and make sure Screenpipe has already captured some local data:
+
+```bash
+pip install mem0ai
+```
+
+Screenpipe stores local data at `~/.screenpipe/db.sqlite` by default.
+
+## Dry Run the Mapping
+
+Start with a dry run so you can inspect what would be written:
+
+```bash
+python examples/screenpipe-memory-source/sync_screenpipe.py \
+  --user-id alice \
+  --limit 5 \
+  --dry-run
+```
+
+The script reads common Screenpipe tables such as `frames`, `ocr_text`, and `audio_transcriptions`. It preserves metadata including the source table, row id, captured timestamp, app name, window title, URL, device, and speaker when those columns are present.
+
+## Sync to Mem0 Platform
+
+Set your Platform API key and run the sync:
+
+```bash
+export MEM0_API_KEY="m0-your-key"
+
+python examples/screenpipe-memory-source/sync_screenpipe.py \
+  --user-id alice \
+  --limit 50
+```
+
+Each synced memory includes metadata like:
+
+```python
+{
+    "source": "screenpipe",
+    "screenpipe_table": "audio_transcriptions",
+    "screenpipe_row_id": 123,
+    "screenpipe_type": "audio",
+    "captured_at": "2026-06-16T09:05:00+00:00",
+}
+```
+
+## Sync to Mem0 OSS
+
+For self-hosted Mem0, pass a normal OSS config JSON:
+
+```bash
+python examples/screenpipe-memory-source/sync_screenpipe.py \
+  --config mem0-config.json \
+  --user-id alice \
+  --limit 50
+```
+
+By default, the script writes each observation with `infer=False`. This keeps the original OCR or transcript text searchable. If you want Mem0 to extract concise facts from each observation, pass `--infer`.
+
+## Search Later
+
+Use metadata filters to search only Screenpipe-backed memories:
+
+```python
+from mem0 import MemoryClient
+
+client = MemoryClient()
+
+results = client.search(
+    "What did Maya ask me to follow up on?",
+    filters={
+        "user_id": "alice",
+        "source": "screenpipe",
+    },
+)
+```
+
+For OSS:
+
+```python
+from mem0 import Memory
+
+memory = Memory.from_config(config)
+
+results = memory.search(
+    "What did Maya ask me to follow up on?",
+    filters={
+        "user_id": "alice",
+        "source": "screenpipe",
+    },
+)
+```
+
+This keeps the integration small: Screenpipe remains the local capture layer, and Mem0 handles durable search and recall for downstream agents.
