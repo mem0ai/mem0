@@ -54,7 +54,7 @@
   },
   "dependencies": {
     "@opencode-ai/plugin": "^1.0.162",
-    "mem0ai": "^3.0.7"
+    "mem0ai": "^3.0.8"
   },
   "devDependencies": {
     "bun-types": ">=1.3.14",
