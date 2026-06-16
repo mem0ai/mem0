@@ -17,6 +17,12 @@ services:
     environment:
       - USER
       - API_KEY
+      # Fail-closed local-only: the server refuses any LLM/embedder that would
+      # reach a non-local host, so memory content never leaves the local network
+      # (see app/utils/memory.py:is_local_only). MEM0_TELEMETRY=false also stops
+      # the mem0 core from sending PostHog usage events from THIS process.
+      - MEM0_LOCAL_ONLY=${MEM0_LOCAL_ONLY:-1}
+      - MEM0_TELEMETRY=${MEM0_TELEMETRY:-false}
       # Vector store: use the Qdrant container on the local network (single
       # collection — ADR-003). The app selects Qdrant when QDRANT_HOST/PORT set.
       - QDRANT_HOST=mem0_store
