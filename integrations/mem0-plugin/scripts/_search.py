@@ -7,16 +7,26 @@ All pre-fetch hooks use this instead of duplicating urllib boilerplate.
 from __future__ import annotations
 
 import json
+import os
+import sys
 import urllib.request
 
-SEARCH_URL = "https://api.mem0.ai/v3/memories/search/"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _endpoints import egress_allowed, resolve_api_base
+
 SEARCH_TIMEOUT = 5
 
 
 def _do_search(api_key: str, payload: dict) -> list[dict]:
+    base = resolve_api_base()
+    if not base:
+        return []
+    url = f"{base}/v3/memories/search/"
+    if not egress_allowed(url):
+        return []
     body = json.dumps(payload).encode()
     req = urllib.request.Request(
-        SEARCH_URL,
+        url,
         data=body,
         headers={"Authorization": f"Token {api_key}", "Content-Type": "application/json"},
         method="POST",

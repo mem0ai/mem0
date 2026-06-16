@@ -116,7 +116,7 @@ USER_ID="$MEM0_RESOLVED_USER_ID"
 
 _PROMPT_CTX=""
 
-if [ -n "$HAS_RESUME" ]; then
+if [ -n "$HAS_RESUME" ] && [ "${MEM0_AUTO_SEARCH:-true}" != "false" ]; then
   RESUME_RESULTS=$(PYTHONPATH="$SCRIPT_DIR" MEM0_SEARCH_USER="$USER_ID" python3 -c "
 import os, sys
 sys.path.insert(0, os.environ.get('PYTHONPATH', '.'))
