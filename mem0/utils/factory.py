@@ -192,6 +192,7 @@ class VectorStoreFactory:
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
         "turbopuffer": "mem0.vector_stores.turbopuffer.TurbopufferDB",
+        "sqlite_vec": "mem0.vector_stores.sqlite_vec.SQLiteVec",
     }
 
     @classmethod
