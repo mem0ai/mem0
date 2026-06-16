@@ -161,7 +161,7 @@ Install from the [Cursor Marketplace](https://cursor.com/marketplace) for the co
 opencode plugin @mem0/opencode-plugin
 ```
 
-Add `--global` to install for all projects. The plugin auto-configures the MCP server, hooks, and skills via its `config` hook. Restart OpenCode after installing.
+Add `--global` to install for all projects. The plugin auto-registers its native memory tools, hooks, and skills via its `config` hook — no MCP server to configure. Restart OpenCode after installing.
 
 See [OpenCode integration docs](https://docs.mem0.ai/integrations/opencode) for full details.
 
