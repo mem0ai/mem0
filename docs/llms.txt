@@ -535,3 +535,5 @@ Everything below is OSS-only provider configuration. Skip this entire section wh
 - [Hugging Face Reranker](https://docs.mem0.ai/components/rerankers/models/huggingface) [OSS]: Use for HF-hosted reranker models.
 - [LLM Reranker](https://docs.mem0.ai/components/rerankers/models/llm-reranker) [OSS]: Use when the reranker is a prompted LLM (implementation reference).
 - [Zero Entropy Reranker](https://docs.mem0.ai/components/rerankers/models/zero-entropy) [OSS]: Use for the Zero Entropy reranker.
+
+- [Screenpipe Memory Source](https://docs.mem0.ai/cookbooks/integrations/screenpipe-memory-source) [Both] Use when importing selected Screenpipe observations into Mem0.
