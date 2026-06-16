@@ -21,6 +21,8 @@
 #   ./install-local-first.sh --ollama-url http://192.168.0.10:11434
 #   ./install-local-first.sh --llamacpp-url http://192.168.0.10:8080
 #   ./install-local-first.sh --llm llama3.1:latest --embedder nomic-embed-text --yes
+#   ./install-local-first.sh --api-key SEU_TOKEN      # token do backend local (opcional)
+#   ./install-local-first.sh --data-dir /srv/mem0-data  # salva Qdrant + SQLite nesse caminho
 #   ./install-local-first.sh --skip-models            # mantém modelos do .env atual
 #   ./install-local-first.sh --with-ui                # também sobe a UI (porta 3000)
 #
@@ -45,6 +47,9 @@ API_PORT="${API_PORT:-8765}"
 TIMEOUT="${TIMEOUT:-180}"
 LLM_CHOICE=""
 EMBEDDER_CHOICE=""
+API_KEY_CHOICE=""
+API_KEY_SET=0
+DATA_DIR=""
 NON_INTERACTIVE=0
 SKIP_MODELS=0
 WITH_UI=0
@@ -63,6 +68,10 @@ while [ $# -gt 0 ]; do
     --llm=*) LLM_CHOICE="${1#*=}"; shift ;;
     --embedder) EMBEDDER_CHOICE="$2"; shift 2 ;;
     --embedder=*) EMBEDDER_CHOICE="${1#*=}"; shift ;;
+    --api-key) API_KEY_CHOICE="$2"; API_KEY_SET=1; shift 2 ;;
+    --api-key=*) API_KEY_CHOICE="${1#*=}"; API_KEY_SET=1; shift ;;
+    --data-dir) DATA_DIR="$2"; shift 2 ;;
+    --data-dir=*) DATA_DIR="${1#*=}"; shift ;;
     --yes|-y) NON_INTERACTIVE=1; shift ;;
     --skip-models) SKIP_MODELS=1; shift ;;
     --with-ui) WITH_UI=1; shift ;;
@@ -200,6 +209,12 @@ else
   [ -n "$LLM_CHOICE" ] || die "Modelo LLM não definido."
   [ -n "$EMBEDDER_CHOICE" ] || die "Modelo embedder não definido."
 
+  # Token/API key do backend local detectado (opcional — Ollama não exige; Enter
+  # deixa em branco). Aplica-se ao LLM e ao embedder.
+  if [ "$API_KEY_SET" -ne 1 ] && [ "$NON_INTERACTIVE" -ne 1 ]; then
+    read -r -p "  Token/API key do ${BACKEND_CHOSEN} (Enter se não houver): " API_KEY_CHOICE </dev/tty
+  fi
+
   # 4. Persiste a seleção no .env do compose (interpolado em docker-compose.yml).
   log "Gravando a seleção em $COMPOSE_ENV"
   set_env "LLM_MODEL" "$LLM_CHOICE" "$COMPOSE_ENV"
@@ -209,27 +224,59 @@ else
     # não serve de dentro do container: usa a URL informada ou host.docker.internal.
     if [ "$LLAMACPP_URL_EXPLICIT" -eq 1 ]; then LC_CONT="${LLAMACPP_URL%/}"; else LC_CONT="http://host.docker.internal:8080"; fi
     case "$LC_CONT" in */v1) ;; *) LC_CONT="$LC_CONT/v1" ;; esac
+    # O provider openai exige key não-vazia: usa a informada ou placeholder.
+    LC_KEY="${API_KEY_CHOICE:-llama.cpp}"
     set_env "LLM_PROVIDER" "openai" "$COMPOSE_ENV"
     set_env "EMBEDDER_PROVIDER" "openai" "$COMPOSE_ENV"
     set_env "LLM_BASE_URL" "$LC_CONT" "$COMPOSE_ENV"
     set_env "EMBEDDER_BASE_URL" "$LC_CONT" "$COMPOSE_ENV"
-    set_env "LLM_API_KEY" "llama.cpp" "$COMPOSE_ENV"
-    set_env "EMBEDDER_API_KEY" "llama.cpp" "$COMPOSE_ENV"
+    set_env "LLM_API_KEY" "$LC_KEY" "$COMPOSE_ENV"
+    set_env "EMBEDDER_API_KEY" "$LC_KEY" "$COMPOSE_ENV"
   else
     set_env "LLM_PROVIDER" "ollama" "$COMPOSE_ENV"
     set_env "EMBEDDER_PROVIDER" "ollama" "$COMPOSE_ENV"
+    # Token opcional do Ollama (em branco quando não informado).
+    set_env "LLM_API_KEY" "$API_KEY_CHOICE" "$COMPOSE_ENV"
+    set_env "EMBEDDER_API_KEY" "$API_KEY_CHOICE" "$COMPOSE_ENV"
     # Só fixa OLLAMA_BASE_URL quando o usuário deu uma URL de rede; senão mantém
     # o default host.docker.internal do compose.
     if [ "$OLLAMA_URL_EXPLICIT" -eq 1 ]; then
       set_env "OLLAMA_BASE_URL" "$OLLAMA_URL" "$COMPOSE_ENV"
     fi
   fi
-  ok "Backend=$BACKEND_CHOSEN | LLM=$LLM_CHOICE | embedder=$EMBEDDER_CHOICE"
+  [ -n "$API_KEY_CHOICE" ] && KEY_NOTE="com token" || KEY_NOTE="sem token"
+  ok "Backend=$BACKEND_CHOSEN | LLM=$LLM_CHOICE | embedder=$EMBEDDER_CHOICE | $KEY_NOTE"
 fi
 
 # USER/NEXT_PUBLIC_API_URL ajudam a UI e silenciam avisos do compose.
 set_env "USER" "${USER:-openmemory}" "$COMPOSE_ENV"
 set_env "NEXT_PUBLIC_API_URL" "http://localhost:${API_PORT}" "$COMPOSE_ENV"
+
+# --------------------------------------------------------------------------- #
+# 4b. Local de salvamento das memórias (Qdrant + SQLite) — task_11
+# --------------------------------------------------------------------------- #
+# Sem caminho: volumes Docker gerenciados (padrão). Interativo sempre pergunta;
+# Enter mantém o padrão. Um caminho reloca AMBOS os stores sob <dir>/qdrant e
+# <dir>/db, repontando DATABASE_URL para /data/openmemory.db.
+log "Definindo o local de salvamento das memórias"
+if [ -z "$DATA_DIR" ] && [ "$NON_INTERACTIVE" -ne 1 ]; then
+  printf '  Onde salvar as memórias (Qdrant + SQLite)?\n'
+  read -r -p "  [Enter] = volumes Docker gerenciados (padrão) | ou informe um caminho: " DATA_DIR </dev/tty
+fi
+if [ -z "$DATA_DIR" ]; then
+  set_env "QDRANT_STORAGE" "mem0_storage" "$COMPOSE_ENV"
+  set_env "SQLITE_STORAGE" "mem0_db" "$COMPOSE_ENV"
+  set_env "DATABASE_URL" "sqlite:////usr/src/openmemory/openmemory.db" "$COMPOSE_ENV"
+  ok "Armazenamento: volumes Docker gerenciados (padrão)."
+else
+  case "$DATA_DIR" in "~"*) DATA_DIR="${HOME}${DATA_DIR#\~}" ;; esac
+  mkdir -p "$DATA_DIR/qdrant" "$DATA_DIR/db" || die "Não foi possível criar $DATA_DIR."
+  DATA_ABS="$(cd "$DATA_DIR" && pwd)"
+  set_env "QDRANT_STORAGE" "$DATA_ABS/qdrant" "$COMPOSE_ENV"
+  set_env "SQLITE_STORAGE" "$DATA_ABS/db" "$COMPOSE_ENV"
+  set_env "DATABASE_URL" "sqlite:////data/openmemory.db" "$COMPOSE_ENV"
+  ok "Armazenamento: $DATA_ABS (Qdrant em ./qdrant, SQLite em ./db)."
+fi
 
 # --------------------------------------------------------------------------- #
 # 5. Subir o conjunto (schema criado no startup via create_all)

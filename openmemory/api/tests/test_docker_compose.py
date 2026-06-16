@@ -118,6 +118,30 @@ class TestPersistence:
 
 
 # --------------------------------------------------------------------------- #
+# Configurable storage location (task_11)
+# --------------------------------------------------------------------------- #
+class TestConfigurableStorageLocation:
+    """The install step lets the user pick where Qdrant + SQLite persist; the
+    compose sources are interpolated and default to managed named volumes."""
+
+    def test_qdrant_storage_source_is_interpolated(self, compose):
+        vols = compose["services"]["mem0_store"]["volumes"]
+        target = [v for v in vols if str(v).endswith(":/qdrant/storage")]
+        assert target, "Qdrant storage mount missing"
+        # Source overridable at install time, defaulting to the named volume.
+        assert "${QDRANT_STORAGE:-mem0_storage}" in str(target[0])
+
+    def test_sqlite_data_dir_mount_present_and_interpolated(self, compose):
+        vols = compose["services"]["openmemory-mcp"]["volumes"]
+        target = [v for v in vols if str(v).endswith(":/data")]
+        assert target, "SQLite /data mount missing"
+        assert "${SQLITE_STORAGE:-mem0_db}" in str(target[0])
+
+    def test_db_named_volume_declared(self, compose):
+        assert "mem0_db" in compose.get("volumes", {})
+
+
+# --------------------------------------------------------------------------- #
 # No external dependencies (privacy)
 # --------------------------------------------------------------------------- #
 class TestNoExternalDependency:

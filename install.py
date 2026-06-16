@@ -19,6 +19,8 @@ Uso:
   python install.py                                   # interativo
   python install.py --ollama-url http://192.168.0.10:11434
   python install.py --llm llama3.1:latest --embedder nomic-embed-text --yes
+  python install.py --api-key SEU_TOKEN               # token do backend local (opcional)
+  python install.py --data-dir /srv/mem0-data         # salva Qdrant + SQLite nesse caminho
   python install.py --skip-models                     # mantém modelos do .env atual
   python install.py --with-ui                         # também sobe a UI (porta 3000)
 """
@@ -144,6 +146,46 @@ def select_model(models, role):
     return choice
 
 
+def configure_storage(data_dir, interactive, compose_env):
+    """Decide onde Qdrant + SQLite persistem e grava no .env do compose (task_11).
+
+    ``data_dir`` vazio/None mantém o padrão (volumes Docker gerenciados); um
+    caminho relocaliza ambos os stores sob ``<dir>/qdrant`` e ``<dir>/db``. No
+    modo interativo (``interactive``), pergunta quando nenhum caminho foi dado —
+    Enter mantém o padrão. Retorna o caminho-base absoluto ou ``None`` (padrão).
+    """
+    if not data_dir and interactive:
+        resp = input(
+            "  Onde salvar as memórias (Qdrant + SQLite)?\n"
+            "  [Enter] = volumes Docker gerenciados (padrão) | ou informe um caminho: "
+        ).strip()
+        data_dir = resp or None
+
+    if not data_dir:
+        # Padrão: volumes nomeados gerenciados pelo Docker; SQLite em ./api.
+        set_env(compose_env, "QDRANT_STORAGE", "mem0_storage")
+        set_env(compose_env, "SQLITE_STORAGE", "mem0_db")
+        set_env(compose_env, "DATABASE_URL", "sqlite:////usr/src/openmemory/openmemory.db")
+        ok("Armazenamento: volumes Docker gerenciados (padrão).")
+        return None
+
+    base = Path(data_dir).expanduser().resolve()
+    qdrant_dir = base / "qdrant"
+    db_dir = base / "db"
+    for d in (qdrant_dir, db_dir):
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            die(f"Não foi possível criar {d}: {e}")
+    # .as_posix() mantém o caminho compatível com a interpolação do compose
+    # (inclusive drive-letter no Windows, ex.: C:/dados/qdrant).
+    set_env(compose_env, "QDRANT_STORAGE", qdrant_dir.as_posix())
+    set_env(compose_env, "SQLITE_STORAGE", db_dir.as_posix())
+    set_env(compose_env, "DATABASE_URL", "sqlite:////data/openmemory.db")
+    ok(f"Armazenamento: {base} (Qdrant em ./qdrant, SQLite em ./db).")
+    return str(base)
+
+
 def wait_for_discovery(api_port, timeout):
     """Poll GET /discovery until it returns the expected JSON, or time out."""
     url = f"http://localhost:{api_port}/discovery"
@@ -175,6 +217,12 @@ def parse_args(argv):
                    help="Endpoint do servidor llama.cpp para detecção (default http://localhost:8080).")
     p.add_argument("--llm", help="Nome do modelo LLM (não-interativo; exige --embedder e --yes).")
     p.add_argument("--embedder", help="Nome do modelo embedder (idem).")
+    p.add_argument("--api-key", default=None,
+                   help="Token/API key do backend local (LLM + embedder). "
+                        "Vazio/omitido = sem token (Ollama não exige).")
+    p.add_argument("--data-dir", default=None,
+                   help="Diretório no host para salvar as memórias (Qdrant + SQLite). "
+                        "Vazio/omitido = volumes Docker gerenciados (padrão).")
     p.add_argument("--yes", "-y", action="store_true", help="Não-interativo (usa --llm/--embedder).")
     p.add_argument("--skip-models", action="store_true", help="Não mexe nos modelos do .env.")
     p.add_argument("--with-ui", action="store_true", help="Também sobe a UI (porta 3000).")
@@ -260,26 +308,42 @@ def main(argv=None):
         if not embedder:
             die("Modelo embedder não definido.")
 
+        # Token/API key do backend local detectado (opcional — Ollama não exige;
+        # Enter deixa em branco). Aplica-se ao LLM e ao embedder.
+        api_key = args.api_key
+        if api_key is None and not args.yes:
+            api_key = input(
+                f"  Token/API key do {labels[backend]} (Enter se não houver): "
+            ).strip()
+        api_key = (api_key or "").strip()
+
         log(f"Gravando a seleção em {compose_env.relative_to(ROOT)}")
         set_env(compose_env, "LLM_MODEL", llm)
         set_env(compose_env, "EMBEDDER_MODEL", embedder)
         if backend == "llamacpp":
-            # llama.cpp via provider openai apontando para o servidor local.
+            # llama.cpp via provider openai apontando para o servidor local. O
+            # provider openai exige uma key não-vazia: usa a informada ou um
+            # placeholder ("llama.cpp") quando o usuário não passa token.
             v1 = llamacpp_container_url.rstrip("/")
             if not v1.endswith("/v1"):
                 v1 += "/v1"
+            key = api_key or "llama.cpp"
             set_env(compose_env, "LLM_PROVIDER", "openai")
             set_env(compose_env, "EMBEDDER_PROVIDER", "openai")
             set_env(compose_env, "LLM_BASE_URL", v1)
             set_env(compose_env, "EMBEDDER_BASE_URL", v1)
-            set_env(compose_env, "LLM_API_KEY", "llama.cpp")
-            set_env(compose_env, "EMBEDDER_API_KEY", "llama.cpp")
+            set_env(compose_env, "LLM_API_KEY", key)
+            set_env(compose_env, "EMBEDDER_API_KEY", key)
         else:
             set_env(compose_env, "LLM_PROVIDER", "ollama")
             set_env(compose_env, "EMBEDDER_PROVIDER", "ollama")
+            # Token opcional do Ollama (em branco quando não informado).
+            set_env(compose_env, "LLM_API_KEY", api_key)
+            set_env(compose_env, "EMBEDDER_API_KEY", api_key)
             if ollama_explicit:
                 set_env(compose_env, "OLLAMA_BASE_URL", args.ollama_url)
-        ok(f"Backend={labels[backend]} | LLM={llm} | embedder={embedder}")
+        key_note = "com token" if api_key else "sem token"
+        ok(f"Backend={labels[backend]} | LLM={llm} | embedder={embedder} | {key_note}")
 
     # USER / NEXT_PUBLIC_API_URL: ajudam a UI e silenciam avisos do compose.
     try:
@@ -288,6 +352,10 @@ def main(argv=None):
         user = "openmemory"
     set_env(compose_env, "USER", user)
     set_env(compose_env, "NEXT_PUBLIC_API_URL", f"http://localhost:{args.api_port}")
+
+    # 4b. Local de salvamento das memórias (Qdrant + SQLite) -----------------
+    log("Definindo o local de salvamento das memórias")
+    configure_storage(args.data_dir, interactive=not args.yes, compose_env=compose_env)
 
     # 5. Subir o conjunto -----------------------------------------------------
     services = ["mem0_store", "openmemory-mcp"]

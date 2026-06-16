@@ -32,6 +32,10 @@ cd openmemory
 ./install-local-first.sh
 ```
 
+Além dos modelos, o instalador pergunta (interativo) **o token/API key do backend
+local detectado** — Ollama normalmente não exige, então é só dar **Enter** — e
+**onde salvar as memórias** (veja [Local de salvamento](#local-de-salvamento-das-memorias)).
+
 Variações úteis (mesmas flags nos dois):
 
 ```bash
@@ -40,6 +44,12 @@ python install.py --ollama-url http://192.168.0.10:11434
 
 # Forçar llama.cpp (servidor OpenAI-compatível) em outra máquina:
 python install.py --backend llamacpp --llamacpp-url http://192.168.0.10:8080
+
+# Token/API key do backend local (opcional — Ollama dispensa):
+python install.py --api-key SEU_TOKEN
+
+# Escolher onde as memórias ficam no host (Qdrant + SQLite):
+python install.py --data-dir /srv/mem0-data
 
 # Não-interativo (CI / provisionamento):
 python install.py --llm llama3.1:latest --embedder nomic-embed-text --yes
@@ -118,12 +128,38 @@ docker compose exec openmemory-mcp python -m app.setup_models
 | `DATABASE_URL` | SQLite (catálogo + fila de escrita + histórico). |
 | `OPENMEMORY_DISCOVERY_BASE_URL` | (Opcional) URL base anunciada em `/discovery`. |
 
+## Local de salvamento das memórias
+
+Por padrão, os dados ficam em **volumes Docker gerenciados** (nada a configurar).
+No modo interativo o instalador pergunta o local; **Enter mantém o padrão**, ou
+informe um caminho no host para relocar **tudo** (Qdrant + SQLite). Também via
+flag, em qualquer um dos instaladores:
+
+```bash
+python install.py --data-dir /srv/mem0-data
+./install-local-first.sh --data-dir /srv/mem0-data
+```
+
+Com um caminho escolhido, o instalador cria e usa:
+
+- `<data-dir>/qdrant` → vetores do Qdrant (`/qdrant/storage` no container);
+- `<data-dir>/db` → banco SQLite (`DATABASE_URL` repontado para `/data/openmemory.db`).
+
+A escolha é gravada no `.env` do compose (`QDRANT_STORAGE`, `SQLITE_STORAGE`,
+`DATABASE_URL`), interpolado pelo `docker-compose.yml`.
+
 ## Persistência
 
-- **Qdrant**: volume nomeado `mem0_storage` montado em `/qdrant/storage` — as
-  memórias sobrevivem a reinícios do container.
-- **SQLite**: persistido via bind mount `./api` (fila de escrita, catálogo de
-  projetos e histórico).
+- **Qdrant**: fonte definida por `QDRANT_STORAGE` — volume nomeado `mem0_storage`
+  (padrão) ou `<data-dir>/qdrant` (local escolhido), montado em `/qdrant/storage`.
+- **SQLite**: por padrão no bind mount `./api`; com `--data-dir`, em
+  `<data-dir>/db` montado em `/data` (fila de escrita, catálogo de projetos,
+  auditoria e histórico).
+
+> **Auto-categorização e local-only:** a categorização automática de memórias usa
+> a OpenAI (nuvem). No modo fail-closed (`MEM0_LOCAL_ONLY=1`) ela é **desativada**
+> para não vazar conteúdo — a memória é salva normalmente, apenas sem categorias
+> automáticas.
 
 ## Validação de subida (smoke)
 

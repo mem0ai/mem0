@@ -88,12 +88,24 @@ python install.py --ollama-url http://192.168.0.10:11434
 # Forçar llama.cpp (servidor OpenAI-compatível):
 python install.py --backend llamacpp --llamacpp-url http://192.168.0.10:8080
 
+# Token/API key do backend local (opcional — Ollama dispensa):
+python install.py --api-key SEU_TOKEN
+
+# Escolher onde as memórias ficam no host (Qdrant + SQLite):
+python install.py --data-dir /srv/mem0-data
+
 # Não-interativo (CI / provisionamento):
 python install.py --llm llama3.1:latest --embedder nomic-embed-text --yes
 
 # Manter modelos do .env / também subir a UI:
 python install.py --skip-models --with-ui
 ```
+
+No modo interativo o instalador também pergunta o **token do backend local**
+(Enter quando não houver) e o **local de salvamento** das memórias (Enter mantém
+os volumes Docker gerenciados; ou informe um caminho para relocar Qdrant +
+SQLite). Detalhes em
+[`openmemory/INSTALL-memoria-compartilhada.md`](openmemory/INSTALL-memoria-compartilhada.md).
 
 Sobem três serviços: `mem0_store` (Qdrant, `:6333`), `openmemory-mcp`
 (API/MCP, `:8765`) e `openmemory-ui` (`:3000`).
@@ -127,6 +139,7 @@ KEEP_UP=1 ./scripts/smoke-memoria-compartilhada.sh  # mantém no ar após valida
 | `OLLAMA_BASE_URL` | Endpoint do Ollama na rede local. |
 | `QDRANT_HOST` / `QDRANT_PORT` | Qdrant (no compose, aponta para `mem0_store`). |
 | `DATABASE_URL` | SQLite (catálogo + fila de escrita + auditoria + histórico). |
+| `QDRANT_STORAGE` / `SQLITE_STORAGE` | Origem dos volumes de dados (definidos pelo instalador via `--data-dir`). Padrão: volumes Docker gerenciados. |
 | `OPENMEMORY_DISCOVERY_BASE_URL` | (Opcional) URL base anunciada em `/discovery`. |
 
 Backends locais suportados: **Ollama** (provider `ollama`) e **llama.cpp** (via

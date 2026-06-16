@@ -4,9 +4,11 @@ services:
     ports:
       - "6333:6333"
     volumes:
-      # Qdrant persists its collections under /qdrant/storage by default; the
-      # named volume keeps memories across container restarts (task_10.3).
-      - mem0_storage:/qdrant/storage
+      # Qdrant persists its collections under /qdrant/storage. The source is
+      # chosen at install time (QDRANT_STORAGE): a host path when a custom data
+      # dir is selected, or the managed named volume `mem0_storage` by default.
+      # Either way memories survive container restarts (task_10.3 / task_11).
+      - ${QDRANT_STORAGE:-mem0_storage}:/qdrant/storage
   openmemory-mcp:
     image: mem0/openmemory-mcp
     build: api/
@@ -51,6 +53,12 @@ services:
       - "8765:8765"
     volumes:
       - ./api:/usr/src/openmemory
+      # SQLite (catalog + write queue + history + audit). By default it lives in
+      # the ./api bind mount (DATABASE_URL points there) and this /data mount is
+      # the managed `mem0_db` volume, unused. When a custom data dir is chosen at
+      # install time, SQLITE_STORAGE binds a host folder here and the installer
+      # repoints DATABASE_URL at /data/openmemory.db (task_11).
+      - ${SQLITE_STORAGE:-mem0_db}:/data
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
   openmemory-ui:
@@ -66,3 +74,4 @@ services:
 
 volumes:
   mem0_storage:
+  mem0_db:
