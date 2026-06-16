@@ -1,4 +1,4 @@
-import { camelToSnakeKeys, snakeToCamelKeys } from "./utils";
+import { camelToSnakeKeys, snakeToCamelKeys } from "../utils";
 
 describe("camelToSnakeKeys / snakeToCamelKeys", () => {
   it("converts SDK-defined keys between camelCase and snake_case", () => {
