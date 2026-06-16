@@ -128,6 +128,111 @@ cd openmemory
 KEEP_UP=1 ./scripts/smoke-memoria-compartilhada.sh  # mantém no ar após validar
 ```
 
+## Conectar agentes via auto-descoberta
+
+Com o servidor no ar (`:8765`), qualquer agente se autoconfigura consultando o
+**endpoint de descoberta** — sem precisar conhecer URLs com antecedência.
+
+### 1. Consultar o endpoint de descoberta
+
+```bash
+curl http://SEU-SERVIDOR:8765/discovery
+```
+
+Resposta (o `base_url` reflete o endereço pelo qual o agente chegou ao servidor):
+
+```json
+{
+  "transport": "sse",
+  "base_url": "http://SEU-SERVIDOR:8765",
+  "route_template": "/mcp/{client_name}/sse/{user_id}",
+  "transports": {
+    "sse": "/mcp/{client_name}/sse/{user_id}",
+    "http": "/mcp/{client_name}/http/{user_id}"
+  },
+  "fields": {
+    "client_name": "nome do agente/cliente MCP",
+    "user_id": "hostname da máquina",
+    "project": "obrigatório"
+  }
+}
+```
+
+O mesmo payload está disponível no caminho convencional `GET /.well-known/mcp`.
+
+### 2. Montar a URL MCP
+
+Substitua `{client_name}` pelo nome do agente (ex.: `claude-code`) e `{user_id}`
+pelo **hostname da máquina** onde o agente roda. O hostname é atribuição/auditoria
+— não restringe o acesso.
+
+| Transporte | URL |
+|------------|-----|
+| SSE (padrão, amplo suporte) | `http://SERVIDOR:8765/mcp/claude-code/sse/HOSTNAME` |
+| Streamable HTTP (MCP spec 2025-03-26+) | `http://SERVIDOR:8765/mcp/claude-code/http/HOSTNAME` |
+
+### 3. Configurar o agente
+
+**Claude Code** — adicione em `~/.claude/claude_desktop_config.json` ou nas
+configurações de MCP do projeto:
+
+```json
+{
+  "mcpServers": {
+    "openmemory": {
+      "type": "sse",
+      "url": "http://SEU-SERVIDOR:8765/mcp/claude-code/sse/HOSTNAME"
+    }
+  }
+}
+```
+
+**Cursor / outros clientes MCP com SSE:**
+
+```json
+{
+  "mcpServers": {
+    "openmemory": {
+      "url": "http://SEU-SERVIDOR:8765/mcp/AGENTE/sse/HOSTNAME"
+    }
+  }
+}
+```
+
+**Streamable HTTP** (para clientes que suportam o transporte mais recente):
+
+```json
+{
+  "mcpServers": {
+    "openmemory": {
+      "type": "http",
+      "url": "http://SEU-SERVIDOR:8765/mcp/AGENTE/http/HOSTNAME"
+    }
+  }
+}
+```
+
+> **Claude Code com o plugin instalado** (`integrations/mem0-plugin`) conecta
+> automaticamente via hooks de sessão — não é necessário configurar o MCP
+> manualmente. O plugin resolve o endereço via `OPENMEMORY_API_BASE`.
+
+### 4. Ferramentas MCP disponíveis
+
+| Ferramenta | Descrição |
+|------------|-----------|
+| `add_memories(text, project)` | Enfileira escrita assíncrona. Retorna `{"status":"queued","job_id":"..."}` imediatamente — não bloqueia. |
+| `get_job_status(job_id)` | Consulta status de um job (`queued / processing / done / failed`) e o erro, se houver. |
+| `search_memory(query, project)` | Busca semântica por similaridade. Retorna memórias de **todos os agentes** que escreveram no `project`. |
+| `list_memories(project)` | Lista todas as memórias do projeto. |
+| `delete_memories(memory_ids)` | Remove memórias específicas por ID. |
+| `delete_all_memories()` | Remove todas as memórias acessíveis ao agente atual. |
+
+> `project` é **obrigatório** em todas as ferramentas de leitura e escrita. Define
+> o espaço compartilhado: memórias gravadas por qualquer agente em `project="X"` são
+> visíveis a todos que buscam em `project="X"`, independente de hostname.
+
+---
+
 ## Configuração essencial (`openmemory/api/.env`)
 
 | Variável | Função |
