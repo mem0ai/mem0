@@ -8,9 +8,11 @@ from app.models import App, User
 from app.routers import (
     apps_router,
     backup_router,
+    compat_v3_router,
     config_router,
     discovery_router,
     memories_router,
+    provision_router,
     stats_router,
 )
 from app.workers.write_worker import write_worker
@@ -93,6 +95,8 @@ app.include_router(stats_router)
 app.include_router(config_router)
 app.include_router(backup_router)
 app.include_router(discovery_router)
+app.include_router(compat_v3_router)
+app.include_router(provision_router)
 
 # Add pagination support
 add_pagination(app)
