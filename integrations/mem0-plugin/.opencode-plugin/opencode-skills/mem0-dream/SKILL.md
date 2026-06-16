@@ -230,7 +230,7 @@ In auto mode:
 ## See also
 
 - `/mem0-forget` — targeted deletion of specific memories (search + confirm + delete)
-- `/mem0-health --deep` — quick quality scan without applying changes
+- `/mem0-status --deep` — quick quality scan without applying changes
 
 ## Output formatting
 

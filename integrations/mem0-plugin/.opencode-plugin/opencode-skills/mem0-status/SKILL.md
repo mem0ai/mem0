@@ -1,9 +1,9 @@
 ---
-name: mem0-health
+name: mem0-status
 description: Diagnoses mem0 connectivity, API key validity, and memory read/write functionality. Use when memory operations fail, searches return empty, add_memory errors occur, or to verify the plugin is working correctly.
 ---
 
-# Mem0 Health Check
+# Mem0 Status
 
 Run a diagnostic check on the mem0 plugin. Useful for troubleshooting.
 
@@ -78,7 +78,7 @@ echo "branch=${MEM0_BRANCH:-}"
 ### Display
 
 ```
-## mem0 health
+## mem0 status
 
 PASS  API Key         m0-dVe...
 PASS  Identity        user=kartik, project=mem0, branch=main
@@ -93,7 +93,7 @@ If any check fails, add a `## Troubleshooting` section with specific fix steps f
 
 ## Extended mode: Memory Quality Analysis
 
-When invoked with `--deep` (e.g., `/mem0-health --deep`), run the standard 5 checks above **plus** a memory quality scan.
+When invoked with `--deep` (e.g., `/mem0-status --deep`), run the standard 5 checks above **plus** a memory quality scan.
 
 ### Quality Check 1: Duplicates
 

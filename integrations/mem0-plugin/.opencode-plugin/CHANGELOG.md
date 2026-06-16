@@ -8,7 +8,7 @@ All notable changes to the `@mem0/opencode-plugin` will be documented in this fi
 
 - **Memory tools are now native OpenCode tools** registered via the `@opencode-ai/plugin` `tool()` helper and backed by the `mem0ai` SDK directly. The plugin no longer registers or depends on the remote MCP server (`mcp.mem0.ai`); the bundled `opencode.json` and the regex-based MCP call interception have been removed. Tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`, plus a `get_event_status` helper for async-write status.
 - **Skills load via the `config` hook (`skills.paths`)** instead of being copied into the project's `.opencode/` directory on startup. The `installSkills()` filesystem copy and the `cli.ts` installer (`mem0-opencode` bin) have been removed — install with `opencode plugin @mem0/opencode-plugin`.
-- **Trimmed to 8 focused skills** (`context-loader`, `dream`, `forget`, `health`, `peek`, `pin`, `remember`, `tour`). Removed `import`, `export`, `memory-reviewer`, `mem0` (SDK reference), `list-projects`, `switch-project`, `stats`, and `onboard`.
+- **Trimmed to 8 focused skills** (`context-loader`, `dream`, `forget`, `status`, `search`, `pin`, `remember`, `tour`). Removed `import`, `export`, `memory-reviewer`, `mem0` (SDK reference), `list-projects`, `switch-project`, `stats`, and `onboard`.
 
 ### Added
 

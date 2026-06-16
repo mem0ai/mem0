@@ -1,9 +1,9 @@
 ---
-name: mem0-peek
+name: mem0-search
 description: Searches memories and displays compact one-liner results, or looks up a specific memory by ID. Use for quick memory lookups, checking if a decision was recorded, resolving [mem0:id] citations, or browsing memories without full category detail.
 ---
 
-# Mem0 Peek
+# Mem0 Search
 
 Quick search with compact output. Lighter than `/mem0-tour`.
 
@@ -11,7 +11,7 @@ Quick search with compact output. Lighter than `/mem0-tour`.
 
 ### Step 1: Parse query
 
-The user provides a search query: `/mem0-peek auth middleware`
+The user provides a search query: `/mem0-search auth middleware`
 
 If no query provided, ask: "What should I search for?"
 
@@ -37,7 +37,7 @@ Run 2 parallel `search_memories` calls:
 Deduplicate by ID, then show compact results:
 
 ```
-## mem0 peek: "<query>" (<N> results)
+## mem0 search: "<query>" (<N> results)
 
 1. [decision] Auth module uses JWT with RS256 keys (2025-05-15) [mem0:a3f8b2c1]
 2. [anti_pattern] Don't use symmetric HS256 — leaked in env (2025-05-10) [mem0:7e2d9f4a]
