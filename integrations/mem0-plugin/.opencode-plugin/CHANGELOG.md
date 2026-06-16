@@ -13,6 +13,7 @@ All notable changes to the `@mem0/opencode-plugin` will be documented in this fi
 ### Added
 
 - **Expanded telemetry to the full shared `plugin.*` schema.** In addition to `plugin.session_start` and `plugin.tool_use`, the plugin now emits `plugin.user_prompt`, `plugin.bash_error`, `plugin.pre_compact`, and `plugin.session_stop`. `tool_use` now fires from inside each native tool. Every event also carries `project_hash` (anonymized `sha256(app_id)`) and `os_version`, matching the editor plugin's `telemetry.py`.
+- **Auto-dream — gated automatic memory consolidation** (ported from the pi-agent plugin). When the time (`minHours`, default 24), session-count (`minSessions`, default 5), and memory-count (`minMemories`, default 20) gates all pass, the plugin injects a consolidation protocol so the agent merges duplicates, drops stale/sensitive entries, and rewrites vague ones before answering. A filesystem lock (`~/.mem0/mem0-dream.lock`) prevents concurrent sessions from dreaming at once, and completion resets the gates. Tune via the `dream` block in `~/.mem0/settings.json`; disable with `MEM0_DREAM=false`. Emits `plugin.dream_triggered` / `plugin.dream_completed`.
 
 ### Fixed
 

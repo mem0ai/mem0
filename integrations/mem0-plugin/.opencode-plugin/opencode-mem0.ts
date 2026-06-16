@@ -14,6 +14,16 @@ import {join} from "path";
 import {createHash} from "crypto";
 import {readdirSync} from "node:fs";
 import {captureEvent} from "./telemetry";
+import {
+  loadDreamConfig,
+  incrementSessionCount,
+  checkCheapGates,
+  checkMemoryGate,
+  acquireDreamLock,
+  releaseDreamLock,
+  recordDreamCompletion,
+  DREAM_PROTOCOL,
+} from "./dream";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -256,6 +266,12 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
   const systemContext: string[] = [];
 
+  // Auto-dream: gated memory-consolidation state (ported from the pi-agent plugin).
+  const mem0StateDir = join(homedir(), ".mem0");
+  const dreamConfig = loadDreamConfig(mem0StateDir);
+  let dreamTriggered = false;
+  let dreamWriteSeen = false;
+
   // Emit a session_stop telemetry event once when the process winds down.
   let sessionStopSent = false;
   const emitSessionStop = () => {
@@ -267,6 +283,16 @@ const Mem0Plugin: Plugin = async (ctx) => {
       apiKey,
       appId,
     );
+    // Finish an in-flight auto-dream: record completion if the agent consolidated,
+    // and always release the lock so the next eligible session can dream.
+    if (dreamTriggered) {
+      if (dreamWriteSeen) {
+        recordDreamCompletion(mem0StateDir);
+        captureEvent("dream_completed", {}, apiKey, appId);
+      }
+      releaseDreamLock(mem0StateDir);
+      dreamTriggered = false;
+    }
   };
   try {
     process.on("beforeExit", emitSessionStop);
@@ -356,6 +382,7 @@ Identity context (resolved at plugin startup):
         },
         async execute(args) {
           stats.adds++;
+          if (dreamTriggered) dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
           const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? userId);
           const finalAppId = args.app_id ?? appId;
@@ -470,6 +497,7 @@ Identity context (resolved at plugin startup):
           id: tool.schema.string().describe("The ID of the memory to delete"),
         },
         async execute(args) {
+          if (dreamTriggered) dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "delete_memory"}, apiKey, appId);
           const res = await mem0.delete(args.id);
           return JSON.stringify(res);
@@ -484,6 +512,7 @@ Identity context (resolved at plugin startup):
           agent_id: tool.schema.string().optional().describe("Agent ID whose memories to delete"),
         },
         async execute(args) {
+          if (dreamTriggered) dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
           const res = await mem0.deleteAll({
             user_id: args.agent_id ? args.user_id : (args.user_id ?? userId),
@@ -554,6 +583,10 @@ Identity context (resolved at plugin startup):
 
     if (!initialized) {
       initialized = true;
+
+      if (dreamConfig.enabled) {
+        incrementSessionCount(mem0StateDir, sessionId);
+      }
 
       const searchFilters = globalSearch
         ? {OR: [{user_id: "*"}]}
@@ -627,6 +660,21 @@ Identity context (resolved at plugin startup):
       }
 
       captureEvent("session_start", {memory_count: memoryCount}, apiKey, appId);
+
+      // Auto-dream: when the time/session/memory gates pass, inject the
+      // consolidation protocol so the agent tidies memories before answering.
+      if (dreamConfig.enabled && dreamConfig.auto && !dreamTriggered) {
+        const gates = checkCheapGates(mem0StateDir, dreamConfig);
+        if (
+          gates.proceed &&
+          checkMemoryGate(memoryCount, dreamConfig).pass &&
+          acquireDreamLock(mem0StateDir)
+        ) {
+          dreamTriggered = true;
+          systemContext.push(DREAM_PROTOCOL);
+          captureEvent("dream_triggered", {memory_count: memoryCount}, apiKey, appId);
+        }
+      }
     }
 
     const hasRemember = NUDGE_RE.test(safeText);
