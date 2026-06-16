@@ -1534,19 +1534,50 @@ class Memory(MemoryBase):
         query_lemmatized = lemmatize_for_bm25(query)
         query_entities = extract_entities(query)
 
-        # Step 2: Embed query
-        embeddings = self.embedding_model.embed(query, "search")
-
-        # Step 3: Semantic search (over-fetch for scoring pool)
+        # Step 2+3: Embed query ∥ keyword_search in parallel
+        # keyword_search doesn't depend on embedding, so we can overlap them.
         internal_limit = max(limit * 4, 60)
-        semantic_results = self.vector_store.search(
-            query=query, vectors=embeddings, top_k=internal_limit, filters=filters
-        )
 
-        # Step 4: Keyword search (if store supports it)
-        keyword_results = self.vector_store.keyword_search(
-            query=query_lemmatized, top_k=internal_limit, filters=filters
+        keyword_search_supported = (
+            getattr(type(self.vector_store), "keyword_search", None) is not VectorStoreBase.keyword_search
         )
+        # Skip parallelism for local backends (e.g. QdrantLocal uses SQLite which enforces
+        # check_same_thread and would raise ProgrammingError on cross-thread access).
+        is_local_backend = getattr(self.vector_store, "is_local", False)
+
+        def _run_semantic():
+            try:
+                return self.vector_store.search(
+                    query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+                )
+            except Exception as e:
+                logger.warning(f"Semantic search failed: {e}")
+                return []
+
+        def _run_keyword():
+            try:
+                return self.vector_store.keyword_search(
+                    query=query_lemmatized, top_k=internal_limit, filters=filters
+                )
+            except Exception as e:
+                logger.warning(f"Keyword search failed: {e}")
+                return None
+
+        if keyword_search_supported and not is_local_backend:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                # keyword_search doesn't need embedding → start it immediately
+                keyword_future = executor.submit(_run_keyword)
+                # Embed query in main thread while keyword search runs in background
+                embeddings = self.embedding_model.embed(query, "search")
+                # semantic_search depends on embeddings → submit after embed completes
+                semantic_future = executor.submit(_run_semantic)
+                keyword_results = keyword_future.result()
+                semantic_results = semantic_future.result()
+        else:
+            # Sequential fallback (local backends or no keyword support)
+            embeddings = self.embedding_model.embed(query, "search")
+            semantic_results = _run_semantic()
+            keyword_results = _run_keyword() if keyword_search_supported else None
 
         # Step 5: Compute BM25 scores from keyword results
         bm25_scores = {}
@@ -3115,19 +3146,47 @@ class AsyncMemory(MemoryBase):
         query_lemmatized = await asyncio.to_thread(lemmatize_for_bm25, query)
         query_entities = await asyncio.to_thread(extract_entities, query)
 
-        # Step 2: Embed query
-        embeddings = await asyncio.to_thread(self.embedding_model.embed, query, "search")
-
-        # Step 3: Semantic search (over-fetch)
+        # Step 2+3: Embed query ∥ keyword_search concurrently
+        # keyword_search doesn't depend on embedding, so start both at the same time.
         internal_limit = max(limit * 4, 60)
-        semantic_results = await asyncio.to_thread(
-            self.vector_store.search, query=query, vectors=embeddings, top_k=internal_limit, filters=filters
+
+        keyword_search_supported = (
+            getattr(type(self.vector_store), "keyword_search", None) is not VectorStoreBase.keyword_search
         )
 
-        # Step 4: Keyword search (if store supports it)
-        keyword_results = await asyncio.to_thread(
-            self.vector_store.keyword_search, query=query_lemmatized, top_k=internal_limit, filters=filters
-        )
+        async def _run_embed():
+            return await asyncio.to_thread(self.embedding_model.embed, query, "search")
+
+        async def _run_keyword():
+            try:
+                return await asyncio.to_thread(
+                    self.vector_store.keyword_search,
+                    query=query_lemmatized,
+                    top_k=internal_limit,
+                    filters=filters,
+                )
+            except Exception as e:
+                logger.warning(f"Keyword search failed: {e}")
+                return None
+
+        if keyword_search_supported:
+            embeddings, keyword_results = await asyncio.gather(_run_embed(), _run_keyword())
+        else:
+            embeddings = await _run_embed()
+            keyword_results = None
+
+        # Step 4: Semantic search (depends on embeddings)
+        try:
+            semantic_results = await asyncio.to_thread(
+                self.vector_store.search,
+                query=query,
+                vectors=embeddings,
+                top_k=internal_limit,
+                filters=filters,
+            )
+        except Exception as e:
+            logger.warning(f"Semantic search failed: {e}")
+            semantic_results = []
 
         # Step 5: Compute BM25 scores
         bm25_scores = {}
