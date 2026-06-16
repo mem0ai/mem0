@@ -72,6 +72,77 @@ def test_embed_with_custom_embedding_dims(mock_sentence_transformer):
     assert result == [1.0, 1.1, 1.2]
 
 
+def test_embed_batch_uses_native_encode(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    mock_sentence_transformer.encode.return_value = np.array(
+        [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+    )
+    texts = ["first text", "second text"]
+    result = embedder.embed_batch(texts)
+
+    mock_sentence_transformer.encode.assert_called_once_with(
+        texts, batch_size=32, show_progress_bar=False, convert_to_numpy=True
+    )
+    assert result == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+
+def test_embed_batch_empty_list_returns_empty(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    result = embedder.embed_batch([])
+
+    assert result == []
+    mock_sentence_transformer.encode.assert_not_called()
+
+
+def test_embed_batch_falls_back_on_encode_error(mock_sentence_transformer):
+    config = BaseEmbedderConfig()
+    embedder = HuggingFaceEmbedding(config)
+
+    # First call (batch encode) raises; subsequent per-text calls succeed.
+    mock_sentence_transformer.encode.side_effect = [
+        RuntimeError("encode failed"),
+        np.array([0.1, 0.2]),
+        np.array([0.3, 0.4]),
+    ]
+    result = embedder.embed_batch(["a", "b"])
+
+    assert result == [[0.1, 0.2], [0.3, 0.4]]
+    assert mock_sentence_transformer.encode.call_count == 3
+
+
+def test_embed_batch_with_huggingface_base_url():
+    config = BaseEmbedderConfig(
+        huggingface_base_url="http://localhost:8080",
+        model="my-custom-model",
+        model_kwargs={"truncate": True},
+    )
+    with patch("mem0.embeddings.huggingface.OpenAI") as mock_openai:
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+
+        def make_response(value):
+            mock_embedding_response = Mock()
+            mock_embedding_response.embedding = value
+            mock_create_response = Mock()
+            mock_create_response.data = [mock_embedding_response]
+            return mock_create_response
+
+        mock_client.embeddings.create.side_effect = [
+            make_response([0.1, 0.2]),
+            make_response([0.3, 0.4]),
+        ]
+
+        embedder = HuggingFaceEmbedding(config)
+        result = embedder.embed_batch(["hello", "world"])
+
+        assert result == [[0.1, 0.2], [0.3, 0.4]]
+        assert mock_client.embeddings.create.call_count == 2
+
+
 def test_embed_with_huggingface_base_url():
     config = BaseEmbedderConfig(
         huggingface_base_url="http://localhost:8080",

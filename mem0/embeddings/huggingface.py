@@ -42,3 +42,31 @@ class HuggingFaceEmbedding(EmbeddingBase):
             ).data[0].embedding
         else:
             return self.model.encode(text, convert_to_numpy=True).tolist()
+
+    def embed_batch(self, texts, memory_action: Optional[Literal["add", "search", "update"]] = "add"):
+        """
+        Get embeddings for a batch of texts using Hugging Face.
+
+        For local SentenceTransformer models, uses the native batch encoding
+        capability for better performance. For TEI/OpenAI-compatible endpoints,
+        falls back to the base class sequential implementation.
+
+        Args:
+            texts (list[str]): The texts to embed.
+            memory_action (optional): The action context ("add", "search", "update").
+        Returns:
+            list[list[float]]: A list of embedding vectors, one per input text.
+        """
+        if not texts:
+            return []
+
+        if self.config.huggingface_base_url:
+            return super().embed_batch(texts, memory_action)
+
+        try:
+            embeddings = self.model.encode(
+                texts, batch_size=32, show_progress_bar=False, convert_to_numpy=True
+            )
+            return [embedding.tolist() for embedding in embeddings]
+        except Exception:
+            return super().embed_batch(texts, memory_action)
