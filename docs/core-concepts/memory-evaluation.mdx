@@ -143,6 +143,26 @@ All benchmarks run on the same production-representative model stack. Scores car
 
 The full evaluation framework is [open-sourced](https://github.com/mem0ai/memory-benchmarks) so anyone can reproduce the numbers independently. It supports both Mem0 Cloud and self-hosted OSS backends.
 
+## Validating Recall Locally
+
+For smaller applications, custom extraction prompts, or CI checks, you can run a lightweight recall validation pass directly against your existing memory store. `MemoryValidator` samples stored memories, searches for each sampled memory through the normal retrieval path, and reports whether the source memory appears in the top results.
+
+```python
+from mem0 import Memory
+from mem0.utils import MemoryValidator
+
+memory = Memory.from_config(config)
+validator = MemoryValidator(memory)
+
+report = validator.validate(user_id="alice", sample_size=20, top_k=5)
+
+print(report.retrieval_rate)
+for failure in report.failures:
+    print(failure.memory_id, failure.query, failure.returned_ids)
+```
+
+By default, the validator uses the stored memory text as the search query. For task-specific checks, pass a `query_builder` that turns each memory into the kind of question your application expects users or agents to ask.
+
 ### Setup
 
 <Tabs>
