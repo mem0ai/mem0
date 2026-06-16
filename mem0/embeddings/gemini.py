@@ -4,6 +4,7 @@ from typing import Literal, Optional
 from google import genai
 from google.genai import types
 
+import mem0
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
 
@@ -17,7 +18,8 @@ class GoogleGenAIEmbedding(EmbeddingBase):
 
         api_key = self.config.api_key or os.getenv("GOOGLE_API_KEY")
 
-        self.client = genai.Client(api_key=api_key)
+        http_options = {"headers": {"x-goog-api-client": f"mem0/{mem0.__version__}"}}
+        self.client = genai.Client(api_key=api_key, http_options=http_options)
 
     def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
         """
