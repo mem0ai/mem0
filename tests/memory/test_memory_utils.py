@@ -1,7 +1,37 @@
 import pytest
 from unittest.mock import Mock
 
-from mem0.memory.utils import parse_vision_messages, remove_spaces_from_entities, sanitize_relationship_for_cypher
+from mem0.memory.utils import (
+    parse_messages,
+    parse_vision_messages,
+    remove_spaces_from_entities,
+    sanitize_relationship_for_cypher,
+)
+
+
+class TestParseMessages:
+    def test_formats_all_roles(self):
+        messages = [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there"},
+        ]
+        result = parse_messages(messages)
+        assert result == (
+            "system: You are helpful.\n"
+            "user: Hello\n"
+            "assistant: Hi there\n"
+        )
+
+    def test_empty_messages_returns_empty_string(self):
+        assert parse_messages([]) == ""
+
+    def test_unknown_roles_are_ignored(self):
+        messages = [
+            {"role": "tool", "content": "result"},
+            {"role": "user", "content": "Continue"},
+        ]
+        assert parse_messages(messages) == "user: Continue\n"
 
 
 class TestParseVisionMessages:
