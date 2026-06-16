@@ -6,10 +6,59 @@ Operação **100% local**: nenhuma dependência de serviços fora da rede (priva
 
 ## Pré-requisitos
 
-- Docker + Docker Compose.
+- Docker + Docker Compose v2 (Linux).
 - **Ollama** acessível na rede local (no host ou em outra máquina da LAN).
 
-## Passos
+## Instalação rápida (1 comando)
+
+O instalador faz tudo: confere pré-requisitos, prepara os `.env`, **detecta os
+modelos do Ollama e deixa você escolher** o LLM e o embedder (task_09), sobe o
+conjunto e valida a auto-descoberta (task_08).
+
+**Multiplataforma (Linux/macOS/Windows)** — na raiz do projeto, só precisa de
+Python 3.8+ e Docker:
+
+```bash
+python install.py
+```
+
+**Linux (bash)** — equivalente, a partir de `openmemory/`:
+
+```bash
+cd openmemory
+./install-local-first.sh
+```
+
+Variações úteis (mesmas flags nos dois):
+
+```bash
+# Ollama em outra máquina da LAN:
+python install.py --ollama-url http://192.168.0.10:11434
+
+# Não-interativo (CI / provisionamento):
+python install.py --llm llama3.1:latest --embedder nomic-embed-text --yes
+
+# Manter os modelos já definidos no .env / também subir a UI:
+python install.py --skip-models --with-ui
+```
+
+> O schema do banco é criado no startup da API (`Base.metadata.create_all`); não é
+> preciso rodar migrações manualmente numa instalação nova.
+
+> **Atenção:** o `openmemory/run.sh` é o instalador **do upstream mem0** e **não é
+> local-first** — ele exige `OPENAI_API_KEY` e gera um compose próprio. Para o
+> fluxo local-first use **`install-local-first.sh`** (ou os passos manuais abaixo).
+
+### Re-selecionar modelos depois (persistido no banco)
+
+A seleção também pode ser feita/refeita de dentro do container, persistindo no
+config de runtime (`configs`) lido pelo `get_memory_client`:
+
+```bash
+docker compose exec openmemory-mcp python -m app.setup_models
+```
+
+## Passos manuais (alternativa ao instalador)
 
 1. **Configurar o ambiente**
 
@@ -65,11 +114,26 @@ Operação **100% local**: nenhuma dependência de serviços fora da rede (priva
 - **SQLite**: persistido via bind mount `./api` (fila de escrita, catálogo de
   projetos e histórico).
 
-## Fluxo ponta a ponta (smoke)
+## Validação de subida (smoke)
+
+Há um script que sobe o conjunto, espera a API/MCP, valida o `/discovery` e
+confere o Qdrant — tudo local:
+
+```bash
+cd openmemory
+./scripts/smoke-memoria-compartilhada.sh            # sobe, valida e derruba
+KEEP_UP=1 ./scripts/smoke-memoria-compartilhada.sh  # mantém no ar após validar
+```
+
+## Fluxo ponta a ponta
 
 1. Um agente conecta na rota MCP `/mcp/{client_name}/sse/{hostname}`.
 2. `add_memories(text, project)` **enfileira** e retorna ack imediato
    (`{status: queued, job_id}`) — sem bloquear (task_07).
 3. O **worker** consome a fila, extrai via LLM e persiste no projeto (task_06).
+   Falhas são **retentadas** (re-enfileiradas) até o teto de tentativas e só
+   então marcadas `failed` — nenhum job é perdido (task_06 / ADR-004).
 4. `search_memory(query, project)` recupera a memória, **compartilhada** entre
    todas as máquinas (filtra por `project`, ignora hostname — task_03).
+5. Cada escrita gera um registro de **auditoria** durável (`write_audit_logs`)
+   com hostname/projeto/cliente (atribuição — task_04 / ADR-003).
