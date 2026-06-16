@@ -187,7 +187,7 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
             lambda: memory_client.vector_store.search(
                 query=query,
                 vectors=embeddings,
-                limit=DEFAULT_SEARCH_TOP_K,
+                top_k=DEFAULT_SEARCH_TOP_K,
                 filters=filters,
             )
         )
@@ -211,7 +211,7 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
         if rerank:
             results.sort(key=lambda r: (r.get("score") is not None, r.get("score")), reverse=True)
 
-        return json.dumps({"results": results})
+        return json.dumps({"results": results}, indent=2)
     except Exception as e:
         logging.exception(e)
         return f"Error searching memory: {e}"
@@ -262,7 +262,7 @@ async def list_memories(project: str) -> str:
                 "project": payload.get("project"),
             })
 
-        return json.dumps({"results": results})
+        return json.dumps({"results": results}, indent=2)
     except Exception as e:
         logging.exception(f"Error getting memories: {e}")
         return f"Error getting memories: {e}"
@@ -435,14 +435,14 @@ async def handle_sse(request: Request):
 
 @mcp_router.post("/messages/")
 async def handle_get_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message_impl(request)
 
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
 async def handle_post_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message_impl(request)
 
-async def handle_post_message(request: Request):
+async def _handle_post_message_impl(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()

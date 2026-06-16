@@ -125,7 +125,6 @@ class TestConsumeSuccess:
         assert client.add.call_count == 1
         args, kwargs = client.add.call_args
         assert args[0] == "remember X"
-        assert kwargs["project"] == "alpha"
         assert kwargs["user_id"] == "maqA"
         assert kwargs["metadata"]["project"] == "alpha"
         assert kwargs["metadata"]["hostname"] == "maqA"
@@ -492,7 +491,7 @@ class TestAsyncAddPath:
 
         async def real_add(text, **kwargs):
             captured["text"] = text
-            captured["project"] = kwargs.get("project")
+            captured["project"] = kwargs.get("metadata", {}).get("project")
             return {"results": []}
 
         client = MagicMock()

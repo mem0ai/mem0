@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "mem0": {
+      "type": "http",
+      "url": "http://localhost:8765/mcp/claude-code/http/ubuntu"
+    }
+  }
+}

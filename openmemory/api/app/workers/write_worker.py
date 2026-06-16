@@ -183,7 +183,6 @@ class WriteWorker:
         """
         kwargs = dict(
             user_id=job.hostname,
-            project=job.project,
             metadata={
                 "project": job.project,
                 "hostname": job.hostname,

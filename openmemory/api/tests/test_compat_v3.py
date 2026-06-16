@@ -69,8 +69,8 @@ class _VectorStore:
             hits = [h for h in hits if h.payload.get("project") == filters["project"]]
         return hits
 
-    def search(self, query, vectors, limit, filters):
-        return self._scoped(filters)[:limit]
+    def search(self, query, vectors, top_k, filters):
+        return self._scoped(filters)[:top_k]
 
     def list(self, filters, top_k):
         return self._scoped(filters)[:top_k]

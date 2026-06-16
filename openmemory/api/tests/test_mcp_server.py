@@ -27,11 +27,12 @@ MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
 
 @pytest.fixture
 def test_app():
-    """Create a minimal FastAPI app with just the MCP router for testing."""
+    """Create a minimal FastAPI app with the MCP router via setup_mcp_server."""
     from fastapi import FastAPI
+    from app.mcp_server import setup_mcp_server
 
     app = FastAPI()
-    app.include_router(mcp_router)
+    setup_mcp_server(app)
     return app
 
 
@@ -383,14 +384,17 @@ class TestStreamableHTTPResponses:
 class TestRouteRegistration:
     """Verify all expected routes are registered in the router."""
 
-    def test_sse_route_is_registered(self, test_app):
+    @pytest.mark.asyncio
+    async def test_sse_route_is_registered(self, test_app):
         routes = [r.path for r in test_app.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/sse/{user_id}" in routes
 
-    def test_sse_post_messages_route_is_registered(self, test_app):
+    @pytest.mark.asyncio
+    async def test_sse_post_messages_route_is_registered(self, test_app):
         routes = [r.path for r in test_app.routes if hasattr(r, "path")]
         assert "/mcp/messages/" in routes or "/mcp/{client_name}/sse/{user_id}/messages/" in routes
 
-    def test_streamable_http_route_is_registered(self, test_app):
+    @pytest.mark.asyncio
+    async def test_streamable_http_route_is_registered(self, test_app):
         routes = [r.path for r in test_app.routes if hasattr(r, "path")]
         assert "/mcp/{client_name}/http/{user_id}" in routes
