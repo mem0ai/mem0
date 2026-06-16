@@ -1,269 +1,182 @@
-<p align="center">
-  <a href="https://github.com/mem0ai/mem0">
-    <img src="docs/images/banner-sm.png" width="800px" alt="Mem0 - The Memory Layer for Personalized AI">
-  </a>
-</p>
-<p align="center" style="display: flex; justify-content: center; gap: 20px; align-items: center;">
-  <a href="https://trendshift.io/repositories/11194" target="blank">
-    <img src="https://trendshift.io/api/badge/repositories/11194" alt="mem0ai%2Fmem0 | Trendshift" width="250" height="55"/>
-  </a>
-</p>
+# mem0-shared — Memória Central Compartilhada (local-first)
 
-<p align="center">
-  <a href="https://mem0.ai">Learn more</a>
-  ·
-  <a href="https://mem0.dev/DiG">Join Discord</a>
-  ·
-  <a href="https://mem0.dev/demo">Demo</a>
-</p>
+Fork do [mem0](https://github.com/mem0ai/mem0) adaptado para servir como **memória
+central compartilhada de time**, rodando **100% na rede local**. Uma instalação
+única sobe o servidor MCP/API, o vector store e usa um LLM local — nenhum
+conteúdo de memória sai da rede.
 
-<p align="center">
-  <a href="https://mem0.dev/DiG">
-    <img src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" alt="Mem0 Discord">
-  </a>
-  <a href="https://pepy.tech/project/mem0ai">
-    <img src="https://img.shields.io/pypi/dm/mem0ai" alt="Mem0 PyPI - Downloads">
-  </a>
-  <a href="https://github.com/mem0ai/mem0">
-    <img src="https://img.shields.io/github/commit-activity/m/mem0ai/mem0?style=flat-square" alt="GitHub commit activity">
-  </a>
-  <a href="https://pypi.org/project/mem0ai" target="blank">
-    <img src="https://img.shields.io/pypi/v/mem0ai?color=%2334D058&label=pypi%20package" alt="Package version">
-  </a>
-  <a href="https://www.npmjs.com/package/mem0ai" target="blank">
-    <img src="https://img.shields.io/npm/v/mem0ai" alt="Npm package">
-  </a>
-  <a href="https://www.ycombinator.com/companies/mem0">
-    <img src="https://img.shields.io/badge/Y%20Combinator-S24-orange?style=flat-square" alt="Y Combinator S24">
-  </a>
-</p>
+> Este repositório **não** é o mem0 de origem com seus padrões de nuvem. As
+> seções abaixo descrevem o que de fato existe e está ativo aqui. O SDK mem0
+> original continua disponível como base (veja [Base: SDK mem0](#base-sdk-mem0)).
 
-<p align="center">
-  <a href="https://mem0.ai/research"><strong>📄 Benchmarking Mem0's token-efficient memory algorithm →</strong></a>
-</p>
+## O que isto entrega
 
-## New Memory Algorithm (April 2026)
+- **Memória compartilhada entre máquinas** — as memórias são escopadas por
+  `project` (não por máquina). Qualquer agente em qualquer host lê e escreve no
+  mesmo acervo; o hostname serve apenas para **atribuição/auditoria**.
+- **Local-first e fail-closed** — o servidor **recusa inicializar** se o
+  LLM/embedder configurado apontar para um host não-local (OpenAI, Anthropic
+  etc.). A garantia é em código, não só em convenção (`MEM0_LOCAL_ONLY=1`).
+- **Telemetria desligada** — `MEM0_TELEMETRY=false` e, com `MEM0_LOCAL_ONLY=1`,
+  os eventos de uso (PostHog) do core são forçados a off antes do import do mem0.
+- **Escrita assíncrona durável** — `add_memories` **enfileira** e devolve ack
+  imediato (`{status: queued, job_id}`); um worker em background extrai via LLM e
+  persiste. Falhas são re-enfileiradas até o teto de tentativas — nenhum job é
+  perdido.
+- **Auto-descoberta MCP** — agentes se autoconfiguram via `GET /discovery`
+  (transporte, `base_url`, template de rota e campos esperados).
+- **Detecção de modelos locais** — o instalador detecta **Ollama** (`/api/tags`)
+  e **llama.cpp** (`/v1/models`) e deixa você escolher backend e modelos.
 
-| Benchmark | Old | New  | Tokens  | Latency p50  |
-| --- | --- | --- | --- | --- |
-| **LoCoMo** | 71.4 | **91.6** | 7.0K  | 0.88s  |
-| **LongMemEval** | 67.8 | **94.8** | 6.8K  | 1.09s  |
-| **BEAM (1M)** | — | **64.1** | 6.7K  | 1.00s  |
-| **BEAM (10M)** | — | **48.6** | 6.9K  | 1.05s  |
+## Arquitetura
 
-All benchmarks run on the same production-representative model stack. Single-pass retrieval (one call, no agentic loops).
+```
+Agentes (Claude Code, Cursor, …)
+        │  MCP  /mcp/{client_name}/sse/{hostname}
+        ▼
+┌─────────────────────────────┐
+│ openmemory-mcp  (API/MCP)   │  :8765   FastAPI + MCP + worker de escrita
+│  ├─ fila de escrita (SQLite)│          catálogo de projetos + auditoria
+│  └─ guard fail-closed       │          (MEM0_LOCAL_ONLY)
+└──────────┬──────────────────┘
+           │
+   ┌───────┴────────┐
+   ▼                ▼
+Qdrant          LLM local
+(:6333)         Ollama (:11434) ou llama.cpp (OpenAI-compat)
+coleção única   extração + embeddings
+```
 
-**What changed:**
-- **Single-pass ADD-only extraction** -- one LLM call, no UPDATE/DELETE. Memories accumulate; nothing is overwritten.
-- **Agent-generated facts are first-class** -- when an agent confirms an action, that information is now stored with equal weight.
-- **Entity linking** -- entities are extracted, embedded, and linked across memories for retrieval boosting.
-- **Multi-signal retrieval** -- semantic, BM25 keyword, and entity matching scored in parallel and fused.
-- **Temporal Reasoning** -- time-aware retrieval that ranks the right dated instance for queries about current state, past events, and upcoming plans.
+Fluxo ponta a ponta:
 
-See the [migration guide](https://docs.mem0.ai/migration/oss-v2-to-v3) for upgrade instructions. The [evaluation framework](https://github.com/mem0ai/memory-benchmarks) is open-sourced so anyone can reproduce the numbers.
+1. Um agente conecta na rota MCP `/mcp/{client_name}/sse/{hostname}`.
+2. `add_memories(text, project)` **enfileira** e retorna ack imediato — sem bloquear.
+3. O **worker** consome a fila, extrai via LLM e persiste no projeto; falhas são
+   retentadas até o teto e só então marcadas `failed`.
+4. `search_memory(query, project)` recupera a memória **compartilhada** entre
+   todas as máquinas (filtra por `project`, ignora hostname).
+5. Cada escrita gera um registro de **auditoria** durável (`write_audit_logs`)
+   com hostname/projeto/cliente.
 
-## Research Highlights
-- **91.6 on LoCoMo** -- +20 points over the previous algorithm
-- **94.8 on LongMemEval** -- +27 points, with +53.6 on assistant memory recall
-- **64.1 on BEAM (1M)** -- production-scale memory evaluation at 1M tokens
-- [Read the full paper](https://mem0.ai/research)
+## Instalação rápida (1 comando)
 
-# Introduction
+Pré-requisitos: **Docker + Docker Compose v2** e um backend de LLM local
+acessível na rede (**Ollama** e/ou **llama.cpp**).
 
-[Mem0](https://mem0.ai) ("mem-zero") enhances AI assistants and agents with an intelligent memory layer, enabling personalized AI interactions. It remembers user preferences, adapts to individual needs, and continuously learns over time—ideal for customer support chatbots, AI assistants, and autonomous systems.
-
-### Key Features & Use Cases
-
-**Core Capabilities:**
-- **Multi-Level Memory**: Seamlessly retains User, Session, and Agent state with adaptive personalization
-- **Developer-Friendly**: Intuitive API, cross-platform SDKs, and a fully managed service option
-
-**Applications:**
-- **AI Assistants**: Consistent, context-rich conversations
-- **Customer Support**: Recall past tickets and user history for tailored help
-- **Healthcare**: Track patient preferences and history for personalized care
-- **Productivity & Gaming**: Adaptive workflows and environments based on user behavior
-
-## 🚀 Quickstart Guide <a name="quickstart"></a>
-
-### Sign up as an agent
-
-AI agents can mint a working Mem0 API key in under five seconds — no email, no dashboard, no OTP. Four commands end-to-end:
+Multiplataforma (Linux/macOS/Windows), na raiz do projeto — só precisa de
+Python 3.8+ e Docker:
 
 ```bash
-# 1. Install
-npm install -g @mem0/cli      # or: pip install mem0-cli
-
-# 2. Sign up as an agent (replace `claude-code` with your name)
-mem0 init --agent --agent-caller claude-code
-
-# 3. Add a memory
-mem0 add "I am using mem0"
-
-# 4. Search
-mem0 search "am I using mem0"
+python install.py
 ```
 
-The human owner can claim the account later with `mem0 init --email <their-email>` — same key, memories preserved. Full guide: [Sign up as an agent](https://docs.mem0.ai/platform/agent-signup).
-
-| | Library | Self-Hosted Server | Cloud Platform |
-|---|---------|-------------------|----------------|
-| **Best for** | Testing, prototyping | Teams running on their own infrastructure | Zero-ops production use |
-| **Setup** | `pip install mem0ai` | `docker compose up` | Sign up at [app.mem0.ai](https://app.mem0.ai?utm_source=oss&utm_medium=readme) |
-| **Dashboard** | -- | [Yes](https://docs.mem0.ai/open-source/setup) | Yes |
-| **Auth & API Keys** | -- | Yes | Yes |
-| **Advanced Features** | -- | Teasers | All included |
-
-Just testing? Use the library. Building for a team? Self-hosted. Want zero ops? Cloud.
-
-### Library (pip / npm)
+Linux (bash), a partir de `openmemory/`:
 
 ```bash
-pip install mem0ai
+cd openmemory
+./install-local-first.sh
 ```
 
-For enhanced hybrid search with BM25 keyword matching and entity extraction, install with NLP support:
+O instalador confere pré-requisitos, prepara os `.env`, detecta os modelos
+locais, deixa você escolher backend/modelos, sobe o conjunto e valida a
+auto-descoberta. Variações úteis:
 
 ```bash
-pip install mem0ai[nlp]
-python -m spacy download en_core_web_sm
+# Ollama em outra máquina da LAN:
+python install.py --ollama-url http://192.168.0.10:11434
+
+# Forçar llama.cpp (servidor OpenAI-compatível):
+python install.py --backend llamacpp --llamacpp-url http://192.168.0.10:8080
+
+# Não-interativo (CI / provisionamento):
+python install.py --llm llama3.1:latest --embedder nomic-embed-text --yes
+
+# Manter modelos do .env / também subir a UI:
+python install.py --skip-models --with-ui
 ```
 
-Install sdk via npm:
+Sobem três serviços: `mem0_store` (Qdrant, `:6333`), `openmemory-mcp`
+(API/MCP, `:8765`) e `openmemory-ui` (`:3000`).
+
+> ⚠️ O `openmemory/run.sh` é o instalador **do upstream mem0** e **não é
+> local-first** (exige `OPENAI_API_KEY`). Para o fluxo deste projeto use
+> **`install.py`** / **`install-local-first.sh`**.
+
+Guia completo de instalação, passos manuais e variáveis de ambiente:
+[`openmemory/INSTALL-memoria-compartilhada.md`](openmemory/INSTALL-memoria-compartilhada.md).
+
+## Validação (smoke test)
+
+Sobe o conjunto, espera a API/MCP, valida o `/discovery` e confere o Qdrant —
+tudo local:
 
 ```bash
-npm install mem0ai
+cd openmemory
+./scripts/smoke-memoria-compartilhada.sh            # sobe, valida e derruba
+KEEP_UP=1 ./scripts/smoke-memoria-compartilhada.sh  # mantém no ar após validar
 ```
 
-### Self-Hosted Server
+## Configuração essencial (`openmemory/api/.env`)
 
-> **Note:** Self-hosted auth is on by default. Upgrading from a pre-auth build? Set `ADMIN_API_KEY`, register an admin through the wizard, or `AUTH_DISABLED=true` for local dev only. See [upgrade notes](https://docs.mem0.ai/open-source/setup#upgrade-notes).
+| Variável | Função |
+|----------|--------|
+| `MEM0_LOCAL_ONLY=1` | Guard fail-closed: recusa subir se LLM/embedder não for local. |
+| `MEM0_TELEMETRY=false` | Desliga telemetria do core (forçado quando local-only). |
+| `LLM_PROVIDER` / `LLM_MODEL` | Provedor/modelo do LLM (Ollama por padrão). |
+| `EMBEDDER_PROVIDER` / `EMBEDDER_MODEL` | Provedor/modelo de embeddings. |
+| `OLLAMA_BASE_URL` | Endpoint do Ollama na rede local. |
+| `QDRANT_HOST` / `QDRANT_PORT` | Qdrant (no compose, aponta para `mem0_store`). |
+| `DATABASE_URL` | SQLite (catálogo + fila de escrita + auditoria + histórico). |
+| `OPENMEMORY_DISCOVERY_BASE_URL` | (Opcional) URL base anunciada em `/discovery`. |
 
-```bash
-# Recommended: one command — start the stack, create an admin, issue the first API key.
-cd server && make bootstrap
+Backends locais suportados: **Ollama** (provider `ollama`) e **llama.cpp** (via
+provider `openai` apontando para o servidor OpenAI-compatível). Veja
+`openmemory/api/.env.example` para exemplos.
 
-# Manual: start the stack and finish setup via the browser wizard.
-cd server && docker compose up -d    # http://localhost:3000
-```
+## Modo de memória dos agentes
 
-See the [self-hosted docs](https://docs.mem0.ai/open-source/overview) for configuration.
+A automação dos hooks de memória do plugin tem 3 modos, gravados em
+`~/.mem0/settings.json` (o MCP e os comandos manuais funcionam nos três):
 
-### Cloud Platform
+| Modo | Efeito |
+|------|--------|
+| **1. Ler + gravar** | Busca memórias e captura aprendizados automaticamente. |
+| **2. Ler; gravar manual** | Injeta contexto automático; só grava quando solicitado (default recomendado). |
+| **3. Manual** | Nada automático; tudo via comandos `/mem0:*` e MCP. |
 
-1. Sign up on [Mem0 Platform](https://app.mem0.ai?utm_source=oss&utm_medium=readme)
-2. Embed the memory layer via SDK or API keys
-3. Using hosted Qdrant vectors? See the [Platform migration guide](https://docs.mem0.ai/migration/oss-to-platform) to import them into Mem0 Platform.
+Detalhes em [`integrations/mem0-plugin/skills/mode/SKILL.md`](integrations/mem0-plugin/skills/mode/SKILL.md).
 
-### CLI
+## Principais mudanças em relação ao upstream
 
-Manage memories from your terminal:
+| Área | Mudança |
+|------|---------|
+| `mem0/memory/main.py` | Campo `project` em `add`/`search` (escopo compartilhado). |
+| `openmemory/api/app/workers/` | Worker de background + fila de escrita persistente. |
+| `openmemory/api/app/utils/write_queue.py` | `WriteQueue` durável com retentativas. |
+| `openmemory/api/app/utils/projects.py` | Catálogo de projetos auto-gerenciado. |
+| `openmemory/api/app/utils/identity.py` | Identidade/atribuição por hostname. |
+| `openmemory/api/app/utils/model_detection.py` | Detecção de modelos Ollama / llama.cpp. |
+| `openmemory/api/app/routers/discovery.py` | `GET /discovery` para auto-config MCP. |
+| `openmemory/api/app/routers/compat_v3.py` | Endpoints de compatibilidade v3. |
+| `openmemory/api/app/routers/provision.py` | Provisionamento local-first. |
+| `install.py` / `openmemory/install-local-first.sh` | Instaladores local-first. |
 
-```bash
-npm install -g @mem0/cli   # or: pip install mem0-cli
+Cobertura de testes do servidor em `openmemory/api/tests/` (guard local-only,
+fila/worker de escrita, descoberta, projetos, detecção de modelos, compat v3) e
+escopo de projeto em `tests/memory/test_project_scope.py`.
 
-mem0 init
-mem0 add "Prefers dark mode and vim keybindings" --user-id alice
-mem0 search "What does Alice prefer?" --user-id alice
-```
+## Base: SDK mem0
 
-See the [CLI documentation](https://docs.mem0.ai/platform/cli) for the full command reference.
+Por baixo, este projeto continua sendo o monorepo mem0 (SDK Python `mem0`, SDK
+TypeScript `mem0-ts`, CLIs, servidor e integrações). Para detalhes de
+desenvolvimento do SDK, estrutura do monorepo, comandos de build/lint/test e
+padrões de código, veja [`AGENTS.md`](AGENTS.md).
 
-### Agent Skills
+- Documentação do mem0 de origem: https://docs.mem0.ai
+- Repositório de origem: https://github.com/mem0ai/mem0
 
-Teach your AI coding assistant (Claude Code, Codex, Cursor, Windsurf, OpenCode, OpenClaw, and any tool that supports the skills standard) how to build with Mem0. Two categories:
+## Licença
 
-**Reference skills — always on** (SDK knowledge loaded into the assistant's context):
-
-```bash
-npx skills add https://github.com/mem0ai/mem0 --skill mem0
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-cli
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-vercel-ai-sdk
-```
-
-**Pipeline skills — run on demand** (execute an end-to-end workflow in an existing repo):
-
-```bash
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-integrate
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-test-integration
-npx skills add https://github.com/mem0ai/mem0 --skill mem0-oss-to-platform
-```
-
-Use `/mem0-integrate` to wire Mem0 into an existing repo via a test-first pipeline, then `/mem0-test-integration` to verify. Use `/mem0-oss-to-platform` to migrate an existing project from Mem0 OSS to the hosted Platform SDK. See the [skills catalog](./skills/) or [Vibecoding with Mem0](https://docs.mem0.ai/vibecoding) for the full picture.
-
-### Basic Usage
-
-Mem0 requires an LLM to function, with `gpt-5-mini` from OpenAI as the default. However, it supports a variety of LLMs; for details, refer to our [Supported LLMs documentation](https://docs.mem0.ai/components/llms/overview).
-
-Mem0 uses `text-embedding-3-small` from OpenAI as the default embedding model. For best results with hybrid search (semantic + keyword + entity boosting), we recommend using at least [Qwen 600M](https://huggingface.co/Alibaba-NLP/gte-Qwen2-1.5B-instruct) or a comparable embedding model. See [Supported Embeddings](https://docs.mem0.ai/components/embedders/overview) for configuration details.
-
-First step is to instantiate the memory:
-
-```python
-from openai import OpenAI
-from mem0 import Memory
-
-openai_client = OpenAI()
-memory = Memory()
-
-def chat_with_memories(message: str, user_id: str = "default_user") -> str:
-    # Retrieve relevant memories
-    relevant_memories = memory.search(query=message, filters={"user_id": user_id}, top_k=3)
-    memories_str = "\n".join(f"- {entry['memory']}" for entry in relevant_memories["results"])
-
-    # Generate Assistant response
-    system_prompt = f"You are a helpful AI. Answer the question based on query and memories.\nUser Memories:\n{memories_str}"
-    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": message}]
-    response = openai_client.chat.completions.create(model="gpt-5-mini", messages=messages)
-    assistant_response = response.choices[0].message.content
-
-    # Create new memories from the conversation
-    messages.append({"role": "assistant", "content": assistant_response})
-    memory.add(messages, user_id=user_id)
-
-    return assistant_response
-
-def main():
-    print("Chat with AI (type 'exit' to quit)")
-    while True:
-        user_input = input("You: ").strip()
-        if user_input.lower() == 'exit':
-            print("Goodbye!")
-            break
-        print(f"AI: {chat_with_memories(user_input)}")
-
-if __name__ == "__main__":
-    main()
-```
-
-For detailed integration steps, see the [Quickstart](https://docs.mem0.ai/quickstart) and [API Reference](https://docs.mem0.ai/api-reference).
-
-## 🔗 Integrations & Demos
-
-- **ChatGPT with Memory**: Personalized chat powered by Mem0 ([Live Demo](https://mem0.dev/demo))
-- **Browser Extension**: Store memories across ChatGPT, Perplexity, and Claude ([Chrome Extension](https://chromewebstore.google.com/detail/onihkkbipkfeijkadecaafbgagkhglop?utm_source=item-share-cb))
-- **Langgraph Support**: Build a customer bot with Langgraph + Mem0 ([Guide](https://docs.mem0.ai/integrations/langgraph))
-- **CrewAI Integration**: Tailor CrewAI outputs with Mem0 ([Example](https://docs.mem0.ai/integrations/crewai))
-
-## 📚 Documentation & Support
-
-- Full docs: https://docs.mem0.ai
-- Community: [Discord](https://mem0.dev/DiG) · [X (formerly Twitter)](https://x.com/mem0ai)
-- Contact: founders@mem0.ai
-
-## Citation
-
-We now have a paper you can cite:
-
-```bibtex
-@article{mem0,
-  title={Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory},
-  author={Chhikara, Prateek and Khant, Dev and Aryan, Saket and Singh, Taranjeet and Yadav, Deshraj},
-  journal={arXiv preprint arXiv:2504.19413},
-  year={2025}
-}
-```
-
-## ⚖️ License
-
-Apache 2.0 — see the [LICENSE](https://github.com/mem0ai/mem0/blob/main/LICENSE) file for details.
+Apache 2.0 — veja [LICENSE](LICENSE).
+</content>
+</invoke>
