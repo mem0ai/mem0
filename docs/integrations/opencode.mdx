@@ -79,6 +79,18 @@ If you only need the memory tools without the plugin's hooks or skills, point Op
 | `delete_entities` | Delete a user/agent/app/run entity and its memories |
 | `list_entities` | List users/agents/apps/runs stored in Mem0 |
 
+## Memory scope
+
+`search_memories`, `get_memories`, `add_memory`, and `delete_all_memories` accept an optional **`scope`** that controls how widely they read or write:
+
+| Scope | Reads | Writes |
+|-------|-------|--------|
+| `project` *(default)* | this repo (`user_id` + `app_id`) | this repo |
+| `session` | this run only (`+ run_id`) | this run |
+| `global` | **all your projects in the workspace** (`app_id: "*"`) | user-wide |
+
+Just ask naturally — e.g. *"search my memories across all my projects"* — and the agent passes `scope: "global"`. For normal questions it stays scoped to the current project automatically.
+
 ## Lifecycle Hooks
 
 The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SDK directly — pure TypeScript, no Python, no shell scripts.

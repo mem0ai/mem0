@@ -24,6 +24,7 @@ import {
   recordDreamCompletion,
   DREAM_PROTOCOL,
 } from "./dream";
+import {asScope, scopeSearchFilters, scopeWriteParams, SCOPE_GUIDANCE} from "./scope";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -378,14 +379,16 @@ Identity context (resolved at plugin startup):
           app_id: tool.schema.string().optional().describe("App/Project ID"),
           agent_id: tool.schema.string().optional().describe("Agent ID"),
           metadata: tool.schema.record(tool.schema.string(), tool.schema.any()).optional().describe("Metadata key-value pairs"),
-          infer: tool.schema.boolean().optional().describe("Set to false to store memory verbatim without LLM fact extraction")
+          infer: tool.schema.boolean().optional().describe("Set to false to store memory verbatim without LLM fact extraction"),
+          scope: tool.schema.string().optional().describe('Write scope: "project" (this repo, default), "session" (this run), or "global" (user-wide, all projects). Use "global" only when explicitly asked.')
         },
         async execute(args) {
           stats.adds++;
           if (dreamTriggered) dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
-          const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? userId);
-          const finalAppId = args.app_id ?? appId;
+          const sp = args.scope ? scopeWriteParams(asScope(args.scope), userId, appId, sessionId) : null;
+          const finalUserId = sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId));
+          const finalAppId = sp ? sp.app_id : (args.app_id ?? appId);
 
           const meta = args.metadata ?? {};
           if (meta.confidence === undefined) meta.confidence = 0.7;
@@ -405,6 +408,7 @@ Identity context (resolved at plugin startup):
             {
               user_id: finalUserId,
               app_id: finalAppId,
+              run_id: sp?.run_id,
               agent_id: args.agent_id,
               metadata: meta,
               infer
@@ -424,12 +428,15 @@ Identity context (resolved at plugin startup):
           filters: tool.schema.record(tool.schema.string(), tool.schema.any()).optional().describe("Key-value filters (e.g. metadata or user/app filters)"),
           limit: tool.schema.number().optional().describe("Maximum number of results to return (top_k)"),
           top_k: tool.schema.number().optional().describe("Maximum number of results to return (alternative parameter)"),
+          scope: tool.schema.string().optional().describe('Search scope: "project" (this repo, default), "session" (this run only), or "global" (across ALL your projects). Only use "global" when the user explicitly asks to search across projects.'),
         },
         async execute(args) {
           stats.searches++;
           captureEvent("tool_use", {tool: "search_memories"}, apiKey, appId);
           const topK = args.limit ?? args.top_k ?? 10;
-          const filters = resolveFilters(args, globalSearch, userId, appId);
+          const filters = args.scope
+            ? scopeSearchFilters(asScope(args.scope), userId, appId, sessionId)
+            : resolveFilters(args, globalSearch, userId, appId);
 
           const res = await mem0.search(args.query, {
             filters,
@@ -448,10 +455,13 @@ Identity context (resolved at plugin startup):
           filters: tool.schema.record(tool.schema.string(), tool.schema.any()).optional().describe("Metadata/identity filters"),
           page: tool.schema.number().optional().describe("Page number"),
           page_size: tool.schema.number().optional().describe("Page size"),
+          scope: tool.schema.string().optional().describe('Scope: "project" (default), "session", or "global" (across ALL your projects). Use "global" only when explicitly asked.'),
         },
         async execute(args) {
           captureEvent("tool_use", {tool: "get_memories"}, apiKey, appId);
-          const filters = resolveFilters(args, globalSearch, userId, appId);
+          const filters = args.scope
+            ? scopeSearchFilters(asScope(args.scope), userId, appId, sessionId)
+            : resolveFilters(args, globalSearch, userId, appId);
 
           const res = await mem0.getAll({
             page: args.page,
@@ -510,13 +520,16 @@ Identity context (resolved at plugin startup):
           user_id: tool.schema.string().optional().describe("User ID whose memories to delete"),
           app_id: tool.schema.string().optional().describe("App ID whose memories to delete"),
           agent_id: tool.schema.string().optional().describe("Agent ID whose memories to delete"),
+          scope: tool.schema.string().optional().describe('Scope to delete: "project" (default), "session", or "global" (user-wide). Use "global" only when explicitly asked.'),
         },
         async execute(args) {
           if (dreamTriggered) dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
+          const sp = args.scope ? scopeWriteParams(asScope(args.scope), userId, appId, sessionId) : null;
           const res = await mem0.deleteAll({
-            user_id: args.agent_id ? args.user_id : (args.user_id ?? userId),
-            app_id: args.app_id ?? appId,
+            user_id: sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId)),
+            app_id: sp ? sp.app_id : (args.app_id ?? appId),
+            run_id: sp?.run_id,
             agent_id: args.agent_id,
           } as any);
           return JSON.stringify(res);
@@ -646,6 +659,7 @@ Identity context (resolved at plugin startup):
         systemContext.push(
           "Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id.",
         );
+        systemContext.push(SCOPE_GUIDANCE);
       } catch (err: any) {
         try {
           await client.app.log({
