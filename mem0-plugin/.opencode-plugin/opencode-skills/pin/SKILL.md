@@ -29,12 +29,12 @@ Call `get_memory` with the selected memory ID. Store:
 
 ### Step 3: Pin it
 
-The MCP `update_memory` tool only accepts `memory_id`, `text`, and `source` — it
-does not accept a `metadata` parameter. To pin, append a pin marker to the text:
+The `update_memory` tool updates a memory by `id`. To pin durably, append a pin
+marker to the text so it travels with the memory:
 
 ```python
 pinned_text = "[PINNED] " + original_text if not original_text.startswith("[PINNED]") else original_text
-update_memory(memory_id=<selected_id>, text=pinned_text)
+update_memory(id=<selected_id>, text=pinned_text)
 ```
 
 **For new memories** (user wants to pin text that isn't stored yet):

@@ -10,7 +10,7 @@ opencode plugin @mem0/opencode-plugin
 
 Add `--global` to install for all projects instead of the current one.
 
-The plugin auto-registers the MCP server, hooks, and slash commands via its `config` hook.
+The plugin auto-registers its native memory tools, hooks, and slash commands via its `config` hook — no MCP server to configure.
 
 No manual config needed. Restart OpenCode after installing.
 
@@ -26,24 +26,25 @@ Restart OpenCode.
 
 | Component | Description |
 |-----------|-------------|
-| **MCP Server** | 9 memory tools — add, search, get, update, delete memories |
-| **Lifecycle Hooks** | Auto-search on session start and every prompt, metadata enforcement, error memory lookup, compaction context |
-| **16 Slash Commands** | `/mem0:remember`, `/mem0:tour`, `/mem0:stats`, `/mem0:health`, `/mem0:dream`, and more |
+| **9 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `update_memory`, `delete_memory`, and more — registered as OpenCode tools, backed by the `mem0ai` SDK (no MCP server required) |
+| **Lifecycle Hooks** | Auto-search on session start and every prompt, error memory lookup, compaction context, secret redaction |
+| **8 Skills** | `/mem0:remember`, `/mem0:tour`, `/mem0:peek`, `/mem0:health`, `/mem0:dream`, `/mem0:forget`, `/mem0:pin`, `/mem0:context-loader` |
 
 ## Hooks
 
-Pure TypeScript — no Python, no shell scripts. Uses the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
+Pure TypeScript — no Python, no shell scripts. Memory operations are native OpenCode tools backed by the [mem0ai](https://www.npmjs.com/package/mem0ai) SDK directly.
 
 | Hook | Event | What it does |
 |------|-------|-------------|
+| **Config** | `config` | Registers the bundled skills (`skills.paths`) and `/mem0:*` slash commands at startup |
 | **Chat message** | `chat.message` | Loads prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
-| **Pre-tool** | `tool.execute.before` | Blocks MEMORY.md writes, enforces `user_id`/`app_id` on mem0 tools |
-| **Post-tool** | `tool.execute.after` | Tracks stats, scans bash errors for related memories |
-| **System transform** | `experimental.chat.system.transform` | Injects memory context (session memories, search results, error lookups) into system prompt |
+| **Pre-tool** | `tool.execute.before` | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
+| **Post-tool** | `tool.execute.after` | Scans bash errors and pre-fetches related memories |
+| **Messages transform** | `experimental.chat.messages.transform` | Injects memory context (session memories, search results, error lookups) into the prompt |
 | **Compaction** | `experimental.session.compacting` | Stores session state memory, then injects prior memories into compaction context so nothing is lost |
 | **Shell env** | `shell.env` | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to shell |
 
-## MCP Tools
+## Memory Tools
 
 | Tool | Description |
 |------|-------------|

@@ -1,5 +1,7 @@
 // Mem0 memory plugin for OpenCode: captures and recalls memories across sessions
 // (add / search / manage) via the Mem0 platform, wired through OpenCode plugin hooks.
+// Memory operations are exposed as native OpenCode tools backed by the mem0ai SDK
+// (no MCP server required).
 import type {Plugin} from "@opencode-ai/plugin";
 import {tool} from "@opencode-ai/plugin";
 import {MemoryClient} from "mem0ai";
@@ -11,6 +13,7 @@ import {homedir} from "os";
 import {join} from "path";
 import {createHash} from "crypto";
 import {readdirSync} from "node:fs";
+import {captureEvent} from "./telemetry";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -253,6 +256,23 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
   const systemContext: string[] = [];
 
+  // Emit a session_stop telemetry event once when the process winds down.
+  let sessionStopSent = false;
+  const emitSessionStop = () => {
+    if (sessionStopSent) return;
+    sessionStopSent = true;
+    captureEvent(
+      "session_stop",
+      {adds: stats.adds, searches: stats.searches, messages: stats.messages},
+      apiKey,
+      appId,
+    );
+  };
+  try {
+    process.on("beforeExit", emitSessionStop);
+  } catch {
+  }
+
   // Auto-configure coding categories in background (idempotent, never blocks)
   Promise.resolve().then(() => autoSetupCategories(mem0, apiKey)).catch(() => {
   });
@@ -274,9 +294,9 @@ const Mem0Plugin: Plugin = async (ctx) => {
 
       opencodeConfig.command ??= {};
       opencodeConfig.command[`mem0:${entry.name}`] = {
-        template: `Load and execute the \`mem0:${entry.name}\` skill. 
+        template: `Load and execute the \`mem0:${entry.name}\` skill.
 
-Use the mem0 MCP tools (add_memory, search_memories, get_memories, get_memory, update_memory, delete_memory, delete_all_memories, delete_entities, list_entities, get_event_status) as instructed by the skill.
+Use the mem0 memory tools (add_memory, search_memories, get_memories, get_memory, update_memory, delete_memory, delete_all_memories, delete_entities, list_entities, get_event_status) as instructed by the skill.
 
 Identity context (resolved at plugin startup):
 - user_id: ${userId}
@@ -336,6 +356,7 @@ Identity context (resolved at plugin startup):
         },
         async execute(args) {
           stats.adds++;
+          captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
           const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? userId);
           const finalAppId = args.app_id ?? appId;
 
@@ -379,6 +400,7 @@ Identity context (resolved at plugin startup):
         },
         async execute(args) {
           stats.searches++;
+          captureEvent("tool_use", {tool: "search_memories"}, apiKey, appId);
           const topK = args.limit ?? args.top_k ?? 10;
           const filters = resolveFilters(args, globalSearch, userId, appId);
 
@@ -401,6 +423,7 @@ Identity context (resolved at plugin startup):
           page_size: tool.schema.number().optional().describe("Page size"),
         },
         async execute(args) {
+          captureEvent("tool_use", {tool: "get_memories"}, apiKey, appId);
           const filters = resolveFilters(args, globalSearch, userId, appId);
 
           const res = await mem0.getAll({
@@ -418,6 +441,7 @@ Identity context (resolved at plugin startup):
           id: tool.schema.string().describe("The ID of the memory to retrieve"),
         },
         async execute(args) {
+          captureEvent("tool_use", {tool: "get_memory"}, apiKey, appId);
           const res = await mem0.get(args.id);
           return JSON.stringify(res);
         }
@@ -431,6 +455,7 @@ Identity context (resolved at plugin startup):
           metadata: tool.schema.record(tool.schema.string(), tool.schema.any()).optional().describe("New metadata key-value pairs"),
         },
         async execute(args) {
+          captureEvent("tool_use", {tool: "update_memory"}, apiKey, appId);
           const res = await mem0.update(args.id, {
             text: args.text,
             metadata: args.metadata,
@@ -445,6 +470,7 @@ Identity context (resolved at plugin startup):
           id: tool.schema.string().describe("The ID of the memory to delete"),
         },
         async execute(args) {
+          captureEvent("tool_use", {tool: "delete_memory"}, apiKey, appId);
           const res = await mem0.delete(args.id);
           return JSON.stringify(res);
         }
@@ -458,6 +484,7 @@ Identity context (resolved at plugin startup):
           agent_id: tool.schema.string().optional().describe("Agent ID whose memories to delete"),
         },
         async execute(args) {
+          captureEvent("tool_use", {tool: "delete_all_memories"}, apiKey, appId);
           const res = await mem0.deleteAll({
             user_id: args.agent_id ? args.user_id : (args.user_id ?? userId),
             app_id: args.app_id ?? appId,
@@ -476,6 +503,7 @@ Identity context (resolved at plugin startup):
           run_id: tool.schema.string().optional().describe("Run ID of the entity to delete"),
         },
         async execute(args) {
+          captureEvent("tool_use", {tool: "delete_entities"}, apiKey, appId);
           const res = await mem0.deleteUsers({
             userId: args.user_id,
             agentId: args.agent_id,
@@ -493,6 +521,7 @@ Identity context (resolved at plugin startup):
           page_size: tool.schema.number().optional().describe("Page size"),
         },
         async execute(args) {
+          captureEvent("tool_use", {tool: "list_entities"}, apiKey, appId);
           const res = await mem0.users({
             page: args.page,
             pageSize: args.page_size,
@@ -507,6 +536,7 @@ Identity context (resolved at plugin startup):
           event_id: tool.schema.string().describe("The ID of the event/async operation to check"),
         },
         async execute(args) {
+          captureEvent("tool_use", {tool: "get_event_status"}, apiKey, appId);
           const response = await mem0.client.get(`/v1/event/${args.event_id}/`);
           return JSON.stringify(response.data);
         }
@@ -552,7 +582,7 @@ Identity context (resolved at plugin startup):
 
         if (memoryCount === 0) {
           systemContext.push(
-            "New project with 0 memories. Suggest running /mem0:onboard to import project files and install coding categories.",
+            "New project with 0 memories. Capture decisions, conventions, and learnings as you work via the add_memory tool or the remember skill.",
           );
         }
 
@@ -595,9 +625,12 @@ Identity context (resolved at plugin startup):
         } catch {
         }
       }
+
+      captureEvent("session_start", {memory_count: memoryCount}, apiKey, appId);
     }
 
-    if (NUDGE_RE.test(safeText)) {
+    const hasRemember = NUDGE_RE.test(safeText);
+    if (hasRemember) {
       systemContext.push(
         "[MEMORY TRIGGER] User asked to remember something. Call add_memory with the user's statement, confidence=1.0, infer=false.",
       );
@@ -690,6 +723,13 @@ Identity context (resolved at plugin startup):
         "After responding, store any new decisions, learnings, or preferences from this exchange via add_memory. Keep it to 1 sentence per memory.",
       );
     }
+
+    captureEvent(
+      "user_prompt",
+      {remember_detected: hasRemember, resume_detected: hasResume},
+      apiKey,
+      appId,
+    );
   }
 
   async function toolExecuteBeforeHook(input: any, output: any) {
@@ -701,7 +741,7 @@ Identity context (resolved at plugin startup):
       );
       if (/MEMORY\.md|\.claude\/memory/i.test(fp)) {
         throw new Error(
-          "Use the add_memory MCP tool instead of writing to MEMORY.md",
+          "Use the add_memory tool instead of writing to MEMORY.md",
         );
       }
     }
@@ -756,6 +796,8 @@ Identity context (resolved at plugin startup):
         const errorQuery = errorLine.slice(0, 80);
         if (errorQuery.length < 10) return;
 
+        captureEvent("bash_error", {error_detected: true}, apiKey, appId);
+
         const errorFilters = globalSearch
           ? {OR: [{user_id: "*"}]}
           : {
@@ -764,28 +806,12 @@ Identity context (resolved at plugin startup):
               {app_id: appId},
             ],
           };
-        const [antiPatternRes, bugFixRes] = await Promise.all([
-          mem0.search(`error: ${errorQuery}`, {
-            filters: errorFilters,
-            topK: 3,
-          }),
-          mem0.search(`error: ${errorQuery}`, {
-            filters: errorFilters,
-            topK: 3,
-          }),
-        ]);
-        stats.searches += 2;
-
-        const allResults = [
-          ...extractMemories(antiPatternRes),
-          ...extractMemories(bugFixRes),
-        ];
-        const seen = new Set<string>();
-        const unique = allResults.filter((m) => {
-          if (seen.has(m.id)) return false;
-          seen.add(m.id);
-          return true;
+        const res = await mem0.search(`error: ${errorQuery}`, {
+          filters: errorFilters,
+          topK: 6,
         });
+        stats.searches++;
+        const unique = extractMemories(res);
 
         let ctx = `Error detected: \`${command.slice(0, 100)}\` produced:\n> ${errorLine}`;
         if (traceFiles.length > 0) {
@@ -806,6 +832,12 @@ Identity context (resolved at plugin startup):
   async function compactionHook(input: { sessionID?: string }, output: { context: string[]; prompt?: string }) {
     try {
       const compactSessionId = input?.sessionID ?? sessionId;
+      captureEvent(
+        "pre_compact",
+        {adds: stats.adds, searches: stats.searches, messages: stats.messages},
+        apiKey,
+        appId,
+      );
       const summaryContent = `Session compacting. Project: ${appId}. Branch: ${branch}. Session: ${compactSessionId}. Stats: ${stats.adds} memories stored, ${stats.searches} searches, ${stats.messages} messages.`;
       Promise.resolve().then(async () => {
         try {
@@ -835,7 +867,7 @@ Identity context (resolved at plugin startup):
       if (memories.length > 0 && output?.context) {
         const lines = memories.map((m) => `- ${m.memory}`).join("\n");
         output.context.push(
-          `## Mem0 Memories (preserve across compaction)\n\n${lines}\n\nIMPORTANT: After compaction, store any key decisions or learnings using the add_memory MCP tool.`,
+          `## Mem0 Memories (preserve across compaction)\n\n${lines}\n\nIMPORTANT: After compaction, store any key decisions or learnings using the add_memory tool.`,
         );
       }
     } catch {

@@ -1,6 +1,6 @@
 ---
 name: "mem0:health"
-description: Diagnoses mem0 connectivity, API key validity, and memory read/write functionality. Use when memory operations fail, searches return empty, add_memory errors occur, MCP connection drops, or to verify the plugin is working correctly.
+description: Diagnoses mem0 connectivity, API key validity, and memory read/write functionality. Use when memory operations fail, searches return empty, add_memory errors occur, or to verify the plugin is working correctly.
 ---
 
 # Mem0 Health Check
@@ -37,7 +37,7 @@ echo "branch=$(git branch --show-current 2>/dev/null || echo '')"
 
 PASS if all three are non-empty. WARN if any falls back to defaults.
 
-### Check 3: MCP server connectivity
+### Check 3: Memory tool connectivity
 
 Call `search_memories` with:
 - `query="health check"`
@@ -82,7 +82,7 @@ echo "branch=${MEM0_BRANCH:-}"
 
 PASS  API Key         m0-dVe...
 PASS  Identity        user=kartik, project=mem0, branch=main
-PASS  MCP Connection  142ms
+PASS  Memory Tools    142ms
 PASS  Write/Read      write + delete OK
 PASS  Session         session_id=abc123, app_id=mem0, branch=main
 
