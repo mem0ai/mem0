@@ -1,6 +1,8 @@
 services:
   mem0_store:
+    container_name: mem0_store
     image: qdrant/qdrant
+    restart: unless-stopped
     ports:
       - "6333:6333"
     volumes:
@@ -10,8 +12,10 @@ services:
       # Either way memories survive container restarts (task_10.3 / task_11).
       - ${QDRANT_STORAGE:-mem0_storage}:/qdrant/storage
   openmemory-mcp:
+    container_name: openmemory_api
     image: mem0/openmemory-mcp
     build: api/
+    restart: unless-stopped
     # host.docker.internal lets the container reach an Ollama running on the
     # host when OLLAMA_BASE_URL points at it (Linux needs the explicit mapping).
     extra_hosts:
@@ -62,10 +66,12 @@ services:
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
   openmemory-ui:
+    container_name: openmemory_ui
     build:
       context: ui/
       dockerfile: Dockerfile
     image: mem0/openmemory-ui:latest
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
