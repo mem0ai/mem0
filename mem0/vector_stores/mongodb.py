@@ -391,7 +391,7 @@ class MongoDB(VectorStoreBase):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.collection = self.create_col(self.collection_name)
+        self.collection = self.create_col()
 
     def __del__(self) -> None:
         """Close the database connection when the object is deleted."""

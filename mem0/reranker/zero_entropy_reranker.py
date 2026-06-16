@@ -93,4 +93,5 @@ class ZeroEntropyReranker(BaseReranker):
             # Fallback to original order if reranking fails
             for doc in documents:
                 doc['rerank_score'] = 0.0
-            return documents[:top_k] if top_k else documents
+            final_top_k = top_k or self.config.top_k
+            return documents[:final_top_k] if final_top_k else documents

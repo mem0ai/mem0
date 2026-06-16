@@ -1020,3 +1020,44 @@ def test_cluster_mode_delete(valkey_db_cluster, mock_valkey_cluster_client):
     """Test that delete works in cluster mode."""
     valkey_db_cluster.delete("id1")
     mock_valkey_cluster_client.delete.assert_called_once_with("mem0:test_cluster:id1")
+
+
+# Schema field-type tests (regression for #5006)
+
+
+def test_default_fields_memory_is_text():
+    """The 'memory' field stores free-form memory text, so it must be indexed as
+    TEXT (full-text searchable, tokenized) rather than TAG.
+
+    Regression test for #5006: TAG only tokenizes on commas, so the entire memory
+    text collapses into a single token, breaking full-text search and bloating the
+    inverted index.
+    """
+    from mem0.vector_stores.valkey import DEFAULT_FIELDS
+
+    memory_field = next(f for f in DEFAULT_FIELDS if f["name"] == "memory")
+    assert memory_field["type"] == "text", (
+        "DEFAULT_FIELDS['memory'] must be 'text' (full-text searchable), not 'tag'"
+    )
+
+
+def test_build_index_schema_indexes_memory_as_text(valkey_db):
+    """The FT.CREATE command emitted by _build_index_schema must declare the
+    'memory' field as TEXT, not TAG.
+
+    Regression test for #5006.
+    """
+    cmd = valkey_db._build_index_schema(
+        collection_name="test_collection",
+        embedding_dims=1536,
+        distance_metric="COSINE",
+        prefix="mem0:test_collection",
+    )
+
+    # Locate the 'memory' field declaration and check the type token that follows it.
+    memory_idx = cmd.index("memory")
+    assert cmd[memory_idx + 1] == "TEXT", (
+        f"'memory' field must be indexed as TEXT, got {cmd[memory_idx + 1]!r}"
+    )
+    # And it must not be declared as TAG.
+    assert ["memory", "TAG"] != cmd[memory_idx : memory_idx + 2]

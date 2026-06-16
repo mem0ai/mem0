@@ -187,7 +187,7 @@ class ChromaDB(VectorStoreBase):
         """
         self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
 
-    def get(self, vector_id: str) -> OutputData:
+    def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -195,10 +195,11 @@ class ChromaDB(VectorStoreBase):
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            OutputData: Retrieved vector.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         result = self.collection.get(ids=[vector_id])
-        return self._parse_output(result)[0]
+        parsed = self._parse_output(result)
+        return parsed[0] if parsed else None
 
     def list_cols(self) -> List[chromadb.Collection]:
         """
@@ -316,8 +317,32 @@ class ChromaDB(VectorStoreBase):
                     processed_filters.append(or_conditions[0])
             
             elif key == "$not":
-                # Handle NOT conditions - ChromaDB doesn't have direct NOT, so we'll skip for now
-                continue
+                negate_op = {
+                    "eq": "$ne", "ne": "$eq",
+                    "gt": "$lte", "gte": "$lt",
+                    "lt": "$gte", "lte": "$gt",
+                    "in": "$nin", "nin": "$in",
+                }
+                negated_per_group = []
+                for condition in value:
+                    negated_fields = []
+                    for sub_key, sub_value in condition.items():
+                        if isinstance(sub_value, dict):
+                            for op, val in sub_value.items():
+                                neg = negate_op.get(op)
+                                if neg:
+                                    negated_fields.append({sub_key: {neg: val}})
+                        else:
+                            negated_fields.append({sub_key: {"$ne": sub_value}})
+                    if len(negated_fields) > 1:
+                        negated_per_group.append({"$or": negated_fields})
+                    elif len(negated_fields) == 1:
+                        negated_per_group.append(negated_fields[0])
+
+                if len(negated_per_group) > 1:
+                    processed_filters.append({"$and": negated_per_group})
+                elif len(negated_per_group) == 1:
+                    processed_filters.append(negated_per_group[0])
                 
             else:
                 # Regular condition

@@ -111,6 +111,13 @@ def test_get_vector(supabase_instance, mock_collection):
     assert result.payload == {"name": "vector1"}
 
 
+def test_get_missing_returns_none(supabase_instance, mock_collection):
+    # An unknown id yields an empty fetch; get() must return None (not []).
+    mock_collection.fetch.return_value = []
+
+    assert supabase_instance.get(vector_id="missing") is None
+
+
 def test_list_vectors(supabase_instance, mock_collection):
     mock_query_results = [("id1", 0.9, {}), ("id2", 0.8, {})]
     mock_fetch_results = [("id1", [0.1, 0.2, 0.3], {"name": "vector1"}), ("id2", [0.4, 0.5, 0.6], {"name": "vector2"})]

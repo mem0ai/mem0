@@ -191,6 +191,21 @@ describe("Memory - update()", () => {
     const after: MemoryItem | null = await memory.get(id);
     expect(after!.hash).not.toBe(before!.hash);
   });
+
+  test("preserves custom metadata fields after update", async () => {
+    const addResult: SearchResult = await memory.add("Original text", {
+      userId,
+      metadata: { category: "hobbies", priority: "high" },
+      infer: false,
+    });
+    const id = addResult.results[0].id;
+    await memory.update(id, "Updated text");
+    const after: MemoryItem | null = await memory.get(id);
+    expect(after!.memory).toBe("Updated text");
+    expect(after!.metadata).toEqual(
+      expect.objectContaining({ category: "hobbies", priority: "high" }),
+    );
+  });
 });
 
 // ─── delete() ────────────────────────────────────────────
