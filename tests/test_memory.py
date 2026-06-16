@@ -1307,3 +1307,159 @@ class TestAsyncDeleteAllEntityRace:
         mock_entity_store.delete.assert_called_once_with(vector_id="entity-alice")
 
         assert mock_vector_store.delete.call_count == 2
+
+
+# ─── Entity store: semantic_type persistence (#5440) ───────────────────────────
+# These cover the storage path that _upsert_entity / _upsert_entity_async take
+# when linking entities to memories: the spaCy NER label (semantic_type) must be
+# written into the entity payload on insert, back-filled on merge only when
+# absent, and never overwrite an existing label.
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_upsert_entity_insert_persists_semantic_type(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """New entity insert must carry semantic_type into the stored payload."""
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+    mock_vector_factory.side_effect = [MagicMock(), MagicMock()]
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    entity_store = MagicMock()
+    entity_store.search.return_value = []  # no existing match -> insert path
+    memory._entity_store = entity_store
+
+    memory._upsert_entity("Alice", "PROPER", "mem-1", {"user_id": "u1"}, semantic_type="PERSON")
+
+    entity_store.insert.assert_called_once()
+    payload = entity_store.insert.call_args.kwargs["payloads"][0]
+    assert payload["semantic_type"] == "PERSON"
+    assert payload["data"] == "Alice"
+    assert payload["entity_type"] == "PROPER"
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_upsert_entity_insert_omits_semantic_type_when_none(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """When no NER label is available, the payload must not carry a semantic_type key."""
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+    mock_vector_factory.side_effect = [MagicMock(), MagicMock()]
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    entity_store = MagicMock()
+    entity_store.search.return_value = []
+    memory._entity_store = entity_store
+
+    memory._upsert_entity("machine learning", "COMPOUND", "mem-1", {"user_id": "u1"}, semantic_type=None)
+
+    payload = entity_store.insert.call_args.kwargs["payloads"][0]
+    assert "semantic_type" not in payload
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_upsert_entity_merge_backfills_semantic_type_when_absent(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Merging into an existing entity without a label must back-fill semantic_type."""
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+    mock_vector_factory.side_effect = [MagicMock(), MagicMock()]
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    existing = MockVectorMemory("ent-1", {"linked_memory_ids": ["mem-A"]}, score=0.99)
+    entity_store = MagicMock()
+    entity_store.search.return_value = [existing]
+    memory._entity_store = entity_store
+
+    memory._upsert_entity("Alice", "PROPER", "mem-B", {"user_id": "u1"}, semantic_type="PERSON")
+
+    entity_store.update.assert_called_once()
+    payload = entity_store.update.call_args.kwargs["payload"]
+    assert payload["semantic_type"] == "PERSON"
+    assert "mem-B" in payload["linked_memory_ids"]
+
+
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+def test_upsert_entity_merge_does_not_overwrite_existing_semantic_type(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """An existing label must win over a conflicting new one on merge."""
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+    mock_vector_factory.side_effect = [MagicMock(), MagicMock()]
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import Memory as MemoryClass
+    memory = MemoryClass(MemoryConfig())
+
+    existing = MockVectorMemory(
+        "ent-1", {"linked_memory_ids": ["mem-A"], "semantic_type": "PERSON"}, score=0.99
+    )
+    entity_store = MagicMock()
+    entity_store.search.return_value = [existing]
+    memory._entity_store = entity_store
+
+    memory._upsert_entity("Apple", "PROPER", "mem-B", {"user_id": "u1"}, semantic_type="ORG")
+
+    payload = entity_store.update.call_args.kwargs["payload"]
+    assert payload["semantic_type"] == "PERSON"  # not overwritten with ORG
+
+
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.storage.SQLiteManager')
+async def test_async_upsert_entity_insert_persists_semantic_type(
+    mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory
+):
+    """Async insert path must persist semantic_type just like the sync path."""
+    embedder = MagicMock()
+    embedder.embed.return_value = [0.1, 0.2, 0.3]
+    mock_embedder_factory.return_value = embedder
+    mock_vector_factory.side_effect = [MagicMock(), MagicMock()]
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    memory = AsyncMemory(MemoryConfig())
+
+    entity_store = MagicMock()
+    entity_store.search.return_value = []
+    memory._entity_store = entity_store
+
+    await memory._upsert_entity_async("Alice", "PROPER", "mem-1", {"user_id": "u1"}, semantic_type="PERSON")
+
+    payload = entity_store.insert.call_args.kwargs["payloads"][0]
+    assert payload["semantic_type"] == "PERSON"
