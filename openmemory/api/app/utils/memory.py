@@ -28,9 +28,11 @@ Example configuration that will be automatically adjusted:
 """
 
 import hashlib
+import ipaddress
 import json
 import os
 import socket
+from urllib.parse import urlsplit
 
 from app.database import SessionLocal
 from app.models import Config as ConfigModel
@@ -131,6 +133,200 @@ def reset_memory_client():
     global _memory_client, _config_hash
     _memory_client = None
     _config_hash = None
+
+
+# --- Server-side fail-closed egress guard (MEM0_LOCAL_ONLY) ------------------
+#
+# This mirrors, on the server, the fail-closed guarantee that
+# integrations/mem0-plugin/scripts/_endpoints.py provides for the plugin's HTTP
+# calls. The plugin guard only governs plugin -> server traffic; it does NOT
+# cover the pipeline where memory content is actually embedded and sent to the
+# LLM/embedder. When MEM0_LOCAL_ONLY is active we refuse to initialize a memory
+# client whose LLM or embedder would reach a non-local (cloud) host, so memory
+# content can never leave the local network — even if the DB config or env was
+# (mis)configured for OpenAI/Anthropic/etc.
+
+
+def is_local_only() -> bool:
+    """True when the team fail-closed mode is active (``MEM0_LOCAL_ONLY``)."""
+    return (os.environ.get("MEM0_LOCAL_ONLY") or "").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
+
+
+def _host_of(url):
+    """Extract the lowercase hostname from a URL (empty string on failure)."""
+    if not url:
+        return ""
+    try:
+        return (urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return ""
+
+
+def _is_private_host(host: str) -> bool:
+    """Whether ``host`` is a local/private destination (no public egress).
+
+    Accepts loopback, ``host.docker.internal``, ``*.local``/``*.internal``,
+    bare single-label hostnames (Docker service names like ``mem0_store``) and
+    RFC1918 / loopback / link-local IPs. Everything else is treated as public.
+    """
+    if not host:
+        return False
+    host = host.lower()
+    if host in ("localhost", "host.docker.internal"):
+        return True
+    if host.endswith(".local") or host.endswith(".internal"):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+        return ip.is_loopback or ip.is_private or ip.is_link_local
+    except ValueError:
+        pass
+    # Bare single-label hostname (no dots) -> Docker/compose service name.
+    if "." not in host:
+        return True
+    return False
+
+
+def _provider_block_is_local(block) -> bool:
+    """Whether an ``llm``/``embedder`` config block points at a local backend.
+
+    - ``ollama``: local unless its base URL resolves to a public host.
+    - ``openai``: local ONLY if ``openai_base_url`` points at a private host
+      (e.g. a local llama.cpp/LM Studio server). With no base URL it hits
+      ``api.openai.com`` -> treated as non-local.
+    - any other provider (anthropic, groq, gemini, azure, together, ...) is a
+      cloud provider with a fixed external endpoint -> non-local.
+    """
+    if not isinstance(block, dict):
+        return False
+    provider = (block.get("provider") or "").lower()
+    cfg = block.get("config") or {}
+    if provider == "ollama":
+        url = cfg.get("ollama_base_url")
+        return _is_private_host(_host_of(url)) if url else True
+    if provider == "openai":
+        base = cfg.get("openai_base_url")
+        return _is_private_host(_host_of(base)) if base else False
+    return False
+
+
+def _local_only_violations(config) -> list:
+    """List the non-local provider sections in ``config`` (empty == all local)."""
+    violations = []
+    for section in ("llm", "embedder"):
+        block = config.get(section)
+        if not _provider_block_is_local(block):
+            provider = (block or {}).get("provider", "?")
+            violations.append(f"{section}={provider}")
+    return violations
+
+
+# --- Install-time Ollama model detection (see app.utils.model_detection / ADR-006) ---
+
+def detect_ollama_models(ollama_base_url=None, client=None):
+    """Detect locally installed Ollama models for the install-time setup step.
+
+    Thin wrapper around :func:`app.utils.model_detection.detect_ollama_models`.
+    Returns a list of model names; raises ``OllamaUnavailableError`` when Ollama
+    is unavailable so the caller can fall back to manual entry.
+    """
+    from app.utils.model_detection import detect_ollama_models as _detect
+
+    return _detect(ollama_base_url=ollama_base_url, client=client)
+
+
+def build_ollama_runtime_config(llm_model, embedder_model, ollama_base_url=None):
+    """Build a mem0 runtime config (providers ``ollama``) from chosen models.
+
+    Thin wrapper around
+    :func:`app.utils.model_detection.build_ollama_runtime_config`.  The result is
+    consumable by ``Memory.from_config``.
+    """
+    from app.utils.model_detection import build_ollama_runtime_config as _build
+
+    return _build(
+        llm_model=llm_model,
+        embedder_model=embedder_model,
+        ollama_base_url=ollama_base_url,
+    )
+
+
+def detect_llamacpp_models(base_url=None, fetch=None):
+    """Detect models served by a local llama.cpp server (``GET /v1/models``).
+
+    Thin wrapper around :func:`app.utils.model_detection.detect_llamacpp_models`.
+    Returns a list of model names; raises ``LlamaCppUnavailableError`` when the
+    server is unavailable so the caller can fall back to another backend / manual
+    entry.
+    """
+    from app.utils.model_detection import detect_llamacpp_models as _detect
+
+    return _detect(base_url=base_url, fetch=fetch)
+
+
+def build_llamacpp_runtime_config(llm_model, embedder_model, base_url=None):
+    """Build a mem0 runtime config (``openai`` provider) for a llama.cpp server.
+
+    Thin wrapper around
+    :func:`app.utils.model_detection.build_llamacpp_runtime_config`.
+    """
+    from app.utils.model_detection import build_llamacpp_runtime_config as _build
+
+    return _build(llm_model=llm_model, embedder_model=embedder_model, base_url=base_url)
+
+
+def detect_local_models(ollama_base_url=None, llamacpp_base_url=None):
+    """Probe every local backend (Ollama + llama.cpp) and return what each exposes.
+
+    Thin wrapper around :func:`app.utils.model_detection.detect_local_models`.
+    """
+    from app.utils.model_detection import detect_local_models as _detect
+
+    return _detect(ollama_base_url=ollama_base_url, llamacpp_base_url=llamacpp_base_url)
+
+
+def persist_model_selection(runtime_config, session_factory=SessionLocal):
+    """Persist the install-time model selection into the runtime config (task_09).
+
+    Writes the chosen ``llm``/``embedder`` blocks (as produced by
+    :func:`build_ollama_runtime_config`) into the ``main`` row of the ``configs``
+    table under the ``mem0`` key — the same place :func:`get_memory_client` reads
+    from — so the selection actually drives the runtime client, and resets the
+    cached client so the next call picks it up. Idempotent: it merges into any
+    existing config rather than clobbering unrelated settings (e.g. vector_store
+    or custom_instructions).
+
+    Returns the persisted ``mem0`` config dict.
+    """
+    if not runtime_config or "llm" not in runtime_config or "embedder" not in runtime_config:
+        raise ValueError(
+            "runtime_config must contain both 'llm' and 'embedder' blocks "
+            "(use build_ollama_runtime_config)."
+        )
+
+    db = session_factory()
+    try:
+        row = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
+        value = dict(row.value) if row and isinstance(row.value, dict) else {}
+        mem0_cfg = dict(value.get("mem0") or {})
+        mem0_cfg["llm"] = runtime_config["llm"]
+        mem0_cfg["embedder"] = runtime_config["embedder"]
+        value["mem0"] = mem0_cfg
+
+        if row is None:
+            row = ConfigModel(key="main", value=value)
+            db.add(row)
+        else:
+            row.value = value
+        db.commit()
+    finally:
+        db.close()
+
+    # Force the next get_memory_client() to rebuild with the new selection.
+    reset_memory_client()
+    return value["mem0"]
 
 
 # --- LLM provider config factories ---
@@ -474,6 +670,23 @@ def get_memory_client(custom_instructions: str = None):
         # This ensures that even default config values like "env:OPENAI_API_KEY" get parsed
         print("Parsing environment variables in final config...")
         config = _parse_environment_variables(config)
+
+        # Fail-closed: in team local-only mode, refuse to build a client whose
+        # LLM/embedder would reach a non-local host. This is the in-code
+        # guarantee that memory content never leaves the local network — it does
+        # not rely on the DB/env being configured correctly.
+        if is_local_only():
+            violations = _local_only_violations(config)
+            if violations:
+                print(
+                    "FAIL-CLOSED (MEM0_LOCAL_ONLY): refusing to initialize the memory "
+                    f"client — non-local provider(s) detected: {', '.join(violations)}. "
+                    "Configure a local backend (Ollama or llama.cpp) via the install "
+                    "setup. NO data was sent externally."
+                )
+                _memory_client = None
+                _config_hash = None
+                return None
 
         # Check if config has changed by comparing hashes
         current_config_hash = _get_config_hash(config)

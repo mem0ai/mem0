@@ -45,6 +45,26 @@ if [ -z "${MEM0_API_KEY:-}" ]; then
   done
 fi
 
+# Resolve the API base URL (mirrors scripts/_endpoints.py). Fail-closed: in
+# MEM0_LOCAL_ONLY mode with no base configured, resolves to "" so hooks no-op
+# instead of leaking to the cloud. Otherwise defaults to the official cloud.
+_mem0_is_local_only() {
+  case "$(printf '%s' "${MEM0_LOCAL_ONLY:-}" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+if [ -n "${OPENMEMORY_API_BASE:-}" ]; then
+  MEM0_API_BASE="${OPENMEMORY_API_BASE%/}"
+elif [ -n "${MEM0_API_BASE:-}" ]; then
+  MEM0_API_BASE="${MEM0_API_BASE%/}"
+elif _mem0_is_local_only; then
+  MEM0_API_BASE=""
+else
+  MEM0_API_BASE="https://api.mem0.ai"
+fi
+export MEM0_API_BASE
+
 _mem0_resolve_identity() {
   if [ -n "${MEM0_USER_ID:-}" ]; then
     printf '%s' "$MEM0_USER_ID"

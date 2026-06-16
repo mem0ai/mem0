@@ -77,11 +77,14 @@ api_key = os.environ.get('MEM0_API_KEY', '')
 user_id = os.environ.get('MEM0_RESOLVED_USER_ID', 'default')
 app_id = os.environ.get('MEM0_PROJECT_ID', '')
 global_search = os.environ.get('MEM0_GLOBAL_SEARCH', 'false') == 'true'
+api_base = os.environ.get('MEM0_API_BASE', '').rstrip('/')
 
 def get_count(filters):
+    if not api_base:
+        return 0
     body = json.dumps({'filters': filters}).encode()
     req = urllib.request.Request(
-        'https://api.mem0.ai/v3/memories/?page=1&page_size=1',
+        f'{api_base}/v3/memories/?page=1&page_size=1',
         headers={'Authorization': f'Token {api_key}', 'Content-Type': 'application/json'},
         data=body, method='POST',
     )
@@ -159,10 +162,13 @@ if [ "$SOURCE" = "startup" ]; then
 
     # Inject compact recent activity timeline (non-blocking, 5s timeout)
     # Use perl alarm as portable timeout (macOS lacks GNU timeout)
-    _TIMELINE=$(MEM0_CWD="$MEM0_CWD_RESOLVED" perl -e 'alarm 5; exec @ARGV' python3 "$SCRIPT_DIR/session_timeline.py" 2>/dev/null || echo "")
-    if [ -n "$_TIMELINE" ]; then
-      echo ""
-      echo "$_TIMELINE"
+    # Gated by auto_search: Mode 3 ("never read without request") skips it.
+    if [ "${MEM0_AUTO_SEARCH:-true}" != "false" ]; then
+      _TIMELINE=$(MEM0_CWD="$MEM0_CWD_RESOLVED" perl -e 'alarm 5; exec @ARGV' python3 "$SCRIPT_DIR/session_timeline.py" 2>/dev/null || echo "")
+      if [ -n "$_TIMELINE" ]; then
+        echo ""
+        echo "$_TIMELINE"
+      fi
     fi
   fi
 

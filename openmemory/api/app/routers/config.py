@@ -47,28 +47,24 @@ class ConfigSchema(BaseModel):
     mem0: Optional[Mem0Config] = None
 
 def get_default_configuration():
-    """Get the default configuration with sensible defaults for LLM and embedder."""
+    """Get the default configuration with sensible defaults for LLM and embedder.
+
+    The LLM/embedder blocks are derived from the environment
+    (``LLM_PROVIDER``/``EMBEDDER_PROVIDER`` — ``ollama`` in the local-first
+    deployment) instead of being hardcoded to OpenAI, so seeding this default
+    into the DB never silently reintroduces cloud egress. ``vector_store`` stays
+    ``None`` so ``get_memory_client`` keeps auto-detecting it from the env.
+    """
+    from app.utils.memory import get_default_memory_config
+
+    base = get_default_memory_config()
     return {
         "openmemory": {
             "custom_instructions": None
         },
         "mem0": {
-            "llm": {
-                "provider": "openai",
-                "config": {
-                    "model": "gpt-4o-mini",
-                    "temperature": 0.1,
-                    "max_tokens": 2000,
-                    "api_key": "env:OPENAI_API_KEY"
-                }
-            },
-            "embedder": {
-                "provider": "openai",
-                "config": {
-                    "model": "text-embedding-3-small",
-                    "api_key": "env:OPENAI_API_KEY"
-                }
-            },
+            "llm": base.get("llm"),
+            "embedder": base.get("embedder"),
             "vector_store": None
         }
     }

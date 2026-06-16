@@ -4,13 +4,47 @@ services:
     ports:
       - "6333:6333"
     volumes:
-      - mem0_storage:/mem0/storage
+      # Qdrant persists its collections under /qdrant/storage. The source is
+      # chosen at install time (QDRANT_STORAGE): a host path when a custom data
+      # dir is selected, or the managed named volume `mem0_storage` by default.
+      # Either way memories survive container restarts (task_10.3 / task_11).
+      - ${QDRANT_STORAGE:-mem0_storage}:/qdrant/storage
   openmemory-mcp:
     image: mem0/openmemory-mcp
     build: api/
+    # host.docker.internal lets the container reach an Ollama running on the
+    # host when OLLAMA_BASE_URL points at it (Linux needs the explicit mapping).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - USER
       - API_KEY
+      # Fail-closed local-only: the server refuses any LLM/embedder that would
+      # reach a non-local host, so memory content never leaves the local network
+      # (see app/utils/memory.py:is_local_only). MEM0_TELEMETRY=false also stops
+      # the mem0 core from sending PostHog usage events from THIS process.
+      - MEM0_LOCAL_ONLY=${MEM0_LOCAL_ONLY:-1}
+      - MEM0_TELEMETRY=${MEM0_TELEMETRY:-false}
+      # Vector store: use the Qdrant container on the local network (single
+      # collection — ADR-003). The app selects Qdrant when QDRANT_HOST/PORT set.
+      - QDRANT_HOST=mem0_store
+      - QDRANT_PORT=6333
+      # Local LLM + embeddings via Ollama OR llama.cpp on the local network (no
+      # external dependency — privacy). Backend + model names are chosen at
+      # install time (task_09). For llama.cpp the installer sets provider=openai
+      # and points *_BASE_URL at the local llama.cpp server (OpenAI-compatible).
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      - LLM_MODEL=${LLM_MODEL:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - EMBEDDER_PROVIDER=${EMBEDDER_PROVIDER:-ollama}
+      - EMBEDDER_MODEL=${EMBEDDER_MODEL:-}
+      - EMBEDDER_BASE_URL=${EMBEDDER_BASE_URL:-}
+      - EMBEDDER_API_KEY=${EMBEDDER_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      # SQLite (catalog + write queue + history) persists via the ./api bind
+      # mount below; the path lives inside the mounted source tree.
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////usr/src/openmemory/openmemory.db}
     env_file:
       - api/.env
     depends_on:
@@ -19,6 +53,12 @@ services:
       - "8765:8765"
     volumes:
       - ./api:/usr/src/openmemory
+      # SQLite (catalog + write queue + history + audit). By default it lives in
+      # the ./api bind mount (DATABASE_URL points there) and this /data mount is
+      # the managed `mem0_db` volume, unused. When a custom data dir is chosen at
+      # install time, SQLITE_STORAGE binds a host folder here and the installer
+      # repoints DATABASE_URL at /data/openmemory.db (task_11).
+      - ${SQLITE_STORAGE:-mem0_db}:/data
     command: >
       sh -c "uvicorn main:app --host 0.0.0.0 --port 8765 --reload --workers 4"
   openmemory-ui:
@@ -34,3 +74,4 @@ services:
 
 volumes:
   mem0_storage:
+  mem0_db:

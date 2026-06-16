@@ -86,7 +86,18 @@ def detect_platform() -> str:
 
 
 def is_enabled() -> bool:
-    return os.environ.get("MEM0_TELEMETRY", "true").lower() not in ("false", "0", "no", "off")
+    if os.environ.get("MEM0_TELEMETRY", "true").lower() in ("false", "0", "no", "off"):
+        return False
+    # Fail-closed for team deployments: in local-only mode the PostHog host is
+    # not the configured local server, so telemetry is disabled outright.
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from _endpoints import egress_allowed
+        if not egress_allowed(POSTHOG_HOST):
+            return False
+    except Exception:
+        pass
+    return True
 
 
 def build_posthog_payload(event_name: str, properties: dict | None = None) -> dict:
@@ -112,6 +123,13 @@ def build_posthog_payload(event_name: str, properties: dict | None = None) -> di
 
 
 def send(payload: dict) -> None:
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from _endpoints import egress_allowed
+        if not egress_allowed(POSTHOG_HOST):
+            return
+    except Exception:
+        pass
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         POSTHOG_HOST,
