@@ -1,6 +1,6 @@
 import subprocess
 import sys
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from mem0.configs.embeddings.base import BaseEmbedderConfig
 from mem0.embeddings.base import EmbeddingBase
@@ -48,18 +48,49 @@ class OllamaEmbedding(EmbeddingBase):
         ):
             self.client.pull(self.config.model)
 
-    def embed(self, text, memory_action: Optional[Literal["add", "search", "update"]] = None):
+    def embed(self, text: str, memory_action: Optional[Literal["add", "search", "update"]] = "add") -> List[float]:
         """
         Get the embedding for the given text using Ollama.
 
         Args:
             text (str): The text to embed.
-            memory_action (optional): The type of embedding to use. Must be one of "add", "search", or "update". Defaults to None.
+            memory_action (optional): The type of embedding to use. Must be one of "add", "search", or "update". Defaults to "add".
         Returns:
-            list: The embedding vector.
+            List[float]: The embedding vector.
         """
+        # Early exit if the text is empty or only whitespace
+        if not text or not text.strip():
+            raise ValueError("Cannot generate embedding for an empty or whitespace-only string.")
+
         response = self.client.embed(model=self.config.model, input=text)
         embeddings = response.get("embeddings") or []
         if not embeddings:
             raise ValueError(f"Ollama embed() returned no embeddings for model '{self.config.model}'")
         return embeddings[0]
+    
+    def embed_batch(self, texts: List[str], memory_action: Optional[Literal["add", "search", "update"]] = "add") -> List[List[float]]:
+        """
+        Get batch embeddings for multiple texts using Ollama's native batch support.
+
+        Ollama's embed() accepts an array of strings for batch processing, reducing
+        N sequential API calls to a single batched call.
+
+        Args:
+            texts (List[str]): List of texts to embed.
+            memory_action (optional): The type of embedding to use. Defaults to "add".
+        Returns:
+            List[List[float]]: List of embedding vectors for each text.
+        """
+        if not texts:
+            return []
+
+        if len(texts) == 1:
+            return [self.embed(texts[0], memory_action=memory_action)]
+
+        response = self.client.embed(model=self.config.model, input=texts)
+        embeddings = response.get("embeddings") or []
+        
+        if not embeddings:
+            raise ValueError(f"Ollama embed() returned no embeddings for model '{self.config.model}'")
+        
+        return embeddings
