@@ -24,7 +24,13 @@ import uuid
 import anyio
 
 from app.database import SessionLocal
-from app.models import Memory, MemoryAccessLog, MemoryState, MemoryStatusHistory
+from app.models import (
+    Memory,
+    MemoryAccessLog,
+    MemoryState,
+    MemoryStatusHistory,
+    WriteAuditLog,
+)
 from app.utils.db import get_user_and_app
 from app.utils.identity import resolve_hostname
 from app.utils.memory import get_memory_client
@@ -107,8 +113,14 @@ async def add_memories(text: str, project: str) -> str:
         logging.exception(f"Error enqueuing memory write: {e}")
         return f"Error enqueuing memory write: {e}"
 
-    # Structured attribution/audit log of the write request (TechSpec → logs by
-    # job_id/project/hostname). The job row itself is the durable audit record.
+    # Durable attribution/audit record of the write request (task_04 / ADR-003):
+    # who (hostname) originated the write, for which project and via which client.
+    # Persisted to the write_audit_logs table so attribution is queryable and
+    # survives restarts (independent of log scraping). A failure to write the
+    # audit row must NOT fail the (already enqueued) write, so it is isolated.
+    _record_write_audit(job_id=job_id, project=project, hostname=hostname,
+                         client_name=client_name)
+
     logging.info(
         "write enqueued job_id=%s project=%s hostname=%s client=%s",
         job_id,
@@ -117,6 +129,27 @@ async def add_memories(text: str, project: str) -> str:
         client_name,
     )
     return json.dumps({"status": "queued", "job_id": job_id})
+
+
+def _record_write_audit(*, job_id, project, hostname, client_name):
+    """Persist a write-attribution audit row; never raise to the caller."""
+    db = SessionLocal()
+    try:
+        db.add(
+            WriteAuditLog(
+                job_id=uuid.UUID(str(job_id)) if job_id else None,
+                project=project,
+                hostname=hostname,
+                client_name=client_name,
+                action="enqueue",
+            )
+        )
+        db.commit()
+    except Exception:  # noqa: BLE001 - audit failure must not break the write
+        logging.exception("could not record write audit for job_id=%s", job_id)
+        db.rollback()
+    finally:
+        db.close()
 
 
 @mcp.tool(description="Search through stored memories scoped by project (shared across all machines). This method is called EVERYTIME the user asks anything.")

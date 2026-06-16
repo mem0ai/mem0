@@ -163,6 +163,48 @@ def build_ollama_runtime_config(llm_model, embedder_model, ollama_base_url=None)
     )
 
 
+def persist_model_selection(runtime_config, session_factory=SessionLocal):
+    """Persist the install-time model selection into the runtime config (task_09).
+
+    Writes the chosen ``llm``/``embedder`` blocks (as produced by
+    :func:`build_ollama_runtime_config`) into the ``main`` row of the ``configs``
+    table under the ``mem0`` key — the same place :func:`get_memory_client` reads
+    from — so the selection actually drives the runtime client, and resets the
+    cached client so the next call picks it up. Idempotent: it merges into any
+    existing config rather than clobbering unrelated settings (e.g. vector_store
+    or custom_instructions).
+
+    Returns the persisted ``mem0`` config dict.
+    """
+    if not runtime_config or "llm" not in runtime_config or "embedder" not in runtime_config:
+        raise ValueError(
+            "runtime_config must contain both 'llm' and 'embedder' blocks "
+            "(use build_ollama_runtime_config)."
+        )
+
+    db = session_factory()
+    try:
+        row = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
+        value = dict(row.value) if row and isinstance(row.value, dict) else {}
+        mem0_cfg = dict(value.get("mem0") or {})
+        mem0_cfg["llm"] = runtime_config["llm"]
+        mem0_cfg["embedder"] = runtime_config["embedder"]
+        value["mem0"] = mem0_cfg
+
+        if row is None:
+            row = ConfigModel(key="main", value=value)
+            db.add(row)
+        else:
+            row.value = value
+        db.commit()
+    finally:
+        db.close()
+
+    # Force the next get_memory_client() to rebuild with the new selection.
+    reset_memory_client()
+    return value["mem0"]
+
+
 # --- LLM provider config factories ---
 
 def _build_ollama_llm_config(model, api_key, base_url, ollama_base_url):

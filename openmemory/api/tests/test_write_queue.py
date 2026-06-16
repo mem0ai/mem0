@@ -17,9 +17,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
-from app.models import WriteQueue as WriteQueueModel
+from app.models import WriteQueueJob as WriteQueueModel
 from app.models import WriteQueueStatus
-from app.utils.write_queue import SqlWriteQueue, WriteJob
+from app.utils.write_queue import WriteJob, WriteQueue
 
 
 # ---------------------------------------------------------------------------
@@ -47,9 +47,9 @@ def _make_factory(db_path):
 
 @pytest.fixture
 def queue(db_path):
-    """A SqlWriteQueue backed by a temporary sqlite file."""
+    """A WriteQueue backed by a temporary sqlite file."""
     engine, factory = _make_factory(db_path)
-    yield SqlWriteQueue(session_factory=factory)
+    yield WriteQueue(session_factory=factory)
     engine.dispose()
 
 
@@ -179,6 +179,49 @@ class TestStatusTransitions:
         queue.mark_done(str(uuid.uuid4()))
         queue.mark_failed(str(uuid.uuid4()), "x")
 
+    def test_mark_failed_records_attempts(self, queue, db_path):
+        job_id = queue.enqueue(_job())
+        queue.dequeue(limit=1)
+
+        queue.mark_failed(job_id, "gave up", attempts=3)
+
+        _, factory = _make_factory(db_path)
+        db = factory()
+        try:
+            row = db.query(WriteQueueModel).filter(
+                WriteQueueModel.id == uuid.UUID(job_id)
+            ).first()
+            assert row.status == WriteQueueStatus.failed
+            assert row.attempts == 3
+        finally:
+            db.close()
+
+    def test_requeue_returns_job_to_queued_with_attempts(self, queue, db_path):
+        job_id = queue.enqueue(_job())
+        dequeued = queue.dequeue(limit=1)
+        assert dequeued[0].attempts == 0
+
+        # A transient failure re-queues the job for another attempt.
+        queue.requeue(job_id, "transient llm error", attempts=1)
+
+        _, factory = _make_factory(db_path)
+        db = factory()
+        try:
+            row = db.query(WriteQueueModel).filter(
+                WriteQueueModel.id == uuid.UUID(job_id)
+            ).first()
+            assert row.status == WriteQueueStatus.queued
+            assert row.attempts == 1
+            assert row.error == "transient llm error"
+        finally:
+            db.close()
+
+        # Re-queued job is dequeable again, carrying its attempts count.
+        again = queue.dequeue(limit=1)
+        assert len(again) == 1
+        assert again[0].id == job_id
+        assert again[0].attempts == 1
+
 
 # ---------------------------------------------------------------------------
 # depth
@@ -209,7 +252,7 @@ class TestPersistence:
     def test_jobs_survive_fresh_connection(self, db_path):
         # First "process": enqueue some jobs, then drop everything.
         engine1, factory1 = _make_factory(db_path)
-        q1 = SqlWriteQueue(session_factory=factory1)
+        q1 = WriteQueue(session_factory=factory1)
         id1 = q1.enqueue(_job(text="persist-me"))
         q1.enqueue(_job(text="and-me"))
         engine1.dispose()
@@ -217,7 +260,7 @@ class TestPersistence:
 
         # Second "process": brand-new engine/connection to the same file.
         engine2, factory2 = _make_factory(db_path)
-        q2 = SqlWriteQueue(session_factory=factory2)
+        q2 = WriteQueue(session_factory=factory2)
         try:
             assert q2.depth() == 2
 

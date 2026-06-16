@@ -10,9 +10,10 @@ worker:
    — ``user_id`` carries the hostname purely for attribution (ADR-003);
 3. upserts the project catalog on the first write of each project (ADR-002),
    idempotently;
-4. marks the job ``done`` on success, or ``failed`` (recording the error) on
-   failure — failed jobs are never lost, they stay in the table and remain
-   reprocessable.
+4. marks the job ``done`` on success; on failure it retries (re-queues the job
+   with an incremented ``attempts`` count) until ``max_attempts`` is reached,
+   then marks it terminally ``failed`` recording the error — failed jobs are
+   never lost, they stay in the table.
 
 Concurrency against the local LLM is bounded by an ``asyncio.Semaphore`` so a
 burst of writes never fires more than ``max_concurrency`` simultaneous
@@ -36,6 +37,11 @@ logger = logging.getLogger(__name__)
 # Default bound on concurrent LLM inferences. Kept small so the local LLM is not
 # saturated by a burst of queued writes; overridable via the constructor.
 DEFAULT_MAX_CONCURRENCY = 2
+
+# How many times a job is attempted before it is marked terminally ``failed``.
+# On a failed attempt the job is re-queued (retentativa) until this ceiling is
+# reached; jobs are never lost regardless (ADR-004).
+DEFAULT_MAX_ATTEMPTS = 3
 
 # How many jobs to pull from the queue per pass and how long to idle (seconds)
 # when the queue is empty before polling again.
@@ -77,6 +83,7 @@ class WriteWorker:
         max_concurrency: int = DEFAULT_MAX_CONCURRENCY,
         batch_size: int = DEFAULT_BATCH_SIZE,
         idle_sleep: float = DEFAULT_IDLE_SLEEP,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     ):
         self._queue = queue if queue is not None else _default_write_queue
         self._client_provider = client_provider or _default_client_provider
@@ -84,6 +91,7 @@ class WriteWorker:
         self._max_concurrency = max(1, int(max_concurrency))
         self._batch_size = max(1, int(batch_size))
         self._idle_sleep = idle_sleep
+        self._max_attempts = max(1, int(max_attempts))
 
         self._semaphore = asyncio.Semaphore(self._max_concurrency)
         # Projects already cataloged in this process; avoids a redundant DB
@@ -114,9 +122,10 @@ class WriteWorker:
     async def _process_job(self, job: WriteJob) -> None:
         """Process a single job: extract/persist, catalog, mark done/failed.
 
-        Any failure (including the LLM/memory backend being unavailable) marks
-        the job ``failed`` with the error message — the job is not lost and can
-        be reprocessed later.
+        On failure (including the LLM/memory backend being unavailable) the job
+        is retried — re-queued with an incremented ``attempts`` count — until the
+        configured ceiling is reached, at which point it is marked terminally
+        ``failed``. Either way the job is never lost: it stays in the table.
         """
         async with self._semaphore:
             try:
@@ -131,19 +140,39 @@ class WriteWorker:
                 self._catalog_project(job)
                 self._queue.mark_done(job.id)
             except Exception as e:  # noqa: BLE001 - background isolation
-                logger.exception(
-                    "write job failed job_id=%s project=%s hostname=%s: %s",
-                    job.id,
-                    job.project,
-                    job.hostname,
-                    e,
-                )
-                try:
-                    self._queue.mark_failed(job.id, str(e))
-                except Exception:  # noqa: BLE001
-                    logger.exception(
-                        "could not mark job %s as failed", job.id
-                    )
+                self._handle_failure(job, e)
+
+    def _handle_failure(self, job: WriteJob, error: Exception) -> None:
+        """Re-queue the job for another attempt, or fail it terminally.
+
+        Bounded retentativa (ADR-004): a transient failure (e.g. the LLM being
+        momentarily down) re-queues the job so a later pass reprocesses it; once
+        ``max_attempts`` is reached the job is marked ``failed`` and stops being
+        retried. A failure to record the transition is swallowed so the worker
+        loop never dies.
+        """
+        attempts = job.attempts + 1
+        will_retry = attempts < self._max_attempts
+        logger.warning(
+            "write job attempt %s/%s failed job_id=%s project=%s hostname=%s "
+            "(%s): %s",
+            attempts,
+            self._max_attempts,
+            job.id,
+            job.project,
+            job.hostname,
+            "will retry" if will_retry else "giving up",
+            error,
+        )
+        try:
+            if will_retry:
+                self._queue.requeue(job.id, str(error), attempts)
+            else:
+                self._queue.mark_failed(job.id, str(error), attempts)
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "could not record failure transition for job %s", job.id
+            )
 
     async def _run_add(self, client, job: WriteJob):
         """Invoke the mem0 client ``add``.

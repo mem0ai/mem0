@@ -215,6 +215,120 @@ def test_setup_never_triggers_pull(two_model_client):
 
 
 # ---------------------------------------------------------------------------
+# Persisting the selection into the runtime config (task_09.3)
+# ---------------------------------------------------------------------------
+
+def test_setup_persists_selection_when_requested(two_model_client):
+    """persist=True routes the chosen config to the persistence callback."""
+    answers = iter(["1", "2"])
+    captured = {}
+    config = setup_models_interactive(
+        client=two_model_client,
+        input_func=lambda _prompt: next(answers),
+        persist=True,
+        persist_func=lambda cfg: captured.setdefault("cfg", cfg),
+    )
+
+    assert captured["cfg"] is config
+    assert captured["cfg"]["llm"]["config"]["model"] == "llama3.1:latest"
+
+
+def test_setup_does_not_persist_by_default(two_model_client):
+    answers = iter(["1", "2"])
+    captured = {}
+    setup_models_interactive(
+        client=two_model_client,
+        input_func=lambda _prompt: next(answers),
+        persist_func=lambda cfg: captured.setdefault("cfg", cfg),
+    )
+    assert captured == {}  # persist defaults to False
+
+
+def _config_factory():
+    """In-memory sqlite sessionmaker with just the configs table."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.models import Config as ConfigModel
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    ConfigModel.__table__.create(bind=engine, checkfirst=True)
+    return sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def test_persist_model_selection_writes_runtime_config():
+    os.environ.setdefault("OPENAI_API_KEY", "test-key")
+    from app.models import Config as ConfigModel
+    from app.utils import memory as memory_mod
+
+    factory = _config_factory()
+    runtime_config = build_ollama_runtime_config(
+        llm_model="llama3.1:latest",
+        embedder_model="nomic-embed-text:latest",
+    )
+
+    with patch.object(memory_mod, "reset_memory_client") as reset:
+        mem0_cfg = memory_mod.persist_model_selection(
+            runtime_config, session_factory=factory
+        )
+
+    # The selection lands in the 'main' config row under the mem0 key, where
+    # get_memory_client reads it from — so it drives the runtime client.
+    assert mem0_cfg["llm"]["config"]["model"] == "llama3.1:latest"
+    assert mem0_cfg["embedder"]["config"]["model"] == "nomic-embed-text:latest"
+    reset.assert_called_once()
+
+    db = factory()
+    try:
+        row = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
+        assert row is not None
+        assert row.value["mem0"]["llm"]["config"]["model"] == "llama3.1:latest"
+    finally:
+        db.close()
+
+
+def test_persist_model_selection_merges_existing_config():
+    """Persisting must not clobber unrelated settings (e.g. custom_instructions)."""
+    os.environ.setdefault("OPENAI_API_KEY", "test-key")
+    from app.models import Config as ConfigModel
+    from app.utils import memory as memory_mod
+
+    factory = _config_factory()
+    db = factory()
+    try:
+        db.add(ConfigModel(key="main", value={
+            "openmemory": {"custom_instructions": "keep me"},
+            "mem0": {"vector_store": {"provider": "qdrant"}},
+        }))
+        db.commit()
+    finally:
+        db.close()
+
+    runtime_config = build_ollama_runtime_config(
+        llm_model="llama3.1:latest", embedder_model="nomic-embed-text:latest",
+    )
+    with patch.object(memory_mod, "reset_memory_client"):
+        memory_mod.persist_model_selection(runtime_config, session_factory=factory)
+
+    db = factory()
+    try:
+        row = db.query(ConfigModel).filter(ConfigModel.key == "main").first()
+        assert row.value["openmemory"]["custom_instructions"] == "keep me"
+        assert row.value["mem0"]["vector_store"]["provider"] == "qdrant"
+        assert row.value["mem0"]["llm"]["config"]["model"] == "llama3.1:latest"
+    finally:
+        db.close()
+
+
+def test_persist_model_selection_rejects_incomplete_config():
+    os.environ.setdefault("OPENAI_API_KEY", "test-key")
+    from app.utils import memory as memory_mod
+
+    with pytest.raises(ValueError):
+        memory_mod.persist_model_selection({"llm": {}}, session_factory=_config_factory())
+
+
+# ---------------------------------------------------------------------------
 # memory.py wrappers stay working
 # ---------------------------------------------------------------------------
 

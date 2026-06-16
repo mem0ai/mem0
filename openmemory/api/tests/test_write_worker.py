@@ -33,9 +33,9 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models import WriteQueue as WriteQueueModel
+from app.models import WriteQueueJob as WriteQueueModel
 from app.models import WriteQueueStatus
-from app.utils.write_queue import SqlWriteQueue, WriteJob
+from app.utils.write_queue import WriteJob, WriteQueue
 from app.workers.write_worker import WriteWorker
 
 
@@ -60,7 +60,7 @@ def _make_factory(db_path):
 @pytest.fixture
 def queue(db_path):
     engine, factory = _make_factory(db_path)
-    yield SqlWriteQueue(session_factory=factory)
+    yield WriteQueue(session_factory=factory)
     engine.dispose()
 
 
@@ -164,8 +164,10 @@ class TestFailureHandling:
     async def test_extraction_error_marks_failed_with_error(self, queue, db_path):
         client = MagicMock()
         client.add = MagicMock(side_effect=RuntimeError("llm exploded"))
+        # max_attempts=1 -> a single failure is terminal (no retry).
         worker = WriteWorker(queue=queue, client_provider=lambda: client,
-                             upsert_project=lambda *a, **k: None)
+                             upsert_project=lambda *a, **k: None,
+                             max_attempts=1)
         job_id = queue.enqueue(_job())
 
         processed = await worker.process_once()
@@ -174,6 +176,7 @@ class TestFailureHandling:
         row = _status(db_path, job_id)
         assert row.status == WriteQueueStatus.failed
         assert "llm exploded" in row.error
+        assert row.attempts == 1
 
     @pytest.mark.asyncio
     async def test_failed_job_is_not_lost_and_no_catalog_upsert(self, queue):
@@ -181,7 +184,8 @@ class TestFailureHandling:
         client.add = MagicMock(side_effect=RuntimeError("boom"))
         upserts = []
         worker = WriteWorker(queue=queue, client_provider=lambda: client,
-                             upsert_project=lambda n, h: upserts.append(n))
+                             upsert_project=lambda n, h: upserts.append(n),
+                             max_attempts=1)
         queue.enqueue(_job())
 
         await worker.process_once()
@@ -190,6 +194,73 @@ class TestFailureHandling:
         # project was NOT cataloged because the write did not succeed.
         assert queue.depth() == 0  # failed no longer "pending"
         assert upserts == []
+
+
+# --------------------------------------------------------------------------- #
+# Retry (bounded retentativa) — task_06 / ADR-004
+# --------------------------------------------------------------------------- #
+class TestRetry:
+    @pytest.mark.asyncio
+    async def test_transient_failure_requeues_for_retry(self, queue, db_path):
+        client = MagicMock()
+        client.add = MagicMock(side_effect=RuntimeError("transient"))
+        worker = WriteWorker(queue=queue, client_provider=lambda: client,
+                             upsert_project=lambda *a, **k: None,
+                             max_attempts=3)
+        job_id = queue.enqueue(_job())
+
+        # First failed attempt: job goes back to queued (attempts=1), not failed.
+        await worker.process_once()
+        row = _status(db_path, job_id)
+        assert row.status == WriteQueueStatus.queued
+        assert row.attempts == 1
+        assert queue.depth() == 1  # still pending, will be retried
+
+    @pytest.mark.asyncio
+    async def test_retries_until_ceiling_then_fails(self, queue, db_path):
+        client = MagicMock()
+        client.add = MagicMock(side_effect=RuntimeError("always down"))
+        worker = WriteWorker(queue=queue, client_provider=lambda: client,
+                             upsert_project=lambda *a, **k: None,
+                             max_attempts=3)
+        job_id = queue.enqueue(_job())
+
+        # Three passes: attempt 1 -> requeue, attempt 2 -> requeue, attempt 3 -> failed.
+        await worker.process_once()
+        assert _status(db_path, job_id).status == WriteQueueStatus.queued
+        await worker.process_once()
+        assert _status(db_path, job_id).status == WriteQueueStatus.queued
+        await worker.process_once()
+        row = _status(db_path, job_id)
+        assert row.status == WriteQueueStatus.failed
+        assert row.attempts == 3
+        assert queue.depth() == 0
+
+    @pytest.mark.asyncio
+    async def test_retry_then_success_marks_done(self, queue, db_path):
+        # Fails once, then succeeds on the retry.
+        calls = {"n": 0}
+
+        async def _add(text, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("transient")
+            return {"results": [{"id": str(uuid.uuid4()), "memory": text,
+                                 "event": "ADD"}]}
+
+        client = MagicMock()
+        client.add = MagicMock(side_effect=_add)
+        worker = WriteWorker(queue=queue, client_provider=lambda: client,
+                             upsert_project=lambda *a, **k: None,
+                             max_attempts=3)
+        job_id = queue.enqueue(_job())
+
+        await worker.process_once()  # fails -> requeued
+        assert _status(db_path, job_id).status == WriteQueueStatus.queued
+        await worker.process_once()  # succeeds
+        row = _status(db_path, job_id)
+        assert row.status == WriteQueueStatus.done
+        assert calls["n"] == 2
 
 
 # --------------------------------------------------------------------------- #
@@ -284,6 +355,7 @@ class TestBackendUnavailable:
             queue=queue,
             client_provider=lambda: None,  # backend down
             upsert_project=lambda *a, **k: None,
+            max_attempts=1,  # single attempt -> terminal failure (no retry)
         )
         job_id = queue.enqueue(_job())
 
@@ -295,6 +367,25 @@ class TestBackendUnavailable:
         assert row.error  # error recorded; job remains in the table
         # Re-enqueue path: the failed job is still present and reprocessable.
         assert row is not None
+
+    @pytest.mark.asyncio
+    async def test_client_none_is_retried_before_giving_up(self, queue, db_path):
+        # With retries enabled, an unavailable backend re-queues the job (it is
+        # not lost) instead of failing it on the first pass.
+        worker = WriteWorker(
+            queue=queue,
+            client_provider=lambda: None,  # backend down
+            upsert_project=lambda *a, **k: None,
+            max_attempts=3,
+        )
+        job_id = queue.enqueue(_job())
+
+        await worker.process_once()
+
+        row = _status(db_path, job_id)
+        assert row.status == WriteQueueStatus.queued  # re-queued for retry
+        assert row.attempts == 1
+        assert queue.depth() == 1
 
 
 # --------------------------------------------------------------------------- #
@@ -374,10 +465,13 @@ class TestMarkFailedIsolation:
     @pytest.mark.asyncio
     async def test_mark_failed_raising_is_swallowed(self, queue):
         # add fails AND mark_failed fails -> the worker must not propagate.
+        # max_attempts=1 so the failure goes straight to the terminal
+        # mark_failed path (which we make raise) rather than requeue.
         client = MagicMock()
         client.add = MagicMock(side_effect=RuntimeError("boom"))
         worker = WriteWorker(queue=queue, client_provider=lambda: client,
-                             upsert_project=lambda *a, **k: None)
+                             upsert_project=lambda *a, **k: None,
+                             max_attempts=1)
         worker._queue.mark_failed = MagicMock(side_effect=RuntimeError("db gone"))
         queue.enqueue(_job())
 

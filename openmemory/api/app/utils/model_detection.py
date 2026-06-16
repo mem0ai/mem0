@@ -160,7 +160,13 @@ def build_ollama_runtime_config(
     }
 
 
-def setup_models_interactive(ollama_base_url=None, input_func=input, client=None):
+def setup_models_interactive(
+    ollama_base_url=None,
+    input_func=input,
+    client=None,
+    persist=False,
+    persist_func=None,
+):
     """Drive the install-time model selection flow.
 
     Detects models via Ollama and asks the admin to choose an LLM and an
@@ -174,6 +180,12 @@ def setup_models_interactive(ollama_base_url=None, input_func=input, client=None
         input_func: Callable used to read the admin's input (injectable for
             testing).  Defaults to the builtin ``input``.
         client: Optional pre-built Ollama client (for testing).
+        persist: When True, persist the selection into the runtime config (the
+            ``configs`` DB row read by ``get_memory_client``) so it actually
+            drives the running mem0 client (task_09).
+        persist_func: Callable ``(runtime_config) -> None`` used to persist
+            (injectable for testing). Defaults to
+            ``app.utils.memory.persist_model_selection``.
 
     Returns:
         dict: A runtime config consumable by ``Memory.from_config``.
@@ -195,11 +207,21 @@ def setup_models_interactive(ollama_base_url=None, input_func=input, client=None
         llm_model = input_func("Enter the LLM model name: ").strip()
         embedder_model = input_func("Enter the embedder model name: ").strip()
 
-    return build_ollama_runtime_config(
+    runtime_config = build_ollama_runtime_config(
         llm_model=llm_model,
         embedder_model=embedder_model,
         ollama_base_url=ollama_base_url,
     )
+
+    if persist:
+        if persist_func is None:
+            # Imported lazily to avoid a circular import (memory.py imports models
+            # which imports this module's siblings at app startup).
+            from app.utils.memory import persist_model_selection as persist_func
+        persist_func(runtime_config)
+        print("Model selection persisted to the runtime configuration.")
+
+    return runtime_config
 
 
 def _select_from_list(models, role, input_func):

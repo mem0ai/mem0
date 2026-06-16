@@ -42,11 +42,14 @@ class WriteQueueStatus(enum.Enum):
     failed = "failed"
 
 
-class WriteQueue(Base):
-    """Persistent write queue that decouples the MCP agent from LLM extraction.
+class WriteQueueJob(Base):
+    """Persistent write-queue row that decouples the MCP agent from LLM extraction.
 
     Each row represents a write job enqueued by ``add_memories`` and consumed by
     the background worker. Being SQLite-backed, jobs survive process restarts.
+
+    NOTE: this is the ORM row model (table ``write_queue``). The queue *access
+    layer* class is named ``WriteQueue`` and lives in ``app.utils.write_queue``.
     """
     __tablename__ = "write_queue"
     id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
@@ -59,6 +62,10 @@ class WriteQueue(Base):
                     nullable=False,
                     index=True)
     error = Column(String, nullable=True)
+    # Number of processing attempts already made; the worker retries a failed job
+    # (re-queues it) until this reaches its configured ceiling, then marks it
+    # terminally ``failed`` (task_06 / ADR-004).
+    attempts = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=get_current_utc_time, index=True)
     updated_at = Column(DateTime,
                         default=get_current_utc_time,
@@ -238,6 +245,33 @@ class MemoryAccessLog(Base):
         Index('idx_access_memory_time', 'memory_id', 'accessed_at'),
         Index('idx_access_app_time', 'app_id', 'accessed_at'),
     )
+
+
+class WriteAuditLog(Base):
+    """Durable audit trail of write requests (task_04 / ADR-003).
+
+    The shared-memory write path is asynchronous: ``add_memories`` enqueues a job
+    and the memory is only materialized later by the background worker, so there
+    is no ``memory_id`` to reference at request time (which is why the legacy
+    ``MemoryAccessLog`` — FK-bound to ``memories`` — does not fit this flow).
+    This table records *who* originated each write (hostname attribution) and the
+    target project/client, keyed by the queue ``job_id``, so attribution is
+    queryable and survives restarts without depending on log scraping.
+    """
+    __tablename__ = "write_audit_logs"
+    id = Column(UUID, primary_key=True, default=lambda: uuid.uuid4())
+    job_id = Column(UUID, nullable=True, index=True)
+    project = Column(String, nullable=False, index=True)
+    hostname = Column(String, nullable=False, index=True)
+    client_name = Column(String, nullable=True)
+    action = Column(String, nullable=False, default="enqueue", index=True)
+    created_at = Column(DateTime, default=get_current_utc_time, index=True)
+
+    __table_args__ = (
+        Index('idx_write_audit_project_time', 'project', 'created_at'),
+        Index('idx_write_audit_hostname_time', 'hostname', 'created_at'),
+    )
+
 
 def categorize_memory(memory: Memory, db: Session) -> None:
     """Categorize a memory using OpenAI and store the categories in the database."""
