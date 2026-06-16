@@ -2,6 +2,23 @@
 
 All notable changes to the `@mem0/opencode-plugin` will be documented in this file.
 
+## 0.2.0 — Native SDK tools, MCP-free, leaner skill set
+
+### Changed (breaking)
+
+- **Memory tools are now native OpenCode tools** registered via the `@opencode-ai/plugin` `tool()` helper and backed by the `mem0ai` SDK directly. The plugin no longer registers or depends on the remote MCP server (`mcp.mem0.ai`); the bundled `opencode.json` and the regex-based MCP call interception have been removed. Tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`, plus a `get_event_status` helper for async-write status.
+- **Skills load via the `config` hook (`skills.paths`)** instead of being copied into the project's `.opencode/` directory on startup. The `installSkills()` filesystem copy and the `cli.ts` installer (`mem0-opencode` bin) have been removed — install with `opencode plugin @mem0/opencode-plugin`.
+- **Trimmed to 8 focused skills** (`context-loader`, `dream`, `forget`, `health`, `peek`, `pin`, `remember`, `tour`). Removed `import`, `export`, `memory-reviewer`, `mem0` (SDK reference), `list-projects`, `switch-project`, `stats`, and `onboard`.
+
+### Added
+
+- **Expanded telemetry to the full shared `plugin.*` schema.** In addition to `plugin.session_start` and `plugin.tool_use`, the plugin now emits `plugin.user_prompt`, `plugin.bash_error`, `plugin.pre_compact`, and `plugin.session_stop`. `tool_use` now fires from inside each native tool. Every event also carries `project_hash` (anonymized `sha256(app_id)`) and `os_version`, matching the editor plugin's `telemetry.py`.
+
+### Fixed
+
+- **Error-pattern lookup** in `tool.execute.after` no longer issues two identical `mem0.search()` calls; it now performs a single `topK: 6` search.
+- Corrected the documented system-prompt hook name from `experimental.chat.system.transform` to the actual `experimental.chat.messages.transform`.
+
 ## 0.1.3 — File-context injection, session summaries & activity timeline, anonymous telemetry
 
 ### Added

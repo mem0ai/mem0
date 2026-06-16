@@ -1,6 +1,6 @@
 ---
 title: OpenCode
-description: "Add persistent memory to OpenCode with the Mem0 plugin — MCP server, lifecycle hooks, and slash commands."
+description: "Add persistent memory to OpenCode with the Mem0 plugin — native SDK-backed memory tools, lifecycle hooks, and skills."
 ---
 
 Add persistent memory to [**OpenCode**](https://opencode.ai) with the Mem0 plugin. Your agent forgets everything between sessions — Mem0 fixes that by storing decisions, preferences, and learnings so they carry over automatically.
@@ -30,27 +30,17 @@ echo 'export MEM0_API_KEY="m0-your-api-key"' >> ~/.bashrc && source ~/.bashrc
 opencode plugin @mem0/opencode-plugin
 ```
 
-
-Or using this command which does the same thing:
-
-
-```bash
-bunx @mem0/opencode-plugin@latest install
-```
-
-
-
 **Or let your agent do it** — paste this into OpenCode:
 
 ```
 Install @mem0/opencode-plugin by following https://raw.githubusercontent.com/mem0ai/mem0/main/integrations/mem0-plugin/.opencode-plugin/README.md
 ```
 
-All commands auto-add the plugin and MCP server to your `~/.config/opencode/opencode.json`. Restart OpenCode — you get the MCP server, lifecycle hooks, and all `/mem0:` slash commands.
+This adds the plugin to your `~/.config/opencode/opencode.json`. Restart OpenCode — you get the native memory tools, lifecycle hooks, and all `/mem0:` slash commands. The memory tools are registered by the plugin itself via the `mem0ai` SDK — no MCP server to configure.
 
-### Option B — MCP Only
+### Option B — Standalone MCP Server
 
-If you only need the memory tools without hooks or skills, add this to your `opencode.json` (project-level or global at `~/.config/opencode/opencode.json`):
+If you only need the memory tools without the plugin's hooks or skills, point OpenCode at Mem0's hosted MCP server directly. Add this to your `opencode.json` (project-level or global at `~/.config/opencode/opencode.json`):
 
 ```json
 {
@@ -69,13 +59,13 @@ If you only need the memory tools without hooks or skills, add this to your `ope
 
 ## What's Included
 
-| Component | Plugin (A) | MCP Only (B) |
-|-----------|:----------:|:------------:|
-| MCP Server (9 memory tools) | Yes | Yes |
+| Component | Plugin (A) | Standalone MCP (B) |
+|-----------|:----------:|:------------------:|
+| 9 memory tools | Native (SDK) | Remote MCP server |
 | Lifecycle Hooks | Yes | No |
-| 16 Slash Commands | Yes | No |
+| 8 Skills | Yes | No |
 
-## Available MCP Tools
+## Available Memory Tools
 
 | Tool | Description |
 |------|-------------|
@@ -95,10 +85,11 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 
 | OpenCode Event | Hook | What happens |
 |----------------|------|-------------|
+| `config` | **Config** | Registers the bundled skills (`skills.paths`) and `/mem0:*` slash commands at startup |
 | `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
-| `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, injects `user_id`/`app_id` on mem0 tool calls |
-| `tool.execute.after` | **Post-tool** | Tracks stats, scans Bash errors and pre-fetches related error memories |
-| `experimental.chat.system.transform` | **System transform** | Injects memory context (session memories, search results, error lookups) into the system prompt |
+| `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
+| `tool.execute.after` | **Post-tool** | Scans Bash errors and pre-fetches related error memories |
+| `experimental.chat.messages.transform` | **Messages transform** | Injects memory context (session memories, search results, error lookups) into the prompt |
 | `experimental.session.compacting` | **Compaction** | Stores session state memory, then injects prior memories into compaction context so nothing is lost |
 | `shell.env` | **Shell env** | Exports `MEM0_USER_ID`, `MEM0_APP_ID`, `MEM0_SESSION_ID`, and `MEM0_BRANCH` to all shell executions |
 

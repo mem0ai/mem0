@@ -47,5 +47,32 @@ describe("opencode telemetry", () => {
     process.env.MEM0_TELEMETRY = "false";
     expect(() => captureEvent("session_start", {}, KEY)).not.toThrow();
     expect(() => captureEvent("session_start", {}, undefined)).not.toThrow();
+    expect(() => captureEvent("session_start", {}, KEY, "proj")).not.toThrow();
+  });
+
+  test("every event carries os_version (matches telemetry.py schema)", () => {
+    const props = buildEvent("session_start", {}, KEY)!
+      .properties as Record<string, unknown>;
+    expect(typeof props.os_version).toBe("string");
+  });
+
+  test("project_hash is sha256(projectId) when a project id is supplied", async () => {
+    const { createHash } = await import("node:crypto");
+    const expected = createHash("sha256").update("acme-repo").digest("hex");
+    const props = buildEvent("session_start", {}, KEY, "acme-repo")!
+      .properties as Record<string, unknown>;
+    expect(props.project_hash).toBe(expected);
+  });
+
+  test("project_hash is omitted when no project id is supplied (no raw ids leak)", () => {
+    const props = buildEvent("session_start", {}, KEY)!
+      .properties as Record<string, unknown>;
+    expect("project_hash" in props).toBe(false);
+  });
+
+  test("expanded event types all use the shared plugin.* namespace", () => {
+    for (const ev of ["user_prompt", "bash_error", "pre_compact", "session_stop"]) {
+      expect(buildEvent(ev, {}, KEY)!.event).toBe(`plugin.${ev}`);
+    }
   });
 });

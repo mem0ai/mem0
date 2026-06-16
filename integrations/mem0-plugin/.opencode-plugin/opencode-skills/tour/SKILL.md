@@ -148,7 +148,7 @@ Identity - user: <user_id>  project: <project_id>  branch: <branch>
 If zero memories found for this project, print:
 ```
 No memories stored yet for project <project_id>.
-Run /mem0-onboard to import project files, or start working - mem0 captures learnings automatically.
+Start working - mem0 captures learnings automatically, or use /mem0:remember to save something now.
 ```
 
 ## Output formatting
