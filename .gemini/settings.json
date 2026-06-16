@@ -1,0 +1,115 @@
+{
+  "env": {
+    "OPENMEMORY_API_BASE": "http://localhost:8765",
+    "MEM0_LOCAL_ONLY": "1",
+    "MEM0_API_KEY": "local",
+    "MEM0_TELEMETRY": "false"
+  },
+  "mcpServers": {
+    "mem0": {
+      "httpUrl": "http://localhost:8765/mcp/claude-code/http/ubuntu"
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "mem0-ensure-deps",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/ensure_deps.sh 2>/dev/null || true",
+            "timeout": 60
+          },
+          {
+            "name": "mem0-session-start",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/on_session_start.sh 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "name": "mem0-user-prompt",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/on_user_prompt.sh 2>/dev/null || true",
+            "timeout": 8
+          }
+        ]
+      }
+    ],
+    "BeforeTool": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "name": "mem0-block-memory-write",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/block_memory_write.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
+        "hooks": [
+          {
+            "name": "mem0-enforce-metadata",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/enforce_metadata_defaults.sh",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "name": "mem0-file-context",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/on_file_read.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "name": "mem0-session-summary",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/on_stop.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "matcher": "mcp__mem0__.*|mcp__plugin_mem0_mem0__.*",
+        "hooks": [
+          {
+            "name": "mem0-post-tool",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/on_post_tool_use.sh",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "name": "mem0-bash-output",
+            "type": "command",
+            "command": "ANTIGRAVITY_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin CLAUDE_PLUGIN_ROOT=/mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin bash /mnt/aux_storage/dsv/mem0-shared/integrations/mem0-plugin/scripts/on_bash_output.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

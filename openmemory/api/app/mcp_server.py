@@ -178,7 +178,7 @@ async def search_memory(query: str, project: str, rerank: bool = False) -> str:
         hits = memory_client.vector_store.search(
             query=query,
             vectors=embeddings,
-            limit=DEFAULT_SEARCH_TOP_K,
+            top_k=DEFAULT_SEARCH_TOP_K,
             filters=filters,
         )
 
@@ -427,14 +427,14 @@ async def handle_sse(request: Request):
 
 @mcp_router.post("/messages/")
 async def handle_get_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message_impl(request)
 
 
 @mcp_router.post("/{client_name}/sse/{user_id}/messages/")
 async def handle_post_message(request: Request):
-    return await handle_post_message(request)
+    return await _handle_post_message_impl(request)
 
-async def handle_post_message(request: Request):
+async def _handle_post_message_impl(request: Request):
     """Handle POST messages for SSE"""
     try:
         body = await request.body()

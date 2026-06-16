@@ -13,18 +13,7 @@ import sys
 import types
 from pathlib import Path
 
-# The router only needs ``get_memory_client`` from app.utils.memory. Stub that
-# module (and its parent packages) so we can path-load the router WITHOUT
-# importing app.routers.__init__, which pulls heavy deps (fastapi_pagination,
-# an import-time OpenAI() client) that aren't installed outside Docker.
-for _name in ("app", "app.utils", "app.utils.memory"):
-    sys.modules.setdefault(_name, types.ModuleType(_name))
-sys.modules["app.utils.memory"].get_memory_client = lambda: None
-
-_PATH = Path(__file__).resolve().parents[1] / "app" / "routers" / "compat_v3.py"
-_spec = importlib.util.spec_from_file_location("compat_v3_under_test", _PATH)
-compat_v3 = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(compat_v3)
+from app.routers import compat_v3
 
 import pytest
 import pytest_asyncio

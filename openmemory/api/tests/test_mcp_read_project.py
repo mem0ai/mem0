@@ -107,7 +107,7 @@ class TestSearchMemoryProjectScope:
     async def test_search_applies_default_top_k(self, patched_client):
         client, _ = patched_client
         await search_memory("q", project="A")
-        assert client.vector_store.search.call_args.kwargs["limit"] == DEFAULT_SEARCH_TOP_K
+        assert client.vector_store.search.call_args.kwargs["top_k"] == DEFAULT_SEARCH_TOP_K
         assert DEFAULT_SEARCH_TOP_K == 20
 
     @pytest.mark.asyncio

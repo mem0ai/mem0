@@ -111,6 +111,11 @@ def _recipe(host: str) -> list:
                       f"MEM0_TELEMETRY=false (ver campo 'env').",
         },
         {
+            "step": "hooks",
+            "action": "Traduzir os hooks de 'integrations/mem0-plugin/hooks.json' para o formato do host. "
+                      "IMPORTANTE: Expandir caminhos relativos para caminhos ABSOLUTOS no workspace.",
+        },
+        {
             "step": "mode",
             "action": f"Apresentar as 3 opções de 'modes' ao usuário e gravar as "
                       f"'settings' do modo escolhido em {settings_path} "
@@ -137,6 +142,12 @@ def _payload(request: Request, host: str) -> dict:
             "MEM0_LOCAL_ONLY": "1",
             "MEM0_API_KEY": "local",
             "MEM0_TELEMETRY": "false",
+        },
+        "hints": {
+            "vector_dimensions": 768,
+            "mandatory_args": ["project"],
+            "absolute_paths_in_hooks": True,
+            "recommended_project": "mem0-shared",
         },
         "modes": MODES,
         "settings_path": "~/.mem0/settings.json",
