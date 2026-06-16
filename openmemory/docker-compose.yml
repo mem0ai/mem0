@@ -21,12 +21,18 @@ services:
       # collection — ADR-003). The app selects Qdrant when QDRANT_HOST/PORT set.
       - QDRANT_HOST=mem0_store
       - QDRANT_PORT=6333
-      # Local LLM + embeddings via Ollama on the local network (no external
-      # dependency — privacy). Model names are chosen at install time (task_09).
+      # Local LLM + embeddings via Ollama OR llama.cpp on the local network (no
+      # external dependency — privacy). Backend + model names are chosen at
+      # install time (task_09). For llama.cpp the installer sets provider=openai
+      # and points *_BASE_URL at the local llama.cpp server (OpenAI-compatible).
       - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
       - LLM_MODEL=${LLM_MODEL:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
       - EMBEDDER_PROVIDER=${EMBEDDER_PROVIDER:-ollama}
       - EMBEDDER_MODEL=${EMBEDDER_MODEL:-}
+      - EMBEDDER_BASE_URL=${EMBEDDER_BASE_URL:-}
+      - EMBEDDER_API_KEY=${EMBEDDER_API_KEY:-}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       # SQLite (catalog + write queue + history) persists via the ./api bind
       # mount below; the path lives inside the mounted source tree.

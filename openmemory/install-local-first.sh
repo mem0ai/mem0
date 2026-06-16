@@ -8,23 +8,27 @@
 # O que faz, ponta a ponta:
 #   1. Verifica pré-requisitos (Docker + Docker Compose v2).
 #   2. Garante os arquivos .env (compose + api).
-#   3. Detecta os modelos do Ollama (GET /api/tags) e deixa você escolher o LLM
-#      e o embedder — sem digitar nomes na mão, sem download automático (task_09).
+#   3. Detecta modelos locais — Ollama (GET /api/tags) E llama.cpp (servidor
+#      OpenAI-compatível, GET /v1/models) — e deixa você escolher o backend e os
+#      modelos LLM/embedder, sem download automático (task_09).
 #   4. Persiste a seleção no .env do compose (interpolado no docker-compose.yml).
 #   5. Sobe o conjunto (docker compose up -d) — o schema é criado no startup.
 #   6. Valida a auto-descoberta (GET /discovery) e imprime os dados de conexão.
 #
 # Uso:
-#   ./install-local-first.sh                          # interativo
+#   ./install-local-first.sh                          # interativo (auto-detecta)
+#   ./install-local-first.sh --backend llamacpp       # força o backend llama.cpp
 #   ./install-local-first.sh --ollama-url http://192.168.0.10:11434
+#   ./install-local-first.sh --llamacpp-url http://192.168.0.10:8080
 #   ./install-local-first.sh --llm llama3.1:latest --embedder nomic-embed-text --yes
 #   ./install-local-first.sh --skip-models            # mantém modelos do .env atual
 #   ./install-local-first.sh --with-ui                # também sobe a UI (porta 3000)
 #
 # Variáveis (alternativa às flags):
-#   OLLAMA_URL   endpoint do Ollama p/ detecção no host (default http://localhost:11434)
-#   API_PORT     porta da API/MCP (default 8765)
-#   TIMEOUT      segundos de espera pelo /discovery (default 180)
+#   OLLAMA_URL    endpoint do Ollama p/ detecção no host (default http://localhost:11434)
+#   LLAMACPP_URL  endpoint do llama.cpp p/ detecção no host (default http://localhost:8080)
+#   API_PORT      porta da API/MCP (default 8765)
+#   TIMEOUT       segundos de espera pelo /discovery (default 180)
 
 set -euo pipefail
 
@@ -35,6 +39,8 @@ cd "$(dirname "$0")"
 # Parâmetros
 # --------------------------------------------------------------------------- #
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
+LLAMACPP_URL="${LLAMACPP_URL:-http://localhost:8080}"
+BACKEND="auto"
 API_PORT="${API_PORT:-8765}"
 TIMEOUT="${TIMEOUT:-180}"
 LLM_CHOICE=""
@@ -43,11 +49,16 @@ NON_INTERACTIVE=0
 SKIP_MODELS=0
 WITH_UI=0
 OLLAMA_URL_EXPLICIT=0
+LLAMACPP_URL_EXPLICIT=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --backend) BACKEND="$2"; shift 2 ;;
+    --backend=*) BACKEND="${1#*=}"; shift ;;
     --ollama-url) OLLAMA_URL="$2"; OLLAMA_URL_EXPLICIT=1; shift 2 ;;
     --ollama-url=*) OLLAMA_URL="${1#*=}"; OLLAMA_URL_EXPLICIT=1; shift ;;
+    --llamacpp-url) LLAMACPP_URL="$2"; LLAMACPP_URL_EXPLICIT=1; shift 2 ;;
+    --llamacpp-url=*) LLAMACPP_URL="${1#*=}"; LLAMACPP_URL_EXPLICIT=1; shift ;;
     --llm) LLM_CHOICE="$2"; shift 2 ;;
     --llm=*) LLM_CHOICE="${1#*=}"; shift ;;
     --embedder) EMBEDDER_CHOICE="$2"; shift 2 ;;
@@ -55,10 +66,12 @@ while [ $# -gt 0 ]; do
     --yes|-y) NON_INTERACTIVE=1; shift ;;
     --skip-models) SKIP_MODELS=1; shift ;;
     --with-ui) WITH_UI=1; shift ;;
-    -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,45p' "$0"; exit 0 ;;
     *) echo "Argumento desconhecido: $1" >&2; exit 2 ;;
   esac
 done
+
+case "$BACKEND" in auto|ollama|llamacpp) ;; *) echo "--backend invalido: $BACKEND" >&2; exit 2 ;; esac
 
 log()  { printf '\n\033[1;36m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m  ✓\033[0m %s\n' "$*"; }
@@ -104,28 +117,31 @@ set_env() {
 }
 
 # --------------------------------------------------------------------------- #
-# 3. Detecção de modelos (Ollama /api/tags) — task_09
+# 3. Detecção de modelos (Ollama /api/tags + llama.cpp /v1/models) — task_09
 # --------------------------------------------------------------------------- #
-# Extrai os nomes de modelo do JSON do /api/tags (python3 se houver; senão grep).
+# Extrai nomes de modelo de um JSON (python3 se houver; senão grep). $1 = chave da
+# lista ("models" p/ Ollama, "data" p/ llama.cpp).
 parse_models() {
+  local list_key="$1"
   if command -v python3 >/dev/null 2>&1; then
     python3 -c 'import sys,json
+key=sys.argv[1]
 try: d=json.load(sys.stdin)
 except Exception: sys.exit(0)
-for m in d.get("models",[]):
-    n=(m.get("name") or m.get("model"));
-    print(n) if n else None'
+for m in d.get(key,[]) or []:
+    n=(m.get("name") or m.get("model") or m.get("id"))
+    print(n) if n else None' "$list_key"
   else
-    grep -oE '"(name|model)"[[:space:]]*:[[:space:]]*"[^"]+"' \
+    grep -oE '"(name|model|id)"[[:space:]]*:[[:space:]]*"[^"]+"' \
       | sed -E 's/.*:[[:space:]]*"([^"]+)"/\1/'
   fi
 }
 
-select_model() {  # $1 = rótulo (LLM/embedder); usa a global MODELS; ecoa a escolha
-  local role="$1" choice
-  read -r -p "  Selecione o modelo de ${role} (número ou nome): " choice </dev/tty
+select_from() {  # $1 = rótulo; $2 = lista (newline-separated); ecoa a escolha
+  local role="$1" list="$2" choice
+  read -r -p "  Selecione o ${role} (número ou nome): " choice </dev/tty
   if printf '%s' "$choice" | grep -qE '^[0-9]+$'; then
-    printf '%s\n' "$MODELS" | sed -n "${choice}p"
+    printf '%s\n' "$list" | sed -n "${choice}p"
   else
     printf '%s\n' "$choice"
   fi
@@ -134,23 +150,51 @@ select_model() {  # $1 = rótulo (LLM/embedder); usa a global MODELS; ecoa a esc
 if [ "$SKIP_MODELS" -eq 1 ]; then
   log "Detecção de modelos pulada (--skip-models): mantendo o .env atual."
 else
-  log "Detectando modelos no Ollama em $OLLAMA_URL"
-  TAGS_JSON="$(curl -fsS "${OLLAMA_URL%/}/api/tags" 2>/dev/null || true)"
-  MODELS="$(printf '%s' "$TAGS_JSON" | parse_models)"
+  log "Detectando modelos locais (Ollama + llama.cpp)"
+  OLLAMA_MODELS=""; LLAMACPP_MODELS=""
+  if [ "$BACKEND" = "auto" ] || [ "$BACKEND" = "ollama" ]; then
+    OLLAMA_MODELS="$(curl -fsS "${OLLAMA_URL%/}/api/tags" 2>/dev/null | parse_models models || true)"
+  fi
+  if [ "$BACKEND" = "auto" ] || [ "$BACKEND" = "llamacpp" ]; then
+    LC_BASE="${LLAMACPP_URL%/}"; case "$LC_BASE" in */v1) ;; *) LC_BASE="$LC_BASE/v1" ;; esac
+    LLAMACPP_MODELS="$(curl -fsS "${LC_BASE}/models" 2>/dev/null | parse_models data || true)"
+  fi
 
+  BACKEND_CHOSEN=""; MODELS=""
   if [ -n "${LLM_CHOICE}" ] && [ -n "${EMBEDDER_CHOICE}" ]; then
-    ok "Usando modelos informados por flag."
+    [ "$BACKEND" = "llamacpp" ] && BACKEND_CHOSEN="llamacpp" || BACKEND_CHOSEN="ollama"
+    ok "Usando modelos informados por flag (backend $BACKEND_CHOSEN)."
   elif [ "$NON_INTERACTIVE" -eq 1 ]; then
     die "--yes exige --llm e --embedder."
-  elif [ -n "$MODELS" ]; then
-    ok "Modelos detectados:"
-    printf '%s\n' "$MODELS" | nl -w4 -s'. ' | sed 's/^/   /'
-    LLM_CHOICE="$(select_model "LLM")"
-    EMBEDDER_CHOICE="$(select_model "embedder")"
   else
-    warn "Ollama indisponível ou sem modelos em $OLLAMA_URL — entrada manual."
-    read -r -p "  Nome do modelo LLM: " LLM_CHOICE </dev/tty
-    read -r -p "  Nome do modelo embedder: " EMBEDDER_CHOICE </dev/tty
+    # Quais backends têm modelos?
+    avail=""
+    [ -n "$OLLAMA_MODELS" ] && avail="$avail ollama"
+    [ -n "$LLAMACPP_MODELS" ] && avail="$avail llamacpp"
+    avail="$(printf '%s' "$avail" | xargs 2>/dev/null || echo "$avail")"
+    n_avail=$(printf '%s\n' $avail | grep -c . || true)
+
+    if [ "$n_avail" -gt 1 ]; then
+      ok "Múltiplos backends locais detectados:"
+      i=1; for b in $avail; do printf '   %d. %s\n' "$i" "$b"; i=$((i+1)); done
+      pick="$(select_from "backend" "$(printf '%s\n' $avail)")"
+      BACKEND_CHOSEN="$pick"
+    elif [ "$n_avail" -eq 1 ]; then
+      BACKEND_CHOSEN="$(printf '%s' "$avail" | xargs)"
+    fi
+
+    if [ -n "$BACKEND_CHOSEN" ]; then
+      [ "$BACKEND_CHOSEN" = "llamacpp" ] && MODELS="$LLAMACPP_MODELS" || MODELS="$OLLAMA_MODELS"
+      ok "Backend $BACKEND_CHOSEN — modelos detectados:"
+      printf '%s\n' "$MODELS" | nl -w4 -s'. ' | sed 's/^/   /'
+      LLM_CHOICE="$(select_from "modelo LLM" "$MODELS")"
+      EMBEDDER_CHOICE="$(select_from "modelo embedder" "$MODELS")"
+    else
+      warn "Nenhum backend local detectou modelos — entrada manual."
+      [ "$BACKEND" = "llamacpp" ] && BACKEND_CHOSEN="llamacpp" || BACKEND_CHOSEN="ollama"
+      read -r -p "  Nome do modelo LLM: " LLM_CHOICE </dev/tty
+      read -r -p "  Nome do modelo embedder: " EMBEDDER_CHOICE </dev/tty
+    fi
   fi
 
   [ -n "$LLM_CHOICE" ] || die "Modelo LLM não definido."
@@ -158,16 +202,29 @@ else
 
   # 4. Persiste a seleção no .env do compose (interpolado em docker-compose.yml).
   log "Gravando a seleção em $COMPOSE_ENV"
-  set_env "LLM_PROVIDER" "ollama" "$COMPOSE_ENV"
-  set_env "EMBEDDER_PROVIDER" "ollama" "$COMPOSE_ENV"
   set_env "LLM_MODEL" "$LLM_CHOICE" "$COMPOSE_ENV"
   set_env "EMBEDDER_MODEL" "$EMBEDDER_CHOICE" "$COMPOSE_ENV"
-  # Só fixa OLLAMA_BASE_URL para o container quando o usuário deu uma URL de rede;
-  # caso contrário mantém o default host.docker.internal do compose.
-  if [ "$OLLAMA_URL_EXPLICIT" -eq 1 ]; then
-    set_env "OLLAMA_BASE_URL" "$OLLAMA_URL" "$COMPOSE_ENV"
+  if [ "$BACKEND_CHOSEN" = "llamacpp" ]; then
+    # llama.cpp via provider openai apontando para o servidor local. localhost
+    # não serve de dentro do container: usa a URL informada ou host.docker.internal.
+    if [ "$LLAMACPP_URL_EXPLICIT" -eq 1 ]; then LC_CONT="${LLAMACPP_URL%/}"; else LC_CONT="http://host.docker.internal:8080"; fi
+    case "$LC_CONT" in */v1) ;; *) LC_CONT="$LC_CONT/v1" ;; esac
+    set_env "LLM_PROVIDER" "openai" "$COMPOSE_ENV"
+    set_env "EMBEDDER_PROVIDER" "openai" "$COMPOSE_ENV"
+    set_env "LLM_BASE_URL" "$LC_CONT" "$COMPOSE_ENV"
+    set_env "EMBEDDER_BASE_URL" "$LC_CONT" "$COMPOSE_ENV"
+    set_env "LLM_API_KEY" "llama.cpp" "$COMPOSE_ENV"
+    set_env "EMBEDDER_API_KEY" "llama.cpp" "$COMPOSE_ENV"
+  else
+    set_env "LLM_PROVIDER" "ollama" "$COMPOSE_ENV"
+    set_env "EMBEDDER_PROVIDER" "ollama" "$COMPOSE_ENV"
+    # Só fixa OLLAMA_BASE_URL quando o usuário deu uma URL de rede; senão mantém
+    # o default host.docker.internal do compose.
+    if [ "$OLLAMA_URL_EXPLICIT" -eq 1 ]; then
+      set_env "OLLAMA_BASE_URL" "$OLLAMA_URL" "$COMPOSE_ENV"
+    fi
   fi
-  ok "LLM=$LLM_CHOICE | embedder=$EMBEDDER_CHOICE"
+  ok "Backend=$BACKEND_CHOSEN | LLM=$LLM_CHOICE | embedder=$EMBEDDER_CHOICE"
 fi
 
 # USER/NEXT_PUBLIC_API_URL ajudam a UI e silenciam avisos do compose.

@@ -163,6 +163,40 @@ def build_ollama_runtime_config(llm_model, embedder_model, ollama_base_url=None)
     )
 
 
+def detect_llamacpp_models(base_url=None, fetch=None):
+    """Detect models served by a local llama.cpp server (``GET /v1/models``).
+
+    Thin wrapper around :func:`app.utils.model_detection.detect_llamacpp_models`.
+    Returns a list of model names; raises ``LlamaCppUnavailableError`` when the
+    server is unavailable so the caller can fall back to another backend / manual
+    entry.
+    """
+    from app.utils.model_detection import detect_llamacpp_models as _detect
+
+    return _detect(base_url=base_url, fetch=fetch)
+
+
+def build_llamacpp_runtime_config(llm_model, embedder_model, base_url=None):
+    """Build a mem0 runtime config (``openai`` provider) for a llama.cpp server.
+
+    Thin wrapper around
+    :func:`app.utils.model_detection.build_llamacpp_runtime_config`.
+    """
+    from app.utils.model_detection import build_llamacpp_runtime_config as _build
+
+    return _build(llm_model=llm_model, embedder_model=embedder_model, base_url=base_url)
+
+
+def detect_local_models(ollama_base_url=None, llamacpp_base_url=None):
+    """Probe every local backend (Ollama + llama.cpp) and return what each exposes.
+
+    Thin wrapper around :func:`app.utils.model_detection.detect_local_models`.
+    """
+    from app.utils.model_detection import detect_local_models as _detect
+
+    return _detect(ollama_base_url=ollama_base_url, llamacpp_base_url=llamacpp_base_url)
+
+
 def persist_model_selection(runtime_config, session_factory=SessionLocal):
     """Persist the install-time model selection into the runtime config (task_09).
 

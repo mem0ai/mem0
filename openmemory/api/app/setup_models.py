@@ -27,12 +27,24 @@ import sys
 def _build_parser():
     p = argparse.ArgumentParser(
         prog="python -m app.setup_models",
-        description="Detect local Ollama models and select the LLM/embedder.",
+        description="Detect local LLM models (Ollama / llama.cpp) and select the "
+                    "LLM and embedder.",
+    )
+    p.add_argument(
+        "--backend",
+        choices=("auto", "ollama", "llamacpp"),
+        default="auto",
+        help="Local backend to use (default: auto — probe both and pick).",
     )
     p.add_argument(
         "--ollama-url",
         default=os.environ.get("OLLAMA_BASE_URL"),
         help="Ollama base URL (default: $OLLAMA_BASE_URL or http://localhost:11434).",
+    )
+    p.add_argument(
+        "--llamacpp-url",
+        default=os.environ.get("LLAMACPP_BASE_URL"),
+        help="llama.cpp server URL (default: $LLAMACPP_BASE_URL or http://localhost:8080).",
     )
     p.add_argument(
         "--llm",
@@ -57,24 +69,34 @@ def _build_parser():
 
 def main(argv=None):
     args = _build_parser().parse_args(argv)
-    from app.utils.model_detection import setup_models_interactive
+    from app.utils import model_detection as md
 
     if args.yes:
         if not args.llm or not args.embedder:
             print("--yes requires both --llm and --embedder.", file=sys.stderr)
             return 2
-        answers = iter([args.llm, args.embedder, args.llm, args.embedder])
-
-        def input_func(_prompt):
-            return next(answers)
+        # Non-interactive: build the config directly for the chosen backend
+        # (auto defaults to ollama since model names were given explicitly).
+        backend = "llamacpp" if args.backend == "llamacpp" else "ollama"
+        config = md._build_runtime_config(
+            backend,
+            llm_model=args.llm,
+            embedder_model=args.embedder,
+            ollama_base_url=args.ollama_url,
+            llamacpp_base_url=args.llamacpp_url,
+        )
+        if not args.no_persist:
+            from app.utils.memory import persist_model_selection
+            persist_model_selection(config)
+            print("Model selection persisted to the runtime configuration.")
     else:
-        input_func = input
+        config = md.setup_models_interactive(
+            backend=args.backend,
+            ollama_base_url=args.ollama_url,
+            llamacpp_base_url=args.llamacpp_url,
+            persist=not args.no_persist,
+        )
 
-    config = setup_models_interactive(
-        ollama_base_url=args.ollama_url,
-        input_func=input_func,
-        persist=not args.no_persist,
-    )
     print(json.dumps(config, indent=2))
     return 0
 

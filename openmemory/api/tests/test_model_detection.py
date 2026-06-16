@@ -167,6 +167,7 @@ def test_build_runtime_config_consumable_by_memory_from_config():
 def test_setup_selects_from_detected_list_by_number(two_model_client):
     answers = iter(["1", "2"])  # LLM -> model 1, embedder -> model 2
     config = setup_models_interactive(
+        backend="ollama",
         client=two_model_client,
         input_func=lambda _prompt: next(answers),
     )
@@ -179,6 +180,7 @@ def test_setup_selects_from_detected_list_by_number(two_model_client):
 def test_setup_selects_by_typed_name(two_model_client):
     answers = iter(["llama3.1:latest", "nomic-embed-text:latest"])
     config = setup_models_interactive(
+        backend="ollama",
         client=two_model_client,
         input_func=lambda _prompt: next(answers),
     )
@@ -194,6 +196,7 @@ def test_setup_falls_back_to_manual_when_unavailable():
 
     answers = iter(["my-llm", "my-embedder"])
     config = setup_models_interactive(
+        backend="ollama",
         client=client,
         input_func=lambda _prompt: next(answers),
     )
@@ -208,6 +211,7 @@ def test_setup_falls_back_to_manual_when_unavailable():
 def test_setup_never_triggers_pull(two_model_client):
     answers = iter(["1", "2"])
     setup_models_interactive(
+        backend="ollama",
         client=two_model_client,
         input_func=lambda _prompt: next(answers),
     )
@@ -223,6 +227,7 @@ def test_setup_persists_selection_when_requested(two_model_client):
     answers = iter(["1", "2"])
     captured = {}
     config = setup_models_interactive(
+        backend="ollama",
         client=two_model_client,
         input_func=lambda _prompt: next(answers),
         persist=True,
@@ -237,6 +242,7 @@ def test_setup_does_not_persist_by_default(two_model_client):
     answers = iter(["1", "2"])
     captured = {}
     setup_models_interactive(
+        backend="ollama",
         client=two_model_client,
         input_func=lambda _prompt: next(answers),
         persist_func=lambda cfg: captured.setdefault("cfg", cfg),
@@ -345,3 +351,138 @@ def test_memory_module_wrappers_delegate(two_model_client):
     )
     assert config["llm"]["provider"] == "ollama"
     assert config["embedder"]["provider"] == "ollama"
+
+
+# ---------------------------------------------------------------------------
+# llama.cpp backend (OpenAI-compatible server) — task_09
+# ---------------------------------------------------------------------------
+
+from app.utils.model_detection import (  # noqa: E402
+    LlamaCppUnavailableError,
+    build_llamacpp_runtime_config,
+    detect_llamacpp_models,
+    detect_local_models,
+)
+
+
+def _llamacpp_fetch(models):
+    """Return a fake fetch(url) yielding an OpenAI-compatible /v1/models body."""
+    return lambda _url: {"data": [{"id": m} for m in models]}
+
+
+def test_detect_llamacpp_parses_v1_models():
+    fetch = _llamacpp_fetch(["qwen2.5:7b", "nomic-embed-text"])
+    names = detect_llamacpp_models(base_url="http://localhost:8080", fetch=fetch)
+    assert names == ["qwen2.5:7b", "nomic-embed-text"]
+
+
+def test_detect_llamacpp_unavailable_raises():
+    def boom(_url):
+        raise ConnectionError("llama.cpp down")
+
+    with pytest.raises(LlamaCppUnavailableError):
+        detect_llamacpp_models(base_url="http://localhost:8080", fetch=boom)
+
+
+def test_build_llamacpp_uses_openai_provider_pointing_at_server():
+    config = build_llamacpp_runtime_config(
+        llm_model="qwen2.5:7b",
+        embedder_model="nomic-embed-text",
+        base_url="http://host.docker.internal:8080",
+    )
+    # llama.cpp has no native provider -> wired via OpenAI-compatible endpoint.
+    assert config["llm"]["provider"] == "openai"
+    assert config["embedder"]["provider"] == "openai"
+    assert config["llm"]["config"]["openai_base_url"] == "http://host.docker.internal:8080/v1"
+    assert config["embedder"]["config"]["openai_base_url"] == "http://host.docker.internal:8080/v1"
+    assert config["llm"]["config"]["api_key"]  # dummy key present
+
+
+def test_build_llamacpp_normalizes_v1_suffix():
+    # A base URL that already ends in /v1 must not be doubled.
+    config = build_llamacpp_runtime_config("m", "e", base_url="http://x:8080/v1")
+    assert config["llm"]["config"]["openai_base_url"] == "http://x:8080/v1"
+
+
+def test_build_llamacpp_requires_models():
+    with pytest.raises(ValueError):
+        build_llamacpp_runtime_config("", "e")
+    with pytest.raises(ValueError):
+        build_llamacpp_runtime_config("m", "")
+
+
+def test_llamacpp_config_consumable_by_memory_from_config():
+    config = build_llamacpp_runtime_config("qwen2.5:7b", "nomic-embed-text",
+                                           base_url="http://localhost:8080")
+    from mem0.configs.base import MemoryConfig
+
+    validated = MemoryConfig(**config)
+    assert validated.llm.provider == "openai"
+    assert validated.embedder.provider == "openai"
+
+
+def test_detect_local_models_reports_both_backends(two_model_client):
+    found = detect_local_models(
+        ollama_client=two_model_client,
+        llamacpp_fetch=_llamacpp_fetch(["qwen2.5:7b"]),
+    )
+    assert found["ollama"] == ["llama3.1:latest", "nomic-embed-text:latest"]
+    assert found["llamacpp"] == ["qwen2.5:7b"]
+
+
+def test_detect_local_models_omits_unavailable_backend(two_model_client):
+    def boom(_url):
+        raise ConnectionError("down")
+
+    found = detect_local_models(ollama_client=two_model_client, llamacpp_fetch=boom)
+    assert "ollama" in found
+    assert "llamacpp" not in found
+
+
+def test_setup_backend_llamacpp_builds_openai_config():
+    answers = iter(["1", "1"])
+    config = setup_models_interactive(
+        backend="llamacpp",
+        llamacpp_fetch=_llamacpp_fetch(["qwen2.5:7b"]),
+        input_func=lambda _p: next(answers),
+    )
+    assert config["llm"]["provider"] == "openai"
+    assert config["llm"]["config"]["model"] == "qwen2.5:7b"
+
+
+def test_setup_auto_prompts_when_both_backends_available(two_model_client):
+    # auto: both backends have models -> the admin is asked which backend.
+    # answers: backend=2 (llamacpp), then LLM=1, embedder=1.
+    answers = iter(["2", "1", "1"])
+    config = setup_models_interactive(
+        backend="auto",
+        client=two_model_client,
+        llamacpp_fetch=_llamacpp_fetch(["qwen2.5:7b"]),
+        input_func=lambda _p: next(answers),
+    )
+    assert config["llm"]["provider"] == "openai"  # chose llama.cpp
+    assert config["llm"]["config"]["model"] == "qwen2.5:7b"
+
+
+def test_setup_auto_uses_single_available_backend():
+    # Only llama.cpp responds -> used without a backend prompt.
+    answers = iter(["1", "1"])
+    config = setup_models_interactive(
+        backend="auto",
+        client=Mock(**{"list.side_effect": ConnectionError("no ollama")}),
+        llamacpp_fetch=_llamacpp_fetch(["qwen2.5:7b"]),
+        input_func=lambda _p: next(answers),
+    )
+    assert config["llm"]["provider"] == "openai"
+
+
+def test_memory_wrappers_expose_llamacpp():
+    os.environ.setdefault("OPENAI_API_KEY", "test-key")
+    from app.utils import memory as memory_mod
+
+    names = memory_mod.detect_llamacpp_models(
+        base_url="http://x:8080", fetch=_llamacpp_fetch(["m1"])
+    )
+    assert names == ["m1"]
+    cfg = memory_mod.build_llamacpp_runtime_config("m1", "m2", base_url="http://x:8080")
+    assert cfg["llm"]["provider"] == "openai"

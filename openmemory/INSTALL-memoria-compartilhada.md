@@ -6,14 +6,17 @@ Operação **100% local**: nenhuma dependência de serviços fora da rede (priva
 
 ## Pré-requisitos
 
-- Docker + Docker Compose v2 (Linux).
-- **Ollama** acessível na rede local (no host ou em outra máquina da LAN).
+- Docker + Docker Compose v2.
+- Um backend de LLM local acessível na rede: **Ollama** e/ou **llama.cpp**
+  (servidor OpenAI-compatível) — no host ou em outra máquina da LAN.
 
 ## Instalação rápida (1 comando)
 
 O instalador faz tudo: confere pré-requisitos, prepara os `.env`, **detecta os
-modelos do Ollama e deixa você escolher** o LLM e o embedder (task_09), sobe o
-conjunto e valida a auto-descoberta (task_08).
+modelos locais e deixa você escolher** o backend (Ollama ou llama.cpp) e os
+modelos LLM/embedder (task_09), sobe o conjunto e valida a auto-descoberta
+(task_08). A detecção cobre **Ollama** (`GET /api/tags`) e **llama.cpp**
+(`GET /v1/models`); se os dois responderem, o instalador pergunta qual usar.
 
 **Multiplataforma (Linux/macOS/Windows)** — na raiz do projeto, só precisa de
 Python 3.8+ e Docker:
@@ -32,8 +35,11 @@ cd openmemory
 Variações úteis (mesmas flags nos dois):
 
 ```bash
-# Ollama em outra máquina da LAN:
+# Backend específico (Ollama em outra máquina da LAN):
 python install.py --ollama-url http://192.168.0.10:11434
+
+# Forçar llama.cpp (servidor OpenAI-compatível) em outra máquina:
+python install.py --backend llamacpp --llamacpp-url http://192.168.0.10:8080
 
 # Não-interativo (CI / provisionamento):
 python install.py --llm llama3.1:latest --embedder nomic-embed-text --yes
@@ -41,6 +47,11 @@ python install.py --llm llama3.1:latest --embedder nomic-embed-text --yes
 # Manter os modelos já definidos no .env / também subir a UI:
 python install.py --skip-models --with-ui
 ```
+
+> **Backends suportados:** Ollama (provider `ollama`) e llama.cpp (via provider
+> `openai` apontando para o servidor local OpenAI-compatível — o instalador
+> preenche `LLM_BASE_URL`/`LLM_API_KEY` automaticamente). Veja exemplos no
+> `api/.env.example`.
 
 > O schema do banco é criado no startup da API (`Base.metadata.create_all`); não é
 > preciso rodar migrações manualmente numa instalação nova.

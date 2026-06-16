@@ -82,12 +82,15 @@ def set_env(file_path, key, value):
     file_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def detect_models(ollama_url):
+def _get_json(url):
+    with urllib.request.urlopen(url, timeout=5) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def detect_ollama_models(ollama_url):
     """Query Ollama GET /api/tags and return the installed model names (or [])."""
-    url = ollama_url.rstrip("/") + "/api/tags"
     try:
-        with urllib.request.urlopen(url, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        data = _get_json(ollama_url.rstrip("/") + "/api/tags")
     except Exception:
         return []
     names = []
@@ -96,6 +99,39 @@ def detect_models(ollama_url):
         if name:
             names.append(name)
     return names
+
+
+def detect_llamacpp_models(llamacpp_url):
+    """Query the llama.cpp OpenAI-compatible GET /v1/models (or [] if down)."""
+    base = llamacpp_url.rstrip("/")
+    if not base.endswith("/v1"):
+        base += "/v1"
+    try:
+        data = _get_json(base + "/models")
+    except Exception:
+        return []
+    names = []
+    for m in (data.get("data") or data.get("models") or []):
+        name = m.get("id") or m.get("name") or m.get("model")
+        if name:
+            names.append(name)
+    return names
+
+
+def select_backend(backends):
+    """Prompt to choose between multiple detected backends; return the name."""
+    labels = {"ollama": "Ollama", "llamacpp": "llama.cpp"}
+    print("  Múltiplos backends locais detectados:")
+    for i, name in enumerate(backends, start=1):
+        print(f"    {i}. {labels.get(name, name)}")
+    choice = input("  Selecione o backend (número ou nome): ").strip()
+    if choice.isdigit():
+        idx = int(choice) - 1
+        if 0 <= idx < len(backends):
+            return backends[idx]
+    if choice in backends:
+        return choice
+    return backends[0]
 
 
 def select_model(models, role):
@@ -131,8 +167,12 @@ def wait_for_discovery(api_port, timeout):
 def parse_args(argv):
     p = argparse.ArgumentParser(
         description="Instalador rápido local-first (multiplataforma).")
+    p.add_argument("--backend", choices=("auto", "ollama", "llamacpp"), default="auto",
+                   help="Backend local: auto (default, detecta os dois), ollama ou llamacpp.")
     p.add_argument("--ollama-url", default=os.environ.get("OLLAMA_URL", "http://localhost:11434"),
                    help="Endpoint do Ollama para detecção (default http://localhost:11434).")
+    p.add_argument("--llamacpp-url", default=os.environ.get("LLAMACPP_URL", "http://localhost:8080"),
+                   help="Endpoint do servidor llama.cpp para detecção (default http://localhost:8080).")
     p.add_argument("--llm", help="Nome do modelo LLM (não-interativo; exige --embedder e --yes).")
     p.add_argument("--embedder", help="Nome do modelo embedder (idem).")
     p.add_argument("--yes", "-y", action="store_true", help="Não-interativo (usa --llm/--embedder).")
@@ -145,9 +185,13 @@ def parse_args(argv):
 
 def main(argv=None):
     args = parse_args(argv)
-    # A URL do Ollama foi dada explicitamente (≠ default)?
-    ollama_explicit = ("--ollama-url" in (argv if argv is not None else sys.argv)) or \
-                      bool(os.environ.get("OLLAMA_URL"))
+    raw_argv = argv if argv is not None else sys.argv
+    # URLs foram dadas explicitamente (≠ default)?
+    ollama_explicit = ("--ollama-url" in raw_argv) or bool(os.environ.get("OLLAMA_URL"))
+    llamacpp_explicit = ("--llamacpp-url" in raw_argv) or bool(os.environ.get("LLAMACPP_URL"))
+    # URL que o container usa p/ alcançar o backend no host (localhost não serve
+    # de dentro do container): usa a informada ou o host.docker.internal.
+    llamacpp_container_url = args.llamacpp_url if llamacpp_explicit else "http://host.docker.internal:8080"
 
     # 1. Pré-requisitos -------------------------------------------------------
     log("Verificando pré-requisitos")
@@ -173,26 +217,41 @@ def main(argv=None):
         ok(f"{api_env.relative_to(ROOT)} já existe (preservado).")
     compose_env.touch()
 
-    # 3 + 4. Detecção/seleção de modelos -------------------------------------
+    # 3 + 4. Detecção/seleção de modelos (Ollama + llama.cpp) ----------------
     if args.skip_models:
         log("Detecção de modelos pulada (--skip-models): mantendo o .env atual.")
     else:
-        log(f"Detectando modelos no Ollama em {args.ollama_url}")
-        models = detect_models(args.ollama_url)
-        llm, embedder = args.llm, args.embedder
+        log("Detectando modelos locais (Ollama + llama.cpp)")
+        available = {}
+        if args.backend in ("auto", "ollama"):
+            m = detect_ollama_models(args.ollama_url)
+            if m:
+                available["ollama"] = m
+        if args.backend in ("auto", "llamacpp"):
+            m = detect_llamacpp_models(args.llamacpp_url)
+            if m:
+                available["llamacpp"] = m
+
+        labels = {"ollama": "Ollama", "llamacpp": "llama.cpp"}
+        llm, embedder, backend = args.llm, args.embedder, None
 
         if llm and embedder:
-            ok("Usando modelos informados por flag.")
+            backend = "llamacpp" if args.backend == "llamacpp" else "ollama"
+            ok(f"Usando modelos informados por flag (backend {labels[backend]}).")
         elif args.yes:
             die("--yes exige --llm e --embedder.")
-        elif models:
-            ok("Modelos detectados:")
+        elif available:
+            backend = next(iter(available)) if len(available) == 1 \
+                else select_backend(list(available))
+            models = available[backend]
+            ok(f"Backend {labels[backend]} — modelos detectados:")
             for i, name in enumerate(models, start=1):
                 print(f"    {i}. {name}")
             llm = select_model(models, "LLM")
             embedder = select_model(models, "embedder")
         else:
-            warn(f"Ollama indisponível ou sem modelos em {args.ollama_url} — entrada manual.")
+            warn("Nenhum backend local detectou modelos — entrada manual.")
+            backend = args.backend if args.backend in ("ollama", "llamacpp") else "ollama"
             llm = input("  Nome do modelo LLM: ").strip()
             embedder = input("  Nome do modelo embedder: ").strip()
 
@@ -202,13 +261,25 @@ def main(argv=None):
             die("Modelo embedder não definido.")
 
         log(f"Gravando a seleção em {compose_env.relative_to(ROOT)}")
-        set_env(compose_env, "LLM_PROVIDER", "ollama")
-        set_env(compose_env, "EMBEDDER_PROVIDER", "ollama")
         set_env(compose_env, "LLM_MODEL", llm)
         set_env(compose_env, "EMBEDDER_MODEL", embedder)
-        if ollama_explicit:
-            set_env(compose_env, "OLLAMA_BASE_URL", args.ollama_url)
-        ok(f"LLM={llm} | embedder={embedder}")
+        if backend == "llamacpp":
+            # llama.cpp via provider openai apontando para o servidor local.
+            v1 = llamacpp_container_url.rstrip("/")
+            if not v1.endswith("/v1"):
+                v1 += "/v1"
+            set_env(compose_env, "LLM_PROVIDER", "openai")
+            set_env(compose_env, "EMBEDDER_PROVIDER", "openai")
+            set_env(compose_env, "LLM_BASE_URL", v1)
+            set_env(compose_env, "EMBEDDER_BASE_URL", v1)
+            set_env(compose_env, "LLM_API_KEY", "llama.cpp")
+            set_env(compose_env, "EMBEDDER_API_KEY", "llama.cpp")
+        else:
+            set_env(compose_env, "LLM_PROVIDER", "ollama")
+            set_env(compose_env, "EMBEDDER_PROVIDER", "ollama")
+            if ollama_explicit:
+                set_env(compose_env, "OLLAMA_BASE_URL", args.ollama_url)
+        ok(f"Backend={labels[backend]} | LLM={llm} | embedder={embedder}")
 
     # USER / NEXT_PUBLIC_API_URL: ajudam a UI e silenciam avisos do compose.
     try:
