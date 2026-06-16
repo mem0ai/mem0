@@ -128,6 +128,70 @@ cd openmemory
 KEEP_UP=1 ./scripts/smoke-memoria-compartilhada.sh  # mantém no ar após validar
 ```
 
+## Conectar um agente ao servidor de memória
+
+Com o servidor no ar (`:8765`), um agente consegue instalar o MCP e os hooks
+sozinho a partir de um único prompt. O endpoint `/provision` devolve um manifesto
+com tudo que precisa ser feito: bloco de config MCP, variáveis de ambiente, modos
+de memória para o usuário escolher — e uma receita de passos ordenados.
+
+### Prompt para o agente (Claude Code, Cursor ou Codex)
+
+Substitua `SERVIDOR` pelo endereço real e envie para o agente:
+
+**Claude Code:**
+```
+Leia http://SERVIDOR:8765/provision?host=claude-code e execute a receita
+retornada: escreva o bloco MCP no arquivo indicado (substituindo {hostname}
+pelo hostname desta máquina), defina as variáveis de ambiente do campo "env",
+apresente ao usuário as 3 opções de modo de memória e grave a escolha em
+~/.mem0/settings.json. Confirme cada ação mutante com o usuário antes de executar.
+```
+
+**Cursor:**
+```
+Leia http://SERVIDOR:8765/provision?host=cursor e execute a receita retornada:
+escreva o bloco MCP no arquivo indicado, defina as variáveis de ambiente do
+campo "env", apresente as 3 opções de modo de memória e grave a escolha em
+~/.mem0/settings.json. Confirme cada ação com o usuário antes de executar.
+```
+
+**Codex:**
+```
+Leia http://SERVIDOR:8765/provision?host=codex e execute a receita retornada:
+escreva o bloco MCP no arquivo indicado, defina as variáveis de ambiente do
+campo "env", apresente as 3 opções de modo de memória e grave a escolha em
+~/.mem0/settings.json. Confirme cada ação com o usuário antes de executar.
+```
+
+O agente vai:
+1. Escrever/mesclar o bloco MCP no arquivo do host (`.mcp.json`, `.cursor/mcp.json`
+   ou `~/.codex/config.toml`), substituindo `{hostname}` pelo hostname da máquina.
+2. Definir `OPENMEMORY_API_BASE`, `MEM0_LOCAL_ONLY=1`, `MEM0_API_KEY=local` e
+   `MEM0_TELEMETRY=false` no local correto para o host.
+3. Apresentar os 3 modos de memória e gravar a escolha em `~/.mem0/settings.json`.
+4. Verificar com `GET /discovery` e um `POST /v3/memories/search/` de teste.
+
+> **Claude Code com o plugin instalado** (`integrations/mem0-plugin`) não precisa
+> deste passo — os hooks de sessão conectam automaticamente via `OPENMEMORY_API_BASE`.
+
+### Ferramentas MCP disponíveis após a conexão
+
+| Ferramenta | Descrição |
+|------------|-----------|
+| `add_memories(text, project)` | Enfileira escrita assíncrona. Retorna `{"status":"queued","job_id":"..."}` imediatamente — não bloqueia. |
+| `get_job_status(job_id)` | Consulta status de um job (`queued / processing / done / failed`) e o erro, se houver. |
+| `search_memory(query, project)` | Busca semântica por similaridade. Retorna memórias de **todos os agentes** que escreveram no `project`. |
+| `list_memories(project)` | Lista todas as memórias do projeto. |
+| `delete_memories(memory_ids)` | Remove memórias específicas por ID. |
+| `delete_all_memories()` | Remove todas as memórias acessíveis ao agente atual. |
+
+> `project` é **obrigatório** em todas as ferramentas de leitura e escrita. Define
+> o espaço compartilhado: memórias gravadas por qualquer agente em `project="X"` são
+> visíveis a todos que buscam em `project="X"`, independente de hostname.
+
+---
+
 ## Configuração essencial (`openmemory/api/.env`)
 
 | Variável | Função |
