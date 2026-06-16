@@ -1,3 +1,11 @@
+import os
+
+# Fail-closed: in team local-only mode, force-disable mem0's PostHog telemetry
+# BEFORE any (transitive) mem0 import — mem0.memory.telemetry reads MEM0_TELEMETRY
+# at module load time, so this must run before the app.* imports below.
+if (os.environ.get("MEM0_LOCAL_ONLY") or "").strip().lower() in ("1", "true", "yes", "on"):
+    os.environ["MEM0_TELEMETRY"] = "false"
+
 import datetime
 from uuid import uuid4
 
