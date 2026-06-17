@@ -139,6 +139,7 @@
       "better-sqlite3"
     ],
     "overrides": {
+      "form-data@<4.0.6": ">=4.0.6",
       "picomatch@<2.3.2": "^2.3.2",
       "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
       "jws@4.0.0": "4.0.1",
