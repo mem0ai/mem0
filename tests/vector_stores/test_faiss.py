@@ -174,10 +174,6 @@ def test_search_with_filters(faiss_instance, mock_faiss_index):
 
 
 def test_search_with_filters_overfetch_not_truncated(faiss_instance, mock_faiss_index):
-    # Regression: with filters, search() over-fetches fetch_k = top_k * 2 candidates
-    # so post-filtering can still reach top_k. It must hand the full fetched set to
-    # _parse_output; passing top_k instead truncated the extra candidates away before
-    # filtering ran, so results came back short when the nearest top_k failed the filter.
     query_vector = [0.1, 0.2, 0.3]
 
     # Four stored vectors: the two nearest fail the filter, the next two pass it.

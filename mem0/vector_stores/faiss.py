@@ -390,8 +390,6 @@ class FAISS(VectorStoreBase):
         fetch_k = top_k * 2 if filters else top_k
         scores, indices = self.index.search(query_vectors, fetch_k)
 
-        # Parse the full fetched set so post-filtering below can still reach top_k;
-        # truncating to top_k here would discard the over-fetched candidates first.
         results = self._parse_output(scores[0], indices[0], fetch_k)
 
         if filters:
