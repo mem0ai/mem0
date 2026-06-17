@@ -54,6 +54,18 @@ export function asScope(value: unknown): Scope {
   return value === "session" || value === "global" ? value : "project";
 }
 
+/**
+ * Resolve the persisted default scope from a parsed `~/.mem0/settings.json`
+ * object. This is the user-changeable default applied to memory operations when
+ * no explicit `scope` is passed (set via the `mem0-scope` skill). Falls back to
+ * "project" when unset or invalid.
+ */
+export function resolveDefaultScope(
+  settings: Record<string, unknown> | null | undefined,
+): Scope {
+  return asScope(settings?.default_scope);
+}
+
 /** Guidance injected so the agent uses `global` only when explicitly asked. */
 export const SCOPE_GUIDANCE =
   'Memory tools accept an optional `scope`: omit it (or "project") for normal queries; use "session" to limit to the current run; use "global" ONLY when the user explicitly asks to search across all their projects in this workspace.';

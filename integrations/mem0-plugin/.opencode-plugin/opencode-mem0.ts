@@ -24,8 +24,9 @@ import {
   recordDreamCompletion,
   DREAM_PROTOCOL,
 } from "./dream";
-import {asScope, scopeSearchFilters, scopeWriteParams, SCOPE_GUIDANCE} from "./scope";
+import {asScope, scopeSearchFilters, scopeWriteParams, resolveDefaultScope, SCOPE_GUIDANCE, type Scope} from "./scope";
 import {resolveSkillInstallDirs} from "./paths";
+import {parseProjectFromRemote} from "./project";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -38,11 +39,20 @@ async function getUserId(): Promise<string> {
 
 async function getProjectId($: any): Promise<string> {
   if (process.env.MEM0_APP_ID) return process.env.MEM0_APP_ID;
+  // Prefer the git remote's owner/repo — stable across clones, worktrees, and
+  // sub-directories (handles https + ssh, incl. custom host aliases).
   try {
     const r = await $`git remote get-url origin`.quiet();
-    const remote = r.stdout.toString().trim();
-    const m = remote.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/);
-    if (m) return m[1].replace("/", "-");
+    const project = parseProjectFromRemote(r.stdout.toString());
+    if (project) return project;
+  } catch {
+  }
+  // No usable remote: use the git repo ROOT dir name, not cwd (which may be a
+  // sub-directory, or your home dir if OpenCode was launched outside a repo).
+  try {
+    const r = await $`git rev-parse --show-toplevel`.quiet();
+    const top = r.stdout.toString().trim();
+    if (top) return basename(top);
   } catch {
   }
   return basename(process.cwd());
@@ -86,15 +96,28 @@ function redact(text: string): string {
   return out;
 }
 
-function loadGlobalSearch(): boolean {
+/** Read & parse `~/.mem0/settings.json`, returning {} when missing/invalid. */
+function loadSettings(): Record<string, unknown> {
   try {
     const settingsPath = join(homedir(), ".mem0", "settings.json");
-    if (!existsSync(settingsPath)) return false;
-    const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
-    return settings.global_search === true;
+    if (!existsSync(settingsPath)) return {};
+    return JSON.parse(readFileSync(settingsPath, "utf8"));
   } catch {
   }
-  return false;
+  return {};
+}
+
+function loadGlobalSearch(): boolean {
+  return loadSettings().global_search === true;
+}
+
+/**
+ * The user's persisted default memory scope (set via the `mem0-scope` skill).
+ * Read fresh so a scope change takes effect on the next memory operation without
+ * restarting OpenCode. Defaults to "project".
+ */
+function loadDefaultScope(): Scope {
+  return resolveDefaultScope(loadSettings());
 }
 
 const CODING_CATEGORIES = [
@@ -372,6 +395,19 @@ Identity context (resolved at plugin startup):
     }
   }
 
+  // Resolve read filters for the memory tools. Precedence: an explicit `scope`
+  // arg wins; then explicit `filters`/`agent_id`; otherwise fall back to the
+  // user's persisted default scope (read fresh so /mem0-scope applies at once).
+  // A "project" default preserves the existing behavior, including global_search.
+  function readScopeFilters(args: any): any {
+    if (args.scope) return scopeSearchFilters(asScope(args.scope), userId, appId, sessionId);
+    if (args.filters || args.agent_id) return resolveFilters(args, globalSearch, userId, appId);
+    const ds = loadDefaultScope();
+    return ds === "project"
+      ? resolveFilters(args, globalSearch, userId, appId)
+      : scopeSearchFilters(ds, userId, appId, sessionId);
+  }
+
   return {
     "chat.message": chatMessageHook,
     "experimental.chat.messages.transform": chatMessagesTransformHook,
@@ -418,9 +454,10 @@ Identity context (resolved at plugin startup):
           stats.adds++;
           if (dreamTriggered) dreamWriteSeen = true;
           captureEvent("tool_use", {tool: "add_memory"}, apiKey, appId);
-          const sp = args.scope ? scopeWriteParams(asScope(args.scope), userId, appId, sessionId) : null;
-          const finalUserId = sp ? sp.user_id : (args.agent_id ? args.user_id : (args.user_id ?? userId));
-          const finalAppId = sp ? sp.app_id : (args.app_id ?? appId);
+          const effScope: Scope = args.scope ? asScope(args.scope) : loadDefaultScope();
+          const sp = scopeWriteParams(effScope, userId, appId, sessionId);
+          const finalUserId = args.agent_id ? args.user_id : (args.user_id ?? sp.user_id);
+          const finalAppId = args.app_id ?? sp.app_id;
 
           const meta = args.metadata ?? {};
           if (meta.confidence === undefined) meta.confidence = 0.7;
@@ -440,7 +477,7 @@ Identity context (resolved at plugin startup):
             {
               user_id: finalUserId,
               app_id: finalAppId,
-              run_id: sp?.run_id,
+              run_id: sp.run_id,
               agent_id: args.agent_id,
               metadata: meta,
               infer
@@ -466,9 +503,7 @@ Identity context (resolved at plugin startup):
           stats.searches++;
           captureEvent("tool_use", {tool: "search_memories"}, apiKey, appId);
           const topK = args.limit ?? args.top_k ?? 10;
-          const filters = args.scope
-            ? scopeSearchFilters(asScope(args.scope), userId, appId, sessionId)
-            : resolveFilters(args, globalSearch, userId, appId);
+          const filters = readScopeFilters(args);
 
           const res = await mem0.search(args.query, {
             filters,
@@ -491,9 +526,7 @@ Identity context (resolved at plugin startup):
         },
         async execute(args) {
           captureEvent("tool_use", {tool: "get_memories"}, apiKey, appId);
-          const filters = args.scope
-            ? scopeSearchFilters(asScope(args.scope), userId, appId, sessionId)
-            : resolveFilters(args, globalSearch, userId, appId);
+          const filters = readScopeFilters(args);
 
           const res = await mem0.getAll({
             page: args.page,
@@ -643,10 +676,15 @@ Identity context (resolved at plugin startup):
           page: 1,
           pageSize: 1,
         });
+        const a: any = all;
         memoryCount =
-          (all as any)?.count ??
-          (all as any)?.results?.length ??
-          0;
+          typeof a?.count === "number"
+            ? a.count
+            : Array.isArray(a)
+              ? a.length
+              : Array.isArray(a?.results)
+                ? a.results.length
+                : 0;
 
         if (globalSearch) {
           systemContext.push(
@@ -692,6 +730,12 @@ Identity context (resolved at plugin startup):
           "Mem0 searches apply when user references past work, decision questions, errors, or non-trivial tasks. Queries use noun-phrases, 2-4 parallel calls with different metadata.type filters, and include user_id + app_id.",
         );
         systemContext.push(SCOPE_GUIDANCE);
+        const activeScope = loadDefaultScope();
+        if (activeScope !== "project") {
+          systemContext.push(
+            `Active default memory scope is "${activeScope}" (set via /mem0-scope). Memory tools use this when no explicit scope is given: "session" limits to this run (run_id="${sessionId}"); "global" spans all your projects (app_id="*"). Pass an explicit scope to override per call. delete_all_memories still requires an explicit scope="global" to delete user-wide.`,
+          );
+        }
       } catch (err: any) {
         try {
           await client.app.log({
@@ -711,14 +755,22 @@ Identity context (resolved at plugin startup):
       // consolidation protocol so the agent tidies memories before answering.
       if (dreamConfig.enabled && dreamConfig.auto && !dreamTriggered) {
         const gates = checkCheapGates(mem0StateDir, dreamConfig);
-        if (
-          gates.proceed &&
-          checkMemoryGate(memoryCount, dreamConfig).pass &&
-          acquireDreamLock(mem0StateDir)
-        ) {
+        const memGate = checkMemoryGate(memoryCount, dreamConfig);
+        if (gates.proceed && memGate.pass && acquireDreamLock(mem0StateDir)) {
           dreamTriggered = true;
           systemContext.push(DREAM_PROTOCOL);
           captureEvent("dream_triggered", {memory_count: memoryCount}, apiKey, appId);
+        } else {
+          // Make "why didn't auto-dream run?" answerable from the logs.
+          const waiting = [gates.reason, memGate.reason].filter(Boolean).join("; ");
+          if (waiting) {
+            try {
+              await client.app.log({
+                body: {service: "mem0", level: "info", message: `auto-dream waiting — ${waiting}`},
+              });
+            } catch {
+            }
+          }
         }
       }
     }

@@ -63,7 +63,7 @@ If you only need the memory tools without the plugin's hooks or skills, point Op
 |-----------|:----------:|:------------------:|
 | 9 memory tools | Native (SDK) | Remote MCP server |
 | Lifecycle Hooks | Yes | No |
-| 8 Skills | Yes | No |
+| 9 Skills | Yes | No |
 
 ## Available Memory Tools
 
@@ -90,6 +90,18 @@ If you only need the memory tools without the plugin's hooks or skills, point Op
 | `global` | **all your projects in the workspace** (`app_id: "*"`) | user-wide |
 
 Just ask naturally — e.g. *"search my memories across all my projects"* — and the agent passes `scope: "global"`. For normal questions it stays scoped to the current project automatically.
+
+To change the **default** scope (used when no scope is passed), run the `/mem0-scope` skill:
+
+```
+/mem0-scope            # show the current default scope + identity
+/mem0-scope global     # save & search across all your projects by default
+/mem0-scope project    # back to repo-only (the default)
+```
+
+The default persists in `~/.mem0/settings.json` (`default_scope`) and is read fresh on each memory operation, so a change applies immediately — no restart. `delete_all_memories` always requires an explicit `scope: "global"` to delete user-wide, so changing the default can't trigger a cross-project wipe.
+
+The project id (`app_id`) is derived from your git remote (`owner-repo`), falling back to the git repo's root directory name, then the current directory. Launch OpenCode from inside your repo so memories scope to the project rather than your home directory.
 
 ## Lifecycle Hooks
 
@@ -121,12 +133,16 @@ A filesystem lock (`~/.mem0/mem0-dream.lock`) keeps two sessions from consolidat
 }
 ```
 
+If auto-dream hasn't run yet, it's almost always because a gate hasn't been met (most often too few memories). Run `/mem0-status` to see the exact gate progress (e.g. `sessions 2/5, memories 3/20`), `/mem0-dream` to consolidate **now** regardless of the gates, or lower the thresholds above.
+
 ## Troubleshooting
 
 - **No tools appearing** — Restart OpenCode after installing
 - **"Connection failed"** — Verify your key is set: `echo $MEM0_API_KEY`
 - **Plugin not loading** — Run `opencode plugin @mem0/opencode-plugin` again, then restart
 - **Hooks not firing** — Hooks require the plugin install (Option A). MCP-only installs don't include hooks.
+- **Auto-dream never runs** — It's gated (time + sessions + memories). Run `/mem0-status` to see which gate is blocking, or `/mem0-dream` to consolidate now.
+- **Wrong project name / memories not found** — The project id comes from your git remote; launch OpenCode from inside the repo (not your home directory). Check the resolved id with `/mem0-status`.
 
 <CardGroup cols={2}>
   <Card title="Mem0 MCP Setup" icon="puzzle-piece" href="/platform/mem0-mcp">

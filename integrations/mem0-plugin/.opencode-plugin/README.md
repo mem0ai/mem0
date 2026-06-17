@@ -30,7 +30,7 @@ Restart OpenCode.
 |-----------|-------------|
 | **9 Native Memory Tools** | `add_memory`, `search_memories`, `get_memories`, `update_memory`, `delete_memory`, and more — registered as OpenCode tools, backed by the `mem0ai` SDK (no MCP server required) |
 | **Lifecycle Hooks** | Auto-search on session start and every prompt, error memory lookup, compaction context, secret redaction |
-| **8 Skills** | `/mem0-remember`, `/mem0-tour`, `/mem0-search`, `/mem0-status`, `/mem0-dream`, `/mem0-forget`, `/mem0-pin`, `/mem0-context-loader` — installed to OpenCode's global skills dir and auto-discovered |
+| **9 Skills** | `/mem0-remember`, `/mem0-tour`, `/mem0-search`, `/mem0-status`, `/mem0-scope`, `/mem0-dream`, `/mem0-forget`, `/mem0-pin`, `/mem0-context-loader` — installed to OpenCode's global skills dir and auto-discovered |
 
 ## Hooks
 
@@ -59,6 +59,28 @@ Pure TypeScript — no Python, no shell scripts. Memory operations are native Op
 | `delete_all_memories` | Bulk delete all memories in scope |
 | `delete_entities` | Delete an entity and its memories |
 | `list_entities` | List users/agents/apps stored in Mem0 |
+
+## Memory scope
+
+Every memory tool accepts an optional `scope`, and you can set the **default**
+scope (used when none is passed) with the `/mem0-scope` skill:
+
+| Scope | Reads | Writes |
+|-------|-------|--------|
+| `project` (default) | this repo (`user_id` + `app_id`) | this repo |
+| `session` | this run (adds `run_id`) | this run |
+| `global` | all your projects (`app_id="*"`) | user-wide (drops `app_id`) |
+
+```
+/mem0-scope            # show the current default scope
+/mem0-scope global     # save & search across all your projects by default
+/mem0-scope project    # back to repo-only (default)
+```
+
+The default persists in `~/.mem0/settings.json` (`default_scope`) and is read
+fresh on each memory operation, so a change applies immediately — no restart.
+`delete_all_memories` always requires an explicit `scope="global"` to delete
+user-wide, so changing the default can't trigger a cross-project wipe.
 
 ## Verify
 
