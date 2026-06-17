@@ -29,7 +29,6 @@ class LMStudioEmbedding(EmbeddingBase):
         return self.client.embeddings.create(input=[text], model=self.config.model).data[0].embedding
 
     def embed_batch(self, texts, memory_action="add"):
-        """Embed multiple texts in a single LM Studio API call."""
         if not texts:
             return []
         cleaned = [t.replace("\n", " ") for t in texts]

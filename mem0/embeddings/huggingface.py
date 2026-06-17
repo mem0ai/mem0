@@ -44,7 +44,6 @@ class HuggingFaceEmbedding(EmbeddingBase):
             return self.model.encode(text, convert_to_numpy=True).tolist()
 
     def embed_batch(self, texts, memory_action="add"):
-        """Embed multiple texts in a single call."""
         if not texts:
             return []
         if self.config.huggingface_base_url:

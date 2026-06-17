@@ -39,7 +39,6 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         return response.embeddings[0].values
 
     def embed_batch(self, texts, memory_action="add"):
-        """Embed multiple texts in a single Gemini API call."""
         if not texts:
             return []
         cleaned = [t.replace("\n", " ") for t in texts]

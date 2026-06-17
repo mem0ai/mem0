@@ -64,7 +64,6 @@ class VertexAIEmbedding(EmbeddingBase):
         return embeddings[0].values
 
     def embed_batch(self, texts, memory_action="add"):
-        """Embed multiple texts, chunking into batches of 250 (Vertex AI per-request limit)."""
         if not texts:
             return []
         if memory_action not in self.embedding_types:

@@ -31,7 +31,6 @@ class TogetherEmbedding(EmbeddingBase):
         return self.client.embeddings.create(model=self.config.model, input=text).data[0].embedding
 
     def embed_batch(self, texts, memory_action="add"):
-        """Embed multiple texts in a single Together API call."""
         if not texts:
             return []
         response = self.client.embeddings.create(model=self.config.model, input=texts)
