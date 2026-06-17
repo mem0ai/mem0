@@ -993,6 +993,21 @@ class Memory(MemoryBase):
                         except Exception:
                             entity_embeddings.append(None)
 
+                # A misbehaving embedder may return fewer (or more) vectors than
+                # inputs. Normalise to ordered_keys length so the valid-filter
+                # treats missing vectors as failures instead of raising IndexError
+                # (which the outer except would swallow, silently dropping ALL
+                # entity links). Mirrors the count guard in _compute_entity_boosts.
+                if len(entity_embeddings) != len(ordered_keys):
+                    logger.warning(
+                        "embed_batch returned %d vectors for %d entity texts — "
+                        "padding/truncating to avoid dropping entity links",
+                        len(entity_embeddings),
+                        len(ordered_keys),
+                    )
+                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
+                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
+
                 # Filter out entities with failed embeddings
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
                 if valid:
@@ -2519,6 +2534,21 @@ class AsyncMemory(MemoryBase):
                             entity_embeddings.append(await asyncio.to_thread(self.embedding_model.embed, t, "add"))
                         except Exception:
                             entity_embeddings.append(None)
+
+                # A misbehaving embedder may return fewer (or more) vectors than
+                # inputs. Normalise to ordered_keys length so the valid-filter
+                # treats missing vectors as failures instead of raising IndexError
+                # (which the outer except would swallow, silently dropping ALL
+                # entity links). Mirrors the count guard in _compute_entity_boosts.
+                if len(entity_embeddings) != len(ordered_keys):
+                    logger.warning(
+                        "embed_batch returned %d vectors for %d entity texts — "
+                        "padding/truncating to avoid dropping entity links",
+                        len(entity_embeddings),
+                        len(ordered_keys),
+                    )
+                    entity_embeddings = list(entity_embeddings[: len(ordered_keys)])
+                    entity_embeddings += [None] * (len(ordered_keys) - len(entity_embeddings))
 
                 valid = [(i, k) for i, k in enumerate(ordered_keys) if entity_embeddings[i] is not None]
                 if valid:
