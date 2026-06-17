@@ -8,7 +8,7 @@ import {MemoryClient} from "mem0ai";
 import {userInfo} from "os";
 import {basename, resolve, dirname} from "path";
 import {randomBytes} from "crypto";
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from "fs";
+import {existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync} from "fs";
 import {homedir} from "os";
 import {join} from "path";
 import {createHash} from "crypto";
@@ -326,6 +326,40 @@ const Mem0Plugin: Plugin = async (ctx) => {
   Promise.resolve().then(() => autoSetupCategories(mem0, apiKey)).catch(() => {
   });
 
+  // Register a `/mem0-<skill>` slash command per bundled skill. OpenCode's TUI
+  // slash menu is populated from `config.command` entries (skills discovered via
+  // `skills.paths` are available to the agent's skill tool but do NOT appear as
+  // slash commands), so this is what makes `/mem0-scope` etc. typeable.
+  function registerCommands(skillsDir: string, opencodeConfig: any) {
+    for (const entry of readdirSync(skillsDir, {withFileTypes: true})) {
+      if (!entry.isDirectory()) continue;
+      const skillMd = resolve(skillsDir, entry.name, "SKILL.md");
+      if (!existsSync(skillMd)) continue;
+
+      let desc = `Mem0 ${entry.name} skill`;
+      try {
+        const content = readFileSync(skillMd, "utf8");
+        const m = content.match(/^description:\s*(.+)$/m);
+        if (m) desc = m[1].trim();
+      } catch {
+      }
+
+      opencodeConfig.command ??= {};
+      opencodeConfig.command[entry.name] = {
+        template: `Load and execute the \`${entry.name}\` skill.
+
+Use the mem0 memory tools (add_memory, search_memories, get_memories, get_memory, update_memory, delete_memory, delete_all_memories, delete_entities, list_entities, get_event_status) as instructed by the skill.
+
+Identity context (resolved at plugin startup):
+- user_id: ${userId}
+- app_id: ${appId}
+- session_id: ${sessionId}
+- branch: ${branch}`,
+        description: desc,
+      };
+    }
+  }
+
   // Resolve read filters for the memory tools. Precedence: an explicit `scope`
   // arg wins; then explicit `filters`/`agent_id`; otherwise fall back to the
   // user's persisted default scope (read fresh so /mem0-scope applies at once).
@@ -373,6 +407,10 @@ const Mem0Plugin: Plugin = async (ctx) => {
       if (!opencodeConfig.skills.paths.includes(skillsDir)) {
         opencodeConfig.skills.paths.push(skillsDir);
       }
+
+      // Register the /mem0-* slash commands (the TUI slash menu reads these from
+      // config.command; skills.paths alone does not create slash commands).
+      registerCommands(skillsDir, opencodeConfig);
     },
 
     tool: {

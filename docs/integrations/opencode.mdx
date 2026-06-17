@@ -109,7 +109,7 @@ The plugin uses the [mem0ai](https://www.npmjs.com/package/mem0ai) TypeScript SD
 
 | OpenCode Event | Hook | What happens |
 |----------------|------|-------------|
-| `config` | **Config** | Adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` so it discovers the skills in place (no copying) and exposes the `/mem0-*` skill commands |
+| `config` | **Config** | Registers the `/mem0-*` slash commands (`config.command`) and adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` for in-place skill discovery (no copying) |
 | `chat.message` | **Chat message** | Searches prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
 | `tool.execute.before` | **Pre-tool** | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
 | `tool.execute.after` | **Post-tool** | Scans Bash errors and pre-fetches related error memories |

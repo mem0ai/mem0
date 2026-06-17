@@ -38,7 +38,7 @@ Pure TypeScript — no Python, no shell scripts. Memory operations are native Op
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| **Config** | `config` | Adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` so OpenCode discovers the skills in place and exposes the `/mem0-*` skill commands — no copying into `~/.config/opencode/skills` |
+| **Config** | `config` | Registers the `/mem0-*` slash commands (via `config.command`) and adds the plugin's own `opencode-skills/` dir to OpenCode's `skills.paths` for in-place skill discovery — no copying into `~/.config/opencode/skills` |
 | **Chat message** | `chat.message` | Loads prior memories on session start, searches relevant memories before each prompt, auto-captures learnings periodically |
 | **Pre-tool** | `tool.execute.before` | Blocks MEMORY.md writes, steering them to the `add_memory` tool |
 | **Post-tool** | `tool.execute.after` | Scans bash errors and pre-fetches related memories |
