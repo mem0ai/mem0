@@ -360,3 +360,28 @@ class TestElasticsearchDB(unittest.TestCase):
             with self.assertRaises(ValueError):
                 config = {**base_config, "headers": headers}
                 ElasticsearchConfig(**config)
+
+    def test_col_info_without_arguments(self):
+        # Setup mock behavior
+        expected_info = {"test_collection": {"mappings": {}}}
+        self.client_mock.indices.get = MagicMock(return_value=expected_info)
+
+        # Call col_info without arguments
+        info = self.es_db.col_info()
+
+        # Assert get was called with the default collection name
+        self.client_mock.indices.get.assert_called_once_with(index="test_collection")
+        self.assertEqual(info, expected_info)
+
+    def test_col_info_with_argument(self):
+        # Setup mock behavior
+        expected_info = {"custom_index": {"mappings": {}}}
+        self.client_mock.indices.get = MagicMock(return_value=expected_info)
+
+        # Call col_info with a custom name
+        info = self.es_db.col_info(name="custom_index")
+
+        # Assert get was called with the custom name
+        self.client_mock.indices.get.assert_called_once_with(index="custom_index")
+        self.assertEqual(info, expected_info)
+

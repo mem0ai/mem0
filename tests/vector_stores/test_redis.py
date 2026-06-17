@@ -113,3 +113,26 @@ def test_list_with_filter_builds_query():
 
     query = mock_index.search.call_args[0][0]
     assert query.query_string() == "@user_id:{alice}"
+
+
+def test_col_info_without_arguments():
+    """col_info should be callable without arguments and invoke index.info()."""
+    db, mock_index = _make_redis_db()
+    mock_index.info.return_value = {"num_docs": 10}
+
+    info = db.col_info()
+
+    mock_index.info.assert_called_once()
+    assert info == {"num_docs": 10}
+
+
+def test_col_info_with_argument():
+    """col_info should accept a name argument and still call index.info()."""
+    db, mock_index = _make_redis_db()
+    mock_index.info.return_value = {"num_docs": 5}
+
+    info = db.col_info(name="some_index")
+
+    mock_index.info.assert_called_once()
+    assert info == {"num_docs": 5}
+

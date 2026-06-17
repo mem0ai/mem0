@@ -1415,6 +1415,50 @@ def test_scale_threshold_provider_count_helpers_are_safe():
     assert notices._extract_count({"count": -1}) is None
 
 
+def test_scale_threshold_with_real_vector_stores_does_not_crash_notices():
+    from mem0.vector_stores.redis import RedisDB
+    from mem0.vector_stores.elasticsearch import ElasticsearchDB
+    from mem0.vector_stores.opensearch import OpenSearchDB
+
+    # Setup RedisDB mock (FT.INFO returns dict with num_docs, no top-level count)
+    redis_db = RedisDB.__new__(RedisDB)
+    mock_index = MagicMock()
+    mock_index.info.return_value = {"num_docs": 100}
+    redis_db.index = mock_index
+
+    # Setup ElasticsearchDB mock (indices.get returns index mapping/settings dict)
+    es_db = ElasticsearchDB.__new__(ElasticsearchDB)
+    es_db.collection_name = "test_collection"
+    es_db.client = MagicMock()
+    es_db.client.indices.get.return_value = {"test_collection": {"mappings": {}, "settings": {}}}
+
+    # Setup OpenSearchDB mock (indices.get returns similar dict shape)
+    os_db = OpenSearchDB.__new__(OpenSearchDB)
+    os_db.collection_name = "test_collection"
+    os_db.client = MagicMock()
+    os_db.client.indices.get.return_value = {"test_collection": {"mappings": {}, "settings": {}}}
+
+    memory = MagicMock()
+
+    # Redis: Verify col_info executes successfully without argument (fixing TypeError)
+    # Note: _extract_count currently returns None because Redis info is opaque to it.
+    memory.vector_store = redis_db
+    assert notices._get_provider_memory_count(memory) is None
+    mock_index.info.assert_called_once()
+
+    # Elasticsearch: Verify col_info executes successfully without argument (fixing TypeError)
+    # Note: _extract_count currently returns None because ES indices.get format is opaque to it.
+    memory.vector_store = es_db
+    assert notices._get_provider_memory_count(memory) is None
+    es_db.client.indices.get.assert_called_once_with(index="test_collection")
+
+    # OpenSearch: Verify col_info executes successfully without argument (fixing TypeError)
+    # Note: _extract_count currently returns None because OpenSearch indices.get format is opaque to it.
+    memory.vector_store = os_db
+    assert notices._get_provider_memory_count(memory) is None
+    os_db.client.indices.get.assert_called_once_with(index="test_collection")
+
+
 def test_scale_threshold_props_do_not_include_raw_user_inputs(notice_harness):
     _, telemetry = notice_harness
     configure_flag(telemetry, "displayed", scale_payload(top_k_copy="safe copy {top_k}"))
