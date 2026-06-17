@@ -63,12 +63,14 @@ class VertexAIEmbedding(EmbeddingBase):
 
         return embeddings[0].values
 
-    def embed_batch(self, texts, memory_action="add"):
+    def embed_batch(self, texts, memory_action=None):
         if not texts:
             return []
-        if memory_action not in self.embedding_types:
-            raise ValueError(f"Invalid memory action: {memory_action}")
-        embedding_type = self.embedding_types[memory_action]
+        embedding_type = "SEMANTIC_SIMILARITY"
+        if memory_action is not None:
+            if memory_action not in self.embedding_types:
+                raise ValueError(f"Invalid memory action: {memory_action}")
+            embedding_type = self.embedding_types[memory_action]
         all_embeddings = []
         for i in range(0, len(texts), 250):
             chunk = texts[i : i + 250]

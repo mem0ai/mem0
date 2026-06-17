@@ -210,6 +210,24 @@ def test_embed_batch_count_mismatch_raises(mock_text_embedding_model, mock_os_en
         embedder.embed_batch(["first text", "second text"])
 
 
+@patch("mem0.embeddings.vertexai.TextEmbeddingInput")
+@patch("mem0.embeddings.vertexai.TextEmbeddingModel")
+def test_embed_batch_none_memory_action_uses_default(
+    mock_text_embedding_model, mock_text_embedding_input, mock_os_environ, mock_config
+):
+    mock_config.return_value.model = "gemini-embedding-001"
+    mock_config.return_value.embedding_dims = 256
+
+    config = mock_config()
+    embedder = VertexAIEmbedding(config)
+
+    mock_text_embedding_model.from_pretrained.return_value.get_embeddings.return_value = [Mock(values=[0.1, 0.2])]
+
+    embedder.embed_batch(["some text"], memory_action=None)
+
+    mock_text_embedding_input.assert_called_once_with(text="some text", task_type="SEMANTIC_SIMILARITY")
+
+
 @patch("mem0.embeddings.vertexai.TextEmbeddingModel")
 def test_embed_batch_invalid_memory_action_raises(mock_text_embedding_model, mock_os_environ, mock_config):
     mock_config.return_value.model = "gemini-embedding-001"
