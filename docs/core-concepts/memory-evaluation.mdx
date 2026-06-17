@@ -17,7 +17,7 @@ Some benchmarks today — particularly smaller ones like LoCoMo and LongMemEval 
 
 ## Architecture Overview
 
-Mem0's memory system operates across two phases — **extraction** (writing) and **retrieval** (reading) — with an entity linking layer connecting them.
+Mem0's memory system operates across two phases, **extraction** (writing) and **retrieval** (reading), with a graph memory layer (entity linking) connecting them.
 
 ### Memory Extraction (Distillation)
 
@@ -27,14 +27,14 @@ When new conversations arrive, the extraction pipeline processes them through fi
 2. **Context Lookup** — Find related existing memories to avoid duplicates
 3. **Distill Memories** — Single-pass LLM extraction produces ADD-only facts from input + context
 4. **Deduplicate + Embed** — Hash-based deduplication, then vectorize new memories
-5. **Entity Linking** — Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories
+5. **Graph Memory (Entity Linking)**: Identify entities (proper nouns, quoted text, compound noun phrases) and link them across memories into a graph
 
 Memories are distributed across three storage layers, each tuned for a specific retrieval pattern:
 
 | Store | Contents | Purpose |
 |---|---|---|
 | **Vector Database** | Memory text, embeddings, metadata (timestamps, hash, categories, attributed_to) | Primary fact storage + semantic retrieval |
-| **Entity Store** | Entities + embeddings + linked memory IDs | Entity-based retrieval boost |
+| **Graph / Entity Store** | Entities + embeddings + linked memory IDs | Graph connections across memories + entity-based retrieval boost |
 | **SQL Database** | History log (ADD events) + rolling message window | Audit trail + extraction dedup context |
 
 <Info>
@@ -76,7 +76,7 @@ The combined score outperformed every individual signal across every category te
 
 *Mean tokens: 6,956*
 
-The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning (+23.1)**. Both categories directly test the ADD-only architecture (preserving temporal context) and entity linking (connecting facts across memories).
+The two largest gains are **temporal queries (+29.6)** and **multi-hop reasoning (+23.1)**. Both categories directly test the ADD-only architecture (preserving temporal context) and graph memory / entity linking (connecting facts across memories).
 
 ### LongMemEval
 
