@@ -1014,7 +1014,12 @@ See the [OSS v1 to v2 migration guide](https://docs.mem0.ai/migration/oss-v1-to-
 <Update label="2026-06-17" description="v3.0.9">
 
 **Bug Fixes:**
+- **LLMs:** Fix Anthropic `tool_choice` format — was incorrectly sent as a bare string `"auto"` (rejected by the API); now correctly sent as `{ type: "auto" }`. Also fixes tool response parsing: `tool_use` blocks are now parsed into `toolCalls` objects instead of throwing. Updated default model to `claude-sonnet-4-6` and default `max_tokens` to `2000` to match the Python provider. Added `temperature`, `topP`, and `maxTokens` to `LLMConfig` so Anthropic params can be configured ([#5537](https://github.com/mem0ai/mem0/pull/5537))
+- **Memory (OSS):** Preserve custom metadata fields during `update()` — fields such as `category`, `priority`, and other user-defined keys were previously dropped on update; the existing payload is now spread before applying the new data ([#5480](https://github.com/mem0ai/mem0/pull/5480))
 - **Client:** Preserve user-defined schema keys in `createMemoryExport` ([#5594](https://github.com/mem0ai/mem0/pull/5594))
+
+**Security:**
+- **Dependencies:** Bump `esbuild` to `>=0.28.1` across all npm packages via pnpm overrides to remediate upstream vulnerability ([#5563](https://github.com/mem0ai/mem0/pull/5563))
 
 </Update>
 
