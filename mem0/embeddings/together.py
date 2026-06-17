@@ -29,3 +29,13 @@ class TogetherEmbedding(EmbeddingBase):
         """
 
         return self.client.embeddings.create(model=self.config.model, input=text).data[0].embedding
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts in a single Together API call (chunked at 100)."""
+        MAX_BATCH = 100
+        all_embeddings = []
+        for i in range(0, len(texts), MAX_BATCH):
+            chunk = texts[i : i + MAX_BATCH]
+            response = self.client.embeddings.create(model=self.config.model, input=chunk)
+            all_embeddings.extend(item.embedding for item in sorted(response.data, key=lambda x: x.index))
+        return all_embeddings

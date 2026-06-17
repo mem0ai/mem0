@@ -42,3 +42,21 @@ class HuggingFaceEmbedding(EmbeddingBase):
             ).data[0].embedding
         else:
             return self.model.encode(text, convert_to_numpy=True).tolist()
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts in a single call.
+
+        Automatically chunks into batches of 100 to stay within API limits.
+        """
+        if self.config.huggingface_base_url:
+            MAX_BATCH = 100
+            all_embeddings = []
+            for i in range(0, len(texts), MAX_BATCH):
+                chunk = texts[i : i + MAX_BATCH]
+                response = self.client.embeddings.create(
+                    input=chunk, model=self.config.model, **self.config.model_kwargs
+                )
+                all_embeddings.extend(item.embedding for item in sorted(response.data, key=lambda x: x.index))
+            return all_embeddings
+        else:
+            return self.model.encode(texts, convert_to_numpy=True).tolist()

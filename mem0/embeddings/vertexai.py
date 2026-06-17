@@ -62,3 +62,21 @@ class VertexAIEmbedding(EmbeddingBase):
         embeddings = self.model.get_embeddings(texts=[text_input], output_dimensionality=self.config.embedding_dims)
 
         return embeddings[0].values
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts using Vertex AI's native batch support.
+
+        Vertex AI's get_embeddings() accepts up to 250 inputs per call.
+        """
+        MAX_BATCH = 250
+        embedding_type = "SEMANTIC_SIMILARITY"
+        if memory_action in self.embedding_types:
+            embedding_type = self.embedding_types[memory_action]
+
+        all_embeddings = []
+        for i in range(0, len(texts), MAX_BATCH):
+            chunk = texts[i : i + MAX_BATCH]
+            inputs = [TextEmbeddingInput(text=text, task_type=embedding_type) for text in chunk]
+            embeddings = self.model.get_embeddings(texts=inputs, output_dimensionality=self.config.embedding_dims)
+            all_embeddings.extend(e.values for e in embeddings)
+        return all_embeddings

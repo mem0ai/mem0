@@ -37,3 +37,17 @@ class GoogleGenAIEmbedding(EmbeddingBase):
         response = self.client.models.embed_content(model=self.config.model, contents=text, config=config)
 
         return response.embeddings[0].values
+
+    def embed_batch(self, texts, memory_action="add"):
+        """Embed multiple texts in a single Gemini API call.
+
+        Automatically chunks into batches of 100 to stay within API limits.
+        """
+        MAX_BATCH = 100
+        config = types.EmbedContentConfig(output_dimensionality=self.config.embedding_dims)
+        all_embeddings = []
+        for i in range(0, len(texts), MAX_BATCH):
+            chunk = [t.replace("\n", " ") for t in texts[i : i + MAX_BATCH]]
+            response = self.client.models.embed_content(model=self.config.model, contents=chunk, config=config)
+            all_embeddings.extend(e.values for e in response.embeddings)
+        return all_embeddings
