@@ -1,6 +1,6 @@
 ---
 title: "Platform: Migrating to the New Memory Algorithm"
-description: "Guide for Mem0 Platform users to adopt the new memory algorithm with single-pass extraction, entity linking, and multi-signal retrieval."
+description: "Guide for Mem0 Platform users to adopt the new memory algorithm with single-pass extraction, built-in graph memory, and multi-signal retrieval."
 icon: "arrow-right"
 iconType: "solid"
 ---
@@ -18,8 +18,7 @@ The new Mem0 memory algorithm is a ground-up redesign of how memories are extrac
 | **Extraction** | Two LLM passes (extract + merge) | Single-pass ADD-only (one LLM call) |
 | **Memory mutations** | ADD, UPDATE, DELETE | ADD only — nothing is overwritten or deleted |
 | **Agent-generated facts** | Often ignored | First-class, stored with equal weight |
-| **Entity linking** | Not available | Entities extracted and linked across memories |
-| **Graph memory** | Separate graph store + dashboard visualization | Replaced by built-in entity linking, no graph visuals on platform dashboard |
+| **Graph memory** | External graph store (Neo4j, etc.) + manual setup | Built-in and automatic; entities extracted and linked across memories natively, no external store |
 | **Retrieval** | Semantic (vector) only | Hybrid retrieval combining multiple signals |
 
 ## What This Means for Your Application
@@ -249,19 +248,18 @@ await client.search("query", {
 For the full list of parameter changes across all SDKs, see the [OSS migration guide](/migration/oss-v2-to-v3#removed-parameters-reference).
 </Info>
 
-## Graph Memory → Entity Linking
+## Graph Memory Is Now Built-In
 
-Graph memory has been replaced by **built-in entity linking**. The changes:
+Graph memory no longer requires an external graph database. It is now **native to the platform** and automatic. The changes:
 
-- **Graph visualizations removed from the platform dashboard.** The graph view in your project dashboard is no longer available.
-- **`enable_graph` project setting removed.** The toggle is gone from the dashboard; the API parameter is ignored.
-- **No external graph store to configure.** Previously graph memory required a separate Neo4j (or similar) deployment. Entity linking runs natively inside the platform — nothing to provision, no connection strings to manage.
-- **Entity linking is the native replacement.** Entities (proper nouns, quoted text, compound noun phrases) are automatically extracted from every memory and linked across memories belonging to the same user. At search time, entities from the query are matched against this index and used to boost ranking. The boost is folded into the combined `score` returned on each result.
+- **No external graph store to configure.** Previously, graph memory required a separate Neo4j (or similar) deployment. Mem0 now builds the graph itself from your memories, so there is nothing to provision and no connection strings to manage.
+- **Always on, no flag.** The `enable_graph` project setting is no longer needed; graph memory activates automatically. (The API parameter is now ignored if sent.)
+- **Connections power retrieval directly.** Entities (proper nouns, quoted text, compound noun phrases) are automatically extracted from every memory and linked across memories belonging to the same user. At search time, entities from the query are matched against the graph and used to boost ranking. The boost is folded into the combined `score` returned on each result.
 
-**No migration work is required.** Entity linking activates automatically for all projects on the new algorithm. Existing memories are not re-processed, but any new memories you add will be indexed for entity-based retrieval going forward.
+**No migration work is required.** Graph memory activates automatically for all projects on the new algorithm. Existing memories are not re-processed, but any new memories you add are added to the graph going forward. See [Graph Memory](/platform/features/graph-memory) for how the built-in graph works.
 
 <Note>
-If your application previously read graph relations from the API response (`relations` field on search results), note that this field is no longer populated. Entity relationships are now consumed indirectly through retrieval ranking, not exposed as a separate graph structure.
+If your application previously read graph relations from the API response (`relations` field on search results), note that this field is no longer populated. Entity connections are now applied through retrieval ranking rather than returned as a separate `relations` array.
 </Note>
 
 ## Migration Checklist

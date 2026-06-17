@@ -197,6 +197,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Platform Features Overview](https://docs.mem0.ai/platform/features/platform-overview) [Platform]: Use when surveying what managed offers beyond CRUD.
 - [V2 Memory Filters](https://docs.mem0.ai/platform/features/v2-memory-filters) [Platform]: Use when compound filters (AND/OR on metadata, entity, time) are needed at search.
 - [Entity-Scoped Memory](https://docs.mem0.ai/platform/features/entity-scoped-memory) [Platform]: Use when partitioning memories by user, agent, app, or run.
+- [Graph Memory](https://docs.mem0.ai/platform/features/graph-memory) [Platform]: Use when connecting facts across memories through shared entities for entity-centric or multi-hop questions.
 - [Async Client](https://docs.mem0.ai/platform/features/async-client) [Platform]: Use when the app issues many concurrent Mem0 calls and needs non-blocking I/O.
 - [Multimodal Support](https://docs.mem0.ai/platform/features/multimodal-support) [Platform]: Use when storing images or PDFs as memory input.
 - [Custom Categories](https://docs.mem0.ai/platform/features/custom-categories) [Platform]: Use when the default categories do not match the domain.
@@ -259,6 +260,7 @@ If the user is on a pre-current major (Python < 2, TS < 3, or Platform `output_f
 - [Camel AI](https://docs.mem0.ai/integrations/camel-ai) [Both]: Use when the user is on Camel AI.
 - [ChatDev](https://docs.mem0.ai/integrations/chatdev) [Both]: Use when the user is on ChatDev.
 - [Hermes](https://docs.mem0.ai/integrations/hermes) [Both]: Use when the user is on Hermes.
+- [Pi Agent](https://docs.mem0.ai/integrations/pi-agent) [Platform]: Use when adding persistent memory to Pi Agent with the Mem0 plugin.
 - [OpenAI Agents SDK](https://docs.mem0.ai/integrations/openai-agents-sdk) [Both]: Use when the user is on the OpenAI Agents SDK.
 - [Google AI ADK](https://docs.mem0.ai/integrations/google-ai-adk) [Both]: Use when the user is on Google's Agent Development Kit.
 - [Mastra](https://docs.mem0.ai/integrations/mastra) [Both]: Use when the user is on Mastra (TypeScript).
@@ -397,9 +399,9 @@ Each subdirectory is a Claude Code Skill (`SKILL.md` + supporting assets). Load 
 
 ### Editor Plugin (shared glue)
 
-Source: https://github.com/mem0ai/mem0/tree/main/mem0-plugin
+Source: https://github.com/mem0ai/mem0/tree/main/integrations/mem0-plugin
 
-The `mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, Codex, OpenCode, and Antigravity. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
+The `integrations/mem0-plugin/` directory provides MCP server connection, lifecycle hooks, and skill bundling for Claude Code, Cursor, Codex, OpenCode, and Antigravity. It exposes 9 MCP tools: `add_memory`, `search_memories`, `get_memories`, `get_memory`, `update_memory`, `delete_memory`, `delete_all_memories`, `delete_entities`, `list_entities`.
 
 Editor-specific setup docs (already listed above under `## Integrations > AI Coding Tools`):
 

@@ -6,6 +6,7 @@ import pytest
 
 from mem0 import Memory
 from mem0.configs.base import MemoryConfig
+from mem0.memory.main import _entity_collection_name
 from mem0.memory.utils import normalize_facts
 
 
@@ -35,6 +36,14 @@ def test_create_memory(memory_client):
     data = "Name is John Doe."
     result = memory_client.add([{"role": "user", "content": data}], user_id="test_user")
     assert result["results"][0]["memory"] == data
+
+
+def test_entity_collection_name_uses_dash_for_s3_vectors():
+    assert _entity_collection_name("s3_vectors", "test-index") == "test-index-entities"
+
+
+def test_entity_collection_name_keeps_underscore_for_other_stores():
+    assert _entity_collection_name("qdrant", "mem0") == "mem0_entities"
 
 
 def test_get_memory(memory_client):
@@ -753,6 +762,55 @@ async def test_async_delete_memory_history_has_timestamps(mock_sqlite, mock_llm_
     datetime.fromisoformat(call_kwargs["updated_at"])  # verify valid ISO timestamp
 
 
+@pytest.mark.asyncio
+@patch('mem0.utils.factory.EmbedderFactory.create')
+@patch('mem0.utils.factory.VectorStoreFactory.create')
+@patch('mem0.utils.factory.LlmFactory.create')
+@patch('mem0.memory.main.SQLiteManager')
+async def test_async_delete_all_continues_on_partial_failure(mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+    """async delete_all must not abort when a single memory fails to delete.
+
+    Without return_exceptions=True, asyncio.gather raises on the first error
+    and cancels remaining tasks, leaving a partial deletion.
+    """
+    mock_embedder_factory.return_value = MagicMock()
+    mock_vector_store = MagicMock()
+    mock_vector_factory.return_value = mock_vector_store
+    mock_llm_factory.return_value = MagicMock()
+    mock_sqlite.return_value = MagicMock()
+
+    from mem0.memory.main import AsyncMemory
+    config = MemoryConfig()
+    memory = AsyncMemory(config)
+
+    mem1 = MagicMock()
+    mem1.id = "mem-1"
+    mem1.payload = {"data": "one", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+    mem2 = MagicMock()
+    mem2.id = "mem-2"
+    mem2.payload = {"data": "two", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+    mem3 = MagicMock()
+    mem3.id = "mem-3"
+    mem3.payload = {"data": "three", "created_at": "2024-01-01T00:00:00+00:00", "actor_id": None, "role": None}
+
+    mock_vector_store.list.return_value = ([mem1, mem2, mem3],)
+
+    def _get_side_effect(vector_id):
+        if vector_id == "mem-2":
+            raise RuntimeError("simulated store failure")
+        return {
+            "mem-1": mem1,
+            "mem-3": mem3,
+        }.get(vector_id)
+
+    mock_vector_store.get.side_effect = _get_side_effect
+
+    result = await memory.delete_all(user_id="test-user")
+
+    assert result == {"message": "Memories deleted successfully!"}
+    assert mock_vector_store.delete.call_count == 2
+
+
 @patch('mem0.utils.factory.EmbedderFactory.create')
 @patch('mem0.utils.factory.VectorStoreFactory.create')
 @patch('mem0.utils.factory.LlmFactory.create')
@@ -970,3 +1028,231 @@ async def test_async_create_memory_stores_text_lemmatized(mock_sqlite, mock_llm_
         "AsyncMemory._create_memory must store text_lemmatized for BM25 keyword search"
     )
     assert payload[0]["text_lemmatized"] != "", "text_lemmatized must not be empty"
+
+
+class TestHybridSearchWarning:
+    """Warn at init when vector store does not support keyword_search."""
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_warning_for_store_without_keyword_search(
+        self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
+    ):
+        from mem0.vector_stores.base import VectorStoreBase
+        import logging
+
+        class StoreWithoutKeywordSearch(VectorStoreBase):
+            def create_col(self, *a, **kw): pass
+            def insert(self, *a, **kw): pass
+            def search(self, *a, **kw): return []
+            def delete(self, *a, **kw): pass
+            def update(self, *a, **kw): pass
+            def get(self, *a, **kw): pass
+            def list_cols(self): return []
+            def delete_col(self): pass
+            def col_info(self): return {}
+            def list(self, *a, **kw): return []
+            def reset(self): pass
+
+        mock_vs_factory.return_value = StoreWithoutKeywordSearch()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+        config.vector_store.provider = "chroma"
+
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+            Memory(config)
+
+        assert any("does not support keyword search" in r.message for r in caplog.records)
+
+    @patch("mem0.memory.telemetry.capture_event")
+    @patch("mem0.memory.main.SQLiteManager")
+    @patch("mem0.utils.factory.LlmFactory.create")
+    @patch("mem0.utils.factory.EmbedderFactory.create")
+    @patch("mem0.utils.factory.VectorStoreFactory.create")
+    def test_no_warning_for_store_with_keyword_search(
+        self, mock_vs_factory, mock_emb, mock_llm, mock_sqlite, _cap, caplog
+    ):
+        from mem0.vector_stores.base import VectorStoreBase
+        import logging
+
+        class StoreWithKeywordSearch(VectorStoreBase):
+            def keyword_search(self, query, top_k=5, filters=None):
+                return []
+            def create_col(self, *a, **kw): pass
+            def insert(self, *a, **kw): pass
+            def search(self, *a, **kw): return []
+            def delete(self, *a, **kw): pass
+            def update(self, *a, **kw): pass
+            def get(self, *a, **kw): pass
+            def list_cols(self): return []
+            def delete_col(self): pass
+            def col_info(self): return {}
+            def list(self, *a, **kw): return []
+            def reset(self): pass
+
+        mock_vs_factory.return_value = StoreWithKeywordSearch()
+        mock_emb.return_value = MagicMock()
+        mock_llm.return_value = MagicMock()
+
+        config = MemoryConfig()
+
+        with caplog.at_level(logging.WARNING, logger="mem0.memory.main"):
+            Memory(config)
+
+        assert not any("does not support keyword search" in r.message for r in caplog.records)
+
+
+class TestPreserveCustomMetadata:
+
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_update_preserves_custom_metadata(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_store = MagicMock()
+        mock_vector_factory.return_value = mock_vector_store
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        existing_payload = {
+            "data": "I love playing tennis",
+            "hash": "abc123",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "user_1",
+            "category": "hobbies",
+            "priority": "high",
+            "source": "chat",
+        }
+        mock_vector_store.get.return_value = MockVectorMemory("mem-1", existing_payload)
+
+        embedder = MagicMock()
+        embedder.embed.return_value = [0.1, 0.2, 0.3]
+        mock_embedder_factory.return_value = embedder
+
+        config = MemoryConfig()
+        memory = Memory(config)
+
+        memory._update_memory("mem-1", "I love playing tennis and swimming", {"I love playing tennis and swimming": [0.1, 0.2, 0.3]})
+
+        call_args = mock_vector_store.update.call_args
+        payload = call_args.kwargs.get("payload") or call_args[1].get("payload")
+        assert payload["category"] == "hobbies"
+        assert payload["priority"] == "high"
+        assert payload["source"] == "chat"
+        assert payload["data"] == "I love playing tennis and swimming"
+        assert payload["user_id"] == "user_1"
+
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_update_with_new_metadata_overrides_existing(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_store = MagicMock()
+        mock_vector_factory.return_value = mock_vector_store
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        existing_payload = {
+            "data": "I love playing tennis",
+            "hash": "abc123",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "user_1",
+            "category": "hobbies",
+            "priority": "high",
+        }
+        mock_vector_store.get.return_value = MockVectorMemory("mem-1", existing_payload)
+
+        config = MemoryConfig()
+        memory = Memory(config)
+
+        memory._update_memory(
+            "mem-1", "Updated text",
+            {"Updated text": [0.1, 0.2, 0.3]},
+            metadata={"priority": "low", "new_field": "value"},
+        )
+
+        call_args = mock_vector_store.update.call_args
+        payload = call_args.kwargs.get("payload") or call_args[1].get("payload")
+        assert payload["category"] == "hobbies"
+        assert payload["priority"] == "low"
+        assert payload["new_field"] == "value"
+        assert payload["data"] == "Updated text"
+
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    def test_update_preserves_actor_id_from_original(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_store = MagicMock()
+        mock_vector_factory.return_value = mock_vector_store
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        existing_payload = {
+            "data": "I am player #1",
+            "hash": "abc123",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "team",
+            "actor_id": "Alice",
+        }
+        mock_vector_store.get.return_value = MockVectorMemory("mem-1", existing_payload)
+
+        config = MemoryConfig()
+        memory = Memory(config)
+
+        memory._update_memory(
+            "mem-1", "Player #1 is great",
+            {"Player #1 is great": [0.1, 0.2, 0.3]},
+            metadata={"user_id": "team", "actor_id": "Bob"},
+        )
+
+        call_args = mock_vector_store.update.call_args
+        payload = call_args.kwargs.get("payload") or call_args[1].get("payload")
+        assert payload["actor_id"] == "Alice"
+
+    @pytest.mark.asyncio
+    @patch('mem0.utils.factory.EmbedderFactory.create')
+    @patch('mem0.utils.factory.VectorStoreFactory.create')
+    @patch('mem0.utils.factory.LlmFactory.create')
+    @patch('mem0.memory.storage.SQLiteManager')
+    async def test_async_update_preserves_custom_metadata(self, mock_sqlite, mock_llm_factory, mock_vector_factory, mock_embedder_factory):
+        mock_embedder_factory.return_value = MagicMock()
+        mock_vector_store = MagicMock()
+        mock_vector_factory.return_value = mock_vector_store
+        mock_llm_factory.return_value = MagicMock()
+        mock_sqlite.return_value = MagicMock()
+
+        existing_payload = {
+            "data": "I love playing tennis",
+            "hash": "abc123",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "updated_at": "2026-01-01T00:00:00+00:00",
+            "user_id": "user_1",
+            "category": "hobbies",
+            "source": "chat",
+        }
+        mock_vector_store.get.return_value = MockVectorMemory("mem-1", existing_payload)
+
+        from mem0.memory.main import AsyncMemory
+        config = MemoryConfig()
+        memory = AsyncMemory(config)
+
+        await memory._update_memory("mem-1", "I love swimming", {"I love swimming": [0.1, 0.2, 0.3]})
+
+        call_args = mock_vector_store.update.call_args
+        payload = call_args.kwargs.get("payload") or call_args[1].get("payload")
+        assert payload["category"] == "hobbies"
+        assert payload["source"] == "chat"
+        assert payload["data"] == "I love swimming"
+        assert payload["user_id"] == "user_1"
