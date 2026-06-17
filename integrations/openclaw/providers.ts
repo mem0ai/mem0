@@ -13,6 +13,16 @@ import type {
   AddResult,
 } from "./types.ts";
 
+export function customCategoryMapToList(
+  categories?: Record<string, string>,
+): Array<Record<string, string>> | undefined {
+  if (!categories || typeof categories !== "object") return undefined;
+  const items = Object.entries(categories).map(([name, description]) => ({
+    [name]: description,
+  }));
+  return items.length ? items : undefined;
+}
+
 // ============================================================================
 // Result Normalizers
 // ============================================================================

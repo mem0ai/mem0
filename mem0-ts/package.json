@@ -1,6 +1,6 @@
 {
   "name": "mem0ai",
-  "version": "3.0.7",
+  "version": "3.0.8",
   "description": "The Memory Layer For Your AI Apps",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -154,7 +154,8 @@
       "rollup@>=4.0.0 <4.59.0": "^4.59.0",
       "tar-fs@>=2.0.0 <2.1.4": "^2.1.4",
       "glob@>=10.2.0 <10.5.0": "^10.5.0",
-      "@modelcontextprotocol/sdk": "^1.25.4"
+      "@modelcontextprotocol/sdk": "^1.25.4",
+      "esbuild": ">=0.28.1"
     }
   }
 }

@@ -36,10 +36,29 @@ import {
   SearchMemoryOptions,
   DeleteAllMemoryOptions,
   GetAllMemoryOptions,
+  UpdateProjectOptions,
 } from "./memory.types";
 import { parse_vision_messages } from "../utils/memory";
 import { HistoryManager } from "../storage/base";
 import { captureClientEvent } from "../utils/telemetry";
+import {
+  detectScaleThresholdFromAddResult,
+  detectScaleThresholdFromTopK,
+  detectPerformanceSlowQuery,
+  detectTemporalUsageFromMetadata,
+  detectTemporalUsageFromSearch,
+  displayDecayUsageNotice,
+  displayFirstRunNotice,
+  displayPerformanceSlowQueryNotice,
+  displayScaleThresholdNotice,
+  displayTemporalUsageNotice,
+  getDecayFeatureErrorMessage,
+  getDecayUsageDeleteCountAfterSuccess,
+  getTemporalFeatureErrorMessage,
+  isDecayUsageDeleteEligible,
+  PerformanceSlowQueryTrigger,
+  ScaleThresholdTrigger,
+} from "../utils/notices";
 import { lemmatizeForBm25 } from "../utils/lemmatization";
 import {
   extractEntities,
@@ -494,6 +513,73 @@ export class Memory {
     }
   }
 
+  private async _displayFirstRunNotice(triggerFunction: string) {
+    try {
+      await this._getTelemetryId();
+      await displayFirstRunNotice(this, triggerFunction);
+    } catch {}
+  }
+
+  private async _displayDecayUsageNotice(trigger: {
+    triggerFunction: "delete" | "delete_all";
+    triggerSource: "delete_count" | "delete_all";
+    triggerReason: "repeated_deletes" | "bulk_delete";
+    deleteCount?: number;
+    deletedCount?: number;
+  }) {
+    try {
+      await this._getTelemetryId();
+      await displayDecayUsageNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _displayTemporalUsageNotice(trigger: {
+    triggerFunction: "add" | "search";
+    triggerSource: "metadata" | "query" | "filter";
+    triggerReason:
+      | "date_like_metadata"
+      | "relative_phrase"
+      | "date_like_query"
+      | "date_range_filter";
+  }) {
+    try {
+      await this._getTelemetryId();
+      await displayTemporalUsageNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _displayScaleThresholdNotice(trigger: ScaleThresholdTrigger) {
+    try {
+      await this._getTelemetryId();
+      await displayScaleThresholdNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _displayPerformanceSlowQueryNotice(
+    trigger: PerformanceSlowQueryTrigger,
+  ) {
+    try {
+      await this._getTelemetryId();
+      await displayPerformanceSlowQueryNotice(this, trigger);
+    } catch {}
+  }
+
+  private async _getNoticeTelemetryId() {
+    try {
+      if (
+        !this.telemetryId ||
+        this.telemetryId === "anonymous" ||
+        this.telemetryId === "anonymous-supabase"
+      ) {
+        this.telemetryId = (await getOrCreateMem0UserId()) || "anonymous";
+      }
+      return this.telemetryId;
+    } catch {
+      this.telemetryId = "anonymous";
+      return this.telemetryId;
+    }
+  }
+
   static fromConfig(configDict: Record<string, any>): Memory {
     try {
       const config = MemoryConfigSchema.parse(configDict);
@@ -504,16 +590,39 @@ export class Memory {
     }
   }
 
+  async updateProject(options: UpdateProjectOptions = {}): Promise<never> {
+    if (options?.decay === true) {
+      await this._getNoticeTelemetryId();
+      throw new Error(await getDecayFeatureErrorMessage(this));
+    }
+
+    throw new Error("Project updates are not supported by the OSS Memory SDK.");
+  }
+
   async add(
     messages: string | Message[],
     config: AddMemoryOptions,
   ): Promise<SearchResult> {
+    if (config?.timestamp !== undefined) {
+      await this._getNoticeTelemetryId();
+      throw new Error(
+        await getTemporalFeatureErrorMessage(this, {
+          triggerFunction: "add",
+          triggerParameter: "timestamp",
+        }),
+      );
+    }
+
     // Validate messages input
     if (messages === undefined || messages === null) {
       throw new Error(
         "messages is required and cannot be undefined or null. Provide a string or array of messages.",
       );
     }
+
+    const temporalUsageNotice = detectTemporalUsageFromMetadata(
+      config?.metadata,
+    );
 
     await this._ensureInitialized();
     await this._captureEvent("add", {
@@ -553,6 +662,27 @@ export class Memory {
       filters,
       infer,
     );
+
+    if (temporalUsageNotice) {
+      await this._displayTemporalUsageNotice({
+        triggerFunction: "add",
+        triggerSource: temporalUsageNotice.triggerSource,
+        triggerReason: temporalUsageNotice.triggerReason,
+      });
+    } else {
+      const scaleThresholdNotice = await detectScaleThresholdFromAddResult(
+        this,
+        vectorStoreResult,
+      );
+      if (scaleThresholdNotice) {
+        await this._displayScaleThresholdNotice({
+          triggerFunction: "add",
+          ...scaleThresholdNotice,
+        });
+      } else {
+        await this._displayFirstRunNotice("add");
+      }
+    }
 
     return {
       results: vectorStoreResult,
@@ -996,7 +1126,10 @@ export class Memory {
   async get(memoryId: string): Promise<MemoryItem | null> {
     await this._ensureInitialized();
     const memory = await this.vectorStore.get(memoryId);
-    if (!memory) return null;
+    if (!memory) {
+      await this._displayFirstRunNotice("get");
+      return null;
+    }
 
     const filters = {
       ...(memory.payload.user_id && { user_id: memory.payload.user_id }),
@@ -1031,13 +1164,30 @@ export class Memory {
       }
     }
 
-    return { ...memoryItem, ...filters };
+    const result = { ...memoryItem, ...filters };
+    await this._displayFirstRunNotice("get");
+    return result;
   }
 
   async search(
     query: string,
     config: SearchMemoryOptions,
   ): Promise<SearchResult> {
+    if (config?.referenceDate !== undefined) {
+      await this._getNoticeTelemetryId();
+      throw new Error(
+        await getTemporalFeatureErrorMessage(this, {
+          triggerFunction: "search",
+          triggerParameter: "referenceDate",
+        }),
+      );
+    }
+
+    const temporalUsageNotice = detectTemporalUsageFromSearch(
+      query,
+      config?.filters,
+    );
+
     // Reject top-level entity params - must use filters instead
     rejectTopLevelEntityParams(config as Record<string, any>, "search");
 
@@ -1104,6 +1254,8 @@ export class Memory {
           "Example: filters: { user_id: 'u1' }",
       );
     }
+
+    const searchStartMs = Date.now();
 
     // Step 1: Preprocess query
     const queryLemmatized = lemmatizeForBm25(query);
@@ -1280,9 +1432,41 @@ export class Memory {
         };
       });
 
-    return {
+    const result = {
       results,
     };
+    const searchElapsedMs = Date.now() - searchStartMs;
+    if (temporalUsageNotice) {
+      await this._displayTemporalUsageNotice({
+        triggerFunction: "search",
+        triggerSource: temporalUsageNotice.triggerSource,
+        triggerReason: temporalUsageNotice.triggerReason,
+      });
+    } else {
+      const scaleThresholdNotice = detectScaleThresholdFromTopK(topK);
+      if (scaleThresholdNotice) {
+        await this._displayScaleThresholdNotice({
+          triggerFunction: "search",
+          ...scaleThresholdNotice,
+        });
+      } else {
+        const performanceSlowQueryNotice = detectPerformanceSlowQuery(
+          searchElapsedMs,
+          topK,
+          results.length,
+        );
+        if (performanceSlowQueryNotice) {
+          await this._displayPerformanceSlowQueryNotice({
+            triggerFunction: "search",
+            triggerReason: "slow_query",
+            ...performanceSlowQueryNotice,
+          });
+        } else {
+          await this._displayFirstRunNotice("search");
+        }
+      }
+    }
+    return result;
   }
 
   async update(memoryId: string, data: string): Promise<{ message: string }> {
@@ -1290,14 +1474,28 @@ export class Memory {
     await this._captureEvent("update", { memory_id: memoryId });
     const embedding = await this.embedder.embed(data);
     await this.updateMemory(memoryId, data, { [data]: embedding });
-    return { message: "Memory updated successfully!" };
+    const result = { message: "Memory updated successfully!" };
+    await this._displayFirstRunNotice("update");
+    return result;
   }
 
   async delete(memoryId: string): Promise<{ message: string }> {
     await this._ensureInitialized();
     await this._captureEvent("delete", { memory_id: memoryId });
     await this.deleteMemory(memoryId);
-    return { message: "Memory deleted successfully!" };
+    const result = { message: "Memory deleted successfully!" };
+    const deleteCount = getDecayUsageDeleteCountAfterSuccess();
+    if (isDecayUsageDeleteEligible(deleteCount)) {
+      await this._displayDecayUsageNotice({
+        triggerFunction: "delete",
+        triggerSource: "delete_count",
+        triggerReason: "repeated_deletes",
+        deleteCount,
+      });
+    } else {
+      await this._displayFirstRunNotice("delete");
+    }
+    return result;
   }
 
   async deleteAll(
@@ -1328,12 +1526,25 @@ export class Memory {
       await this.deleteMemory(memory.id);
     }
 
-    return { message: "Memories deleted successfully!" };
+    const result = { message: "Memories deleted successfully!" };
+    if (memories.length > 0) {
+      await this._displayDecayUsageNotice({
+        triggerFunction: "delete_all",
+        triggerSource: "delete_all",
+        triggerReason: "bulk_delete",
+        deletedCount: memories.length,
+      });
+    } else {
+      await this._displayFirstRunNotice("delete_all");
+    }
+    return result;
   }
 
   async history(memoryId: string): Promise<any[]> {
     await this._ensureInitialized();
-    return this.db.getHistory(memoryId);
+    const result = await this.db.getHistory(memoryId);
+    await this._displayFirstRunNotice("history");
+    return result;
   }
 
   async reset(): Promise<void> {
@@ -1385,6 +1596,7 @@ export class Memory {
       console.error(this._initError);
     });
     await this._initPromise;
+    await this._displayFirstRunNotice("reset");
   }
 
   async getAll(config: GetAllMemoryOptions): Promise<SearchResult> {
@@ -1452,7 +1664,17 @@ export class Memory {
       ...(mem.payload.run_id && { run_id: mem.payload.run_id }),
     }));
 
-    return { results };
+    const result = { results };
+    const scaleThresholdNotice = detectScaleThresholdFromTopK(topK);
+    if (scaleThresholdNotice) {
+      await this._displayScaleThresholdNotice({
+        triggerFunction: "get_all",
+        ...scaleThresholdNotice,
+      });
+    } else {
+      await this._displayFirstRunNotice("get_all");
+    }
+    return result;
   }
 
   private async createMemory(
@@ -1500,20 +1722,13 @@ export class Memory {
       existingEmbeddings[data] || (await this.embedder.embed(data));
 
     const newMetadata = {
+      ...existingMemory.payload,
       ...metadata,
       data,
       hash: createHash("md5").update(data).digest("hex"),
+      textLemmatized: lemmatizeForBm25(data),
       createdAt: existingMemory.payload.createdAt,
       updatedAt: new Date().toISOString(),
-      ...(existingMemory.payload.user_id && {
-        user_id: existingMemory.payload.user_id,
-      }),
-      ...(existingMemory.payload.agent_id && {
-        agent_id: existingMemory.payload.agent_id,
-      }),
-      ...(existingMemory.payload.run_id && {
-        run_id: existingMemory.payload.run_id,
-      }),
     };
 
     await this.vectorStore.update(memoryId, embedding, newMetadata);

@@ -176,7 +176,7 @@ class Supabase(VectorStoreBase):
         """
         result = self.collection.fetch([(vector_id,)])
         if not result:
-            return []
+            return None
 
         record = result[0]
         return OutputData(id=str(record.id), score=None, payload=record.metadata)

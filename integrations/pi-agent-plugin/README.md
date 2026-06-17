@@ -43,6 +43,7 @@ Or create a config file at `~/.pi/agent/mem0-config.json`:
   "userId": "your-username",
   "autoCapture": true,
   "defaultScope": "project",
+  "searchThreshold": 0.2,
   "dream": {
     "enabled": true,
     "auto": true,
@@ -54,6 +55,8 @@ Or create a config file at `~/.pi/agent/mem0-config.json`:
 ```
 
 Environment variables (`MEM0_API_KEY`, `MEM0_USER_ID`) override the config file.
+
+`searchThreshold` (default `0.3`) is the minimum similarity score (0–1) a memory must reach to count as a match for `/mem0-search`, `/mem0-forget`, and `/mem0-pin`. It is passed to the mem0 search API (along with reranking for higher-precision ordering), so a query with no sufficiently similar memory reports no match instead of returning the closest unrelated memories. Raise it to be stricter; lower it if relevant results are missed.
 
 ## Commands
 

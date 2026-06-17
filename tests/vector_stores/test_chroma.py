@@ -154,6 +154,16 @@ def test_get_vector(chromadb_instance):
     assert result.payload == {"name": "vector1"}
 
 
+def test_get_missing_vector_returns_none(chromadb_instance):
+    # Chroma returns empty lists for an unknown id; get() must return None
+    # rather than raising IndexError (parity with qdrant/pgvector/faiss).
+    chromadb_instance.collection.get.return_value = {"ids": [], "metadatas": []}
+
+    result = chromadb_instance.get(vector_id="does-not-exist")
+
+    assert result is None
+
+
 def test_list_vectors(chromadb_instance):
     mock_result = {
         "ids": [["id1", "id2"]],

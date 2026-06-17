@@ -25,7 +25,11 @@ import type {
   AddOptions,
   SearchOptions,
 } from "./types.ts";
-import { createProvider, providerToBackend } from "./providers.ts";
+import {
+  createProvider,
+  customCategoryMapToList,
+  providerToBackend,
+} from "./providers.ts";
 import { mem0ConfigSchema } from "./config.ts";
 import type { FileConfig } from "./config.ts";
 import { createPublicArtifactsProvider } from "./public-artifacts.ts";
@@ -38,7 +42,7 @@ import {
   isSubagentSession,
 } from "./isolation.ts";
 import {
-  loadTriagePrompt,
+  loadCompactTriagePrompt,
   loadDreamPrompt,
   isSkillsMode,
 } from "./skill-loader.ts";
@@ -107,6 +111,7 @@ const memoryPlugin = definePluginEntry({
       baseUrl: pluginAuth.baseUrl,
     };
     const cfg = mem0ConfigSchema.parse(api.pluginConfig, fileConfig);
+    const isMetadataRegistration = api.registrationMode === "cli-metadata";
 
     // Telemetry context bound to this plugin instance's config
     const telemetryCtx = {
@@ -121,6 +126,21 @@ const memoryPlugin = definePluginEntry({
         /* silently swallow */
       }
     };
+
+    if (isMetadataRegistration) {
+      registerCliCommands(
+        api,
+        null as any,
+        null as any,
+        cfg,
+        () => cfg.userId,
+        (id: string) => `${cfg.userId}:agent:${id}`,
+        () => ({ user_id: cfg.userId, top_k: cfg.topK }),
+        () => undefined,
+        (cmd: string) => _captureEvent(`openclaw.cli.${cmd}`, { command: cmd }),
+      );
+      return;
+    }
 
     if (cfg.needsSetup) {
       api.logger.warn(
@@ -273,7 +293,8 @@ const memoryPlugin = definePluginEntry({
       if (runId) opts.run_id = runId;
       // Pass customInstructions and customCategories to control what Mem0 extracts
       if (cfg.customInstructions) opts.custom_instructions = cfg.customInstructions;
-      if (cfg.customCategories) opts.custom_categories = cfg.customCategories;
+      const customCategories = customCategoryMapToList(cfg.customCategories);
+      if (customCategories) opts.custom_categories = customCategories;
       return opts;
     }
 
@@ -443,7 +464,7 @@ function registerHooks(
           "openclaw-mem0: skills-mode skipping recall for system/bootstrap prompt",
         );
         // Still inject the protocol, just skip recall search
-        const systemContext = loadTriagePrompt(cfg.skills ?? {});
+        const systemContext = loadCompactTriagePrompt(cfg.skills ?? {});
         return { prependSystemContext: systemContext };
       }
 
@@ -453,7 +474,7 @@ function registerHooks(
       const userId = _effectiveUserId(isSubagent ? undefined : sessionId);
 
       // Static protocol goes in prependSystemContext (cacheable across turns)
-      let systemContext = loadTriagePrompt(cfg.skills ?? {});
+      let systemContext = loadCompactTriagePrompt(cfg.skills ?? {});
       if (isSubagent) {
         systemContext =
           "You are a subagent — use these memories for context but do not assume you are this user. Do NOT store new memories.\n\n" +

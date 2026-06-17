@@ -9,6 +9,7 @@ import { existsSync, readdirSync, cpSync, mkdirSync, readFileSync, writeFileSync
 import { homedir } from "os";
 import { join } from "path";
 import { createHash } from "crypto";
+import { captureEvent } from "./telemetry";
 
 async function getUserId(): Promise<string> {
   if (process.env.MEM0_USER_ID) return process.env.MEM0_USER_ID;
@@ -368,6 +369,8 @@ const Mem0Plugin: Plugin = async (ctx) => {
             });
           } catch {}
         }
+
+        captureEvent("session_start", { memory_count: memoryCount }, apiKey);
       }
 
       if (NUDGE_RE.test(safeText)) {
@@ -602,6 +605,17 @@ const Mem0Plugin: Plugin = async (ctx) => {
       if (MEM0_MCP_RE.test(toolName)) {
         if (toolName.includes("add_memory")) stats.adds++;
         if (toolName.includes("search")) stats.searches++;
+
+        const tool = toolName.includes("add_memory")
+          ? "add_memory"
+          : toolName.includes("search")
+            ? "search_memories"
+            : toolName.includes("delete")
+              ? "delete_memory"
+              : toolName.includes("update")
+                ? "update_memory"
+                : "other";
+        captureEvent("tool_use", { tool }, apiKey);
       }
 
       if (toolName === "bash" && toolOutput.length >= 50) {

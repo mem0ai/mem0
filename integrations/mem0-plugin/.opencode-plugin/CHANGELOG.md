@@ -2,13 +2,14 @@
 
 All notable changes to the `@mem0/opencode-plugin` will be documented in this file.
 
-## 0.1.3 — File-context injection, session summaries & activity timeline
+## 0.1.3 — File-context injection, session summaries & activity timeline, anonymous telemetry
 
 ### Added
 
 - **File-context injection (`tool.execute.before` / Read):** Before the agent reads a file, the plugin searches mem0 for memories referencing that file path and injects prior work as system context. Gates on file size (>= 1,500 bytes). Gives the agent "I've worked on this file before" awareness automatically.
 - **Stop hook session summary (`experimental.session.compacting`):** Enhanced session compaction to store a structured `session_summary` memory with `infer=True`, letting the mem0 backend AI extract key facts (request, decisions, learnings, next steps). Previously only stored a raw stats string.
 - **SessionStart activity timeline:** The initial memory loading now formats recent memories with type icons (⚖️ decision, 🔴 bug_fix, 🔵 task_learning, etc.) and relative age indicators (2h ago, 1d ago) instead of bare text. Provides a visual "Recent Activity" timeline on first message.
+- **PostHog telemetry (`telemetry.ts`):** Anonymous, fire-and-forget usage events. Opt out with `MEM0_TELEMETRY=false`. Only fires when an API key is present; never sends memory content, prompts, or the API key — only an anonymized `sha256(apiKey)[:32]` identity plus event type, platform, and plugin version. Emits the same schema as the Mem0 editor plugin (`plugin.*` events, `source: "plugin"`, `platform: "opencode"`) so OpenCode appears as a `platform` in the shared plugin dashboard. Events: `plugin.session_start` (with memory count) and `plugin.tool_use` (`add` / `search` / `update` / `delete`).
 
 ### Changed
 

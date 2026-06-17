@@ -305,7 +305,7 @@ class Weaviate(VectorStoreBase):
                 existing_payload: Mapping[str, str] = existing_data
                 collection.data.update(uuid=vector_id, properties=existing_payload, vector=vector)
 
-    def get(self, vector_id):
+    def get(self, vector_id) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -313,7 +313,7 @@ class Weaviate(VectorStoreBase):
             vector_id: ID of the vector to retrieve.
 
         Returns:
-            dict: Retrieved vector and metadata.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         vector_id = get_valid_uuid(vector_id)
         collection = self.client.collections.get(str(self.collection_name))
@@ -322,9 +322,8 @@ class Weaviate(VectorStoreBase):
             uuid=vector_id,
             return_properties=["hash", "created_at", "updated_at", "user_id", "agent_id", "run_id", "data", "category"],
         )
-        # results = {}
-        # print("reponse",response)
-        # for obj in response.objects:
+        if response is None:
+            return None
         payload = response.properties.copy()
         payload["id"] = str(response.uuid).split("'")[0]
         results = OutputData(
@@ -389,4 +388,4 @@ class Weaviate(VectorStoreBase):
         """Reset the index by deleting and recreating it."""
         logger.warning(f"Resetting index {self.collection_name}...")
         self.delete_col()
-        self.create_col()
+        self.create_col(self.embedding_model_dims)

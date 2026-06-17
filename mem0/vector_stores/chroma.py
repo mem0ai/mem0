@@ -187,7 +187,7 @@ class ChromaDB(VectorStoreBase):
         """
         self.collection.update(ids=vector_id, embeddings=vector, metadatas=payload)
 
-    def get(self, vector_id: str) -> OutputData:
+    def get(self, vector_id: str) -> Optional[OutputData]:
         """
         Retrieve a vector by ID.
 
@@ -195,10 +195,11 @@ class ChromaDB(VectorStoreBase):
             vector_id (str): ID of the vector to retrieve.
 
         Returns:
-            OutputData: Retrieved vector.
+            Optional[OutputData]: Retrieved vector, or None if the ID is not found.
         """
         result = self.collection.get(ids=[vector_id])
-        return self._parse_output(result)[0]
+        parsed = self._parse_output(result)
+        return parsed[0] if parsed else None
 
     def list_cols(self) -> List[chromadb.Collection]:
         """
