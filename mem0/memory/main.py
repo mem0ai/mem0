@@ -3252,14 +3252,14 @@ class AsyncMemory(MemoryBase):
         capture_event("mem0.delete_all", self, {"keys": keys, "encoded_ids": encoded_ids, "sync_type": "async"})
         memories = await asyncio.to_thread(self.vector_store.list, filters=filters)
 
-        if getattr(self, "_entity_store", None) is not None:
-            await self._bulk_clear_entity_store(filters)
-
         delete_tasks = []
         for memory in memories[0]:
             delete_tasks.append(self._delete_memory(memory.id, skip_entity_cleanup=True))
 
         results = await asyncio.gather(*delete_tasks, return_exceptions=True)
+
+        if self._entity_store is not None:
+            await self._bulk_clear_entity_store(filters)
 
         errors = [r for r in results if isinstance(r, BaseException)]
         if errors:
